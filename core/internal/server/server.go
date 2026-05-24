@@ -57,7 +57,7 @@ func writeJSON(w http.ResponseWriter, status int, payload Response) {
 }
 
 // Router registers all routes and returns the http.Handler.
-// Routes are grouped by concern — /fs/* for file system, /ai/* for AI (coming soon).
+// Routes are grouped by concern, /fs/* for file system, /ai/* for AI (coming soon).
 // Wraps the mux with CORS middleware to allow requests from the Electron renderer.
 func (s *Server) Router() http.Handler {
 	mux := http.NewServeMux()
@@ -69,14 +69,14 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/fs/tree", s.handleFSTree)
 	mux.HandleFunc("/fs/file", s.handleFSFile)
 
-	// wrap with CORS — Electron renderer runs on localhost:5173 in dev
+	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed
 	return corsMiddleware(mux)
 }
 
 // corsMiddleware allows cross-origin requests from the Electron renderer.
 // In dev the renderer is on localhost:5173, in production it's a file:// origin.
-// We allow all origins here since axon-core only ever runs locally — it's not
+// We allow all origins here since axon-core only ever runs locally, it's not
 // a public server so there's no security concern with open CORS.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

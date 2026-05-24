@@ -1,8 +1,8 @@
-// Root component — owns the top-level editor state:
-// - which folder is open (folderPath)
-// - the file tree fetched from axon-core
-// - which file is currently active in the editor
-// State lives here so Sidebar, TabBar, and EditorPane all stay in sync.
+// Root component — owns top-level editor state:
+// - which folder is open
+// - the file tree from axon-core
+// - which file is active
+// - which files have unsaved changes (dirty map)
 import { useState } from "react";
 import Sidebar from "./components/Sidebar";
 import TabBar from "./components/TabBar";
@@ -11,12 +11,16 @@ import StatusBar from "./components/StatusBar";
 import { getTree, type FileNode } from "./lib/api";
 import "./App.css";
 
-// extend window type to include the axon API exposed by preload
 declare global {
   interface Window {
     axon: {
       platform: string;
       openFolder: () => Promise<string | null>;
+      watchFile: (path: string) => Promise<void>;
+      unwatchFile: () => Promise<void>;
+      onFileChanged: (
+        callback: (data: { path: string; content: string }) => void,
+      ) => () => void;
     };
   }
 }
@@ -27,9 +31,10 @@ function App() {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // triggered by the "open folder" button
-  // opens a native folder picker via IPC → main process → dialog API
-  // then fetches the file tree from axon-core
+  // tracks which open files have unsaved changes
+  // key: file path, value: true if dirty
+  const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
+
   const handleOpenFolder = async () => {
     const path = await window.axon.openFolder();
     if (!path) return;
@@ -40,11 +45,17 @@ function App() {
       setFolderPath(path);
       setTree(fileTree);
       setActiveFile(null);
+      setDirtyFiles({});
     } catch (err) {
       console.error("failed to load tree:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // called by EditorPane when a file's dirty state changes
+  const handleDirtyChange = (path: string, dirty: boolean) => {
+    setDirtyFiles((prev) => ({ ...prev, [path]: dirty }));
   };
 
   return (
@@ -59,8 +70,15 @@ function App() {
           loading={loading}
         />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <TabBar activeFile={activeFile} onClose={() => setActiveFile(null)} />
-          <EditorPane activeFile={activeFile} />
+          <TabBar
+            activeFile={activeFile}
+            dirtyFiles={dirtyFiles}
+            onClose={() => setActiveFile(null)}
+          />
+          <EditorPane
+            activeFile={activeFile}
+            onDirtyChange={handleDirtyChange}
+          />
         </div>
       </div>
       <StatusBar activeFile={activeFile} />
