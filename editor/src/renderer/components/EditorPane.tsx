@@ -1,18 +1,15 @@
-// Renders the Monaco editor for the active file.
-// Uses defaultValue + editor ref instead of controlled value prop so Monaco
-// owns the content internally, avoiding re-render flicker and cursor jumps.
-// Watches the active file for external changes via the IPC file watcher
-// and updates the editor content when another editor modifies the file on disk.
-// Save reads directly from the Monaco model via editorRef so there is
-// no stale closure risk.
-import { useEffect, useState, useRef } from "react";
-import Editor from "@monaco-editor/react";
-import type { OnMount } from "@monaco-editor/react";
+// Renders a Monaco editor instance per open file.
+// All editors stay mounted simultaneously, only the active one is visible.
+// This preserves scroll position, undo history, and cursor position per file
+// across tab switches without remounting Monaco each time.
+import { useEffect, useRef, useState } from "react";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { readFile, writeFile } from "../lib/api";
 
 interface Props {
   activeFile: string | null;
+  openTabs: string[];
   onDirtyChange: (path: string, dirty: boolean) => void;
 }
 
@@ -38,92 +35,76 @@ function detectLanguage(path: string): string {
   return map[ext ?? ""] ?? "plaintext";
 }
 
-export default function EditorPane({ activeFile, onDirtyChange }: Props) {
-  const [diskContent, setDiskContent] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+// SingleEditor manages one Monaco instance for one file.
+// It stays mounted as long as the file is in openTabs.
+// visibility is controlled by the parent via the visible prop.
+function SingleEditor({
+  filePath,
+  visible,
+  onDirtyChange,
+}: {
+  filePath: string;
+  visible: boolean;
+  onDirtyChange: (path: string, dirty: boolean) => void;
+}) {
+  const [diskContent, setDiskContent] = useState("");
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const activeFileRef = useRef<string | null>(null);
-  const diskContentRef = useRef<string>("");
+  const diskContentRef = useRef("");
+  const filePathRef = useRef(filePath);
 
   useEffect(() => {
-    activeFileRef.current = activeFile;
-  }, [activeFile]);
+    filePathRef.current = filePath;
+  }, [filePath]);
 
   useEffect(() => {
-    diskContentRef.current = diskContent;
-  }, [diskContent]);
-
-  useEffect(() => {
-    if (!activeFile) return;
-
     setLoading(true);
     setError(null);
-    setIsDirty(false);
 
-    readFile(activeFile)
+    readFile(filePath)
       .then((fc) => {
         setDiskContent(fc.content);
         diskContentRef.current = fc.content;
-
         if (editorRef.current) {
           editorRef.current.setValue(fc.content);
         }
-
-        // start watching the file for external changes
-        window.axon.watchFile(activeFile);
+        window.axon.watchFile(filePath);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
 
-    // register listener for external file changes pushed from main process.
-    // when another editor saves the file we get the new content and update
-    // the Monaco model directly without losing cursor position.
     const cleanup = window.axon.onFileChanged(({ path, content }) => {
-      if (path !== activeFileRef.current) return;
-
+      if (path !== filePathRef.current) return;
       setDiskContent(content);
       diskContentRef.current = content;
-
       if (editorRef.current) {
-        const currentPosition = editorRef.current.getPosition();
+        const pos = editorRef.current.getPosition();
         editorRef.current.setValue(content);
-
-        // restore cursor position after update so it doesnt jump to top
-        if (currentPosition) {
-          editorRef.current.setPosition(currentPosition);
-        }
+        if (pos) editorRef.current.setPosition(pos);
       }
-
-      setIsDirty(false);
+      onDirtyChange(filePath, false);
     });
 
     return () => {
       cleanup();
       window.axon.unwatchFile();
     };
-  }, [activeFile]);
-
-  useEffect(() => {
-    if (!activeFile) return;
-    onDirtyChange(activeFile, isDirty);
-  }, [isDirty, activeFile]);
+  }, [filePath]);
 
   const handleSave = async () => {
-    const path = activeFileRef.current;
+    const path = filePathRef.current;
     if (!path || saving) return;
 
     const currentContent = editorRef.current?.getValue() ?? "";
-
     setSaving(true);
     try {
       await writeFile(path, currentContent);
       setDiskContent(currentContent);
       diskContentRef.current = currentContent;
-      setIsDirty(false);
+      onDirtyChange(path, false);
     } catch (err: any) {
       console.error("save failed:", err.message);
     } finally {
@@ -140,22 +121,13 @@ export default function EditorPane({ activeFile, onDirtyChange }: Props) {
 
     editor.onDidChangeModelContent(() => {
       const current = editor.getValue();
-      setIsDirty(current !== diskContentRef.current);
+      onDirtyChange(filePath, current !== diskContentRef.current);
     });
   };
 
-  if (!activeFile) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-neutral-600">
-        <span className="text-4xl">⌥</span>
-        <span className="text-[13px]">open a folder and select a file</span>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-neutral-600 text-[13px]">
+      <div className="w-full h-full flex items-center justify-center text-neutral-600 text-[13px]">
         loading...
       </div>
     );
@@ -163,14 +135,14 @@ export default function EditorPane({ activeFile, onDirtyChange }: Props) {
 
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center text-red-500 text-[13px]">
+      <div className="w-full h-full flex items-center justify-center text-red-500 text-[13px]">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-hidden relative">
+    <div className="w-full h-full relative">
       {saving && (
         <div className="absolute top-2 right-4 text-[11px] text-neutral-500 z-10">
           saving...
@@ -178,7 +150,7 @@ export default function EditorPane({ activeFile, onDirtyChange }: Props) {
       )}
       <Editor
         height="100%"
-        language={detectLanguage(activeFile)}
+        language={detectLanguage(filePath)}
         defaultValue={diskContent}
         theme="vs-dark"
         onMount={handleEditorMount}
@@ -195,6 +167,39 @@ export default function EditorPane({ activeFile, onDirtyChange }: Props) {
           smoothScrolling: true,
         }}
       />
+    </div>
+  );
+}
+
+export default function EditorPane({
+  activeFile,
+  openTabs,
+  onDirtyChange,
+}: Props) {
+  if (openTabs.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-neutral-600">
+        <span className="text-4xl">⌥</span>
+        <span className="text-[13px]">open a folder and select a file</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-hidden relative">
+      {openTabs.map((path) => (
+        <div
+          key={path}
+          className="absolute inset-0"
+          style={{ display: path === activeFile ? "block" : "none" }}
+        >
+          <SingleEditor
+            filePath={path}
+            visible={path === activeFile}
+            onDirtyChange={onDirtyChange}
+          />
+        </div>
+      ))}
     </div>
   );
 }

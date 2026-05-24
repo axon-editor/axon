@@ -1,8 +1,3 @@
-// Root component — owns top-level editor state:
-// - which folder is open
-// - the file tree from axon-core
-// - which file is active
-// - which files have unsaved changes (dirty map)
 import { useState } from "react";
 import Sidebar from "./components/Sidebar";
 import TabBar from "./components/TabBar";
@@ -28,11 +23,9 @@ declare global {
 function App() {
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [tree, setTree] = useState<FileNode | null>(null);
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // tracks which open files have unsaved changes
-  // key: file path, value: true if dirty
   const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
 
   const handleOpenFolder = async () => {
@@ -44,6 +37,7 @@ function App() {
       const fileTree = await getTree(path);
       setFolderPath(path);
       setTree(fileTree);
+      setOpenTabs([]);
       setActiveFile(null);
       setDirtyFiles({});
     } catch (err) {
@@ -53,7 +47,39 @@ function App() {
     }
   };
 
-  // called by EditorPane when a file's dirty state changes
+  // open a file tab or focus it if already open
+  const handleFileSelect = (path: string) => {
+    if (!openTabs.includes(path)) {
+      setOpenTabs((prev) => [...prev, path]);
+    }
+    setActiveFile(path);
+  };
+
+  // close a tab and focus the nearest remaining tab
+  const handleCloseTab = (path: string) => {
+    const index = openTabs.indexOf(path);
+    const newTabs = openTabs.filter((t) => t !== path);
+
+    setOpenTabs(newTabs);
+
+    // clean up dirty state for the closed tab
+    setDirtyFiles((prev) => {
+      const next = { ...prev };
+      delete next[path];
+      return next;
+    });
+
+    if (activeFile === path) {
+      if (newTabs.length === 0) {
+        setActiveFile(null);
+      } else {
+        // focus the tab to the left, or the first tab if closing the leftmost
+        const nextIndex = Math.max(0, index - 1);
+        setActiveFile(newTabs[nextIndex]);
+      }
+    }
+  };
+
   const handleDirtyChange = (path: string, dirty: boolean) => {
     setDirtyFiles((prev) => ({ ...prev, [path]: dirty }));
   };
@@ -65,18 +91,21 @@ function App() {
           tree={tree}
           folderPath={folderPath}
           activeFile={activeFile}
-          onFileSelect={setActiveFile}
+          onFileSelect={handleFileSelect}
           onOpenFolder={handleOpenFolder}
           loading={loading}
         />
         <div className="flex flex-col flex-1 overflow-hidden">
           <TabBar
+            openTabs={openTabs}
             activeFile={activeFile}
             dirtyFiles={dirtyFiles}
-            onClose={() => setActiveFile(null)}
+            onSelect={setActiveFile}
+            onClose={handleCloseTab}
           />
           <EditorPane
             activeFile={activeFile}
+            openTabs={openTabs}
             onDirtyChange={handleDirtyChange}
           />
         </div>
