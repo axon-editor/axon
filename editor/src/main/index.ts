@@ -1,7 +1,13 @@
-import { app, BrowserWindow } from "electron";
+// Electron main process — the Node.js entry point for Axon.
+// Responsible for creating the browser window, handling native dialogs,
+// and bridging IPC calls from the renderer to the Go backend or OS.
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "path";
 
 const isDev = process.env.NODE_ENV === "development";
+
+// base URL for the Go backend, hardcoded for now, will be configurable later
+const CORE_URL = "http://localhost:7777";
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -23,6 +29,21 @@ function createWindow() {
     win.loadFile(path.join(__dirname, "../../dist/renderer/index.html"));
   }
 }
+
+// handle folder open dialog
+// invoked from the renderer via window.axon.openFolder()
+// returns the selected folder path or null if cancelled
+ipcMain.handle("dialog:openFolder", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openDirectory"],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0];
+});
 
 app.whenReady().then(createWindow);
 
