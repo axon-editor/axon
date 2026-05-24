@@ -1,0 +1,10 @@
+{
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "vite build",
+    "build": "npm run build:main && npm run build:renderer",
+    "preview": "electron ."
+  }
+}
