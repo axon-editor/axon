@@ -8,6 +8,7 @@ package fs
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -57,27 +58,42 @@ func GetTree(rootPath string) (FileNode, error) {
 		return FileNode{}, err
 	}
 
+	// separate directories and files so we can sort them independently.
+	// directories always come first in the tree, files after.
+	// both groups are sorted alphabetically within themselves.
+	var dirs []os.DirEntry
+	var files []os.DirEntry
+
 	for _, entry := range entries {
-		// skip hidden files and directories (e.g. .git, .env, .DS_Store)
 		if strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
-
-		// skip known heavy/irrelevant directories that would bloat the tree
-		// and slow down the response significantly on large projects
 		if entry.Name() == "node_modules" || entry.Name() == "vendor" || entry.Name() == "dist" {
 			continue
 		}
 
-		childPath := filepath.Join(rootPath, entry.Name())
+		if entry.IsDir() {
+			dirs = append(dirs, entry)
+		} else {
+			files = append(files, entry)
+		}
+	}
 
-		// recurse into the child, if it fails, skip it silently
-		// so one bad entry doesn't kill the whole tree
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.ToLower(dirs[i].Name()) < strings.ToLower(dirs[j].Name())
+	})
+
+	sort.Slice(files, func(i, j int) bool {
+		return strings.ToLower(files[i].Name()) < strings.ToLower(files[j].Name())
+	})
+
+	// dirs first, then files
+	for _, entry := range append(dirs, files...) {
+		childPath := filepath.Join(rootPath, entry.Name())
 		child, err := GetTree(childPath)
 		if err != nil {
 			continue
 		}
-
 		node.Children = append(node.Children, child)
 	}
 
