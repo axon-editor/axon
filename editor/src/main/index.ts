@@ -13,7 +13,6 @@ function createWindow() {
     backgroundColor: "#0f0f0f",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
-      contextIsolation: true,
       nodeIntegration: false,
     },
   });
