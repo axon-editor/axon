@@ -1,9 +1,43 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  Menu,
+  type MenuItemConstructorOptions,
+} from "electron";
 import path from "path";
 import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
 
 const isDev = process.env.NODE_ENV === "development";
+app.setName("Axon");
+
+const isMac = process.platform === "darwin";
+
+const axonAppMenu: MenuItemConstructorOptions = {
+  label: "Axon",
+  submenu: [
+    { role: "about" },
+    { type: "separator" },
+    { role: "hide" },
+    { role: "hideOthers" },
+    { role: "unhide" },
+    { type: "separator" },
+    { role: "quit" },
+  ] as MenuItemConstructorOptions[],
+};
+
+const template: MenuItemConstructorOptions[] = [
+  ...(isMac ? [axonAppMenu] : []),
+  { role: "fileMenu" } as MenuItemConstructorOptions,
+  { role: "editMenu" } as MenuItemConstructorOptions,
+  { role: "viewMenu" } as MenuItemConstructorOptions,
+  { role: "windowMenu" } as MenuItemConstructorOptions,
+  { role: "help" } as MenuItemConstructorOptions,
+];
+
+Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -16,7 +50,8 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    titleBarStyle: "hiddenInset",
+    title: "Axon",
+    titleBarStyle: "hidden",
     backgroundColor: "#0f0f0f",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),

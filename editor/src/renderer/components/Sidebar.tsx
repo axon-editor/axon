@@ -119,21 +119,21 @@ export default function Sidebar({
     <div className="flex h-full">
       {!collapsed && (
         <div className="w-52 bg-[#111111] border-r border-[#1f1f1f] flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-[#1f1f1f]">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[#1f1f1f] pt-8" style={{ WebkitAppRegion: "drag" } as any}>
             <span className="text-[10px] text-neutral-500 uppercase tracking-widest truncate">
               {folderPath ? folderPath.split("/").pop() : "Explorer"}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0" style={{ WebkitAppRegion: "no-drag" } as any}>
               <button
                 onClick={onOpenFolder}
-                className="text-neutral-500 hover:text-white transition-colors cursor-pointer"
+                className="text-neutral-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
                 title="Open folder"
               >
                 <FolderPlus size={13} />
               </button>
               <button
                 onClick={() => setCollapsed(true)}
-                className="text-neutral-500 hover:text-white transition-colors cursor-pointer"
+                className="text-neutral-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
                 title="Collapse sidebar"
               >
                 <PanelLeftClose size={13} />
@@ -168,7 +168,7 @@ export default function Sidebar({
 
       {/* collapsed rail, shows just the toggle button */}
       {collapsed && (
-        <div className="w-9 bg-[#111111] border-r border-[#1f1f1f] flex flex-col items-center py-2 gap-3">
+        <div className="w-9 bg-[#111111] border-r border-[#1f1f1f] flex flex-col items-center py-2 gap-3 pt-8">
           <button
             onClick={() => setCollapsed(false)}
             className="text-neutral-500 hover:text-white transition-colors cursor-pointer"

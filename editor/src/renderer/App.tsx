@@ -47,6 +47,10 @@ function App() {
     }
   };
 
+  const handleReorder = (newTabs: string[]) => {
+    setOpenTabs(newTabs);
+  };
+
   // open a file tab or focus it if already open
   const handleFileSelect = (path: string) => {
     if (!openTabs.includes(path)) {
@@ -102,6 +106,7 @@ function App() {
             dirtyFiles={dirtyFiles}
             onSelect={setActiveFile}
             onClose={handleCloseTab}
+            onReorder={handleReorder}
           />
           <EditorPane
             activeFile={activeFile}
