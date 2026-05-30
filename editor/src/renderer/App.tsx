@@ -88,6 +88,16 @@ function App() {
     setDirtyFiles((prev) => ({ ...prev, [path]: dirty }));
   };
 
+  const handleRefresh = async () => {
+    if (!folderPath) return;
+    try {
+      const fileTree = await getTree(folderPath);
+      setTree(fileTree);
+    } catch (err) {
+      console.error("failed to refresh tree:", err);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#0f0f0f] overflow-hidden">
       <div className="flex flex-1 overflow-hidden">
@@ -97,6 +107,7 @@ function App() {
           activeFile={activeFile}
           onFileSelect={handleFileSelect}
           onOpenFolder={handleOpenFolder}
+          onRefresh={handleRefresh}
           loading={loading}
         />
         <div className="flex flex-col flex-1 overflow-hidden">

@@ -7,6 +7,8 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/fs"
@@ -68,6 +70,9 @@ func (s *Server) Router() http.Handler {
 	// file system
 	mux.HandleFunc("/fs/tree", s.handleFSTree)
 	mux.HandleFunc("/fs/file", s.handleFSFile)
+
+	mux.HandleFunc("/fs/create", s.handleFSCreate)
+	mux.HandleFunc("/fs/delete", s.handleFSDelete)
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed
@@ -216,4 +221,76 @@ func (s *Server) handleFSFile(w http.ResponseWriter, r *http.Request) {
 			Error:  "method not allowed",
 		})
 	}
+}
+
+// handleFSCreate handles POST /fs/create
+// Creates a file or directory at the given path.
+// Expects { path, is_dir } in the request body.
+// Creates all parent directories if they don't exist.
+func (s *Server) handleFSCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
+		return
+	}
+
+	var body struct {
+		Path  string `json:"path"`
+		IsDir bool   `json:"is_dir"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "invalid request body"})
+		return
+	}
+
+	if body.Path == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "path is required"})
+		return
+	}
+
+	if body.IsDir {
+		// create directory and all parents
+		if err := os.MkdirAll(body.Path, 0755); err != nil {
+			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+			return
+		}
+	} else {
+		// ensure parent directories exist before creating the file
+		if err := os.MkdirAll(filepath.Dir(body.Path), 0755); err != nil {
+			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+			return
+		}
+		// create empty file
+		f, err := os.Create(body.Path)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+			return
+		}
+		f.Close()
+	}
+
+	writeJSON(w, http.StatusOK, Response{Status: "ok", Message: "created successfully"})
+}
+
+// handleFSDelete handles DELETE /fs/delete
+// Deletes a file or directory at the given path.
+// Directories are deleted recursively.
+func (s *Server) handleFSDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
+		return
+	}
+
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "path is required"})
+		return
+	}
+
+	if err := os.RemoveAll(path); err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{Status: "ok", Message: "deleted successfully"})
 }

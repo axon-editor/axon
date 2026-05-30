@@ -60,3 +60,25 @@ export async function writeFile(path: string, content: string): Promise<void> {
     body: JSON.stringify({ path, content }),
   });
 }
+
+export async function createFile(path: string): Promise<void> {
+  await request("/fs/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, is_dir: false }),
+  });
+}
+
+export async function createDir(path: string): Promise<void> {
+  await request("/fs/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, is_dir: true }),
+  });
+}
+
+export async function deleteEntry(path: string): Promise<void> {
+  await request(`/fs/delete?path=${encodeURIComponent(path)}`, {
+    method: "DELETE",
+  });
+}
