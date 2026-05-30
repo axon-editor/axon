@@ -43,6 +43,7 @@ let mainWindow: BrowserWindow | null = null;
 
 // holds the active chokidar watcher so we can stop it when switching files
 let activeWatcher: FSWatcher | null = null;
+let folderWatcher: FSWatcher | null = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -125,4 +126,47 @@ app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+// watches the entire open folder for any changes (create, delete, rename)
+// and notifies the renderer to refresh the file tree.
+// debounced to avoid rapid fire events from bulk operations.
+
+ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
+  if (folderWatcher) {
+    await folderWatcher.close();
+    folderWatcher = null;
+  }
+
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  folderWatcher = chokidar.watch(folderPath, {
+    persistent: true,
+    ignoreInitial: true,
+    // ignore hidden files, node_modules, vendor, dist
+    ignored: /(^|[\/\\])(\.|node_modules|vendor|dist)/,
+    awaitWriteFinish: {
+      stabilityThreshold: 100,
+      pollInterval: 50,
+    },
+  });
+
+  const notify = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      mainWindow?.webContents.send("fs:folderChanged");
+    }, 300);
+  };
+
+  folderWatcher.on("add", notify);
+  folderWatcher.on("unlink", notify);
+  folderWatcher.on("addDir", notify);
+  folderWatcher.on("unlinkDir", notify);
+});
+
+ipcMain.handle("fs:unwatchFolder", async () => {
+  if (folderWatcher) {
+    await folderWatcher.close();
+    folderWatcher = null;
+  }
 });

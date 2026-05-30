@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import TabBar from "./components/TabBar";
 import EditorPane from "./components/EditorPane";
 import StatusBar from "./components/StatusBar";
 import { getTree, type FileNode } from "./lib/api";
 import "./App.css";
+import CommandPalette from "./components/CommandPalette";
 
 declare global {
   interface Window {
@@ -13,9 +14,12 @@ declare global {
       openFolder: () => Promise<string | null>;
       watchFile: (path: string) => Promise<void>;
       unwatchFile: () => Promise<void>;
+      watchFolder: (path: string) => Promise<void>;
+      unwatchFolder: () => Promise<void>;
       onFileChanged: (
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;
+      onFolderChanged: (callback: () => void) => () => void;
     };
   }
 }
@@ -27,7 +31,10 @@ function App() {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
+  // starts folder watcher when a folder is opened and registers
+  // the onFolderChanged listener to auto-refresh the tree
   const handleOpenFolder = async () => {
     const path = await window.axon.openFolder();
     if (!path) return;
@@ -40,12 +47,39 @@ function App() {
       setOpenTabs([]);
       setActiveFile(null);
       setDirtyFiles({});
+
+      // start watching the folder for external changes
+      window.axon.watchFolder(path);
     } catch (err) {
       console.error("failed to load tree:", err);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "p") {
+        e.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // register folder change listener once on mount.
+  // when chokidar detects any add/unlink/addDir/unlinkDir event
+  // we refresh the tree so the sidebar stays in sync with disk.
+  useEffect(() => {
+    const cleanup = window.axon.onFolderChanged(() => {
+      if (!folderPath) return;
+      getTree(folderPath)
+        .then(setTree)
+        .catch((err) => console.error("tree refresh failed:", err));
+    });
+    return cleanup;
+  }, [folderPath]);
 
   const handleReorder = (newTabs: string[]) => {
     setOpenTabs(newTabs);
@@ -127,6 +161,13 @@ function App() {
         </div>
       </div>
       <StatusBar activeFile={activeFile} />
+
+      <CommandPalette
+        tree={tree}
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onFileSelect={handleFileSelect}
+      />
     </div>
   );
 }
