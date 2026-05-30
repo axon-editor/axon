@@ -14,7 +14,6 @@ import (
 	"github.com/GordenArcher/axon-core/internal/fs"
 	"github.com/GordenArcher/axon-core/internal/terminal"
 	"github.com/google/uuid"
-	"golang.org/x/net/websocket"
 )
 
 // Server is the core HTTP server struct.
@@ -78,7 +77,7 @@ func (s *Server) Router() http.Handler {
 
 	// terminal WebSocket endpoint
 	// each connection spawns a real shell attached to a PTY
-	mux.Handle("/terminal", websocket.Handler(terminal.Handler))
+	mux.HandleFunc("/terminal", terminal.Handler)
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed
