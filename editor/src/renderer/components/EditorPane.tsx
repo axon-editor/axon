@@ -16,6 +16,8 @@ interface Props {
   activeFile: string | null;
   openTabs: string[];
   onDirtyChange: (path: string, dirty: boolean) => void;
+  onCursorChange: (line: number, col: number) => void;
+  onLanguageChange: (lang: string) => void;
 }
 
 function detectLanguage(path: string): string {
@@ -77,10 +79,14 @@ function SingleEditor({
   filePath,
   visible,
   onDirtyChange,
+  onCursorChange,
+  onLanguageChange,
 }: {
   filePath: string;
   visible: boolean;
   onDirtyChange: (path: string, dirty: boolean) => void;
+  onCursorChange: (line: number, col: number) => void;
+  onLanguageChange: (lang: string) => void;
 }) {
   const [diskContent, setDiskContent] = useState("");
   const [liveContent, setLiveContent] = useState("");
@@ -97,6 +103,14 @@ function SingleEditor({
   useEffect(() => {
     filePathRef.current = filePath;
   }, [filePath]);
+
+  useEffect(() => {
+    if (visible) {
+      onLanguageChange(detectLanguage(filePath));
+      // reset cursor to top on file load
+      onCursorChange(1, 1);
+    }
+  }, [visible]);
 
   useEffect(() => {
     setLoading(true);
@@ -154,14 +168,26 @@ function SingleEditor({
 
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
+
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
       handleSave(),
     );
+
     editor.onDidChangeModelContent(() => {
       const current = editor.getValue();
       setLiveContent(current);
       onDirtyChange(filePath, current !== diskContentRef.current);
     });
+
+    // push cursor position to status bar on every cursor move
+    editor.onDidChangeCursorPosition((e) => {
+      if (visible) {
+        onCursorChange(e.position.lineNumber, e.position.column);
+      }
+    });
+
+    // push language to status bar on mount
+    onLanguageChange(detectLanguage(filePath));
   };
 
   if (loading) {
@@ -279,6 +305,8 @@ export default function EditorPane({
   activeFile,
   openTabs,
   onDirtyChange,
+  onCursorChange,
+  onLanguageChange,
 }: Props) {
   if (openTabs.length === 0) {
     return (
@@ -304,6 +332,8 @@ export default function EditorPane({
             filePath={path}
             visible={path === activeFile}
             onDirtyChange={onDirtyChange}
+            onCursorChange={onCursorChange}
+            onLanguageChange={onLanguageChange}
           />
         </div>
       ))}

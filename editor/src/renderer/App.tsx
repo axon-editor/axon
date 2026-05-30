@@ -32,6 +32,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [cursorInfo, setCursorInfo] = useState({ line: 1, col: 1 });
+  const [language, setLanguage] = useState("plaintext");
 
   // starts folder watcher when a folder is opened and registers
   // the onFolderChanged listener to auto-refresh the tree
@@ -157,10 +159,17 @@ function App() {
             activeFile={activeFile}
             openTabs={openTabs}
             onDirtyChange={handleDirtyChange}
+            onCursorChange={(line, col) => setCursorInfo({ line, col })}
+            onLanguageChange={setLanguage}
           />
         </div>
       </div>
-      <StatusBar activeFile={activeFile} />
+
+      <StatusBar
+        activeFile={activeFile}
+        language={language}
+        cursor={cursorInfo}
+      />
 
       <CommandPalette
         tree={tree}
