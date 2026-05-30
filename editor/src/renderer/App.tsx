@@ -6,6 +6,7 @@ import StatusBar from "./components/StatusBar";
 import { getTree, type FileNode } from "./lib/api";
 import "./App.css";
 import CommandPalette from "./components/CommandPalette";
+import Terminal from "./components/Terminal";
 
 declare global {
   interface Window {
@@ -34,6 +35,7 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [cursorInfo, setCursorInfo] = useState({ line: 1, col: 1 });
   const [language, setLanguage] = useState("plaintext");
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   // starts folder watcher when a folder is opened and registers
   // the onFolderChanged listener to auto-refresh the tree
@@ -64,6 +66,10 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "p") {
         e.preventDefault();
         setPaletteOpen((prev) => !prev);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        setTerminalOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handler);
@@ -161,6 +167,10 @@ function App() {
             onDirtyChange={handleDirtyChange}
             onCursorChange={(line, col) => setCursorInfo({ line, col })}
             onLanguageChange={setLanguage}
+          />
+          <Terminal
+            open={terminalOpen}
+            onClose={() => setTerminalOpen(false)}
           />
         </div>
       </div>
