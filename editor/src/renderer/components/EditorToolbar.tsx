@@ -15,6 +15,7 @@ import {
   AlignEndVertical,
   AlignStartHorizontal,
   AlignEndHorizontal,
+  Settings,
 } from "lucide-react";
 
 interface Props {
@@ -23,6 +24,7 @@ interface Props {
   onNewTerminal: () => void;
   onSplit: (direction: "right" | "left" | "up" | "down") => void;
   onZenMode: () => void;
+  onSettings: () => void;
   isZenMode: boolean;
 }
 
@@ -34,6 +36,7 @@ export default function EditorToolbar({
   onNewTerminal,
   onSplit,
   onZenMode,
+  onSettings,
   isZenMode,
 }: Props) {
   const [dropdown, setDropdown] = useState<DropdownType>(null);
@@ -164,6 +167,14 @@ export default function EditorToolbar({
           </div>
         )}
       </div>
+
+      <button
+        onClick={onSettings}
+        className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
+        title="Settings"
+      >
+        <Settings size={14} />
+      </button>
 
       <button
         onClick={onZenMode}

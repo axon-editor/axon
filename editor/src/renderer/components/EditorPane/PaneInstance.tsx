@@ -3,6 +3,7 @@
 // dropping on the tab strip, editor surface, or empty pane placeholder.
 // Clicking anywhere in the pane marks it as the active pane.
 import { useDroppable } from "@dnd-kit/core";
+import { type EditorSettings } from "../../../shared/settings";
 import { type Pane } from "../../lib/types";
 import TabBar, { getPaneDropId, type PaneDropData } from "../TabBar";
 import MediaPreview, { isMediaFile } from "./MediaPreview";
@@ -17,6 +18,7 @@ interface Props {
   onDirtyChange: (filePath: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
+  editorSettings: EditorSettings;
 }
 
 export default function PaneInstance({
@@ -28,6 +30,7 @@ export default function PaneInstance({
   onDirtyChange,
   onCursorChange,
   onLanguageChange,
+  editorSettings,
 }: Props) {
   const { isOver, setNodeRef } = useDroppable({
     id: getPaneDropId(pane.id),
@@ -86,6 +89,7 @@ export default function PaneInstance({
                   onDirtyChange={onDirtyChange}
                   onCursorChange={isActive ? onCursorChange : () => {}}
                   onLanguageChange={isActive ? onLanguageChange : () => {}}
+                  editorSettings={editorSettings}
                 />
               )}
             </div>

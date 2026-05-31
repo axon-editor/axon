@@ -15,6 +15,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { type EditorSettings } from "../../../shared/settings";
 import { type Layout } from "../../lib/types";
 import PaneInstance from "./PaneInstance";
 import PaneDivider from "../PaneDivider";
@@ -34,6 +35,7 @@ interface Props {
     sourcePaneId: string,
     targetPaneId: string,
   ) => void;
+  editorSettings: EditorSettings;
 }
 
 function isDragTabData(data: unknown): data is DragTabData {
@@ -77,6 +79,7 @@ export default function EditorPane({
   onCursorChange,
   onLanguageChange,
   onMoveTabBetweenPanes,
+  editorSettings,
 }: Props) {
   const [draggingTab, setDraggingTab] = useState<DragTabData | null>(null);
 
@@ -191,6 +194,7 @@ export default function EditorPane({
               onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}
               onCursorChange={onCursorChange}
               onLanguageChange={onLanguageChange}
+              editorSettings={editorSettings}
             />
             {index < layout.panes.length - 1 && (
               <PaneDivider

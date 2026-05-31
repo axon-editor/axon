@@ -5,6 +5,7 @@ import StatusBar from "./components/StatusBar";
 import Terminal from "./components/Terminal";
 import CommandPalette from "./components/CommandPalette";
 import EditorToolbar from "./components/EditorToolbar";
+import SettingsModal from "./components/SettingsModal";
 import { getTree, createFile, type FileNode } from "./lib/api";
 import {
   createInitialLayout,
@@ -17,6 +18,11 @@ import {
   moveTabBetweenPanes,
 } from "./lib/layoutManager";
 import { type Layout, type SplitDirection } from "./lib/types";
+import {
+  DEFAULT_SETTINGS,
+  normalizeSettings,
+  type AxonSettings,
+} from "../shared/settings";
 import "./App.css";
 
 declare global {
@@ -24,6 +30,8 @@ declare global {
     axon: {
       platform: string;
       openFolder: () => Promise<string | null>;
+      getSettings: () => Promise<AxonSettings>;
+      updateSettings: (settings: AxonSettings) => Promise<AxonSettings>;
       watchFile: (path: string) => Promise<void>;
       unwatchFile: () => Promise<void>;
       watchFolder: (path: string) => Promise<void>;
@@ -45,6 +53,8 @@ function App() {
   const [language, setLanguage] = useState("plaintext");
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -60,6 +70,10 @@ function App() {
         e.preventDefault();
         setTerminalOpen((prev) => !prev);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
       if (e.key === "Escape" && zenMode) {
         setZenMode(false);
       }
@@ -67,6 +81,15 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [zenMode]);
+
+  useEffect(() => {
+    window.axon
+      .getSettings()
+      .then((nextSettings) => setSettings(normalizeSettings(nextSettings)))
+      .catch((err) => {
+        console.error("failed to load settings:", err);
+      });
+  }, []);
 
   useEffect(() => {
     const cleanup = window.axon.onFolderChanged(() => {
@@ -127,6 +150,18 @@ function App() {
     await createFile(path);
     await handleRefresh();
     handleFileSelect(path);
+  };
+
+  const handleSettingsSave = async (nextSettings: AxonSettings) => {
+    const normalizedSettings = normalizeSettings(nextSettings);
+    setSettings(normalizedSettings);
+
+    try {
+      const savedSettings = await window.axon.updateSettings(normalizedSettings);
+      setSettings(normalizeSettings(savedSettings));
+    } catch (err) {
+      console.error("failed to save settings:", err);
+    }
   };
 
   return (
@@ -193,6 +228,7 @@ function App() {
                 onNewTerminal={() => setTerminalOpen(true)}
                 onSplit={handleSplit}
                 onZenMode={() => setZenMode((p) => !p)}
+                onSettings={() => setSettingsOpen(true)}
                 isZenMode={zenMode}
               />
             </div>
@@ -220,6 +256,7 @@ function App() {
             onMoveTabBetweenPanes={(f, src, tgt) =>
               setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
             }
+            editorSettings={settings.editor}
           />
 
           <Terminal
@@ -248,6 +285,14 @@ function App() {
         onClose={() => setPaletteOpen(false)}
         onFileSelect={handleFileSelect}
       />
+
+      {settingsOpen && (
+        <SettingsModal
+          settings={settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={handleSettingsSave}
+        />
+      )}
     </div>
   );
 }

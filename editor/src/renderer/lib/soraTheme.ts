@@ -2,16 +2,107 @@
 // Original theme: https://github.com/Aejkatappaja/sora-theme
 // Colors mapped from Zed theme syntax tokens to Monaco token rules.
 import * as monaco from "monaco-editor";
+import { type BuiltInThemeId } from "../../shared/settings";
 
-export const AXON_MONACO_THEME = "axon";
+export const AXON_MONACO_THEME: BuiltInThemeId = "axon-dark";
 
 type MonacoInstance = typeof monaco;
 
 const registeredMonacos = new WeakSet<MonacoInstance>();
 
-export function registerAxonTheme(monacoInstance: MonacoInstance = monaco) {
+export function getMonacoThemeId(themeId: BuiltInThemeId) {
+  return themeId;
+}
+
+function defineCompanionThemes(monacoInstance: MonacoInstance) {
+  monacoInstance.editor.defineTheme("sora", {
+    base: "vs-dark",
+    inherit: false,
+    rules: [
+      { token: "comment", foreground: "586478", fontStyle: "italic" },
+      { token: "keyword", foreground: "b0a0d8", fontStyle: "italic" },
+      { token: "string", foreground: "90c8a0" },
+      { token: "number", foreground: "d4b878" },
+      { token: "type", foreground: "d0a888" },
+      { token: "function", foreground: "80c8e0" },
+      { token: "variable", foreground: "b4bcd0" },
+      { token: "", foreground: "c8d0e0" },
+    ],
+    colors: {
+      "editor.background": "#0e1018",
+      "editor.foreground": "#c8d0e0",
+      "editor.lineHighlightBackground": "#171a24",
+      "editor.selectionBackground": "#1e243080",
+      "editorLineNumber.foreground": "#364050",
+      "editorLineNumber.activeForeground": "#80c8e0",
+      "editorCursor.foreground": "#80c8e0",
+      "editorGutter.background": "#0e1018",
+      "editorIndentGuide.background1": "#222838",
+      "editorIndentGuide.activeBackground1": "#364050",
+    },
+  });
+
+  monacoInstance.editor.defineTheme("catppuccin-mocha", {
+    base: "vs-dark",
+    inherit: false,
+    rules: [
+      { token: "comment", foreground: "6c7086", fontStyle: "italic" },
+      { token: "keyword", foreground: "cba6f7", fontStyle: "italic" },
+      { token: "string", foreground: "a6e3a1" },
+      { token: "number", foreground: "fab387" },
+      { token: "type", foreground: "f9e2af" },
+      { token: "function", foreground: "89b4fa" },
+      { token: "variable", foreground: "cdd6f4" },
+      { token: "", foreground: "cdd6f4" },
+    ],
+    colors: {
+      "editor.background": "#1e1e2e",
+      "editor.foreground": "#cdd6f4",
+      "editor.lineHighlightBackground": "#313244",
+      "editor.selectionBackground": "#45475a",
+      "editorLineNumber.foreground": "#6c7086",
+      "editorLineNumber.activeForeground": "#89b4fa",
+      "editorCursor.foreground": "#f5e0dc",
+      "editorGutter.background": "#1e1e2e",
+      "editorIndentGuide.background1": "#45475a",
+      "editorIndentGuide.activeBackground1": "#585b70",
+    },
+  });
+
+  monacoInstance.editor.defineTheme("tokyo-night", {
+    base: "vs-dark",
+    inherit: false,
+    rules: [
+      { token: "comment", foreground: "565f89", fontStyle: "italic" },
+      { token: "keyword", foreground: "bb9af7", fontStyle: "italic" },
+      { token: "string", foreground: "9ece6a" },
+      { token: "number", foreground: "ff9e64" },
+      { token: "type", foreground: "2ac3de" },
+      { token: "function", foreground: "7aa2f7" },
+      { token: "variable", foreground: "c0caf5" },
+      { token: "", foreground: "c0caf5" },
+    ],
+    colors: {
+      "editor.background": "#1a1b26",
+      "editor.foreground": "#c0caf5",
+      "editor.lineHighlightBackground": "#24283b",
+      "editor.selectionBackground": "#33467c",
+      "editorLineNumber.foreground": "#3b4261",
+      "editorLineNumber.activeForeground": "#7aa2f7",
+      "editorCursor.foreground": "#c0caf5",
+      "editorGutter.background": "#1a1b26",
+      "editorIndentGuide.background1": "#292e42",
+      "editorIndentGuide.activeBackground1": "#3b4261",
+    },
+  });
+}
+
+export function registerAxonTheme(
+  monacoInstance: MonacoInstance = monaco,
+  themeId: BuiltInThemeId = AXON_MONACO_THEME,
+) {
   if (registeredMonacos.has(monacoInstance)) {
-    monacoInstance.editor.setTheme(AXON_MONACO_THEME);
+    monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
     return;
   }
 
@@ -213,8 +304,9 @@ export function registerAxonTheme(monacoInstance: MonacoInstance = monaco) {
     },
   });
 
+  defineCompanionThemes(monacoInstance);
   registeredMonacos.add(monacoInstance);
-  monacoInstance.editor.setTheme(AXON_MONACO_THEME);
+  monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
 }
 
 export const registerSoraTheme = registerAxonTheme;

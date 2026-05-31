@@ -8,8 +8,9 @@ import * as monaco from "monaco-editor";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Columns2, FileText, Eye } from "lucide-react";
+import { type EditorSettings } from "../../../shared/settings";
 import { readFile, writeFile } from "../../lib/api";
-import { AXON_MONACO_THEME, registerAxonTheme } from "../../lib/soraTheme";
+import { getMonacoThemeId, registerAxonTheme } from "../../lib/soraTheme";
 import {
   updateModel,
   releaseModel,
@@ -23,6 +24,7 @@ interface Props {
   onDirtyChange: (path: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
+  editorSettings: EditorSettings;
 }
 
 function isMarkdown(path: string): boolean {
@@ -60,6 +62,7 @@ export default function SingleEditor({
   onDirtyChange,
   onCursorChange,
   onLanguageChange,
+  editorSettings,
 }: Props) {
   const [liveContent, setLiveContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -80,8 +83,9 @@ export default function SingleEditor({
     if (visible) {
       onLanguageChange(filePath.split(".").pop()?.toLowerCase() ?? "plaintext");
       onCursorChange(1, 1);
+      registerAxonTheme(monaco, editorSettings.themeId);
     }
-  }, [visible]);
+  }, [visible, editorSettings.themeId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +160,7 @@ export default function SingleEditor({
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
 
-    registerAxonTheme(monaco);
+    registerAxonTheme(monaco, editorSettings.themeId);
 
     // only attach model if it already exists from a previous readFile call
     // if readFile hasn't resolved yet it will call editor.setModel when it does
@@ -209,8 +213,10 @@ export default function SingleEditor({
       )}
       <Editor
         height="100%"
-        theme={AXON_MONACO_THEME}
-        beforeMount={registerAxonTheme}
+        theme={getMonacoThemeId(editorSettings.themeId)}
+        beforeMount={(monacoInstance) =>
+          registerAxonTheme(monacoInstance, editorSettings.themeId)
+        }
         onMount={handleEditorMount}
         // The same Monaco ITextModel can be attached to multiple editor
         // widgets when the same file is open in more than one split. The
@@ -221,9 +227,10 @@ export default function SingleEditor({
         // pane-aware ref count.
         keepCurrentModel
         options={{
-          fontSize: 14,
-          fontFamily: "'Fira Code', monospace",
-          fontLigatures: true,
+          fontSize: editorSettings.fontSize,
+          fontFamily: `'${editorSettings.fontFamily}', monospace`,
+          lineHeight: editorSettings.lineHeight,
+          fontLigatures: editorSettings.fontLigatures,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           lineNumbers: "on",

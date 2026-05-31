@@ -4,10 +4,14 @@
 // can push file change events to the renderer without polling.
 
 import { contextBridge, ipcRenderer } from "electron";
+import { type AxonSettings } from "../shared/settings";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
+  getSettings: () => ipcRenderer.invoke("settings:get"),
+  updateSettings: (settings: AxonSettings) =>
+    ipcRenderer.invoke("settings:update", settings),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
   watchFolder: (path: string) => ipcRenderer.invoke("fs:watchFolder", path),

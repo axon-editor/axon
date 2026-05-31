@@ -12,6 +12,11 @@ import path from "path";
 import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
 import url from "url";
+import {
+  DEFAULT_SETTINGS,
+  normalizeSettings,
+  type AxonSettings,
+} from "../shared/settings";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -48,6 +53,43 @@ let mainWindow: BrowserWindow | null = null;
 let activeWatcher: FSWatcher | null = null;
 let folderWatcher: FSWatcher | null = null;
 
+function getSettingsPath() {
+  return path.join(app.getPath("userData"), "settings.json");
+}
+
+function readSettingsFromDisk(): AxonSettings {
+  const settingsPath = getSettingsPath();
+
+  if (!fs.existsSync(settingsPath)) {
+    return DEFAULT_SETTINGS;
+  }
+
+  try {
+    const rawSettings = fs.readFileSync(settingsPath, "utf-8");
+    return normalizeSettings(JSON.parse(rawSettings));
+  } catch (err) {
+    console.error("failed to read settings:", err);
+    return DEFAULT_SETTINGS;
+  }
+}
+
+function writeSettingsToDisk(settings: AxonSettings) {
+  const settingsPath = getSettingsPath();
+
+  // I normalize before writing so settings.json is always a complete, valid
+  // document. That prevents a broken manual edit from leaking invalid editor
+  // options into Monaco on the next launch.
+  const normalizedSettings = normalizeSettings(settings);
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(
+    settingsPath,
+    JSON.stringify(normalizedSettings, null, 2),
+    "utf-8",
+  );
+
+  return normalizedSettings;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -80,6 +122,16 @@ ipcMain.handle("dialog:openFolder", async () => {
   }
 
   return result.filePaths[0];
+});
+
+ipcMain.handle("settings:get", async () => {
+  const settings = readSettingsFromDisk();
+  writeSettingsToDisk(settings);
+  return settings;
+});
+
+ipcMain.handle("settings:update", async (_event, settings: AxonSettings) => {
+  return writeSettingsToDisk(settings);
 });
 
 // watch a file for external changes and notify the renderer when it changes.
