@@ -26,18 +26,21 @@ interface Props {
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
   onReorder: (newTabs: string[]) => void;
+  paneId: string;
 }
 
 function SortableTab({
   path,
   isActive,
   isDirty,
+  paneId,
   onSelect,
   onClose,
 }: {
   path: string;
   isActive: boolean;
   isDirty: boolean;
+  paneId: string;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
 }) {
@@ -53,7 +56,6 @@ function SortableTab({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    // lift the tab visually while dragging
     zIndex: isDragging ? 50 : undefined,
     opacity: isDragging ? 0.7 : 1,
   };
@@ -70,6 +72,17 @@ function SortableTab({
       onAuxClick={(e) => {
         if (e.button === 1) onClose(path);
       }}
+      // inter-pane drag uses HTML5 drag API separately from dnd-kit
+      draggable
+      onDragStart={(e) => {
+        // don't interfere with dnd-kit pointer events
+        e.stopPropagation();
+        e.dataTransfer.setData(
+          "axon/tab",
+          JSON.stringify({ filePath: path, sourcePaneId: paneId }),
+        );
+        e.dataTransfer.effectAllowed = "move";
+      }}
       className={`group flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-t
         border border-b-0 cursor-pointer transition-colors shrink-0 select-none
         ${
@@ -80,36 +93,33 @@ function SortableTab({
     >
       {isDirty ? (
         <span
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             onClose(path);
           }}
           className="w-3 h-3 flex items-center justify-center"
         >
-          <span className="w-2 h-2 rounded-full bg-[#6c5ce7] group-hover:hidden" />
+          <span className="w-2 h-2 rounded-full bg-[#80c8e0] group-hover:hidden" />
           <X
             size={11}
-            className="hidden group-hover:block text-neutral-400 hover:text-white"
+            className="hidden group-hover:block text-[#586478] hover:text-white"
           />
         </span>
       ) : (
         <span
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             onClose(path);
           }}
           className="w-3 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <X size={11} className="text-neutral-400 hover:text-white" />
+          <X size={11} className="text-[#586478] hover:text-white" />
         </span>
       )}
       <span>{name}</span>
     </div>
   );
 }
-
 export default function TabBar({
   openTabs,
   activeFile,
@@ -117,6 +127,7 @@ export default function TabBar({
   onSelect,
   onClose,
   onReorder,
+  paneId,
 }: Props) {
   // PointerSensor with a small activation distance so clicks still work
   // and only intentional drags trigger the reorder
@@ -164,6 +175,7 @@ export default function TabBar({
               isDirty={!!dirtyFiles[path]}
               onSelect={onSelect}
               onClose={onClose}
+              paneId={paneId}
             />
           ))}
         </div>

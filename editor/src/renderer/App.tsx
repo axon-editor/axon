@@ -1,13 +1,23 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar, { addRecentFolder } from "./components/sidebar/index";
-import TabBar from "./components/TabBar";
-import EditorPane from "./components/EditorPane";
+import EditorPane from "./components/EditorPane/index";
 import StatusBar from "./components/StatusBar";
-import { createFile, getTree, type FileNode } from "./lib/api";
-import "./App.css";
-import CommandPalette from "./components/CommandPalette";
 import Terminal from "./components/Terminal";
+import CommandPalette from "./components/CommandPalette";
 import EditorToolbar from "./components/EditorToolbar";
+import { getTree, createFile, type FileNode } from "./lib/api";
+import {
+  createInitialLayout,
+  splitPane,
+  openFileInPane,
+  closeTabInPane,
+  reorderTabsInPane,
+  setActivePaneFile,
+  setDirtyInPane,
+  moveTabBetweenPanes,
+} from "./lib/layoutManager";
+import { type Layout, type SplitDirection } from "./lib/types";
+import "./App.css";
 
 declare global {
   interface Window {
@@ -29,52 +39,16 @@ declare global {
 function App() {
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [tree, setTree] = useState<FileNode | null>(null);
-  const [openTabs, setOpenTabs] = useState<string[]>([]);
-  const [activeFile, setActiveFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [layout, setLayout] = useState<Layout>(createInitialLayout);
   const [cursorInfo, setCursorInfo] = useState({ line: 1, col: 1 });
   const [language, setLanguage] = useState("plaintext");
   const [terminalOpen, setTerminalOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [zenMode, setZenMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const handleFolderChange = (path: string, fileTree: FileNode) => {
-    setFolderPath(path);
-    setTree(fileTree);
-    setOpenTabs([]);
-    setActiveFile(null);
-    setDirtyFiles({});
-    window.axon.watchFolder(path);
-  };
-
-  const handleNewFile = async () => {
-    if (!folderPath) return;
-    const name = `untitled-${Date.now()}.ts`;
-    const path = `${folderPath}/${name}`;
-    await createFile(path);
-    await handleRefresh();
-    handleFileSelect(path);
-  };
-
-  // starts folder watcher when a folder is opened and registers
-  // the onFolderChanged listener to auto-refresh the tree
-  const handleOpenFolder = async () => {
-    const path = await window.axon.openFolder();
-    if (!path) return;
-
-    setLoading(true);
-    try {
-      const fileTree = await getTree(path);
-      addRecentFolder(path);
-      handleFolderChange(path, fileTree);
-    } catch (err) {
-      console.error("failed to load tree:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -94,58 +68,34 @@ function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [zenMode]);
 
-  // register folder change listener once on mount.
-  // when chokidar detects any add/unlink/addDir/unlinkDir event
-  // we refresh the tree so the sidebar stays in sync with disk.
   useEffect(() => {
     const cleanup = window.axon.onFolderChanged(() => {
       if (!folderPath) return;
-      getTree(folderPath)
-        .then(setTree)
-        .catch((err) => console.error("tree refresh failed:", err));
+      getTree(folderPath).then(setTree).catch(console.error);
     });
     return cleanup;
   }, [folderPath]);
 
-  const handleReorder = (newTabs: string[]) => {
-    setOpenTabs(newTabs);
-  };
-
-  // open a file tab or focus it if already open
-  const handleFileSelect = (path: string) => {
-    if (!openTabs.includes(path)) {
-      setOpenTabs((prev) => [...prev, path]);
-    }
-    setActiveFile(path);
-  };
-
-  // close a tab and focus the nearest remaining tab
-  const handleCloseTab = (path: string) => {
-    const index = openTabs.indexOf(path);
-    const newTabs = openTabs.filter((t) => t !== path);
-
-    setOpenTabs(newTabs);
-
-    // clean up dirty state for the closed tab
-    setDirtyFiles((prev) => {
-      const next = { ...prev };
-      delete next[path];
-      return next;
-    });
-
-    if (activeFile === path) {
-      if (newTabs.length === 0) {
-        setActiveFile(null);
-      } else {
-        // focus the tab to the left, or the first tab if closing the leftmost
-        const nextIndex = Math.max(0, index - 1);
-        setActiveFile(newTabs[nextIndex]);
-      }
+  const handleOpenFolder = async () => {
+    const path = await window.axon.openFolder();
+    if (!path) return;
+    setLoading(true);
+    try {
+      const fileTree = await getTree(path);
+      addRecentFolder(path);
+      handleFolderChange(path, fileTree);
+    } catch (err) {
+      console.error("failed to load tree:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDirtyChange = (path: string, dirty: boolean) => {
-    setDirtyFiles((prev) => ({ ...prev, [path]: dirty }));
+  const handleFolderChange = (path: string, fileTree: FileNode) => {
+    setFolderPath(path);
+    setTree(fileTree);
+    setLayout(createInitialLayout());
+    window.axon.watchFolder(path);
   };
 
   const handleRefresh = async () => {
@@ -158,17 +108,49 @@ function App() {
     }
   };
 
+  // open a file in the active pane
+  const handleFileSelect = (filePath: string) => {
+    setLayout((prev) => openFileInPane(prev, prev.activePaneId, filePath));
+  };
+
+  // split the active pane in the given direction
+  const handleSplit = (direction: SplitDirection, filePath?: string) => {
+    setLayout((prev) =>
+      splitPane(prev, prev.activePaneId, direction, filePath),
+    );
+  };
+
+  const handleNewFile = async () => {
+    if (!folderPath) return;
+    const name = `untitled-${Date.now()}.ts`;
+    const path = `${folderPath}/${name}`;
+    await createFile(path);
+    await handleRefresh();
+    handleFileSelect(path);
+  };
+
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden relative"
       style={{ background: "#0e1018" }}
     >
+      {zenMode && (
+        <div className="absolute top-3 right-3 z-50">
+          <button
+            onClick={() => setZenMode(false)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#14161e] border border-[#222838] rounded text-[11px] text-[#586478] hover:text-white hover:border-[#80c8e0] transition-colors cursor-pointer"
+          >
+            exit zen
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {!zenMode && (
           <Sidebar
             tree={tree}
             folderPath={folderPath}
-            activeFile={activeFile}
+            activeFile={activePane?.activeFile ?? null}
             onFileSelect={handleFileSelect}
             onOpenFolder={handleOpenFolder}
             onFolderChange={handleFolderChange}
@@ -176,38 +158,70 @@ function App() {
             loading={loading}
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
+            onSplitFile={(filePath) => handleSplit("right", filePath)}
           />
         )}
+
         <div className="flex flex-col flex-1 overflow-hidden">
           {!zenMode && (
             <div className="flex items-center bg-[#0a0c12] border-b border-[#222838] pr-1">
-              <div className="flex-1">
-                <TabBar
-                  openTabs={openTabs}
-                  activeFile={activeFile}
-                  dirtyFiles={dirtyFiles}
-                  onSelect={setActiveFile}
-                  onClose={handleCloseTab}
-                  onReorder={handleReorder}
-                />
+              <div className="flex-1 overflow-hidden">
+                {activePane && (
+                  <TabBarForActivePane
+                    layout={layout}
+                    onSelect={(f) =>
+                      setLayout((prev) =>
+                        setActivePaneFile(prev, prev.activePaneId, f),
+                      )
+                    }
+                    onClose={(f) =>
+                      setLayout((prev) =>
+                        closeTabInPane(prev, prev.activePaneId, f),
+                      )
+                    }
+                    onReorder={(tabs) =>
+                      setLayout((prev) =>
+                        reorderTabsInPane(prev, prev.activePaneId, tabs),
+                      )
+                    }
+                  />
+                )}
               </div>
               <EditorToolbar
                 onNewFile={handleNewFile}
                 onOpenFile={() => setPaletteOpen(true)}
                 onNewTerminal={() => setTerminalOpen(true)}
-                onSplit={(dir) => console.log("split", dir)}
+                onSplit={handleSplit}
                 onZenMode={() => setZenMode((p) => !p)}
                 isZenMode={zenMode}
               />
             </div>
           )}
+
           <EditorPane
-            activeFile={activeFile}
-            openTabs={openTabs}
-            onDirtyChange={handleDirtyChange}
+            layout={layout}
+            onActivatePane={(id) =>
+              setLayout((prev) => ({ ...prev, activePaneId: id }))
+            }
+            onSelectFile={(paneId, f) =>
+              setLayout((prev) => setActivePaneFile(prev, paneId, f))
+            }
+            onCloseTab={(paneId, f) =>
+              setLayout((prev) => closeTabInPane(prev, paneId, f))
+            }
+            onReorderTabs={(paneId, tabs) =>
+              setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
+            }
+            onDirtyChange={(paneId, f, d) =>
+              setLayout((prev) => setDirtyInPane(prev, paneId, f, d))
+            }
             onCursorChange={(line, col) => setCursorInfo({ line, col })}
             onLanguageChange={setLanguage}
+            onMoveTabBetweenPanes={(f, src, tgt) =>
+              setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
+            }
           />
+
           <Terminal
             open={terminalOpen && !zenMode}
             onClose={() => setTerminalOpen(false)}
@@ -217,7 +231,7 @@ function App() {
 
       {!zenMode && (
         <StatusBar
-          activeFile={activeFile}
+          activeFile={activePane?.activeFile ?? null}
           language={language}
           cursor={cursorInfo}
           folderName={folderPath ? (folderPath.split("/").pop() ?? null) : null}
@@ -236,6 +250,24 @@ function App() {
       />
     </div>
   );
+}
+
+// TabBarForActivePane is a thin wrapper, the toolbar area only shows
+// the active pane tabs. Each pane's full tab bar is inside PaneInstance.
+function TabBarForActivePane({
+  layout,
+  onSelect,
+  onClose,
+  onReorder,
+}: {
+  layout: Layout;
+  onSelect: (f: string) => void;
+  onClose: (f: string) => void;
+  onReorder: (tabs: string[]) => void;
+}) {
+  const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
+  if (!activePane) return null;
+  return null;
 }
 
 export default App;

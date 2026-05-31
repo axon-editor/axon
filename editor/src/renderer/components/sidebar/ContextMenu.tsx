@@ -2,7 +2,7 @@
 // Renders inline input for create actions since Electron blocks native dialogs.
 // Closes on outside click via document mousedown listener.
 import { useEffect, useRef, useState } from "react";
-import { FilePlus, FolderPlus, Trash2 } from "lucide-react";
+import { Columns2, FilePlus, FolderPlus, Trash2 } from "lucide-react";
 import {
   type FileNode,
   createFile,
@@ -14,9 +14,15 @@ interface Props {
   menu: { x: number; y: number; node: FileNode };
   onClose: () => void;
   onRefresh: () => void;
+  onSplitFile?: (filePath: string) => void;
 }
 
-export default function ContextMenu({ menu, onClose, onRefresh }: Props) {
+export default function ContextMenu({
+  menu,
+  onClose,
+  onRefresh,
+  onSplitFile,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"menu" | "file" | "folder" | "delete">(
@@ -145,6 +151,22 @@ export default function ContextMenu({ menu, onClose, onRefresh }: Props) {
             </button>
           </div>
         </div>
+      )}
+
+      {onSplitFile && !menu.node.is_dir && (
+        <>
+          <div className="my-1 border-t border-[#222838]" />
+          <button
+            onClick={() => {
+              onSplitFile(menu.node.path);
+              onClose();
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+          >
+            <Columns2 size={12} />
+            split right
+          </button>
+        </>
       )}
     </div>
   );

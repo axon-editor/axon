@@ -5,10 +5,13 @@ import {
   dialog,
   Menu,
   type MenuItemConstructorOptions,
+  protocol,
+  net,
 } from "electron";
 import path from "path";
 import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
+import url from "url";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -122,7 +125,18 @@ ipcMain.handle("fs:unwatch", async () => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // handle axon://local/absolute/path requests
+  // streams the file directly to the renderer
+  protocol.handle("axon", (request) => {
+    const filePath = decodeURIComponent(
+      request.url.replace("axon://local", ""),
+    );
+    return net.fetch(url.pathToFileURL(filePath).toString());
+  });
+
+  createWindow();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
@@ -170,3 +184,13 @@ ipcMain.handle("fs:unwatchFolder", async () => {
     folderWatcher = null;
   }
 });
+
+// register axon:// protocol before app is ready
+// this lets the renderer load local files via axon://path/to/file
+// without needing file:// which Electron blocks for security
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "axon",
+    privileges: { secure: true, standard: true, stream: true },
+  },
+]);

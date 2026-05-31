@@ -40,6 +40,7 @@ interface Props {
   loading: boolean;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  onSplitFile: (filePath: string) => void;
 }
 
 interface ContextMenuState {
@@ -59,6 +60,7 @@ export default function Sidebar({
   loading,
   collapsed,
   onCollapsedChange,
+  onSplitFile,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -170,6 +172,7 @@ export default function Sidebar({
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
           onRefresh={onRefresh}
+          onSplitFile={onSplitFile}
         />
       )}
 
