@@ -1,8 +1,10 @@
 // A single editor pane with its own tab bar and editor area.
-// Handles tab drag and drop between panes via HTML5 drag events.
+// Registers the whole pane as a dnd-kit drop target so tabs can be moved by
+// dropping on the tab strip, editor surface, or empty pane placeholder.
 // Clicking anywhere in the pane marks it as the active pane.
+import { useDroppable } from "@dnd-kit/core";
 import { type Pane } from "../../lib/types";
-import TabBar from "../TabBar";
+import TabBar, { getPaneDropId, type PaneDropData } from "../TabBar";
 import MediaPreview, { isMediaFile } from "./MediaPreview";
 import SingleEditor from "./SingleEditor";
 
@@ -12,11 +14,9 @@ interface Props {
   onActivate: () => void;
   onSelectFile: (filePath: string) => void;
   onCloseTab: (filePath: string) => void;
-  onReorderTabs: (newTabs: string[]) => void;
   onDirtyChange: (filePath: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
-  onTabDropped: (filePath: string, sourcePaneId: string) => void;
 }
 
 export default function PaneInstance({
@@ -25,34 +25,25 @@ export default function PaneInstance({
   onActivate,
   onSelectFile,
   onCloseTab,
-  onReorderTabs,
   onDirtyChange,
   onCursorChange,
   onLanguageChange,
-  onTabDropped,
 }: Props) {
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const data = e.dataTransfer.getData("axon/tab");
-    if (!data) return;
-    const { filePath, sourcePaneId } = JSON.parse(data);
-    if (sourcePaneId !== pane.id) {
-      onTabDropped(filePath, sourcePaneId);
-    }
-  };
+  const { isOver, setNodeRef } = useDroppable({
+    id: getPaneDropId(pane.id),
+    data: {
+      type: "pane",
+      paneId: pane.id,
+    } satisfies PaneDropData,
+  });
 
   return (
     <div
+      ref={setNodeRef}
       className={`flex flex-col flex-1 overflow-hidden min-w-0 min-h-0
-        ${isActive ? "ring-1 ring-[#222838] ring-inset" : ""}`}
+        ${isActive ? "ring-1 ring-[#222838] ring-inset" : ""}
+        ${isOver ? "outline outline-1 outline-[#80c8e0] outline-inset" : ""}`}
       onClick={onActivate}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
     >
       <TabBar
         openTabs={pane.openTabs}
@@ -60,7 +51,6 @@ export default function PaneInstance({
         dirtyFiles={pane.dirtyFiles}
         onSelect={onSelectFile}
         onClose={onCloseTab}
-        onReorder={onReorderTabs}
         paneId={pane.id}
       />
 

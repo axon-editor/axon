@@ -218,5 +218,5 @@ export function moveTabBetweenPanes(
 
   let newLayout = closeTabInPane(layout, sourcePaneId, filePath);
   newLayout = openFileInPane(newLayout, targetPaneId, filePath);
-  return newLayout;
+  return { ...newLayout, activePaneId: targetPaneId };
 }

@@ -11,9 +11,10 @@ import { Columns2, FileText, Eye } from "lucide-react";
 import { readFile, writeFile } from "../../lib/api";
 import { registerSoraTheme } from "../../lib/soraTheme";
 import {
-  getOrCreateModel,
   updateModel,
   releaseModel,
+  acquireModel,
+  getModel,
 } from "../../lib/monacoModels";
 
 interface Props {
@@ -83,43 +84,56 @@ export default function SingleEditor({
   }, [visible]);
 
   useEffect(() => {
+    let cancelled = false;
+    let acquiredModel = false;
+
     setLoading(true);
     setError(null);
     setPreviewMode("editor");
 
     readFile(filePath)
       .then((fc) => {
+        if (cancelled) return;
+
         setLiveContent(fc.content);
         diskContentRef.current = fc.content;
+        const model = acquireModel(filePath, fc.content);
+        acquiredModel = true;
 
-        // get or create the shared model for this file
-        const model = getOrCreateModel(filePath, fc.content);
-
-        // if editor is already mounted attach the shared model
-        if (editorRef.current) {
+        // I attach the shared model only after this editor has acquired its
+        // own reference. That keeps the model lifetime tied to real mounted
+        // editors instead of to a read that may have resolved after the tab was
+        // already closed.
+        if (editorRef.current && !model.isDisposed()) {
           editorRef.current.setModel(model);
         }
 
         window.axon.watchFile(filePath);
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     const cleanup = window.axon.onFileChanged(({ path, content }) => {
       if (path !== filePathRef.current) return;
       setLiveContent(content);
       diskContentRef.current = content;
-
-      // update the shared model so all panes see the change
       updateModel(filePath, content);
       onDirtyChange(filePath, false);
     });
 
     return () => {
+      cancelled = true;
       cleanup();
       window.axon.unwatchFile();
-      // release our reference to the shared model
-      releaseModel(filePath);
+      // Release only if the async read reached acquireModel. Closing a split
+      // quickly used to run this cleanup before the second editor acquired its
+      // reference, which could decrement the first pane's shared model and
+      // leave that still-open pane blank after Monaco disposed it.
+      if (acquiredModel) releaseModel(filePath);
     };
   }, [filePath]);
 
@@ -142,23 +156,23 @@ export default function SingleEditor({
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
 
-    const existingModel = getOrCreateModel(filePath, diskContentRef.current);
-    editor.setModel(existingModel);
-
     registerSoraTheme();
     monaco.editor.setTheme("sora");
+
+    // only attach model if it already exists from a previous readFile call
+    // if readFile hasn't resolved yet it will call editor.setModel when it does
+    const model = getModel(filePath);
+    if (model && !model.isDisposed()) {
+      editor.setModel(model);
+    }
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
       handleSave(),
     );
 
-    // each editor instance registers its own content change listener
-    // so each pane independently tracks dirty state against its own diskContentRef
     editor.onDidChangeModelContent(() => {
       const current = editor.getValue();
       setLiveContent(current);
-      // compare against this instance's disk content ref
-      // not a shared value so each pane tracks its own dirty state correctly
       onDirtyChange(filePath, current !== diskContentRef.current);
     });
 
@@ -198,6 +212,14 @@ export default function SingleEditor({
         height="100%"
         theme="sora"
         onMount={handleEditorMount}
+        // The same Monaco ITextModel can be attached to multiple editor
+        // widgets when the same file is open in more than one split. The
+        // React wrapper disposes the current model by default when a widget
+        // unmounts, which means closing the right split can destroy the model
+        // still being rendered by the left split. Keeping the model here lets
+        // monacoModels.ts remain the single owner of model disposal through its
+        // pane-aware ref count.
+        keepCurrentModel
         options={{
           fontSize: 14,
           fontFamily: "'Fira Code', monospace",

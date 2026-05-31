@@ -3,9 +3,22 @@
 // separated by resizable PaneDivider components.
 // Pane sizes tracked as flex-grow values and updated on divider drag.
 import { useState } from "react";
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragCancelEvent,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import { type Layout } from "../../lib/types";
 import PaneInstance from "./PaneInstance";
 import PaneDivider from "../PaneDivider";
+import { type DragTabData, type PaneDropData } from "../TabBar";
 
 interface Props {
   layout: Layout;
@@ -23,6 +36,37 @@ interface Props {
   ) => void;
 }
 
+function isDragTabData(data: unknown): data is DragTabData {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as DragTabData).type === "tab" &&
+    typeof (data as DragTabData).paneId === "string" &&
+    typeof (data as DragTabData).filePath === "string"
+  );
+}
+
+function isPaneDropData(data: unknown): data is PaneDropData {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as PaneDropData).type === "pane" &&
+    typeof (data as PaneDropData).paneId === "string"
+  );
+}
+
+function GhostTab({ path }: { path: string }) {
+  const name = path.split("/").pop() ?? path;
+  return (
+    <div
+      className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-t
+      border border-b-0 bg-[#0e1018] border-[#80c8e0] text-[#c8d0e0] shrink-0 select-none shadow-lg opacity-90"
+    >
+      <span>{name}</span>
+    </div>
+  );
+}
+
 export default function EditorPane({
   layout,
   onActivatePane,
@@ -34,6 +78,14 @@ export default function EditorPane({
   onLanguageChange,
   onMoveTabBetweenPanes,
 }: Props) {
+  const [draggingTab, setDraggingTab] = useState<DragTabData | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    }),
+  );
+
   // pane sizes as flex-grow values, default equal sizing
   const [paneSizes, setPaneSizes] = useState<Record<string, number>>(() => {
     const sizes: Record<string, number> = {};
@@ -63,42 +115,97 @@ export default function EditorPane({
     });
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const data = event.active.data.current;
+    if (isDragTabData(data)) setDraggingTab(data);
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setDraggingTab(null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const activeData = event.active.data.current;
+    const overData = event.over?.data.current;
+    setDraggingTab(null);
+
+    if (!isDragTabData(activeData) || !overData) return;
+
+    const targetPaneId = isDragTabData(overData)
+      ? overData.paneId
+      : isPaneDropData(overData)
+        ? overData.paneId
+        : null;
+
+    if (!targetPaneId) return;
+
+    if (targetPaneId !== activeData.paneId) {
+      onMoveTabBetweenPanes(
+        activeData.filePath,
+        activeData.paneId,
+        targetPaneId,
+      );
+      return;
+    }
+
+    if (!isDragTabData(overData)) return;
+
+    const pane = layout.panes.find((p) => p.id === activeData.paneId);
+    if (!pane || activeData.filePath === overData.filePath) return;
+
+    const oldIndex = pane.openTabs.indexOf(activeData.filePath);
+    const newIndex = pane.openTabs.indexOf(overData.filePath);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    onReorderTabs(
+      activeData.paneId,
+      arrayMove(pane.openTabs, oldIndex, newIndex),
+    );
+  };
+
   const isHorizontal = layout.splitDirection === "horizontal";
 
   return (
-    <div
-      className={`flex flex-1 overflow-hidden ${isHorizontal ? "flex-row" : "flex-col"}`}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
-      {layout.panes.map((pane, index) => (
-        <div
-          key={pane.id}
-          className="flex flex-1 overflow-hidden min-w-0 min-h-0"
-          style={{ flexGrow: paneSizes[pane.id] ?? 1 }}
-        >
-          <PaneInstance
-            pane={pane}
-            isActive={pane.id === layout.activePaneId}
-            onActivate={() => onActivatePane(pane.id)}
-            onSelectFile={(f) => onSelectFile(pane.id, f)}
-            onCloseTab={(f) => onCloseTab(pane.id, f)}
-            onReorderTabs={(tabs) => onReorderTabs(pane.id, tabs)}
-            onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}
-            onCursorChange={onCursorChange}
-            onLanguageChange={onLanguageChange}
-            onTabDropped={(filePath, sourcePaneId) =>
-              onMoveTabBetweenPanes(filePath, sourcePaneId, pane.id)
-            }
-          />
-          {index < layout.panes.length - 1 && (
-            <PaneDivider
-              direction={isHorizontal ? "horizontal" : "vertical"}
-              onResize={(delta) =>
-                handleResize(pane.id, layout.panes[index + 1].id, delta)
-              }
+      <div
+        className={`flex flex-1 overflow-hidden ${isHorizontal ? "flex-row" : "flex-col"}`}
+      >
+        {layout.panes.map((pane, index) => (
+          <div
+            key={pane.id}
+            className="flex flex-1 overflow-hidden min-w-0 min-h-0"
+            style={{ flexGrow: paneSizes[pane.id] ?? 1 }}
+          >
+            <PaneInstance
+              pane={pane}
+              isActive={pane.id === layout.activePaneId}
+              onActivate={() => onActivatePane(pane.id)}
+              onSelectFile={(f) => onSelectFile(pane.id, f)}
+              onCloseTab={(f) => onCloseTab(pane.id, f)}
+              onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}
+              onCursorChange={onCursorChange}
+              onLanguageChange={onLanguageChange}
             />
-          )}
-        </div>
-      ))}
-    </div>
+            {index < layout.panes.length - 1 && (
+              <PaneDivider
+                direction={isHorizontal ? "horizontal" : "vertical"}
+                onResize={(delta) =>
+                  handleResize(pane.id, layout.panes[index + 1].id, delta)
+                }
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <DragOverlay>
+        {draggingTab ? <GhostTab path={draggingTab.filePath} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
