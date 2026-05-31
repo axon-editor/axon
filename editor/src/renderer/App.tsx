@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import Sidebar from "./components/sidebar/index";
+import Sidebar, { addRecentFolder } from "./components/sidebar/index";
 import TabBar from "./components/TabBar";
 import EditorPane from "./components/EditorPane";
 import StatusBar from "./components/StatusBar";
-import { getTree, type FileNode } from "./lib/api";
+import { createFile, getTree, type FileNode } from "./lib/api";
 import "./App.css";
 import CommandPalette from "./components/CommandPalette";
 import Terminal from "./components/Terminal";
+import EditorToolbar from "./components/EditorToolbar";
 
 declare global {
   interface Window {
@@ -37,6 +38,25 @@ function App() {
   const [language, setLanguage] = useState("plaintext");
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
+
+  const handleFolderChange = (path: string, fileTree: FileNode) => {
+    setFolderPath(path);
+    setTree(fileTree);
+    setOpenTabs([]);
+    setActiveFile(null);
+    setDirtyFiles({});
+    window.axon.watchFolder(path);
+  };
+
+  const handleNewFile = async () => {
+    if (!folderPath) return;
+    const name = `untitled-${Date.now()}.ts`;
+    const path = `${folderPath}/${name}`;
+    await createFile(path);
+    await handleRefresh();
+    handleFileSelect(path);
+  };
 
   // starts folder watcher when a folder is opened and registers
   // the onFolderChanged listener to auto-refresh the tree
@@ -47,14 +67,8 @@ function App() {
     setLoading(true);
     try {
       const fileTree = await getTree(path);
-      setFolderPath(path);
-      setTree(fileTree);
-      setOpenTabs([]);
-      setActiveFile(null);
-      setDirtyFiles({});
-
-      // start watching the folder for external changes
-      window.axon.watchFolder(path);
+      addRecentFolder(path);
+      handleFolderChange(path, fileTree);
     } catch (err) {
       console.error("failed to load tree:", err);
     } finally {
@@ -72,10 +86,13 @@ function App() {
         e.preventDefault();
         setTerminalOpen((prev) => !prev);
       }
+      if (e.key === "Escape" && zenMode) {
+        setZenMode(false);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [zenMode]);
 
   // register folder change listener once on mount.
   // when chokidar detects any add/unlink/addDir/unlinkDir event
@@ -143,30 +160,47 @@ function App() {
 
   return (
     <div
-      className="flex flex-col h-screen w-screen overflow-hidden"
+      className="flex flex-col h-screen w-screen overflow-hidden relative"
       style={{ background: "#0e1018" }}
     >
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          tree={tree}
-          folderPath={folderPath}
-          activeFile={activeFile}
-          onFileSelect={handleFileSelect}
-          onOpenFolder={handleOpenFolder}
-          onRefresh={handleRefresh}
-          loading={loading}
-          collapsed={sidebarCollapsed}
-          onCollapsedChange={setSidebarCollapsed}
-        />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <TabBar
-            openTabs={openTabs}
+        {!zenMode && (
+          <Sidebar
+            tree={tree}
+            folderPath={folderPath}
             activeFile={activeFile}
-            dirtyFiles={dirtyFiles}
-            onSelect={setActiveFile}
-            onClose={handleCloseTab}
-            onReorder={handleReorder}
+            onFileSelect={handleFileSelect}
+            onOpenFolder={handleOpenFolder}
+            onFolderChange={handleFolderChange}
+            onRefresh={handleRefresh}
+            loading={loading}
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
           />
+        )}
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {!zenMode && (
+            <div className="flex items-center bg-[#0a0c12] border-b border-[#222838] pr-1">
+              <div className="flex-1">
+                <TabBar
+                  openTabs={openTabs}
+                  activeFile={activeFile}
+                  dirtyFiles={dirtyFiles}
+                  onSelect={setActiveFile}
+                  onClose={handleCloseTab}
+                  onReorder={handleReorder}
+                />
+              </div>
+              <EditorToolbar
+                onNewFile={handleNewFile}
+                onOpenFile={() => setPaletteOpen(true)}
+                onNewTerminal={() => setTerminalOpen(true)}
+                onSplit={(dir) => console.log("split", dir)}
+                onZenMode={() => setZenMode((p) => !p)}
+                isZenMode={zenMode}
+              />
+            </div>
+          )}
           <EditorPane
             activeFile={activeFile}
             openTabs={openTabs}
@@ -175,22 +209,24 @@ function App() {
             onLanguageChange={setLanguage}
           />
           <Terminal
-            open={terminalOpen}
+            open={terminalOpen && !zenMode}
             onClose={() => setTerminalOpen(false)}
           />
         </div>
       </div>
 
-      <StatusBar
-        activeFile={activeFile}
-        language={language}
-        cursor={cursorInfo}
-        folderName={folderPath ? (folderPath.split("/").pop() ?? null) : null}
-        sidebarCollapsed={sidebarCollapsed}
-        terminalOpen={terminalOpen}
-        onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
-        onToggleTerminal={() => setTerminalOpen((p) => !p)}
-      />
+      {!zenMode && (
+        <StatusBar
+          activeFile={activeFile}
+          language={language}
+          cursor={cursorInfo}
+          folderName={folderPath ? (folderPath.split("/").pop() ?? null) : null}
+          sidebarCollapsed={sidebarCollapsed}
+          terminalOpen={terminalOpen}
+          onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+          onToggleTerminal={() => setTerminalOpen((p) => !p)}
+        />
+      )}
 
       <CommandPalette
         tree={tree}

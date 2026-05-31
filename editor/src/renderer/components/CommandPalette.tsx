@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { type FileNode } from "../lib/api";
 import { Search } from "lucide-react";
 import { getFileIcon } from "../lib/fileIcons";
+import CommandModal from "./CommandModal";
 
 interface Props {
   tree: FileNode | null;
@@ -96,60 +97,47 @@ export default function CommandPalette({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-140 bg-[#14161e] border border-[#222838] rounded-lg shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#222838]">
-          <Search size={14} className="text-neutral-500 shrink-0" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="search files..."
-            className="flex-1 bg-transparent text-[13px] text-white placeholder-neutral-600 outline-none"
-          />
-          <span className="text-[10px] text-neutral-600 border border-[#2a2a2a] rounded px-1.5 py-0.5">
-            esc
-          </span>
-        </div>
-
-        <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
-          {filtered.length === 0 && (
-            <div className="px-4 py-3 text-[12px] text-neutral-600">
-              no files found
-            </div>
-          )}
-          {filtered.map((file, i) => {
-            const parts = file.path.split("/");
-            const name = parts.pop() ?? file.path;
-            const dir = parts.join("/");
-
-            return (
-              <div
-                key={file.path}
-                onClick={() => handleSelect(file)}
-                className={`flex items-center gap-2.5 px-4 py-2 cursor-pointer transition-colors
-                  ${
-                    i === selectedIndex
-                      ? "bg-[#1e2430] text-[#c8d0e0]"
-                      : "text-neutral-400 hover:bg-[#14161e] hover:text-white"
-                  }`}
-              >
-                {getFileIcon(name)}
-                <span className="text-[13px] truncate">{name}</span>
-                <span className="text-[11px] text-neutral-600 truncate ml-auto shrink-0 max-w-48">
-                  {dir}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+    <CommandModal onClose={onClose}>
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#222838]">
+        <Search size={14} className="text-[#586478] shrink-0" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="search files..."
+          className="flex-1 bg-transparent text-[13px] text-white placeholder-[#364050] outline-none"
+        />
+        <span className="text-[10px] text-[#364050] border border-[#222838] rounded px-1.5 py-0.5">
+          esc
+        </span>
       </div>
-    </div>
+      <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
+        {filtered.length === 0 && (
+          <div className="px-4 py-3 text-[12px] text-[#364050]">
+            no files found
+          </div>
+        )}
+        {filtered.map((file, i) => {
+          const parts = file.path.split("/");
+          const name = parts.pop() ?? file.path;
+          const dir = parts.join("/");
+          return (
+            <div
+              key={file.path}
+              onClick={() => handleSelect(file)}
+              className={`flex items-center gap-2.5 px-4 py-2 cursor-pointer transition-colors
+                    ${i === selectedIndex ? "bg-[#1e2430] text-white" : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"}`}
+            >
+              {getFileIcon(name)}
+              <span className="text-[13px] truncate">{name}</span>
+              <span className="text-[11px] text-[#364050] truncate ml-auto shrink-0 max-w-48">
+                {dir}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </CommandModal>
   );
 }

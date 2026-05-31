@@ -1,0 +1,178 @@
+// Top right toolbar with three icon buttons.
+// Plus opens a new action dropdown below the button.
+// Split opens layout options dropdown.
+// Maximize toggles zen mode.
+import { useState, useRef, useEffect } from "react";
+import {
+  Plus,
+  Columns2,
+  Maximize2,
+  Minimize2,
+  Terminal,
+  FileText,
+  FolderOpen,
+  AlignStartVertical,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignEndHorizontal,
+} from "lucide-react";
+
+interface Props {
+  onNewFile: () => void;
+  onOpenFile: () => void;
+  onNewTerminal: () => void;
+  onSplit: (direction: "right" | "left" | "up" | "down") => void;
+  onZenMode: () => void;
+  isZenMode: boolean;
+}
+
+type DropdownType = "new" | "split" | null;
+
+export default function EditorToolbar({
+  onNewFile,
+  onOpenFile,
+  onNewTerminal,
+  onSplit,
+  onZenMode,
+  isZenMode,
+}: Props) {
+  const [dropdown, setDropdown] = useState<DropdownType>(null);
+  const newRef = useRef<HTMLDivElement>(null);
+  const splitRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        newRef.current &&
+        !newRef.current.contains(e.target as Node) &&
+        splitRef.current &&
+        !splitRef.current.contains(e.target as Node)
+      ) {
+        setDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (type: DropdownType) => {
+    setDropdown((prev) => (prev === type ? null : type));
+  };
+
+  return (
+    <div className="flex items-center gap-0.5 px-2">
+      {/* new action button */}
+      <div ref={newRef} className="relative">
+        <button
+          onClick={() => toggle("new")}
+          className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+            ${dropdown === "new" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+          title="New..."
+        >
+          <Plus size={14} />
+        </button>
+
+        {dropdown === "new" && (
+          <div className="absolute right-0 top-8 w-48 bg-[#14161e] border border-[#222838] rounded-lg shadow-2xl py-1 z-50">
+            <button
+              onClick={() => {
+                onNewFile();
+                setDropdown(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            >
+              <FileText size={13} className="shrink-0" />
+              new file
+            </button>
+            <button
+              onClick={() => {
+                onOpenFile();
+                setDropdown(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            >
+              <FolderOpen size={13} className="shrink-0" />
+              open file
+            </button>
+            <div className="my-1 border-t border-[#222838]" />
+            <button
+              onClick={() => {
+                onNewTerminal();
+                setDropdown(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            >
+              <Terminal size={13} className="shrink-0" />
+              new terminal
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div ref={splitRef} className="relative">
+        <button
+          onClick={() => toggle("split")}
+          className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+            ${dropdown === "split" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+          title="Split editor"
+        >
+          <Columns2 size={14} />
+        </button>
+
+        {dropdown === "split" && (
+          <div className="absolute right-0 top-8 w-48 bg-[#14161e] border border-[#222838] rounded-lg shadow-2xl py-1 z-50">
+            <button
+              onClick={() => {
+                onSplit("right");
+                setDropdown(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            >
+              <AlignEndVertical size={13} className="shrink-0" />
+              split right
+            </button>
+            <button
+              onClick={() => {
+                onSplit("left");
+                setDropdown(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            >
+              <AlignStartVertical size={13} className="shrink-0" />
+              split left
+            </button>
+            <button
+              onClick={() => {
+                onSplit("up");
+                setDropdown(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            >
+              <AlignStartHorizontal size={13} className="shrink-0" />
+              split up
+            </button>
+            <button
+              onClick={() => {
+                onSplit("down");
+                setDropdown(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            >
+              <AlignEndHorizontal size={13} className="shrink-0" />
+              split down
+            </button>
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={onZenMode}
+        className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+          ${isZenMode ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+        title={isZenMode ? "Exit zen mode" : "Zen mode"}
+      >
+        {isZenMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+      </button>
+    </div>
+  );
+}

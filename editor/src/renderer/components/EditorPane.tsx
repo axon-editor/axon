@@ -238,7 +238,7 @@ function SingleEditor({
           lineNumbers: "on",
           renderLineHighlight: "line",
           padding: { top: 16 },
-          cursorBlinking: "smooth",
+          cursorBlinking: "expand",
           smoothScrolling: true,
         }}
       />

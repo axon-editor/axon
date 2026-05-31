@@ -1,12 +1,33 @@
 // Collapsible file explorer sidebar.
-// Composes FileTreeNode for the tree and ContextMenu for right click actions.
-// Handles file move via drag and drop by calling the Go backend move endpoint
-// and refreshing the tree on success.
+// Shows folder children directly without the root node.
+// Folder name header is clickable and opens the FolderPicker modal.
+// Recent folders persisted in localStorage under axon:recentFolders.
 import { useState } from "react";
-import { FolderPlus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { type FileNode, moveEntry } from "../../lib/api";
+import { PanelLeftClose, PanelLeftOpen, ChevronDown } from "lucide-react";
+import { type FileNode, moveEntry, getTree } from "../../lib/api";
 import FileTreeNode from "./FileTreeNode";
 import ContextMenu from "./ContextMenu";
+import FolderPicker from "./FolderPicker";
+
+const RECENT_KEY = "axon:recentFolders";
+const MAX_RECENT = 10;
+
+export function addRecentFolder(path: string) {
+  const existing = getRecentFolders();
+  const updated = [path, ...existing.filter((p) => p !== path)].slice(
+    0,
+    MAX_RECENT,
+  );
+  localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+}
+
+export function getRecentFolders(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
 
 interface Props {
   tree: FileNode | null;
@@ -14,6 +35,7 @@ interface Props {
   activeFile: string | null;
   onFileSelect: (path: string) => void;
   onOpenFolder: () => void;
+  onFolderChange: (path: string, tree: FileNode) => void;
   onRefresh: () => void;
   loading: boolean;
   collapsed: boolean;
@@ -32,12 +54,14 @@ export default function Sidebar({
   activeFile,
   onFileSelect,
   onOpenFolder,
+  onFolderChange,
   onRefresh,
   loading,
   collapsed,
   onCollapsedChange,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
     e.preventDefault();
@@ -45,7 +69,6 @@ export default function Sidebar({
     setContextMenu({ x: e.clientX, y: e.clientY, node });
   };
 
-  // move a file or folder to a new directory then refresh the tree
   const handleMove = async (sourcePath: string, targetDir: string) => {
     try {
       await moveEntry(sourcePath, targetDir);
@@ -55,37 +78,48 @@ export default function Sidebar({
     }
   };
 
+  // open a recent folder directly without the native dialog
+  const handleSelectRecent = async (path: string) => {
+    try {
+      const fileTree = await getTree(path);
+      addRecentFolder(path);
+      onFolderChange(path, fileTree);
+    } catch (err) {
+      console.error("failed to open recent folder:", err);
+    }
+  };
+
+  const folderName = folderPath ? folderPath.split("/").pop() : null;
+
   return (
     <>
       <div className="flex h-full">
         {!collapsed && (
           <div className="w-52 bg-[#0a0c12] border-r border-[#222838] flex flex-col overflow-hidden">
             <div
-              className="flex items-center justify-between px-3 py-2 border-b border-[#222838] pt-8"
+              className="flex items-center justify-between px-3 border-b border-[#222838] pt-8 pb-2"
               style={{ WebkitAppRegion: "drag" } as any}
             >
-              <span className="text-[10px] text-[#586478] uppercase tracking-widest truncate">
-                {folderPath ? folderPath.split("/").pop() : "Explorer"}
-              </span>
-              <div
-                className="flex items-center gap-2 shrink-0"
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="flex items-center gap-1 text-[11px] text-[#9aa4b8] hover:text-[#80c8e0] transition-colors cursor-pointer truncate max-w-[140px]"
                 style={{ WebkitAppRegion: "no-drag" } as any}
+                title="Switch folder"
               >
-                <button
-                  onClick={onOpenFolder}
-                  className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer flex items-center justify-center"
-                  title="Open folder"
-                >
-                  <FolderPlus size={13} />
-                </button>
-                <button
-                  onClick={() => onCollapsedChange(true)}
-                  className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer flex items-center justify-center"
-                  title="Collapse sidebar"
-                >
-                  <PanelLeftClose size={13} />
-                </button>
-              </div>
+                <span className="truncate font-medium">
+                  {folderName ?? "open folder"}
+                </span>
+                <ChevronDown size={11} className="shrink-0" />
+              </button>
+
+              <button
+                onClick={() => onCollapsedChange(true)}
+                className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                style={{ WebkitAppRegion: "no-drag" } as any}
+                title="Collapse sidebar"
+              >
+                <PanelLeftClose size={13} />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto py-1">
@@ -96,21 +130,24 @@ export default function Sidebar({
               )}
               {!loading && !tree && (
                 <div
-                  onClick={onOpenFolder}
+                  onClick={() => setPickerOpen(true)}
                   className="px-4 py-3 text-[12px] text-[#364050] hover:text-[#586478] cursor-pointer transition-colors"
                 >
                   open a folder to start
                 </div>
               )}
-              {!loading && tree && (
-                <FileTreeNode
-                  node={tree}
-                  activeFile={activeFile}
-                  onFileSelect={onFileSelect}
-                  onContextMenu={handleContextMenu}
-                  onMove={handleMove}
-                />
-              )}
+              {!loading &&
+                tree &&
+                tree.children?.map((child) => (
+                  <FileTreeNode
+                    key={child.path}
+                    node={child}
+                    activeFile={activeFile}
+                    onFileSelect={onFileSelect}
+                    onContextMenu={handleContextMenu}
+                    onMove={handleMove}
+                  />
+                ))}
             </div>
           </div>
         )}
@@ -133,6 +170,18 @@ export default function Sidebar({
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
           onRefresh={onRefresh}
+        />
+      )}
+
+      {pickerOpen && (
+        <FolderPicker
+          recentFolders={getRecentFolders()}
+          onSelect={handleSelectRecent}
+          onOpenNew={() => {
+            onOpenFolder();
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
         />
       )}
     </>
