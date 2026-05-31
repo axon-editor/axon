@@ -251,7 +251,7 @@ function App() {
               setLayout((prev) => ({ ...prev, activePaneId: id }))
             }
             onSelectFile={(paneId, f) =>
-              setLayout((prev) => setActivePaneFile(prev, paneId, f))
+              setLayout((prev) => openFileInPane(prev, paneId, f))
             }
             onCloseTab={(paneId, f) =>
               setLayout((prev) => closeTabInPane(prev, paneId, f))

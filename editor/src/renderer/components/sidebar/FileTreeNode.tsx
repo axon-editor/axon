@@ -5,6 +5,10 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { type FileNode } from "../../lib/api";
+import {
+  encodeFileTreeDragPayload,
+  FILE_TREE_DRAG_TYPE,
+} from "../../lib/dragData";
 import { getFileIcon, getFolderIcon } from "../../lib/fileIcons";
 
 interface Props {
@@ -56,7 +60,14 @@ export default function FileTreeNode({
   const handleDragStart = (e: React.DragEvent) => {
     e.stopPropagation();
     e.dataTransfer.setData("text/plain", node.path);
-    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(
+      FILE_TREE_DRAG_TYPE,
+      encodeFileTreeDragPayload({
+        path: node.path,
+        isDir: node.is_dir,
+      }),
+    );
+    e.dataTransfer.effectAllowed = "copyMove";
   };
 
   const handleDragEnter = (e: React.DragEvent) => {

@@ -106,6 +106,7 @@ export function openFileInPane(
 ): Layout {
   return {
     ...layout,
+    activePaneId: paneId,
     panes: layout.panes.map((p) => {
       if (p.id !== paneId) return p;
       const openTabs = p.openTabs.includes(filePath)
