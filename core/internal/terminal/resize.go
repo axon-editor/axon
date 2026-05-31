@@ -18,15 +18,19 @@ type resizeMessage struct {
 }
 
 // handleResize parses a resize message and updates the PTY window size.
-// Called when the frontend sends a JSON resize event instead of raw input.
-func handleResize(ptmx *os.File, data []byte) {
+// It returns true only when the payload was an Axon resize command.
+//
+// The websocket carries both terminal keystrokes and control messages. A user
+// can type a literal "{" in the shell, so callers must not treat every JSON-
+// looking payload as control data. Returning false lets non-resize input fall
+// through to the PTY instead of being silently swallowed.
+func handleResize(ptmx *os.File, data []byte) bool {
 	var msg resizeMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
-		log.Println("resize parse error:", err)
-		return
+		return false
 	}
 	if msg.Type != "resize" {
-		return
+		return false
 	}
 	if err := pty.Setsize(ptmx, &pty.Winsize{
 		Cols: msg.Cols,
@@ -34,4 +38,5 @@ func handleResize(ptmx *os.File, data []byte) {
 	}); err != nil {
 		log.Println("pty resize error:", err)
 	}
+	return true
 }

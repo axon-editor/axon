@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
@@ -19,6 +20,36 @@ import (
 // CheckOrigin allows all origins since axon-core only runs locally.
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+// resolveWorkingDirectory decides where a new terminal session should start.
+// The renderer sends the currently opened Axon folder as cwd, which is the
+// most accurate source because it matches what the user is editing.
+//
+// During local development the Go server is often launched from core/, so the
+// fallback walks one level up when that directory shape is detected. Without
+// this fallback, opening Axon from the repo root still drops shells into core/,
+// which makes the terminal feel detached from the project.
+func resolveWorkingDirectory(requested string) string {
+	if requested != "" {
+		if info, err := os.Stat(requested); err == nil && info.IsDir() {
+			return filepath.Clean(requested)
+		}
+	}
+
+	current, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	if filepath.Base(current) == "core" {
+		parent := filepath.Dir(current)
+		if info, err := os.Stat(parent); err == nil && info.IsDir() {
+			return parent
+		}
+	}
+
+	return current
 }
 
 // Handler upgrades the HTTP connection to WebSocket and spawns a shell.
@@ -42,6 +73,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	cmd := exec.Command(shell)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+	cmd.Dir = resolveWorkingDirectory(r.URL.Query().Get("cwd"))
 
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
@@ -80,9 +112,11 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// resize message comes as JSON, raw keystrokes go straight to PTY
-		if len(data) > 0 && data[0] == '{' {
-			handleResize(ptmx, data)
+		// Resize commands share this websocket with raw shell input. We only
+		// consume the payload when it is actually an Axon resize message;
+		// otherwise characters such as "{" must still reach the shell exactly
+		// as the user typed them.
+		if len(data) > 0 && data[0] == '{' && handleResize(ptmx, data) {
 			continue
 		}
 

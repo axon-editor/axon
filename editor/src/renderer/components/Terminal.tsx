@@ -1,173 +1,604 @@
-// Renders an xterm.js terminal connected to the Go PTY backend via WebSocket.
-// The terminal panel slides up from the bottom and can be toggled open/closed.
-// FitAddon resizes the terminal to fill its container and sends resize
-// messages to the PTY backend so the shell always knows the correct dimensions.
-import { useEffect, useRef, useState } from "react";
-import { Terminal as XTerm } from "@xterm/xterm";
+// Renders the bottom terminal panel and keeps terminal sessions independent
+// from panel visibility. Hiding the panel should behave like minimizing it:
+// shells keep running, scrollback stays in place, and only an explicit tab
+// close tears down the websocket and PTY session.
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { X } from "lucide-react";
+import {
+  Maximize2,
+  Minimize2,
+  Minus,
+  Plus,
+  SquareTerminal,
+  X,
+} from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
+import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
 import Tooltip from "./Tooltip";
 
 interface Props {
   open: boolean;
-  onClose: () => void;
+  createNonce: number;
+  editorSettings: EditorSettings;
+  workingDirectory: string | null;
+  onHide: () => void;
 }
 
-export default function Terminal({ open, onClose }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<XTerm | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const [connected, setConnected] = useState(false);
+interface TerminalTab {
+  id: string;
+  title: string;
+  connected: boolean;
+}
+
+interface TerminalSession {
+  container: HTMLDivElement | null;
+  term: XTerm | null;
+  fitAddon: FitAddon | null;
+  ws: WebSocket | null;
+  resizeObserver: ResizeObserver | null;
+  dataDisposable: { dispose: () => void } | null;
+  workingDirectory: string | null;
+  cwdSynced: boolean;
+}
+
+const TERMINAL_BACKEND_URL = "ws://localhost:7777/terminal";
+const DEFAULT_TERMINAL_HEIGHT = 280;
+const MIN_TERMINAL_HEIGHT = 180;
+
+const terminalThemes: Record<BuiltInThemeId, ITheme> = {
+  "axon-dark": {
+    background: "#0e1018",
+    foreground: "#c8d0e0",
+    cursor: "#80c8e0",
+    cursorAccent: "#0e1018",
+    selectionBackground: "#1e243080",
+    black: "#0a0c12",
+    brightBlack: "#364050",
+    red: "#d0909c",
+    brightRed: "#d0909c",
+    green: "#90c8a0",
+    brightGreen: "#90c8a0",
+    yellow: "#d4b878",
+    brightYellow: "#d4b878",
+    blue: "#b0a0d8",
+    brightBlue: "#b0a0d8",
+    magenta: "#d0a888",
+    brightMagenta: "#d0a888",
+    cyan: "#80c8e0",
+    brightCyan: "#80c8e0",
+    white: "#c8d0e0",
+    brightWhite: "#dce4f0",
+  },
+  sora: {
+    background: "#10131a",
+    foreground: "#d4dae7",
+    cursor: "#7cc7d8",
+    cursorAccent: "#10131a",
+    selectionBackground: "#28304488",
+    black: "#0a0d12",
+    brightBlack: "#4b5565",
+    red: "#f08c92",
+    brightRed: "#ffadb1",
+    green: "#8bd49c",
+    brightGreen: "#a6e3b4",
+    yellow: "#e5c07b",
+    brightYellow: "#f2d69b",
+    blue: "#8fb7ff",
+    brightBlue: "#abc8ff",
+    magenta: "#d7a3ff",
+    brightMagenta: "#e4bdff",
+    cyan: "#7cc7d8",
+    brightCyan: "#9ee0ec",
+    white: "#d4dae7",
+    brightWhite: "#f0f4fb",
+  },
+  "catppuccin-mocha": {
+    background: "#1e1e2e",
+    foreground: "#cdd6f4",
+    cursor: "#f5e0dc",
+    cursorAccent: "#1e1e2e",
+    selectionBackground: "#585b7088",
+    black: "#11111b",
+    brightBlack: "#585b70",
+    red: "#f38ba8",
+    brightRed: "#f38ba8",
+    green: "#a6e3a1",
+    brightGreen: "#a6e3a1",
+    yellow: "#f9e2af",
+    brightYellow: "#f9e2af",
+    blue: "#89b4fa",
+    brightBlue: "#89b4fa",
+    magenta: "#cba6f7",
+    brightMagenta: "#cba6f7",
+    cyan: "#94e2d5",
+    brightCyan: "#94e2d5",
+    white: "#cdd6f4",
+    brightWhite: "#f5e0dc",
+  },
+  "tokyo-night": {
+    background: "#1a1b26",
+    foreground: "#c0caf5",
+    cursor: "#c0caf5",
+    cursorAccent: "#1a1b26",
+    selectionBackground: "#33467c88",
+    black: "#15161e",
+    brightBlack: "#414868",
+    red: "#f7768e",
+    brightRed: "#f7768e",
+    green: "#9ece6a",
+    brightGreen: "#9ece6a",
+    yellow: "#e0af68",
+    brightYellow: "#e0af68",
+    blue: "#7aa2f7",
+    brightBlue: "#7aa2f7",
+    magenta: "#bb9af7",
+    brightMagenta: "#bb9af7",
+    cyan: "#7dcfff",
+    brightCyan: "#7dcfff",
+    white: "#c0caf5",
+    brightWhite: "#ffffff",
+  },
+};
+
+function createTerminalId() {
+  return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getFolderName(path: string | null) {
+  if (!path) return "terminal";
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? "terminal";
+}
+
+function getTerminalBackendUrl(workingDirectory: string | null) {
+  if (!workingDirectory) return TERMINAL_BACKEND_URL;
+  return `${TERMINAL_BACKEND_URL}?cwd=${encodeURIComponent(workingDirectory)}`;
+}
+
+function quoteShellPath(path: string) {
+  return `'${path.replaceAll("'", "'\\''")}'`;
+}
+
+function sendWorkspaceCd(session: TerminalSession) {
+  if (!session.workingDirectory || !session.ws) return;
+  if (session.ws.readyState !== WebSocket.OPEN) return;
+
+  // The backend receives cwd in the websocket URL, but this renderer fallback
+  // covers a running dev backend that has not been restarted yet. Chaining
+  // clear after cd removes the echoed startup command and first wrong prompt,
+  // so the terminal opens on a clean prompt in the workspace folder.
+  session.ws.send(`cd -- ${quoteShellPath(session.workingDirectory)} && clear\r`);
+  session.cwdSynced = true;
+}
+
+function getTerminalOptions(editorSettings: EditorSettings) {
+  return {
+    theme: terminalThemes[editorSettings.themeId],
+    fontFamily: `'${editorSettings.fontFamily}', monospace`,
+    fontSize: Math.max(10, editorSettings.fontSize - 1),
+    lineHeight: Math.max(
+      1,
+      editorSettings.lineHeight / editorSettings.fontSize,
+    ),
+  };
+}
+
+export default function Terminal({
+  open,
+  createNonce,
+  editorSettings,
+  workingDirectory,
+  onHide,
+}: Props) {
+  const [tabs, setTabs] = useState<TerminalTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [height, setHeight] = useState(DEFAULT_TERMINAL_HEIGHT);
+  const [zoomed, setZoomed] = useState(false);
+  const sessionsRef = useRef<Record<string, TerminalSession>>({});
+  const lastCreateNonceRef = useRef(createNonce);
+  const suppressAutoCreateRef = useRef(false);
+  const previousOpenRef = useRef(open);
+  const previousWorkingDirectoryRef = useRef(workingDirectory);
+  const terminalTitle = useMemo(
+    () => getFolderName(workingDirectory),
+    [workingDirectory],
+  );
+  const terminalOptions = useMemo(
+    () => getTerminalOptions(editorSettings),
+    [editorSettings],
+  );
+
+  const sendResize = useCallback((id: string) => {
+    const session = sessionsRef.current[id];
+    if (!session?.fitAddon || !session.ws) return;
+
+    session.fitAddon.fit();
+    const dims = session.fitAddon.proposeDimensions();
+    if (dims && session.ws.readyState === WebSocket.OPEN) {
+      session.ws.send(
+        JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }),
+      );
+    }
+  }, []);
+
+  const updateTabConnection = useCallback((id: string, connected: boolean) => {
+    setTabs((currentTabs) =>
+      currentTabs.map((tab) => (tab.id === id ? { ...tab, connected } : tab)),
+    );
+  }, []);
+
+  const resizeActiveTerminal = useCallback(() => {
+    if (!activeTabId) return;
+    window.requestAnimationFrame(() => sendResize(activeTabId));
+  }, [activeTabId, sendResize]);
+
+  const disposeSession = useCallback((id: string) => {
+    const session = sessionsRef.current[id];
+
+    session?.resizeObserver?.disconnect();
+    session?.dataDisposable?.dispose();
+    if (session?.ws) {
+      session.ws.onopen = null;
+      session.ws.onmessage = null;
+      session.ws.onclose = null;
+      session.ws.onerror = null;
+      session.ws.close();
+    }
+    session?.term?.dispose();
+    delete sessionsRef.current[id];
+  }, []);
+
+  const disposeAllSessions = useCallback(() => {
+    for (const id of Object.keys(sessionsRef.current)) {
+      disposeSession(id);
+    }
+  }, [disposeSession]);
+
+  const createTab = useCallback(() => {
+    const id = createTerminalId();
+    suppressAutoCreateRef.current = false;
+
+    setTabs((currentTabs) => [
+      ...currentTabs,
+      {
+        id,
+        title: terminalTitle,
+        connected: false,
+      },
+    ]);
+    setActiveTabId(id);
+    sessionsRef.current[id] = {
+      container: null,
+      term: null,
+      fitAddon: null,
+      ws: null,
+      resizeObserver: null,
+      dataDisposable: null,
+      workingDirectory,
+      cwdSynced: false,
+    };
+  }, [terminalTitle, workingDirectory]);
+
+  const closeTab = useCallback(
+    (id: string) => {
+      // Closing a tab is the only path that intentionally destroys a PTY.
+      // The hide button leaves this cleanup path alone so long-running tasks
+      // keep their state when the terminal panel is brought back.
+      disposeSession(id);
+
+      setTabs((currentTabs) => {
+        const nextTabs = currentTabs.filter((tab) => tab.id !== id);
+
+        if (nextTabs.length === 0) {
+          suppressAutoCreateRef.current = true;
+          setActiveTabId(null);
+          setZoomed(false);
+          onHide();
+          return nextTabs;
+        }
+
+        setActiveTabId((currentActiveId) => {
+          if (currentActiveId !== id) return currentActiveId;
+          return nextTabs[nextTabs.length - 1]?.id ?? null;
+        });
+        return nextTabs;
+      });
+    },
+    [disposeSession, onHide],
+  );
+
+  const handleHide = useCallback(() => {
+    setZoomed(false);
+    onHide();
+  }, [onHide]);
+
+  const handleZoomToggle = useCallback(() => {
+    setZoomed((currentZoomed) => !currentZoomed);
+  }, []);
+
+  const handleResizeStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (zoomed) return;
+
+      const startY = event.clientY;
+      const startHeight = height;
+      const maxHeight = Math.max(
+        MIN_TERMINAL_HEIGHT,
+        Math.floor(window.innerHeight * 0.78),
+      );
+
+      event.currentTarget.setPointerCapture(event.pointerId);
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        const nextHeight = startHeight + startY - moveEvent.clientY;
+        setHeight(Math.min(maxHeight, Math.max(MIN_TERMINAL_HEIGHT, nextHeight)));
+      };
+
+      const handlePointerUp = () => {
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+      };
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
+    },
+    [height, zoomed],
+  );
+
+  const attachContainer = useCallback(
+    (id: string, container: HTMLDivElement | null) => {
+      const session = sessionsRef.current[id];
+      if (!session) return;
+
+      session.container = container;
+      if (!container || session.term) return;
+
+      const term = new XTerm({
+        ...terminalOptions,
+        cursorBlink: true,
+        cursorStyle: "block",
+        scrollback: 4000,
+      });
+      const fitAddon = new FitAddon();
+      const webLinksAddon = new WebLinksAddon();
+
+      term.loadAddon(fitAddon);
+      term.loadAddon(webLinksAddon);
+      term.open(container);
+      fitAddon.fit();
+
+      const ws = new WebSocket(
+        getTerminalBackendUrl(session.workingDirectory),
+      );
+
+      session.term = term;
+      session.fitAddon = fitAddon;
+      session.ws = ws;
+
+      ws.onopen = () => {
+        updateTabConnection(id, true);
+        sendResize(id);
+        sendWorkspaceCd(session);
+      };
+
+      ws.onmessage = (event) => term.write(event.data);
+
+      ws.onclose = () => {
+        updateTabConnection(id, false);
+        term.write("\r\n\x1b[31mconnection closed\x1b[0m\r\n");
+      };
+
+      ws.onerror = () => {
+        term.write(
+          "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
+        );
+      };
+
+      // xterm's onData stream is the keyboard side of the PTY. Keeping one
+      // websocket per tab lets every terminal have its own shell process,
+      // which is why a new tab does not overwrite or steal another tab's work.
+      session.dataDisposable = term.onData((data) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(data);
+        }
+      });
+
+      // Resize messages are sent only after fitting xterm to the visible
+      // container. Without this, shells can render with stale dimensions after
+      // toggling the panel, switching tabs, or dragging the window size.
+      session.resizeObserver = new ResizeObserver(() => sendResize(id));
+      session.resizeObserver.observe(container);
+    },
+    [sendResize, terminalOptions, updateTabConnection],
+  );
 
   useEffect(() => {
-    if (!open || !containerRef.current) return;
-    if (xtermRef.current) return;
+    if (previousWorkingDirectoryRef.current === workingDirectory) return;
+    previousWorkingDirectoryRef.current = workingDirectory;
 
-    const term = new XTerm({
-      theme: {
-        background: "#0e1018",
-        foreground: "#c8d0e0",
-        cursor: "#80c8e0",
-        cursorAccent: "#0e1018",
-        selectionBackground: "#1e243080",
-        black: "#0a0c12",
-        brightBlack: "#364050",
-        red: "#d0909c",
-        brightRed: "#d0909c",
-        green: "#90c8a0",
-        brightGreen: "#90c8a0",
-        yellow: "#d4b878",
-        brightYellow: "#d4b878",
-        blue: "#b0a0d8",
-        brightBlue: "#b0a0d8",
-        magenta: "#d0a888",
-        brightMagenta: "#d0a888",
-        cyan: "#80c8e0",
-        brightCyan: "#80c8e0",
-        white: "#c8d0e0",
-        brightWhite: "#dce4f0",
-      },
-      fontFamily: "'Fira Code', monospace",
-      fontSize: 13,
-      lineHeight: 1.4,
-      cursorBlink: true,
-      cursorStyle: "block",
-      scrollback: 1000,
-    });
-
-    const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
-
-    term.loadAddon(fitAddon);
-    term.loadAddon(webLinksAddon);
-    term.open(containerRef.current);
-    fitAddon.fit();
-
-    xtermRef.current = term;
-    fitAddonRef.current = fitAddon;
-
-    // connect to the Go PTY backend via WebSocket
-    const ws = new WebSocket("ws://localhost:7777/terminal");
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setConnected(true);
-
-      // send initial size so the shell starts with correct dimensions
-      const dims = fitAddon.proposeDimensions();
-      if (dims) {
-        ws.send(
-          JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }),
-        );
-      }
-    };
-
-    ws.onmessage = (e) => {
-      term.write(e.data);
-    };
-
-    ws.onclose = () => {
-      setConnected(false);
-      term.write("\r\n\x1b[31mconnection closed\x1b[0m\r\n");
-    };
-
-    ws.onerror = () => {
-      term.write(
-        "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
-      );
-    };
-
-    // send keystrokes to the PTY via WebSocket
-    term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
-      }
-    });
-
-    // observe container size changes and resize both xterm and PTY
-    const resizeObserver = new ResizeObserver(() => {
-      if (!fitAddonRef.current || !wsRef.current) return;
-      fitAddonRef.current.fit();
-      const dims = fitAddonRef.current.proposeDimensions();
-      if (dims && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }),
-        );
-      }
-    });
-
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
+    // A terminal session belongs to the project that created it. When the user
+    // opens another folder, we tear down the old PTYs instead of silently
+    // changing their cwd, because running shell jobs and environment state
+    // should not leak across projects.
+    if (tabs.length > 0) {
+      disposeAllSessions();
+      setTabs([]);
+      setActiveTabId(null);
+      setZoomed(false);
+      suppressAutoCreateRef.current = true;
+      onHide();
     }
+  }, [disposeAllSessions, onHide, tabs.length, workingDirectory]);
 
-    return () => {
-      resizeObserver.disconnect();
-    };
+  useEffect(() => {
+    if (open && !previousOpenRef.current) {
+      suppressAutoCreateRef.current = false;
+    }
+    previousOpenRef.current = open;
   }, [open]);
 
-  // cleanup xterm and WebSocket when terminal is closed
-  const handleClose = () => {
-    wsRef.current?.close();
-    wsRef.current = null;
-    xtermRef.current?.dispose();
-    xtermRef.current = null;
-    fitAddonRef.current = null;
-    setConnected(false);
-    onClose();
-  };
+  useEffect(() => {
+    if (!open || tabs.length > 0) return;
+    if (suppressAutoCreateRef.current) return;
+    if (createNonce !== lastCreateNonceRef.current) return;
+    createTab();
+  }, [createNonce, createTab, open, tabs.length]);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (createNonce === lastCreateNonceRef.current) return;
+    if (!open) return;
+    lastCreateNonceRef.current = createNonce;
+    createTab();
+  }, [createNonce, createTab, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    resizeActiveTerminal();
+  }, [activeTabId, height, open, resizeActiveTerminal, zoomed]);
+
+  useEffect(() => {
+    for (const id of Object.keys(sessionsRef.current)) {
+      const session = sessionsRef.current[id];
+      if (!session.term) continue;
+
+      session.term.options.theme = terminalOptions.theme;
+      session.term.options.fontFamily = terminalOptions.fontFamily;
+      session.term.options.fontSize = terminalOptions.fontSize;
+      session.term.options.lineHeight = terminalOptions.lineHeight;
+      sendResize(id);
+    }
+  }, [sendResize, terminalOptions]);
+
+  useEffect(() => {
+    return () => {
+      for (const id of Object.keys(sessionsRef.current)) {
+        disposeSession(id);
+      }
+      sessionsRef.current = {};
+    };
+  }, [disposeSession]);
+
+  if (!open && tabs.length === 0) return null;
 
   return (
     <div
-      className="flex flex-col border-t border-[#1f1f1f] bg-[#0f0f0f]"
-      style={{ height: "280px" }}
+      className={`${open ? "flex" : "hidden"} ${
+        zoomed
+          ? "absolute inset-0 z-30"
+          : "relative z-10 shrink-0 border-t border-[#202533]"
+      } flex-col`}
+      style={{
+        height: zoomed ? "100%" : `${height}px`,
+        background: terminalOptions.theme.background,
+        color: terminalOptions.theme.foreground,
+      }}
     >
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1f1f1f] shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-neutral-400 font-medium">
-            Terminal
-          </span>
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-neutral-600"}`}
-          />
+      <div
+        onPointerDown={handleResizeStart}
+        className={`absolute left-0 right-0 top-0 h-1 ${
+          zoomed
+            ? "cursor-default"
+            : "cursor-row-resize hover:bg-[#80c8e0]/60"
+        }`}
+        aria-hidden="true"
+      />
+      <div className="flex items-center justify-between border-b border-[#202533] pl-3 pr-3 shrink-0">
+        <div className="flex min-w-0 flex-1 items-stretch gap-3 overflow-hidden">
+          <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[#647086]">
+            <SquareTerminal size={13} />
+            <span>{terminalTitle}</span>
+          </div>
+          <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-hidden">
+            {tabs.map((tab) => (
+              <div
+                key={tab.id}
+                className={`group flex h-8 min-w-0 max-w-40 items-center gap-1 border-b px-2 text-[11px] transition-colors ${
+                  tab.id === activeTabId
+                    ? "border-[#80c8e0] text-white"
+                    : "border-transparent text-[#7b8496] hover:bg-[#151923] hover:text-neutral-100"
+                }`}
+              >
+                <button
+                  onClick={() => setActiveTabId(tab.id)}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+                  aria-label={`Activate ${tab.title}`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                      tab.connected ? "bg-green-500" : "bg-neutral-600"
+                    }`}
+                  />
+                  <span className="truncate">{tab.title}</span>
+                </button>
+                <button
+                  aria-label={`Close ${tab.title}`}
+                  onClick={() => closeTab(tab.id)}
+                  className="cursor-pointer rounded p-0.5 text-neutral-500 opacity-0 transition-colors hover:bg-[#262b38] hover:text-white group-hover:opacity-100"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+            <Tooltip label="New terminal tab" side="top">
+              <button
+                onClick={createTab}
+                aria-label="New terminal tab"
+                className="my-1 cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
+              >
+                <Plus size={13} />
+              </button>
+            </Tooltip>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Tooltip label="Close terminal" side="top">
+
+        <div className="ml-2 flex shrink-0 items-center gap-1">
+          <Tooltip
+            label={zoomed ? "Restore terminal" : "Zoom terminal"}
+            side="top"
+          >
             <button
-              onClick={handleClose}
-              aria-label="Close terminal"
-              className="text-neutral-500 hover:text-white transition-colors cursor-pointer p-1"
+              onClick={handleZoomToggle}
+              aria-label={zoomed ? "Restore terminal" : "Zoom terminal"}
+              className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
             >
-              <X size={12} />
+              {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            </button>
+          </Tooltip>
+          <Tooltip label="Hide terminal" side="top">
+            <button
+              onClick={handleHide}
+              aria-label="Hide terminal"
+              className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
+            >
+              <Minus size={13} />
             </button>
           </Tooltip>
         </div>
       </div>
-      <div ref={containerRef} className="flex-1 overflow-hidden px-2 py-1" />
+
+      <div className="relative flex-1 overflow-hidden px-2 py-1">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            ref={(node) => attachContainer(tab.id, node)}
+            className={`h-full w-full overflow-hidden ${
+              tab.id === activeTabId ? "block" : "hidden"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

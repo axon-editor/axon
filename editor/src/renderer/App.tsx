@@ -52,6 +52,7 @@ function App() {
   const [cursorInfo, setCursorInfo] = useState({ line: 1, col: 1 });
   const [language, setLanguage] = useState("plaintext");
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [terminalCreateNonce, setTerminalCreateNonce] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
@@ -118,6 +119,13 @@ function App() {
     setFolderPath(path);
     setTree(fileTree);
     setLayout(createInitialLayout());
+
+    // Opening another project should reset project-scoped UI. The editor
+    // layout already resets above; the terminal panel is also hidden so old
+    // shell sessions do not appear to belong to the newly selected folder.
+    setTerminalOpen(false);
+
+    void window.axon.unwatchFolder();
     window.axon.watchFolder(path);
   };
 
@@ -164,6 +172,11 @@ function App() {
     }
   };
 
+  const handleNewTerminal = () => {
+    setTerminalOpen(true);
+    setTerminalCreateNonce((nonce) => nonce + 1);
+  };
+
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden relative"
@@ -208,7 +221,7 @@ function App() {
           />
         )}
 
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="relative flex flex-col flex-1 overflow-hidden">
           {!zenMode && (
             <div className="flex items-center bg-[#0a0c12] border-b border-[#222838] pr-1">
               <div className="flex-1 overflow-hidden">
@@ -236,7 +249,7 @@ function App() {
               <EditorToolbar
                 onNewFile={handleNewFile}
                 onOpenFile={() => setPaletteOpen(true)}
-                onNewTerminal={() => setTerminalOpen(true)}
+                onNewTerminal={handleNewTerminal}
                 onSplit={handleSplit}
                 onZenMode={() => setZenMode((p) => !p)}
                 onSettings={() => setSettingsOpen(true)}
@@ -272,7 +285,10 @@ function App() {
 
           <Terminal
             open={terminalOpen && !zenMode}
-            onClose={() => setTerminalOpen(false)}
+            createNonce={terminalCreateNonce}
+            editorSettings={settings.editor}
+            workingDirectory={folderPath}
+            onHide={() => setTerminalOpen(false)}
           />
         </div>
       </div>
