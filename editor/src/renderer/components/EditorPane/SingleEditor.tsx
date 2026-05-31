@@ -9,7 +9,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Columns2, FileText, Eye } from "lucide-react";
 import { readFile, writeFile } from "../../lib/api";
-import { registerSoraTheme } from "../../lib/soraTheme";
+import { AXON_MONACO_THEME, registerAxonTheme } from "../../lib/soraTheme";
 import {
   updateModel,
   releaseModel,
@@ -156,8 +156,7 @@ export default function SingleEditor({
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
 
-    registerSoraTheme();
-    monaco.editor.setTheme("sora");
+    registerAxonTheme(monaco);
 
     // only attach model if it already exists from a previous readFile call
     // if readFile hasn't resolved yet it will call editor.setModel when it does
@@ -210,7 +209,8 @@ export default function SingleEditor({
       )}
       <Editor
         height="100%"
-        theme="sora"
+        theme={AXON_MONACO_THEME}
+        beforeMount={registerAxonTheme}
         onMount={handleEditorMount}
         // The same Monaco ITextModel can be attached to multiple editor
         // widgets when the same file is open in more than one split. The

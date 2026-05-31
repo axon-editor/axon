@@ -1,11 +1,17 @@
 import ReactDOM from "react-dom/client";
+import { loader } from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 import App from "./App";
 import "./index.css";
-import { registerSoraTheme } from "./lib/soraTheme";
+import { registerAxonTheme } from "./lib/soraTheme";
 
-// register the Sora theme before the app mounts so Monaco
-// has it available when the first editor instance is created
-registerSoraTheme();
+loader.config({ monaco });
+
+// I register the Axon theme against the same Monaco instance that the React
+// wrapper will use. Without loader.config, @monaco-editor/react can initialize
+// a separate Monaco instance, which makes the app call setTheme("axon") before
+// that instance knows the custom theme exists.
+registerAxonTheme(monaco);
 
 // StrictMode is disabled because it double-invokes effects in development
 // which causes Monaco's InstantiationService to be disposed and crash

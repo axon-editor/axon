@@ -3,8 +3,19 @@
 // Colors mapped from Zed theme syntax tokens to Monaco token rules.
 import * as monaco from "monaco-editor";
 
-export function registerSoraTheme() {
-  monaco.editor.defineTheme("sora", {
+export const AXON_MONACO_THEME = "axon";
+
+type MonacoInstance = typeof monaco;
+
+const registeredMonacos = new WeakSet<MonacoInstance>();
+
+export function registerAxonTheme(monacoInstance: MonacoInstance = monaco) {
+  if (registeredMonacos.has(monacoInstance)) {
+    monacoInstance.editor.setTheme(AXON_MONACO_THEME);
+    return;
+  }
+
+  monacoInstance.editor.defineTheme(AXON_MONACO_THEME, {
     base: "vs-dark",
     inherit: false,
     rules: [
@@ -202,5 +213,8 @@ export function registerSoraTheme() {
     },
   });
 
-  monaco.editor.setTheme("sora");
+  registeredMonacos.add(monacoInstance);
+  monacoInstance.editor.setTheme(AXON_MONACO_THEME);
 }
+
+export const registerSoraTheme = registerAxonTheme;
