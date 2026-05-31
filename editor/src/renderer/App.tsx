@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Sidebar from "./components/Sidebar";
+import Sidebar from "./components/sidebar/index";
 import TabBar from "./components/TabBar";
 import EditorPane from "./components/EditorPane";
 import StatusBar from "./components/StatusBar";
@@ -36,6 +36,7 @@ function App() {
   const [cursorInfo, setCursorInfo] = useState({ line: 1, col: 1 });
   const [language, setLanguage] = useState("plaintext");
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // starts folder watcher when a folder is opened and registers
   // the onFolderChanged listener to auto-refresh the tree
@@ -141,7 +142,10 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#0f0f0f] overflow-hidden">
+    <div
+      className="flex flex-col h-screen w-screen overflow-hidden"
+      style={{ background: "#0e1018" }}
+    >
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           tree={tree}
@@ -151,6 +155,8 @@ function App() {
           onOpenFolder={handleOpenFolder}
           onRefresh={handleRefresh}
           loading={loading}
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
         />
         <div className="flex flex-col flex-1 overflow-hidden">
           <TabBar
@@ -179,6 +185,11 @@ function App() {
         activeFile={activeFile}
         language={language}
         cursor={cursorInfo}
+        folderName={folderPath ? (folderPath.split("/").pop() ?? null) : null}
+        sidebarCollapsed={sidebarCollapsed}
+        terminalOpen={terminalOpen}
+        onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+        onToggleTerminal={() => setTerminalOpen((p) => !p)}
       />
 
       <CommandPalette

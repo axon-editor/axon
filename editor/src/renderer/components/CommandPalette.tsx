@@ -4,7 +4,8 @@
 // Closes on Escape, outside click, or after a file is selected.
 import { useState, useEffect, useRef, useMemo } from "react";
 import { type FileNode } from "../lib/api";
-import { FileCode, FileJson, FileText, File, Search } from "lucide-react";
+import { Search } from "lucide-react";
+import { getFileIcon } from "../lib/fileIcons";
 
 interface Props {
   tree: FileNode | null;
@@ -12,21 +13,6 @@ interface Props {
   onClose: () => void;
   onFileSelect: (path: string) => void;
 }
-
-function getFileIcon(name: string) {
-  const ext = name.split(".").pop()?.toLowerCase();
-  if (["ts", "tsx", "js", "jsx", "go", "py", "rs", "sh"].includes(ext ?? "")) {
-    return <FileCode size={13} className="shrink-0 text-[#6c5ce7]" />;
-  }
-  if (ext === "json") {
-    return <FileJson size={13} className="shrink-0 text-yellow-500" />;
-  }
-  if (["md", "txt"].includes(ext ?? "")) {
-    return <FileText size={13} className="shrink-0 text-neutral-400" />;
-  }
-  return <File size={13} className="shrink-0 text-neutral-500" />;
-}
-
 // flattenTree recursively walks the FileNode tree and returns
 // a flat list of all file paths. Directories are skipped since
 // the palette only opens files.
@@ -116,8 +102,8 @@ export default function CommandPalette({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-140 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2a2a2a]">
+      <div className="w-140 bg-[#14161e] border border-[#222838] rounded-lg shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#222838]">
           <Search size={14} className="text-neutral-500 shrink-0" />
           <input
             ref={inputRef}
@@ -150,8 +136,8 @@ export default function CommandPalette({
                 className={`flex items-center gap-2.5 px-4 py-2 cursor-pointer transition-colors
                   ${
                     i === selectedIndex
-                      ? "bg-[#2a2a2a] text-white"
-                      : "text-neutral-400 hover:bg-[#222222] hover:text-white"
+                      ? "bg-[#1e2430] text-[#c8d0e0]"
+                      : "text-neutral-400 hover:bg-[#14161e] hover:text-white"
                   }`}
               >
                 {getFileIcon(name)}

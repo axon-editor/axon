@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { readFile, writeFile } from "../lib/api";
 import { Columns2, FileText, Eye } from "lucide-react";
+import { registerSoraTheme } from "../lib/soraTheme";
 
 interface Props {
   activeFile: string | null;
@@ -190,6 +191,15 @@ function SingleEditor({
     onLanguageChange(detectLanguage(filePath));
   };
 
+  // register Sora theme on every SingleEditor instance.
+  // Monaco defineTheme is idempotent so calling it multiple times is safe.
+  useEffect(() => {
+    registerSoraTheme();
+    if (editorRef.current) {
+      monaco.editor.setTheme("sora");
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className="w-full h-full flex items-center justify-center text-neutral-600 text-[13px]">
@@ -217,7 +227,7 @@ function SingleEditor({
         height="100%"
         language={detectLanguage(filePath)}
         defaultValue={diskContent}
-        theme="vs-dark"
+        theme="sora"
         onMount={handleEditorMount}
         options={{
           fontSize: 14,

@@ -82,3 +82,14 @@ export async function deleteEntry(path: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export async function moveEntry(
+  source: string,
+  targetDir: string,
+): Promise<void> {
+  await request("/fs/move", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source, target_dir: targetDir }),
+  });
+}

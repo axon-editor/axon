@@ -74,8 +74,8 @@ function SortableTab({
         border border-b-0 cursor-pointer transition-colors shrink-0 select-none
         ${
           isActive
-            ? "bg-[#1e1e1e] border-[#2a2a2a] text-white"
-            : "bg-transparent border-transparent text-neutral-500 hover:text-neutral-300 hover:bg-[#181818]"
+            ? "bg-[#0e1018] border-[#222838] text-[#c8d0e0]"
+            : "bg-transparent border-transparent text-[#586478] hover:text-[#9aa4b8] hover:bg-[#14161e]"
         }`}
     >
       {isDirty ? (
@@ -155,7 +155,7 @@ export default function TabBar({
         items={openTabs}
         strategy={horizontalListSortingStrategy}
       >
-        <div className="h-9 bg-[#0d0d0d] border-b border-[#1f1f1f] flex items-end overflow-x-auto px-1 gap-0.5 scrollbar-none">
+        <div className="h-9 bg-[#0a0c12] border-b border-[#222838] flex items-end overflow-x-auto px-1 gap-0.5 scrollbar-none">
           {openTabs.map((path) => (
             <SortableTab
               key={path}
