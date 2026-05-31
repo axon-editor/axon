@@ -170,17 +170,28 @@ function App() {
       style={{ background: "#0e1018" }}
     >
       {zenMode && (
-        <div className="absolute top-3 right-3 z-50">
-          <button
-            onClick={() => setZenMode(false)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#14161e] border border-[#222838] rounded text-[11px] text-[#586478] hover:text-white hover:border-[#80c8e0] transition-colors cursor-pointer"
+        <>
+          <div
+            className="absolute top-0 left-0 right-0 h-9 z-40"
+            style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+          />
+          <div
+            className="absolute top-11 right-3 z-50"
+            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           >
-            exit zen
-          </button>
-        </div>
+            <button
+              onClick={() => setZenMode(false)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#14161e] border border-[#222838] rounded text-[11px] text-[#586478] hover:text-white hover:border-[#80c8e0] transition-colors cursor-pointer"
+            >
+              exit zen
+            </button>
+          </div>
+        </>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div
+        className={`flex flex-1 overflow-hidden ${zenMode ? "pt-9" : ""}`}
+      >
         {!zenMode && (
           <Sidebar
             tree={tree}

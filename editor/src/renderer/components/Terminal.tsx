@@ -6,8 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { X, Minus } from "lucide-react";
+import { X } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
+import Tooltip from "./Tooltip";
 
 interface Props {
   open: boolean;
@@ -155,13 +156,15 @@ export default function Terminal({ open, onClose }: Props) {
           />
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={handleClose}
-            className="text-neutral-500 hover:text-white transition-colors cursor-pointer p-1"
-            title="Close terminal"
-          >
-            <X size={12} />
-          </button>
+          <Tooltip label="Close terminal" side="top">
+            <button
+              onClick={handleClose}
+              aria-label="Close terminal"
+              className="text-neutral-500 hover:text-white transition-colors cursor-pointer p-1"
+            >
+              <X size={12} />
+            </button>
+          </Tooltip>
         </div>
       </div>
       <div ref={containerRef} className="flex-1 overflow-hidden px-2 py-1" />

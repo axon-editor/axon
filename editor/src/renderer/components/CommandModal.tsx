@@ -4,6 +4,7 @@
 // Closes on outside click or Escape key.
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import Tooltip from "./Tooltip";
 
 interface Props {
   title?: string;
@@ -46,12 +47,15 @@ export default function CommandModal({
             <span className="text-[12px] text-[#9aa4b8] font-medium">
               {title}
             </span>
-            <button
-              onClick={onClose}
-              className="text-[#586478] hover:text-white transition-colors cursor-pointer"
-            >
-              <X size={13} />
-            </button>
+            <Tooltip label="Close" side="left">
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="text-[#586478] hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+            </Tooltip>
           </div>
         )}
         {children}

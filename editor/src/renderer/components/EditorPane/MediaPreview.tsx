@@ -3,6 +3,7 @@
 // local files securely without file:// restrictions.
 import { ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 import { useState } from "react";
+import Tooltip from "../Tooltip";
 
 interface Props {
   filePath: string;
@@ -47,24 +48,33 @@ export default function MediaPreview({ filePath }: Props) {
           <span className="text-[11px] text-[#586478] truncate flex-1">
             {filename}
           </span>
-          <button
-            onClick={() => setZoom((z) => Math.min(z + 0.25, 4))}
-            className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
-          >
-            <ZoomIn size={13} />
-          </button>
-          <button
-            onClick={() => setZoom((z) => Math.max(z - 0.25, 0.25))}
-            className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
-          >
-            <ZoomOut size={13} />
-          </button>
-          <button
-            onClick={() => setRotation((r) => (r + 90) % 360)}
-            className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
-          >
-            <RotateCw size={13} />
-          </button>
+          <Tooltip label="Zoom in" side="bottom">
+            <button
+              onClick={() => setZoom((z) => Math.min(z + 0.25, 4))}
+              aria-label="Zoom in"
+              className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
+            >
+              <ZoomIn size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Zoom out" side="bottom">
+            <button
+              onClick={() => setZoom((z) => Math.max(z - 0.25, 0.25))}
+              aria-label="Zoom out"
+              className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
+            >
+              <ZoomOut size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Rotate" side="bottom">
+            <button
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              aria-label="Rotate"
+              className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
+            >
+              <RotateCw size={13} />
+            </button>
+          </Tooltip>
           <span className="text-[11px] text-[#364050]">
             {Math.round(zoom * 100)}%
           </span>

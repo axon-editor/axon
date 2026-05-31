@@ -8,6 +8,7 @@ import { type FileNode, moveEntry, getTree } from "../../lib/api";
 import FileTreeNode from "./FileTreeNode";
 import ContextMenu from "./ContextMenu";
 import FolderPicker from "./FolderPicker";
+import Tooltip from "../Tooltip";
 
 const RECENT_KEY = "axon:recentFolders";
 const MAX_RECENT = 10;
@@ -102,26 +103,30 @@ export default function Sidebar({
               className="flex items-center justify-between px-3 border-b border-[#222838] pt-8 pb-2"
               style={{ WebkitAppRegion: "drag" } as any}
             >
-              <button
-                onClick={() => setPickerOpen(true)}
-                className="flex items-center gap-1 text-[11px] text-[#9aa4b8] hover:text-[#80c8e0] transition-colors cursor-pointer truncate max-w-[140px]"
-                style={{ WebkitAppRegion: "no-drag" } as any}
-                title="Switch folder"
-              >
-                <span className="truncate font-medium">
-                  {folderName ?? "open folder"}
-                </span>
-                <ChevronDown size={11} className="shrink-0" />
-              </button>
+              <Tooltip label="Switch folder" side="bottom">
+                <button
+                  onClick={() => setPickerOpen(true)}
+                  aria-label="Switch folder"
+                  className="flex items-center gap-1 text-[11px] text-[#9aa4b8] hover:text-[#80c8e0] transition-colors cursor-pointer truncate max-w-[140px]"
+                  style={{ WebkitAppRegion: "no-drag" } as any}
+                >
+                  <span className="truncate font-medium">
+                    {folderName ?? "open folder"}
+                  </span>
+                  <ChevronDown size={11} className="shrink-0" />
+                </button>
+              </Tooltip>
 
-              <button
-                onClick={() => onCollapsedChange(true)}
-                className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer flex items-center justify-center shrink-0"
-                style={{ WebkitAppRegion: "no-drag" } as any}
-                title="Collapse sidebar"
-              >
-                <PanelLeftClose size={13} />
-              </button>
+              <Tooltip label="Collapse sidebar" side="bottom">
+                <button
+                  onClick={() => onCollapsedChange(true)}
+                  aria-label="Collapse sidebar"
+                  className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                  style={{ WebkitAppRegion: "no-drag" } as any}
+                >
+                  <PanelLeftClose size={13} />
+                </button>
+              </Tooltip>
             </div>
 
             <div className="flex-1 overflow-y-auto py-1">
@@ -156,13 +161,15 @@ export default function Sidebar({
 
         {collapsed && (
           <div className="w-9 bg-[#0a0c12] border-r border-[#222838] flex flex-col items-center pt-8 gap-3">
-            <button
-              onClick={() => onCollapsedChange(false)}
-              className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer"
-              title="Expand sidebar"
-            >
-              <PanelLeftOpen size={14} />
-            </button>
+            <Tooltip label="Expand sidebar" side="right">
+              <button
+                onClick={() => onCollapsedChange(false)}
+                aria-label="Expand sidebar"
+                className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer"
+              >
+                <PanelLeftOpen size={14} />
+              </button>
+            </Tooltip>
           </div>
         )}
       </div>

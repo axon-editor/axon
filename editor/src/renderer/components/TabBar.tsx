@@ -9,6 +9,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { X } from "lucide-react";
+import Tooltip from "./Tooltip";
 
 export interface DragTabData {
   type: "tab";
@@ -97,29 +98,37 @@ function SortableTab({
         }`}
     >
       {isDirty ? (
-        <span
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose(path);
-          }}
-          className="w-3 h-3 flex items-center justify-center"
-        >
-          <span className="w-2 h-2 rounded-full bg-[#80c8e0] group-hover:hidden" />
-          <X
-            size={11}
-            className="hidden group-hover:block text-[#586478] hover:text-white"
-          />
-        </span>
+        <Tooltip label="Close tab" side="bottom">
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose(path);
+            }}
+            role="button"
+            aria-label="Close tab"
+            className="w-3 h-3 flex items-center justify-center"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#80c8e0] group-hover:hidden" />
+            <X
+              size={11}
+              className="hidden group-hover:block text-[#586478] hover:text-white"
+            />
+          </span>
+        </Tooltip>
       ) : (
-        <span
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose(path);
-          }}
-          className="w-3 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <X size={11} className="text-[#586478] hover:text-white" />
-        </span>
+        <Tooltip label="Close tab" side="bottom">
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose(path);
+            }}
+            role="button"
+            aria-label="Close tab"
+            className="w-3 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <X size={11} className="text-[#586478] hover:text-white" />
+          </span>
+        </Tooltip>
       )}
       <span>{name}</span>
     </div>

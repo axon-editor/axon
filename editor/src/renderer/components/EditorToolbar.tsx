@@ -17,6 +17,7 @@ import {
   AlignEndHorizontal,
   Settings,
 } from "lucide-react";
+import Tooltip from "./Tooltip";
 
 interface Props {
   onNewFile: () => void;
@@ -66,14 +67,16 @@ export default function EditorToolbar({
     <div className="flex items-center gap-0.5 px-2">
       {/* new action button */}
       <div ref={newRef} className="relative">
-        <button
-          onClick={() => toggle("new")}
-          className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+        <Tooltip label="New..." side="bottom">
+          <button
+            onClick={() => toggle("new")}
+            aria-label="New..."
+            className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
             ${dropdown === "new" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
-          title="New..."
-        >
-          <Plus size={14} />
-        </button>
+          >
+            <Plus size={14} />
+          </button>
+        </Tooltip>
 
         {dropdown === "new" && (
           <div className="absolute right-0 top-8 w-48 bg-[#14161e] border border-[#222838] rounded-lg shadow-2xl py-1 z-50">
@@ -113,14 +116,16 @@ export default function EditorToolbar({
       </div>
 
       <div ref={splitRef} className="relative">
-        <button
-          onClick={() => toggle("split")}
-          className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+        <Tooltip label="Split editor" side="bottom">
+          <button
+            onClick={() => toggle("split")}
+            aria-label="Split editor"
+            className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
             ${dropdown === "split" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
-          title="Split editor"
-        >
-          <Columns2 size={14} />
-        </button>
+          >
+            <Columns2 size={14} />
+          </button>
+        </Tooltip>
 
         {dropdown === "split" && (
           <div className="absolute right-0 top-8 w-48 bg-[#14161e] border border-[#222838] rounded-lg shadow-2xl py-1 z-50">
@@ -168,22 +173,26 @@ export default function EditorToolbar({
         )}
       </div>
 
-      <button
-        onClick={onSettings}
-        className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
-        title="Settings"
-      >
-        <Settings size={14} />
-      </button>
+      <Tooltip label="Settings" side="bottom">
+        <button
+          onClick={onSettings}
+          aria-label="Settings"
+          className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
+        >
+          <Settings size={14} />
+        </button>
+      </Tooltip>
 
-      <button
-        onClick={onZenMode}
-        className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+      <Tooltip label={isZenMode ? "Exit zen mode" : "Zen mode"} side="bottom">
+        <button
+          onClick={onZenMode}
+          aria-label={isZenMode ? "Exit zen mode" : "Zen mode"}
+          className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
           ${isZenMode ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
-        title={isZenMode ? "Exit zen mode" : "Zen mode"}
-      >
-        {isZenMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-      </button>
+        >
+          {isZenMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
+      </Tooltip>
     </div>
   );
 }

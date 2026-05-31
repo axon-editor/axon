@@ -11,6 +11,7 @@ import { Columns2, FileText, Eye } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { readFile, writeFile } from "../../lib/api";
 import { getMonacoThemeId, registerAxonTheme } from "../../lib/soraTheme";
+import Tooltip from "../Tooltip";
 import {
   updateModel,
   releaseModel,
@@ -247,24 +248,33 @@ export default function SingleEditor({
     <div className="w-full h-full flex flex-col">
       {isMd && (
         <div className="flex items-center justify-end gap-1 px-3 py-1 bg-[#0a0c12] border-b border-[#222838]">
-          <button
-            onClick={() => setPreviewMode("editor")}
-            className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "editor" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
-          >
-            <FileText size={13} />
-          </button>
-          <button
-            onClick={() => setPreviewMode("split")}
-            className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "split" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
-          >
-            <Columns2 size={13} />
-          </button>
-          <button
-            onClick={() => setPreviewMode("preview")}
-            className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "preview" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
-          >
-            <Eye size={13} />
-          </button>
+          <Tooltip label="Editor" side="bottom">
+            <button
+              onClick={() => setPreviewMode("editor")}
+              aria-label="Editor"
+              className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "editor" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
+            >
+              <FileText size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Split preview" side="bottom">
+            <button
+              onClick={() => setPreviewMode("split")}
+              aria-label="Split preview"
+              className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "split" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
+            >
+              <Columns2 size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Preview" side="bottom">
+            <button
+              onClick={() => setPreviewMode("preview")}
+              aria-label="Preview"
+              className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "preview" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
+            >
+              <Eye size={13} />
+            </button>
+          </Tooltip>
         </div>
       )}
 
