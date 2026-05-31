@@ -37,14 +37,14 @@ export default function CommandModal({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#05070c]/35 px-4 pt-24 backdrop-blur-[2px]">
       <div
         ref={ref}
-        className={`${width} bg-[#14161e] border border-[#222838] rounded-lg shadow-2xl overflow-hidden`}
+        className={`${width} max-h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]`}
       >
         {title && (
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#222838]">
-            <span className="text-[12px] text-[#9aa4b8] font-medium">
+          <div className="flex items-center justify-between border-b border-[#222838] bg-[#141824] px-4 py-3">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-[#9aa4b8]">
               {title}
             </span>
             <Tooltip label="Close" side="left">

@@ -59,15 +59,18 @@ export default function PaneInstance({
 
       <div className="flex-1 overflow-hidden relative">
         {pane.openTabs.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center gap-4 select-none">
+          <div className="h-full flex flex-col items-center justify-center gap-3 select-none px-6 text-center">
             <img
               src="/axon.png"
               alt="Axon"
-              className="w-24 h-24"
+              className="w-20 h-20 opacity-90"
               draggable={false}
             />
-            <span className="text-[12px] text-[#364050]">
-              open a file to start editing
+            <span className="text-[12px] font-medium text-[#586478]">
+              No file in this pane
+            </span>
+            <span className="max-w-[260px] text-[11px] leading-5 text-[#364050]">
+              Open a file, split from the sidebar, or drop a tab here.
             </span>
           </div>
         ) : (
