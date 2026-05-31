@@ -122,3 +122,12 @@ func ReadFile(path string) (FileContent, error) {
 func WriteFile(path string, content string) error {
 	return os.WriteFile(path, []byte(content), 0644)
 }
+
+// MoveEntry moves a file or directory from sourcePath to targetDir.
+// The entry keeps its original name in the new location.
+// Uses os.Rename which is atomic on the same filesystem.
+func MoveEntry(sourcePath string, targetDir string) error {
+	name := filepath.Base(sourcePath)
+	destPath := filepath.Join(targetDir, name)
+	return os.Rename(sourcePath, destPath)
+}

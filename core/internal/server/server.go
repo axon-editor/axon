@@ -74,6 +74,7 @@ func (s *Server) Router() http.Handler {
 
 	mux.HandleFunc("/fs/create", s.handleFSCreate)
 	mux.HandleFunc("/fs/delete", s.handleFSDelete)
+	mux.HandleFunc("/fs/move", s.handleFSMove)
 
 	// terminal WebSocket endpoint
 	// each connection spawns a real shell attached to a PTY
@@ -298,4 +299,36 @@ func (s *Server) handleFSDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, Response{Status: "ok", Message: "deleted successfully"})
+}
+
+// handleFSMove handles POST /fs/move
+// Moves a file or directory to a new parent directory.
+// Expects { source, target_dir } in the request body.
+func (s *Server) handleFSMove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
+		return
+	}
+
+	var body struct {
+		Source    string `json:"source"`
+		TargetDir string `json:"target_dir"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "invalid request body"})
+		return
+	}
+
+	if body.Source == "" || body.TargetDir == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "source and target_dir are required"})
+		return
+	}
+
+	if err := fs.MoveEntry(body.Source, body.TargetDir); err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{Status: "ok", Message: "moved successfully"})
 }
