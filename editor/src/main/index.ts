@@ -57,6 +57,18 @@ function getSettingsPath() {
   return path.join(app.getPath("userData"), "settings.json");
 }
 
+function getAxonIconPath() {
+  if (isDev) {
+    const devIcon = path.join(app.getAppPath(), "src/renderer/public/axon.png");
+    if (fs.existsSync(devIcon)) return devIcon;
+  }
+
+  const builtIcon = path.join(__dirname, "../renderer/axon.png");
+  if (fs.existsSync(builtIcon)) return builtIcon;
+
+  return path.join(app.getAppPath(), "src/renderer/public/axon.png");
+}
+
 function readSettingsFromDisk(): AxonSettings {
   const settingsPath = getSettingsPath();
 
@@ -91,6 +103,19 @@ function writeSettingsToDisk(settings: AxonSettings) {
 }
 
 function createWindow() {
+  const axonIconPath = getAxonIconPath();
+
+  app.setAboutPanelOptions({
+    applicationName: "Axon",
+    applicationVersion: app.getVersion(),
+    copyright: "Axon",
+    iconPath: axonIconPath,
+  });
+
+  if (isMac && app.dock) {
+    app.dock.setIcon(axonIconPath);
+  }
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -99,6 +124,7 @@ function createWindow() {
     title: "Axon",
     titleBarStyle: "hidden",
     backgroundColor: "#0f0f0f",
+    icon: axonIconPath,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       nodeIntegration: false,

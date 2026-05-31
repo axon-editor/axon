@@ -168,7 +168,8 @@ function App() {
     setSettings(normalizedSettings);
 
     try {
-      const savedSettings = await window.axon.updateSettings(normalizedSettings);
+      const savedSettings =
+        await window.axon.updateSettings(normalizedSettings);
       setSettings(normalizeSettings(savedSettings));
     } catch (err) {
       console.error("failed to save settings:", err);
@@ -219,9 +220,7 @@ function App() {
         </>
       )}
 
-      <div
-        className={`flex flex-1 overflow-hidden ${zenMode ? "pt-9" : ""}`}
-      >
+      <div className={`flex flex-1 overflow-hidden ${zenMode ? "pt-9" : ""}`}>
         {!zenMode && (
           <Sidebar
             tree={tree}
@@ -299,6 +298,9 @@ function App() {
             }
             onOpenTabInTerminal={handleOpenTabInTerminal}
             editorSettings={settings.editor}
+            handleOpenFolder={handleOpenFolder}
+            handleNewFile={handleNewFile}
+            handleFolderChange={handleFolderChange}
           />
 
           <Terminal

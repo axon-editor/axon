@@ -20,6 +20,7 @@ import { type Layout } from "../../lib/types";
 import PaneInstance from "./PaneInstance";
 import PaneDivider from "../PaneDivider";
 import { type DragTabData, type PaneDropData } from "../TabBar";
+import { getTree, type FileNode } from "../../lib/api";
 
 interface Props {
   layout: Layout;
@@ -37,6 +38,9 @@ interface Props {
     targetPaneId: string,
   ) => void;
   editorSettings: EditorSettings;
+  handleOpenFolder: () => void;
+  handleNewFile: () => void;
+  handleFolderChange: (path: string, fileTree: FileNode) => void;
 }
 
 function isDragTabData(data: unknown): data is DragTabData {
@@ -82,6 +86,9 @@ export default function EditorPane({
   onLanguageChange,
   onMoveTabBetweenPanes,
   editorSettings,
+  handleOpenFolder,
+  handleNewFile,
+  handleFolderChange,
 }: Props) {
   const [draggingTab, setDraggingTab] = useState<DragTabData | null>(null);
 
@@ -198,6 +205,12 @@ export default function EditorPane({
               onCursorChange={onCursorChange}
               onLanguageChange={onLanguageChange}
               editorSettings={editorSettings}
+              onOpenFolder={handleOpenFolder}
+              onNewFile={handleNewFile}
+              onSelectRecentFolder={async (path) => {
+                const fileTree = await getTree(path);
+                handleFolderChange(path, fileTree);
+              }}
             />
             {index < layout.panes.length - 1 && (
               <PaneDivider

@@ -13,6 +13,7 @@ import { type Pane } from "../../lib/types";
 import TabBar, { getPaneDropId, type PaneDropData } from "../TabBar";
 import MediaPreview, { isMediaFile } from "./MediaPreview";
 import SingleEditor from "./SingleEditor";
+import EmptyPane from "./EmptyPane";
 
 interface Props {
   pane: Pane;
@@ -25,6 +26,9 @@ interface Props {
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
+  onOpenFolder: () => void;
+  onNewFile: () => void;
+  onSelectRecentFolder: (path: string) => void;
 }
 
 export default function PaneInstance({
@@ -38,6 +42,9 @@ export default function PaneInstance({
   onCursorChange,
   onLanguageChange,
   editorSettings,
+  onOpenFolder,
+  onNewFile,
+  onSelectRecentFolder,
 }: Props) {
   const [fileDragOver, setFileDragOver] = useState(false);
   const nativeDragDepth = useRef(0);
@@ -140,20 +147,11 @@ export default function PaneInstance({
 
       <div className="flex-1 overflow-hidden relative">
         {pane.openTabs.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center gap-3 select-none px-6 text-center">
-            <img
-              src="/axon.png"
-              alt="Axon"
-              className="w-20 h-20 opacity-90"
-              draggable={false}
-            />
-            <span className="text-[12px] font-medium text-[#586478]">
-              No file in this pane
-            </span>
-            <span className="max-w-[260px] text-[11px] leading-5 text-[#364050]">
-              Open a file, split from the sidebar, or drop a file or tab here.
-            </span>
-          </div>
+          <EmptyPane
+            onOpenFolder={onOpenFolder}
+            onNewFile={onNewFile}
+            onSelectRecentFolder={onSelectRecentFolder}
+          />
         ) : (
           pane.openTabs.map((path) => (
             <div
