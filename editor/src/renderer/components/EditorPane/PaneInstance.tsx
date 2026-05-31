@@ -20,6 +20,7 @@ interface Props {
   onActivate: () => void;
   onSelectFile: (filePath: string) => void;
   onCloseTab: (filePath: string) => void;
+  onOpenTabInTerminal?: (filePath: string) => void;
   onDirtyChange: (filePath: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
@@ -32,6 +33,7 @@ export default function PaneInstance({
   onActivate,
   onSelectFile,
   onCloseTab,
+  onOpenTabInTerminal,
   onDirtyChange,
   onCursorChange,
   onLanguageChange,
@@ -132,6 +134,7 @@ export default function PaneInstance({
         dirtyFiles={pane.dirtyFiles}
         onSelect={onSelectFile}
         onClose={onCloseTab}
+        onOpenInTerminal={onOpenTabInTerminal}
         paneId={pane.id}
       />
 

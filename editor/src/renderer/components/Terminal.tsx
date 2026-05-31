@@ -19,15 +19,16 @@ import {
   Minus,
   Plus,
   SquareTerminal,
-  X,
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
+import ChromeTab from "./ChromeTab";
 import Tooltip from "./Tooltip";
 
 interface Props {
   open: boolean;
   createNonce: number;
+  createWorkingDirectory?: string | null;
   editorSettings: EditorSettings;
   workingDirectory: string | null;
   onHide: () => void;
@@ -194,6 +195,7 @@ function getTerminalOptions(editorSettings: EditorSettings) {
 export default function Terminal({
   open,
   createNonce,
+  createWorkingDirectory,
   editorSettings,
   workingDirectory,
   onHide,
@@ -262,15 +264,16 @@ export default function Terminal({
     }
   }, [disposeSession]);
 
-  const createTab = useCallback(() => {
+  const createTab = useCallback((sessionWorkingDirectory = workingDirectory) => {
     const id = createTerminalId();
+    const title = getFolderName(sessionWorkingDirectory);
     suppressAutoCreateRef.current = false;
 
     setTabs((currentTabs) => [
       ...currentTabs,
       {
         id,
-        title: terminalTitle,
+        title,
         connected: false,
       },
     ]);
@@ -282,10 +285,10 @@ export default function Terminal({
       ws: null,
       resizeObserver: null,
       dataDisposable: null,
-      workingDirectory,
+      workingDirectory: sessionWorkingDirectory,
       cwdSynced: false,
     };
-  }, [terminalTitle, workingDirectory]);
+  }, [workingDirectory]);
 
   const closeTab = useCallback(
     (id: string) => {
@@ -460,8 +463,8 @@ export default function Terminal({
     if (createNonce === lastCreateNonceRef.current) return;
     if (!open) return;
     lastCreateNonceRef.current = createNonce;
-    createTab();
-  }, [createNonce, createTab, open]);
+    createTab(createWorkingDirectory ?? workingDirectory);
+  }, [createNonce, createTab, createWorkingDirectory, open, workingDirectory]);
 
   useEffect(() => {
     if (!open) return;
@@ -522,38 +525,21 @@ export default function Terminal({
           </div>
           <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-hidden">
             {tabs.map((tab) => (
-              <div
+              <ChromeTab
                 key={tab.id}
-                className={`group flex h-8 min-w-0 max-w-40 items-center gap-1 border-b px-2 text-[11px] transition-colors ${
-                  tab.id === activeTabId
-                    ? "border-[#80c8e0] text-white"
-                    : "border-transparent text-[#7b8496] hover:bg-[#151923] hover:text-neutral-100"
-                }`}
-              >
-                <button
-                  onClick={() => setActiveTabId(tab.id)}
-                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
-                  aria-label={`Activate ${tab.title}`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                      tab.connected ? "bg-green-500" : "bg-neutral-600"
-                    }`}
-                  />
-                  <span className="truncate">{tab.title}</span>
-                </button>
-                <button
-                  aria-label={`Close ${tab.title}`}
-                  onClick={() => closeTab(tab.id)}
-                  className="cursor-pointer rounded p-0.5 text-neutral-500 opacity-0 transition-colors hover:bg-[#262b38] hover:text-white group-hover:opacity-100"
-                >
-                  <X size={11} />
-                </button>
-              </div>
+                label={tab.title}
+                active={tab.id === activeTabId}
+                closeLabel={`Close ${tab.title}`}
+                onClick={() => setActiveTabId(tab.id)}
+                onClose={(event) => {
+                  event.stopPropagation();
+                  closeTab(tab.id);
+                }}
+              />
             ))}
             <Tooltip label="New terminal tab" side="top">
               <button
-                onClick={createTab}
+                onClick={() => createTab()}
                 aria-label="New terminal tab"
                 className="my-1 cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
               >

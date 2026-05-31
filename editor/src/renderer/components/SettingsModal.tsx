@@ -1,5 +1,6 @@
 import { useState } from "react";
 import CommandModal from "./CommandModal";
+import SearchSelect, { type SearchSelectItem } from "./SearchSelect";
 import {
   BUILT_IN_THEME_IDS,
   type AxonSettings,
@@ -12,6 +13,13 @@ const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "catppuccin-mocha": "Catppuccin Mocha",
   "tokyo-night": "Tokyo Night",
 };
+
+const THEME_ITEMS: SearchSelectItem<BuiltInThemeId>[] = BUILT_IN_THEME_IDS.map(
+  (themeId) => ({
+    value: themeId,
+    label: THEME_LABELS[themeId],
+  }),
+);
 
 interface Props {
   settings: AxonSettings;
@@ -45,19 +53,13 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
       <div className="p-4 space-y-4">
         <div className="grid grid-cols-[150px_1fr] items-center gap-3">
           <label className="text-[12px] text-[#9aa4b8]">theme</label>
-          <select
+          <SearchSelect
             value={draft.editor.themeId}
-            onChange={(e) =>
-              updateEditor("themeId", e.target.value as BuiltInThemeId)
-            }
-            className="h-8 bg-[#0e1018] border border-[#222838] rounded px-2 text-[12px] text-[#c8d0e0] outline-none focus:border-[#80c8e0]"
-          >
-            {BUILT_IN_THEME_IDS.map((themeId) => (
-              <option key={themeId} value={themeId}>
-                {THEME_LABELS[themeId]}
-              </option>
-            ))}
-          </select>
+            items={THEME_ITEMS}
+            onChange={(themeId) => updateEditor("themeId", themeId)}
+            ariaLabel="Theme"
+            placeholder="Search themes..."
+          />
 
           <label className="text-[12px] text-[#9aa4b8]">font family</label>
           <input

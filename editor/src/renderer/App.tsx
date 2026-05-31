@@ -53,6 +53,8 @@ function App() {
   const [language, setLanguage] = useState("plaintext");
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalCreateNonce, setTerminalCreateNonce] = useState(0);
+  const [terminalCreateWorkingDirectory, setTerminalCreateWorkingDirectory] =
+    useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
@@ -124,6 +126,7 @@ function App() {
     // layout already resets above; the terminal panel is also hidden so old
     // shell sessions do not appear to belong to the newly selected folder.
     setTerminalOpen(false);
+    setTerminalCreateWorkingDirectory(null);
 
     void window.axon.unwatchFolder();
     window.axon.watchFolder(path);
@@ -173,6 +176,20 @@ function App() {
   };
 
   const handleNewTerminal = () => {
+    setTerminalCreateWorkingDirectory(null);
+    setTerminalOpen(true);
+    setTerminalCreateNonce((nonce) => nonce + 1);
+  };
+
+  const handleOpenTabInTerminal = (filePath: string) => {
+    const separatorIndex = Math.max(
+      filePath.lastIndexOf("/"),
+      filePath.lastIndexOf("\\"),
+    );
+    const parentPath =
+      separatorIndex > 0 ? filePath.slice(0, separatorIndex) : folderPath;
+
+    setTerminalCreateWorkingDirectory(parentPath);
     setTerminalOpen(true);
     setTerminalCreateNonce((nonce) => nonce + 1);
   };
@@ -280,12 +297,14 @@ function App() {
             onMoveTabBetweenPanes={(f, src, tgt) =>
               setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
             }
+            onOpenTabInTerminal={handleOpenTabInTerminal}
             editorSettings={settings.editor}
           />
 
           <Terminal
             open={terminalOpen && !zenMode}
             createNonce={terminalCreateNonce}
+            createWorkingDirectory={terminalCreateWorkingDirectory}
             editorSettings={settings.editor}
             workingDirectory={folderPath}
             onHide={() => setTerminalOpen(false)}

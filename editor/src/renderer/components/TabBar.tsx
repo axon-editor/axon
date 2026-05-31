@@ -2,14 +2,16 @@
 // Uses dnd-kit metadata instead of raw file-path IDs so the same file can be
 // open in multiple panes without confusing the drag target.
 // Active tab highlighted, dirty tabs show cyan dot that reveals close on hover.
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   SortableContext,
   horizontalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { X } from "lucide-react";
-import Tooltip from "./Tooltip";
+import { Copy, PanelRightClose, Terminal as TerminalIcon, X } from "lucide-react";
+import ChromeTab from "./ChromeTab";
 
 export interface DragTabData {
   type: "tab";
@@ -36,7 +38,14 @@ interface Props {
   dirtyFiles: Record<string, boolean>;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  onOpenInTerminal?: (path: string) => void;
   paneId: string;
+}
+
+interface ContextMenuState {
+  path: string;
+  x: number;
+  y: number;
 }
 
 function SortableTab({
@@ -46,6 +55,7 @@ function SortableTab({
   isDirty,
   onSelect,
   onClose,
+  onContextMenu,
 }: {
   path: string;
   paneId: string;
@@ -53,6 +63,7 @@ function SortableTab({
   isDirty: boolean;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  onContextMenu: (path: string, rect: DOMRect) => void;
 }) {
   const {
     attributes,
@@ -80,58 +91,126 @@ function SortableTab({
   const name = path.split("/").pop() ?? path;
 
   return (
-    <div
+    <ChromeTab
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
+      label={name}
+      active={isActive}
+      dirty={isDirty}
+      tooltipLabel={path}
+      tooltipDelayMs={3000}
+      closeLabel={`Close ${name}`}
       onClick={() => onSelect(path)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onContextMenu(path, event.currentTarget.getBoundingClientRect());
+      }}
       onAuxClick={(e) => {
         if (e.button === 1) onClose(path);
       }}
-      className={`group flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-t
-        border border-b-0 cursor-pointer transition-colors shrink-0 select-none
-        ${
-          isActive
-            ? "bg-[#0e1018] border-[#222838] text-[#c8d0e0]"
-            : "bg-transparent border-transparent text-[#586478] hover:text-[#9aa4b8] hover:bg-[#14161e]"
-        }`}
+      onClose={(event) => {
+        event.stopPropagation();
+        onClose(path);
+      }}
+    />
+  );
+}
+
+function ContextMenu({
+  menu,
+  openTabs,
+  onClose,
+  onCloseMenu,
+  onOpenInTerminal,
+}: {
+  menu: ContextMenuState;
+  openTabs: string[];
+  onClose: (path: string) => void;
+  onCloseMenu: () => void;
+  onOpenInTerminal?: (path: string) => void;
+}) {
+  const tabIndex = openTabs.indexOf(menu.path);
+  const canCloseRight = tabIndex >= 0 && tabIndex < openTabs.length - 1;
+  const canCloseOthers = openTabs.length > 1;
+
+  const runAction = (action: () => void) => {
+    action();
+    onCloseMenu();
+  };
+
+  const menuItemClass =
+    "flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-[12px] text-[#c8d0e0] transition-colors hover:bg-[#1b2030] disabled:cursor-default disabled:text-[#586478] disabled:hover:bg-transparent";
+
+  return createPortal(
+    <div
+      className="fixed z-[200] min-w-48 overflow-hidden rounded-md border border-[#2a3346] bg-[#10131a] py-1 shadow-2xl"
+      style={{ left: menu.x, top: menu.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
     >
-      {isDirty ? (
-        <Tooltip label="Close tab" side="bottom">
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose(path);
-            }}
-            role="button"
-            aria-label="Close tab"
-            className="w-3 h-3 flex items-center justify-center"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#80c8e0] group-hover:hidden" />
-            <X
-              size={11}
-              className="hidden group-hover:block text-[#586478] hover:text-white"
-            />
-          </span>
-        </Tooltip>
-      ) : (
-        <Tooltip label="Close tab" side="bottom">
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose(path);
-            }}
-            role="button"
-            aria-label="Close tab"
-            className="w-3 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <X size={11} className="text-[#586478] hover:text-white" />
-          </span>
-        </Tooltip>
-      )}
-      <span>{name}</span>
-    </div>
+      <button
+        type="button"
+        className={menuItemClass}
+        onClick={() => runAction(() => onClose(menu.path))}
+      >
+        <X size={13} />
+        <span>Close</span>
+      </button>
+      <button
+        type="button"
+        disabled={!canCloseOthers}
+        className={menuItemClass}
+        onClick={() =>
+          runAction(() =>
+            openTabs
+              .filter((path) => path !== menu.path)
+              .forEach((path) => onClose(path)),
+          )
+        }
+      >
+        <PanelRightClose size={13} />
+        <span>Close others</span>
+      </button>
+      <button
+        type="button"
+        disabled={!canCloseRight}
+        className={menuItemClass}
+        onClick={() =>
+          runAction(() =>
+            openTabs.slice(tabIndex + 1).forEach((path) => onClose(path)),
+          )
+        }
+      >
+        <PanelRightClose size={13} />
+        <span>Close tabs to right</span>
+      </button>
+      {onOpenInTerminal ? (
+        <button
+          type="button"
+          className={menuItemClass}
+          onClick={() => runAction(() => onOpenInTerminal(menu.path))}
+        >
+          <TerminalIcon size={13} />
+          <span>Open in terminal</span>
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className={menuItemClass}
+        onClick={() =>
+          runAction(() => {
+            void navigator.clipboard?.writeText(menu.path);
+          })
+        }
+      >
+        <Copy size={13} />
+        <span>Copy path</span>
+      </button>
+    </div>,
+    document.body,
   );
 }
 
@@ -141,8 +220,27 @@ export default function TabBar({
   dirtyFiles,
   onSelect,
   onClose,
+  onOpenInTerminal,
   paneId,
 }: Props) {
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const closeMenu = () => setContextMenu(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+
+    window.addEventListener("pointerdown", closeMenu);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", closeMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [contextMenu]);
+
   if (openTabs.length === 0) {
     return (
       <div className="h-9 bg-[#0a0c12] border-b border-[#222838] flex items-center px-3">
@@ -166,8 +264,24 @@ export default function TabBar({
             isDirty={!!dirtyFiles[path]}
             onSelect={onSelect}
             onClose={onClose}
+            onContextMenu={(filePath, rect) =>
+              setContextMenu({
+                path: filePath,
+                x: rect.left,
+                y: rect.bottom + 4,
+              })
+            }
           />
         ))}
+        {contextMenu ? (
+          <ContextMenu
+            menu={contextMenu}
+            openTabs={openTabs}
+            onClose={onClose}
+            onCloseMenu={() => setContextMenu(null)}
+            onOpenInTerminal={onOpenInTerminal}
+          />
+        ) : null}
       </div>
     </SortableContext>
   );
