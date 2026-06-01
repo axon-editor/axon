@@ -16,6 +16,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { type EditorSettings } from "../../../shared/settings";
+import { type GitChange } from "../../../shared/git";
 import { type Layout } from "../../lib/types";
 import { type ResolvedThemeTokens } from "../../lib/themeTokens";
 import { type EditorNavigationTarget } from "../../lib/navigation";
@@ -44,6 +45,7 @@ interface Props {
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
+  gitChanges?: GitChange[];
   handleOpenFolder: () => void;
   handleNewFile: () => void;
   handleFolderChange: (path: string, fileTree: FileNode) => void;
@@ -95,6 +97,7 @@ export default function EditorPane({
   editorSettings,
   themeTokens,
   navigationTarget,
+  gitChanges,
   handleOpenFolder,
   handleNewFile,
   handleFolderChange,
@@ -217,6 +220,7 @@ export default function EditorPane({
               editorSettings={editorSettings}
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
+              gitChanges={gitChanges}
               onOpenFolder={handleOpenFolder}
               onNewFile={handleNewFile}
               onSelectRecentFolder={async (path) => {

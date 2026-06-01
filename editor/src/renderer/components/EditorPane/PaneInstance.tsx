@@ -5,6 +5,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useRef, useState } from "react";
 import { type EditorSettings } from "../../../shared/settings";
+import { type GitChange } from "../../../shared/git";
 import {
   decodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
@@ -31,6 +32,7 @@ interface Props {
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
+  gitChanges?: GitChange[];
   onOpenFolder: () => void;
   onNewFile: () => void;
   onSelectRecentFolder: (path: string) => void;
@@ -50,6 +52,7 @@ export default function PaneInstance({
   editorSettings,
   themeTokens,
   navigationTarget,
+  gitChanges,
   onOpenFolder,
   onNewFile,
   onSelectRecentFolder,
@@ -183,6 +186,7 @@ export default function PaneInstance({
                   editorSettings={editorSettings}
                   themeTokens={themeTokens}
                   navigationTarget={navigationTarget}
+                  gitChanges={gitChanges}
                 />
               )}
             </div>

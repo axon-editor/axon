@@ -9,16 +9,18 @@ import Tooltip from "./Tooltip";
 
 interface Props {
   filePath: string;
+  folderPath: string | null;
   editorSettings: EditorSettings;
   onClose: () => void;
 }
 
 export default function DiffModal({
   filePath,
+  folderPath,
   editorSettings,
   onClose,
 }: Props) {
-  const [savedContent, setSavedContent] = useState("");
+  const [baseContent, setBaseContent] = useState("");
   const [currentContent, setCurrentContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +38,19 @@ export default function DiffModal({
     const currentModel = getModel(filePath);
     setCurrentContent(currentModel?.getValue() ?? "");
 
-    readFile(filePath)
-      .then((file) => {
+    const loadCurrentContent = readFile(filePath).then((file) => {
+      if (!currentModel) setCurrentContent(file.content);
+      return file.content;
+    });
+
+    const loadBaseContent = folderPath
+      ? window.axon.getGitFileBase(folderPath, filePath)
+      : readFile(filePath).then((file) => file.content);
+
+    Promise.all([loadBaseContent, loadCurrentContent])
+      .then(([base]) => {
         if (cancelled) return;
-        setSavedContent(file.content);
-        if (!currentModel) setCurrentContent(file.content);
+        setBaseContent(base);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -52,7 +62,7 @@ export default function DiffModal({
     return () => {
       cancelled = true;
     };
-  }, [filePath]);
+  }, [filePath, folderPath]);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-6 py-6">
@@ -63,7 +73,7 @@ export default function DiffModal({
               {fileName}
             </div>
             <div className="truncate text-[10px] text-[#586478]">
-              saved file to current buffer
+              git base to current buffer
             </div>
           </div>
 
@@ -93,7 +103,7 @@ export default function DiffModal({
         {!loading && !error && (
           <DiffEditor
             height="100%"
-            original={savedContent}
+            original={baseContent}
             modified={currentContent}
             language={detectLanguage(filePath)}
             theme={getMonacoThemeId(editorSettings.themeId)}

@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld("axon", {
     untracked?: boolean,
   ): Promise<GitDiffResult> =>
     ipcRenderer.invoke("git:diff", folderPath, filePath, staged, untracked),
+  getGitFileBase: (folderPath: string, filePath: string): Promise<string> =>
+    ipcRenderer.invoke("git:baseFile", folderPath, filePath),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),

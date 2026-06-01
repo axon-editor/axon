@@ -86,6 +86,7 @@ declare global {
         staged?: boolean,
         untracked?: boolean,
       ) => Promise<GitDiffResult>;
+      getGitFileBase: (folderPath: string, filePath: string) => Promise<string>;
       getAppInfo: () => Promise<AppInfo>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
@@ -831,6 +832,7 @@ function App() {
             onEntryRenamed={(oldPath, newPath) =>
               setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
             }
+            gitChanges={gitStatus?.changes ?? []}
           />
         )}
 
@@ -906,6 +908,7 @@ function App() {
             editorSettings={settings.editor}
             themeTokens={themeTokens}
             navigationTarget={navigationTarget}
+            gitChanges={gitStatus?.changes ?? []}
             handleOpenFolder={handleOpenFolder}
             handleNewFile={handleNewFile}
             handleFolderChange={handleFolderChange}
@@ -1000,6 +1003,7 @@ function App() {
       {diffOpen && activePane?.activeFile && (
         <DiffModal
           filePath={activePane.activeFile}
+          folderPath={folderPath}
           editorSettings={settings.editor}
           onClose={() => setDiffOpen(false)}
         />

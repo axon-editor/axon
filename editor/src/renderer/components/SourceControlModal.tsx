@@ -233,7 +233,7 @@ export default function SourceControlModal({
             {!loadingDiff && selectedChange && (
               <pre className="min-h-full whitespace-pre-wrap px-4 py-3 font-mono text-[11px] leading-5 text-[#9aa4b8]">
                 {diff?.diff.trim() ||
-                  "No textual diff available for this file."}
+                  "No diff available yet. Save the file first if the change is only in the editor buffer."}
               </pre>
             )}
           </div>

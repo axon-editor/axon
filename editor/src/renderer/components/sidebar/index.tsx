@@ -2,13 +2,14 @@
 // Shows folder children directly without the root node.
 // Folder name header is clickable and opens the FolderPicker modal.
 // Recent folders persisted in localStorage under axon:recentFolders.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, ChevronDown } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../lib/api";
 import FileTreeNode from "./FileTreeNode";
 import ContextMenu from "./ContextMenu";
 import FolderPicker from "./FolderPicker";
 import Tooltip from "../Tooltip";
+import { type GitChange, type GitFileState } from "../../../shared/git";
 
 const RECENT_KEY = "axon:recentFolders";
 const MAX_RECENT = 10;
@@ -91,6 +92,7 @@ interface Props {
   onEntryDeleted?: (path: string) => void;
   onEntryMoved?: (oldPath: string, newPath: string) => void;
   onEntryRenamed?: (oldPath: string, newPath: string) => void;
+  gitChanges?: GitChange[];
 }
 
 interface ContextMenuState {
@@ -99,6 +101,77 @@ interface ContextMenuState {
   node: FileNode;
   isRoot?: boolean;
   existingNames: string[];
+}
+
+export type GitTreeTone = "added" | "modified" | "deleted" | "mixed";
+
+export interface GitTreeDecoration {
+  tone: GitTreeTone;
+  label: string;
+}
+
+function normalizeTreePath(path: string) {
+  return path.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+function getGitToneFromState(state: GitFileState): GitTreeTone | null {
+  if (state === "added" || state === "untracked") return "added";
+  if (state === "deleted") return "deleted";
+  if (state === "modified" || state === "renamed" || state === "copied") {
+    return "modified";
+  }
+  return null;
+}
+
+function getGitDecorationForChange(change: GitChange): GitTreeDecoration {
+  const tone =
+    getGitToneFromState(change.worktreeState) ??
+    getGitToneFromState(change.indexState) ??
+    "modified";
+
+  const label =
+    change.worktreeState === "untracked"
+      ? "U"
+      : change.indexState === "added"
+        ? "A"
+        : change.worktreeState === "deleted" || change.indexState === "deleted"
+          ? "D"
+          : change.indexState === "renamed"
+            ? "R"
+            : "M";
+
+  return { tone, label };
+}
+
+function mergeGitDecorations(
+  current: GitTreeDecoration | undefined,
+  next: GitTreeDecoration,
+): GitTreeDecoration {
+  if (!current) return next;
+  if (current.tone === next.tone) return current;
+  return { tone: "mixed", label: "*" };
+}
+
+function buildGitDecorationMap(gitChanges: GitChange[] = []) {
+  const decorations = new Map<string, GitTreeDecoration>();
+
+  for (const change of gitChanges) {
+    const decoration = getGitDecorationForChange(change);
+    let currentPath = normalizeTreePath(change.absolutePath);
+
+    while (currentPath) {
+      decorations.set(
+        currentPath,
+        mergeGitDecorations(decorations.get(currentPath), decoration),
+      );
+
+      const nextPath = currentPath.split("/").slice(0, -1).join("/");
+      if (nextPath === currentPath) break;
+      currentPath = nextPath;
+    }
+  }
+
+  return decorations;
 }
 
 function findNodeByPath(node: FileNode | null, path: string): FileNode | null {
@@ -143,10 +216,15 @@ export default function Sidebar({
   onEntryDeleted,
   onEntryMoved,
   onEntryRenamed,
+  gitChanges,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [revealPath, setRevealPath] = useState<string | null>(null);
+  const gitDecorations = useMemo(
+    () => buildGitDecorationMap(gitChanges),
+    [gitChanges],
+  );
 
   const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
     e.preventDefault();
@@ -260,6 +338,7 @@ export default function Sidebar({
                     onContextMenu={handleContextMenu}
                     onMove={handleMove}
                     revealPath={revealPath}
+                    gitDecorations={gitDecorations}
                   />
                 ))}
             </div>

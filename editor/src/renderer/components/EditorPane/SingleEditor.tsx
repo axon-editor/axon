@@ -7,10 +7,12 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { Columns2, FileText, Eye } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
+import { type GitChange } from "../../../shared/git";
 import { readFile, writeFile } from "../../lib/api";
 import { type EditorNavigationTarget } from "../../lib/navigation";
 import { getMonacoThemeId, registerAxonTheme } from "../../lib/soraTheme";
 import { type ResolvedThemeTokens } from "../../lib/themeTokens";
+import { parseGitDiffLineDecorations } from "../../lib/gitDiffDecorations";
 import Tooltip from "../Tooltip";
 import MarkdownPreview from "../MarkdownPreview";
 import {
@@ -31,10 +33,15 @@ interface Props {
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
+  gitChanges?: GitChange[];
 }
 
 function isMarkdown(path: string): boolean {
   return path.split(".").pop()?.toLowerCase() === "md";
+}
+
+function normalizePath(path: string) {
+  return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
 type PreviewMode = "editor" | "preview" | "split";
@@ -49,19 +56,26 @@ export default function SingleEditor({
   editorSettings,
   themeTokens,
   navigationTarget,
+  gitChanges,
 }: Props) {
   const [liveContent, setLiveContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("editor");
+  const [editorReadyNonce, setEditorReadyNonce] = useState(0);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const gitDecorationsRef =
+    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
+  const gitChange = gitChanges?.find(
+    (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
+  );
 
   useEffect(() => {
     filePathRef.current = filePath;
@@ -118,6 +132,83 @@ export default function SingleEditor({
   }, [visible, editorSettings.themeId, themeTokens]);
 
   useEffect(() => {
+    const editor = editorRef.current;
+    if (loading) return;
+
+    if (!editor || !folderPath || !gitChange) {
+      gitDecorationsRef.current?.clear();
+      return;
+    }
+
+    let cancelled = false;
+    const loadGitDecorations = async () => {
+      try {
+        const diffResult = await window.axon.getGitDiff(
+          folderPath,
+          filePath,
+          gitChange.staged && !gitChange.unstaged,
+          gitChange.indexState === "untracked",
+        );
+        if (cancelled) return;
+
+        const model = editor.getModel();
+        if (!model || model.isDisposed()) return;
+
+        const lineDecorations = parseGitDiffLineDecorations(
+          diffResult.diff,
+          model.getLineCount(),
+        );
+
+        gitDecorationsRef.current ??= editor.createDecorationsCollection();
+        gitDecorationsRef.current.set(
+          lineDecorations.map((decoration) => ({
+            range: new monaco.Range(
+              decoration.lineNumber,
+              1,
+              decoration.lineNumber,
+              1,
+            ),
+            options: {
+              isWholeLine: true,
+              className: `axon-git-line axon-git-line--${decoration.kind}`,
+              linesDecorationsClassName: `axon-git-gutter axon-git-gutter--${decoration.kind}`,
+              glyphMarginClassName: `axon-git-glyph axon-git-glyph--${decoration.kind}`,
+              overviewRuler: {
+                color:
+                  decoration.kind === "added"
+                    ? "#7ee787"
+                    : decoration.kind === "modified"
+                      ? "#f2cc60"
+                      : "#ff7b72",
+                position: monaco.editor.OverviewRulerLane.Left,
+              },
+            },
+          })),
+        );
+      } catch (err) {
+        console.error("failed to load git editor decorations:", err);
+        gitDecorationsRef.current?.clear();
+      }
+    };
+
+    void loadGitDecorations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    filePath,
+    folderPath,
+    gitChange?.absolutePath,
+    gitChange?.indexState,
+    gitChange?.staged,
+    gitChange?.unstaged,
+    gitChange?.worktreeState,
+    editorReadyNonce,
+    loading,
+  ]);
+
+  useEffect(() => {
     if (!visible || !navigationTarget || loading) return;
     revealNavigationTarget(navigationTarget);
   }, [loading, navigationTarget, revealNavigationTarget, visible]);
@@ -168,6 +259,8 @@ export default function SingleEditor({
       cancelled = true;
       navigationDecorationsRef.current?.clear();
       navigationDecorationsRef.current = null;
+      gitDecorationsRef.current?.clear();
+      gitDecorationsRef.current = null;
       cleanup();
       window.axon.unwatchFile();
       // Release only if the async read reached acquireModel. Closing a split
@@ -210,6 +303,7 @@ export default function SingleEditor({
 
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
+    setEditorReadyNonce((nonce) => nonce + 1);
 
     registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
 
@@ -285,6 +379,7 @@ export default function SingleEditor({
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           lineNumbers: "on",
+          glyphMargin: true,
           renderLineHighlight: "line",
           padding: { top: 16 },
           cursorBlinking: "expand",

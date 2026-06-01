@@ -204,6 +204,59 @@
   color: #f5fbff;
 }
 
+.axon-git-line--added {
+  background: rgba(126, 231, 135, 0.055);
+}
+
+.axon-git-line--modified {
+  background: rgba(242, 204, 96, 0.06);
+}
+
+.axon-git-line--deleted {
+  background: rgba(255, 123, 114, 0.06);
+}
+
+.axon-git-gutter {
+  width: 3px !important;
+  margin-left: 3px;
+}
+
+.axon-git-gutter--added {
+  background: #7ee787;
+}
+
+.axon-git-gutter--modified {
+  background: #f2cc60;
+}
+
+.axon-git-gutter--deleted {
+  background: #ff7b72;
+}
+
+.axon-git-glyph::before {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.axon-git-glyph--added::before {
+  content: "+";
+  color: #7ee787;
+}
+
+.axon-git-glyph--modified::before {
+  content: "~";
+  color: #f2cc60;
+}
+
+.axon-git-glyph--deleted::before {
+  content: "-";
+  color: #ff7b72;
+}
+
 @keyframes axonContextMenuIn {
   0% {
     opacity: 0;

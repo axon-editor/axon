@@ -326,24 +326,64 @@ async function getGitDiff(
     ? path.relative(root, filePath)
     : filePath;
 
-  try {
-    const args = staged
-      ? ["diff", "--cached", "--", relativePath]
-      : untracked
-        ? ["diff", "--no-index", "--", "/dev/null", relativePath]
-        : ["diff", "--", relativePath];
-    const result = await runGit(root, args);
+  const readDiff = async (args: string[]) => {
+    try {
+      const result = await runGit(root, args);
+      return result.stdout || result.stderr;
+    } catch (err) {
+      return `${(err as { stdout?: string }).stdout ?? ""}${(err as { stderr?: string }).stderr ?? ""}`;
+    }
+  };
 
-    return {
-      path: relativePath,
-      diff: result.stdout || result.stderr,
-    };
-  } catch (err) {
-    const output = `${(err as { stdout?: string }).stdout ?? ""}${(err as { stderr?: string }).stderr ?? ""}`;
-    return {
-      path: relativePath,
-      diff: output,
-    };
+  // Git can report the same path as both staged and unstaged. The UI should
+  // still show useful context in that case, so I try the requested side first
+  // and then fall back to the other side if Git returns an empty diff.
+  const diffRequests = untracked
+    ? [["diff", "--no-index", "--", "/dev/null", relativePath]]
+    : staged
+      ? [
+          ["diff", "--cached", "--", relativePath],
+          ["diff", "--", relativePath],
+        ]
+      : [
+          ["diff", "--", relativePath],
+          ["diff", "--cached", "--", relativePath],
+        ];
+
+  for (const args of diffRequests) {
+    const diff = await readDiff(args);
+    if (diff.trim().length > 0) {
+      return {
+        path: relativePath,
+        diff,
+      };
+    }
+  }
+
+  return {
+    path: relativePath,
+    diff: "",
+  };
+}
+
+async function getGitFileBase(
+  folderPath: string,
+  filePath: string,
+): Promise<string> {
+  const status = await getGitStatus(folderPath);
+  const root = status.root ?? folderPath;
+  const relativePath = path.isAbsolute(filePath)
+    ? path.relative(root, filePath)
+    : filePath;
+
+  try {
+    const result = await runGit(root, ["show", `HEAD:${relativePath}`]);
+    return result.stdout;
+  } catch {
+    // A new/untracked file has no committed base. Returning an empty original
+    // lets the diff editor still show the whole current file as an addition
+    // instead of failing the compare flow.
+    return "";
   }
 }
 
@@ -612,6 +652,14 @@ ipcMain.handle(
     untracked = false,
   ) => {
     return getGitDiff(folderPath, filePath, staged, untracked);
+  },
+);
+
+ipcMain.handle(
+  "git:baseFile",
+  async (_event, folderPath: string, filePath: string) => {
+    if (!folderPath || !filePath || !fs.existsSync(folderPath)) return "";
+    return getGitFileBase(folderPath, filePath);
   },
 );
 

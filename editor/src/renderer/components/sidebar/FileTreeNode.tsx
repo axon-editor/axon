@@ -10,6 +10,7 @@ import {
   FILE_TREE_DRAG_TYPE,
 } from "../../lib/dragData";
 import { getFileIcon, getFolderIcon } from "../../lib/fileIcons";
+import { type GitTreeDecoration } from ".";
 
 interface Props {
   node: FileNode;
@@ -18,6 +19,7 @@ interface Props {
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onMove: (sourcePath: string, targetDirPath: string) => void;
   revealPath?: string | null;
+  gitDecorations?: Map<string, GitTreeDecoration>;
   depth?: number;
 }
 
@@ -40,6 +42,17 @@ function TreeGuides({ depth }: { depth: number }) {
   );
 }
 
+const gitDecorationColors: Record<GitTreeDecoration["tone"], string> = {
+  added: "#7ee787",
+  modified: "#f2cc60",
+  deleted: "#ff7b72",
+  mixed: "#80c8e0",
+};
+
+function normalizeTreePath(path: string) {
+  return path.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
 export default function FileTreeNode({
   node,
   activeFile,
@@ -47,6 +60,7 @@ export default function FileTreeNode({
   onContextMenu,
   onMove,
   revealPath,
+  gitDecorations,
   depth = 0,
 }: Props) {
   const [expanded, setExpanded] = useState(depth === 0);
@@ -161,6 +175,10 @@ export default function FileTreeNode({
   // blinkCount goes 0-5 (6 ticks) — odd ticks dim, even ticks highlight
   const isBlinkOn = blinking && blinkCount.current % 2 === 0;
   const rowPaddingLeft = TREE_BASE_INDENT + depth * TREE_DEPTH_WIDTH;
+  const gitDecoration = gitDecorations?.get(normalizeTreePath(node.path));
+  const gitColor = gitDecoration
+    ? gitDecorationColors[gitDecoration.tone]
+    : undefined;
 
   if (node.is_dir) {
     const isHighlighted = dragOver || isBlinkOn;
@@ -199,11 +217,21 @@ export default function FileTreeNode({
           <span className="relative z-10 flex items-center">
             {getFolderIcon(node.name, expanded)}
           </span>
-          <span className="relative z-10 truncate">{node.name}</span>
+          <span className="relative z-10 truncate" style={{ color: gitColor }}>
+            {node.name}
+          </span>
 
           {dragOver && (
             <span className="relative z-10 ml-auto mr-2 text-[10px] text-[#80c8e0] shrink-0">
               drop here
+            </span>
+          )}
+          {!dragOver && gitDecoration && (
+            <span
+              className="relative z-10 ml-auto mr-2 text-[9px] font-medium shrink-0"
+              style={{ color: gitColor }}
+            >
+              {gitDecoration.label}
             </span>
           )}
         </div>
@@ -218,6 +246,7 @@ export default function FileTreeNode({
               onContextMenu={onContextMenu}
               onMove={onMove}
               revealPath={revealPath}
+              gitDecorations={gitDecorations}
               depth={depth + 1}
             />
           ))}
@@ -253,7 +282,17 @@ export default function FileTreeNode({
       <span className="relative z-10 flex items-center">
         {getFileIcon(node.name)}
       </span>
-      <span className="relative z-10 truncate">{node.name}</span>
+      <span className="relative z-10 truncate" style={{ color: gitColor }}>
+        {node.name}
+      </span>
+      {gitDecoration && (
+        <span
+          className="relative z-10 ml-auto mr-2 text-[9px] font-medium shrink-0"
+          style={{ color: gitColor }}
+        >
+          {gitDecoration.label}
+        </span>
+      )}
     </div>
   );
 }

@@ -108,8 +108,11 @@ export const DEFAULT_SETTINGS: AxonSettings = {
       "status_bar.background": "#000000FF",
       "title_bar.background": "#000000FF",
       "toolbar.background": "#000000FF",
+      "sidebar.background": "#000000FF",
+      "sidebar.border": "#000000FF",
       "tab.active_background": "#000000FF",
       "panel.background": "#000000FF",
+      "panel.border": "#000000FF",
       "editor.foreground": "#000000FF",
       "editor.background": "#000000FF",
       "editor.gutter.background": "#000000FF",
@@ -167,10 +170,15 @@ function normalizeThemeOverrides(value: unknown): ThemeOverrides {
     }
   }
 
-  return {
-    ...DEFAULT_SETTINGS.theme_overrides,
-    ...normalized,
-  };
+  const merged: ThemeOverrides = { ...DEFAULT_SETTINGS.theme_overrides };
+  for (const [themeName, overrides] of Object.entries(normalized)) {
+    merged[themeName] = {
+      ...(merged[themeName] ?? {}),
+      ...overrides,
+    };
+  }
+
+  return merged;
 }
 
 export function normalizeSettings(value: unknown): AxonSettings {
