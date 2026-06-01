@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Sidebar, { addRecentFolder } from "./components/sidebar/index";
 import EditorPane from "./components/EditorPane/index";
 import StatusBar from "./components/StatusBar";
@@ -61,6 +61,12 @@ import {
 } from "../shared/tasks";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
+import {
+  loadWorkspaceSession,
+  sanitizeRestoredLayout,
+  saveWorkspaceSession,
+  type WorkspaceSession,
+} from "./lib/workspaceSession";
 import "./App.css";
 
 function fontStack(primaryFont: string, fallback: string) {
@@ -166,6 +172,8 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashLeaving, setSplashLeaving] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const restoreStartedRef = useRef(false);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
   const themeTokens = useMemo(() => resolveThemeTokens(settings), [settings]);
@@ -380,15 +388,78 @@ function App() {
     }
   };
 
-  const handleFolderChange = async (path: string, fileTree: FileNode) => {
+  useEffect(() => {
+    if (restoreStartedRef.current) return;
+    restoreStartedRef.current = true;
+
+    const session = loadWorkspaceSession();
+    if (!session?.folderPath) {
+      setSessionReady(true);
+      return;
+    }
+
+    setLoading(true);
+    getTree(session.folderPath)
+      .then(async (fileTree) => {
+        addRecentFolder(session.folderPath as string);
+        await handleFolderChange(session.folderPath as string, fileTree, session);
+        appendOutput("workspace", `Restored ${session.folderPath}`, "success");
+      })
+      .catch((err) => {
+        console.error("failed to restore workspace session:", err);
+        appendOutput("workspace", "Failed to restore previous workspace.", "error");
+      })
+      .finally(() => {
+        setLoading(false);
+        setSessionReady(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!sessionReady) return;
+
+    // I persist only UI/navigation state here, never dirty editor contents.
+    // Restoring unsaved buffers would require a separate crash-safe draft store;
+    // until that exists, saving paths/tabs/panels gives useful continuity
+    // without pretending unsaved edits are protected.
+    saveWorkspaceSession({
+      folderPath,
+      layout,
+      sidebarCollapsed,
+      terminalOpen,
+      bottomPanelOpen,
+      bottomPanelTab,
+    });
+  }, [
+    bottomPanelOpen,
+    bottomPanelTab,
+    folderPath,
+    layout,
+    sessionReady,
+    sidebarCollapsed,
+    terminalOpen,
+  ]);
+
+  const handleFolderChange = async (
+    path: string,
+    fileTree: FileNode,
+    restoredSession?: WorkspaceSession | null,
+  ) => {
     setFolderPath(path);
     setTree(fileTree);
-    setLayout(createInitialLayout());
+    setLayout(
+      restoredSession?.layout
+        ? sanitizeRestoredLayout(restoredSession.layout, fileTree)
+        : createInitialLayout(),
+    );
 
-    // Opening another project should reset project-scoped UI. The editor
-    // layout already resets above; the terminal panel is also hidden so old
-    // shell sessions do not appear to belong to the newly selected folder.
-    setTerminalOpen(false);
+    // Opening another project should reset project-scoped UI. When this call is
+    // fed by session restore, we apply the persisted chrome state; when it is a
+    // fresh folder switch, the absent session naturally resets panels and panes.
+    setTerminalOpen(restoredSession?.terminalOpen === true);
+    setSidebarCollapsed(restoredSession?.sidebarCollapsed === true);
+    setBottomPanelOpen(restoredSession?.bottomPanelOpen === true);
+    setBottomPanelTab(restoredSession?.bottomPanelTab ?? "problems");
     setTerminalCreateWorkingDirectory(null);
     setSettingsJsonPath(`${path}/axon.json`);
     appendOutput("workspace", `Loaded file tree for ${path}`);
