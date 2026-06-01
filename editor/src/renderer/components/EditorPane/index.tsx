@@ -21,6 +21,7 @@ import PaneInstance from "./PaneInstance";
 import PaneDivider from "../PaneDivider";
 import { type DragTabData, type PaneDropData } from "../TabBar";
 import { getTree, type FileNode } from "../../lib/api";
+import { addRecentFolder } from "../sidebar";
 
 interface Props {
   layout: Layout;
@@ -212,6 +213,7 @@ export default function EditorPane({
               onNewFile={handleNewFile}
               onSelectRecentFolder={async (path) => {
                 const fileTree = await getTree(path);
+                addRecentFolder(path);
                 handleFolderChange(path, fileTree);
               }}
             />

@@ -1,6 +1,5 @@
 // Welcome screen shown when a pane has no open files.
-// Shows the Axon logo, quick action buttons, recent folders,
-// and keyboard shortcut hints.
+// Shows the Axon logo, quick action buttons, and recent folders.
 import { FolderOpen, FilePlus, Clock, ChevronRight } from "lucide-react";
 import { getRecentFolders } from "../sidebar/index";
 
@@ -18,38 +17,38 @@ export default function EmptyPane({
   const recentFolders = getRecentFolders().slice(0, 5);
 
   return (
-    <div className="h-full flex flex-col items-center justify-center select-none px-8">
-      <div className="w-full max-w-sm flex flex-col items-center gap-6">
+    <div className="flex h-full select-none flex-col items-center justify-center bg-[#0b0e14] px-8">
+      <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-1.5">
           <img
             src="/axon.png"
             alt="Axon"
-            className="w-22 h-22 opacity-80 mb-1"
+            className="mb-1 h-22 w-22 opacity-80"
             draggable={false}
           />
-          <span className="text-[15px] font-semibold text-[#c8d0e0] tracking-wide">
+          <span className="text-[15px] font-semibold tracking-wide text-[#c8d0e0]">
             Axon
           </span>
           <span className="text-[11px] text-[#364050]">
             your editor, your rules
           </span>
-          <div className="w-full border-t border-[#1a1c24] my-1" />
-          <span className="max-w-65 text-[11px] leading-5 text-[#364050] text-center">
+          <div className="my-1 w-full border-t border-[#171c26]" />
+          <span className="max-w-65 text-center text-[11px] leading-5 text-[#364050]">
             Open a file, split from the sidebar, or drop a file or tab here.
           </span>
         </div>
 
-        <div className="w-full flex gap-2">
+        <div className="flex w-full gap-2">
           <button
             onClick={onOpenFolder}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-[#14161e] border border-[#222838] rounded-lg text-[12px] text-[#9aa4b8] hover:text-white hover:border-[#80c8e0] hover:bg-[#1e2430] transition-all cursor-pointer"
+            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-[#222838] bg-[#0e1018] px-3 py-2.5 text-[12px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:bg-[#141923] hover:text-white"
           >
             <FolderOpen size={13} className="shrink-0" />
             open folder
           </button>
           <button
             onClick={onNewFile}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-[#14161e] border border-[#222838] rounded-lg text-[12px] text-[#9aa4b8] hover:text-white hover:border-[#80c8e0] hover:bg-[#1e2430] transition-all cursor-pointer"
+            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-[#222838] bg-[#0e1018] px-3 py-2.5 text-[12px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:bg-[#141923] hover:text-white"
           >
             <FilePlus size={13} className="shrink-0" />
             new file
@@ -57,10 +56,10 @@ export default function EmptyPane({
         </div>
 
         {recentFolders.length > 0 && (
-          <div className="w-full flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 mb-1">
+          <div className="flex w-full flex-col gap-1">
+            <div className="mb-1 flex items-center gap-1.5">
               <Clock size={11} className="text-[#364050]" />
-              <span className="text-[10px] text-[#364050] uppercase tracking-widest">
+              <span className="text-[10px] uppercase tracking-widest text-[#364050]">
                 recent
               </span>
             </div>
@@ -72,13 +71,13 @@ export default function EmptyPane({
                 <button
                   key={folder}
                   onClick={() => onSelectRecentFolder(folder)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-[#14161e] transition-colors cursor-pointer group text-left"
+                  className="group flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-[#11151c]"
                 >
                   <FolderOpen
                     size={13}
                     className="shrink-0 text-[#364050] group-hover:text-[#80c8e0] transition-colors"
                   />
-                  <div className="flex flex-col min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-1 flex-col">
                     <span className="text-[12px] text-[#9aa4b8] group-hover:text-white transition-colors truncate">
                       {name}
                     </span>
@@ -95,21 +94,6 @@ export default function EmptyPane({
             })}
           </div>
         )}
-
-        <div className="w-full flex flex-col gap-1.5 pt-2 border-t border-[#1a1c24]">
-          {[
-            { keys: "⌘P", desc: "search files" },
-            { keys: "⌘J", desc: "toggle terminal" },
-            { keys: "⌘\\", desc: "split editor" },
-          ].map(({ keys, desc }) => (
-            <div key={keys} className="flex items-center justify-between px-1">
-              <span className="text-[11px] text-[#364050]">{desc}</span>
-              <kbd className="text-[10px] text-[#364050] bg-[#14161e] border border-[#222838] rounded px-1.5 py-0.5 font-mono">
-                {keys}
-              </kbd>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

@@ -13,21 +13,66 @@ import Tooltip from "../Tooltip";
 const RECENT_KEY = "axon:recentFolders";
 const MAX_RECENT = 10;
 
-export function addRecentFolder(path: string) {
-  const existing = getRecentFolders();
-  const updated = [path, ...existing.filter((p) => p !== path)].slice(
-    0,
-    MAX_RECENT,
-  );
-  localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+interface RecentFolderRecord {
+  path: string;
+  lastOpenedAt: number;
 }
 
-export function getRecentFolders(): string[] {
+function parseRecentFolders(): RecentFolderRecord[] {
   try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    const rawValue = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    if (!Array.isArray(rawValue)) return [];
+
+    return rawValue
+      .map((item, index): RecentFolderRecord | null => {
+        if (typeof item === "string") {
+          return {
+            path: item,
+            lastOpenedAt: Date.now() - index,
+          };
+        }
+
+        if (
+          typeof item === "object" &&
+          item !== null &&
+          typeof item.path === "string"
+        ) {
+          return {
+            path: item.path,
+            lastOpenedAt:
+              typeof item.lastOpenedAt === "number"
+                ? item.lastOpenedAt
+                : Date.now() - index,
+          };
+        }
+
+        return null;
+      })
+      .filter((item): item is RecentFolderRecord => item !== null);
   } catch {
     return [];
   }
+}
+
+function writeRecentFolders(records: RecentFolderRecord[]) {
+  localStorage.setItem(RECENT_KEY, JSON.stringify(records));
+}
+
+export function addRecentFolder(path: string) {
+  const records = parseRecentFolders().filter((record) => record.path !== path);
+  writeRecentFolders(
+    [{ path, lastOpenedAt: Date.now() }, ...records]
+      .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
+      .slice(0, MAX_RECENT),
+  );
+}
+
+export function getRecentFolders(): string[] {
+  const records = parseRecentFolders().sort(
+    (a, b) => b.lastOpenedAt - a.lastOpenedAt,
+  );
+  writeRecentFolders(records.slice(0, MAX_RECENT));
+  return records.map((record) => record.path);
 }
 
 interface Props {
