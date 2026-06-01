@@ -5,7 +5,7 @@ import StatusBar from "./components/StatusBar";
 import Terminal from "./components/Terminal";
 import CommandPalette from "./components/CommandPalette";
 import WorkspaceSearchModal from "./components/WorkspaceSearchModal";
-import BottomPanel, { type BottomPanelTab } from "./components/BottomPanel";
+import { type BottomPanelTab } from "./components/BottomPanel";
 import DiffModal from "./components/DiffModal";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
@@ -189,6 +189,7 @@ function App() {
 
   const handleNewTerminal = () => {
     setTerminalCreateWorkingDirectory(null);
+    setBottomPanelOpen(false);
     setTerminalOpen(true);
     setTerminalCreateNonce((nonce) => nonce + 1);
   };
@@ -202,12 +203,14 @@ function App() {
       separatorIndex > 0 ? filePath.slice(0, separatorIndex) : folderPath;
 
     setTerminalCreateWorkingDirectory(parentPath);
+    setBottomPanelOpen(false);
     setTerminalOpen(true);
     setTerminalCreateNonce((nonce) => nonce + 1);
   };
 
   const handleOpenPathInTerminal = (path: string) => {
     setTerminalCreateWorkingDirectory(path);
+    setBottomPanelOpen(false);
     setTerminalOpen(true);
     setTerminalCreateNonce((nonce) => nonce + 1);
   };
@@ -258,15 +261,18 @@ function App() {
         case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
           setBottomPanelTab("problems");
           setBottomPanelOpen(true);
+          setTerminalOpen(false);
           break;
         case AXON_COMMANDS.OPEN_OUTPUT_PANEL:
           setBottomPanelTab("output");
           setBottomPanelOpen(true);
+          setTerminalOpen(false);
           break;
         case AXON_COMMANDS.OPEN_DIFF_VIEW:
           if (activePane?.activeFile) setDiffOpen(true);
           break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
+          setBottomPanelOpen(false);
           setTerminalOpen((prev) => !prev);
           break;
         case AXON_COMMANDS.OPEN_SETTINGS:
@@ -449,20 +455,27 @@ function App() {
             handleFolderChange={handleFolderChange}
           />
 
-          <BottomPanel
-            open={bottomPanelOpen && !zenMode}
-            activeTab={bottomPanelTab}
-            onActiveTabChange={setBottomPanelTab}
-            onClose={() => setBottomPanelOpen(false)}
-          />
-
           <Terminal
             open={terminalOpen && !zenMode}
             createNonce={terminalCreateNonce}
             createWorkingDirectory={terminalCreateWorkingDirectory}
             editorSettings={settings.editor}
             workingDirectory={folderPath}
-            onHide={() => setTerminalOpen(false)}
+            activePanelTab={!zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"}
+            onActivePanelTabChange={(tab) => {
+              if (tab === "terminal") {
+                setBottomPanelOpen(false);
+                setTerminalOpen(true);
+                return;
+              }
+              setBottomPanelTab(tab);
+              setBottomPanelOpen(true);
+              setTerminalOpen(false);
+            }}
+            onHide={() => {
+              setTerminalOpen(false);
+              setBottomPanelOpen(false);
+            }}
           />
         </div>
       </div>

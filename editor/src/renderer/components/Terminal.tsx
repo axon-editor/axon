@@ -24,6 +24,10 @@ import "@xterm/xterm/css/xterm.css";
 import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
 import ChromeTab from "./ChromeTab";
 import Tooltip from "./Tooltip";
+import {
+  BottomPanelContent,
+  type BottomPanelTab,
+} from "./BottomPanel";
 
 interface Props {
   open: boolean;
@@ -31,6 +35,8 @@ interface Props {
   createWorkingDirectory?: string | null;
   editorSettings: EditorSettings;
   workingDirectory: string | null;
+  activePanelTab: "terminal" | BottomPanelTab;
+  onActivePanelTabChange: (tab: "terminal" | BottomPanelTab) => void;
   onHide: () => void;
 }
 
@@ -198,6 +204,8 @@ export default function Terminal({
   createWorkingDirectory,
   editorSettings,
   workingDirectory,
+  activePanelTab,
+  onActivePanelTabChange,
   onHide,
 }: Props) {
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
@@ -217,6 +225,8 @@ export default function Terminal({
     () => getTerminalOptions(editorSettings),
     [editorSettings],
   );
+  const panelOpen = open || activePanelTab !== "terminal";
+  const terminalVisible = open && activePanelTab === "terminal";
 
   const sendResize = useCallback((id: string) => {
     const session = sessionsRef.current[id];
@@ -453,23 +463,29 @@ export default function Terminal({
   }, [open]);
 
   useEffect(() => {
-    if (!open || tabs.length > 0) return;
+    if (!terminalVisible || tabs.length > 0) return;
     if (suppressAutoCreateRef.current) return;
     if (createNonce !== lastCreateNonceRef.current) return;
     createTab();
-  }, [createNonce, createTab, open, tabs.length]);
+  }, [createNonce, createTab, tabs.length, terminalVisible]);
 
   useEffect(() => {
     if (createNonce === lastCreateNonceRef.current) return;
-    if (!open) return;
+    if (!terminalVisible) return;
     lastCreateNonceRef.current = createNonce;
     createTab(createWorkingDirectory ?? workingDirectory);
-  }, [createNonce, createTab, createWorkingDirectory, open, workingDirectory]);
+  }, [
+    createNonce,
+    createTab,
+    createWorkingDirectory,
+    terminalVisible,
+    workingDirectory,
+  ]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!terminalVisible) return;
     resizeActiveTerminal();
-  }, [activeTabId, height, open, resizeActiveTerminal, zoomed]);
+  }, [activeTabId, height, resizeActiveTerminal, terminalVisible, zoomed]);
 
   useEffect(() => {
     for (const id of Object.keys(sessionsRef.current)) {
@@ -493,11 +509,11 @@ export default function Terminal({
     };
   }, [disposeSession]);
 
-  if (!open && tabs.length === 0) return null;
+  if (!panelOpen && tabs.length === 0) return null;
 
   return (
     <div
-      className={`${open ? "flex" : "hidden"} ${
+      className={`${panelOpen ? "flex" : "hidden"} ${
         zoomed
           ? "absolute inset-0 z-30"
           : "relative z-10 shrink-0 border-t border-[#202533]"
@@ -528,9 +544,12 @@ export default function Terminal({
               <ChromeTab
                 key={tab.id}
                 label={tab.title}
-                active={tab.id === activeTabId}
+                active={activePanelTab === "terminal" && tab.id === activeTabId}
                 closeLabel={`Close ${tab.title}`}
-                onClick={() => setActiveTabId(tab.id)}
+                onClick={() => {
+                  setActiveTabId(tab.id);
+                  onActivePanelTabChange("terminal");
+                }}
                 onClose={(event) => {
                   event.stopPropagation();
                   closeTab(tab.id);
@@ -539,13 +558,36 @@ export default function Terminal({
             ))}
             <Tooltip label="New terminal tab" side="top">
               <button
-                onClick={() => createTab()}
+                onClick={() => {
+                  onActivePanelTabChange("terminal");
+                  createTab();
+                }}
                 aria-label="New terminal tab"
                 className="my-1 cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
               >
                 <Plus size={13} />
               </button>
             </Tooltip>
+            <button
+              onClick={() => onActivePanelTabChange("problems")}
+              className={`my-1 cursor-pointer rounded px-2 text-[12px] transition-colors ${
+                activePanelTab === "problems"
+                  ? "bg-[#1e2430] text-white"
+                  : "text-neutral-500 hover:bg-[#151923] hover:text-white"
+              }`}
+            >
+              Problems
+            </button>
+            <button
+              onClick={() => onActivePanelTabChange("output")}
+              className={`my-1 cursor-pointer rounded px-2 text-[12px] transition-colors ${
+                activePanelTab === "output"
+                  ? "bg-[#1e2430] text-white"
+                  : "text-neutral-500 hover:bg-[#151923] hover:text-white"
+              }`}
+            >
+              Output
+            </button>
           </div>
         </div>
 
@@ -575,12 +617,17 @@ export default function Terminal({
       </div>
 
       <div className="relative flex-1 overflow-hidden px-2 py-1">
+        {activePanelTab !== "terminal" && (
+          <BottomPanelContent activeTab={activePanelTab} />
+        )}
         {tabs.map((tab) => (
           <div
             key={tab.id}
             ref={(node) => attachContainer(tab.id, node)}
             className={`h-full w-full overflow-hidden ${
-              tab.id === activeTabId ? "block" : "hidden"
+              activePanelTab === "terminal" && tab.id === activeTabId
+                ? "block"
+                : "hidden"
             }`}
           />
         ))}

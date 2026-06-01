@@ -42,7 +42,16 @@ export function splitPane(
   if (layout.panes.length >= MAX_PANES) return layout;
 
   const sourcePane = layout.panes.find((p) => p.id === sourcePaneId);
-  const newPane = createPane(fileToOpen ?? sourcePane?.activeFile ?? undefined);
+  if (!sourcePane) return layout;
+
+  const fileForNewPane = fileToOpen ?? sourcePane.activeFile ?? undefined;
+  if (!fileForNewPane) return layout;
+
+  if (sourcePane.openTabs.length === 0) {
+    return openFileInPane(layout, sourcePaneId, fileForNewPane);
+  }
+
+  const newPane = createPane(fileForNewPane);
 
   // horizontal split = panes side by side (left/right)
   // vertical split = panes stacked (up/down)
