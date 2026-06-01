@@ -5,21 +5,16 @@ import {
   AI_PROVIDER_IDS,
   BUILT_IN_THEME_IDS,
   EDITOR_FONT_FAMILIES,
+  THEME_COLOR_TOKENS,
+  THEME_LABELS,
   UI_FONT_FAMILIES,
   type AiProviderId,
   type AxonSettings,
   type BuiltInThemeId,
   type EditorFontFamily,
+  type ThemeColorToken,
   type UiFontFamily,
 } from "../../shared/settings";
-
-const THEME_LABELS: Record<BuiltInThemeId, string> = {
-  "axon-dark": "Axon Dark",
-  sora: "Sora",
-  "catppuccin-mocha": "Catppuccin Mocha",
-  "tokyo-night": "Tokyo Night",
-  "ayu-dark": "Ayu Dark",
-};
 
 const THEME_ITEMS: SearchSelectItem<BuiltInThemeId>[] = BUILT_IN_THEME_IDS.map(
   (themeId) => ({
@@ -53,6 +48,24 @@ const AI_PROVIDER_ITEMS: SearchSelectItem<AiProviderId>[] = AI_PROVIDER_IDS.map(
   }),
 );
 
+const THEME_COLOR_LABELS: Record<ThemeColorToken, string> = {
+  background: "app background",
+  "status_bar.background": "status bar",
+  "title_bar.background": "title bar",
+  "toolbar.background": "toolbar",
+  "sidebar.background": "sidebar",
+  "sidebar.border": "sidebar border",
+  "tab.active_background": "active tab",
+  "panel.background": "panel",
+  "panel.border": "panel border",
+  "panel.overlay_hover": "panel hover",
+  "editor.foreground": "editor text",
+  "editor.background": "editor background",
+  "editor.gutter.background": "editor gutter",
+  "terminal.background": "terminal background",
+  "terminal.foreground": "terminal text",
+};
+
 interface Props {
   settings: AxonSettings;
   onClose: () => void;
@@ -84,6 +97,21 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
       ai: {
         ...prev.ai,
         [key]: value,
+      },
+    }));
+  };
+
+  const updateThemeColor = (token: ThemeColorToken, value: string) => {
+    const themeName = THEME_LABELS[draft.editor.themeId];
+
+    setDraft((prev) => ({
+      ...prev,
+      theme_overrides: {
+        ...prev.theme_overrides,
+        [themeName]: {
+          ...(prev.theme_overrides[themeName] ?? {}),
+          [token]: value,
+        },
       },
     }));
   };
@@ -188,6 +216,51 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
             />
             enabled
           </label>
+        </div>
+
+        <div className="grid grid-cols-[150px_1fr] items-center gap-3 border-t border-[#222838] pt-4">
+          <div className="col-span-2 text-[11px] font-medium uppercase tracking-normal text-[#586478]">
+            theme overrides
+          </div>
+
+          <div className="col-span-2 text-[12px] leading-5 text-[#647086]">
+            Editing {THEME_LABELS[draft.editor.themeId]} colors. Values are
+            saved into axon.json under theme_overrides.
+          </div>
+
+          {THEME_COLOR_TOKENS.map((token) => {
+            const themeName = THEME_LABELS[draft.editor.themeId];
+            const value =
+              draft.theme_overrides[themeName]?.[token] ??
+              draft.theme_overrides[draft.editor.themeId]?.[token] ??
+              "";
+
+            return (
+              <div
+                key={token}
+                className="col-span-2 grid grid-cols-[150px_1fr] items-center gap-3"
+              >
+                <label className="text-[12px] text-[#9aa4b8]">
+                  {THEME_COLOR_LABELS[token]}
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={/^#[0-9a-f]{6}/i.test(value) ? value.slice(0, 7) : "#000000"}
+                    onChange={(e) => updateThemeColor(token, e.target.value)}
+                    className="h-8 w-10 cursor-pointer rounded border border-[#222838] bg-[#0e1018] p-1"
+                    aria-label={`${THEME_COLOR_LABELS[token]} color`}
+                  />
+                  <input
+                    value={value}
+                    onChange={(e) => updateThemeColor(token, e.target.value)}
+                    placeholder="#000000FF"
+                    className="h-8 flex-1 rounded border border-[#222838] bg-[#0e1018] px-2 font-mono text-[12px] text-[#c8d0e0] outline-none focus:border-[#80c8e0]"
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-[150px_1fr] items-center gap-3 border-t border-[#222838] pt-4">

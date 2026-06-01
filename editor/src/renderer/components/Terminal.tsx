@@ -23,6 +23,7 @@ import {
 import "@xterm/xterm/css/xterm.css";
 import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
 import { type EditorDiagnostic } from "../lib/diagnostics";
+import { type ResolvedThemeTokens } from "../lib/themeTokens";
 import ChromeTab from "./ChromeTab";
 import Tooltip from "./Tooltip";
 import {
@@ -35,6 +36,7 @@ interface Props {
   createNonce: number;
   createWorkingDirectory?: string | null;
   editorSettings: EditorSettings;
+  themeTokens: ResolvedThemeTokens;
   workingDirectory: string | null;
   activePanelTab: "terminal" | BottomPanelTab;
   diagnostics: EditorDiagnostic[];
@@ -212,9 +214,16 @@ function sendWorkspaceCd(session: TerminalSession) {
   session.cwdSynced = true;
 }
 
-function getTerminalOptions(editorSettings: EditorSettings) {
+function getTerminalOptions(
+  editorSettings: EditorSettings,
+  themeTokens: ResolvedThemeTokens,
+) {
   return {
-    theme: terminalThemes[editorSettings.themeId],
+    theme: {
+      ...terminalThemes[editorSettings.themeId],
+      background: themeTokens["terminal.background"],
+      foreground: themeTokens["terminal.foreground"],
+    },
     fontFamily: `'${editorSettings.fontFamily}', monospace`,
     fontSize: Math.max(10, editorSettings.fontSize - 1),
     lineHeight: Math.max(
@@ -229,6 +238,7 @@ export default function Terminal({
   createNonce,
   createWorkingDirectory,
   editorSettings,
+  themeTokens,
   workingDirectory,
   activePanelTab,
   diagnostics,
@@ -250,8 +260,8 @@ export default function Terminal({
     [workingDirectory],
   );
   const terminalOptions = useMemo(
-    () => getTerminalOptions(editorSettings),
-    [editorSettings],
+    () => getTerminalOptions(editorSettings, themeTokens),
+    [editorSettings, themeTokens],
   );
   const panelOpen = open || activePanelTab !== "terminal";
   const terminalVisible = open && activePanelTab === "terminal";
@@ -544,12 +554,13 @@ export default function Terminal({
       className={`${panelOpen ? "flex" : "hidden"} ${
         zoomed
           ? "absolute inset-0 z-30"
-          : "relative z-10 shrink-0 border-t border-[#202533]"
+          : "relative z-10 shrink-0 border-t"
       } flex-col`}
       style={{
         height: zoomed ? "100%" : `${height}px`,
         background: terminalOptions.theme.background,
         color: terminalOptions.theme.foreground,
+        borderColor: "var(--axon-panel-border)",
       }}
     >
       <div
@@ -561,7 +572,10 @@ export default function Terminal({
         }`}
         aria-hidden="true"
       />
-      <div className="flex items-center justify-between border-b border-[#202533] pl-3 pr-3 shrink-0">
+      <div
+        className="flex items-center justify-between border-b pl-3 pr-3 shrink-0"
+        style={{ borderColor: "var(--axon-panel-border)" }}
+      >
         <div className="flex min-w-0 flex-1 items-stretch gap-3 overflow-hidden">
           <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[#647086]">
             <SquareTerminal size={13} />

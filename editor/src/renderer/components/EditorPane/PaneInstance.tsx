@@ -9,6 +9,7 @@ import {
   decodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
 } from "../../lib/dragData";
+import { type ResolvedThemeTokens } from "../../lib/themeTokens";
 import { type Pane } from "../../lib/types";
 import TabBar, { getPaneDropId, type PaneDropData } from "../TabBar";
 import MediaPreview, { isMediaFile } from "./MediaPreview";
@@ -27,6 +28,7 @@ interface Props {
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
+  themeTokens: ResolvedThemeTokens;
   onOpenFolder: () => void;
   onNewFile: () => void;
   onSelectRecentFolder: (path: string) => void;
@@ -44,6 +46,7 @@ export default function PaneInstance({
   onCursorChange,
   onLanguageChange,
   editorSettings,
+  themeTokens,
   onOpenFolder,
   onNewFile,
   onSelectRecentFolder,
@@ -175,6 +178,7 @@ export default function PaneInstance({
                   onCursorChange={isActive ? onCursorChange : () => {}}
                   onLanguageChange={isActive ? onLanguageChange : () => {}}
                   editorSettings={editorSettings}
+                  themeTokens={themeTokens}
                 />
               )}
             </div>

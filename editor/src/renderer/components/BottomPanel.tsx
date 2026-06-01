@@ -39,14 +39,14 @@ export function BottomPanelHeader({
             onClick={() => onActiveTabChange(tab.id)}
             className={`flex h-7 cursor-pointer items-center gap-1.5 rounded px-2 text-[12px] transition-colors ${
               active
-                ? "bg-[#1e2430] text-white"
-                : "text-[#586478] hover:bg-[#141923] hover:text-[#c8d0e0]"
+                ? "bg-[var(--axon-tab-active-background)] text-white"
+                : "text-[#586478] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#c8d0e0]"
             }`}
           >
             <Icon size={13} />
             {tab.label}
             {tab.id === "problems" && (
-              <span className="rounded bg-[#151923] px-1.5 text-[10px] text-[#586478]">
+              <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 text-[10px] text-[#586478]">
                 {diagnostics.length}
               </span>
             )}
@@ -58,7 +58,7 @@ export function BottomPanelHeader({
         <button
           onClick={onClose}
           aria-label="Close panel"
-          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-white"
         >
           <X size={13} />
         </button>
@@ -101,7 +101,7 @@ export function BottomPanelContent({
             <button
               key={diagnostic.id}
               onClick={() => onOpenDiagnostic(diagnostic)}
-              className="grid w-full cursor-pointer grid-cols-[80px_180px_1fr] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-[#141923]"
+              className="grid w-full cursor-pointer grid-cols-[80px_180px_1fr] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
             >
               <span
                 className={`font-medium capitalize ${severityStyles[diagnostic.severity]}`}
@@ -148,8 +148,8 @@ export default function BottomPanel({
   if (!open) return null;
 
   return (
-    <div className="h-56 shrink-0 border-t border-[#202533] bg-[#0a0c12] text-[#9aa4b8]">
-      <div className="flex h-9 items-center justify-between border-b border-[#202533] px-2">
+    <div className="h-56 shrink-0 border-t border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[#9aa4b8]">
+      <div className="flex h-9 items-center justify-between border-b border-[var(--axon-panel-border)] px-2">
         <BottomPanelHeader
           activeTab={activeTab}
           diagnostics={diagnostics}

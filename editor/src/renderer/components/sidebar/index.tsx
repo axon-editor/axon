@@ -201,9 +201,9 @@ export default function Sidebar({
     <>
       <div className="flex h-full">
         {!collapsed && (
-          <div className="w-52 bg-[#0a0c12] border-r border-[#222838] flex flex-col overflow-hidden">
+          <div className="w-52 bg-[var(--axon-sidebar-background)] border-r border-[var(--axon-sidebar-border)] flex flex-col overflow-hidden">
             <div
-              className="flex items-center justify-between px-3 border-b border-[#222838] pt-8 pb-2"
+              className="flex items-center justify-between px-3 border-b border-[var(--axon-sidebar-border)] pt-8 pb-2"
               style={{ WebkitAppRegion: "drag" } as any}
             >
               <Tooltip label="Switch folder" side="bottom">
@@ -267,7 +267,7 @@ export default function Sidebar({
         )}
 
         {collapsed && (
-          <div className="w-9 bg-[#0a0c12] border-r border-[#222838] flex flex-col items-center pt-8 gap-3">
+          <div className="w-9 bg-[var(--axon-sidebar-background)] border-r border-[var(--axon-sidebar-border)] flex flex-col items-center pt-8 gap-3">
             <Tooltip label="Expand sidebar" side="right">
               <button
                 onClick={() => onCollapsedChange(false)}

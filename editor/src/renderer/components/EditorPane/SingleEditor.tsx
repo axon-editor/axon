@@ -9,6 +9,7 @@ import { Columns2, FileText, Eye } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { readFile, writeFile } from "../../lib/api";
 import { getMonacoThemeId, registerAxonTheme } from "../../lib/soraTheme";
+import { type ResolvedThemeTokens } from "../../lib/themeTokens";
 import Tooltip from "../Tooltip";
 import MarkdownPreview from "../MarkdownPreview";
 import {
@@ -27,6 +28,7 @@ interface Props {
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
+  themeTokens: ResolvedThemeTokens;
 }
 
 function isMarkdown(path: string): boolean {
@@ -43,6 +45,7 @@ export default function SingleEditor({
   onCursorChange,
   onLanguageChange,
   editorSettings,
+  themeTokens,
 }: Props) {
   const [liveContent, setLiveContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -63,9 +66,9 @@ export default function SingleEditor({
     if (visible) {
       onLanguageChange(detectLanguage(filePath));
       onCursorChange(1, 1);
-      registerAxonTheme(monaco, editorSettings.themeId);
+      registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
     }
-  }, [visible, editorSettings.themeId]);
+  }, [visible, editorSettings.themeId, themeTokens]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,7 +157,7 @@ export default function SingleEditor({
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
 
-    registerAxonTheme(monaco, editorSettings.themeId);
+    registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
 
     // only attach model if it already exists from a previous readFile call
     // if readFile hasn't resolved yet it will call editor.setModel when it does
@@ -209,7 +212,7 @@ export default function SingleEditor({
         height="100%"
         theme={getMonacoThemeId(editorSettings.themeId)}
         beforeMount={(monacoInstance) =>
-          registerAxonTheme(monacoInstance, editorSettings.themeId)
+          registerAxonTheme(monacoInstance, editorSettings.themeId, themeTokens)
         }
         onMount={handleEditorMount}
         // The same Monaco ITextModel can be attached to multiple editor

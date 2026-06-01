@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Tooltip from "./Tooltip";
 import { type BottomPanelTab } from "./BottomPanel";
+import { type ResolvedThemeTokens } from "../lib/themeTokens";
 
 interface Props {
   activeFile: string | null;
@@ -22,6 +23,7 @@ interface Props {
   bottomPanelOpen: boolean;
   bottomPanelTab: BottomPanelTab;
   problemCount: number;
+  themeTokens: ResolvedThemeTokens;
   onToggleSidebar: () => void;
   onToggleTerminal: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
@@ -37,12 +39,19 @@ export default function StatusBar({
   bottomPanelOpen,
   bottomPanelTab,
   problemCount,
+  themeTokens,
   onToggleSidebar,
   onToggleTerminal,
   onOpenBottomPanel,
 }: Props) {
   return (
-    <div className="h-7 bg-[#0a0c12] border-t border-[#222838] flex items-center px-2 text-[11px] text-[#586478] shrink-0 gap-1">
+    <div
+      className="h-7 border-t flex items-center px-2 text-[11px] text-[#586478] shrink-0 gap-1"
+      style={{
+        background: themeTokens["status_bar.background"],
+        borderColor: "var(--axon-panel-border)",
+      }}
+    >
       <Tooltip label="Toggle sidebar" side="top">
         <button
           onClick={onToggleSidebar}

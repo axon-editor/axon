@@ -3,6 +3,7 @@
 // Colors mapped from editor syntax tokens to Monaco token rules.
 import * as monaco from "monaco-editor";
 import { type BuiltInThemeId } from "../../shared/settings";
+import { type ResolvedThemeTokens } from "./themeTokens";
 
 export const AXON_MONACO_THEME: BuiltInThemeId = "axon-dark";
 
@@ -10,11 +11,26 @@ type MonacoInstance = typeof monaco;
 
 const registeredMonacos = new WeakSet<MonacoInstance>();
 
+function getEditorColorOverrides(themeTokens?: ResolvedThemeTokens) {
+  if (!themeTokens) return {};
+
+  return {
+    "editor.background": themeTokens["editor.background"],
+    "editor.foreground": themeTokens["editor.foreground"],
+    "editorGutter.background": themeTokens["editor.gutter.background"],
+  };
+}
+
 export function getMonacoThemeId(themeId: BuiltInThemeId) {
   return themeId;
 }
 
-function defineCompanionThemes(monacoInstance: MonacoInstance) {
+function defineCompanionThemes(
+  monacoInstance: MonacoInstance,
+  themeId?: BuiltInThemeId,
+  themeTokens?: ResolvedThemeTokens,
+) {
+  const editorColorOverrides = getEditorColorOverrides(themeTokens);
   monacoInstance.editor.defineTheme("sora", {
     base: "vs-dark",
     inherit: true,
@@ -39,6 +55,7 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
       "editorGutter.background": "#0e1018",
       "editorIndentGuide.background1": "#222838",
       "editorIndentGuide.activeBackground1": "#364050",
+      ...(themeId === "sora" ? editorColorOverrides : {}),
     },
   });
 
@@ -66,6 +83,7 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
       "editorGutter.background": "#1e1e2e",
       "editorIndentGuide.background1": "#45475a",
       "editorIndentGuide.activeBackground1": "#585b70",
+      ...(themeId === "catppuccin-mocha" ? editorColorOverrides : {}),
     },
   });
 
@@ -93,6 +111,7 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
       "editorGutter.background": "#1a1b26",
       "editorIndentGuide.background1": "#292e42",
       "editorIndentGuide.activeBackground1": "#3b4261",
+      ...(themeId === "tokyo-night" ? editorColorOverrides : {}),
     },
   });
 
@@ -150,6 +169,7 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
       "editorSuggestWidget.selectedBackground": "#1f2430",
       "editorSuggestWidget.highlightForeground": "#ffb454",
       focusBorder: "#ffb454",
+      ...(themeId === "ayu-dark" ? editorColorOverrides : {}),
     },
   });
 }
@@ -157,8 +177,12 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
 export function registerAxonTheme(
   monacoInstance: MonacoInstance = monaco,
   themeId: BuiltInThemeId = AXON_MONACO_THEME,
+  themeTokens?: ResolvedThemeTokens,
 ) {
+  const editorColorOverrides = getEditorColorOverrides(themeTokens);
+
   if (registeredMonacos.has(monacoInstance)) {
+    defineCompanionThemes(monacoInstance, themeId, themeTokens);
     monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
     return;
   }
@@ -387,10 +411,11 @@ export function registerAxonTheme(
       "editorSuggestWidget.border": "#222838",
       "editorSuggestWidget.selectedBackground": "#1e2430",
       "editorSuggestWidget.highlightForeground": "#80c8e0",
+      ...(themeId === AXON_MONACO_THEME ? editorColorOverrides : {}),
     },
   });
 
-  defineCompanionThemes(monacoInstance);
+  defineCompanionThemes(monacoInstance, themeId, themeTokens);
   registeredMonacos.add(monacoInstance);
   monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
 }

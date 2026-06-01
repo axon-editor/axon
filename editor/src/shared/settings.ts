@@ -33,6 +33,36 @@ export const EDITOR_FONT_FAMILIES = [
 export type UiFontFamily = (typeof UI_FONT_FAMILIES)[number];
 export type EditorFontFamily = (typeof EDITOR_FONT_FAMILIES)[number];
 
+export const THEME_LABELS: Record<BuiltInThemeId, string> = {
+  "axon-dark": "Axon Dark",
+  sora: "Sora",
+  "catppuccin-mocha": "Catppuccin Mocha",
+  "tokyo-night": "Tokyo Night",
+  "ayu-dark": "Ayu Dark",
+};
+
+export const THEME_COLOR_TOKENS = [
+  "background",
+  "status_bar.background",
+  "title_bar.background",
+  "toolbar.background",
+  "sidebar.background",
+  "sidebar.border",
+  "tab.active_background",
+  "panel.background",
+  "panel.border",
+  "panel.overlay_hover",
+  "editor.foreground",
+  "editor.background",
+  "editor.gutter.background",
+  "terminal.background",
+  "terminal.foreground",
+] as const;
+
+export type ThemeColorToken = (typeof THEME_COLOR_TOKENS)[number];
+export type ThemeOverride = Partial<Record<ThemeColorToken, string>>;
+export type ThemeOverrides = Partial<Record<string, ThemeOverride>>;
+
 export interface EditorSettings {
   uiFontFamily: string;
   themeId: BuiltInThemeId;
@@ -45,6 +75,7 @@ export interface EditorSettings {
 export interface AxonSettings {
   editor: EditorSettings;
   ai: AiSettings;
+  theme_overrides: ThemeOverrides;
 }
 
 export interface AiSettings {
@@ -58,7 +89,7 @@ export interface AiSettings {
 export const DEFAULT_SETTINGS: AxonSettings = {
   editor: {
     uiFontFamily: ".AxonSans",
-    themeId: "axon-dark",
+    themeId: "ayu-dark",
     fontFamily: ".AxonMono",
     fontSize: 14,
     lineHeight: 22,
@@ -70,6 +101,22 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     model: "gpt-5.1",
     apiKeyEnv: "OPENAI_API_KEY",
     includeWorkspaceContext: true,
+  },
+  theme_overrides: {
+    "Ayu Dark": {
+      background: "#000000FF",
+      "status_bar.background": "#000000FF",
+      "title_bar.background": "#000000FF",
+      "toolbar.background": "#000000FF",
+      "tab.active_background": "#000000FF",
+      "panel.background": "#000000FF",
+      "editor.foreground": "#000000FF",
+      "editor.background": "#000000FF",
+      "editor.gutter.background": "#000000FF",
+      "terminal.background": "#000000FF",
+      "terminal.foreground": "#000000FF",
+      "panel.overlay_hover": "#000000FF",
+    },
   },
 };
 
@@ -94,6 +141,36 @@ function isAiProviderId(value: unknown): value is AiProviderId {
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
+}
+
+function isHexColor(value: string) {
+  return /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value.trim());
+}
+
+function normalizeThemeOverrides(value: unknown): ThemeOverrides {
+  if (!isRecord(value)) return DEFAULT_SETTINGS.theme_overrides;
+
+  const normalized: ThemeOverrides = {};
+  for (const [themeName, overrides] of Object.entries(value)) {
+    if (!isRecord(overrides)) continue;
+
+    const themeOverrides: ThemeOverride = {};
+    for (const token of THEME_COLOR_TOKENS) {
+      const color = overrides[token];
+      if (typeof color === "string" && isHexColor(color)) {
+        themeOverrides[token] = color.trim();
+      }
+    }
+
+    if (Object.keys(themeOverrides).length > 0) {
+      normalized[themeName] = themeOverrides;
+    }
+  }
+
+  return {
+    ...DEFAULT_SETTINGS.theme_overrides,
+    ...normalized,
+  };
 }
 
 export function normalizeSettings(value: unknown): AxonSettings {
@@ -162,5 +239,6 @@ export function normalizeSettings(value: unknown): AxonSettings {
           ? ai.includeWorkspaceContext
           : DEFAULT_SETTINGS.ai.includeWorkspaceContext,
     },
+    theme_overrides: normalizeThemeOverrides(root.theme_overrides),
   };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Sidebar, { addRecentFolder } from "./components/sidebar/index";
 import EditorPane from "./components/EditorPane/index";
 import StatusBar from "./components/StatusBar";
@@ -35,6 +35,7 @@ import {
   type AxonSettings,
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
+import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import "./App.css";
 
 function fontStack(primaryFont: string, fallback: string) {
@@ -98,6 +99,11 @@ function App() {
   const [splashLeaving, setSplashLeaving] = useState(false);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
+  const themeTokens = useMemo(() => resolveThemeTokens(settings), [settings]);
+  const themeCssVariables = useMemo(
+    () => createThemeCssVariables(themeTokens),
+    [themeTokens],
+  );
 
   useEffect(() => {
     // The splash is a renderer overlay rather than a separate Electron window.
@@ -423,13 +429,16 @@ function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [runCommand, zenMode]);
 
-
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden relative"
       style={{
-        background: "#0e1018",
-        fontFamily: fontStack(settings.editor.uiFontFamily, "system-ui, sans-serif"),
+        ...themeCssVariables,
+        background: "var(--axon-background)",
+        fontFamily: fontStack(
+          settings.editor.uiFontFamily,
+          "system-ui, sans-serif",
+        ),
       }}
     >
       {zenMode && (
@@ -444,7 +453,11 @@ function App() {
           >
             <button
               onClick={() => setZenMode(false)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#14161e] border border-[#222838] rounded text-[11px] text-[#586478] hover:text-white hover:border-[#80c8e0] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[11px] text-[#586478] hover:text-white hover:border-[#80c8e0] transition-colors cursor-pointer"
+              style={{
+                background: "var(--axon-panel-background)",
+                borderColor: "var(--axon-panel-border)",
+              }}
             >
               exit zen
             </button>
@@ -481,7 +494,13 @@ function App() {
 
         <div className="relative flex flex-col flex-1 overflow-hidden">
           {!zenMode && (
-            <div className="flex items-center bg-[#0a0c12] border-b border-[#222838] pr-1">
+            <div
+              className="flex items-center border-b pr-1"
+              style={{
+                background: "var(--axon-toolbar-background)",
+                borderColor: "var(--axon-panel-border)",
+              }}
+            >
               <div className="flex-1 overflow-hidden">
                 {activePane && (
                   <TabBarForActivePane
@@ -543,6 +562,7 @@ function App() {
             }
             onOpenTabInTerminal={handleOpenTabInTerminal}
             editorSettings={settings.editor}
+            themeTokens={themeTokens}
             handleOpenFolder={handleOpenFolder}
             handleNewFile={handleNewFile}
             handleFolderChange={handleFolderChange}
@@ -553,6 +573,7 @@ function App() {
             createNonce={terminalCreateNonce}
             createWorkingDirectory={terminalCreateWorkingDirectory}
             editorSettings={settings.editor}
+            themeTokens={themeTokens}
             workingDirectory={folderPath}
             activePanelTab={
               !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
@@ -588,6 +609,7 @@ function App() {
           bottomPanelOpen={bottomPanelOpen}
           bottomPanelTab={bottomPanelTab}
           problemCount={diagnostics.length}
+          themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
           onOpenBottomPanel={(tab) =>
