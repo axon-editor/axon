@@ -3,7 +3,7 @@
 // Folder name header is clickable and opens the FolderPicker modal.
 // Recent folders persisted in localStorage under axon:recentFolders.
 import { useMemo, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../lib/api";
 import FileTreeNode from "./FileTreeNode";
 import ContextMenu from "./ContextMenu";
@@ -86,7 +86,6 @@ interface Props {
   onRefresh: () => void | Promise<void>;
   loading: boolean;
   collapsed: boolean;
-  onCollapsedChange: (collapsed: boolean) => void;
   onSplitFile: (filePath: string) => void;
   onOpenInTerminal?: (path: string) => void;
   onEntryDeleted?: (path: string) => void;
@@ -210,7 +209,6 @@ export default function Sidebar({
   onRefresh,
   loading,
   collapsed,
-  onCollapsedChange,
   onSplitFile,
   onOpenInTerminal,
   onEntryDeleted,
@@ -275,13 +273,14 @@ export default function Sidebar({
 
   const folderName = folderPath ? folderPath.split("/").pop() : null;
 
+  if (collapsed) return null;
+
   return (
     <>
       <div className="flex h-full">
-        {!collapsed && (
-          <div className="w-52 bg-[var(--axon-sidebar-background)] border-r border-[var(--axon-sidebar-border)] flex flex-col overflow-hidden">
+        <div className="w-52 bg-[var(--axon-sidebar-background)] border-r border-[var(--axon-sidebar-border)] flex flex-col overflow-hidden">
             <div
-              className="flex items-center justify-between px-3 border-b border-[var(--axon-sidebar-border)] pt-8 pb-2"
+              className="flex items-center px-3 border-b border-[var(--axon-sidebar-border)] pt-8 pb-2"
               style={{ WebkitAppRegion: "drag" } as any}
             >
               <Tooltip label="Switch folder" side="bottom">
@@ -295,17 +294,6 @@ export default function Sidebar({
                     {folderName ?? "open folder"}
                   </span>
                   <ChevronDown size={11} className="shrink-0" />
-                </button>
-              </Tooltip>
-
-              <Tooltip label="Collapse sidebar" side="bottom">
-                <button
-                  onClick={() => onCollapsedChange(true)}
-                  aria-label="Collapse sidebar"
-                  className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer flex items-center justify-center shrink-0"
-                  style={{ WebkitAppRegion: "no-drag" } as any}
-                >
-                  <PanelLeftClose size={13} />
                 </button>
               </Tooltip>
             </div>
@@ -343,21 +331,6 @@ export default function Sidebar({
                 ))}
             </div>
           </div>
-        )}
-
-        {collapsed && (
-          <div className="w-9 bg-[var(--axon-sidebar-background)] border-r border-[var(--axon-sidebar-border)] flex flex-col items-center pt-8 gap-3">
-            <Tooltip label="Expand sidebar" side="right">
-              <button
-                onClick={() => onCollapsedChange(false)}
-                aria-label="Expand sidebar"
-                className="text-[#586478] hover:text-[#80c8e0] transition-colors cursor-pointer"
-              >
-                <PanelLeftOpen size={14} />
-              </button>
-            </Tooltip>
-          </div>
-        )}
       </div>
 
       {contextMenu && (

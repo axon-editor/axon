@@ -1231,7 +1231,6 @@ function App() {
             onRefresh={handleRefresh}
             loading={loading}
             collapsed={sidebarCollapsed}
-            onCollapsedChange={setSidebarCollapsed}
             onSplitFile={(filePath) => handleSplit("right", filePath)}
             onOpenInTerminal={handleOpenPathInTerminal}
             onEntryDeleted={(path) =>
