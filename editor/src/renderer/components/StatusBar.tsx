@@ -2,8 +2,15 @@
 // Bottom status bar showing active file language, cursor position, encoding.
 // Left side has sidebar toggle and folder name.
 // Right side has terminal toggle, language, cursor position.
-import { FileCode, PanelLeft, TerminalSquare } from "lucide-react";
+import {
+  AlertCircle,
+  FileCode,
+  ListChecks,
+  PanelLeft,
+  TerminalSquare,
+} from "lucide-react";
 import Tooltip from "./Tooltip";
+import { type BottomPanelTab } from "./BottomPanel";
 
 interface Props {
   activeFile: string | null;
@@ -12,8 +19,11 @@ interface Props {
   folderName: string | null;
   sidebarCollapsed: boolean;
   terminalOpen: boolean;
+  bottomPanelOpen: boolean;
+  bottomPanelTab: BottomPanelTab;
   onToggleSidebar: () => void;
   onToggleTerminal: () => void;
+  onOpenBottomPanel: (tab: BottomPanelTab) => void;
 }
 
 export default function StatusBar({
@@ -23,8 +33,11 @@ export default function StatusBar({
   folderName,
   sidebarCollapsed,
   terminalOpen,
+  bottomPanelOpen,
+  bottomPanelTab,
   onToggleSidebar,
   onToggleTerminal,
+  onOpenBottomPanel,
 }: Props) {
   return (
     <div className="h-7 bg-[#0a0c12] border-t border-[#222838] flex items-center px-2 text-[11px] text-[#586478] shrink-0 gap-1">
@@ -56,6 +69,29 @@ export default function StatusBar({
             </span>
           </>
         )}
+
+        <Tooltip label="Problems" side="top">
+          <button
+            onClick={() => onOpenBottomPanel("problems")}
+            aria-label="Problems"
+            className={`flex items-center gap-1 rounded px-2 h-5 transition-colors cursor-pointer
+            ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+          >
+            <AlertCircle size={12} />
+            0
+          </button>
+        </Tooltip>
+
+        <Tooltip label="Output" side="top">
+          <button
+            onClick={() => onOpenBottomPanel("output")}
+            aria-label="Output"
+            className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer
+            ${bottomPanelOpen && bottomPanelTab === "output" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+          >
+            <ListChecks size={13} />
+          </button>
+        </Tooltip>
 
         <Tooltip label="Toggle terminal (Cmd+J)" side="top">
           <button

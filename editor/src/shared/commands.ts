@@ -6,6 +6,8 @@ export const AXON_COMMANDS = {
   CLOSE_TAB: "close-tab",
   OPEN_COMMAND_PALETTE: "open-command-palette",
   OPEN_WORKSPACE_SEARCH: "open-workspace-search",
+  OPEN_PROBLEMS_PANEL: "open-problems-panel",
+  OPEN_OUTPUT_PANEL: "open-output-panel",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",
   TOGGLE_ZEN_MODE: "toggle-zen-mode",

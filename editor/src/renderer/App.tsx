@@ -5,6 +5,7 @@ import StatusBar from "./components/StatusBar";
 import Terminal from "./components/Terminal";
 import CommandPalette from "./components/CommandPalette";
 import WorkspaceSearchModal from "./components/WorkspaceSearchModal";
+import BottomPanel, { type BottomPanelTab } from "./components/BottomPanel";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
 import SplashScreen from "./components/SplashScreen";
@@ -66,6 +67,9 @@ function App() {
     useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
+  const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
+  const [bottomPanelTab, setBottomPanelTab] =
+    useState<BottomPanelTab>("problems");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
@@ -249,6 +253,14 @@ function App() {
         case AXON_COMMANDS.OPEN_WORKSPACE_SEARCH:
           setWorkspaceSearchOpen((prev) => !prev);
           break;
+        case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
+          setBottomPanelTab("problems");
+          setBottomPanelOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_OUTPUT_PANEL:
+          setBottomPanelTab("output");
+          setBottomPanelOpen(true);
+          break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           setTerminalOpen((prev) => !prev);
           break;
@@ -423,6 +435,13 @@ function App() {
             handleFolderChange={handleFolderChange}
           />
 
+          <BottomPanel
+            open={bottomPanelOpen && !zenMode}
+            activeTab={bottomPanelTab}
+            onActiveTabChange={setBottomPanelTab}
+            onClose={() => setBottomPanelOpen(false)}
+          />
+
           <Terminal
             open={terminalOpen && !zenMode}
             createNonce={terminalCreateNonce}
@@ -442,8 +461,17 @@ function App() {
           folderName={folderPath ? (folderPath.split("/").pop() ?? null) : null}
           sidebarCollapsed={sidebarCollapsed}
           terminalOpen={terminalOpen}
+          bottomPanelOpen={bottomPanelOpen}
+          bottomPanelTab={bottomPanelTab}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
+          onOpenBottomPanel={(tab) =>
+            runCommand(
+              tab === "problems"
+                ? AXON_COMMANDS.OPEN_PROBLEMS_PANEL
+                : AXON_COMMANDS.OPEN_OUTPUT_PANEL,
+            )
+          }
         />
       )}
 
