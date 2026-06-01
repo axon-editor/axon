@@ -18,6 +18,7 @@ import {
   normalizeSettings,
   type AxonSettings,
 } from "../shared/settings";
+import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -25,9 +26,7 @@ app.setName("Axon");
 const isMac = process.platform === "darwin";
 let mainWindow: BrowserWindow | null = null;
 
-type MenuCommand = "about" | "new-file" | "open-folder" | "save" | "close-tab";
-
-function sendMenuCommand(command: MenuCommand) {
+function sendMenuCommand(command: AxonCommand) {
   const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
   targetWindow?.webContents.send("menu:command", command);
 }
@@ -43,7 +42,7 @@ function buildApplicationMenu() {
     submenu: [
       {
         label: "About Axon",
-        click: () => sendMenuCommand("about"),
+        click: () => sendMenuCommand(AXON_COMMANDS.ABOUT),
       },
       { type: "separator" },
       { role: "hide" },
@@ -61,7 +60,7 @@ function buildApplicationMenu() {
         ? [
             {
               label: "About Axon",
-              click: () => sendMenuCommand("about"),
+              click: () => sendMenuCommand(AXON_COMMANDS.ABOUT),
             } satisfies MenuItemConstructorOptions,
           ]
         : []),
@@ -76,7 +75,7 @@ function buildApplicationMenu() {
         {
           label: "New File",
           accelerator: "CmdOrCtrl+N",
-          click: () => sendMenuCommand("new-file"),
+          click: () => sendMenuCommand(AXON_COMMANDS.NEW_FILE),
         },
         {
           label: "New Window",
@@ -86,7 +85,7 @@ function buildApplicationMenu() {
         {
           label: "Open Folder...",
           accelerator: "CmdOrCtrl+O",
-          click: () => sendMenuCommand("open-folder"),
+          click: () => sendMenuCommand(AXON_COMMANDS.OPEN_FOLDER),
         },
         {
           label: "Open Recent",
@@ -96,7 +95,7 @@ function buildApplicationMenu() {
         {
           label: "Save",
           accelerator: "CmdOrCtrl+S",
-          click: () => sendMenuCommand("save"),
+          click: () => sendMenuCommand(AXON_COMMANDS.SAVE),
         },
         {
           label: "Save As...",
@@ -106,7 +105,7 @@ function buildApplicationMenu() {
         {
           label: "Close Tab",
           accelerator: "CmdOrCtrl+W",
-          click: () => sendMenuCommand("close-tab"),
+          click: () => sendMenuCommand(AXON_COMMANDS.CLOSE_TAB),
         },
         {
           label: "Close Window",

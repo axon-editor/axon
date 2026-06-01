@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar, { addRecentFolder } from "./components/sidebar/index";
 import EditorPane from "./components/EditorPane/index";
 import StatusBar from "./components/StatusBar";
@@ -25,6 +25,7 @@ import {
   normalizeSettings,
   type AxonSettings,
 } from "../shared/settings";
+import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import "./App.css";
 
 declare global {
@@ -44,11 +45,7 @@ declare global {
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;
       onFolderChanged: (callback: () => void) => () => void;
-      onMenuCommand: (
-        callback: (
-          command: "about" | "new-file" | "open-folder" | "save" | "close-tab",
-        ) => void,
-      ) => () => void;
+      onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
     };
   }
 }
@@ -88,28 +85,6 @@ function App() {
       window.clearTimeout(removeTimer);
     };
   }, []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "p") {
-        e.preventDefault();
-        setPaletteOpen((prev) => !prev);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
-        e.preventDefault();
-        setTerminalOpen((prev) => !prev);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
-        e.preventDefault();
-        setSettingsOpen(true);
-      }
-      if (e.key === "Escape" && zenMode) {
-        setZenMode(false);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [zenMode]);
 
   useEffect(() => {
     window.axon
@@ -246,17 +221,72 @@ function App() {
     setLayout((prev) => closeTabInPane(prev, prev.activePaneId, activeFile));
   };
 
+  const runCommand = useCallback(
+    (command: AxonCommand) => {
+      switch (command) {
+        case AXON_COMMANDS.ABOUT:
+          setAboutOpen(true);
+          break;
+        case AXON_COMMANDS.NEW_FILE:
+          void handleNewFile();
+          break;
+        case AXON_COMMANDS.OPEN_FOLDER:
+          void handleOpenFolder();
+          break;
+        case AXON_COMMANDS.SAVE:
+          handleSaveActiveFile();
+          break;
+        case AXON_COMMANDS.CLOSE_TAB:
+          handleCloseActiveTab();
+          break;
+        case AXON_COMMANDS.OPEN_COMMAND_PALETTE:
+          setPaletteOpen((prev) => !prev);
+          break;
+        case AXON_COMMANDS.TOGGLE_TERMINAL:
+          setTerminalOpen((prev) => !prev);
+          break;
+        case AXON_COMMANDS.OPEN_SETTINGS:
+          setSettingsOpen(true);
+          break;
+        case AXON_COMMANDS.TOGGLE_ZEN_MODE:
+          setZenMode((prev) => !prev);
+          break;
+        case AXON_COMMANDS.NEW_TERMINAL:
+          handleNewTerminal();
+          break;
+      }
+    },
+    [activePane?.activeFile, folderPath],
+  );
+
   useEffect(() => {
-    const cleanup = window.axon.onMenuCommand((command) => {
-      if (command === "about") setAboutOpen(true);
-      if (command === "new-file") void handleNewFile();
-      if (command === "open-folder") void handleOpenFolder();
-      if (command === "save") handleSaveActiveFile();
-      if (command === "close-tab") handleCloseActiveTab();
-    });
+    const cleanup = window.axon.onMenuCommand(runCommand);
 
     return cleanup;
-  }, [activePane?.activeFile, folderPath]);
+  }, [runCommand]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "p") {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.TOGGLE_TERMINAL);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_SETTINGS);
+      }
+      if (e.key === "Escape" && zenMode) {
+        setZenMode(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [runCommand, zenMode]);
+
 
   return (
     <div
@@ -327,12 +357,12 @@ function App() {
                 )}
               </div>
               <EditorToolbar
-                onNewFile={handleNewFile}
-                onOpenFile={() => setPaletteOpen(true)}
-                onNewTerminal={handleNewTerminal}
+                onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
+                onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
+                onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
                 onSplit={handleSplit}
-                onZenMode={() => setZenMode((p) => !p)}
-                onSettings={() => setSettingsOpen(true)}
+                onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
+                onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
                 isZenMode={zenMode}
               />
             </div>
@@ -388,7 +418,7 @@ function App() {
           sidebarCollapsed={sidebarCollapsed}
           terminalOpen={terminalOpen}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
-          onToggleTerminal={() => setTerminalOpen((p) => !p)}
+          onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
         />
       )}
 

@@ -5,8 +5,7 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 import { type AxonSettings } from "../shared/settings";
-
-type MenuCommand = "about" | "new-file" | "open-folder" | "save" | "close-tab";
+import { type AxonCommand } from "../shared/commands";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -37,8 +36,8 @@ contextBridge.exposeInMainWorld("axon", {
     return () => ipcRenderer.removeListener("fs:folderChanged", handler);
   },
 
-  onMenuCommand: (callback: (command: MenuCommand) => void) => {
-    const handler = (_: unknown, command: MenuCommand) => callback(command);
+  onMenuCommand: (callback: (command: AxonCommand) => void) => {
+    const handler = (_: unknown, command: AxonCommand) => callback(command);
     ipcRenderer.on("menu:command", handler);
     return () => ipcRenderer.removeListener("menu:command", handler);
   },
