@@ -17,6 +17,7 @@ import EmptyPane from "./EmptyPane";
 
 interface Props {
   pane: Pane;
+  folderPath: string | null;
   isActive: boolean;
   onActivate: () => void;
   onSelectFile: (filePath: string) => void;
@@ -33,6 +34,7 @@ interface Props {
 
 export default function PaneInstance({
   pane,
+  folderPath,
   isActive,
   onActivate,
   onSelectFile,
@@ -167,6 +169,7 @@ export default function PaneInstance({
               ) : (
                 <SingleEditor
                   filePath={path}
+                  folderPath={folderPath}
                   visible={path === pane.activeFile && isActive}
                   onDirtyChange={onDirtyChange}
                   onCursorChange={isActive ? onCursorChange : () => {}}

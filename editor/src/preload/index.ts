@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("axon", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   updateSettings: (settings: AxonSettings) =>
     ipcRenderer.invoke("settings:update", settings),
+  copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
   watchFolder: (path: string) => ipcRenderer.invoke("fs:watchFolder", path),

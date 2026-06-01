@@ -5,13 +5,12 @@
 import { useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Columns2, FileText, Eye } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { readFile, writeFile } from "../../lib/api";
 import { getMonacoThemeId, registerAxonTheme } from "../../lib/soraTheme";
 import Tooltip from "../Tooltip";
+import MarkdownPreview from "../MarkdownPreview";
 import {
   updateModel,
   releaseModel,
@@ -21,6 +20,7 @@ import {
 
 interface Props {
   filePath: string;
+  folderPath: string | null;
   visible: boolean;
   onDirtyChange: (path: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
@@ -32,33 +32,11 @@ function isMarkdown(path: string): boolean {
   return path.split(".").pop()?.toLowerCase() === "md";
 }
 
-function MarkdownPreview({ content }: { content: string }) {
-  return (
-    <div className="h-full overflow-y-auto px-10 py-8 bg-[#0e1018]">
-      <div
-        className="prose prose-invert prose-sm max-w-3xl mx-auto
-        prose-headings:text-white prose-headings:font-semibold
-        prose-p:text-[#c8d0e0] prose-p:leading-relaxed
-        prose-a:text-[#80c8e0] prose-a:no-underline hover:prose-a:underline
-        prose-code:text-[#80c8e0] prose-code:bg-[#14161e] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px]
-        prose-pre:bg-[#0a0c12] prose-pre:border prose-pre:border-[#222838]
-        prose-blockquote:border-l-[#80c8e0] prose-blockquote:text-[#9aa4b8]
-        prose-strong:text-white
-        prose-li:text-[#c8d0e0]
-        prose-hr:border-[#222838]
-        prose-th:text-white prose-td:text-[#c8d0e0]
-        prose-img:rounded-lg"
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-      </div>
-    </div>
-  );
-}
-
 type PreviewMode = "editor" | "preview" | "split";
 
 export default function SingleEditor({
   filePath,
+  folderPath,
   visible,
   onDirtyChange,
   onCursorChange,
@@ -282,7 +260,11 @@ export default function SingleEditor({
         {previewMode === "editor" && editorNode}
         {previewMode === "preview" && (
           <div className="flex-1 overflow-hidden">
-            <MarkdownPreview content={liveContent} />
+            <MarkdownPreview
+              content={liveContent}
+              filePath={filePath}
+              folderPath={folderPath}
+            />
           </div>
         )}
         {previewMode === "split" && (
@@ -290,7 +272,11 @@ export default function SingleEditor({
             {editorNode}
             <div className="w-px bg-[#222838] shrink-0" />
             <div className="flex-1 overflow-hidden min-w-0">
-              <MarkdownPreview content={liveContent} />
+              <MarkdownPreview
+                content={liveContent}
+                filePath={filePath}
+                folderPath={folderPath}
+              />
             </div>
           </>
         )}

@@ -32,6 +32,7 @@ declare global {
       openFolder: () => Promise<string | null>;
       getSettings: () => Promise<AxonSettings>;
       updateSettings: (settings: AxonSettings) => Promise<AxonSettings>;
+      copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
       unwatchFile: () => Promise<void>;
       watchFolder: (path: string) => Promise<void>;
@@ -276,6 +277,7 @@ function App() {
 
           <EditorPane
             layout={layout}
+            folderPath={folderPath}
             onActivatePane={(id) =>
               setLayout((prev) => ({ ...prev, activePaneId: id }))
             }

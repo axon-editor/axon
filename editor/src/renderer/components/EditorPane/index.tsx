@@ -24,6 +24,7 @@ import { getTree, type FileNode } from "../../lib/api";
 
 interface Props {
   layout: Layout;
+  folderPath: string | null;
   onActivatePane: (paneId: string) => void;
   onSelectFile: (paneId: string, filePath: string) => void;
   onCloseTab: (paneId: string, filePath: string) => void;
@@ -76,6 +77,7 @@ function GhostTab({ path }: { path: string }) {
 
 export default function EditorPane({
   layout,
+  folderPath,
   onActivatePane,
   onSelectFile,
   onCloseTab,
@@ -196,6 +198,7 @@ export default function EditorPane({
           >
             <PaneInstance
               pane={pane}
+              folderPath={folderPath}
               isActive={pane.id === layout.activePaneId}
               onActivate={() => onActivatePane(pane.id)}
               onSelectFile={(f) => onSelectFile(pane.id, f)}

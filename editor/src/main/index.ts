@@ -7,6 +7,7 @@ import {
   type MenuItemConstructorOptions,
   protocol,
   net,
+  clipboard,
 } from "electron";
 import path from "path";
 import chokidar, { type FSWatcher } from "chokidar";
@@ -188,6 +189,10 @@ ipcMain.handle("settings:get", async () => {
 
 ipcMain.handle("settings:update", async (_event, settings: AxonSettings) => {
   return writeSettingsToDisk(settings);
+});
+
+ipcMain.handle("clipboard:writeText", async (_event, text: string) => {
+  clipboard.writeText(text);
 });
 
 // watch a file for external changes and notify the renderer when it changes.
