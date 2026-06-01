@@ -6,6 +6,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { type AxonSettings } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
+import { type EditorDiagnostic } from "../shared/diagnostics";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -16,6 +17,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("settings:update", settings, folderPath),
   ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
+  getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>
+    ipcRenderer.invoke("diagnostics:project", folderPath),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),

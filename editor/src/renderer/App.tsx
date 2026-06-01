@@ -56,6 +56,7 @@ declare global {
         folderPath?: string | null,
         settings?: AxonSettings,
       ) => Promise<string>;
+      getProjectDiagnostics: (folderPath: string) => Promise<EditorDiagnostic[]>;
       getAppInfo: () => Promise<AppInfo>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
@@ -92,7 +93,12 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
-  const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
+  const [monacoDiagnostics, setMonacoDiagnostics] = useState<
+    EditorDiagnostic[]
+  >([]);
+  const [projectDiagnostics, setProjectDiagnostics] = useState<
+    EditorDiagnostic[]
+  >([]);
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
@@ -104,6 +110,27 @@ function App() {
     () => createThemeCssVariables(themeTokens),
     [themeTokens],
   );
+  const diagnostics = useMemo(
+    () => [...projectDiagnostics, ...monacoDiagnostics],
+    [monacoDiagnostics, projectDiagnostics],
+  );
+
+  const refreshProjectDiagnostics = useCallback(async () => {
+    if (!folderPath) {
+      setProjectDiagnostics([]);
+      return;
+    }
+
+    try {
+      const nextDiagnostics = await window.axon.getProjectDiagnostics(
+        folderPath,
+      );
+      setProjectDiagnostics(nextDiagnostics);
+    } catch (err) {
+      console.error("failed to load project diagnostics:", err);
+      setProjectDiagnostics([]);
+    }
+  }, [folderPath]);
 
   useEffect(() => {
     // The splash is a renderer overlay rather than a separate Electron window.
@@ -129,7 +156,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    return onEditorDiagnosticsChanged(setDiagnostics);
+    return onEditorDiagnosticsChanged(setMonacoDiagnostics);
   }, []);
 
   useEffect(() => {
@@ -145,6 +172,7 @@ function App() {
         savedPath !== workspaceSettingsPath &&
         savedPath !== settingsJsonPath
       ) {
+        void refreshProjectDiagnostics();
         return;
       }
 
@@ -158,19 +186,23 @@ function App() {
         .catch((err) => {
           console.error("failed to reload settings json:", err);
         });
+      void refreshProjectDiagnostics();
     };
 
     window.addEventListener("axon:fileSaved", handleFileSaved);
     return () => window.removeEventListener("axon:fileSaved", handleFileSaved);
-  }, [folderPath, settingsJsonPath]);
+  }, [folderPath, refreshProjectDiagnostics, settingsJsonPath]);
 
   useEffect(() => {
     const cleanup = window.axon.onFolderChanged(() => {
       if (!folderPath) return;
       getTree(folderPath).then(setTree).catch(console.error);
+      window.setTimeout(() => {
+        void refreshProjectDiagnostics();
+      }, 600);
     });
     return cleanup;
-  }, [folderPath]);
+  }, [folderPath, refreshProjectDiagnostics]);
 
   const handleOpenFolder = async () => {
     const path = await window.axon.openFolder();
@@ -208,6 +240,13 @@ function App() {
 
     await window.axon.unwatchFolder();
     await window.axon.watchFolder(path);
+    void window.axon
+      .getProjectDiagnostics(path)
+      .then(setProjectDiagnostics)
+      .catch((err) => {
+        console.error("failed to load project diagnostics:", err);
+        setProjectDiagnostics([]);
+      });
   };
 
   const handleRefresh = async () => {
