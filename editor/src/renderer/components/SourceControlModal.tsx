@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  Check,
+  Copy,
   FileDiff,
+  FileText,
   GitBranch,
   Minus,
   Plus,
@@ -67,6 +70,7 @@ export default function SourceControlModal({
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
+  const [copiedAction, setCopiedAction] = useState<string | null>(null);
 
   const stagedChanges = useMemo(
     () => status?.changes.filter((change) => change.staged) ?? [],
@@ -147,6 +151,89 @@ export default function SourceControlModal({
     }
   };
 
+  const markCopied = (action: string) => {
+    setCopiedAction(action);
+    window.setTimeout(() => {
+      setCopiedAction((currentAction) =>
+        currentAction === action ? null : currentAction,
+      );
+    }, 1400);
+  };
+
+  const copySelectedDiff = async () => {
+    if (!selectedChange || !diff) return;
+
+    // This format is intentionally plain text instead of JSON because it is
+    // easy to paste into an AI prompt, a GitHub comment, or a notes file. The
+    // section labels preserve enough structure for a future context builder to
+    // generate the same payload programmatically without changing the UI flow.
+    const context = [
+      `Axon Git Context`,
+      `File: ${selectedChange.path}`,
+      `Status: ${changeLabel(selectedChange)}`,
+      "",
+      "```diff",
+      diff.diff.trim() || "No diff available.",
+      "```",
+    ].join("\n");
+
+    try {
+      await window.axon.copyText(context);
+      markCopied("selected");
+      onOutput(`Copied diff context for ${selectedChange.path}.`, "success");
+    } catch (err) {
+      console.error("failed to copy selected git diff:", err);
+      onOutput(
+        `Failed to copy diff context for ${selectedChange.path}.`,
+        "error",
+      );
+    }
+  };
+
+  const copyAllDiffs = async () => {
+    if (!folderPath || !status?.changes.length) return;
+
+    try {
+      const sections = await Promise.all(
+        status.changes.map(async (change) => {
+          const result = await window.axon.getGitDiff(
+            folderPath,
+            change.path,
+            change.staged,
+            change.indexState === "untracked",
+          );
+
+          return [
+            `File: ${change.path}`,
+            `Status: ${changeLabel(change)}`,
+            "",
+            "```diff",
+            result.diff.trim() || "No diff available.",
+            "```",
+          ].join("\n");
+        }),
+      );
+
+      await window.axon.copyText(
+        [
+          "Axon Workspace Git Context",
+          `Branch: ${status.branch ?? "unknown"}`,
+          `Changed files: ${status.changes.length}`,
+          "",
+          sections.join("\n\n---\n\n"),
+        ].join("\n"),
+      );
+      markCopied("all");
+      onOutput(
+        `Copied Git context for ${status.changes.length} changed file${status.changes.length === 1 ? "" : "s"}.`,
+        "success",
+      );
+    } catch (err) {
+      console.error("failed to copy git context:", err);
+      onOutput("Failed to copy Git context.", "error");
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
     void loadStatus();
@@ -190,15 +277,31 @@ export default function SourceControlModal({
                 {status?.branch ?? "no repository"}
               </span>
             </div>
-            <Tooltip label="Refresh Git status" side="bottom">
-              <button
-                onClick={() => void loadStatus()}
-                aria-label="Refresh Git status"
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
-              >
-                <RefreshCw size={13} />
-              </button>
-            </Tooltip>
+            <div className="flex items-center gap-1">
+              <Tooltip label="Copy all Git context" side="bottom">
+                <button
+                  onClick={() => void copyAllDiffs()}
+                  disabled={!status?.changes.length}
+                  aria-label="Copy all Git context"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                >
+                  {copiedAction === "all" ? (
+                    <Check size={13} />
+                  ) : (
+                    <Copy size={13} />
+                  )}
+                </button>
+              </Tooltip>
+              <Tooltip label="Refresh Git status" side="bottom">
+                <button
+                  onClick={() => void loadStatus()}
+                  aria-label="Refresh Git status"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+                >
+                  <RefreshCw size={13} />
+                </button>
+              </Tooltip>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto py-2">
@@ -266,15 +369,43 @@ export default function SourceControlModal({
                 {selectedChange?.path ?? "Select a changed file to preview its diff"}
               </div>
             </div>
-            <Tooltip label="Close source control" side="bottom">
-              <button
-                onClick={onClose}
-                aria-label="Close source control"
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
-              >
-                <X size={13} />
-              </button>
-            </Tooltip>
+            <div className="flex items-center gap-1">
+              <Tooltip label="Copy selected diff context" side="bottom">
+                <button
+                  onClick={() => void copySelectedDiff()}
+                  disabled={!selectedChange || !diff}
+                  aria-label="Copy selected diff context"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                >
+                  {copiedAction === "selected" ? (
+                    <Check size={13} />
+                  ) : (
+                    <Copy size={13} />
+                  )}
+                </button>
+              </Tooltip>
+              <Tooltip label="Open file" side="bottom">
+                <button
+                  onClick={() =>
+                    selectedChange && onOpenFile(selectedChange.absolutePath)
+                  }
+                  disabled={!selectedChange}
+                  aria-label="Open file"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                >
+                  <FileText size={13} />
+                </button>
+              </Tooltip>
+              <Tooltip label="Close source control" side="bottom">
+                <button
+                  onClick={onClose}
+                  aria-label="Close source control"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+                >
+                  <X size={13} />
+                </button>
+              </Tooltip>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto bg-[#080a10]">
