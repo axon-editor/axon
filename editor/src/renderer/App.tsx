@@ -6,6 +6,7 @@ import Terminal from "./components/Terminal";
 import CommandPalette from "./components/CommandPalette";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
+import SplashScreen from "./components/SplashScreen";
 import { getTree, createFile, type FileNode } from "./lib/api";
 import {
   createInitialLayout,
@@ -61,8 +62,24 @@ function App() {
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashLeaving, setSplashLeaving] = useState(false);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
+
+  useEffect(() => {
+    // The splash is a renderer overlay rather than a separate Electron window.
+    // That keeps startup simple: the real app can mount and load settings
+    // underneath while the brand animation plays once, then the overlay fades
+    // out without creating another window lifecycle to coordinate.
+    const leaveTimer = window.setTimeout(() => setSplashLeaving(true), 5000);
+    const removeTimer = window.setTimeout(() => setSplashVisible(false), 5520);
+
+    return () => {
+      window.clearTimeout(leaveTimer);
+      window.clearTimeout(removeTimer);
+    };
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -343,6 +360,8 @@ function App() {
           onSave={handleSettingsSave}
         />
       )}
+
+      {splashVisible && <SplashScreen leaving={splashLeaving} />}
     </div>
   );
 }
