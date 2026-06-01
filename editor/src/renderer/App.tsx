@@ -6,6 +6,7 @@ import Terminal from "./components/Terminal";
 import CommandPalette from "./components/CommandPalette";
 import WorkspaceSearchModal from "./components/WorkspaceSearchModal";
 import BottomPanel, { type BottomPanelTab } from "./components/BottomPanel";
+import DiffModal from "./components/DiffModal";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
 import SplashScreen from "./components/SplashScreen";
@@ -70,6 +71,7 @@ function App() {
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
   const [bottomPanelTab, setBottomPanelTab] =
     useState<BottomPanelTab>("problems");
+  const [diffOpen, setDiffOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
@@ -261,6 +263,9 @@ function App() {
           setBottomPanelTab("output");
           setBottomPanelOpen(true);
           break;
+        case AXON_COMMANDS.OPEN_DIFF_VIEW:
+          if (activePane?.activeFile) setDiffOpen(true);
+          break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           setTerminalOpen((prev) => !prev);
           break;
@@ -301,6 +306,14 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "j") {
         e.preventDefault();
         runCommand(AXON_COMMANDS.TOGGLE_TERMINAL);
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "d"
+      ) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === ",") {
         e.preventDefault();
@@ -396,6 +409,7 @@ function App() {
                 onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
                 onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
                 onSearch={() => runCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH)}
+                onDiff={() => runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW)}
                 onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
                 onSplit={handleSplit}
                 onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
@@ -498,6 +512,14 @@ function App() {
       )}
 
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+
+      {diffOpen && activePane?.activeFile && (
+        <DiffModal
+          filePath={activePane.activeFile}
+          editorSettings={settings.editor}
+          onClose={() => setDiffOpen(false)}
+        />
+      )}
 
       {splashVisible && <SplashScreen leaving={splashLeaving} />}
     </div>

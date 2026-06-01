@@ -1,0 +1,122 @@
+import { useEffect, useMemo, useState } from "react";
+import { DiffEditor } from "@monaco-editor/react";
+import { X } from "lucide-react";
+import { type EditorSettings } from "../../shared/settings";
+import { readFile } from "../lib/api";
+import { getModel } from "../lib/monacoModels";
+import { getMonacoThemeId, registerAxonTheme } from "../lib/soraTheme";
+import Tooltip from "./Tooltip";
+
+interface Props {
+  filePath: string;
+  editorSettings: EditorSettings;
+  onClose: () => void;
+}
+
+function languageFromPath(path: string) {
+  return path.split(".").pop()?.toLowerCase() ?? "plaintext";
+}
+
+export default function DiffModal({
+  filePath,
+  editorSettings,
+  onClose,
+}: Props) {
+  const [savedContent, setSavedContent] = useState("");
+  const [currentContent, setCurrentContent] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fileName = useMemo(
+    () => filePath.split("/").pop() ?? filePath,
+    [filePath],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const currentModel = getModel(filePath);
+    setCurrentContent(currentModel?.getValue() ?? "");
+
+    readFile(filePath)
+      .then((file) => {
+        if (cancelled) return;
+        setSavedContent(file.content);
+        if (!currentModel) setCurrentContent(file.content);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filePath]);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-6 py-6">
+      <div className="flex h-full max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[#222838] bg-[#0e1018] shadow-2xl">
+        <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
+          <div className="min-w-0">
+            <div className="truncate text-[12px] font-medium text-white">
+              {fileName}
+            </div>
+            <div className="truncate text-[10px] text-[#586478]">
+              saved file to current buffer
+            </div>
+          </div>
+
+          <Tooltip label="Close diff" side="bottom">
+            <button
+              onClick={onClose}
+              aria-label="Close diff"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+            >
+              <X size={14} />
+            </button>
+          </Tooltip>
+        </div>
+
+        {loading && (
+          <div className="flex flex-1 items-center justify-center text-[13px] text-[#586478]">
+            loading diff...
+          </div>
+        )}
+
+        {error && (
+          <div className="flex flex-1 items-center justify-center text-[13px] text-red-400">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && (
+          <DiffEditor
+            height="100%"
+            original={savedContent}
+            modified={currentContent}
+            language={languageFromPath(filePath)}
+            theme={getMonacoThemeId(editorSettings.themeId)}
+            beforeMount={(monacoInstance) =>
+              registerAxonTheme(monacoInstance, editorSettings.themeId)
+            }
+            options={{
+              readOnly: true,
+              renderSideBySide: true,
+              fontSize: editorSettings.fontSize,
+              fontFamily: `'${editorSettings.fontFamily}', monospace`,
+              lineHeight: editorSettings.lineHeight,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              originalEditable: false,
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

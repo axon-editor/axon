@@ -8,6 +8,7 @@ export const AXON_COMMANDS = {
   OPEN_WORKSPACE_SEARCH: "open-workspace-search",
   OPEN_PROBLEMS_PANEL: "open-problems-panel",
   OPEN_OUTPUT_PANEL: "open-output-panel",
+  OPEN_DIFF_VIEW: "open-diff-view",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",
   TOGGLE_ZEN_MODE: "toggle-zen-mode",

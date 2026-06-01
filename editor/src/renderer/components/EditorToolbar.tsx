@@ -17,6 +17,7 @@ import {
   AlignEndHorizontal,
   Settings,
   Search,
+  GitCompare,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
 
@@ -24,6 +25,7 @@ interface Props {
   onNewFile: () => void;
   onOpenFile: () => void;
   onSearch: () => void;
+  onDiff: () => void;
   onNewTerminal: () => void;
   onSplit: (direction: "right" | "left" | "up" | "down") => void;
   onZenMode: () => void;
@@ -37,6 +39,7 @@ export default function EditorToolbar({
   onNewFile,
   onOpenFile,
   onSearch,
+  onDiff,
   onNewTerminal,
   onSplit,
   onZenMode,
@@ -183,6 +186,16 @@ export default function EditorToolbar({
           className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
         >
           <Search size={14} />
+        </button>
+      </Tooltip>
+
+      <Tooltip label="Compare active file" side="bottom">
+        <button
+          onClick={onDiff}
+          aria-label="Compare active file"
+          className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
+        >
+          <GitCompare size={14} />
         </button>
       </Tooltip>
 
