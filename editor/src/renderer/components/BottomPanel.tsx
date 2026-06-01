@@ -3,11 +3,21 @@ import { type EditorDiagnostic } from "../lib/diagnostics";
 import Tooltip from "./Tooltip";
 
 export type BottomPanelTab = "problems" | "output";
+export type OutputEntryLevel = "info" | "success" | "warning" | "error";
+
+export interface OutputEntry {
+  id: number;
+  time: string;
+  level: OutputEntryLevel;
+  source: string;
+  message: string;
+}
 
 interface Props {
   open: boolean;
   activeTab: BottomPanelTab;
   diagnostics: EditorDiagnostic[];
+  outputEntries: OutputEntry[];
   onActiveTabChange: (tab: BottomPanelTab) => void;
   onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
   onClose: () => void;
@@ -25,6 +35,7 @@ const tabs: Array<{
 export function BottomPanelHeader({
   activeTab,
   diagnostics,
+  outputEntries,
   onActiveTabChange,
   onClose,
 }: Omit<Props, "open">) {
@@ -48,6 +59,11 @@ export function BottomPanelHeader({
             {tab.id === "problems" && (
               <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 text-[10px] text-[#586478]">
                 {diagnostics.length}
+              </span>
+            )}
+            {tab.id === "output" && outputEntries.length > 0 && (
+              <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 text-[10px] text-[#586478]">
+                {outputEntries.length}
               </span>
             )}
           </button>
@@ -78,13 +94,22 @@ const severityStyles: Record<EditorDiagnostic["severity"], string> = {
   hint: "text-[#647086]",
 };
 
+const outputLevelStyles: Record<OutputEntryLevel, string> = {
+  info: "text-[#80c8e0]",
+  success: "text-[#90c8a0]",
+  warning: "text-[#ffcc66]",
+  error: "text-[#ea6c73]",
+};
+
 export function BottomPanelContent({
   activeTab,
   diagnostics,
+  outputEntries,
   onOpenDiagnostic,
 }: {
   activeTab: BottomPanelTab;
   diagnostics: EditorDiagnostic[];
+  outputEntries: OutputEntry[];
   onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
 }) {
   return (
@@ -125,12 +150,29 @@ export function BottomPanelContent({
         </div>
       )}
 
-      {activeTab === "output" && (
+      {activeTab === "output" && outputEntries.length === 0 && (
         <div className="h-full overflow-y-auto px-4 py-3 font-mono text-[11px] leading-5 text-[#647086]">
           <div>Axon output panel ready.</div>
           <div className="text-[#3f485a]">
             Build, task, extension, and AI tool logs will appear here.
           </div>
+        </div>
+      )}
+
+      {activeTab === "output" && outputEntries.length > 0 && (
+        <div className="h-full overflow-y-auto px-3 py-2 font-mono text-[11px] leading-5 text-[#647086]">
+          {outputEntries.map((entry) => (
+            <div
+              key={entry.id}
+              className="grid grid-cols-[72px_90px_1fr] gap-3 border-b border-[var(--axon-panel-border)]/60 py-1 last:border-b-0"
+            >
+              <span className="text-[#3f485a]">{entry.time}</span>
+              <span className={outputLevelStyles[entry.level]}>
+                {entry.source}
+              </span>
+              <span className="min-w-0 text-[#9aa4b8]">{entry.message}</span>
+            </div>
+          ))}
         </div>
       )}
     </>
@@ -141,6 +183,7 @@ export default function BottomPanel({
   open,
   activeTab,
   diagnostics,
+  outputEntries,
   onActiveTabChange,
   onOpenDiagnostic,
   onClose,
@@ -153,6 +196,7 @@ export default function BottomPanel({
         <BottomPanelHeader
           activeTab={activeTab}
           diagnostics={diagnostics}
+          outputEntries={outputEntries}
           onActiveTabChange={onActiveTabChange}
           onOpenDiagnostic={onOpenDiagnostic}
           onClose={onClose}
@@ -163,6 +207,7 @@ export default function BottomPanel({
         <BottomPanelContent
           activeTab={activeTab}
           diagnostics={diagnostics}
+          outputEntries={outputEntries}
           onOpenDiagnostic={onOpenDiagnostic}
         />
       </div>

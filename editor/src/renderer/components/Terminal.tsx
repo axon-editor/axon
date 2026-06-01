@@ -28,6 +28,7 @@ import ChromeTab from "./ChromeTab";
 import Tooltip from "./Tooltip";
 import {
   BottomPanelContent,
+  type OutputEntry,
   type BottomPanelTab,
 } from "./BottomPanel";
 
@@ -40,6 +41,7 @@ interface Props {
   workingDirectory: string | null;
   activePanelTab: "terminal" | BottomPanelTab;
   diagnostics: EditorDiagnostic[];
+  outputEntries: OutputEntry[];
   onActivePanelTabChange: (tab: "terminal" | BottomPanelTab) => void;
   onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
   onHide: () => void;
@@ -242,6 +244,7 @@ export default function Terminal({
   workingDirectory,
   activePanelTab,
   diagnostics,
+  outputEntries,
   onActivePanelTabChange,
   onOpenDiagnostic,
   onHide,
@@ -632,6 +635,11 @@ export default function Terminal({
               }`}
             >
               Output
+              {outputEntries.length > 0 && (
+                <span className="ml-1 rounded bg-[#151923] px-1 text-[10px] text-[#586478]">
+                  {outputEntries.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -666,6 +674,7 @@ export default function Terminal({
           <BottomPanelContent
             activeTab={activePanelTab}
             diagnostics={diagnostics}
+            outputEntries={outputEntries}
             onOpenDiagnostic={onOpenDiagnostic}
           />
         )}

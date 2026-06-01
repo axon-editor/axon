@@ -7,7 +7,11 @@ import CommandPalette, {
   type CommandPaletteCommand,
 } from "./components/CommandPalette";
 import WorkspaceSearchModal from "./components/WorkspaceSearchModal";
-import { type BottomPanelTab } from "./components/BottomPanel";
+import {
+  type BottomPanelTab,
+  type OutputEntry,
+  type OutputEntryLevel,
+} from "./components/BottomPanel";
 import DiffModal from "./components/DiffModal";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
@@ -48,6 +52,14 @@ import "./App.css";
 
 function fontStack(primaryFont: string, fallback: string) {
   return `"${primaryFont}", ${fallback}`;
+}
+
+function formatOutputTime(date = new Date()) {
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 declare global {
@@ -107,6 +119,7 @@ function App() {
   const [projectDiagnostics, setProjectDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
+  const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
   const [navigationTarget, setNavigationTarget] =
     useState<EditorNavigationTarget | null>(null);
   const [zenMode, setZenMode] = useState(false);
@@ -125,22 +138,50 @@ function App() {
     [monacoDiagnostics, projectDiagnostics],
   );
 
+  const appendOutput = useCallback(
+    (source: string, message: string, level: OutputEntryLevel = "info") => {
+      setOutputEntries((entries) =>
+        [
+          ...entries,
+          {
+            id: Date.now() + Math.random(),
+            time: formatOutputTime(),
+            level,
+            source,
+            message,
+          },
+        ].slice(-200),
+      );
+    },
+    [],
+  );
+
   const refreshProjectDiagnostics = useCallback(async () => {
     if (!folderPath) {
       setProjectDiagnostics([]);
+      appendOutput("diagnostics", "Skipped project diagnostics: no workspace.");
       return;
     }
 
+    appendOutput("diagnostics", `Checking ${folderPath}`);
     try {
       const nextDiagnostics = await window.axon.getProjectDiagnostics(
         folderPath,
       );
       setProjectDiagnostics(nextDiagnostics);
+      appendOutput(
+        "diagnostics",
+        nextDiagnostics.length === 0
+          ? "Project diagnostics completed with no errors."
+          : `Project diagnostics found ${nextDiagnostics.length} issue${nextDiagnostics.length === 1 ? "" : "s"}.`,
+        nextDiagnostics.length === 0 ? "success" : "warning",
+      );
     } catch (err) {
       console.error("failed to load project diagnostics:", err);
+      appendOutput("diagnostics", "Project diagnostics failed.", "error");
       setProjectDiagnostics([]);
     }
-  }, [folderPath]);
+  }, [appendOutput, folderPath]);
 
   useEffect(() => {
     // The splash is a renderer overlay rather than a separate Electron window.
@@ -221,9 +262,12 @@ function App() {
     try {
       const fileTree = await getTree(path);
       addRecentFolder(path);
+      appendOutput("workspace", `Opening ${path}`);
       await handleFolderChange(path, fileTree);
+      appendOutput("workspace", `Opened ${path}`, "success");
     } catch (err) {
       console.error("failed to load tree:", err);
+      appendOutput("workspace", "Failed to open folder.", "error");
     } finally {
       setLoading(false);
     }
@@ -240,21 +284,34 @@ function App() {
     setTerminalOpen(false);
     setTerminalCreateWorkingDirectory(null);
     setSettingsJsonPath(`${path}/axon.json`);
+    appendOutput("workspace", `Loaded file tree for ${path}`);
 
     try {
       const workspaceSettings = await window.axon.getSettings(path);
       setSettings(normalizeSettings(workspaceSettings));
     } catch (err) {
       console.error("failed to load workspace settings:", err);
+      appendOutput("settings", "Failed to load workspace settings.", "error");
     }
 
     await window.axon.unwatchFolder();
     await window.axon.watchFolder(path);
+    appendOutput("workspace", "Watching workspace changes.");
     void window.axon
       .getProjectDiagnostics(path)
-      .then(setProjectDiagnostics)
+      .then((nextDiagnostics) => {
+        setProjectDiagnostics(nextDiagnostics);
+        appendOutput(
+          "diagnostics",
+          nextDiagnostics.length === 0
+            ? "Project diagnostics completed with no errors."
+            : `Project diagnostics found ${nextDiagnostics.length} issue${nextDiagnostics.length === 1 ? "" : "s"}.`,
+          nextDiagnostics.length === 0 ? "success" : "warning",
+        );
+      })
       .catch((err) => {
         console.error("failed to load project diagnostics:", err);
+        appendOutput("diagnostics", "Project diagnostics failed.", "error");
         setProjectDiagnostics([]);
       });
   };
@@ -264,8 +321,10 @@ function App() {
     try {
       const fileTree = await getTree(folderPath);
       setTree(fileTree);
+      appendOutput("workspace", "Refreshed file tree.");
     } catch (err) {
       console.error("failed to refresh tree:", err);
+      appendOutput("workspace", "Failed to refresh file tree.", "error");
     }
   };
 
@@ -316,6 +375,7 @@ function App() {
     await createFile(path);
     await handleRefresh();
     handleFileSelect(path);
+    appendOutput("file", `Created ${name}`, "success");
   };
 
   const handleSettingsSave = async (nextSettings: AxonSettings) => {
@@ -326,8 +386,10 @@ function App() {
       const savedSettings =
         await window.axon.updateSettings(normalizedSettings, folderPath);
       setSettings(normalizeSettings(savedSettings));
+      appendOutput("settings", "Saved settings.", "success");
     } catch (err) {
       console.error("failed to save settings:", err);
+      appendOutput("settings", "Failed to save settings.", "error");
     }
   };
 
@@ -340,8 +402,10 @@ function App() {
       setSettingsJsonPath(settingsPath);
       if (folderPath) await handleRefresh();
       handleFileSelect(settingsPath);
+      appendOutput("settings", `Opened ${settingsPath}`);
     } catch (err) {
       console.error("failed to open settings json:", err);
+      appendOutput("settings", "Failed to open settings JSON.", "error");
     }
   };
 
@@ -359,6 +423,7 @@ function App() {
     setBottomPanelOpen(false);
     setTerminalOpen(true);
     setTerminalCreateNonce((nonce) => nonce + 1);
+    appendOutput("terminal", "Created terminal tab.");
   };
 
   const handleOpenTabInTerminal = (filePath: string) => {
@@ -373,6 +438,10 @@ function App() {
     setBottomPanelOpen(false);
     setTerminalOpen(true);
     setTerminalCreateNonce((nonce) => nonce + 1);
+    appendOutput(
+      "terminal",
+      `Opening terminal at ${parentPath ?? "workspace"}.`,
+    );
   };
 
   const handleOpenPathInTerminal = (path: string) => {
@@ -380,6 +449,7 @@ function App() {
     setBottomPanelOpen(false);
     setTerminalOpen(true);
     setTerminalCreateNonce((nonce) => nonce + 1);
+    appendOutput("terminal", `Opening terminal at ${path}.`);
   };
 
   const handleSaveActiveFile = () => {
@@ -429,11 +499,13 @@ function App() {
           setBottomPanelTab("problems");
           setBottomPanelOpen(true);
           setTerminalOpen(false);
+          appendOutput("panel", "Opened Problems panel.");
           break;
         case AXON_COMMANDS.OPEN_OUTPUT_PANEL:
           setBottomPanelTab("output");
           setBottomPanelOpen(true);
           setTerminalOpen(false);
+          appendOutput("panel", "Opened Output panel.");
           break;
         case AXON_COMMANDS.OPEN_DIFF_VIEW:
           if (activePane?.activeFile) setDiffOpen(true);
@@ -441,6 +513,10 @@ function App() {
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           setBottomPanelOpen(false);
           setTerminalOpen((prev) => !prev);
+          appendOutput(
+            "terminal",
+            terminalOpen ? "Hid terminal." : "Showed terminal.",
+          );
           break;
         case AXON_COMMANDS.OPEN_SETTINGS:
           setSettingsOpen(true);
@@ -456,7 +532,7 @@ function App() {
           break;
       }
     },
-    [activePane?.activeFile, folderPath, settings],
+    [activePane?.activeFile, appendOutput, folderPath, settings, terminalOpen],
   );
 
   const paletteCommands = useMemo<CommandPaletteCommand[]>(
@@ -773,6 +849,7 @@ function App() {
               !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
             }
             diagnostics={diagnostics}
+            outputEntries={outputEntries}
             onActivePanelTabChange={(tab) => {
               if (tab === "terminal") {
                 setBottomPanelOpen(false);
