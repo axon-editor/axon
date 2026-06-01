@@ -23,6 +23,7 @@ import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   type AxonSettings,
+  type CustomFont,
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
@@ -186,6 +187,52 @@ function getWorkspaceSettingsPath(folderPath: string) {
 function getSettingsPath(folderPath?: string | null) {
   if (folderPath) return getWorkspaceSettingsPath(folderPath);
   return getUserSettingsPath();
+}
+
+function getCustomFontsDirectory() {
+  return path.join(app.getPath("userData"), "fonts");
+}
+
+function toAxonLocalUrl(filePath: string) {
+  return `axon://local${encodeURI(filePath)}`;
+}
+
+function getFontFamilyFromPath(filePath: string) {
+  const parsed = path.parse(filePath);
+  return parsed.name
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function importCustomFontFile(sourcePath: string): CustomFont {
+  const allowedExtensions = new Set([".ttf", ".otf", ".woff", ".woff2"]);
+  const extension = path.extname(sourcePath).toLowerCase();
+  if (!allowedExtensions.has(extension)) {
+    throw new Error("Unsupported font file type.");
+  }
+
+  const fontsDirectory = getCustomFontsDirectory();
+  fs.mkdirSync(fontsDirectory, { recursive: true });
+
+  const family = getFontFamilyFromPath(sourcePath);
+  const targetPath = path.join(
+    fontsDirectory,
+    `${family.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")}${extension}`,
+  );
+
+  // Imported fonts are copied into app-owned storage instead of referencing
+  // the user's original download path. That keeps Axon settings portable
+  // across project workspaces and prevents a missing Downloads file from
+  // breaking font loading weeks later.
+  fs.copyFileSync(sourcePath, targetPath);
+
+  return {
+    family,
+    path: targetPath,
+    url: toAxonLocalUrl(targetPath),
+  };
 }
 
 function getAxonIconPath() {
@@ -940,6 +987,24 @@ ipcMain.handle("dialog:openFolder", async () => {
   }
 
   return result.filePaths[0];
+});
+
+ipcMain.handle("dialog:importFont", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [
+      {
+        name: "Font files",
+        extensions: ["ttf", "otf", "woff", "woff2"],
+      },
+    ],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return importCustomFontFile(result.filePaths[0]);
 });
 
 ipcMain.handle("settings:get", async (_event, folderPath?: string | null) => {

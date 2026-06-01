@@ -48,6 +48,7 @@ import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   type AxonSettings,
+  type CustomFont,
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import {
@@ -85,11 +86,16 @@ function formatOutputTime(date = new Date()) {
   });
 }
 
+function escapeCssString(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 declare global {
   interface Window {
     axon: {
       platform: string;
       openFolder: () => Promise<string | null>;
+      importFont: () => Promise<CustomFont | null>;
       getSettings: (folderPath?: string | null) => Promise<AxonSettings>;
       updateSettings: (
         settings: AxonSettings,
@@ -310,6 +316,32 @@ function App() {
         console.error("failed to load settings:", err);
       });
   }, []);
+
+  useEffect(() => {
+    const styleId = "axon-custom-fonts";
+    let styleElement = document.getElementById(
+      styleId,
+    ) as HTMLStyleElement | null;
+
+    if (!styleElement) {
+      styleElement = document.createElement("style");
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+
+    // Custom fonts are loaded from app-owned axon:// URLs returned by the main
+    // process importer. Injecting one style tag from settings keeps the font
+    // registry deterministic: changing axon.json, saving settings, or
+    // restarting Axon all rebuild the same @font-face list before UI/editor
+    // components ask CSS or Monaco to use those font-family names.
+    styleElement.textContent = settings.customFonts
+      .map((font) => {
+        const family = escapeCssString(font.family);
+        const url = escapeCssString(font.url);
+        return `@font-face{font-family:"${family}";src:url("${url}");font-display:swap;}`;
+      })
+      .join("\n");
+  }, [settings.customFonts]);
 
   useEffect(() => {
     return onEditorDiagnosticsChanged(setMonacoDiagnostics);

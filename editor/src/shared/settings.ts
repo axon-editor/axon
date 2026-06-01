@@ -63,6 +63,12 @@ export type ThemeColorToken = (typeof THEME_COLOR_TOKENS)[number];
 export type ThemeOverride = Partial<Record<ThemeColorToken, string>>;
 export type ThemeOverrides = Partial<Record<string, ThemeOverride>>;
 
+export interface CustomFont {
+  family: string;
+  url: string;
+  path: string;
+}
+
 export interface EditorSettings {
   uiFontFamily: string;
   themeId: BuiltInThemeId;
@@ -76,6 +82,7 @@ export interface AxonSettings {
   editor: EditorSettings;
   ai: AiSettings;
   theme_overrides: ThemeOverrides;
+  customFonts: CustomFont[];
 }
 
 export interface AiSettings {
@@ -121,6 +128,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
       "panel.overlay_hover": "#000000FF",
     },
   },
+  customFonts: [],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -179,6 +187,24 @@ function normalizeThemeOverrides(value: unknown): ThemeOverrides {
   }
 
   return merged;
+}
+
+function normalizeCustomFonts(value: unknown): CustomFont[] {
+  if (!Array.isArray(value)) return DEFAULT_SETTINGS.customFonts;
+
+  const seenFamilies = new Set<string>();
+  return value
+    .filter((font): font is Record<string, unknown> => isRecord(font))
+    .map((font) => {
+      const family = typeof font.family === "string" ? font.family.trim() : "";
+      const url = typeof font.url === "string" ? font.url.trim() : "";
+      const fontPath = typeof font.path === "string" ? font.path.trim() : "";
+      if (!family || !url || !fontPath) return null;
+      if (seenFamilies.has(family)) return null;
+      seenFamilies.add(family);
+      return { family, url, path: fontPath };
+    })
+    .filter((font): font is CustomFont => font !== null);
 }
 
 export function normalizeSettings(value: unknown): AxonSettings {
@@ -248,5 +274,6 @@ export function normalizeSettings(value: unknown): AxonSettings {
           : DEFAULT_SETTINGS.ai.includeWorkspaceContext,
     },
     theme_overrides: normalizeThemeOverrides(root.theme_overrides),
+    customFonts: normalizeCustomFonts(root.customFonts),
   };
 }

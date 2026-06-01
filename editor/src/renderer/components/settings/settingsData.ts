@@ -13,7 +13,12 @@ import {
 } from "../../../shared/settings";
 import { type SearchSelectItem } from "../SearchSelect";
 
-export type SettingsSectionId = "appearance" | "editor" | "theme" | "ai";
+export type SettingsSectionId =
+  | "appearance"
+  | "editor"
+  | "fonts"
+  | "theme"
+  | "ai";
 
 export const SETTINGS_SECTIONS: Array<{
   id: SettingsSectionId;
@@ -29,6 +34,11 @@ export const SETTINGS_SECTIONS: Array<{
     id: "editor",
     label: "Editor",
     description: "Text, spacing, and ligatures",
+  },
+  {
+    id: "fonts",
+    label: "Fonts",
+    description: "Import and apply custom fonts",
   },
   {
     id: "theme",

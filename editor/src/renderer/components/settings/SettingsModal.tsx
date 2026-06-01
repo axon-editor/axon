@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
-import { Braces, Palette, Settings2, Sparkles, Type } from "lucide-react";
+import {
+  Braces,
+  Palette,
+  Settings2,
+  Sparkles,
+  Trash2,
+  Type,
+  Upload,
+} from "lucide-react";
 import {
   normalizeSettings,
   type AxonSettings,
@@ -38,6 +46,7 @@ const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
   editor: Type,
   theme: Settings2,
   ai: Sparkles,
+  fonts: Type,
 };
 
 function getThemeColorValue(
@@ -56,7 +65,25 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
   const [draft, setDraft] = useState(settings);
   const [activeSection, setActiveSection] =
     useState<SettingsSectionId>("appearance");
+  const [fontImportError, setFontImportError] = useState<string | null>(null);
 
+  const customFontItems = useMemo(
+    () =>
+      draft.customFonts.map((font) => ({
+        value: font.family,
+        label: font.family,
+        description: font.path,
+      })),
+    [draft.customFonts],
+  );
+  const uiFontItems = useMemo(
+    () => [...UI_FONT_ITEMS, ...customFontItems],
+    [customFontItems],
+  );
+  const editorFontItems = useMemo(
+    () => [...EDITOR_FONT_ITEMS, ...customFontItems],
+    [customFontItems],
+  );
   const activeThemeName = THEME_LABELS[draft.editor.themeId];
   const invalidThemeTokens = useMemo(
     () =>
@@ -108,6 +135,52 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
         },
       },
     }));
+  };
+
+  const importFont = async () => {
+    setFontImportError(null);
+
+    try {
+      const importedFont = await window.axon.importFont();
+      if (!importedFont) return;
+
+      setDraft((prev) => {
+        const existingFonts = prev.customFonts.filter(
+          (font) => font.family !== importedFont.family,
+        );
+
+        return {
+          ...prev,
+          customFonts: [...existingFonts, importedFont],
+        };
+      });
+      setActiveSection("fonts");
+    } catch (err) {
+      console.error("failed to import font:", err);
+      setFontImportError("Could not import that font file.");
+    }
+  };
+
+  const removeFont = (family: string) => {
+    setDraft((prev) => {
+      const nextSettings = {
+        ...prev,
+        customFonts: prev.customFonts.filter((font) => font.family !== family),
+        editor: {
+          ...prev.editor,
+          uiFontFamily:
+            prev.editor.uiFontFamily === family
+              ? "system-ui"
+              : prev.editor.uiFontFamily,
+          fontFamily:
+            prev.editor.fontFamily === family
+              ? ".AxonMono"
+              : prev.editor.fontFamily,
+        },
+      };
+
+      return nextSettings;
+    });
   };
 
   const save = () => {
@@ -200,7 +273,7 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
                 >
                   <SearchSelect
                     value={draft.editor.uiFontFamily}
-                    items={UI_FONT_ITEMS}
+                    items={uiFontItems}
                     onChange={(fontFamily) =>
                       updateEditor("uiFontFamily", fontFamily)
                     }
@@ -222,7 +295,7 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
                 >
                   <SearchSelect
                     value={draft.editor.fontFamily}
-                    items={EDITOR_FONT_ITEMS}
+                    items={editorFontItems}
                     onChange={(fontFamily) =>
                       updateEditor("fontFamily", fontFamily)
                     }
@@ -264,6 +337,114 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
                     label={draft.editor.fontLigatures ? "Enabled" : "Disabled"}
                   />
                 </SettingsField>
+              </SettingsSection>
+            )}
+
+            {activeSection === "fonts" && (
+              <SettingsSection
+                title="Fonts"
+                description="Import TTF, OTF, WOFF, or WOFF2 files into Axon storage, then use them for the UI, editor, terminal, and diff views."
+              >
+                <div className="rounded-md border border-[#222838] bg-[#0b0d13] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[12px] font-medium text-[#dce4f0]">
+                        Import font file
+                      </div>
+                      <div className="mt-1 text-[11px] leading-4 text-[#586478]">
+                        Axon copies imported fonts into app storage so the
+                        original file can move without breaking settings.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void importFont()}
+                      className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2a3346] bg-[#1e2430] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+                    >
+                      <Upload size={13} />
+                      Import
+                    </button>
+                  </div>
+                </div>
+
+                {draft.customFonts.length === 0 ? (
+                  <>
+                    <div className="rounded-md border border-dashed border-[#222838] px-4 py-8 text-center text-[12px] text-[#586478]">
+                      No custom fonts imported yet.
+                    </div>
+                    {fontImportError ? (
+                      <div className="text-[12px] text-[#ea6c73]">
+                        {fontImportError}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    {fontImportError ? (
+                      <div className="text-[12px] text-[#ea6c73]">
+                        {fontImportError}
+                      </div>
+                    ) : null}
+                    {draft.customFonts.map((font) => (
+                      <div
+                        key={font.family}
+                        className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border border-[#222838] bg-[#0b0d13] px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div
+                            className="truncate text-[13px] text-[#dce4f0]"
+                            style={{
+                              fontFamily: `"${font.family}", sans-serif`,
+                            }}
+                          >
+                            {font.family}
+                          </div>
+                          <div className="mt-0.5 truncate text-[10px] text-[#586478]">
+                            {font.path}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateEditor("uiFontFamily", font.family)
+                            }
+                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                          >
+                            UI
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateEditor("fontFamily", font.family)
+                            }
+                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                          >
+                            Editor
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateEditor("uiFontFamily", font.family);
+                              updateEditor("fontFamily", font.family);
+                            }}
+                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                          >
+                            Both
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeFont(font.family)}
+                            aria-label={`Remove ${font.family}`}
+                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72]"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </SettingsSection>
             )}
 

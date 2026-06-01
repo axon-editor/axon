@@ -4,7 +4,7 @@
 // can push file change events to the renderer without polling.
 
 import { contextBridge, ipcRenderer } from "electron";
-import { type AxonSettings } from "../shared/settings";
+import { type AxonSettings, type CustomFont } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
@@ -22,6 +22,8 @@ import {
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
+  importFont: (): Promise<CustomFont | null> =>
+    ipcRenderer.invoke("dialog:importFont"),
   getSettings: (folderPath?: string | null) =>
     ipcRenderer.invoke("settings:get", folderPath),
   updateSettings: (settings: AxonSettings, folderPath?: string | null) =>
