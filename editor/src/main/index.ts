@@ -50,7 +50,21 @@ const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 
 function sendMenuCommand(command: AxonCommand) {
   const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
-  targetWindow?.webContents.send("menu:command", command);
+  sendToRenderer("menu:command", command, targetWindow);
+}
+
+function sendToRenderer(
+  channel: string,
+  payload?: unknown,
+  targetWindow = mainWindow,
+) {
+  // Chokidar and child-process callbacks can fire after the user closes or
+  // reloads the Electron window. A BrowserWindow reference can still be
+  // non-null while its native object is already destroyed, so every delayed IPC
+  // send must pass through this guard instead of calling webContents directly.
+  if (!targetWindow || targetWindow.isDestroyed()) return;
+  if (targetWindow.webContents.isDestroyed()) return;
+  targetWindow.webContents.send(channel, payload);
 }
 
 function closeFocusedWindow() {
@@ -314,11 +328,11 @@ function getTaskCommand(task: WorkspaceTask) {
 }
 
 function sendTaskOutput(event: TaskOutputEvent) {
-  mainWindow?.webContents.send("task:output", event);
+  sendToRenderer("task:output", event);
 }
 
 function sendTaskFinished(event: TaskFinishedEvent) {
-  mainWindow?.webContents.send("task:finished", event);
+  sendToRenderer("task:finished", event);
 }
 
 function streamTaskOutput(
@@ -875,6 +889,10 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../../dist/renderer/index.html"));
   }
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
 }
 
 function buildWatcherOptions() {
@@ -1050,8 +1068,10 @@ ipcMain.handle("fs:watch", async (_event, filePath: string) => {
 
     debounceTimer = setTimeout(() => {
       const content = fs.readFileSync(filePath, "utf-8");
-      // push the new content to the renderer via webContents.send
-      mainWindow?.webContents.send("fs:fileChanged", {
+      // The file watcher can still fire during reload/close. Sending through
+      // the shared renderer helper keeps external disk changes useful while
+      // avoiding Electron's "Object has been destroyed" crash path.
+      sendToRenderer("fs:fileChanged", {
         path: filePath,
         content,
       });
@@ -1103,7 +1123,7 @@ ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
   const notify = () => {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      mainWindow?.webContents.send("fs:folderChanged");
+      sendToRenderer("fs:folderChanged");
     }, 300);
   };
 
@@ -1123,7 +1143,7 @@ ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
     const notifyGit = () => {
       if (gitDebounceTimer) clearTimeout(gitDebounceTimer);
       gitDebounceTimer = setTimeout(() => {
-        mainWindow?.webContents.send("git:changed");
+        sendToRenderer("git:changed");
       }, 250);
     };
 

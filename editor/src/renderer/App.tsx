@@ -746,6 +746,26 @@ function App() {
     void requestCloseTab(layout.activePaneId, activeFile);
   };
 
+  const runEditorAction = useCallback(
+    (action: "definition" | "references") => {
+      const activeFile = activePane?.activeFile;
+      if (!activeFile) return;
+
+      // App owns global commands, but SingleEditor owns Monaco. Keeping this
+      // as a small typed browser event lets the command palette, shortcuts,
+      // and future menu items trigger editor-native behavior without leaking
+      // Monaco action ids into the app shell. When real LSP providers are
+      // registered later, this bridge can stay the same while Monaco receives
+      // richer definitions and references behind the scenes.
+      window.dispatchEvent(
+        new CustomEvent("axon:editorAction", {
+          detail: { path: activeFile, action },
+        }),
+      );
+    },
+    [activePane?.activeFile],
+  );
+
   const runCommand = useCallback(
     (command: AxonCommand) => {
       switch (command) {
@@ -775,6 +795,12 @@ function App() {
           break;
         case AXON_COMMANDS.OPEN_FILE_OUTLINE:
           setFileOutlineOpen(true);
+          break;
+        case AXON_COMMANDS.GO_TO_DEFINITION:
+          runEditorAction("definition");
+          break;
+        case AXON_COMMANDS.FIND_REFERENCES:
+          runEditorAction("references");
           break;
         case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
           setBottomPanelTab("problems");
@@ -827,6 +853,7 @@ function App() {
       layout.activePaneId,
       refreshGitStatus,
       requestCloseTab,
+      runEditorAction,
       settings,
       terminalOpen,
     ],
@@ -874,6 +901,24 @@ function App() {
           ? `${activeFileSymbols.length} symbols in active file`
           : "Select a file first",
         keywords: ["symbols", "outline", "functions", "classes"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.GO_TO_DEFINITION,
+        title: "Go to Definition",
+        subtitle: activePane?.activeFile
+          ? "Jump to the symbol definition Monaco can resolve"
+          : "Select a file first",
+        keywords: ["definition", "symbol", "jump"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.FIND_REFERENCES,
+        title: "Find References",
+        subtitle: activePane?.activeFile
+          ? "Show usages for the current symbol"
+          : "Select a file first",
+        keywords: ["references", "usages", "symbol"],
         disabled: !activePane?.activeFile,
       },
       {
@@ -980,6 +1025,14 @@ function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.key === "F12" && !e.shiftKey) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.GO_TO_DEFINITION);
+      }
+      if (e.key === "F12" && e.shiftKey) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.FIND_REFERENCES);
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "p") {
         e.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE);

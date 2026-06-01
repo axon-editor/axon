@@ -45,6 +45,7 @@ function normalizePath(path: string) {
 }
 
 type PreviewMode = "editor" | "preview" | "split";
+type EditorActionRequest = "definition" | "references";
 
 export default function SingleEditor({
   filePath,
@@ -218,6 +219,34 @@ export default function SingleEditor({
     revealNavigationTarget,
     visible,
   ]);
+
+  useEffect(() => {
+    const handleEditorAction = (event: Event) => {
+      const actionEvent = event as CustomEvent<{
+        path?: string;
+        action?: EditorActionRequest;
+      }>;
+      if (!visible || actionEvent.detail?.path !== filePath) return;
+
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      // Monaco already owns the language-feature UI for definitions and
+      // references. Triggering its built-in actions here keeps Axon's command
+      // palette and shortcuts thin while still leaving room for a future LSP
+      // client to register richer providers behind the same editor actions.
+      const actionId =
+        actionEvent.detail.action === "references"
+          ? "editor.action.referenceSearch.trigger"
+          : "editor.action.revealDefinition";
+
+      void editor.getAction(actionId)?.run();
+    };
+
+    window.addEventListener("axon:editorAction", handleEditorAction);
+    return () =>
+      window.removeEventListener("axon:editorAction", handleEditorAction);
+  }, [filePath, visible]);
 
   useEffect(() => {
     let cancelled = false;
