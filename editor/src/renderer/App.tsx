@@ -4,6 +4,7 @@ import EditorPane from "./components/EditorPane/index";
 import StatusBar from "./components/StatusBar";
 import Terminal from "./components/Terminal";
 import CommandPalette from "./components/CommandPalette";
+import WorkspaceSearchModal from "./components/WorkspaceSearchModal";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
 import SplashScreen from "./components/SplashScreen";
@@ -64,6 +65,7 @@ function App() {
   const [terminalCreateWorkingDirectory, setTerminalCreateWorkingDirectory] =
     useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
@@ -244,6 +246,9 @@ function App() {
         case AXON_COMMANDS.OPEN_COMMAND_PALETTE:
           setPaletteOpen((prev) => !prev);
           break;
+        case AXON_COMMANDS.OPEN_WORKSPACE_SEARCH:
+          setWorkspaceSearchOpen((prev) => !prev);
+          break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           setTerminalOpen((prev) => !prev);
           break;
@@ -272,6 +277,14 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "p") {
         e.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE);
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "f"
+      ) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "j") {
         e.preventDefault();
@@ -370,6 +383,7 @@ function App() {
               <EditorToolbar
                 onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
                 onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
+                onSearch={() => runCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH)}
                 onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
                 onSplit={handleSplit}
                 onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
@@ -437,6 +451,13 @@ function App() {
         tree={tree}
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
+        onFileSelect={handleFileSelect}
+      />
+
+      <WorkspaceSearchModal
+        rootPath={folderPath}
+        open={workspaceSearchOpen}
+        onClose={() => setWorkspaceSearchOpen(false)}
         onFileSelect={handleFileSelect}
       />
 

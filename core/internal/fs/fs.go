@@ -6,6 +6,7 @@
 package fs
 
 import (
+	"bufio"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,6 +28,34 @@ type FileNode struct {
 type FileContent struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
+}
+
+// SearchResult is a single workspace text match.
+// The renderer needs the exact file, line, and column so selecting a result can
+// become "open this file here" now and later "jump to this location" when the
+// editor exposes line/column navigation.
+type SearchResult struct {
+	Path    string `json:"path"`
+	Line    int    `json:"line"`
+	Column  int    `json:"column"`
+	Preview string `json:"preview"`
+}
+
+func shouldSkipEntry(name string) bool {
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
+
+	return name == "node_modules" || name == "vendor" || name == "dist"
+}
+
+func trimSearchPreview(line string) string {
+	preview := strings.TrimSpace(line)
+	if len(preview) <= 220 {
+		return preview
+	}
+
+	return preview[:220]
 }
 
 // GetTree recursively walks a directory and builds a FileNode tree.
@@ -65,10 +94,7 @@ func GetTree(rootPath string) (FileNode, error) {
 	var files []os.DirEntry
 
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-		if entry.Name() == "node_modules" || entry.Name() == "vendor" || entry.Name() == "dist" {
+		if shouldSkipEntry(entry.Name()) {
 			continue
 		}
 
@@ -151,4 +177,75 @@ func RenameEntry(sourcePath string, newName string) (string, error) {
 	}
 
 	return destPath, os.Rename(sourcePath, destPath)
+}
+
+// SearchWorkspace walks the project tree and returns text matches for query.
+// It intentionally skips the same noisy folders as GetTree so search feels
+// aligned with what the user sees in the sidebar, and it caps large files to
+// avoid freezing the local core process on generated bundles or binary assets.
+func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchResult, error) {
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+
+	normalizedQuery := strings.ToLower(strings.TrimSpace(query))
+	if normalizedQuery == "" {
+		return []SearchResult{}, nil
+	}
+
+	results := []SearchResult{}
+	err := filepath.WalkDir(rootPath, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if path != rootPath && shouldSkipEntry(entry.Name()) {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if entry.IsDir() || len(results) >= maxResults {
+			return nil
+		}
+
+		info, err := entry.Info()
+		if err != nil || info.Size() > 1024*1024 {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return nil
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		scanner.Buffer(make([]byte, 1024), 1024*1024)
+		lineNumber := 0
+		for scanner.Scan() {
+			lineNumber++
+			line := scanner.Text()
+			column := strings.Index(strings.ToLower(line), normalizedQuery)
+			if column < 0 {
+				continue
+			}
+
+			results = append(results, SearchResult{
+				Path:    path,
+				Line:    lineNumber,
+				Column:  column + 1,
+				Preview: trimSearchPreview(line),
+			})
+
+			if len(results) >= maxResults {
+				return nil
+			}
+		}
+
+		return nil
+	})
+
+	return results, err
 }

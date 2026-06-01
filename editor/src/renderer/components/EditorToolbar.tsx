@@ -16,12 +16,14 @@ import {
   AlignStartHorizontal,
   AlignEndHorizontal,
   Settings,
+  Search,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
 
 interface Props {
   onNewFile: () => void;
   onOpenFile: () => void;
+  onSearch: () => void;
   onNewTerminal: () => void;
   onSplit: (direction: "right" | "left" | "up" | "down") => void;
   onZenMode: () => void;
@@ -34,6 +36,7 @@ type DropdownType = "new" | "split" | null;
 export default function EditorToolbar({
   onNewFile,
   onOpenFile,
+  onSearch,
   onNewTerminal,
   onSplit,
   onZenMode,
@@ -172,6 +175,16 @@ export default function EditorToolbar({
           </div>
         )}
       </div>
+
+      <Tooltip label="Search workspace" side="bottom">
+        <button
+          onClick={onSearch}
+          aria-label="Search workspace"
+          className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
+        >
+          <Search size={14} />
+        </button>
+      </Tooltip>
 
       <Tooltip label="Settings" side="bottom">
         <button

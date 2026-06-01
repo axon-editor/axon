@@ -76,6 +76,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/fs/delete", s.handleFSDelete)
 	mux.HandleFunc("/fs/move", s.handleFSMove)
 	mux.HandleFunc("/fs/rename", s.handleFSRename)
+	mux.HandleFunc("/fs/search", s.handleFSSearch)
 
 	// terminal WebSocket endpoint
 	// each connection spawns a real shell attached to a PTY
@@ -372,5 +373,34 @@ func (s *Server) handleFSRename(w http.ResponseWriter, r *http.Request) {
 		Data: map[string]string{
 			"path": newPath,
 		},
+	})
+}
+
+// handleFSSearch handles GET /fs/search?root=<absolute_path>&q=<query>.
+// Workspace search belongs in core because it can walk the local filesystem
+// directly and return compact match records, instead of forcing the renderer to
+// fetch and scan every file over HTTP.
+func (s *Server) handleFSSearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
+		return
+	}
+
+	rootPath := r.URL.Query().Get("root")
+	query := r.URL.Query().Get("q")
+	if rootPath == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "root query parameter is required"})
+		return
+	}
+
+	results, err := fs.SearchWorkspace(rootPath, query, 100)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{
+		Status: "ok",
+		Data:   results,
 	})
 }

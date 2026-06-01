@@ -30,6 +30,13 @@ export interface FileContent {
   content: string;
 }
 
+export interface WorkspaceSearchResult {
+  path: string;
+  line: number;
+  column: number;
+  preview: string;
+}
+
 // request is the internal helper that handles fetch + envelope unwrapping
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, options);
@@ -105,4 +112,13 @@ export async function renameEntry(
   });
 
   return data.path;
+}
+
+export async function searchWorkspace(
+  root: string,
+  query: string,
+): Promise<WorkspaceSearchResult[]> {
+  return request<WorkspaceSearchResult[]>(
+    `/fs/search?root=${encodeURIComponent(root)}&q=${encodeURIComponent(query)}`,
+  );
 }
