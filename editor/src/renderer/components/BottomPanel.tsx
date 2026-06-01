@@ -1,4 +1,5 @@
 import { AlertCircle, ListChecks, X } from "lucide-react";
+import { type EditorDiagnostic } from "../lib/diagnostics";
 import Tooltip from "./Tooltip";
 
 export type BottomPanelTab = "problems" | "output";
@@ -6,7 +7,9 @@ export type BottomPanelTab = "problems" | "output";
 interface Props {
   open: boolean;
   activeTab: BottomPanelTab;
+  diagnostics: EditorDiagnostic[];
   onActiveTabChange: (tab: BottomPanelTab) => void;
+  onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
   onClose: () => void;
 }
 
@@ -21,6 +24,7 @@ const tabs: Array<{
 
 export function BottomPanelHeader({
   activeTab,
+  diagnostics,
   onActiveTabChange,
   onClose,
 }: Omit<Props, "open">) {
@@ -43,7 +47,7 @@ export function BottomPanelHeader({
             {tab.label}
             {tab.id === "problems" && (
               <span className="rounded bg-[#151923] px-1.5 text-[10px] text-[#586478]">
-                0
+                {diagnostics.length}
               </span>
             )}
           </button>
@@ -63,12 +67,61 @@ export function BottomPanelHeader({
   );
 }
 
-export function BottomPanelContent({ activeTab }: { activeTab: BottomPanelTab }) {
+function getFileName(path: string) {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+}
+
+const severityStyles: Record<EditorDiagnostic["severity"], string> = {
+  error: "text-[#ea6c73]",
+  warning: "text-[#ffcc66]",
+  info: "text-[#80c8e0]",
+  hint: "text-[#647086]",
+};
+
+export function BottomPanelContent({
+  activeTab,
+  diagnostics,
+  onOpenDiagnostic,
+}: {
+  activeTab: BottomPanelTab;
+  diagnostics: EditorDiagnostic[];
+  onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
+}) {
   return (
     <>
-      {activeTab === "problems" && (
+      {activeTab === "problems" && diagnostics.length === 0 && (
         <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
           No problems in this workspace yet.
+        </div>
+      )}
+
+      {activeTab === "problems" && diagnostics.length > 0 && (
+        <div className="h-full overflow-y-auto py-1 text-[12px] text-[#9aa4b8]">
+          {diagnostics.map((diagnostic) => (
+            <button
+              key={diagnostic.id}
+              onClick={() => onOpenDiagnostic(diagnostic)}
+              className="grid w-full cursor-pointer grid-cols-[80px_180px_1fr] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-[#141923]"
+            >
+              <span
+                className={`font-medium capitalize ${severityStyles[diagnostic.severity]}`}
+              >
+                {diagnostic.severity}
+              </span>
+              <span className="min-w-0 truncate text-[#c8d0e0]">
+                {getFileName(diagnostic.path)}:{diagnostic.line}:
+                {diagnostic.column}
+              </span>
+              <span className="min-w-0 truncate text-[#9aa4b8]">
+                {diagnostic.message}
+                {diagnostic.source && (
+                  <span className="ml-2 text-[#586478]">
+                    {diagnostic.source}
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -87,7 +140,9 @@ export function BottomPanelContent({ activeTab }: { activeTab: BottomPanelTab })
 export default function BottomPanel({
   open,
   activeTab,
+  diagnostics,
   onActiveTabChange,
+  onOpenDiagnostic,
   onClose,
 }: Props) {
   if (!open) return null;
@@ -97,13 +152,19 @@ export default function BottomPanel({
       <div className="flex h-9 items-center justify-between border-b border-[#202533] px-2">
         <BottomPanelHeader
           activeTab={activeTab}
+          diagnostics={diagnostics}
           onActiveTabChange={onActiveTabChange}
+          onOpenDiagnostic={onOpenDiagnostic}
           onClose={onClose}
         />
       </div>
 
       <div className="h-[calc(100%-36px)]">
-        <BottomPanelContent activeTab={activeTab} />
+        <BottomPanelContent
+          activeTab={activeTab}
+          diagnostics={diagnostics}
+          onOpenDiagnostic={onOpenDiagnostic}
+        />
       </div>
     </div>
   );

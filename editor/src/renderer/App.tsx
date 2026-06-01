@@ -13,6 +13,10 @@ import SplashScreen from "./components/SplashScreen";
 import AboutModal, { type AppInfo } from "./components/AboutModal";
 import { getTree, createFile, type FileNode } from "./lib/api";
 import {
+  onEditorDiagnosticsChanged,
+  type EditorDiagnostic,
+} from "./lib/diagnostics";
+import {
   createInitialLayout,
   splitPane,
   openFileInPane,
@@ -42,8 +46,15 @@ declare global {
     axon: {
       platform: string;
       openFolder: () => Promise<string | null>;
-      getSettings: () => Promise<AxonSettings>;
-      updateSettings: (settings: AxonSettings) => Promise<AxonSettings>;
+      getSettings: (folderPath?: string | null) => Promise<AxonSettings>;
+      updateSettings: (
+        settings: AxonSettings,
+        folderPath?: string | null,
+      ) => Promise<AxonSettings>;
+      ensureSettingsFile: (
+        folderPath?: string | null,
+        settings?: AxonSettings,
+      ) => Promise<string>;
       getAppInfo: () => Promise<AppInfo>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
@@ -79,6 +90,8 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
+  const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
@@ -102,12 +115,48 @@ function App() {
 
   useEffect(() => {
     window.axon
-      .getSettings()
+      .getSettings(null)
       .then((nextSettings) => setSettings(normalizeSettings(nextSettings)))
       .catch((err) => {
         console.error("failed to load settings:", err);
       });
   }, []);
+
+  useEffect(() => {
+    return onEditorDiagnosticsChanged(setDiagnostics);
+  }, []);
+
+  useEffect(() => {
+    const handleFileSaved = (event: Event) => {
+      const saveEvent = event as CustomEvent<{ path?: string }>;
+      const savedPath = saveEvent.detail?.path;
+      if (!savedPath) return;
+
+      const workspaceSettingsPath = folderPath
+        ? `${folderPath}/axon.json`
+        : null;
+      if (
+        savedPath !== workspaceSettingsPath &&
+        savedPath !== settingsJsonPath
+      ) {
+        return;
+      }
+
+      // Manual settings edits should take effect as soon as the user saves the
+      // file. We still route through the main-process settings reader so the
+      // same validation and default-filling logic protects both the modal and
+      // axon.json paths.
+      window.axon
+        .getSettings(folderPath)
+        .then((nextSettings) => setSettings(normalizeSettings(nextSettings)))
+        .catch((err) => {
+          console.error("failed to reload settings json:", err);
+        });
+    };
+
+    window.addEventListener("axon:fileSaved", handleFileSaved);
+    return () => window.removeEventListener("axon:fileSaved", handleFileSaved);
+  }, [folderPath, settingsJsonPath]);
 
   useEffect(() => {
     const cleanup = window.axon.onFolderChanged(() => {
@@ -142,6 +191,14 @@ function App() {
     // shell sessions do not appear to belong to the newly selected folder.
     setTerminalOpen(false);
     setTerminalCreateWorkingDirectory(null);
+    setSettingsJsonPath(`${path}/axon.json`);
+
+    try {
+      const workspaceSettings = await window.axon.getSettings(path);
+      setSettings(normalizeSettings(workspaceSettings));
+    } catch (err) {
+      console.error("failed to load workspace settings:", err);
+    }
 
     await window.axon.unwatchFolder();
     await window.axon.watchFolder(path);
@@ -184,11 +241,29 @@ function App() {
 
     try {
       const savedSettings =
-        await window.axon.updateSettings(normalizedSettings);
+        await window.axon.updateSettings(normalizedSettings, folderPath);
       setSettings(normalizeSettings(savedSettings));
     } catch (err) {
       console.error("failed to save settings:", err);
     }
+  };
+
+  const handleOpenSettingsJson = async () => {
+    try {
+      const settingsPath = await window.axon.ensureSettingsFile(
+        folderPath,
+        settings,
+      );
+      setSettingsJsonPath(settingsPath);
+      if (folderPath) await handleRefresh();
+      handleFileSelect(settingsPath);
+    } catch (err) {
+      console.error("failed to open settings json:", err);
+    }
+  };
+
+  const handleOpenDiagnostic = (diagnostic: EditorDiagnostic) => {
+    handleFileSelect(diagnostic.path);
   };
 
   const handleNewTerminal = () => {
@@ -282,6 +357,9 @@ function App() {
         case AXON_COMMANDS.OPEN_SETTINGS:
           setSettingsOpen(true);
           break;
+        case AXON_COMMANDS.OPEN_SETTINGS_JSON:
+          void handleOpenSettingsJson();
+          break;
         case AXON_COMMANDS.TOGGLE_ZEN_MODE:
           setZenMode((prev) => !prev);
           break;
@@ -290,7 +368,7 @@ function App() {
           break;
       }
     },
-    [activePane?.activeFile, folderPath],
+    [activePane?.activeFile, folderPath, settings],
   );
 
   useEffect(() => {
@@ -325,9 +403,17 @@ function App() {
         e.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW);
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === ",") {
         e.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_SETTINGS);
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (e.key === "," || e.key === "<")
+      ) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_SETTINGS_JSON);
       }
       if (e.key === "Escape" && zenMode) {
         setZenMode(false);
@@ -468,7 +554,10 @@ function App() {
             createWorkingDirectory={terminalCreateWorkingDirectory}
             editorSettings={settings.editor}
             workingDirectory={folderPath}
-            activePanelTab={!zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"}
+            activePanelTab={
+              !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
+            }
+            diagnostics={diagnostics}
             onActivePanelTabChange={(tab) => {
               if (tab === "terminal") {
                 setBottomPanelOpen(false);
@@ -483,6 +572,7 @@ function App() {
               setTerminalOpen(false);
               setBottomPanelOpen(false);
             }}
+            onOpenDiagnostic={handleOpenDiagnostic}
           />
         </div>
       </div>
@@ -497,6 +587,7 @@ function App() {
           terminalOpen={terminalOpen}
           bottomPanelOpen={bottomPanelOpen}
           bottomPanelTab={bottomPanelTab}
+          problemCount={diagnostics.length}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
           onOpenBottomPanel={(tab) =>

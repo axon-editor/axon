@@ -21,6 +21,7 @@ interface Props {
   terminalOpen: boolean;
   bottomPanelOpen: boolean;
   bottomPanelTab: BottomPanelTab;
+  problemCount: number;
   onToggleSidebar: () => void;
   onToggleTerminal: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
@@ -35,6 +36,7 @@ export default function StatusBar({
   terminalOpen,
   bottomPanelOpen,
   bottomPanelTab,
+  problemCount,
   onToggleSidebar,
   onToggleTerminal,
   onOpenBottomPanel,
@@ -78,7 +80,7 @@ export default function StatusBar({
             ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
           >
             <AlertCircle size={12} />
-            0
+            {problemCount}
           </button>
         </Tooltip>
 

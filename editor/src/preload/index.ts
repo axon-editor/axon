@@ -10,9 +10,12 @@ import { type AxonCommand } from "../shared/commands";
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
-  getSettings: () => ipcRenderer.invoke("settings:get"),
-  updateSettings: (settings: AxonSettings) =>
-    ipcRenderer.invoke("settings:update", settings),
+  getSettings: (folderPath?: string | null) =>
+    ipcRenderer.invoke("settings:get", folderPath),
+  updateSettings: (settings: AxonSettings, folderPath?: string | null) =>
+    ipcRenderer.invoke("settings:update", settings, folderPath),
+  ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>
+    ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),

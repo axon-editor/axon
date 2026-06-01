@@ -130,6 +130,9 @@ export default function SingleEditor({
       await writeFile(path, currentContent);
       diskContentRef.current = currentContent;
       onDirtyChange(path, false);
+      window.dispatchEvent(
+        new CustomEvent("axon:fileSaved", { detail: { path } }),
+      );
     } catch (err: any) {
       console.error("save failed:", err.message);
     } finally {

@@ -11,6 +11,7 @@ export const AXON_COMMANDS = {
   OPEN_DIFF_VIEW: "open-diff-view",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",
+  OPEN_SETTINGS_JSON: "open-settings-json",
   TOGGLE_ZEN_MODE: "toggle-zen-mode",
   NEW_TERMINAL: "new-terminal",
 } as const;

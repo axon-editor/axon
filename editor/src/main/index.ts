@@ -88,6 +88,11 @@ function buildApplicationMenu() {
           click: () => sendMenuCommand(AXON_COMMANDS.OPEN_FOLDER),
         },
         {
+          label: "Open Settings JSON",
+          accelerator: "CmdOrCtrl+Shift+,",
+          click: () => sendMenuCommand(AXON_COMMANDS.OPEN_SETTINGS_JSON),
+        },
+        {
           label: "Open Recent",
           enabled: false,
         },
@@ -128,8 +133,17 @@ let activeWatcher: FSWatcher | null = null;
 let folderWatcher: FSWatcher | null = null;
 const shouldPollWatchers = process.platform === "darwin";
 
-function getSettingsPath() {
+function getUserSettingsPath() {
   return path.join(app.getPath("userData"), "settings.json");
+}
+
+function getWorkspaceSettingsPath(folderPath: string) {
+  return path.join(folderPath, "axon.json");
+}
+
+function getSettingsPath(folderPath?: string | null) {
+  if (folderPath) return getWorkspaceSettingsPath(folderPath);
+  return getUserSettingsPath();
 }
 
 function getAxonIconPath() {
@@ -144,9 +158,7 @@ function getAxonIconPath() {
   return path.join(app.getAppPath(), "src/renderer/public/axon.png");
 }
 
-function readSettingsFromDisk(): AxonSettings {
-  const settingsPath = getSettingsPath();
-
+function readSettingsFromDisk(settingsPath: string): AxonSettings {
   if (!fs.existsSync(settingsPath)) {
     return DEFAULT_SETTINGS;
   }
@@ -160,12 +172,11 @@ function readSettingsFromDisk(): AxonSettings {
   }
 }
 
-function writeSettingsToDisk(settings: AxonSettings) {
-  const settingsPath = getSettingsPath();
-
-  // I normalize before writing so settings.json is always a complete, valid
-  // document. That prevents a broken manual edit from leaking invalid editor
-  // options into Monaco on the next launch.
+function writeSettingsToDisk(settings: AxonSettings, settingsPath: string) {
+  // I normalize before writing so both the app settings file and workspace
+  // axon.json are always complete, valid documents. That prevents a broken
+  // manual edit from leaking invalid editor options into Monaco on the next
+  // launch.
   const normalizedSettings = normalizeSettings(settings);
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(
@@ -175,6 +186,29 @@ function writeSettingsToDisk(settings: AxonSettings) {
   );
 
   return normalizedSettings;
+}
+
+function readSettingsForFolder(folderPath?: string | null): AxonSettings {
+  if (folderPath) {
+    const workspaceSettingsPath = getWorkspaceSettingsPath(folderPath);
+    if (fs.existsSync(workspaceSettingsPath)) {
+      return readSettingsFromDisk(workspaceSettingsPath);
+    }
+  }
+
+  return readSettingsFromDisk(getUserSettingsPath());
+}
+
+function ensureSettingsFile(folderPath?: string | null, settings?: unknown) {
+  const settingsPath = getSettingsPath(folderPath);
+  const sourceSettings =
+    settings ??
+    (fs.existsSync(settingsPath)
+      ? readSettingsFromDisk(settingsPath)
+      : readSettingsForFolder(folderPath));
+
+  writeSettingsToDisk(normalizeSettings(sourceSettings), settingsPath);
+  return settingsPath;
 }
 
 function createWindow() {
@@ -254,15 +288,27 @@ ipcMain.handle("dialog:openFolder", async () => {
   return result.filePaths[0];
 });
 
-ipcMain.handle("settings:get", async () => {
-  const settings = readSettingsFromDisk();
-  writeSettingsToDisk(settings);
+ipcMain.handle("settings:get", async (_event, folderPath?: string | null) => {
+  const settings = readSettingsForFolder(folderPath);
+  if (!folderPath || fs.existsSync(getWorkspaceSettingsPath(folderPath))) {
+    writeSettingsToDisk(settings, getSettingsPath(folderPath));
+  }
   return settings;
 });
 
-ipcMain.handle("settings:update", async (_event, settings: AxonSettings) => {
-  return writeSettingsToDisk(settings);
-});
+ipcMain.handle(
+  "settings:update",
+  async (_event, settings: AxonSettings, folderPath?: string | null) => {
+    return writeSettingsToDisk(settings, getSettingsPath(folderPath));
+  },
+);
+
+ipcMain.handle(
+  "settings:ensureFile",
+  async (_event, folderPath?: string | null, settings?: AxonSettings) => {
+    return ensureSettingsFile(folderPath, settings);
+  },
+);
 
 ipcMain.handle("app:getInfo", async () => {
   return {

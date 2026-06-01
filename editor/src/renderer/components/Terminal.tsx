@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
+import { type EditorDiagnostic } from "../lib/diagnostics";
 import ChromeTab from "./ChromeTab";
 import Tooltip from "./Tooltip";
 import {
@@ -36,7 +37,9 @@ interface Props {
   editorSettings: EditorSettings;
   workingDirectory: string | null;
   activePanelTab: "terminal" | BottomPanelTab;
+  diagnostics: EditorDiagnostic[];
   onActivePanelTabChange: (tab: "terminal" | BottomPanelTab) => void;
+  onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
   onHide: () => void;
 }
 
@@ -228,7 +231,9 @@ export default function Terminal({
   editorSettings,
   workingDirectory,
   activePanelTab,
+  diagnostics,
   onActivePanelTabChange,
+  onOpenDiagnostic,
   onHide,
 }: Props) {
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
@@ -600,6 +605,9 @@ export default function Terminal({
               }`}
             >
               Problems
+              <span className="ml-1 rounded bg-[#151923] px-1 text-[10px] text-[#586478]">
+                {diagnostics.length}
+              </span>
             </button>
             <button
               onClick={() => onActivePanelTabChange("output")}
@@ -641,7 +649,11 @@ export default function Terminal({
 
       <div className="relative flex-1 overflow-hidden px-2 py-1">
         {activePanelTab !== "terminal" && (
-          <BottomPanelContent activeTab={activePanelTab} />
+          <BottomPanelContent
+            activeTab={activePanelTab}
+            diagnostics={diagnostics}
+            onOpenDiagnostic={onOpenDiagnostic}
+          />
         )}
         {tabs.map((tab) => (
           <div
