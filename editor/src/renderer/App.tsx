@@ -97,6 +97,7 @@ declare global {
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;
       onFolderChanged: (callback: () => void) => () => void;
+      onGitChanged: (callback: () => void) => () => void;
       onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
     };
   }
@@ -279,11 +280,17 @@ function App() {
           console.error("failed to reload settings json:", err);
         });
       void refreshProjectDiagnostics();
+      void refreshGitStatus({ silent: true });
     };
 
     window.addEventListener("axon:fileSaved", handleFileSaved);
     return () => window.removeEventListener("axon:fileSaved", handleFileSaved);
-  }, [folderPath, refreshProjectDiagnostics, settingsJsonPath]);
+  }, [
+    folderPath,
+    refreshGitStatus,
+    refreshProjectDiagnostics,
+    settingsJsonPath,
+  ]);
 
   useEffect(() => {
     const cleanup = window.axon.onFolderChanged(() => {
@@ -296,6 +303,13 @@ function App() {
     });
     return cleanup;
   }, [folderPath, refreshGitStatus, refreshProjectDiagnostics]);
+
+  useEffect(() => {
+    const cleanup = window.axon.onGitChanged(() => {
+      void refreshGitStatus({ silent: true });
+    });
+    return cleanup;
+  }, [refreshGitStatus]);
 
   const handleOpenFolder = async () => {
     const path = await window.axon.openFolder();

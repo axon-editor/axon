@@ -146,6 +146,7 @@ function buildApplicationMenu() {
 // holds the active chokidar watcher so we can stop it when switching files
 let activeWatcher: FSWatcher | null = null;
 let folderWatcher: FSWatcher | null = null;
+let gitWatcher: FSWatcher | null = null;
 const shouldPollWatchers = process.platform === "darwin";
 
 function getUserSettingsPath() {
@@ -387,6 +388,37 @@ async function getGitFileBase(
   }
 }
 
+async function getGitWatchPaths(folderPath: string): Promise<string[]> {
+  try {
+    const gitDirResult = await runGit(folderPath, ["rev-parse", "--git-dir"]);
+    const commonDirResult = await runGit(folderPath, [
+      "rev-parse",
+      "--git-common-dir",
+    ]);
+    const status = await getGitStatus(folderPath);
+    const root = status.root ?? folderPath;
+
+    const resolveGitPath = (value: string) =>
+      path.isAbsolute(value) ? value : path.resolve(root, value);
+    const gitDir = resolveGitPath(gitDirResult.stdout.trim());
+    const commonDir = resolveGitPath(commonDirResult.stdout.trim());
+
+    return [
+      path.join(gitDir, "HEAD"),
+      path.join(gitDir, "index"),
+      path.join(gitDir, "MERGE_HEAD"),
+      path.join(gitDir, "CHERRY_PICK_HEAD"),
+      path.join(gitDir, "REBASE_HEAD"),
+      path.join(commonDir, "packed-refs"),
+      path.join(commonDir, "refs"),
+    ].filter((watchPath, index, allPaths) => {
+      return fs.existsSync(watchPath) && allPaths.indexOf(watchPath) === index;
+    });
+  } catch {
+    return [];
+  }
+}
+
 function createDiagnosticId(diagnostic: Omit<EditorDiagnostic, "id">) {
   return `${diagnostic.source ?? "project"}:${diagnostic.path}:${diagnostic.line}:${diagnostic.column}:${diagnostic.message}`;
 }
@@ -575,6 +607,12 @@ async function closeFolderWatcher() {
   folderWatcher = null;
 }
 
+async function closeGitWatcher() {
+  if (!gitWatcher) return;
+  await gitWatcher.close();
+  gitWatcher = null;
+}
+
 ipcMain.handle("dialog:openFolder", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openDirectory"],
@@ -717,8 +755,10 @@ app.on("window-all-closed", () => {
 
 ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
   await closeFolderWatcher();
+  await closeGitWatcher();
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   folderWatcher = chokidar.watch(folderPath, {
     ...buildWatcherOptions(),
@@ -735,18 +775,42 @@ ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
   };
 
   folderWatcher.on("add", notify);
+  folderWatcher.on("change", notify);
   folderWatcher.on("unlink", notify);
   folderWatcher.on("addDir", notify);
   folderWatcher.on("unlinkDir", notify);
+
+  const gitWatchPaths = await getGitWatchPaths(folderPath);
+  if (gitWatchPaths.length > 0) {
+    gitWatcher = chokidar.watch(gitWatchPaths, {
+      ...buildWatcherOptions(),
+      depth: 4,
+    });
+
+    const notifyGit = () => {
+      if (gitDebounceTimer) clearTimeout(gitDebounceTimer);
+      gitDebounceTimer = setTimeout(() => {
+        mainWindow?.webContents.send("git:changed");
+      }, 250);
+    };
+
+    gitWatcher.on("add", notifyGit);
+    gitWatcher.on("change", notifyGit);
+    gitWatcher.on("unlink", notifyGit);
+    gitWatcher.on("addDir", notifyGit);
+    gitWatcher.on("unlinkDir", notifyGit);
+  }
 });
 
 ipcMain.handle("fs:unwatchFolder", async () => {
   await closeFolderWatcher();
+  await closeGitWatcher();
 });
 
 app.on("before-quit", async () => {
   await closeActiveWatcher();
   await closeFolderWatcher();
+  await closeGitWatcher();
 });
 
 // register axon:// protocol before app is ready

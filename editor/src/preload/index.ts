@@ -53,6 +53,11 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.on("fs:folderChanged", handler);
     return () => ipcRenderer.removeListener("fs:folderChanged", handler);
   },
+  onGitChanged: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on("git:changed", handler);
+    return () => ipcRenderer.removeListener("git:changed", handler);
+  },
 
   onMenuCommand: (callback: (command: AxonCommand) => void) => {
     const handler = (_: unknown, command: AxonCommand) => callback(command);
