@@ -3,7 +3,7 @@ import { DiffEditor } from "@monaco-editor/react";
 import { X } from "lucide-react";
 import { type EditorSettings } from "../../shared/settings";
 import { readFile } from "../lib/api";
-import { getModel } from "../lib/monacoModels";
+import { detectLanguage, getModel } from "../lib/monacoModels";
 import { getMonacoThemeId, registerAxonTheme } from "../lib/soraTheme";
 import Tooltip from "./Tooltip";
 
@@ -11,10 +11,6 @@ interface Props {
   filePath: string;
   editorSettings: EditorSettings;
   onClose: () => void;
-}
-
-function languageFromPath(path: string) {
-  return path.split(".").pop()?.toLowerCase() ?? "plaintext";
 }
 
 export default function DiffModal({
@@ -99,7 +95,7 @@ export default function DiffModal({
             height="100%"
             original={savedContent}
             modified={currentContent}
-            language={languageFromPath(filePath)}
+            language={detectLanguage(filePath)}
             theme={getMonacoThemeId(editorSettings.themeId)}
             beforeMount={(monacoInstance) =>
               registerAxonTheme(monacoInstance, editorSettings.themeId)

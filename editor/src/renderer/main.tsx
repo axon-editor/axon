@@ -4,6 +4,7 @@ import * as monaco from "monaco-editor";
 import App from "./App";
 import "./index.css";
 import { registerAxonTheme } from "./lib/soraTheme";
+import { configureMonacoDiagnostics } from "./lib/monacoDiagnostics";
 
 loader.config({ monaco });
 
@@ -12,6 +13,7 @@ loader.config({ monaco });
 // a separate Monaco instance, which makes the app call setTheme("axon") before
 // that instance knows the custom theme exists.
 registerAxonTheme(monaco);
+configureMonacoDiagnostics(monaco);
 
 // StrictMode is disabled because it double-invokes effects in development
 // which causes Monaco's InstantiationService to be disposed and crash

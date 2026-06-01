@@ -8,8 +8,18 @@ const models = new Map<string, monaco.editor.ITextModel>();
 const refCounts = new Map<string, number>();
 const disposalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-function detectLanguage(path: string): string {
+export function detectLanguage(path: string): string {
+  const fileName = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   const ext = path.split(".").pop()?.toLowerCase();
+
+  if (
+    fileName === "tsconfig.json" ||
+    fileName === "jsconfig.json" ||
+    ext === "jsonc"
+  ) {
+    return "json";
+  }
+
   const map: Record<string, string> = {
     go: "go",
     ts: "typescript",

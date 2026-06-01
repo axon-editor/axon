@@ -16,6 +16,7 @@ import {
   releaseModel,
   acquireModel,
   getModel,
+  detectLanguage,
 } from "../../lib/monacoModels";
 
 interface Props {
@@ -60,7 +61,7 @@ export default function SingleEditor({
 
   useEffect(() => {
     if (visible) {
-      onLanguageChange(filePath.split(".").pop()?.toLowerCase() ?? "plaintext");
+      onLanguageChange(detectLanguage(filePath));
       onCursorChange(1, 1);
       registerAxonTheme(monaco, editorSettings.themeId);
     }
@@ -175,7 +176,7 @@ export default function SingleEditor({
       }
     });
 
-    onLanguageChange(filePath.split(".").pop()?.toLowerCase() ?? "plaintext");
+    onLanguageChange(detectLanguage(filePath));
   };
 
   if (loading) {
