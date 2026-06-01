@@ -221,3 +221,78 @@ export function moveTabBetweenPanes(
   newLayout = openFileInPane(newLayout, targetPaneId, filePath);
   return { ...newLayout, activePaneId: targetPaneId };
 }
+
+function isSamePathOrChild(filePath: string, parentPath: string) {
+  return filePath === parentPath || filePath.startsWith(`${parentPath}/`);
+}
+
+function replacePathPrefix(filePath: string, oldPath: string, newPath: string) {
+  if (filePath === oldPath) return newPath;
+  if (!filePath.startsWith(`${oldPath}/`)) return filePath;
+  return `${newPath}${filePath.slice(oldPath.length)}`;
+}
+
+// removePathFromLayout keeps editor state honest after a file or folder is
+// deleted outside the tab bar. Without this, the explorer can remove an entry
+// while panes still point at paths the backend can no longer read.
+export function removePathFromLayout(layout: Layout, removedPath: string): Layout {
+  return {
+    ...layout,
+    panes: layout.panes.map((pane) => {
+      const openTabs = pane.openTabs.filter(
+        (tab) => !isSamePathOrChild(tab, removedPath),
+      );
+      const dirtyFiles = Object.fromEntries(
+        Object.entries(pane.dirtyFiles).filter(
+          ([path]) => !isSamePathOrChild(path, removedPath),
+        ),
+      );
+
+      return {
+        ...pane,
+        openTabs,
+        activeFile:
+          pane.activeFile && openTabs.includes(pane.activeFile)
+            ? pane.activeFile
+            : (openTabs.at(-1) ?? null),
+        dirtyFiles,
+      };
+    }),
+  };
+}
+
+// replacePathInLayout updates every tab that points at a renamed or moved path.
+// It handles both a single file rename and a folder rename/move by replacing
+// the matching path prefix, so open children continue to point at real files.
+export function replacePathInLayout(
+  layout: Layout,
+  oldPath: string,
+  newPath: string,
+): Layout {
+  return {
+    ...layout,
+    panes: layout.panes.map((pane) => {
+      const openTabs = Array.from(
+        new Set(
+          pane.openTabs.map((tab) => replacePathPrefix(tab, oldPath, newPath)),
+        ),
+      );
+      const dirtyFiles = Object.fromEntries(
+        Object.entries(pane.dirtyFiles).map(([path, dirty]) => [
+          replacePathPrefix(path, oldPath, newPath),
+          dirty,
+        ]),
+      );
+      const activeFile = pane.activeFile
+        ? replacePathPrefix(pane.activeFile, oldPath, newPath)
+        : null;
+
+      return {
+        ...pane,
+        openTabs,
+        activeFile,
+        dirtyFiles,
+      };
+    }),
+  };
+}

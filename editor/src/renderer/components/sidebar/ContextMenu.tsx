@@ -23,8 +23,10 @@ interface Props {
   menu: { x: number; y: number; node: FileNode; isRoot?: boolean };
   existingNames: string[];
   onClose: () => void;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   onOpenPath?: (path: string, isDir: boolean) => void;
+  onEntryDeleted?: (path: string) => void;
+  onEntryRenamed?: (oldPath: string, newPath: string) => void;
   onSplitFile?: (filePath: string) => void;
   onOpenInTerminal?: (path: string) => void;
 }
@@ -35,6 +37,8 @@ export default function ContextMenu({
   onClose,
   onRefresh,
   onOpenPath,
+  onEntryDeleted,
+  onEntryRenamed,
   onSplitFile,
   onOpenInTerminal,
 }: Props) {
@@ -84,7 +88,7 @@ export default function ContextMenu({
     const createdPath = `${basePath}/${name}`;
     if (mode === "file") await createFile(createdPath);
     if (mode === "folder") await createDir(createdPath);
-    onRefresh();
+    await onRefresh();
     onOpenPath?.(createdPath, mode === "folder");
     onClose();
   };
@@ -94,14 +98,16 @@ export default function ContextMenu({
     if (!name || isDuplicateName || menu.isRoot) return;
 
     const renamedPath = await renameEntry(menu.node.path, name);
-    onRefresh();
+    onEntryRenamed?.(menu.node.path, renamedPath);
+    await onRefresh();
     onOpenPath?.(renamedPath, menu.node.is_dir);
     onClose();
   };
 
   const handleDelete = async () => {
     await deleteEntry(menu.node.path);
-    onRefresh();
+    onEntryDeleted?.(menu.node.path);
+    await onRefresh();
     onClose();
   };
 

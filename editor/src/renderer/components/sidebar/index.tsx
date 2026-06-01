@@ -37,12 +37,15 @@ interface Props {
   onFileSelect: (path: string) => void;
   onOpenFolder: () => void;
   onFolderChange: (path: string, tree: FileNode) => void | Promise<void>;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   loading: boolean;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onSplitFile: (filePath: string) => void;
   onOpenInTerminal?: (path: string) => void;
+  onEntryDeleted?: (path: string) => void;
+  onEntryMoved?: (oldPath: string, newPath: string) => void;
+  onEntryRenamed?: (oldPath: string, newPath: string) => void;
 }
 
 interface ContextMenuState {
@@ -92,6 +95,9 @@ export default function Sidebar({
   onCollapsedChange,
   onSplitFile,
   onOpenInTerminal,
+  onEntryDeleted,
+  onEntryMoved,
+  onEntryRenamed,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -124,8 +130,10 @@ export default function Sidebar({
   const handleMove = async (sourcePath: string, targetDir: string) => {
     try {
       await moveEntry(sourcePath, targetDir);
-      setRevealPath(`${targetDir}/${sourcePath.split("/").pop()}`);
-      onRefresh();
+      const movedPath = `${targetDir}/${sourcePath.split("/").pop()}`;
+      onEntryMoved?.(sourcePath, movedPath);
+      setRevealPath(movedPath);
+      await onRefresh();
     } catch (err) {
       console.error("move failed:", err);
     }
@@ -237,11 +245,13 @@ export default function Sidebar({
           onOpenPath={(path, isDir) => {
             setRevealPath(path);
             if (isDir) {
-              onRefresh();
+              void onRefresh();
               return;
             }
             onFileSelect(path);
           }}
+          onEntryDeleted={onEntryDeleted}
+          onEntryRenamed={onEntryRenamed}
           onSplitFile={onSplitFile}
           onOpenInTerminal={onOpenInTerminal}
         />

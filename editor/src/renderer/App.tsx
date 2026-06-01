@@ -18,6 +18,8 @@ import {
   setActivePaneFile,
   setDirtyInPane,
   moveTabBetweenPanes,
+  removePathFromLayout,
+  replacePathInLayout,
 } from "./lib/layoutManager";
 import { type Layout, type SplitDirection } from "./lib/types";
 import {
@@ -328,6 +330,15 @@ function App() {
             onCollapsedChange={setSidebarCollapsed}
             onSplitFile={(filePath) => handleSplit("right", filePath)}
             onOpenInTerminal={handleOpenPathInTerminal}
+            onEntryDeleted={(path) =>
+              setLayout((prev) => removePathFromLayout(prev, path))
+            }
+            onEntryMoved={(oldPath, newPath) =>
+              setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
+            }
+            onEntryRenamed={(oldPath, newPath) =>
+              setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
+            }
           />
         )}
 
