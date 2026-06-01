@@ -17,7 +17,7 @@ export function getMonacoThemeId(themeId: BuiltInThemeId) {
 function defineCompanionThemes(monacoInstance: MonacoInstance) {
   monacoInstance.editor.defineTheme("sora", {
     base: "vs-dark",
-    inherit: false,
+    inherit: true,
     rules: [
       { token: "comment", foreground: "586478", fontStyle: "italic" },
       { token: "keyword", foreground: "b0a0d8", fontStyle: "italic" },
@@ -44,7 +44,7 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
 
   monacoInstance.editor.defineTheme("catppuccin-mocha", {
     base: "vs-dark",
-    inherit: false,
+    inherit: true,
     rules: [
       { token: "comment", foreground: "6c7086", fontStyle: "italic" },
       { token: "keyword", foreground: "cba6f7", fontStyle: "italic" },
@@ -71,7 +71,7 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
 
   monacoInstance.editor.defineTheme("tokyo-night", {
     base: "vs-dark",
-    inherit: false,
+    inherit: true,
     rules: [
       { token: "comment", foreground: "565f89", fontStyle: "italic" },
       { token: "keyword", foreground: "bb9af7", fontStyle: "italic" },
@@ -108,7 +108,7 @@ export function registerAxonTheme(
 
   monacoInstance.editor.defineTheme(AXON_MONACO_THEME, {
     base: "vs-dark",
-    inherit: false,
+    inherit: true,
     rules: [
       // comments
       { token: "comment", foreground: "586478", fontStyle: "italic" },
@@ -117,54 +117,82 @@ export function registerAxonTheme(
       // keywords
       { token: "keyword", foreground: "b0a0d8", fontStyle: "italic" },
       { token: "keyword.control", foreground: "b0a0d8", fontStyle: "italic" },
+      { token: "keyword.flow", foreground: "b0a0d8", fontStyle: "italic" },
+      { token: "keyword.json", foreground: "b0a0d8" },
       { token: "keyword.operator", foreground: "8898b8" },
       { token: "storage", foreground: "b0a0d8", fontStyle: "italic" },
       { token: "storage.type", foreground: "b0a0d8", fontStyle: "italic" },
 
       // functions
       { token: "entity.name.function", foreground: "80c8e0" },
+      { token: "function", foreground: "80c8e0" },
+      { token: "function.call", foreground: "80c8e0" },
       { token: "support.function", foreground: "80c8e0", fontStyle: "italic" },
       { token: "meta.function-call", foreground: "80c8e0" },
 
       // types
       { token: "entity.name.type", foreground: "d0a888" },
       { token: "entity.name.class", foreground: "d0a888" },
+      { token: "type", foreground: "d0a888" },
+      { token: "type.identifier", foreground: "d0a888" },
+      { token: "identifier.type", foreground: "d0a888" },
+      { token: "namespace", foreground: "d0a888" },
       { token: "support.type", foreground: "d0a888", fontStyle: "italic" },
       { token: "support.class", foreground: "d0a888" },
 
       // strings
       { token: "string", foreground: "90c8a0" },
+      { token: "string.key.json", foreground: "80c8e0" },
+      { token: "string.value.json", foreground: "90c8a0" },
       { token: "string.escape", foreground: "78b8b0", fontStyle: "bold" },
       { token: "string.regexp", foreground: "78b8b0" },
+      { token: "regexp", foreground: "78b8b0" },
 
       // numbers
       { token: "constant.numeric", foreground: "d4b878" },
       { token: "number", foreground: "d4b878" },
+      { token: "number.json", foreground: "d4b878" },
 
       // constants and booleans
       { token: "constant.language", foreground: "d0909c", fontStyle: "italic" },
       { token: "constant", foreground: "d4b878" },
+      { token: "constant.json", foreground: "d0909c", fontStyle: "italic" },
+      { token: "predefined", foreground: "d0909c", fontStyle: "italic" },
       { token: "variable.language", foreground: "d0909c", fontStyle: "italic" },
 
       // variables
+      { token: "identifier", foreground: "c8d0e0" },
       { token: "variable", foreground: "b4bcd0" },
       { token: "variable.parameter", foreground: "d0a888" },
+      { token: "parameter", foreground: "d0a888" },
       { token: "variable.other.member", foreground: "8898b8" },
 
       // properties
       { token: "variable.other.property", foreground: "8898b8" },
       { token: "support.variable.property", foreground: "8898b8" },
+      { token: "property", foreground: "8898b8" },
 
       // tags (HTML/JSX)
       { token: "entity.name.tag", foreground: "78b8b0" },
       { token: "entity.other.attribute-name", foreground: "d0a888" },
+      { token: "tag", foreground: "78b8b0" },
+      { token: "tag.id", foreground: "78b8b0" },
+      { token: "tag.class", foreground: "78b8b0" },
+      { token: "attribute.name", foreground: "d0a888" },
+      { token: "attribute.value", foreground: "90c8a0" },
+      { token: "metatag", foreground: "9aa4b8" },
+      { token: "delimiter.html", foreground: "9aa4b8" },
       { token: "punctuation.definition.tag", foreground: "9aa4b8" },
 
       // operators and punctuation
       { token: "keyword.operator", foreground: "8898b8" },
+      { token: "operator", foreground: "8898b8" },
       { token: "punctuation", foreground: "9aa4b8" },
       { token: "delimiter", foreground: "9aa4b8" },
       { token: "delimiter.bracket", foreground: "9aa4b8" },
+      { token: "delimiter.parenthesis", foreground: "9aa4b8" },
+      { token: "delimiter.square", foreground: "9aa4b8" },
+      { token: "delimiter.curly", foreground: "9aa4b8" },
 
       // constructors and enums
       {
@@ -180,6 +208,7 @@ export function registerAxonTheme(
         foreground: "d0a888",
         fontStyle: "italic",
       },
+      { token: "annotation", foreground: "d0a888", fontStyle: "italic" },
 
       // embedded (template literals etc)
       { token: "meta.embedded", foreground: "78b8b0" },
