@@ -23,32 +23,106 @@ const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
 
 const isMac = process.platform === "darwin";
-
-const axonAppMenu: MenuItemConstructorOptions = {
-  label: "Axon",
-  submenu: [
-    { role: "about" },
-    { type: "separator" },
-    { role: "hide" },
-    { role: "hideOthers" },
-    { role: "unhide" },
-    { type: "separator" },
-    { role: "quit" },
-  ] as MenuItemConstructorOptions[],
-};
-
-const template: MenuItemConstructorOptions[] = [
-  ...(isMac ? [axonAppMenu] : []),
-  { role: "fileMenu" } as MenuItemConstructorOptions,
-  { role: "editMenu" } as MenuItemConstructorOptions,
-  { role: "viewMenu" } as MenuItemConstructorOptions,
-  { role: "windowMenu" } as MenuItemConstructorOptions,
-  { role: "help" } as MenuItemConstructorOptions,
-];
-
-Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-
 let mainWindow: BrowserWindow | null = null;
+
+type MenuCommand = "about" | "new-file" | "open-folder" | "save" | "close-tab";
+
+function sendMenuCommand(command: MenuCommand) {
+  const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  targetWindow?.webContents.send("menu:command", command);
+}
+
+function closeFocusedWindow() {
+  const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  targetWindow?.close();
+}
+
+function buildApplicationMenu() {
+  const axonAppMenu: MenuItemConstructorOptions = {
+    label: "Axon",
+    submenu: [
+      {
+        label: "About Axon",
+        click: () => sendMenuCommand("about"),
+      },
+      { type: "separator" },
+      { role: "hide" },
+      { role: "hideOthers" },
+      { role: "unhide" },
+      { type: "separator" },
+      { role: "quit" },
+    ],
+  };
+
+  const helpMenu: MenuItemConstructorOptions = {
+    label: "Help",
+    submenu: [
+      ...(!isMac
+        ? [
+            {
+              label: "About Axon",
+              click: () => sendMenuCommand("about"),
+            } satisfies MenuItemConstructorOptions,
+          ]
+        : []),
+    ],
+  };
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac ? [axonAppMenu] : []),
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "New File",
+          accelerator: "CmdOrCtrl+N",
+          click: () => sendMenuCommand("new-file"),
+        },
+        {
+          label: "New Window",
+          accelerator: "CmdOrCtrl+Shift+N",
+          click: () => createWindow(),
+        },
+        {
+          label: "Open Folder...",
+          accelerator: "CmdOrCtrl+O",
+          click: () => sendMenuCommand("open-folder"),
+        },
+        {
+          label: "Open Recent",
+          enabled: false,
+        },
+        { type: "separator" },
+        {
+          label: "Save",
+          accelerator: "CmdOrCtrl+S",
+          click: () => sendMenuCommand("save"),
+        },
+        {
+          label: "Save As...",
+          enabled: false,
+        },
+        { type: "separator" },
+        {
+          label: "Close Tab",
+          accelerator: "CmdOrCtrl+W",
+          click: () => sendMenuCommand("close-tab"),
+        },
+        {
+          label: "Close Window",
+          accelerator: "CmdOrCtrl+Shift+W",
+          click: closeFocusedWindow,
+        },
+      ],
+    },
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    { role: "windowMenu" },
+    helpMenu,
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 
 // holds the active chokidar watcher so we can stop it when switching files
 let activeWatcher: FSWatcher | null = null;
@@ -191,6 +265,17 @@ ipcMain.handle("settings:update", async (_event, settings: AxonSettings) => {
   return writeSettingsToDisk(settings);
 });
 
+ipcMain.handle("app:getInfo", async () => {
+  return {
+    name: "Axon",
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    platform: process.platform,
+  };
+});
+
 ipcMain.handle("clipboard:writeText", async (_event, text: string) => {
   clipboard.writeText(text);
 });
@@ -235,6 +320,7 @@ app.whenReady().then(() => {
     return net.fetch(url.pathToFileURL(filePath).toString());
   });
 
+  buildApplicationMenu();
   createWindow();
 });
 

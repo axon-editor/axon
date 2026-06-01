@@ -42,12 +42,41 @@ interface Props {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onSplitFile: (filePath: string) => void;
+  onOpenInTerminal?: (path: string) => void;
 }
 
 interface ContextMenuState {
   x: number;
   y: number;
   node: FileNode;
+  isRoot?: boolean;
+  existingNames: string[];
+}
+
+function findNodeByPath(node: FileNode | null, path: string): FileNode | null {
+  if (!node) return null;
+  if (node.path === path) return node;
+
+  for (const child of node.children ?? []) {
+    const match = findNodeByPath(child, path);
+    if (match) return match;
+  }
+
+  return null;
+}
+
+function getParentPath(path: string) {
+  return path.split("/").slice(0, -1).join("/");
+}
+
+function getSiblingNames(tree: FileNode | null, node: FileNode) {
+  if (!tree) return [];
+  if (tree.path === node.path) {
+    return tree.children?.map((child) => child.name) ?? [];
+  }
+
+  const parent = findNodeByPath(tree, getParentPath(node.path));
+  return parent?.children?.map((child) => child.name) ?? [];
 }
 
 export default function Sidebar({
@@ -62,19 +91,40 @@ export default function Sidebar({
   collapsed,
   onCollapsedChange,
   onSplitFile,
+  onOpenInTerminal,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [revealPath, setRevealPath] = useState<string | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, node });
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      node,
+      existingNames: getSiblingNames(tree, node),
+    });
+  };
+
+  const handleRootContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!tree || e.currentTarget !== e.target) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      node: tree,
+      isRoot: true,
+      existingNames: tree.children?.map((child) => child.name) ?? [],
+    });
   };
 
   const handleMove = async (sourcePath: string, targetDir: string) => {
     try {
       await moveEntry(sourcePath, targetDir);
+      setRevealPath(`${targetDir}/${sourcePath.split("/").pop()}`);
       onRefresh();
     } catch (err) {
       console.error("move failed:", err);
@@ -129,7 +179,10 @@ export default function Sidebar({
               </Tooltip>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-1">
+            <div
+              className="flex-1 overflow-y-auto py-1"
+              onContextMenu={handleRootContextMenu}
+            >
               {loading && (
                 <div className="px-4 py-2 text-[12px] text-[#364050]">
                   loading...
@@ -153,6 +206,7 @@ export default function Sidebar({
                     onFileSelect={onFileSelect}
                     onContextMenu={handleContextMenu}
                     onMove={handleMove}
+                    revealPath={revealPath}
                   />
                 ))}
             </div>
@@ -178,8 +232,18 @@ export default function Sidebar({
         <ContextMenu
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
+          existingNames={contextMenu.existingNames}
           onRefresh={onRefresh}
+          onOpenPath={(path, isDir) => {
+            setRevealPath(path);
+            if (isDir) {
+              onRefresh();
+              return;
+            }
+            onFileSelect(path);
+          }}
           onSplitFile={onSplitFile}
+          onOpenInTerminal={onOpenInTerminal}
         />
       )}
 

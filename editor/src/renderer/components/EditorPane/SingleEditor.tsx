@@ -2,7 +2,7 @@
 // Uses shared Monaco models via monacoModels.ts so multiple panes
 // showing the same file share one model and edits reflect instantly
 // across all panes without saving.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { Columns2, FileText, Eye } from "lucide-react";
@@ -120,7 +120,7 @@ export default function SingleEditor({
     };
   }, [filePath]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     const path = filePathRef.current;
     if (!path || saving) return;
     const currentContent = editorRef.current?.getValue() ?? "";
@@ -134,7 +134,18 @@ export default function SingleEditor({
     } finally {
       setSaving(false);
     }
-  };
+  }, [onDirtyChange, saving]);
+
+  useEffect(() => {
+    const handleMenuSave = (event: Event) => {
+      const saveEvent = event as CustomEvent<{ path?: string }>;
+      if (saveEvent.detail?.path !== filePathRef.current) return;
+      void handleSave();
+    };
+
+    window.addEventListener("axon:saveFile", handleMenuSave);
+    return () => window.removeEventListener("axon:saveFile", handleMenuSave);
+  }, [handleSave]);
 
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;

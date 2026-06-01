@@ -7,6 +7,7 @@ import CommandPalette from "./components/CommandPalette";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
 import SplashScreen from "./components/SplashScreen";
+import AboutModal, { type AppInfo } from "./components/AboutModal";
 import { getTree, createFile, type FileNode } from "./lib/api";
 import {
   createInitialLayout,
@@ -33,6 +34,7 @@ declare global {
       openFolder: () => Promise<string | null>;
       getSettings: () => Promise<AxonSettings>;
       updateSettings: (settings: AxonSettings) => Promise<AxonSettings>;
+      getAppInfo: () => Promise<AppInfo>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
       unwatchFile: () => Promise<void>;
@@ -42,6 +44,11 @@ declare global {
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;
       onFolderChanged: (callback: () => void) => () => void;
+      onMenuCommand: (
+        callback: (
+          command: "about" | "new-file" | "open-folder" | "save" | "close-tab",
+        ) => void,
+      ) => () => void;
     };
   }
 }
@@ -59,6 +66,7 @@ function App() {
     useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -213,6 +221,43 @@ function App() {
     setTerminalCreateNonce((nonce) => nonce + 1);
   };
 
+  const handleOpenPathInTerminal = (path: string) => {
+    setTerminalCreateWorkingDirectory(path);
+    setTerminalOpen(true);
+    setTerminalCreateNonce((nonce) => nonce + 1);
+  };
+
+  const handleSaveActiveFile = () => {
+    const activeFile = activePane?.activeFile;
+    if (!activeFile) return;
+
+    // The native menu lives in Electron's main process, while the actual save
+    // logic belongs to the mounted editor for the active file. This event keeps
+    // the behavior aligned with Cmd+S inside Monaco without moving editor model
+    // ownership up into App.
+    window.dispatchEvent(
+      new CustomEvent("axon:saveFile", { detail: { path: activeFile } }),
+    );
+  };
+
+  const handleCloseActiveTab = () => {
+    const activeFile = activePane?.activeFile;
+    if (!activeFile) return;
+    setLayout((prev) => closeTabInPane(prev, prev.activePaneId, activeFile));
+  };
+
+  useEffect(() => {
+    const cleanup = window.axon.onMenuCommand((command) => {
+      if (command === "about") setAboutOpen(true);
+      if (command === "new-file") void handleNewFile();
+      if (command === "open-folder") void handleOpenFolder();
+      if (command === "save") handleSaveActiveFile();
+      if (command === "close-tab") handleCloseActiveTab();
+    });
+
+    return cleanup;
+  }, [activePane?.activeFile, folderPath]);
+
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden relative"
@@ -252,6 +297,7 @@ function App() {
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
             onSplitFile={(filePath) => handleSplit("right", filePath)}
+            onOpenInTerminal={handleOpenPathInTerminal}
           />
         )}
 
@@ -360,6 +406,8 @@ function App() {
           onSave={handleSettingsSave}
         />
       )}
+
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
 
       {splashVisible && <SplashScreen leaving={splashLeaving} />}
     </div>

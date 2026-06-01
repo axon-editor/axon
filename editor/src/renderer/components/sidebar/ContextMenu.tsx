@@ -2,32 +2,47 @@
 // Renders inline input for create actions since Electron blocks native dialogs.
 // Closes on outside click via document mousedown listener.
 import { useEffect, useRef, useState } from "react";
-import { Columns2, FilePlus, FolderPlus, Trash2 } from "lucide-react";
+import {
+  Columns2,
+  Copy,
+  FilePlus,
+  FolderPlus,
+  Pencil,
+  Terminal as TerminalIcon,
+  Trash2,
+} from "lucide-react";
 import {
   type FileNode,
   createFile,
   createDir,
   deleteEntry,
+  renameEntry,
 } from "../../lib/api";
 
 interface Props {
-  menu: { x: number; y: number; node: FileNode };
+  menu: { x: number; y: number; node: FileNode; isRoot?: boolean };
+  existingNames: string[];
   onClose: () => void;
   onRefresh: () => void;
+  onOpenPath?: (path: string, isDir: boolean) => void;
   onSplitFile?: (filePath: string) => void;
+  onOpenInTerminal?: (path: string) => void;
 }
 
 export default function ContextMenu({
   menu,
+  existingNames,
   onClose,
   onRefresh,
+  onOpenPath,
   onSplitFile,
+  onOpenInTerminal,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<"menu" | "file" | "folder" | "delete">(
-    "menu",
-  );
+  const [mode, setMode] = useState<
+    "menu" | "file" | "folder" | "rename" | "delete"
+  >("menu");
   const [inputValue, setInputValue] = useState("");
 
   useEffect(() => {
@@ -39,7 +54,7 @@ export default function ContextMenu({
   }, []);
 
   useEffect(() => {
-    if (mode === "file" || mode === "folder") {
+    if (mode === "file" || mode === "folder" || mode === "rename") {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [mode]);
@@ -48,12 +63,39 @@ export default function ContextMenu({
     ? menu.node.path
     : menu.node.path.split("/").slice(0, -1).join("/");
 
+  const trimmedName = inputValue.trim();
+  const isDuplicateName =
+    !!trimmedName &&
+    existingNames.some(
+      (name) =>
+        name === trimmedName &&
+        (mode !== "rename" || trimmedName !== menu.node.name),
+    );
+
+  const beginRename = () => {
+    setInputValue(menu.node.name);
+    setMode("rename");
+  };
+
   const handleConfirmCreate = async () => {
-    const name = inputValue.trim();
-    if (!name) return;
-    if (mode === "file") await createFile(`${basePath}/${name}`);
-    if (mode === "folder") await createDir(`${basePath}/${name}`);
+    const name = trimmedName;
+    if (!name || isDuplicateName) return;
+
+    const createdPath = `${basePath}/${name}`;
+    if (mode === "file") await createFile(createdPath);
+    if (mode === "folder") await createDir(createdPath);
     onRefresh();
+    onOpenPath?.(createdPath, mode === "folder");
+    onClose();
+  };
+
+  const handleConfirmRename = async () => {
+    const name = trimmedName;
+    if (!name || isDuplicateName || menu.isRoot) return;
+
+    const renamedPath = await renameEntry(menu.node.path, name);
+    onRefresh();
+    onOpenPath?.(renamedPath, menu.node.is_dir);
     onClose();
   };
 
@@ -64,88 +106,149 @@ export default function ContextMenu({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleConfirmCreate();
+    if (e.key === "Enter") {
+      if (mode === "rename") void handleConfirmRename();
+      else void handleConfirmCreate();
+    }
     if (e.key === "Escape") onClose();
   };
 
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-[#14161e] border border-[#222838] rounded shadow-xl py-1 min-w-48"
+      className="axon-context-menu fixed z-50 min-w-52 overflow-hidden rounded-md border border-[#293144] bg-[#0f121a] py-1 shadow-[0_18px_54px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.03]"
       style={{ top: menu.y, left: menu.x }}
     >
       {mode === "menu" && (
-        <>
+        <div className="axon-context-menu__panel">
           <button
             onClick={() => setMode("file")}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
           >
-            <FilePlus size={12} />
+            <FilePlus size={13} className="text-[#80c8e0]" />
             new file
           </button>
           <button
             onClick={() => setMode("folder")}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
           >
-            <FolderPlus size={12} />
+            <FolderPlus size={13} className="text-[#80c8e0]" />
             new folder
           </button>
           <div className="my-1 border-t border-[#222838]" />
+          {onOpenInTerminal && (
+            <button
+              onClick={() => {
+                onOpenInTerminal(basePath);
+                onClose();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+            >
+              <TerminalIcon size={13} className="text-[#9aa4b8]" />
+              open in terminal
+            </button>
+          )}
           <button
-            onClick={() => setMode("delete")}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-red-400 hover:bg-[#1e2430] hover:text-red-300 transition-colors cursor-pointer"
+            onClick={() => {
+              void window.axon.copyText(menu.node.path);
+              onClose();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
           >
-            <Trash2 size={12} />
-            delete
+            <Copy size={13} className="text-[#9aa4b8]" />
+            copy path
           </button>
-        </>
+          {!menu.isRoot && (
+            <button
+              onClick={beginRename}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+            >
+              <Pencil size={13} className="text-[#9aa4b8]" />
+              rename
+            </button>
+          )}
+          <div className="my-1 border-t border-[#222838]" />
+          {!menu.isRoot && (
+            <button
+              onClick={() => setMode("delete")}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-400 hover:bg-[#241820] hover:text-red-300 transition-all duration-150 cursor-pointer"
+            >
+              <Trash2 size={13} />
+              delete
+            </button>
+          )}
+        </div>
       )}
 
-      {(mode === "file" || mode === "folder") && (
-        <div className="px-3 py-2 flex flex-col gap-2">
-          <span className="text-[11px] text-[#586478]">
-            {mode === "file" ? "file name" : "folder name"}
+      {(mode === "file" || mode === "folder" || mode === "rename") && (
+        <div className="axon-context-menu__panel px-3 py-3 flex flex-col gap-2.5">
+          <span className="text-[11px] uppercase tracking-normal text-[#586478]">
+            {mode === "rename"
+              ? "new name"
+              : mode === "file"
+                ? "file name"
+                : "folder name"}
           </span>
           <input
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="bg-[#0e1018] border border-[#222838] rounded px-2 py-1 text-[12px] text-white outline-none focus:border-[#80c8e0] w-full"
-            placeholder={mode === "file" ? "index.go" : "pkg"}
+            className={`h-8 bg-[#090b11] border rounded px-2 text-[12px] text-white outline-none w-full transition-colors ${
+              isDuplicateName
+                ? "border-red-500 focus:border-red-400"
+                : "border-[#222838] focus:border-[#80c8e0]"
+            }`}
+            placeholder={
+              mode === "rename"
+                ? menu.node.name
+                : mode === "file"
+                  ? "index.go"
+                  : "pkg"
+            }
           />
+          {isDuplicateName && (
+            <span className="text-[11px] text-red-400">
+              {trimmedName} already exists
+            </span>
+          )}
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="text-[11px] text-[#586478] hover:text-white px-2 py-1 cursor-pointer"
+              className="h-7 px-2 text-[11px] text-[#586478] hover:text-white cursor-pointer transition-colors"
             >
               cancel
             </button>
             <button
-              onClick={handleConfirmCreate}
-              className="text-[11px] bg-[#80c8e0] text-[#0e1018] px-3 py-1 rounded hover:bg-[#9dd4e8] cursor-pointer font-medium"
+              onClick={() =>
+                mode === "rename"
+                  ? void handleConfirmRename()
+                  : void handleConfirmCreate()
+              }
+              disabled={!trimmedName || isDuplicateName}
+              className="h-7 px-3 rounded bg-[#80c8e0] text-[11px] font-medium text-[#0e1018] hover:bg-[#9dd4e8] cursor-pointer disabled:cursor-default disabled:opacity-50 transition-colors"
             >
-              create
+              {mode === "rename" ? "rename" : "create"}
             </button>
           </div>
         </div>
       )}
 
       {mode === "delete" && (
-        <div className="px-3 py-2 flex flex-col gap-2">
+        <div className="axon-context-menu__panel px-3 py-3 flex flex-col gap-3">
           <span className="text-[11px] text-[#9aa4b8]">
             delete <span className="text-white">{menu.node.name}</span>?
           </span>
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="text-[11px] text-[#586478] hover:text-white px-2 py-1 cursor-pointer"
+              className="h-7 px-2 text-[11px] text-[#586478] hover:text-white cursor-pointer transition-colors"
             >
               cancel
             </button>
             <button
               onClick={handleDelete}
-              className="text-[11px] bg-red-500 text-white px-3 py-1 rounded hover:bg-red-400 cursor-pointer"
+              className="h-7 px-3 rounded bg-red-500 text-[11px] text-white hover:bg-red-400 cursor-pointer transition-colors"
             >
               delete
             </button>
@@ -161,9 +264,9 @@ export default function ContextMenu({
               onSplitFile(menu.node.path);
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
           >
-            <Columns2 size={12} />
+            <Columns2 size={13} className="text-[#9aa4b8]" />
             split right
           </button>
         </>

@@ -131,3 +131,24 @@ func MoveEntry(sourcePath string, targetDir string) error {
 	destPath := filepath.Join(targetDir, name)
 	return os.Rename(sourcePath, destPath)
 }
+
+// RenameEntry renames a file or directory inside its current parent directory.
+// I keep this separate from MoveEntry because a rename is a different user
+// intent from dragging an entry to another folder: the parent stays fixed, only
+// the final path segment changes. That lets the UI validate sibling names and
+// avoids accidentally turning a rename operation into a cross-folder move.
+func RenameEntry(sourcePath string, newName string) (string, error) {
+	parentDir := filepath.Dir(sourcePath)
+	destPath := filepath.Join(parentDir, newName)
+	if sourcePath == destPath {
+		return destPath, nil
+	}
+
+	if _, err := os.Stat(destPath); err == nil {
+		return "", os.ErrExist
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+
+	return destPath, os.Rename(sourcePath, destPath)
+}

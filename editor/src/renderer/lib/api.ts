@@ -93,3 +93,16 @@ export async function moveEntry(
     body: JSON.stringify({ source, target_dir: targetDir }),
   });
 }
+
+export async function renameEntry(
+  source: string,
+  newName: string,
+): Promise<string> {
+  const data = await request<{ path: string }>("/fs/rename", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source, new_name: newName }),
+  });
+
+  return data.path;
+}

@@ -17,7 +17,27 @@ interface Props {
   onFileSelect: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onMove: (sourcePath: string, targetDirPath: string) => void;
+  revealPath?: string | null;
   depth?: number;
+}
+
+const TREE_BASE_INDENT = 8;
+const TREE_DEPTH_WIDTH = 13;
+
+function TreeGuides({ depth }: { depth: number }) {
+  if (depth === 0) return null;
+
+  return (
+    <span className="pointer-events-none absolute inset-y-0 left-0">
+      {Array.from({ length: depth }).map((_, index) => (
+        <span
+          key={index}
+          className="absolute top-0 bottom-0 w-px bg-[#222838]/70"
+          style={{ left: `${TREE_BASE_INDENT + index * TREE_DEPTH_WIDTH}px` }}
+        />
+      ))}
+    </span>
+  );
 }
 
 export default function FileTreeNode({
@@ -26,6 +46,7 @@ export default function FileTreeNode({
   onFileSelect,
   onContextMenu,
   onMove,
+  revealPath,
   depth = 0,
 }: Props) {
   const [expanded, setExpanded] = useState(depth === 0);
@@ -56,6 +77,12 @@ export default function FileTreeNode({
 
   // cleanup timers on unmount
   useEffect(() => () => clearTimers(), []);
+
+  useEffect(() => {
+    if (revealPath && node.is_dir && revealPath.startsWith(`${node.path}/`)) {
+      setExpanded(true);
+    }
+  }, [node.is_dir, node.path, revealPath]);
 
   const handleDragStart = (e: React.DragEvent) => {
     e.stopPropagation();
@@ -133,6 +160,7 @@ export default function FileTreeNode({
   // blink alternates between the highlight and normal state
   // blinkCount goes 0-5 (6 ticks) — odd ticks dim, even ticks highlight
   const isBlinkOn = blinking && blinkCount.current % 2 === 0;
+  const rowPaddingLeft = TREE_BASE_INDENT + depth * TREE_DEPTH_WIDTH;
 
   if (node.is_dir) {
     const isHighlighted = dragOver || isBlinkOn;
@@ -154,7 +182,7 @@ export default function FileTreeNode({
                 : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
             }`}
           style={{
-            paddingLeft: `${8 + depth * 12}px`,
+            paddingLeft: `${rowPaddingLeft}px`,
             // use inline style for the highlight so the blink transition is smooth
             backgroundColor: isHighlighted ? "#1e2430" : undefined,
             // cyan left border when dragging over to make the drop zone very obvious
@@ -164,14 +192,17 @@ export default function FileTreeNode({
             transition: "background-color 100ms, border-color 100ms",
           }}
         >
-          <span className="text-[#364050]">
+          <TreeGuides depth={depth} />
+          <span className="relative z-10 flex h-4 w-3 items-center justify-center text-[#364050]">
             {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
           </span>
-          {getFolderIcon(node.name, expanded)}
-          <span className="truncate">{node.name}</span>
+          <span className="relative z-10 flex items-center">
+            {getFolderIcon(node.name, expanded)}
+          </span>
+          <span className="relative z-10 truncate">{node.name}</span>
 
           {dragOver && (
-            <span className="ml-auto mr-2 text-[10px] text-[#80c8e0] shrink-0">
+            <span className="relative z-10 ml-auto mr-2 text-[10px] text-[#80c8e0] shrink-0">
               drop here
             </span>
           )}
@@ -186,6 +217,7 @@ export default function FileTreeNode({
               onFileSelect={onFileSelect}
               onContextMenu={onContextMenu}
               onMove={onMove}
+              revealPath={revealPath}
               depth={depth + 1}
             />
           ))}
@@ -203,21 +235,25 @@ export default function FileTreeNode({
       onDrop={handleDrop}
       onClick={() => onFileSelect(node.path)}
       onContextMenu={(e) => onContextMenu(e, node)}
-      className={`flex items-center gap-1.5 py-1 text-[12px] cursor-pointer transition-colors truncate
+      className={`relative flex items-center gap-1.5 py-1 text-[12px] cursor-pointer transition-colors truncate
         ${
           activeFile === node.path
             ? "bg-[#171a24] text-white"
             : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
         }`}
       style={{
-        paddingLeft: `${8 + depth * 12}px`,
+        paddingLeft: `${rowPaddingLeft}px`,
         // cyan left border when this file is a drop target
         borderLeft: dragOver ? "2px solid #80c8e0" : "2px solid transparent",
         transition: "border-color 100ms",
       }}
     >
-      {getFileIcon(node.name)}
-      <span className="truncate">{node.name}</span>
+      <TreeGuides depth={depth} />
+      <span className="relative z-10 flex w-3 shrink-0" />
+      <span className="relative z-10 flex items-center">
+        {getFileIcon(node.name)}
+      </span>
+      <span className="relative z-10 truncate">{node.name}</span>
     </div>
   );
 }

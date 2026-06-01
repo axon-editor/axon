@@ -202,7 +202,7 @@ function ContextMenu({
         className={menuItemClass}
         onClick={() =>
           runAction(() => {
-            void navigator.clipboard?.writeText(menu.path);
+            void window.axon.copyText(menu.path);
           })
         }
       >

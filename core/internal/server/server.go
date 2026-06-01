@@ -75,6 +75,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/fs/create", s.handleFSCreate)
 	mux.HandleFunc("/fs/delete", s.handleFSDelete)
 	mux.HandleFunc("/fs/move", s.handleFSMove)
+	mux.HandleFunc("/fs/rename", s.handleFSRename)
 
 	// terminal WebSocket endpoint
 	// each connection spawns a real shell attached to a PTY
@@ -331,4 +332,45 @@ func (s *Server) handleFSMove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, Response{Status: "ok", Message: "moved successfully"})
+}
+
+// handleFSRename handles POST /fs/rename.
+// A rename keeps the entry in the same parent directory and changes only the
+// final path segment. Keeping it separate from /fs/move makes the renderer
+// contract explicit and prevents a "rename" UI from silently moving files
+// between folders.
+func (s *Server) handleFSRename(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
+		return
+	}
+
+	var body struct {
+		Source  string `json:"source"`
+		NewName string `json:"new_name"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "invalid request body"})
+		return
+	}
+
+	if body.Source == "" || body.NewName == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "source and new_name are required"})
+		return
+	}
+
+	newPath, err := fs.RenameEntry(body.Source, body.NewName)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{
+		Status:  "ok",
+		Message: "renamed successfully",
+		Data: map[string]string{
+			"path": newPath,
+		},
+	})
 }

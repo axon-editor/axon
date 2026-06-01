@@ -183,6 +183,38 @@
   }
 }
 
+.axon-context-menu {
+  transform-origin: top left;
+  animation: axonContextMenuIn 150ms cubic-bezier(0.18, 0.9, 0.2, 1) both;
+  will-change: opacity, transform;
+}
+
+.axon-context-menu__panel {
+  animation: axonContextPanelIn 120ms ease-out both;
+}
+
+@keyframes axonContextMenuIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.975);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes axonContextPanelIn {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .axon-splash {
   position: fixed;
   inset: 0;

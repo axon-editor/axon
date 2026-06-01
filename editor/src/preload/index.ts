@@ -6,12 +6,15 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { type AxonSettings } from "../shared/settings";
 
+type MenuCommand = "about" | "new-file" | "open-folder" | "save" | "close-tab";
+
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   updateSettings: (settings: AxonSettings) =>
     ipcRenderer.invoke("settings:update", settings),
+  getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
@@ -32,5 +35,11 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = () => callback();
     ipcRenderer.on("fs:folderChanged", handler);
     return () => ipcRenderer.removeListener("fs:folderChanged", handler);
+  },
+
+  onMenuCommand: (callback: (command: MenuCommand) => void) => {
+    const handler = (_: unknown, command: MenuCommand) => callback(command);
+    ipcRenderer.on("menu:command", handler);
+    return () => ipcRenderer.removeListener("menu:command", handler);
   },
 });
