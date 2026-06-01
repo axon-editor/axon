@@ -8,6 +8,7 @@ import * as monaco from "monaco-editor";
 import { Columns2, FileText, Eye } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { readFile, writeFile } from "../../lib/api";
+import { type EditorNavigationTarget } from "../../lib/navigation";
 import { getMonacoThemeId, registerAxonTheme } from "../../lib/soraTheme";
 import { type ResolvedThemeTokens } from "../../lib/themeTokens";
 import Tooltip from "../Tooltip";
@@ -29,6 +30,7 @@ interface Props {
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
+  navigationTarget: EditorNavigationTarget | null;
 }
 
 function isMarkdown(path: string): boolean {
@@ -46,6 +48,7 @@ export default function SingleEditor({
   onLanguageChange,
   editorSettings,
   themeTokens,
+  navigationTarget,
 }: Props) {
   const [liveContent, setLiveContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -54,6 +57,8 @@ export default function SingleEditor({
   const [previewMode, setPreviewMode] = useState<PreviewMode>("editor");
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const navigationDecorationsRef =
+    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
@@ -62,6 +67,48 @@ export default function SingleEditor({
     filePathRef.current = filePath;
   }, [filePath]);
 
+  const revealNavigationTarget = useCallback(
+    (target: EditorNavigationTarget) => {
+      const editor = editorRef.current;
+      if (!editor || target.path !== filePath) return;
+
+      const lineNumber = Math.max(1, target.line);
+      const column = Math.max(1, target.column);
+      const length = Math.max(1, target.length ?? 1);
+      const range = new monaco.Range(
+        lineNumber,
+        column,
+        lineNumber,
+        column + length,
+      );
+
+      setPreviewMode("editor");
+      editor.setPosition({ lineNumber, column });
+      editor.revealRangeInCenter(range, monaco.editor.ScrollType.Smooth);
+      editor.focus();
+
+      // Search navigation should leave a clear visual anchor, but it should not
+      // become another permanent editor marker. A decoration collection gives
+      // us one replaceable highlight that is removed shortly after the jump.
+      navigationDecorationsRef.current ??=
+        editor.createDecorationsCollection();
+      navigationDecorationsRef.current.set([
+        {
+          range,
+          options: {
+            className: "axon-navigation-hit",
+            inlineClassName: "axon-navigation-hit-inline",
+          },
+        },
+      ]);
+
+      window.setTimeout(() => {
+        navigationDecorationsRef.current?.clear();
+      }, 1800);
+    },
+    [filePath],
+  );
+
   useEffect(() => {
     if (visible) {
       onLanguageChange(detectLanguage(filePath));
@@ -69,6 +116,11 @@ export default function SingleEditor({
       registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
     }
   }, [visible, editorSettings.themeId, themeTokens]);
+
+  useEffect(() => {
+    if (!visible || !navigationTarget || loading) return;
+    revealNavigationTarget(navigationTarget);
+  }, [loading, navigationTarget, revealNavigationTarget, visible]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +166,8 @@ export default function SingleEditor({
 
     return () => {
       cancelled = true;
+      navigationDecorationsRef.current?.clear();
+      navigationDecorationsRef.current = null;
       cleanup();
       window.axon.unwatchFile();
       // Release only if the async read reached acquireModel. Closing a split

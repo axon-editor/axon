@@ -18,6 +18,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { type EditorSettings } from "../../../shared/settings";
 import { type Layout } from "../../lib/types";
 import { type ResolvedThemeTokens } from "../../lib/themeTokens";
+import { type EditorNavigationTarget } from "../../lib/navigation";
 import PaneInstance from "./PaneInstance";
 import PaneDivider from "../PaneDivider";
 import { type DragTabData, type PaneDropData } from "../TabBar";
@@ -42,6 +43,7 @@ interface Props {
   ) => void;
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
+  navigationTarget: EditorNavigationTarget | null;
   handleOpenFolder: () => void;
   handleNewFile: () => void;
   handleFolderChange: (path: string, fileTree: FileNode) => void;
@@ -92,6 +94,7 @@ export default function EditorPane({
   onMoveTabBetweenPanes,
   editorSettings,
   themeTokens,
+  navigationTarget,
   handleOpenFolder,
   handleNewFile,
   handleFolderChange,
@@ -213,6 +216,7 @@ export default function EditorPane({
               onLanguageChange={onLanguageChange}
               editorSettings={editorSettings}
               themeTokens={themeTokens}
+              navigationTarget={navigationTarget}
               onOpenFolder={handleOpenFolder}
               onNewFile={handleNewFile}
               onSelectRecentFolder={async (path) => {

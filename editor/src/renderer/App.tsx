@@ -11,7 +11,12 @@ import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
 import SplashScreen from "./components/SplashScreen";
 import AboutModal, { type AppInfo } from "./components/AboutModal";
-import { getTree, createFile, type FileNode } from "./lib/api";
+import {
+  getTree,
+  createFile,
+  type FileNode,
+  type WorkspaceSearchResult,
+} from "./lib/api";
 import {
   onEditorDiagnosticsChanged,
   type EditorDiagnostic,
@@ -36,6 +41,7 @@ import {
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
+import { type EditorNavigationTarget } from "./lib/navigation";
 import "./App.css";
 
 function fontStack(primaryFont: string, fallback: string) {
@@ -99,6 +105,8 @@ function App() {
   const [projectDiagnostics, setProjectDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
+  const [navigationTarget, setNavigationTarget] =
+    useState<EditorNavigationTarget | null>(null);
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [splashVisible, setSplashVisible] = useState(true);
@@ -264,6 +272,34 @@ function App() {
     setLayout((prev) => openFileInPane(prev, prev.activePaneId, filePath));
   };
 
+  const handleOpenNavigationTarget = useCallback(
+    (target: Omit<EditorNavigationTarget, "id">) => {
+      // Opening a search result needs two separate pieces of state: the layout
+      // must activate the file tab, and the mounted editor must reveal a
+      // position after its Monaco model is attached. The nonce keeps repeated
+      // jumps to the same line working because React sees a fresh target.
+      const nextTarget = {
+        ...target,
+        id: Date.now(),
+      };
+      setNavigationTarget(nextTarget);
+      setLayout((prev) => openFileInPane(prev, prev.activePaneId, target.path));
+    },
+    [],
+  );
+
+  const handleWorkspaceSearchResult = (
+    result: WorkspaceSearchResult,
+    query: string,
+  ) => {
+    handleOpenNavigationTarget({
+      path: result.path,
+      line: result.line,
+      column: result.column,
+      length: Math.max(1, query.trim().length),
+    });
+  };
+
   // split the active pane in the given direction
   const handleSplit = (direction: SplitDirection, filePath?: string) => {
     setLayout((prev) =>
@@ -308,7 +344,12 @@ function App() {
   };
 
   const handleOpenDiagnostic = (diagnostic: EditorDiagnostic) => {
-    handleFileSelect(diagnostic.path);
+    handleOpenNavigationTarget({
+      path: diagnostic.path,
+      line: diagnostic.line,
+      column: diagnostic.column,
+      length: 1,
+    });
   };
 
   const handleNewTerminal = () => {
@@ -602,6 +643,7 @@ function App() {
             onOpenTabInTerminal={handleOpenTabInTerminal}
             editorSettings={settings.editor}
             themeTokens={themeTokens}
+            navigationTarget={navigationTarget}
             handleOpenFolder={handleOpenFolder}
             handleNewFile={handleNewFile}
             handleFolderChange={handleFolderChange}
@@ -672,7 +714,7 @@ function App() {
         rootPath={folderPath}
         open={workspaceSearchOpen}
         onClose={() => setWorkspaceSearchOpen(false)}
-        onFileSelect={handleFileSelect}
+        onResultSelect={handleWorkspaceSearchResult}
       />
 
       {settingsOpen && (

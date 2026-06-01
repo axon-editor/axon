@@ -11,7 +11,7 @@ interface Props {
   rootPath: string | null;
   open: boolean;
   onClose: () => void;
-  onFileSelect: (path: string) => void;
+  onResultSelect: (result: WorkspaceSearchResult, query: string) => void;
 }
 
 function relativePath(rootPath: string | null, path: string) {
@@ -23,7 +23,7 @@ export default function WorkspaceSearchModal({
   rootPath,
   open,
   onClose,
-  onFileSelect,
+  onResultSelect,
 }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<WorkspaceSearchResult[]>([]);
@@ -80,7 +80,7 @@ export default function WorkspaceSearchModal({
   }, [results, rootPath]);
 
   const selectResult = (result: WorkspaceSearchResult) => {
-    onFileSelect(result.path);
+    onResultSelect(result, query);
     onClose();
   };
 

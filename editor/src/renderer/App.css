@@ -193,6 +193,17 @@
   animation: axonContextPanelIn 120ms ease-out both;
 }
 
+.axon-navigation-hit {
+  background: rgba(128, 200, 224, 0.12);
+  border: 1px solid rgba(128, 200, 224, 0.45);
+  border-radius: 3px;
+}
+
+.axon-navigation-hit-inline {
+  background: rgba(128, 200, 224, 0.22);
+  color: #f5fbff;
+}
+
 @keyframes axonContextMenuIn {
   0% {
     opacity: 0;
