@@ -19,9 +19,11 @@ import SplashScreen from "./components/SplashScreen";
 import AboutModal, { type AppInfo } from "./components/AboutModal";
 import SourceControlModal from "./components/SourceControlModal";
 import TaskRunnerModal from "./components/TaskRunnerModal";
+import FileOutlineModal from "./components/FileOutlineModal";
 import {
   getTree,
   createFile,
+  writeFile,
   type FileNode,
   type WorkspaceSearchResult,
 } from "./lib/api";
@@ -67,6 +69,8 @@ import {
   saveWorkspaceSession,
   type WorkspaceSession,
 } from "./lib/workspaceSession";
+import { getModel } from "./lib/monacoModels";
+import { collectFileSymbols, type FileSymbol } from "./lib/fileSymbols";
 import "./App.css";
 
 function fontStack(primaryFont: string, fallback: string) {
@@ -148,6 +152,7 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
   const [taskRunnerOpen, setTaskRunnerOpen] = useState(false);
+  const [fileOutlineOpen, setFileOutlineOpen] = useState(false);
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
   const [bottomPanelTab, setBottomPanelTab] =
     useState<BottomPanelTab>("problems");
@@ -185,6 +190,13 @@ function App() {
     () => [...projectDiagnostics, ...monacoDiagnostics],
     [monacoDiagnostics, projectDiagnostics],
   );
+  const activeFileSymbols = useMemo<FileSymbol[]>(() => {
+    const activeFile = activePane?.activeFile;
+    if (!activeFile) return [];
+    const model = getModel(activeFile);
+    if (!model || model.isDisposed()) return [];
+    return collectFileSymbols(model.getValue());
+  }, [activePane?.activeFile, layout]);
   const gitChangeCount = gitStatus?.changes.length ?? 0;
 
   const appendOutput = useCallback(
@@ -666,10 +678,72 @@ function App() {
     );
   };
 
+  const saveFileFromModel = useCallback(
+    async (filePath: string) => {
+      const model = getModel(filePath);
+      if (!model || model.isDisposed()) return false;
+
+      await writeFile(filePath, model.getValue());
+      setLayout((prev) => ({
+        ...prev,
+        panes: prev.panes.map((pane) => ({
+          ...pane,
+          dirtyFiles: {
+            ...pane.dirtyFiles,
+            [filePath]: false,
+          },
+        })),
+      }));
+      window.dispatchEvent(
+        new CustomEvent("axon:fileSaved", { detail: { path: filePath } }),
+      );
+      appendOutput("file", `Saved ${filePath}`, "success");
+      return true;
+    },
+    [appendOutput],
+  );
+
+  const requestCloseTab = useCallback(
+    async (paneId: string, filePath: string) => {
+      const pane = layout.panes.find((candidate) => candidate.id === paneId);
+      const isDirty = pane?.dirtyFiles[filePath] === true;
+
+      if (isDirty) {
+        // This is intentionally a close-time guard instead of a tab-button-only
+        // guard. Tabs can close from the keyboard, command palette, context menu,
+        // or pane logic, so every path has to pass through the same decision.
+        const shouldSave = window.confirm(
+          `Save changes to ${filePath.split(/[\\/]/).pop() ?? filePath} before closing?\n\nOK saves. Cancel closes without saving.`,
+        );
+
+        if (shouldSave) {
+          try {
+            const saved = await saveFileFromModel(filePath);
+            if (!saved) {
+              appendOutput(
+                "file",
+                "Could not find editor buffer to save.",
+                "error",
+              );
+              return;
+            }
+          } catch (err) {
+            console.error("failed to save before close:", err);
+            appendOutput("file", "Failed to save before closing.", "error");
+            return;
+          }
+        }
+      }
+
+      setLayout((prev) => closeTabInPane(prev, paneId, filePath));
+    },
+    [appendOutput, layout.panes, saveFileFromModel],
+  );
+
   const handleCloseActiveTab = () => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return;
-    setLayout((prev) => closeTabInPane(prev, prev.activePaneId, activeFile));
+    void requestCloseTab(layout.activePaneId, activeFile);
   };
 
   const runCommand = useCallback(
@@ -698,6 +772,9 @@ function App() {
           break;
         case AXON_COMMANDS.OPEN_TASK_RUNNER:
           setTaskRunnerOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_FILE_OUTLINE:
+          setFileOutlineOpen(true);
           break;
         case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
           setBottomPanelTab("problems");
@@ -747,7 +824,9 @@ function App() {
       activePane?.activeFile,
       appendOutput,
       folderPath,
+      layout.activePaneId,
       refreshGitStatus,
+      requestCloseTab,
       settings,
       terminalOpen,
     ],
@@ -787,6 +866,15 @@ function App() {
           : "Open a folder first",
         keywords: ["build", "test", "npm", "go", "cargo"],
         disabled: !folderPath,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_FILE_OUTLINE,
+        title: "File Outline",
+        subtitle: activePane?.activeFile
+          ? `${activeFileSymbols.length} symbols in active file`
+          : "Select a file first",
+        keywords: ["symbols", "outline", "functions", "classes"],
+        disabled: !activePane?.activeFile,
       },
       {
         id: AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
@@ -875,6 +963,7 @@ function App() {
     ],
     [
       activePane?.activeFile,
+      activeFileSymbols.length,
       diagnostics.length,
       folderPath,
       gitChangeCount,
@@ -906,6 +995,14 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "j") {
         e.preventDefault();
         runCommand(AXON_COMMANDS.TOGGLE_TERMINAL);
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "o"
+      ) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_FILE_OUTLINE);
       }
       if (
         (e.metaKey || e.ctrlKey) &&
@@ -1026,9 +1123,7 @@ function App() {
                       )
                     }
                     onClose={(f) =>
-                      setLayout((prev) =>
-                        closeTabInPane(prev, prev.activePaneId, f),
-                      )
+                      void requestCloseTab(layout.activePaneId, f)
                     }
                     onReorder={(tabs) =>
                       setLayout((prev) =>
@@ -1062,7 +1157,7 @@ function App() {
               setLayout((prev) => openFileInPane(prev, paneId, f))
             }
             onCloseTab={(paneId, f) =>
-              setLayout((prev) => closeTabInPane(prev, paneId, f))
+              void requestCloseTab(paneId, f)
             }
             onReorderTabs={(paneId, tabs) =>
               setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
@@ -1166,6 +1261,23 @@ function App() {
         open={taskRunnerOpen}
         onClose={() => setTaskRunnerOpen(false)}
         onRunTask={(task) => void handleRunWorkspaceTask(task)}
+      />
+
+      <FileOutlineModal
+        open={fileOutlineOpen}
+        filePath={activePane?.activeFile ?? null}
+        symbols={activeFileSymbols}
+        onClose={() => setFileOutlineOpen(false)}
+        onSelect={(symbol) => {
+          const activeFile = activePane?.activeFile;
+          if (!activeFile) return;
+          handleOpenNavigationTarget({
+            path: activeFile,
+            line: symbol.line,
+            column: symbol.column,
+            length: Math.max(1, symbol.name.length),
+          });
+        }}
       />
 
       {settingsOpen && (
