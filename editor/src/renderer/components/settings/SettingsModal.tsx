@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Braces,
   Palette,
@@ -7,12 +7,14 @@ import {
   Trash2,
   Type,
   Upload,
+  Wifi,
 } from "lucide-react";
 import {
   normalizeSettings,
   type AxonSettings,
   type ThemeColorToken,
 } from "../../../shared/settings";
+import { type LanguageServerStatus } from "../../../shared/lsp";
 import CommandModal from "../CommandModal";
 import SearchSelect from "../SearchSelect";
 import {
@@ -36,6 +38,7 @@ import {
 } from "./SettingsControls";
 
 interface Props {
+  folderPath: string | null;
   settings: AxonSettings;
   onClose: () => void;
   onSave: (settings: AxonSettings) => void;
@@ -47,6 +50,7 @@ const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
   theme: Settings2,
   ai: Sparkles,
   fonts: Type,
+  languageServers: Wifi,
 };
 
 function getThemeColorValue(
@@ -61,11 +65,20 @@ function getThemeColorValue(
   );
 }
 
-export default function SettingsModal({ settings, onClose, onSave }: Props) {
+export default function SettingsModal({
+  folderPath,
+  settings,
+  onClose,
+  onSave,
+}: Props) {
   const [draft, setDraft] = useState(settings);
   const [activeSection, setActiveSection] =
     useState<SettingsSectionId>("appearance");
   const [fontImportError, setFontImportError] = useState<string | null>(null);
+  const [languageServers, setLanguageServers] = useState<
+    LanguageServerStatus[]
+  >([]);
+  const [loadingLanguageServers, setLoadingLanguageServers] = useState(false);
 
   const customFontItems = useMemo(
     () =>
@@ -115,6 +128,19 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
       ...prev,
       ai: {
         ...prev.ai,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateLsp = <K extends keyof AxonSettings["lsp"]>(
+    key: K,
+    value: AxonSettings["lsp"][K],
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      lsp: {
+        ...prev.lsp,
         [key]: value,
       },
     }));
@@ -182,6 +208,29 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
       return nextSettings;
     });
   };
+
+  const refreshLanguageServers = async () => {
+    if (!folderPath) {
+      setLanguageServers([]);
+      return;
+    }
+
+    setLoadingLanguageServers(true);
+    try {
+      const nextServers = await window.axon.getLanguageServerStatus(folderPath);
+      setLanguageServers(nextServers);
+    } catch (err) {
+      console.error("failed to load language server status:", err);
+      setLanguageServers([]);
+    } finally {
+      setLoadingLanguageServers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection !== "languageServers") return;
+    void refreshLanguageServers();
+  }, [activeSection, folderPath]);
 
   const save = () => {
     if (invalidThemeTokens.length > 0) {
@@ -494,6 +543,92 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
                     </SettingsField>
                   );
                 })}
+              </SettingsSection>
+            )}
+
+            {activeSection === "languageServers" && (
+              <SettingsSection
+                title="Language Servers"
+                description="This is the service foundation for real project intelligence. Axon detects available servers now; the next LSP slice can start long-running clients from this same contract."
+              >
+                <SettingsField
+                  label="LSP services"
+                  description="Disabling this will let future LSP clients stay off even when servers are installed."
+                >
+                  <SettingsToggle
+                    checked={draft.lsp.enabled}
+                    onChange={(checked) => updateLsp("enabled", checked)}
+                    label={draft.lsp.enabled ? "Enabled" : "Disabled"}
+                  />
+                </SettingsField>
+
+                <div className="rounded-md border border-[#222838] bg-[#0b0d13]">
+                  <div className="flex items-center justify-between border-b border-[#222838] px-3 py-2">
+                    <div className="text-[12px] font-medium text-[#dce4f0]">
+                      Workspace servers
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void refreshLanguageServers()}
+                      disabled={!folderPath || loadingLanguageServers}
+                      className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                    >
+                      {loadingLanguageServers ? "Checking..." : "Refresh"}
+                    </button>
+                  </div>
+
+                  {!folderPath ? (
+                    <div className="px-3 py-4 text-[12px] text-[#586478]">
+                      Open a workspace folder to detect language servers.
+                    </div>
+                  ) : languageServers.length === 0 && !loadingLanguageServers ? (
+                    <div className="px-3 py-4 text-[12px] text-[#586478]">
+                      No language server status available yet.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-[#222838]">
+                      {languageServers.map((server) => (
+                        <div
+                          key={server.id}
+                          className="grid grid-cols-[1fr_auto] gap-3 px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[12px] font-medium text-[#dce4f0]">
+                                {server.label}
+                              </span>
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] ${
+                                  server.available
+                                    ? "bg-[#15321f] text-[#90c8a0]"
+                                    : "bg-[#2a1517] text-[#ff7b72]"
+                                }`}
+                              >
+                                {server.available ? "available" : "missing"}
+                              </span>
+                              {server.relevant ? (
+                                <span className="rounded bg-[#142a36] px-1.5 py-0.5 text-[10px] text-[#80c8e0]">
+                                  workspace
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-1 text-[11px] leading-4 text-[#647086]">
+                              {server.detail}
+                            </div>
+                            <div className="mt-1 truncate font-mono text-[10px] text-[#3f485a]">
+                              {server.command}
+                            </div>
+                          </div>
+                          <div className="max-w-[220px] text-right text-[10px] leading-4 text-[#586478]">
+                            {server.available
+                              ? server.languages.join(", ")
+                              : server.installHint}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </SettingsSection>
             )}
 

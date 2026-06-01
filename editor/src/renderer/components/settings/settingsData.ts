@@ -17,6 +17,7 @@ export type SettingsSectionId =
   | "appearance"
   | "editor"
   | "fonts"
+  | "languageServers"
   | "theme"
   | "ai";
 
@@ -39,6 +40,11 @@ export const SETTINGS_SECTIONS: Array<{
     id: "fonts",
     label: "Fonts",
     description: "Import and apply custom fonts",
+  },
+  {
+    id: "languageServers",
+    label: "Language Servers",
+    description: "Project-aware editor services",
   },
   {
     id: "theme",

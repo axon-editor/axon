@@ -62,6 +62,7 @@ import {
   type TaskRunResult,
   type WorkspaceTask,
 } from "../shared/tasks";
+import { type LanguageServerStatus } from "../shared/lsp";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import {
@@ -106,6 +107,9 @@ declare global {
         settings?: AxonSettings,
       ) => Promise<string>;
       getProjectDiagnostics: (folderPath: string) => Promise<EditorDiagnostic[]>;
+      getLanguageServerStatus: (
+        folderPath: string,
+      ) => Promise<LanguageServerStatus[]>;
       listWorkspaceTasks: (folderPath: string) => Promise<WorkspaceTask[]>;
       runWorkspaceTask: (
         folderPath: string,
@@ -1416,6 +1420,7 @@ function App() {
 
       {settingsOpen && (
         <SettingsModal
+          folderPath={folderPath}
           settings={settings}
           onClose={() => setSettingsOpen(false)}
           onSave={handleSettingsSave}

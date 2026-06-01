@@ -18,6 +18,7 @@ import {
   type TaskRunResult,
   type WorkspaceTask,
 } from "../shared/tasks";
+import { type LanguageServerStatus } from "../shared/lsp";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -32,6 +33,10 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>
     ipcRenderer.invoke("diagnostics:project", folderPath),
+  getLanguageServerStatus: (
+    folderPath: string,
+  ): Promise<LanguageServerStatus[]> =>
+    ipcRenderer.invoke("lsp:status", folderPath),
   getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke("git:status", folderPath),
   listWorkspaceTasks: (folderPath: string): Promise<WorkspaceTask[]> =>

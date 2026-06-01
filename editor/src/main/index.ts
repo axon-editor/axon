@@ -40,6 +40,10 @@ import {
   type TaskRunResult,
   type WorkspaceTask,
 } from "../shared/tasks";
+import {
+  type LanguageServerId,
+  type LanguageServerStatus,
+} from "../shared/lsp";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -294,6 +298,139 @@ function readJsonFile<T>(filePath: string): T | null {
   } catch {
     return null;
   }
+}
+
+interface LanguageServerDefinition {
+  id: LanguageServerId;
+  label: string;
+  languages: string[];
+  command: string;
+  args: string[];
+  workspaceMarkers: string[];
+  installHint: string;
+  resolveCommand?: (folderPath: string) => { command: string; args: string[] };
+}
+
+const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
+  {
+    id: "typescript",
+    label: "TypeScript",
+    languages: ["TypeScript", "JavaScript"],
+    command: "typescript-language-server",
+    args: ["--version"],
+    workspaceMarkers: ["tsconfig.json", "jsconfig.json", "package.json"],
+    installHint: "Install typescript-language-server and typescript.",
+    resolveCommand: (folderPath) => {
+      const workspaceServer = path.join(
+        folderPath,
+        "node_modules/.bin/typescript-language-server",
+      );
+      const workspaceTsc = path.join(
+        folderPath,
+        "node_modules/typescript/lib/tsserver.js",
+      );
+
+      if (fs.existsSync(workspaceServer)) {
+        return { command: workspaceServer, args: ["--version"] };
+      }
+
+      // The standalone language server is ideal, but a workspace TypeScript
+      // install is still meaningful foundation data. It tells Axon the project
+      // has the tsserver engine that a later client can spawn through a small
+      // adapter instead of relying on Monaco's isolated TypeScript worker.
+      if (fs.existsSync(workspaceTsc)) {
+        return { command: workspaceTsc, args: [] };
+      }
+
+      return { command: "typescript-language-server", args: ["--version"] };
+    },
+  },
+  {
+    id: "go",
+    label: "Go",
+    languages: ["Go"],
+    command: "gopls",
+    args: ["version"],
+    workspaceMarkers: ["go.mod", "go.work"],
+    installHint: "Install gopls.",
+  },
+  {
+    id: "rust",
+    label: "Rust",
+    languages: ["Rust"],
+    command: "rust-analyzer",
+    args: ["--version"],
+    workspaceMarkers: ["Cargo.toml"],
+    installHint: "Install rust-analyzer.",
+  },
+  {
+    id: "python",
+    label: "Python",
+    languages: ["Python"],
+    command: "pyright-langserver",
+    args: ["--version"],
+    workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt"],
+    installHint: "Install pyright.",
+  },
+];
+
+function hasWorkspaceMarker(folderPath: string, markers: string[]) {
+  return markers.some((marker) => fs.existsSync(path.join(folderPath, marker)));
+}
+
+async function canRunCommand(command: string, args: string[]) {
+  if (path.isAbsolute(command) && fs.existsSync(command) && args.length === 0) {
+    return true;
+  }
+
+  try {
+    await execFileAsync(command, args, {
+      timeout: 3000,
+      maxBuffer: 1024 * 256,
+    });
+    return true;
+  } catch (err) {
+    const code = (err as { code?: string | number }).code;
+    const stdout = (err as { stdout?: string }).stdout ?? "";
+    const stderr = (err as { stderr?: string }).stderr ?? "";
+
+    // Some language-server binaries print their version to stderr or exit with
+    // a non-zero code for --version. If the executable was found and produced
+    // output, Axon can still treat it as available for the future client path.
+    return code !== "ENOENT" && `${stdout}${stderr}`.trim().length > 0;
+  }
+}
+
+async function getLanguageServerStatus(
+  folderPath: string,
+): Promise<LanguageServerStatus[]> {
+  return Promise.all(
+    LANGUAGE_SERVER_DEFINITIONS.map(async (definition) => {
+      const resolved = definition.resolveCommand?.(folderPath) ?? {
+        command: definition.command,
+        args: definition.args,
+      };
+      const relevant = hasWorkspaceMarker(folderPath, definition.workspaceMarkers);
+      const available = await canRunCommand(resolved.command, resolved.args);
+
+      return {
+        id: definition.id,
+        label: definition.label,
+        languages: definition.languages,
+        available,
+        relevant,
+        command: resolved.command,
+        detail: available
+          ? relevant
+            ? "Ready for this workspace"
+            : "Installed but no matching workspace markers found"
+          : relevant
+            ? "Relevant, but language server is not installed"
+            : "Not installed",
+        installHint: definition.installHint,
+      };
+    }),
+  );
 }
 
 function getWorkspaceTasks(folderPath: string): WorkspaceTask[] {
@@ -1047,6 +1184,11 @@ ipcMain.handle("clipboard:writeText", async (_event, text: string) => {
 ipcMain.handle("diagnostics:project", async (_event, folderPath: string) => {
   if (!folderPath || !fs.existsSync(folderPath)) return [];
   return runProjectDiagnostics(folderPath);
+});
+
+ipcMain.handle("lsp:status", async (_event, folderPath: string) => {
+  if (!folderPath || !fs.existsSync(folderPath)) return [];
+  return getLanguageServerStatus(folderPath);
 });
 
 ipcMain.handle("git:status", async (_event, folderPath: string) => {

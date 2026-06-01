@@ -81,8 +81,13 @@ export interface EditorSettings {
 export interface AxonSettings {
   editor: EditorSettings;
   ai: AiSettings;
+  lsp: LspSettings;
   theme_overrides: ThemeOverrides;
   customFonts: CustomFont[];
+}
+
+export interface LspSettings {
+  enabled: boolean;
 }
 
 export interface AiSettings {
@@ -108,6 +113,9 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     model: "gpt-5.1",
     apiKeyEnv: "OPENAI_API_KEY",
     includeWorkspaceContext: true,
+  },
+  lsp: {
+    enabled: true,
   },
   theme_overrides: {
     "Ayu Dark": {
@@ -211,6 +219,7 @@ export function normalizeSettings(value: unknown): AxonSettings {
   const root = isRecord(value) ? value : {};
   const editor = isRecord(root.editor) ? root.editor : {};
   const ai = isRecord(root.ai) ? root.ai : {};
+  const lsp = isRecord(root.lsp) ? root.lsp : {};
 
   const rawFontFamily =
     typeof editor.fontFamily === "string" ? editor.fontFamily.trim() : "";
@@ -272,6 +281,12 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof ai.includeWorkspaceContext === "boolean"
           ? ai.includeWorkspaceContext
           : DEFAULT_SETTINGS.ai.includeWorkspaceContext,
+    },
+    lsp: {
+      enabled:
+        typeof lsp.enabled === "boolean"
+          ? lsp.enabled
+          : DEFAULT_SETTINGS.lsp.enabled,
     },
     theme_overrides: normalizeThemeOverrides(root.theme_overrides),
     customFonts: normalizeCustomFonts(root.customFonts),
