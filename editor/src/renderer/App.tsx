@@ -47,7 +47,11 @@ import {
   type AxonSettings,
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
-import { type GitDiffResult, type GitStatusResult } from "../shared/git";
+import {
+  type GitActionResult,
+  type GitDiffResult,
+  type GitStatusResult,
+} from "../shared/git";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import "./App.css";
@@ -87,6 +91,11 @@ declare global {
         untracked?: boolean,
       ) => Promise<GitDiffResult>;
       getGitFileBase: (folderPath: string, filePath: string) => Promise<string>;
+      runGitAction: (
+        folderPath: string,
+        filePath: string,
+        action: "stage" | "unstage" | "discard",
+      ) => Promise<GitActionResult>;
       getAppInfo: () => Promise<AppInfo>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
@@ -120,6 +129,7 @@ function App() {
   const [bottomPanelTab, setBottomPanelTab] =
     useState<BottomPanelTab>("problems");
   const [diffOpen, setDiffOpen] = useState(false);
+  const [diffFilePath, setDiffFilePath] = useState<string | null>(null);
   const [sourceControlOpen, setSourceControlOpen] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -567,7 +577,10 @@ function App() {
           appendOutput("panel", "Opened Output panel.");
           break;
         case AXON_COMMANDS.OPEN_DIFF_VIEW:
-          if (activePane?.activeFile) setDiffOpen(true);
+          if (activePane?.activeFile) {
+            setDiffFilePath(activePane.activeFile);
+            setDiffOpen(true);
+          }
           break;
         case AXON_COMMANDS.OPEN_SOURCE_CONTROL:
           setSourceControlOpen(true);
@@ -1014,12 +1027,15 @@ function App() {
 
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
 
-      {diffOpen && activePane?.activeFile && (
+      {diffOpen && (diffFilePath || activePane?.activeFile) && (
         <DiffModal
-          filePath={activePane.activeFile}
+          filePath={diffFilePath ?? activePane?.activeFile ?? ""}
           folderPath={folderPath}
           editorSettings={settings.editor}
-          onClose={() => setDiffOpen(false)}
+          onClose={() => {
+            setDiffOpen(false);
+            setDiffFilePath(null);
+          }}
         />
       )}
 
@@ -1028,6 +1044,11 @@ function App() {
         open={sourceControlOpen}
         onClose={() => setSourceControlOpen(false)}
         onOpenFile={handleFileSelect}
+        onOpenDiff={(path) => {
+          setDiffFilePath(path);
+          setDiffOpen(true);
+        }}
+        onGitStatusChanged={() => void refreshGitStatus({ silent: true })}
         onOutput={(message, level = "info") =>
           appendOutput("git", message, level)
         }

@@ -29,3 +29,8 @@ export interface GitDiffResult {
   path: string;
   diff: string;
 }
+
+export interface GitActionResult {
+  ok: boolean;
+  message: string;
+}

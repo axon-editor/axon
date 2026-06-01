@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { GitBranch, RefreshCw, X } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  FileDiff,
+  GitBranch,
+  Minus,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import {
   type GitChange,
   type GitDiffResult,
@@ -14,6 +22,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onOpenFile: (path: string) => void;
+  onOpenDiff: (path: string) => void;
+  onGitStatusChanged: () => void;
   onOutput: (
     message: string,
     level?: "info" | "success" | "warning" | "error",
@@ -47,6 +57,8 @@ export default function SourceControlModal({
   open,
   onClose,
   onOpenFile,
+  onOpenDiff,
+  onGitStatusChanged,
   onOutput,
 }: Props) {
   const [status, setStatus] = useState<GitStatusResult | null>(null);
@@ -54,6 +66,7 @@ export default function SourceControlModal({
   const [diff, setDiff] = useState<GitDiffResult | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loadingDiff, setLoadingDiff] = useState(false);
+  const [runningAction, setRunningAction] = useState<string | null>(null);
 
   const stagedChanges = useMemo(
     () => status?.changes.filter((change) => change.staged) ?? [],
@@ -92,6 +105,45 @@ export default function SourceControlModal({
       onOutput("Failed to load Git status.", "error");
     } finally {
       setLoadingStatus(false);
+    }
+  };
+
+  const runAction = async (
+    change: GitChange,
+    action: "stage" | "unstage" | "discard",
+  ) => {
+    if (!folderPath) return;
+    // Discard is the only destructive action in this first Git action slice.
+    // The main process still scopes it to one path, but the renderer asks for
+    // confirmation first so an accidental click cannot silently delete edits.
+    if (
+      action === "discard" &&
+      !window.confirm(
+        `Discard unstaged changes in ${change.path}? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    const actionId = `${action}:${change.path}`;
+    setRunningAction(actionId);
+    try {
+      const result = await window.axon.runGitAction(
+        folderPath,
+        change.path,
+        action,
+      );
+      onOutput(result.message, result.ok ? "success" : "error");
+      // The modal keeps its own selected-file status so it can stay responsive
+      // while open, but the rest of Axon also depends on App-level Git state
+      // for sidebar colors, status bar counts, and editor gutter markers.
+      await loadStatus();
+      onGitStatusChanged();
+    } catch (err) {
+      console.error("git action failed:", err);
+      onOutput(`Failed to ${action} ${change.path}.`, "error");
+    } finally {
+      setRunningAction(null);
     }
   };
 
@@ -181,6 +233,9 @@ export default function SourceControlModal({
                 selectedPath={selectedChange?.path ?? null}
                 onSelect={setSelectedChange}
                 onOpenFile={onOpenFile}
+                onOpenDiff={onOpenDiff}
+                onRunAction={runAction}
+                runningAction={runningAction}
               />
             )}
 
@@ -191,6 +246,9 @@ export default function SourceControlModal({
                 selectedPath={selectedChange?.path ?? null}
                 onSelect={setSelectedChange}
                 onOpenFile={onOpenFile}
+                onOpenDiff={onOpenDiff}
+                onRunAction={runAction}
+                runningAction={runningAction}
               />
             )}
           </div>
@@ -249,12 +307,21 @@ function ChangeGroup({
   selectedPath,
   onSelect,
   onOpenFile,
+  onOpenDiff,
+  onRunAction,
+  runningAction,
 }: {
   title: string;
   changes: GitChange[];
   selectedPath: string | null;
   onSelect: (change: GitChange) => void;
   onOpenFile: (path: string) => void;
+  onOpenDiff: (path: string) => void;
+  onRunAction: (
+    change: GitChange,
+    action: "stage" | "unstage" | "discard",
+  ) => void;
+  runningAction: string | null;
 }) {
   return (
     <div className="mb-3">
@@ -263,21 +330,24 @@ function ChangeGroup({
       </div>
       {changes.map((change) => {
         const selected = change.path === selectedPath;
+        const canStage = change.unstaged;
+        const canUnstage = change.staged;
+        const canDiscard = change.unstaged;
         return (
-          <button
+          <div
             key={`${title}:${change.path}`}
-            onClick={() => onSelect(change)}
-            onDoubleClick={() => onOpenFile(change.absolutePath)}
             className={`grid w-full cursor-pointer grid-cols-[24px_1fr] items-center gap-2 px-3 py-1.5 text-left transition-colors ${
               selected
                 ? "bg-[#1e2430] text-white"
                 : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"
             }`}
+            onClick={() => onSelect(change)}
+            onDoubleClick={() => onOpenFile(change.absolutePath)}
           >
             <span className="rounded bg-[#151923] px-1.5 py-0.5 text-center text-[10px] text-[#80c8e0]">
               {changeLabel(change)}
             </span>
-            <span className="min-w-0">
+            <span className="min-w-0 pr-1">
               <span className="block truncate text-[12px]">
                 {getFileName(change.path)}
               </span>
@@ -285,9 +355,83 @@ function ChangeGroup({
                 {change.path}
               </span>
             </span>
-          </button>
+            {selected && (
+              <div className="col-span-2 ml-[32px] mt-1 flex items-center gap-1">
+                <GitActionButton
+                  label="Open diff"
+                  disabled={false}
+                  onClick={() => onOpenDiff(change.absolutePath)}
+                >
+                  <FileDiff size={12} />
+                </GitActionButton>
+                <GitActionButton
+                  label="Stage file"
+                  disabled={!canStage || runningAction === `stage:${change.path}`}
+                  onClick={() => onRunAction(change, "stage")}
+                >
+                  <Plus size={12} />
+                </GitActionButton>
+                <GitActionButton
+                  label="Unstage file"
+                  disabled={
+                    !canUnstage || runningAction === `unstage:${change.path}`
+                  }
+                  onClick={() => onRunAction(change, "unstage")}
+                >
+                  <Minus size={12} />
+                </GitActionButton>
+                <GitActionButton
+                  label="Discard unstaged changes"
+                  disabled={
+                    !canDiscard || runningAction === `discard:${change.path}`
+                  }
+                  danger
+                  onClick={() => onRunAction(change, "discard")}
+                >
+                  <RotateCcw size={12} />
+                </GitActionButton>
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
+  );
+}
+
+function GitActionButton({
+  label,
+  disabled,
+  danger,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  danger?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip label={label} side="bottom">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-label={label}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!disabled) onClick();
+        }}
+        className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
+          disabled
+            ? "cursor-not-allowed text-[#364050]"
+            : danger
+              ? "cursor-pointer text-[#586478] hover:bg-[#2a1517] hover:text-[#ff7b72]"
+              : "cursor-pointer text-[#586478] hover:bg-[#151923] hover:text-[#80c8e0]"
+        }`}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }

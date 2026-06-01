@@ -23,6 +23,7 @@ import {
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
+  type GitActionResult,
   type GitChange,
   type GitDiffResult,
   type GitFileState,
@@ -388,6 +389,83 @@ async function getGitFileBase(
   }
 }
 
+function getGitRelativePath(root: string, filePath: string) {
+  return path.isAbsolute(filePath) ? path.relative(root, filePath) : filePath;
+}
+
+async function runGitAction(
+  folderPath: string,
+  filePath: string,
+  action: "stage" | "unstage" | "discard",
+): Promise<GitActionResult> {
+  // All Git mutations stay in the main process because the renderer should not
+  // gain direct shell or filesystem power. The UI asks for a small, named
+  // action, then this function translates that into the safest Git command for
+  // the current status of the path.
+  const status = await getGitStatus(folderPath);
+  if (!status.isRepository || !status.root) {
+    return {
+      ok: false,
+      message: "Current workspace is not a Git repository.",
+    };
+  }
+
+  const relativePath = getGitRelativePath(status.root, filePath);
+  const change = status.changes.find(
+    (candidate) => candidate.path === relativePath,
+  );
+
+  try {
+    if (action === "stage") {
+      // `git add` is intentionally scoped to one path. That keeps a button
+      // click in Source Control from staging unrelated files the user has not
+      // reviewed yet.
+      await runGit(status.root, ["add", "--", relativePath]);
+      return {
+        ok: true,
+        message: `Staged ${relativePath}.`,
+      };
+    }
+
+    if (action === "unstage") {
+      // `restore --staged` moves the path out of the index without touching
+      // the working tree. That is the expected editor behavior: unstage should
+      // not discard the user's actual file edits.
+      await runGit(status.root, ["restore", "--staged", "--", relativePath]);
+      return {
+        ok: true,
+        message: `Unstaged ${relativePath}.`,
+      };
+    }
+
+    if (change?.indexState === "untracked") {
+      // Untracked files do not have a HEAD version to restore from, so discard
+      // must delete them. The renderer confirms before it calls this action;
+      // this command still stays path-scoped so it cannot clean the whole repo.
+      await runGit(status.root, ["clean", "-f", "--", relativePath]);
+      return {
+        ok: true,
+        message: `Deleted untracked file ${relativePath}.`,
+      };
+    }
+
+    // For tracked files, discard only resets the working tree copy. If the file
+    // also has staged changes, those staged changes remain staged so a user can
+    // throw away extra local edits without losing the reviewed index state.
+    await runGit(status.root, ["restore", "--worktree", "--", relativePath]);
+    return {
+      ok: true,
+      message: `Discarded unstaged changes in ${relativePath}.`,
+    };
+  } catch (err) {
+    const message = `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
+    return {
+      ok: false,
+      message: message || `Failed to ${action} ${relativePath}.`,
+    };
+  }
+}
+
 async function getGitWatchPaths(folderPath: string): Promise<string[]> {
   try {
     const gitDirResult = await runGit(folderPath, ["rev-parse", "--git-dir"]);
@@ -698,6 +776,25 @@ ipcMain.handle(
   async (_event, folderPath: string, filePath: string) => {
     if (!folderPath || !filePath || !fs.existsSync(folderPath)) return "";
     return getGitFileBase(folderPath, filePath);
+  },
+);
+
+ipcMain.handle(
+  "git:action",
+  async (
+    _event,
+    folderPath: string,
+    filePath: string,
+    action: "stage" | "unstage" | "discard",
+  ) => {
+    if (!folderPath || !filePath || !fs.existsSync(folderPath)) {
+      return {
+        ok: false,
+        message: "Open a Git workspace before running Git actions.",
+      } satisfies GitActionResult;
+    }
+
+    return runGitAction(folderPath, filePath, action);
   },
 );
 
