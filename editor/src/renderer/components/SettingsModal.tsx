@@ -2,7 +2,9 @@ import { useState } from "react";
 import CommandModal from "./CommandModal";
 import SearchSelect, { type SearchSelectItem } from "./SearchSelect";
 import {
+  AI_PROVIDER_IDS,
   BUILT_IN_THEME_IDS,
+  type AiProviderId,
   type AxonSettings,
   type BuiltInThemeId,
 } from "../../shared/settings";
@@ -18,6 +20,18 @@ const THEME_ITEMS: SearchSelectItem<BuiltInThemeId>[] = BUILT_IN_THEME_IDS.map(
   (themeId) => ({
     value: themeId,
     label: THEME_LABELS[themeId],
+  }),
+);
+
+const AI_PROVIDER_LABELS: Record<AiProviderId, string> = {
+  openai: "OpenAI",
+  local: "Local",
+};
+
+const AI_PROVIDER_ITEMS: SearchSelectItem<AiProviderId>[] = AI_PROVIDER_IDS.map(
+  (provider) => ({
+    value: provider,
+    label: AI_PROVIDER_LABELS[provider],
   }),
 );
 
@@ -43,6 +57,19 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
     }));
   };
 
+  const updateAi = <K extends keyof AxonSettings["ai"]>(
+    key: K,
+    value: AxonSettings["ai"][K],
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      ai: {
+        ...prev.ai,
+        [key]: value,
+      },
+    }));
+  };
+
   const save = () => {
     onSave(draft);
     onClose();
@@ -50,8 +77,12 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
 
   return (
     <CommandModal title="settings" onClose={onClose} width="w-[560px]">
-      <div className="p-4 space-y-4">
+      <div className="max-h-[calc(100vh-12rem)] space-y-5 overflow-y-auto p-4">
         <div className="grid grid-cols-[150px_1fr] items-center gap-3">
+          <div className="col-span-2 text-[11px] font-medium uppercase tracking-normal text-[#586478]">
+            editor
+          </div>
+
           <label className="text-[12px] text-[#9aa4b8]">theme</label>
           <SearchSelect
             value={draft.editor.themeId}
@@ -127,6 +158,59 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
               className="accent-[#80c8e0]"
             />
             enabled
+          </label>
+        </div>
+
+        <div className="grid grid-cols-[150px_1fr] items-center gap-3 border-t border-[#222838] pt-4">
+          <div className="col-span-2 text-[11px] font-medium uppercase tracking-normal text-[#586478]">
+            ai
+          </div>
+
+          <label className="text-[12px] text-[#9aa4b8]">assistant</label>
+          <label className="flex items-center gap-2 text-[12px] text-[#c8d0e0]">
+            <input
+              type="checkbox"
+              checked={draft.ai.enabled}
+              onChange={(e) => updateAi("enabled", e.target.checked)}
+              className="accent-[#80c8e0]"
+            />
+            enabled
+          </label>
+
+          <label className="text-[12px] text-[#9aa4b8]">provider</label>
+          <SearchSelect
+            value={draft.ai.provider}
+            items={AI_PROVIDER_ITEMS}
+            onChange={(provider) => updateAi("provider", provider)}
+            ariaLabel="AI provider"
+            placeholder="Search providers..."
+          />
+
+          <label className="text-[12px] text-[#9aa4b8]">model</label>
+          <input
+            value={draft.ai.model}
+            onChange={(e) => updateAi("model", e.target.value)}
+            className="h-8 bg-[#0e1018] border border-[#222838] rounded px-2 text-[12px] text-[#c8d0e0] outline-none focus:border-[#80c8e0]"
+          />
+
+          <label className="text-[12px] text-[#9aa4b8]">api key env</label>
+          <input
+            value={draft.ai.apiKeyEnv}
+            onChange={(e) => updateAi("apiKeyEnv", e.target.value)}
+            className="h-8 bg-[#0e1018] border border-[#222838] rounded px-2 text-[12px] text-[#c8d0e0] outline-none focus:border-[#80c8e0]"
+          />
+
+          <label className="text-[12px] text-[#9aa4b8]">workspace context</label>
+          <label className="flex items-center gap-2 text-[12px] text-[#c8d0e0]">
+            <input
+              type="checkbox"
+              checked={draft.ai.includeWorkspaceContext}
+              onChange={(e) =>
+                updateAi("includeWorkspaceContext", e.target.checked)
+              }
+              className="accent-[#80c8e0]"
+            />
+            include files and search context
           </label>
         </div>
 

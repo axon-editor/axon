@@ -7,6 +7,10 @@ export const BUILT_IN_THEME_IDS = [
 
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
 
+export const AI_PROVIDER_IDS = ["openai", "local"] as const;
+
+export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
+
 export interface EditorSettings {
   themeId: BuiltInThemeId;
   fontFamily: string;
@@ -17,6 +21,15 @@ export interface EditorSettings {
 
 export interface AxonSettings {
   editor: EditorSettings;
+  ai: AiSettings;
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  provider: AiProviderId;
+  model: string;
+  apiKeyEnv: string;
+  includeWorkspaceContext: boolean;
 }
 
 export const DEFAULT_SETTINGS: AxonSettings = {
@@ -26,6 +39,13 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     fontSize: 14,
     lineHeight: 22,
     fontLigatures: true,
+  },
+  ai: {
+    enabled: false,
+    provider: "openai",
+    model: "gpt-5.1",
+    apiKeyEnv: "OPENAI_API_KEY",
+    includeWorkspaceContext: true,
   },
 };
 
@@ -40,6 +60,13 @@ function isThemeId(value: unknown): value is BuiltInThemeId {
   );
 }
 
+function isAiProviderId(value: unknown): value is AiProviderId {
+  return (
+    typeof value === "string" &&
+    AI_PROVIDER_IDS.includes(value as AiProviderId)
+  );
+}
+
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
@@ -48,11 +75,22 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
 export function normalizeSettings(value: unknown): AxonSettings {
   const root = isRecord(value) ? value : {};
   const editor = isRecord(root.editor) ? root.editor : {};
+  const ai = isRecord(root.ai) ? root.ai : {};
 
   const fontFamily =
     typeof editor.fontFamily === "string" && editor.fontFamily.trim()
       ? editor.fontFamily.trim()
       : DEFAULT_SETTINGS.editor.fontFamily;
+
+  const aiModel =
+    typeof ai.model === "string" && ai.model.trim()
+      ? ai.model.trim()
+      : DEFAULT_SETTINGS.ai.model;
+
+  const apiKeyEnv =
+    typeof ai.apiKeyEnv === "string" && ai.apiKeyEnv.trim()
+      ? ai.apiKeyEnv.trim()
+      : DEFAULT_SETTINGS.ai.apiKeyEnv;
 
   return {
     editor: {
@@ -76,6 +114,21 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.fontLigatures === "boolean"
           ? editor.fontLigatures
           : DEFAULT_SETTINGS.editor.fontLigatures,
+    },
+    ai: {
+      enabled:
+        typeof ai.enabled === "boolean"
+          ? ai.enabled
+          : DEFAULT_SETTINGS.ai.enabled,
+      provider: isAiProviderId(ai.provider)
+        ? ai.provider
+        : DEFAULT_SETTINGS.ai.provider,
+      model: aiModel,
+      apiKeyEnv,
+      includeWorkspaceContext:
+        typeof ai.includeWorkspaceContext === "boolean"
+          ? ai.includeWorkspaceContext
+          : DEFAULT_SETTINGS.ai.includeWorkspaceContext,
     },
   };
 }
