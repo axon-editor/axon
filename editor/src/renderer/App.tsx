@@ -3,7 +3,9 @@ import Sidebar, { addRecentFolder } from "./components/sidebar/index";
 import EditorPane from "./components/EditorPane/index";
 import StatusBar from "./components/StatusBar";
 import Terminal from "./components/Terminal";
-import CommandPalette from "./components/CommandPalette";
+import CommandPalette, {
+  type CommandPaletteCommand,
+} from "./components/CommandPalette";
 import WorkspaceSearchModal from "./components/WorkspaceSearchModal";
 import { type BottomPanelTab } from "./components/BottomPanel";
 import DiffModal from "./components/DiffModal";
@@ -457,6 +459,117 @@ function App() {
     [activePane?.activeFile, folderPath, settings],
   );
 
+  const paletteCommands = useMemo<CommandPaletteCommand[]>(
+    () => [
+      {
+        id: AXON_COMMANDS.NEW_FILE,
+        title: "New File",
+        subtitle: folderPath
+          ? "Create a file in the current workspace"
+          : "Open a folder first",
+        keywords: ["create", "untitled"],
+        disabled: !folderPath,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_FOLDER,
+        title: "Open Folder",
+        subtitle: "Choose another workspace folder",
+        keywords: ["workspace", "project"],
+      },
+      {
+        id: AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
+        title: "Search Workspace",
+        subtitle: folderPath
+          ? "Search text across the current folder"
+          : "Open a folder first",
+        keywords: ["find", "grep"],
+        disabled: !folderPath,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
+        title: "Show Problems",
+        subtitle: `${diagnostics.length} diagnostics`,
+        keywords: ["diagnostics", "errors", "warnings"],
+      },
+      {
+        id: AXON_COMMANDS.OPEN_OUTPUT_PANEL,
+        title: "Show Output",
+        subtitle: "Open logs, task output, and future AI output",
+        keywords: ["logs", "panel"],
+      },
+      {
+        id: AXON_COMMANDS.TOGGLE_TERMINAL,
+        title: terminalOpen ? "Hide Terminal" : "Show Terminal",
+        subtitle: "Toggle the terminal panel",
+        keywords: ["shell", "console"],
+      },
+      {
+        id: AXON_COMMANDS.NEW_TERMINAL,
+        title: "New Terminal",
+        subtitle: "Create a terminal tab",
+        keywords: ["shell", "pty"],
+      },
+      {
+        id: AXON_COMMANDS.OPEN_DIFF_VIEW,
+        title: "Compare Active File",
+        subtitle: activePane?.activeFile
+          ? "Open the active file diff view"
+          : "Select a file first",
+        keywords: ["diff", "changes"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.SAVE,
+        title: "Save Active File",
+        subtitle: activePane?.activeFile
+          ? "Save the current tab"
+          : "No active file",
+        keywords: ["write"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.CLOSE_TAB,
+        title: "Close Active Tab",
+        subtitle: activePane?.activeFile
+          ? "Close the current tab"
+          : "No active file",
+        keywords: ["remove"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_SETTINGS,
+        title: "Open Settings",
+        subtitle: "Edit settings from the UI",
+        keywords: ["preferences", "theme", "font"],
+      },
+      {
+        id: AXON_COMMANDS.OPEN_SETTINGS_JSON,
+        title: "Open Settings JSON",
+        subtitle: "Edit axon.json directly",
+        keywords: ["preferences", "config", "theme", "font"],
+      },
+      {
+        id: AXON_COMMANDS.TOGGLE_ZEN_MODE,
+        title: zenMode ? "Exit Zen Mode" : "Enter Zen Mode",
+        subtitle: "Toggle focused editor layout",
+        keywords: ["focus", "fullscreen"],
+      },
+      {
+        id: AXON_COMMANDS.ABOUT,
+        title: "About Axon",
+        subtitle: "Show app and runtime information",
+        keywords: ["version"],
+      },
+    ],
+    [
+      activePane?.activeFile,
+      diagnostics.length,
+      folderPath,
+      terminalOpen,
+      zenMode,
+    ],
+  );
+
   useEffect(() => {
     const cleanup = window.axon.onMenuCommand(runCommand);
 
@@ -706,8 +819,10 @@ function App() {
       <CommandPalette
         tree={tree}
         open={paletteOpen}
+        commands={paletteCommands}
         onClose={() => setPaletteOpen(false)}
         onFileSelect={handleFileSelect}
+        onCommandSelect={runCommand}
       />
 
       <WorkspaceSearchModal
