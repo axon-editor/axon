@@ -8,6 +8,8 @@ export const AXON_COMMANDS = {
   OPEN_WORKSPACE_SEARCH: "open-workspace-search",
   OPEN_PROBLEMS_PANEL: "open-problems-panel",
   OPEN_OUTPUT_PANEL: "open-output-panel",
+  REFRESH_DIAGNOSTICS: "refresh-diagnostics",
+  CLEAR_OUTPUT: "clear-output",
   OPEN_DIFF_VIEW: "open-diff-view",
   OPEN_SOURCE_CONTROL: "open-source-control",
   OPEN_TASK_RUNNER: "open-task-runner",

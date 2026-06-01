@@ -1,4 +1,4 @@
-import { AlertCircle, ListChecks, X } from "lucide-react";
+import { AlertCircle, ListChecks, RefreshCw, Trash2, X } from "lucide-react";
 import { type EditorDiagnostic } from "../lib/diagnostics";
 import Tooltip from "./Tooltip";
 
@@ -20,6 +20,8 @@ interface Props {
   outputEntries: OutputEntry[];
   onActiveTabChange: (tab: BottomPanelTab) => void;
   onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
+  onRefreshDiagnostics: () => void;
+  onClearOutput: () => void;
   onClose: () => void;
 }
 
@@ -37,6 +39,8 @@ export function BottomPanelHeader({
   diagnostics,
   outputEntries,
   onActiveTabChange,
+  onRefreshDiagnostics,
+  onClearOutput,
   onClose,
 }: Omit<Props, "open">) {
   return (
@@ -69,6 +73,30 @@ export function BottomPanelHeader({
           </button>
         );
       })}
+
+      {activeTab === "problems" && (
+        <Tooltip label="Refresh diagnostics" side="top">
+          <button
+            onClick={onRefreshDiagnostics}
+            aria-label="Refresh diagnostics"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-white"
+          >
+            <RefreshCw size={13} />
+          </button>
+        </Tooltip>
+      )}
+
+      {activeTab === "output" && (
+        <Tooltip label="Clear output" side="top">
+          <button
+            onClick={onClearOutput}
+            aria-label="Clear output"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-white"
+          >
+            <Trash2 size={13} />
+          </button>
+        </Tooltip>
+      )}
 
       <Tooltip label="Close panel" side="top">
         <button
@@ -186,6 +214,8 @@ export default function BottomPanel({
   outputEntries,
   onActiveTabChange,
   onOpenDiagnostic,
+  onRefreshDiagnostics,
+  onClearOutput,
   onClose,
 }: Props) {
   if (!open) return null;
@@ -199,6 +229,8 @@ export default function BottomPanel({
           outputEntries={outputEntries}
           onActiveTabChange={onActiveTabChange}
           onOpenDiagnostic={onOpenDiagnostic}
+          onRefreshDiagnostics={onRefreshDiagnostics}
+          onClearOutput={onClearOutput}
           onClose={onClose}
         />
       </div>

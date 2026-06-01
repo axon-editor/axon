@@ -18,7 +18,9 @@ import {
   Minimize2,
   Minus,
   Plus,
+  RefreshCw,
   SquareTerminal,
+  Trash2,
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
@@ -44,6 +46,8 @@ interface Props {
   outputEntries: OutputEntry[];
   onActivePanelTabChange: (tab: "terminal" | BottomPanelTab) => void;
   onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
+  onRefreshDiagnostics: () => void;
+  onClearOutput: () => void;
   onHide: () => void;
 }
 
@@ -247,6 +251,8 @@ export default function Terminal({
   outputEntries,
   onActivePanelTabChange,
   onOpenDiagnostic,
+  onRefreshDiagnostics,
+  onClearOutput,
   onHide,
 }: Props) {
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
@@ -645,6 +651,28 @@ export default function Terminal({
         </div>
 
         <div className="ml-2 flex shrink-0 items-center gap-1">
+          {activePanelTab === "problems" && (
+            <Tooltip label="Refresh diagnostics" side="top">
+              <button
+                onClick={onRefreshDiagnostics}
+                aria-label="Refresh diagnostics"
+                className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </Tooltip>
+          )}
+          {activePanelTab === "output" && (
+            <Tooltip label="Clear output" side="top">
+              <button
+                onClick={onClearOutput}
+                aria-label="Clear output"
+                className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
+              >
+                <Trash2 size={13} />
+              </button>
+            </Tooltip>
+          )}
           <Tooltip
             label={zoomed ? "Restore terminal" : "Zoom terminal"}
             side="top"

@@ -217,6 +217,22 @@ function App() {
     [],
   );
 
+  const clearOutputEntries = useCallback(() => {
+    // Clearing output should feel intentional, but the panel should not become
+    // visually dead afterward. I leave a single timestamped marker so it is
+    // obvious the user cleared the log and future task/AI output still has the
+    // same chronological format as normal entries.
+    setOutputEntries([
+      {
+        id: Date.now(),
+        time: formatOutputTime(),
+        level: "info",
+        source: "output",
+        message: "Output cleared.",
+      },
+    ]);
+  }, []);
+
   const refreshGitStatus = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!folderPath) {
@@ -814,6 +830,18 @@ function App() {
           setTerminalOpen(false);
           appendOutput("panel", "Opened Output panel.");
           break;
+        case AXON_COMMANDS.REFRESH_DIAGNOSTICS:
+          setBottomPanelTab("problems");
+          setBottomPanelOpen(true);
+          setTerminalOpen(false);
+          void refreshProjectDiagnostics();
+          break;
+        case AXON_COMMANDS.CLEAR_OUTPUT:
+          setBottomPanelTab("output");
+          setBottomPanelOpen(true);
+          setTerminalOpen(false);
+          clearOutputEntries();
+          break;
         case AXON_COMMANDS.OPEN_DIFF_VIEW:
           if (activePane?.activeFile) {
             setDiffFilePath(activePane.activeFile);
@@ -849,8 +877,10 @@ function App() {
     [
       activePane?.activeFile,
       appendOutput,
+      clearOutputEntries,
       folderPath,
       layout.activePaneId,
+      refreshProjectDiagnostics,
       refreshGitStatus,
       requestCloseTab,
       runEditorAction,
@@ -928,10 +958,25 @@ function App() {
         keywords: ["diagnostics", "errors", "warnings"],
       },
       {
+        id: AXON_COMMANDS.REFRESH_DIAGNOSTICS,
+        title: "Refresh Diagnostics",
+        subtitle: folderPath
+          ? "Run project diagnostics for the current workspace"
+          : "Open a folder first",
+        keywords: ["diagnostics", "check", "errors", "lint"],
+        disabled: !folderPath,
+      },
+      {
         id: AXON_COMMANDS.OPEN_OUTPUT_PANEL,
         title: "Show Output",
         subtitle: "Open logs, task output, and future AI output",
         keywords: ["logs", "panel"],
+      },
+      {
+        id: AXON_COMMANDS.CLEAR_OUTPUT,
+        title: "Clear Output",
+        subtitle: "Clear the Output panel log",
+        keywords: ["logs", "output", "reset"],
       },
       {
         id: AXON_COMMANDS.TOGGLE_TERMINAL,
@@ -1260,6 +1305,10 @@ function App() {
               setBottomPanelOpen(false);
             }}
             onOpenDiagnostic={handleOpenDiagnostic}
+            onRefreshDiagnostics={() =>
+              runCommand(AXON_COMMANDS.REFRESH_DIAGNOSTICS)
+            }
+            onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
           />
         </div>
       </div>
