@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import { type AxonSettings } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
+import { type GitDiffResult, type GitStatusResult } from "../shared/git";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -19,6 +20,15 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>
     ipcRenderer.invoke("diagnostics:project", folderPath),
+  getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
+    ipcRenderer.invoke("git:status", folderPath),
+  getGitDiff: (
+    folderPath: string,
+    filePath: string,
+    staged?: boolean,
+    untracked?: boolean,
+  ): Promise<GitDiffResult> =>
+    ipcRenderer.invoke("git:diff", folderPath, filePath, staged, untracked),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),

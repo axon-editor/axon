@@ -17,6 +17,7 @@ import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/SettingsModal";
 import SplashScreen from "./components/SplashScreen";
 import AboutModal, { type AppInfo } from "./components/AboutModal";
+import SourceControlModal from "./components/SourceControlModal";
 import {
   getTree,
   createFile,
@@ -46,6 +47,7 @@ import {
   type AxonSettings,
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
+import { type GitDiffResult, type GitStatusResult } from "../shared/git";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import "./App.css";
@@ -77,6 +79,13 @@ declare global {
         settings?: AxonSettings,
       ) => Promise<string>;
       getProjectDiagnostics: (folderPath: string) => Promise<EditorDiagnostic[]>;
+      getGitStatus: (folderPath: string) => Promise<GitStatusResult>;
+      getGitDiff: (
+        folderPath: string,
+        filePath: string,
+        staged?: boolean,
+        untracked?: boolean,
+      ) => Promise<GitDiffResult>;
       getAppInfo: () => Promise<AppInfo>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
@@ -109,6 +118,8 @@ function App() {
   const [bottomPanelTab, setBottomPanelTab] =
     useState<BottomPanelTab>("problems");
   const [diffOpen, setDiffOpen] = useState(false);
+  const [sourceControlOpen, setSourceControlOpen] = useState(false);
+  const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
@@ -137,6 +148,7 @@ function App() {
     () => [...projectDiagnostics, ...monacoDiagnostics],
     [monacoDiagnostics, projectDiagnostics],
   );
+  const gitChangeCount = gitStatus?.changes.length ?? 0;
 
   const appendOutput = useCallback(
     (source: string, message: string, level: OutputEntryLevel = "info") => {
@@ -154,6 +166,34 @@ function App() {
       );
     },
     [],
+  );
+
+  const refreshGitStatus = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!folderPath) {
+        setGitStatus(null);
+        return;
+      }
+
+      try {
+        const nextStatus = await window.axon.getGitStatus(folderPath);
+        setGitStatus(nextStatus);
+        if (!options?.silent) {
+          appendOutput(
+            "git",
+            nextStatus.isRepository
+              ? `Git status found ${nextStatus.changes.length} changed file${nextStatus.changes.length === 1 ? "" : "s"}.`
+              : "Workspace is not a Git repository.",
+            nextStatus.isRepository ? "success" : "warning",
+          );
+        }
+      } catch (err) {
+        console.error("failed to refresh git status:", err);
+        appendOutput("git", "Failed to refresh Git status.", "error");
+        setGitStatus(null);
+      }
+    },
+    [appendOutput, folderPath],
   );
 
   const refreshProjectDiagnostics = useCallback(async () => {
@@ -250,10 +290,11 @@ function App() {
       getTree(folderPath).then(setTree).catch(console.error);
       window.setTimeout(() => {
         void refreshProjectDiagnostics();
+        void refreshGitStatus({ silent: true });
       }, 600);
     });
     return cleanup;
-  }, [folderPath, refreshProjectDiagnostics]);
+  }, [folderPath, refreshGitStatus, refreshProjectDiagnostics]);
 
   const handleOpenFolder = async () => {
     const path = await window.axon.openFolder();
@@ -297,6 +338,9 @@ function App() {
     await window.axon.unwatchFolder();
     await window.axon.watchFolder(path);
     appendOutput("workspace", "Watching workspace changes.");
+    void window.axon.getGitStatus(path).then(setGitStatus).catch(() => {
+      setGitStatus(null);
+    });
     void window.axon
       .getProjectDiagnostics(path)
       .then((nextDiagnostics) => {
@@ -510,6 +554,10 @@ function App() {
         case AXON_COMMANDS.OPEN_DIFF_VIEW:
           if (activePane?.activeFile) setDiffOpen(true);
           break;
+        case AXON_COMMANDS.OPEN_SOURCE_CONTROL:
+          setSourceControlOpen(true);
+          void refreshGitStatus();
+          break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           setBottomPanelOpen(false);
           setTerminalOpen((prev) => !prev);
@@ -532,7 +580,14 @@ function App() {
           break;
       }
     },
-    [activePane?.activeFile, appendOutput, folderPath, settings, terminalOpen],
+    [
+      activePane?.activeFile,
+      appendOutput,
+      folderPath,
+      refreshGitStatus,
+      settings,
+      terminalOpen,
+    ],
   );
 
   const paletteCommands = useMemo<CommandPaletteCommand[]>(
@@ -595,6 +650,15 @@ function App() {
         disabled: !activePane?.activeFile,
       },
       {
+        id: AXON_COMMANDS.OPEN_SOURCE_CONTROL,
+        title: "Source Control",
+        subtitle: folderPath
+          ? `${gitChangeCount} changed file${gitChangeCount === 1 ? "" : "s"}`
+          : "Open a folder first",
+        keywords: ["git", "changes", "diff", "source"],
+        disabled: !folderPath,
+      },
+      {
         id: AXON_COMMANDS.SAVE,
         title: "Save Active File",
         subtitle: activePane?.activeFile
@@ -641,6 +705,7 @@ function App() {
       activePane?.activeFile,
       diagnostics.length,
       folderPath,
+      gitChangeCount,
       terminalOpen,
       zenMode,
     ],
@@ -677,6 +742,14 @@ function App() {
       ) {
         e.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW);
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "g"
+      ) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL);
       }
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === ",") {
         e.preventDefault();
@@ -880,6 +953,8 @@ function App() {
           bottomPanelOpen={bottomPanelOpen}
           bottomPanelTab={bottomPanelTab}
           problemCount={diagnostics.length}
+          gitBranch={gitStatus?.branch ?? null}
+          gitChangeCount={gitChangeCount}
           themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
@@ -889,6 +964,9 @@ function App() {
                 ? AXON_COMMANDS.OPEN_PROBLEMS_PANEL
                 : AXON_COMMANDS.OPEN_OUTPUT_PANEL,
             )
+          }
+          onOpenSourceControl={() =>
+            runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
         />
       )}
@@ -926,6 +1004,16 @@ function App() {
           onClose={() => setDiffOpen(false)}
         />
       )}
+
+      <SourceControlModal
+        folderPath={folderPath}
+        open={sourceControlOpen}
+        onClose={() => setSourceControlOpen(false)}
+        onOpenFile={handleFileSelect}
+        onOutput={(message, level = "info") =>
+          appendOutput("git", message, level)
+        }
+      />
 
       {splashVisible && <SplashScreen leaving={splashLeaving} />}
     </div>

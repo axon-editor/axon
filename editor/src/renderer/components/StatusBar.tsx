@@ -5,6 +5,7 @@
 import {
   AlertCircle,
   FileCode,
+  GitBranch,
   ListChecks,
   PanelLeft,
   TerminalSquare,
@@ -23,10 +24,13 @@ interface Props {
   bottomPanelOpen: boolean;
   bottomPanelTab: BottomPanelTab;
   problemCount: number;
+  gitBranch: string | null;
+  gitChangeCount: number;
   themeTokens: ResolvedThemeTokens;
   onToggleSidebar: () => void;
   onToggleTerminal: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
+  onOpenSourceControl: () => void;
 }
 
 export default function StatusBar({
@@ -39,10 +43,13 @@ export default function StatusBar({
   bottomPanelOpen,
   bottomPanelTab,
   problemCount,
+  gitBranch,
+  gitChangeCount,
   themeTokens,
   onToggleSidebar,
   onToggleTerminal,
   onOpenBottomPanel,
+  onOpenSourceControl,
 }: Props) {
   return (
     <div
@@ -65,6 +72,22 @@ export default function StatusBar({
 
       {folderName && (
         <span className="text-[#9aa4b8] px-1 font-medium">{folderName}</span>
+      )}
+
+      {gitBranch && (
+        <Tooltip label="Source control" side="top">
+          <button
+            onClick={onOpenSourceControl}
+            aria-label="Source control"
+            className="flex h-5 cursor-pointer items-center gap-1 rounded px-2 text-[#586478] transition-colors hover:text-[#80c8e0]"
+          >
+            <GitBranch size={12} />
+            <span className="max-w-32 truncate">{gitBranch}</span>
+            {gitChangeCount > 0 && (
+              <span className="text-[#80c8e0]">{gitChangeCount}</span>
+            )}
+          </button>
+        </Tooltip>
       )}
 
       <div className="ml-auto flex items-center gap-1">

@@ -22,6 +22,12 @@ import {
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
+import {
+  type GitChange,
+  type GitDiffResult,
+  type GitFileState,
+  type GitStatusResult,
+} from "../shared/git";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -95,6 +101,11 @@ function buildApplicationMenu() {
           label: "Open Settings JSON",
           accelerator: "CmdOrCtrl+Shift+,",
           click: () => sendMenuCommand(AXON_COMMANDS.OPEN_SETTINGS_JSON),
+        },
+        {
+          label: "Source Control",
+          accelerator: "CmdOrCtrl+Shift+G",
+          click: () => sendMenuCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL),
         },
         {
           label: "Open Recent",
@@ -213,6 +224,127 @@ function ensureSettingsFile(folderPath?: string | null, settings?: unknown) {
 
   writeSettingsToDisk(normalizeSettings(sourceSettings), settingsPath);
   return settingsPath;
+}
+
+async function runGit(
+  folderPath: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string }> {
+  const result = await execFileAsync("git", ["-C", folderPath, ...args], {
+    timeout: 30000,
+    maxBuffer: 1024 * 1024 * 8,
+  });
+
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+function toGitFileState(status: string): GitFileState {
+  switch (status) {
+    case "M":
+      return "modified";
+    case "A":
+      return "added";
+    case "D":
+      return "deleted";
+    case "R":
+      return "renamed";
+    case "C":
+      return "copied";
+    case "?":
+      return "untracked";
+    case "!":
+      return "ignored";
+    default:
+      return "unknown";
+  }
+}
+
+function parseGitStatus(root: string, statusOutput: string): GitChange[] {
+  return statusOutput
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line): GitChange => {
+      const indexCode = line[0] ?? " ";
+      const worktreeCode = line[1] ?? " ";
+      const rawPath = line.slice(3);
+      const [oldPath, nextPath] = rawPath.includes(" -> ")
+        ? rawPath.split(" -> ")
+        : [null, rawPath];
+      const filePath = nextPath ?? rawPath;
+
+      return {
+        path: filePath,
+        absolutePath: path.resolve(root, filePath),
+        oldPath,
+        indexState: toGitFileState(indexCode),
+        worktreeState: toGitFileState(worktreeCode),
+        staged: indexCode !== " " && indexCode !== "?",
+        unstaged: worktreeCode !== " " || indexCode === "?",
+      };
+    })
+    .filter((change) => change.path.length > 0);
+}
+
+async function getGitStatus(folderPath: string): Promise<GitStatusResult> {
+  try {
+    const rootResult = await runGit(folderPath, ["rev-parse", "--show-toplevel"]);
+    const root = rootResult.stdout.trim();
+    const branchResult = await runGit(folderPath, [
+      "branch",
+      "--show-current",
+    ]);
+    const statusResult = await runGit(folderPath, ["status", "--porcelain=v1"]);
+
+    return {
+      isRepository: true,
+      root,
+      branch: branchResult.stdout.trim() || "detached",
+      changes: parseGitStatus(root, statusResult.stdout),
+    };
+  } catch {
+    return {
+      isRepository: false,
+      root: null,
+      branch: null,
+      changes: [],
+    };
+  }
+}
+
+async function getGitDiff(
+  folderPath: string,
+  filePath: string,
+  staged: boolean,
+  untracked: boolean,
+): Promise<GitDiffResult> {
+  const status = await getGitStatus(folderPath);
+  const root = status.root ?? folderPath;
+  const relativePath = path.isAbsolute(filePath)
+    ? path.relative(root, filePath)
+    : filePath;
+
+  try {
+    const args = staged
+      ? ["diff", "--cached", "--", relativePath]
+      : untracked
+        ? ["diff", "--no-index", "--", "/dev/null", relativePath]
+        : ["diff", "--", relativePath];
+    const result = await runGit(root, args);
+
+    return {
+      path: relativePath,
+      diff: result.stdout || result.stderr,
+    };
+  } catch (err) {
+    const output = `${(err as { stdout?: string }).stdout ?? ""}${(err as { stderr?: string }).stderr ?? ""}`;
+    return {
+      path: relativePath,
+      diff: output,
+    };
+  }
 }
 
 function createDiagnosticId(diagnostic: Omit<EditorDiagnostic, "id">) {
@@ -456,6 +588,32 @@ ipcMain.handle("diagnostics:project", async (_event, folderPath: string) => {
   if (!folderPath || !fs.existsSync(folderPath)) return [];
   return runProjectDiagnostics(folderPath);
 });
+
+ipcMain.handle("git:status", async (_event, folderPath: string) => {
+  if (!folderPath || !fs.existsSync(folderPath)) {
+    return {
+      isRepository: false,
+      root: null,
+      branch: null,
+      changes: [],
+    } satisfies GitStatusResult;
+  }
+
+  return getGitStatus(folderPath);
+});
+
+ipcMain.handle(
+  "git:diff",
+  async (
+    _event,
+    folderPath: string,
+    filePath: string,
+    staged = false,
+    untracked = false,
+  ) => {
+    return getGitDiff(folderPath, filePath, staged, untracked);
+  },
+);
 
 // watch a file for external changes and notify the renderer when it changes.
 // stops any previously active watcher first so we only ever watch one file.
