@@ -33,6 +33,10 @@ import {
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import "./App.css";
 
+function fontStack(primaryFont: string, fallback: string) {
+  return `"${primaryFont}", ${fallback}`;
+}
+
 declare global {
   interface Window {
     axon: {
@@ -337,7 +341,10 @@ function App() {
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden relative"
-      style={{ background: "#0e1018" }}
+      style={{
+        background: "#0e1018",
+        fontFamily: fontStack(settings.editor.uiFontFamily, "system-ui, sans-serif"),
+      }}
     >
       {zenMode && (
         <>

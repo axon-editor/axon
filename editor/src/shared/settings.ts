@@ -3,6 +3,7 @@ export const BUILT_IN_THEME_IDS = [
   "sora",
   "catppuccin-mocha",
   "tokyo-night",
+  "ayu-dark",
 ] as const;
 
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
@@ -11,7 +12,29 @@ export const AI_PROVIDER_IDS = ["openai", "local"] as const;
 
 export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
 
+export const UI_FONT_FAMILIES = [
+  ".AxonSans",
+  "Axon Sans",
+  "Inter",
+  "SF Pro Text",
+  "system-ui",
+] as const;
+
+export const EDITOR_FONT_FAMILIES = [
+  ".AxonMono",
+  "Axon Mono",
+  "JetBrains Mono",
+  "Fira Code",
+  "SF Mono",
+  "Menlo",
+  "Monaco",
+] as const;
+
+export type UiFontFamily = (typeof UI_FONT_FAMILIES)[number];
+export type EditorFontFamily = (typeof EDITOR_FONT_FAMILIES)[number];
+
 export interface EditorSettings {
+  uiFontFamily: string;
   themeId: BuiltInThemeId;
   fontFamily: string;
   fontSize: number;
@@ -34,8 +57,9 @@ export interface AiSettings {
 
 export const DEFAULT_SETTINGS: AxonSettings = {
   editor: {
+    uiFontFamily: ".AxonSans",
     themeId: "axon-dark",
-    fontFamily: "Fira Code",
+    fontFamily: ".AxonMono",
     fontSize: 14,
     lineHeight: 22,
     fontLigatures: true,
@@ -77,10 +101,17 @@ export function normalizeSettings(value: unknown): AxonSettings {
   const editor = isRecord(root.editor) ? root.editor : {};
   const ai = isRecord(root.ai) ? root.ai : {};
 
+  const rawFontFamily =
+    typeof editor.fontFamily === "string" ? editor.fontFamily.trim() : "";
   const fontFamily =
-    typeof editor.fontFamily === "string" && editor.fontFamily.trim()
-      ? editor.fontFamily.trim()
+    rawFontFamily && rawFontFamily !== "Fira Code"
+      ? rawFontFamily
       : DEFAULT_SETTINGS.editor.fontFamily;
+
+  const uiFontFamily =
+    typeof editor.uiFontFamily === "string" && editor.uiFontFamily.trim()
+      ? editor.uiFontFamily.trim()
+      : DEFAULT_SETTINGS.editor.uiFontFamily;
 
   const aiModel =
     typeof ai.model === "string" && ai.model.trim()
@@ -94,6 +125,7 @@ export function normalizeSettings(value: unknown): AxonSettings {
 
   return {
     editor: {
+      uiFontFamily,
       themeId: isThemeId(editor.themeId)
         ? editor.themeId
         : DEFAULT_SETTINGS.editor.themeId,

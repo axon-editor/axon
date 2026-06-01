@@ -4,9 +4,13 @@ import SearchSelect, { type SearchSelectItem } from "./SearchSelect";
 import {
   AI_PROVIDER_IDS,
   BUILT_IN_THEME_IDS,
+  EDITOR_FONT_FAMILIES,
+  UI_FONT_FAMILIES,
   type AiProviderId,
   type AxonSettings,
   type BuiltInThemeId,
+  type EditorFontFamily,
+  type UiFontFamily,
 } from "../../shared/settings";
 
 const THEME_LABELS: Record<BuiltInThemeId, string> = {
@@ -14,6 +18,7 @@ const THEME_LABELS: Record<BuiltInThemeId, string> = {
   sora: "Sora",
   "catppuccin-mocha": "Catppuccin Mocha",
   "tokyo-night": "Tokyo Night",
+  "ayu-dark": "Ayu Dark",
 };
 
 const THEME_ITEMS: SearchSelectItem<BuiltInThemeId>[] = BUILT_IN_THEME_IDS.map(
@@ -22,6 +27,19 @@ const THEME_ITEMS: SearchSelectItem<BuiltInThemeId>[] = BUILT_IN_THEME_IDS.map(
     label: THEME_LABELS[themeId],
   }),
 );
+
+const UI_FONT_ITEMS: SearchSelectItem<UiFontFamily>[] = UI_FONT_FAMILIES.map(
+  (fontFamily) => ({
+    value: fontFamily,
+    label: fontFamily,
+  }),
+);
+
+const EDITOR_FONT_ITEMS: SearchSelectItem<EditorFontFamily>[] =
+  EDITOR_FONT_FAMILIES.map((fontFamily) => ({
+    value: fontFamily,
+    label: fontFamily,
+  }));
 
 const AI_PROVIDER_LABELS: Record<AiProviderId, string> = {
   openai: "OpenAI",
@@ -92,11 +110,22 @@ export default function SettingsModal({ settings, onClose, onSave }: Props) {
             placeholder="Search themes..."
           />
 
-          <label className="text-[12px] text-[#9aa4b8]">font family</label>
-          <input
-            value={draft.editor.fontFamily}
-            onChange={(e) => updateEditor("fontFamily", e.target.value)}
-            className="h-8 bg-[#0e1018] border border-[#222838] rounded px-2 text-[12px] text-[#c8d0e0] outline-none focus:border-[#80c8e0]"
+          <label className="text-[12px] text-[#9aa4b8]">ui font</label>
+          <SearchSelect
+            value={draft.editor.uiFontFamily as UiFontFamily}
+            items={UI_FONT_ITEMS}
+            onChange={(fontFamily) => updateEditor("uiFontFamily", fontFamily)}
+            ariaLabel="UI font"
+            placeholder="Search UI fonts..."
+          />
+
+          <label className="text-[12px] text-[#9aa4b8]">editor font</label>
+          <SearchSelect
+            value={draft.editor.fontFamily as EditorFontFamily}
+            items={EDITOR_FONT_ITEMS}
+            onChange={(fontFamily) => updateEditor("fontFamily", fontFamily)}
+            ariaLabel="Editor font"
+            placeholder="Search editor fonts..."
           />
 
           <label className="text-[12px] text-[#9aa4b8]">font size</label>

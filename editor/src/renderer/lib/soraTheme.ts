@@ -1,6 +1,6 @@
 // Monaco editor theme built from the Sora color scheme by aejkatappaja.
 // Original theme: https://github.com/Aejkatappaja/sora-theme
-// Colors mapped from Zed theme syntax tokens to Monaco token rules.
+// Colors mapped from editor syntax tokens to Monaco token rules.
 import * as monaco from "monaco-editor";
 import { type BuiltInThemeId } from "../../shared/settings";
 
@@ -93,6 +93,63 @@ function defineCompanionThemes(monacoInstance: MonacoInstance) {
       "editorGutter.background": "#1a1b26",
       "editorIndentGuide.background1": "#292e42",
       "editorIndentGuide.activeBackground1": "#3b4261",
+    },
+  });
+
+  monacoInstance.editor.defineTheme("ayu-dark", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "comment", foreground: "5c6773", fontStyle: "italic" },
+      { token: "keyword", foreground: "ff8f40", fontStyle: "italic" },
+      { token: "keyword.control", foreground: "ff8f40", fontStyle: "italic" },
+      { token: "keyword.operator", foreground: "f29668" },
+      { token: "operator", foreground: "f29668" },
+      { token: "string", foreground: "aad94c" },
+      { token: "string.key.json", foreground: "73d0ff" },
+      { token: "number", foreground: "d2a6ff" },
+      { token: "constant", foreground: "d2a6ff" },
+      { token: "constant.language", foreground: "ffb454" },
+      { token: "type", foreground: "ffb454" },
+      { token: "type.identifier", foreground: "ffb454" },
+      { token: "function", foreground: "ffb454" },
+      { token: "function.call", foreground: "ffb454" },
+      { token: "variable", foreground: "b3b1ad" },
+      { token: "variable.parameter", foreground: "f29668" },
+      { token: "parameter", foreground: "f29668" },
+      { token: "property", foreground: "73d0ff" },
+      { token: "tag", foreground: "5ccfe6" },
+      { token: "attribute.name", foreground: "ffb454" },
+      { token: "attribute.value", foreground: "aad94c" },
+      { token: "delimiter", foreground: "b3b1ad" },
+      { token: "", foreground: "b3b1ad" },
+    ],
+    colors: {
+      "editor.background": "#0b0e14",
+      "editor.foreground": "#b3b1ad",
+      "editor.lineHighlightBackground": "#11151c",
+      "editor.selectionBackground": "#273747",
+      "editor.inactiveSelectionBackground": "#27374780",
+      "editor.findMatchBackground": "#32516f",
+      "editor.findMatchHighlightBackground": "#32516f80",
+      "editorLineNumber.foreground": "#3d424d",
+      "editorLineNumber.activeForeground": "#ffb454",
+      "editorCursor.foreground": "#ffcc66",
+      "editorGutter.background": "#0b0e14",
+      "editorIndentGuide.background1": "#1f2430",
+      "editorIndentGuide.activeBackground1": "#3d424d",
+      "editorBracketMatch.background": "#27374780",
+      "editorBracketMatch.border": "#ffb454",
+      "scrollbarSlider.background": "#3d424d66",
+      "scrollbarSlider.hoverBackground": "#3d424d99",
+      "scrollbarSlider.activeBackground": "#5c6773",
+      "editorWidget.background": "#11151c",
+      "editorWidget.border": "#1f2430",
+      "editorSuggestWidget.background": "#11151c",
+      "editorSuggestWidget.border": "#1f2430",
+      "editorSuggestWidget.selectedBackground": "#1f2430",
+      "editorSuggestWidget.highlightForeground": "#ffb454",
+      focusBorder: "#ffb454",
     },
   });
 }

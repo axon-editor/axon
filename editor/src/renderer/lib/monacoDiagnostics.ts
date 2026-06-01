@@ -11,7 +11,7 @@ export function configureMonacoDiagnostics(
   configuredMonacos.add(monacoInstance);
 
   // Axon does not have project language servers wired yet, so Monaco's
-  // standalone TypeScript worker cannot see the full workspace the way Zed or
+  // standalone TypeScript worker cannot see the full workspace the way mature
   // VS Code can. Semantic diagnostics become noisy here because imports,
   // tsconfig path aliases, and framework types are missing from the worker.
   // Keeping syntax validation on still catches broken code without showing
