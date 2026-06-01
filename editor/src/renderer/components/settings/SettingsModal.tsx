@@ -79,6 +79,12 @@ export default function SettingsModal({
     LanguageServerStatus[]
   >([]);
   const [loadingLanguageServers, setLoadingLanguageServers] = useState(false);
+  const [languageServerAction, setLanguageServerAction] = useState<
+    "start" | "stop" | null
+  >(null);
+  const [languageServerMessage, setLanguageServerMessage] = useState<
+    string | null
+  >(null);
 
   const customFontItems = useMemo(
     () =>
@@ -224,6 +230,30 @@ export default function SettingsModal({
       setLanguageServers([]);
     } finally {
       setLoadingLanguageServers(false);
+    }
+  };
+
+  const runLanguageServerAction = async (action: "start" | "stop") => {
+    if (!folderPath) return;
+
+    setLanguageServerAction(action);
+    setLanguageServerMessage(null);
+    try {
+      const result =
+        action === "start"
+          ? await window.axon.startLanguageServers(folderPath)
+          : await window.axon.stopLanguageServers(folderPath);
+      setLanguageServers(result.servers);
+      setLanguageServerMessage(result.message);
+    } catch (err) {
+      console.error(`failed to ${action} language servers:`, err);
+      setLanguageServerMessage(
+        action === "start"
+          ? "Failed to start language servers."
+          : "Failed to stop language servers.",
+      );
+    } finally {
+      setLanguageServerAction(null);
     }
   };
 
@@ -567,15 +597,45 @@ export default function SettingsModal({
                     <div className="text-[12px] font-medium text-[#dce4f0]">
                       Workspace servers
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void refreshLanguageServers()}
-                      disabled={!folderPath || loadingLanguageServers}
-                      className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
-                    >
-                      {loadingLanguageServers ? "Checking..." : "Refresh"}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => void runLanguageServerAction("start")}
+                        disabled={
+                          !folderPath ||
+                          !draft.lsp.enabled ||
+                          languageServerAction !== null
+                        }
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                      >
+                        {languageServerAction === "start"
+                          ? "Starting..."
+                          : "Start"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runLanguageServerAction("stop")}
+                        disabled={!folderPath || languageServerAction !== null}
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                      >
+                        {languageServerAction === "stop" ? "Stopping..." : "Stop"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void refreshLanguageServers()}
+                        disabled={!folderPath || loadingLanguageServers}
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                      >
+                        {loadingLanguageServers ? "Checking..." : "Refresh"}
+                      </button>
+                    </div>
                   </div>
+
+                  {languageServerMessage ? (
+                    <div className="border-b border-[#222838] px-3 py-2 text-[11px] text-[#647086]">
+                      {languageServerMessage}
+                    </div>
+                  ) : null}
 
                   {!folderPath ? (
                     <div className="px-3 py-4 text-[12px] text-[#586478]">
@@ -599,12 +659,18 @@ export default function SettingsModal({
                               </span>
                               <span
                                 className={`rounded px-1.5 py-0.5 text-[10px] ${
-                                  server.available
+                                  server.running
+                                    ? "bg-[#142a36] text-[#80c8e0]"
+                                    : server.available
                                     ? "bg-[#15321f] text-[#90c8a0]"
                                     : "bg-[#2a1517] text-[#ff7b72]"
                                 }`}
                               >
-                                {server.available ? "available" : "missing"}
+                                {server.running
+                                  ? "running"
+                                  : server.available
+                                    ? "available"
+                                    : "missing"}
                               </span>
                               {server.relevant ? (
                                 <span className="rounded bg-[#142a36] px-1.5 py-0.5 text-[10px] text-[#80c8e0]">

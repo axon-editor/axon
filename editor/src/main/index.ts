@@ -42,6 +42,7 @@ import {
 } from "../shared/tasks";
 import {
   type LanguageServerId,
+  type LanguageServerLifecycleResult,
   type LanguageServerStatus,
 } from "../shared/lsp";
 
@@ -52,6 +53,7 @@ const execFileAsync = promisify(execFile);
 const isMac = process.platform === "darwin";
 let mainWindow: BrowserWindow | null = null;
 const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
+const activeLanguageServers = new Map<string, LanguageServerSession>();
 
 function sendMenuCommand(command: AxonCommand) {
   const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
@@ -306,9 +308,25 @@ interface LanguageServerDefinition {
   languages: string[];
   command: string;
   args: string[];
+  launchArgs: string[];
   workspaceMarkers: string[];
   installHint: string;
-  resolveCommand?: (folderPath: string) => { command: string; args: string[] };
+  resolveCommand?: (folderPath: string) => {
+    command: string;
+    args: string[];
+    launchCommand: string;
+    launchArgs: string[];
+    startable: boolean;
+  };
+}
+
+interface LanguageServerSession {
+  id: LanguageServerId;
+  folderPath: string;
+  process: ChildProcessWithoutNullStreams;
+  requestId: number;
+  initialized: boolean;
+  stderr: string;
 }
 
 const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
@@ -318,6 +336,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     languages: ["TypeScript", "JavaScript"],
     command: "typescript-language-server",
     args: ["--version"],
+    launchArgs: ["--stdio"],
     workspaceMarkers: ["tsconfig.json", "jsconfig.json", "package.json"],
     installHint: "Install typescript-language-server and typescript.",
     resolveCommand: (folderPath) => {
@@ -331,7 +350,13 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       );
 
       if (fs.existsSync(workspaceServer)) {
-        return { command: workspaceServer, args: ["--version"] };
+        return {
+          command: workspaceServer,
+          args: ["--version"],
+          launchCommand: workspaceServer,
+          launchArgs: ["--stdio"],
+          startable: true,
+        };
       }
 
       // The standalone language server is ideal, but a workspace TypeScript
@@ -339,10 +364,22 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       // has the tsserver engine that a later client can spawn through a small
       // adapter instead of relying on Monaco's isolated TypeScript worker.
       if (fs.existsSync(workspaceTsc)) {
-        return { command: workspaceTsc, args: [] };
+        return {
+          command: workspaceTsc,
+          args: [],
+          launchCommand: workspaceTsc,
+          launchArgs: [],
+          startable: false,
+        };
       }
 
-      return { command: "typescript-language-server", args: ["--version"] };
+      return {
+        command: "typescript-language-server",
+        args: ["--version"],
+        launchCommand: "typescript-language-server",
+        launchArgs: ["--stdio"],
+        startable: true,
+      };
     },
   },
   {
@@ -351,6 +388,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     languages: ["Go"],
     command: "gopls",
     args: ["version"],
+    launchArgs: [],
     workspaceMarkers: ["go.mod", "go.work"],
     installHint: "Install gopls.",
   },
@@ -360,6 +398,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     languages: ["Rust"],
     command: "rust-analyzer",
     args: ["--version"],
+    launchArgs: [],
     workspaceMarkers: ["Cargo.toml"],
     installHint: "Install rust-analyzer.",
   },
@@ -369,6 +408,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     languages: ["Python"],
     command: "pyright-langserver",
     args: ["--version"],
+    launchArgs: ["--stdio"],
     workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt"],
     installHint: "Install pyright.",
   },
@@ -376,6 +416,28 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
 
 function hasWorkspaceMarker(folderPath: string, markers: string[]) {
   return markers.some((marker) => fs.existsSync(path.join(folderPath, marker)));
+}
+
+function getLanguageServerSessionKey(
+  folderPath: string,
+  id: LanguageServerId,
+) {
+  return `${path.resolve(folderPath)}::${id}`;
+}
+
+function resolveLanguageServerCommand(
+  definition: LanguageServerDefinition,
+  folderPath: string,
+) {
+  return (
+    definition.resolveCommand?.(folderPath) ?? {
+      command: definition.command,
+      args: definition.args,
+      launchCommand: definition.command,
+      launchArgs: definition.launchArgs,
+      startable: true,
+    }
+  );
 }
 
 async function canRunCommand(command: string, args: string[]) {
@@ -401,17 +463,100 @@ async function canRunCommand(command: string, args: string[]) {
   }
 }
 
+function writeLanguageServerMessage(
+  session: LanguageServerSession,
+  payload: unknown,
+) {
+  const body = JSON.stringify(payload);
+  session.process.stdin.write(
+    `Content-Length: ${Buffer.byteLength(body, "utf-8")}\r\n\r\n${body}`,
+  );
+}
+
+function initializeLanguageServer(session: LanguageServerSession) {
+  session.requestId += 1;
+
+  // This is a minimal LSP handshake, not the full client. The important part
+  // for this slice is proving Axon can own the server process and negotiate a
+  // workspace root from the main process. Diagnostics, document sync, and
+  // definition requests can now build on this session instead of inventing a
+  // separate process lifecycle later.
+  writeLanguageServerMessage(session, {
+    jsonrpc: "2.0",
+    id: session.requestId,
+    method: "initialize",
+    params: {
+      processId: process.pid,
+      rootUri: url.pathToFileURL(session.folderPath).toString(),
+      workspaceFolders: [
+        {
+          uri: url.pathToFileURL(session.folderPath).toString(),
+          name: path.basename(session.folderPath),
+        },
+      ],
+      capabilities: {},
+    },
+  });
+
+  writeLanguageServerMessage(session, {
+    jsonrpc: "2.0",
+    method: "initialized",
+    params: {},
+  });
+  session.initialized = true;
+}
+
+function stopLanguageServerSession(key: string) {
+  const session = activeLanguageServers.get(key);
+  if (!session) return;
+
+  try {
+    writeLanguageServerMessage(session, {
+      jsonrpc: "2.0",
+      id: session.requestId + 1,
+      method: "shutdown",
+      params: null,
+    });
+    writeLanguageServerMessage(session, {
+      jsonrpc: "2.0",
+      method: "exit",
+      params: {},
+    });
+  } catch {
+    // The process may already be exiting. The cleanup below still removes the
+    // stale session and kills anything that did not accept the graceful exit.
+  }
+
+  session.process.kill();
+  activeLanguageServers.delete(key);
+}
+
+function stopLanguageServersForFolder(folderPath: string) {
+  const resolvedFolder = path.resolve(folderPath);
+  for (const [key, session] of activeLanguageServers.entries()) {
+    if (path.resolve(session.folderPath) === resolvedFolder) {
+      stopLanguageServerSession(key);
+    }
+  }
+}
+
+function stopAllLanguageServers() {
+  for (const key of activeLanguageServers.keys()) {
+    stopLanguageServerSession(key);
+  }
+}
+
 async function getLanguageServerStatus(
   folderPath: string,
 ): Promise<LanguageServerStatus[]> {
   return Promise.all(
     LANGUAGE_SERVER_DEFINITIONS.map(async (definition) => {
-      const resolved = definition.resolveCommand?.(folderPath) ?? {
-        command: definition.command,
-        args: definition.args,
-      };
+      const resolved = resolveLanguageServerCommand(definition, folderPath);
       const relevant = hasWorkspaceMarker(folderPath, definition.workspaceMarkers);
       const available = await canRunCommand(resolved.command, resolved.args);
+      const running = activeLanguageServers.has(
+        getLanguageServerSessionKey(folderPath, definition.id),
+      );
 
       return {
         id: definition.id,
@@ -419,8 +564,12 @@ async function getLanguageServerStatus(
         languages: definition.languages,
         available,
         relevant,
+        running,
+        startable: resolved.startable,
         command: resolved.command,
-        detail: available
+        detail: running
+          ? "Running for this workspace"
+          : available
           ? relevant
             ? "Ready for this workspace"
             : "Installed but no matching workspace markers found"
@@ -431,6 +580,81 @@ async function getLanguageServerStatus(
       };
     }),
   );
+}
+
+async function startRelevantLanguageServers(
+  folderPath: string,
+): Promise<LanguageServerLifecycleResult> {
+  const statuses = await getLanguageServerStatus(folderPath);
+  const startableServers = statuses.filter(
+    (server) =>
+      server.relevant && server.available && server.startable && !server.running,
+  );
+
+  for (const status of startableServers) {
+    const definition = LANGUAGE_SERVER_DEFINITIONS.find(
+      (candidate) => candidate.id === status.id,
+    );
+    if (!definition) continue;
+
+    const resolved = resolveLanguageServerCommand(definition, folderPath);
+    const child = spawn(resolved.launchCommand, resolved.launchArgs, {
+      cwd: folderPath,
+      stdio: "pipe",
+    });
+    const key = getLanguageServerSessionKey(folderPath, definition.id);
+    const session: LanguageServerSession = {
+      id: definition.id,
+      folderPath,
+      process: child,
+      requestId: 0,
+      initialized: false,
+      stderr: "",
+    };
+
+    activeLanguageServers.set(key, session);
+
+    child.stderr.on("data", (chunk) => {
+      session.stderr = `${session.stderr}${chunk.toString()}`.slice(-4000);
+    });
+    child.on("exit", () => {
+      activeLanguageServers.delete(key);
+    });
+    child.on("error", () => {
+      activeLanguageServers.delete(key);
+    });
+
+    initializeLanguageServer(session);
+  }
+
+  const nextStatuses = await getLanguageServerStatus(folderPath);
+  return {
+    ok: true,
+    message:
+      startableServers.length === 0
+        ? "No relevant language servers needed to start."
+        : `Started ${startableServers.length} language server${startableServers.length === 1 ? "" : "s"}.`,
+    servers: nextStatuses,
+  };
+}
+
+async function stopRelevantLanguageServers(
+  folderPath: string,
+): Promise<LanguageServerLifecycleResult> {
+  const beforeCount = Array.from(activeLanguageServers.values()).filter(
+    (session) => path.resolve(session.folderPath) === path.resolve(folderPath),
+  ).length;
+
+  stopLanguageServersForFolder(folderPath);
+
+  return {
+    ok: true,
+    message:
+      beforeCount === 0
+        ? "No language servers were running for this workspace."
+        : `Stopped ${beforeCount} language server${beforeCount === 1 ? "" : "s"}.`,
+    servers: await getLanguageServerStatus(folderPath),
+  };
 }
 
 function getWorkspaceTasks(folderPath: string): WorkspaceTask[] {
@@ -1191,6 +1415,30 @@ ipcMain.handle("lsp:status", async (_event, folderPath: string) => {
   return getLanguageServerStatus(folderPath);
 });
 
+ipcMain.handle("lsp:start", async (_event, folderPath: string) => {
+  if (!folderPath || !fs.existsSync(folderPath)) {
+    return {
+      ok: false,
+      message: "Open a workspace before starting language servers.",
+      servers: [],
+    } satisfies LanguageServerLifecycleResult;
+  }
+
+  return startRelevantLanguageServers(folderPath);
+});
+
+ipcMain.handle("lsp:stop", async (_event, folderPath: string) => {
+  if (!folderPath || !fs.existsSync(folderPath)) {
+    return {
+      ok: false,
+      message: "Open a workspace before stopping language servers.",
+      servers: [],
+    } satisfies LanguageServerLifecycleResult;
+  }
+
+  return stopRelevantLanguageServers(folderPath);
+});
+
 ipcMain.handle("git:status", async (_event, folderPath: string) => {
   if (!folderPath || !fs.existsSync(folderPath)) {
     return {
@@ -1316,6 +1564,7 @@ app.on("window-all-closed", () => {
 ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
   await closeFolderWatcher();
   await closeGitWatcher();
+  stopAllLanguageServers();
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1369,6 +1618,7 @@ ipcMain.handle("fs:unwatchFolder", async () => {
 
 app.on("before-quit", async () => {
   stopActiveTasks();
+  stopAllLanguageServers();
   await closeActiveWatcher();
   await closeFolderWatcher();
   await closeGitWatcher();

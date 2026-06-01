@@ -62,7 +62,10 @@ import {
   type TaskRunResult,
   type WorkspaceTask,
 } from "../shared/tasks";
-import { type LanguageServerStatus } from "../shared/lsp";
+import {
+  type LanguageServerLifecycleResult,
+  type LanguageServerStatus,
+} from "../shared/lsp";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import {
@@ -110,6 +113,12 @@ declare global {
       getLanguageServerStatus: (
         folderPath: string,
       ) => Promise<LanguageServerStatus[]>;
+      startLanguageServers: (
+        folderPath: string,
+      ) => Promise<LanguageServerLifecycleResult>;
+      stopLanguageServers: (
+        folderPath: string,
+      ) => Promise<LanguageServerLifecycleResult>;
       listWorkspaceTasks: (folderPath: string) => Promise<WorkspaceTask[]>;
       runWorkspaceTask: (
         folderPath: string,
