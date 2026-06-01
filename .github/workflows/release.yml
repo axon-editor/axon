@@ -1,0 +1,71 @@
+name: Release Axon
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to publish when running this workflow manually."
+        required: true
+        default: "v1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    name: Build ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: macOS
+            runner: macos-latest
+            command: npm run dist:mac
+          - name: Windows
+            runner: windows-latest
+            command: npm run dist:win
+          - name: Linux
+            runner: ubuntu-latest
+            command: npm run dist:linux
+
+    defaults:
+      run:
+        working-directory: editor
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
+
+      - name: Install editor dependencies
+        run: npm ci
+
+      - name: Build packaged desktop target
+        run: ${{ matrix.platform.command }}
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          # Tag pushes already provide the release tag through github.ref_name.
+          # Manual runs need an explicit tag name so we can create or update the
+          # same draft release without depending on the workflow branch name.
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}
+          draft: true
+          fail_on_unmatched_files: false
+          files: |
+            editor/release/*.dmg
+            editor/release/*.zip
+            editor/release/*.exe
+            editor/release/*.AppImage
+            editor/release/*.deb
+            editor/release/*.blockmap

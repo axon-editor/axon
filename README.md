@@ -110,6 +110,20 @@ Cross-platform builds can require platform-specific tooling and signing. macOS
 builds are easiest from macOS; Windows and Linux release builds should be
 verified on their target platforms before sharing broadly.
 
+**Publish a GitHub Release**
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Pushing a `v*` tag runs the release workflow in `.github/workflows/release.yml`.
+The workflow builds macOS, Windows, and Linux packages on GitHub Actions and
+uploads the generated installers into a draft GitHub Release. Keep the release
+as a draft until the platform artifacts have been checked.
+
+You can also start the same workflow manually from GitHub Actions by choosing a
+release tag such as `v1.0.0`.
+
 ## Current Features
 
 - Open any folder and browse the real file tree

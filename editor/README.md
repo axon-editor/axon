@@ -60,6 +60,18 @@ cd ../core
 go run cmd/axon/main.go
 ```
 
+## GitHub Release
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The repo release workflow builds the editor on macOS, Windows, and Linux runners
+and uploads the generated files from `editor/release/` into a draft GitHub
+Release. The draft state is intentional so the release can be checked before it
+is published.
+
 ## Notes
 
 - `build:main` compiles the Electron main process TypeScript.
