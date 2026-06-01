@@ -247,10 +247,12 @@ export default function SettingsModal({
       setLanguageServerMessage(result.message);
     } catch (err) {
       console.error(`failed to ${action} language servers:`, err);
+      const message = err instanceof Error ? err.message : "";
       setLanguageServerMessage(
-        action === "start"
-          ? "Failed to start language servers."
-          : "Failed to stop language servers.",
+        message ||
+          (action === "start"
+            ? "Failed to start language servers."
+            : "Failed to stop language servers."),
       );
     } finally {
       setLanguageServerAction(null);

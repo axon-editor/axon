@@ -329,6 +329,12 @@ interface LanguageServerSession {
   stderr: string;
 }
 
+interface LanguageServerStartAttempt {
+  label: string;
+  ok: boolean;
+  message: string;
+}
+
 const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
   {
     id: "typescript",
@@ -468,6 +474,9 @@ function writeLanguageServerMessage(
   payload: unknown,
 ) {
   const body = JSON.stringify(payload);
+  if (session.process.stdin.destroyed || !session.process.stdin.writable) {
+    throw new Error(`${session.id} language server stdin is not writable.`);
+  }
   session.process.stdin.write(
     `Content-Length: ${Buffer.byteLength(body, "utf-8")}\r\n\r\n${body}`,
   );
@@ -546,6 +555,48 @@ function stopAllLanguageServers() {
   }
 }
 
+function waitForLanguageServerSpawn(
+  child: ChildProcessWithoutNullStreams,
+  label: string,
+) {
+  return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, 350);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      child.off("spawn", handleSpawn);
+      child.off("error", handleError);
+      child.off("exit", handleExit);
+    };
+
+    const handleSpawn = () => {
+      cleanup();
+      resolve();
+    };
+
+    const handleError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+
+    const handleExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      cleanup();
+      reject(
+        new Error(
+          `${label} exited before initialization${code !== null ? ` with code ${code}` : ""}${signal ? ` (${signal})` : ""}.`,
+        ),
+      );
+    };
+
+    child.once("spawn", handleSpawn);
+    child.once("error", handleError);
+    child.once("exit", handleExit);
+  });
+}
+
 async function getLanguageServerStatus(
   folderPath: string,
 ): Promise<LanguageServerStatus[]> {
@@ -590,6 +641,7 @@ async function startRelevantLanguageServers(
     (server) =>
       server.relevant && server.available && server.startable && !server.running,
   );
+  const attempts: LanguageServerStartAttempt[] = [];
 
   for (const status of startableServers) {
     const definition = LANGUAGE_SERVER_DEFINITIONS.find(
@@ -598,42 +650,62 @@ async function startRelevantLanguageServers(
     if (!definition) continue;
 
     const resolved = resolveLanguageServerCommand(definition, folderPath);
-    const child = spawn(resolved.launchCommand, resolved.launchArgs, {
-      cwd: folderPath,
-      stdio: "pipe",
-    });
     const key = getLanguageServerSessionKey(folderPath, definition.id);
-    const session: LanguageServerSession = {
-      id: definition.id,
-      folderPath,
-      process: child,
-      requestId: 0,
-      initialized: false,
-      stderr: "",
-    };
 
-    activeLanguageServers.set(key, session);
+    try {
+      const child = spawn(resolved.launchCommand, resolved.launchArgs, {
+        cwd: folderPath,
+        stdio: "pipe",
+      });
+      const session: LanguageServerSession = {
+        id: definition.id,
+        folderPath,
+        process: child,
+        requestId: 0,
+        initialized: false,
+        stderr: "",
+      };
 
-    child.stderr.on("data", (chunk) => {
-      session.stderr = `${session.stderr}${chunk.toString()}`.slice(-4000);
-    });
-    child.on("exit", () => {
+      await waitForLanguageServerSpawn(child, definition.label);
+      activeLanguageServers.set(key, session);
+
+      child.stderr.on("data", (chunk) => {
+        session.stderr = `${session.stderr}${chunk.toString()}`.slice(-4000);
+      });
+      child.on("exit", () => {
+        activeLanguageServers.delete(key);
+      });
+      child.on("error", () => {
+        activeLanguageServers.delete(key);
+      });
+
+      initializeLanguageServer(session);
+      attempts.push({
+        label: definition.label,
+        ok: true,
+        message: `${definition.label} started.`,
+      });
+    } catch (err) {
       activeLanguageServers.delete(key);
-    });
-    child.on("error", () => {
-      activeLanguageServers.delete(key);
-    });
-
-    initializeLanguageServer(session);
+      attempts.push({
+        label: definition.label,
+        ok: false,
+        message: `${definition.label}: ${(err as Error).message}`,
+      });
+    }
   }
 
   const nextStatuses = await getLanguageServerStatus(folderPath);
+  const failedAttempts = attempts.filter((attempt) => !attempt.ok);
+  const startedCount = attempts.filter((attempt) => attempt.ok).length;
   return {
-    ok: true,
+    ok: failedAttempts.length === 0,
     message:
       startableServers.length === 0
         ? "No relevant language servers needed to start."
-        : `Started ${startableServers.length} language server${startableServers.length === 1 ? "" : "s"}.`,
+        : failedAttempts.length > 0
+          ? `Started ${startedCount}. Failed: ${failedAttempts.map((attempt) => attempt.message).join("; ")}`
+          : `Started ${startedCount} language server${startedCount === 1 ? "" : "s"}.`,
     servers: nextStatuses,
   };
 }
