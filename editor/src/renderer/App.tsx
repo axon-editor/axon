@@ -14,7 +14,7 @@ import {
 } from "./components/BottomPanel";
 import DiffModal from "./components/DiffModal";
 import EditorToolbar from "./components/EditorToolbar";
-import SettingsModal from "./components/SettingsModal";
+import SettingsModal from "./components/settings";
 import SplashScreen from "./components/SplashScreen";
 import AboutModal, { type AppInfo } from "./components/AboutModal";
 import SourceControlModal from "./components/SourceControlModal";
