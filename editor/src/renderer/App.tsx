@@ -109,7 +109,7 @@ function App() {
     try {
       const fileTree = await getTree(path);
       addRecentFolder(path);
-      handleFolderChange(path, fileTree);
+      await handleFolderChange(path, fileTree);
     } catch (err) {
       console.error("failed to load tree:", err);
     } finally {
@@ -117,7 +117,7 @@ function App() {
     }
   };
 
-  const handleFolderChange = (path: string, fileTree: FileNode) => {
+  const handleFolderChange = async (path: string, fileTree: FileNode) => {
     setFolderPath(path);
     setTree(fileTree);
     setLayout(createInitialLayout());
@@ -128,8 +128,8 @@ function App() {
     setTerminalOpen(false);
     setTerminalCreateWorkingDirectory(null);
 
-    void window.axon.unwatchFolder();
-    window.axon.watchFolder(path);
+    await window.axon.unwatchFolder();
+    await window.axon.watchFolder(path);
   };
 
   const handleRefresh = async () => {

@@ -52,6 +52,7 @@ let mainWindow: BrowserWindow | null = null;
 // holds the active chokidar watcher so we can stop it when switching files
 let activeWatcher: FSWatcher | null = null;
 let folderWatcher: FSWatcher | null = null;
+const shouldPollWatchers = process.platform === "darwin";
 
 function getSettingsPath() {
   return path.join(app.getPath("userData"), "settings.json");
@@ -138,6 +139,35 @@ function createWindow() {
   }
 }
 
+function buildWatcherOptions() {
+  return {
+    persistent: true,
+    ignoreInitial: true,
+    awaitWriteFinish: {
+      stabilityThreshold: 100,
+      pollInterval: 50,
+    },
+    // macOS kqueue watchers are fast, but on a large workspace they can chew
+    // through the process file-descriptor limit. Polling is less elegant, but
+    // it keeps Axon stable under the repo sizes we actually run here.
+    usePolling: shouldPollWatchers,
+    interval: 250,
+    binaryInterval: 400,
+  };
+}
+
+async function closeActiveWatcher() {
+  if (!activeWatcher) return;
+  await activeWatcher.close();
+  activeWatcher = null;
+}
+
+async function closeFolderWatcher() {
+  if (!folderWatcher) return;
+  await folderWatcher.close();
+  folderWatcher = null;
+}
+
 ipcMain.handle("dialog:openFolder", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openDirectory"],
@@ -165,21 +195,11 @@ ipcMain.handle("settings:update", async (_event, settings: AxonSettings) => {
 // uses a small debounce delay to avoid multiple rapid fire events from
 // editors that do atomic saves (write to temp then rename).
 ipcMain.handle("fs:watch", async (_event, filePath: string) => {
-  if (activeWatcher) {
-    await activeWatcher.close();
-    activeWatcher = null;
-  }
+  await closeActiveWatcher();
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  activeWatcher = chokidar.watch(filePath, {
-    persistent: true,
-    ignoreInitial: true,
-    awaitWriteFinish: {
-      stabilityThreshold: 100,
-      pollInterval: 50,
-    },
-  });
+  activeWatcher = chokidar.watch(filePath, buildWatcherOptions());
 
   activeWatcher.on("change", () => {
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -197,10 +217,7 @@ ipcMain.handle("fs:watch", async (_event, filePath: string) => {
 
 // stop watching when the renderer no longer needs it
 ipcMain.handle("fs:unwatch", async () => {
-  if (activeWatcher) {
-    await activeWatcher.close();
-    activeWatcher = null;
-  }
+  await closeActiveWatcher();
 });
 
 app.whenReady().then(() => {
@@ -225,22 +242,15 @@ app.on("window-all-closed", () => {
 // debounced to avoid rapid fire events from bulk operations.
 
 ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
-  if (folderWatcher) {
-    await folderWatcher.close();
-    folderWatcher = null;
-  }
+  await closeFolderWatcher();
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   folderWatcher = chokidar.watch(folderPath, {
-    persistent: true,
-    ignoreInitial: true,
+    ...buildWatcherOptions(),
     // ignore hidden files, node_modules, vendor, dist
     ignored: /(^|[\/\\])(\.|node_modules|vendor|dist)/,
-    awaitWriteFinish: {
-      stabilityThreshold: 100,
-      pollInterval: 50,
-    },
+    depth: 8,
   });
 
   const notify = () => {
@@ -257,10 +267,12 @@ ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
 });
 
 ipcMain.handle("fs:unwatchFolder", async () => {
-  if (folderWatcher) {
-    await folderWatcher.close();
-    folderWatcher = null;
-  }
+  await closeFolderWatcher();
+});
+
+app.on("before-quit", async () => {
+  await closeActiveWatcher();
+  await closeFolderWatcher();
 });
 
 // register axon:// protocol before app is ready

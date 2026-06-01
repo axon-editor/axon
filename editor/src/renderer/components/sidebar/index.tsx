@@ -36,7 +36,7 @@ interface Props {
   activeFile: string | null;
   onFileSelect: (path: string) => void;
   onOpenFolder: () => void;
-  onFolderChange: (path: string, tree: FileNode) => void;
+  onFolderChange: (path: string, tree: FileNode) => void | Promise<void>;
   onRefresh: () => void;
   loading: boolean;
   collapsed: boolean;
@@ -86,7 +86,7 @@ export default function Sidebar({
     try {
       const fileTree = await getTree(path);
       addRecentFolder(path);
-      onFolderChange(path, fileTree);
+      await onFolderChange(path, fileTree);
     } catch (err) {
       console.error("failed to open recent folder:", err);
     }
@@ -188,7 +188,7 @@ export default function Sidebar({
           recentFolders={getRecentFolders()}
           onSelect={handleSelectRecent}
           onOpenNew={() => {
-            onOpenFolder();
+            void onOpenFolder();
             setPickerOpen(false);
           }}
           onClose={() => setPickerOpen(false)}
