@@ -10,6 +10,7 @@ export const AXON_COMMANDS = {
   OPEN_OUTPUT_PANEL: "open-output-panel",
   OPEN_DIFF_VIEW: "open-diff-view",
   OPEN_SOURCE_CONTROL: "open-source-control",
+  OPEN_TASK_RUNNER: "open-task-runner",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",
   OPEN_SETTINGS_JSON: "open-settings-json",

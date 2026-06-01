@@ -12,6 +12,12 @@ import {
   type GitDiffResult,
   type GitStatusResult,
 } from "../shared/git";
+import {
+  type TaskFinishedEvent,
+  type TaskOutputEvent,
+  type TaskRunResult,
+  type WorkspaceTask,
+} from "../shared/tasks";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -26,6 +32,13 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("diagnostics:project", folderPath),
   getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke("git:status", folderPath),
+  listWorkspaceTasks: (folderPath: string): Promise<WorkspaceTask[]> =>
+    ipcRenderer.invoke("tasks:list", folderPath),
+  runWorkspaceTask: (
+    folderPath: string,
+    taskId: string,
+  ): Promise<TaskRunResult> =>
+    ipcRenderer.invoke("tasks:run", folderPath, taskId),
   getGitDiff: (
     folderPath: string,
     filePath: string,
@@ -67,6 +80,16 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = () => callback();
     ipcRenderer.on("git:changed", handler);
     return () => ipcRenderer.removeListener("git:changed", handler);
+  },
+  onTaskOutput: (callback: (event: TaskOutputEvent) => void) => {
+    const handler = (_: unknown, event: TaskOutputEvent) => callback(event);
+    ipcRenderer.on("task:output", handler);
+    return () => ipcRenderer.removeListener("task:output", handler);
+  },
+  onTaskFinished: (callback: (event: TaskFinishedEvent) => void) => {
+    const handler = (_: unknown, event: TaskFinishedEvent) => callback(event);
+    ipcRenderer.on("task:finished", handler);
+    return () => ipcRenderer.removeListener("task:finished", handler);
   },
 
   onMenuCommand: (callback: (command: AxonCommand) => void) => {

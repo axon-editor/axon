@@ -13,7 +13,11 @@ import path from "path";
 import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
 import url from "url";
-import { execFile } from "child_process";
+import {
+  execFile,
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from "child_process";
 import { promisify } from "util";
 import {
   DEFAULT_SETTINGS,
@@ -29,6 +33,12 @@ import {
   type GitFileState,
   type GitStatusResult,
 } from "../shared/git";
+import {
+  type TaskFinishedEvent,
+  type TaskOutputEvent,
+  type TaskRunResult,
+  type WorkspaceTask,
+} from "../shared/tasks";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -36,6 +46,7 @@ const execFileAsync = promisify(execFile);
 
 const isMac = process.platform === "darwin";
 let mainWindow: BrowserWindow | null = null;
+const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 
 function sendMenuCommand(command: AxonCommand) {
   const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
@@ -214,6 +225,216 @@ function readSettingsForFolder(folderPath?: string | null): AxonSettings {
   }
 
   return readSettingsFromDisk(getUserSettingsPath());
+}
+
+function readJsonFile<T>(filePath: string): T | null {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+function getWorkspaceTasks(folderPath: string): WorkspaceTask[] {
+  // Tasks are detected in the main process instead of letting the renderer send
+  // arbitrary shell strings. That gives Axon a real task runner while keeping
+  // the first implementation constrained to project-owned commands that are
+  // already declared in package.json, go.mod, or Cargo.toml.
+  const tasks: WorkspaceTask[] = [];
+  const packageJsonPath = path.join(folderPath, "package.json");
+  const packageJson = readJsonFile<{ scripts?: Record<string, string> }>(
+    packageJsonPath,
+  );
+
+  if (packageJson?.scripts) {
+    for (const [scriptName, scriptCommand] of Object.entries(
+      packageJson.scripts,
+    )) {
+      tasks.push({
+        id: `npm:${scriptName}`,
+        kind: "npm",
+        label: `npm run ${scriptName}`,
+        detail: scriptCommand,
+      });
+    }
+  }
+
+  if (fs.existsSync(path.join(folderPath, "go.mod"))) {
+    tasks.push(
+      {
+        id: "go:test",
+        kind: "go",
+        label: "go test ./...",
+        detail: "Run all Go package tests",
+      },
+      {
+        id: "go:build",
+        kind: "go",
+        label: "go build ./...",
+        detail: "Build all Go packages",
+      },
+    );
+  }
+
+  if (fs.existsSync(path.join(folderPath, "Cargo.toml"))) {
+    tasks.push(
+      {
+        id: "cargo:test",
+        kind: "cargo",
+        label: "cargo test",
+        detail: "Run Cargo tests",
+      },
+      {
+        id: "cargo:build",
+        kind: "cargo",
+        label: "cargo build",
+        detail: "Build the Cargo package",
+      },
+    );
+  }
+
+  return tasks;
+}
+
+function getTaskCommand(task: WorkspaceTask) {
+  if (task.kind === "npm") {
+    const scriptName = task.id.slice("npm:".length);
+    return {
+      command: process.platform === "win32" ? "npm.cmd" : "npm",
+      args: ["run", scriptName],
+    };
+  }
+
+  if (task.id === "go:test") return { command: "go", args: ["test", "./..."] };
+  if (task.id === "go:build") {
+    return { command: "go", args: ["build", "./..."] };
+  }
+  if (task.id === "cargo:test") return { command: "cargo", args: ["test"] };
+  return { command: "cargo", args: ["build"] };
+}
+
+function sendTaskOutput(event: TaskOutputEvent) {
+  mainWindow?.webContents.send("task:output", event);
+}
+
+function sendTaskFinished(event: TaskFinishedEvent) {
+  mainWindow?.webContents.send("task:finished", event);
+}
+
+function streamTaskOutput(
+  runId: string,
+  task: WorkspaceTask,
+  stream: "stdout" | "stderr",
+  chunk: Buffer,
+  buffer: { value: string },
+) {
+  buffer.value += chunk.toString();
+  const lines = buffer.value.split(/\r?\n/);
+  buffer.value = lines.pop() ?? "";
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    sendTaskOutput({
+      runId,
+      taskId: task.id,
+      label: task.label,
+      stream,
+      line,
+    });
+  }
+}
+
+function startWorkspaceTask(
+  folderPath: string,
+  taskId: string,
+): TaskRunResult {
+  // The renderer sends only a task id. I re-detect the task right before
+  // execution so stale UI state cannot run a command that no longer belongs to
+  // the current workspace after package.json or the folder changes.
+  const task = getWorkspaceTasks(folderPath).find(
+    (candidate) => candidate.id === taskId,
+  );
+  if (!task) {
+    throw new Error("Task is no longer available in this workspace.");
+  }
+
+  const runId = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
+  const { command, args } = getTaskCommand(task);
+  // spawn gives us streaming stdout/stderr, which is the important behavior for
+  // build tools. execFile would only return after the command ends, making the
+  // Output panel feel frozen during long tests or builds.
+  const child = spawn(command, args, {
+    cwd: folderPath,
+    env: process.env,
+  });
+  const stdoutBuffer = { value: "" };
+  const stderrBuffer = { value: "" };
+
+  activeTasks.set(runId, child);
+  sendTaskOutput({
+    runId,
+    taskId: task.id,
+    label: task.label,
+    stream: "system",
+    line: `$ ${[command, ...args].join(" ")}`,
+  });
+
+  child.stdout.on("data", (chunk: Buffer) => {
+    streamTaskOutput(runId, task, "stdout", chunk, stdoutBuffer);
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    streamTaskOutput(runId, task, "stderr", chunk, stderrBuffer);
+  });
+  child.on("error", (err) => {
+    sendTaskOutput({
+      runId,
+      taskId: task.id,
+      label: task.label,
+      stream: "stderr",
+      line: err.message,
+    });
+  });
+  child.on("close", (exitCode, signal) => {
+    if (stdoutBuffer.value.trim()) {
+      sendTaskOutput({
+        runId,
+        taskId: task.id,
+        label: task.label,
+        stream: "stdout",
+        line: stdoutBuffer.value.trimEnd(),
+      });
+    }
+    if (stderrBuffer.value.trim()) {
+      sendTaskOutput({
+        runId,
+        taskId: task.id,
+        label: task.label,
+        stream: "stderr",
+        line: stderrBuffer.value.trimEnd(),
+      });
+    }
+    activeTasks.delete(runId);
+    sendTaskFinished({
+      runId,
+      taskId: task.id,
+      label: task.label,
+      exitCode,
+      signal,
+    });
+  });
+
+  return { runId, task };
+}
+
+function stopActiveTasks() {
+  // Tasks are child processes owned by Axon. If the app quits while a build is
+  // still running, leaving those processes alive would make the Output panel
+  // lie on the next launch and could keep project tools running in the
+  // background without a visible owner.
+  for (const taskProcess of activeTasks.values()) {
+    if (!taskProcess.killed) taskProcess.kill();
+  }
+  activeTasks.clear();
 }
 
 function ensureSettingsFile(folderPath?: string | null, settings?: unknown) {
@@ -758,6 +979,21 @@ ipcMain.handle("git:status", async (_event, folderPath: string) => {
   return getGitStatus(folderPath);
 });
 
+ipcMain.handle("tasks:list", async (_event, folderPath: string) => {
+  if (!folderPath || !fs.existsSync(folderPath)) return [];
+  return getWorkspaceTasks(folderPath);
+});
+
+ipcMain.handle(
+  "tasks:run",
+  async (_event, folderPath: string, taskId: string) => {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      throw new Error("Open a workspace before running tasks.");
+    }
+    return startWorkspaceTask(folderPath, taskId);
+  },
+);
+
 ipcMain.handle(
   "git:diff",
   async (
@@ -905,6 +1141,7 @@ ipcMain.handle("fs:unwatchFolder", async () => {
 });
 
 app.on("before-quit", async () => {
+  stopActiveTasks();
   await closeActiveWatcher();
   await closeFolderWatcher();
   await closeGitWatcher();

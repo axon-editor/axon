@@ -18,6 +18,7 @@ import SettingsModal from "./components/SettingsModal";
 import SplashScreen from "./components/SplashScreen";
 import AboutModal, { type AppInfo } from "./components/AboutModal";
 import SourceControlModal from "./components/SourceControlModal";
+import TaskRunnerModal from "./components/TaskRunnerModal";
 import {
   getTree,
   createFile,
@@ -52,6 +53,12 @@ import {
   type GitDiffResult,
   type GitStatusResult,
 } from "../shared/git";
+import {
+  type TaskFinishedEvent,
+  type TaskOutputEvent,
+  type TaskRunResult,
+  type WorkspaceTask,
+} from "../shared/tasks";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import "./App.css";
@@ -83,6 +90,11 @@ declare global {
         settings?: AxonSettings,
       ) => Promise<string>;
       getProjectDiagnostics: (folderPath: string) => Promise<EditorDiagnostic[]>;
+      listWorkspaceTasks: (folderPath: string) => Promise<WorkspaceTask[]>;
+      runWorkspaceTask: (
+        folderPath: string,
+        taskId: string,
+      ) => Promise<TaskRunResult>;
       getGitStatus: (folderPath: string) => Promise<GitStatusResult>;
       getGitDiff: (
         folderPath: string,
@@ -107,6 +119,10 @@ declare global {
       ) => () => void;
       onFolderChanged: (callback: () => void) => () => void;
       onGitChanged: (callback: () => void) => () => void;
+      onTaskOutput: (callback: (event: TaskOutputEvent) => void) => () => void;
+      onTaskFinished: (
+        callback: (event: TaskFinishedEvent) => void,
+      ) => () => void;
       onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
     };
   }
@@ -125,6 +141,7 @@ function App() {
     useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
+  const [taskRunnerOpen, setTaskRunnerOpen] = useState(false);
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
   const [bottomPanelTab, setBottomPanelTab] =
     useState<BottomPanelTab>("problems");
@@ -320,6 +337,30 @@ function App() {
     });
     return cleanup;
   }, [refreshGitStatus]);
+
+  useEffect(() => {
+    const cleanupOutput = window.axon.onTaskOutput((event) => {
+      appendOutput(
+        event.label,
+        event.line,
+        event.stream === "stderr" ? "warning" : "info",
+      );
+    });
+    const cleanupFinished = window.axon.onTaskFinished((event) => {
+      appendOutput(
+        event.label,
+        event.exitCode === 0
+          ? "Task completed successfully."
+          : `Task exited with ${event.exitCode ?? event.signal ?? "unknown"}.`,
+        event.exitCode === 0 ? "success" : "error",
+      );
+    });
+
+    return () => {
+      cleanupOutput();
+      cleanupFinished();
+    };
+  }, [appendOutput]);
 
   const handleOpenFolder = async () => {
     const path = await window.axon.openFolder();
@@ -521,6 +562,26 @@ function App() {
     appendOutput("terminal", `Opening terminal at ${path}.`);
   };
 
+  const handleRunWorkspaceTask = async (task: WorkspaceTask) => {
+    if (!folderPath) return;
+
+    // Task output belongs in the Output panel, not in the terminal tabs. The
+    // task runner is non-interactive and project-scoped, so opening Output here
+    // gives a predictable place for build/test logs while preserving terminal
+    // sessions for interactive shell work.
+    setTerminalOpen(false);
+    setBottomPanelTab("output");
+    setBottomPanelOpen(true);
+    appendOutput("task", `Starting ${task.label}.`);
+
+    try {
+      await window.axon.runWorkspaceTask(folderPath, task.id);
+    } catch (err) {
+      console.error("failed to start task:", err);
+      appendOutput("task", `Failed to start ${task.label}.`, "error");
+    }
+  };
+
   const handleSaveActiveFile = () => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return;
@@ -563,6 +624,9 @@ function App() {
           break;
         case AXON_COMMANDS.OPEN_WORKSPACE_SEARCH:
           setWorkspaceSearchOpen((prev) => !prev);
+          break;
+        case AXON_COMMANDS.OPEN_TASK_RUNNER:
+          setTaskRunnerOpen(true);
           break;
         case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
           setBottomPanelTab("problems");
@@ -642,6 +706,15 @@ function App() {
           ? "Search text across the current folder"
           : "Open a folder first",
         keywords: ["find", "grep"],
+        disabled: !folderPath,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_TASK_RUNNER,
+        title: "Run Task",
+        subtitle: folderPath
+          ? "Run package, Go, or Cargo workspace tasks"
+          : "Open a folder first",
+        keywords: ["build", "test", "npm", "go", "cargo"],
         disabled: !folderPath,
       },
       {
@@ -1015,6 +1088,13 @@ function App() {
         open={workspaceSearchOpen}
         onClose={() => setWorkspaceSearchOpen(false)}
         onResultSelect={handleWorkspaceSearchResult}
+      />
+
+      <TaskRunnerModal
+        folderPath={folderPath}
+        open={taskRunnerOpen}
+        onClose={() => setTaskRunnerOpen(false)}
+        onRunTask={(task) => void handleRunWorkspaceTask(task)}
       />
 
       {settingsOpen && (
