@@ -211,7 +211,13 @@ export default function SingleEditor({
   useEffect(() => {
     if (!visible || !navigationTarget || loading) return;
     revealNavigationTarget(navigationTarget);
-  }, [loading, navigationTarget, revealNavigationTarget, visible]);
+  }, [
+    editorReadyNonce,
+    loading,
+    navigationTarget,
+    revealNavigationTarget,
+    visible,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
