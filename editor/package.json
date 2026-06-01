@@ -1,13 +1,62 @@
 {
   "name": "axon",
+  "version": "1.0.0",
+  "private": true,
   "productName": "Axon",
+  "description": "A personal AI-powered code editor built with Electron, React, TypeScript, and Go.",
+  "author": "Gorden",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
     "build": "npm run build:main && npm run build:renderer",
-    "preview": "electron ."
+    "preview": "electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.gorden.axon",
+    "productName": "Axon",
+    "copyright": "Copyright © 2026 Gorden",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main/**/*",
+      "dist/preload/**/*",
+      "dist/renderer/**/*",
+      "dist/shared/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "dist/main/index.js"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/axon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/axon.png"
+    },
+    "linux": {
+      "category": "Development",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/axon.png"
+    }
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -35,6 +84,7 @@
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
     "typescript": "^6.0.3",
     "wait-on": "^9.0.10"
   }

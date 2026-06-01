@@ -73,6 +73,43 @@ npm run build:main
 npm run dev
 ```
 
+## Building V1
+
+**Build the editor bundles**
+```bash
+cd editor
+npm run build
+```
+
+**Create a packaged desktop app**
+```bash
+# Unpacked app for local inspection
+npm run pack
+
+# Installer/package for the current platform
+npm run dist
+
+# Platform-specific package commands
+npm run dist:mac
+npm run dist:win
+npm run dist:linux
+```
+
+Build artifacts are written to `editor/release/`.
+
+For this v1 packaging setup, Axon’s Electron app and Go core service are still
+separate. Start the core service before launching packaged builds when you need
+terminal-backed features:
+
+```bash
+cd core
+go run cmd/axon/main.go
+```
+
+Cross-platform builds can require platform-specific tooling and signing. macOS
+builds are easiest from macOS; Windows and Linux release builds should be
+verified on their target platforms before sharing broadly.
+
 ## Current Features
 
 - Open any folder and browse the real file tree
@@ -91,12 +128,14 @@ npm run dev
 - Sora dark theme ported from Zed with full Monaco syntax token mapping
 - Recent folders with quick open from the sidebar and empty pane
 - Zen mode — hides all chrome for distraction-free editing
+- Git status, diffs, changed-file context copy, and gutter indicators
+- Settings UI with theme, color, font, imported font, AI, and language-server sections
+- Language-server detection and lifecycle groundwork
 
 ## Roadmap
 
 - [ ] AI completion (goai trigger, Ollama + OpenAI + Anthropic)
-- [ ] LSP integration for IntelliSense
-- [ ] Settings panel (font, theme, tab size, keybindings)
-- [ ] Git integration (status, diff, stage, commit)
-- [ ] Search across files
+- [ ] Full LSP diagnostics, definition, references, and completion wiring
+- [ ] Bundle/sign the Go core service with packaged desktop releases
+- [ ] Search result grouping and replace across files
 - [ ] Extension/plugin system

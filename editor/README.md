@@ -35,8 +35,35 @@ npm run dev
 npm run build
 ```
 
+## Package V1
+
+```bash
+# Compile the Electron main process and renderer, then create an unpacked app.
+npm run pack
+
+# Build an installer/package for the current platform.
+npm run dist
+
+# Platform-specific targets.
+npm run dist:mac
+npm run dist:win
+npm run dist:linux
+```
+
+Packaged output is written to `editor/release/`.
+
+For the current v1 build, the desktop app is packaged separately from the Go
+core service. Start the core service before using terminal-backed features:
+
+```bash
+cd ../core
+go run cmd/axon/main.go
+```
+
 ## Notes
 
 - `build:main` compiles the Electron main process TypeScript.
 - `build:renderer` builds the React app with Vite.
 - `npm run dev` expects the backend to be available locally while the app is running.
+- `npm run dist` uses electron-builder and builds for the host platform.
+- Cross-platform builds may require the target platform tooling and signing setup.
