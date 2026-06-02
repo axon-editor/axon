@@ -1487,6 +1487,33 @@ function buildWatcherOptions() {
   };
 }
 
+function shouldIgnoreWorkspaceWatchPath(candidatePath: string) {
+  const normalizedPath = candidatePath.replace(/\\/g, "/");
+  const segments = normalizedPath.split("/").filter(Boolean);
+
+  // Hidden project files are valid editor content. I only ignore folders/files
+  // that are implementation noise or generated output, because ignoring every
+  // dot-prefixed path makes newly created files such as .gitignore and release
+  // workflow files invisible until the core tree filter is changed too.
+  return segments.some((segment, index) => {
+    if (segment === ".git" || segment === ".DS_Store") return true;
+    if (
+      segment === "node_modules" ||
+      segment === "vendor" ||
+      segment === "dist" ||
+      segment === "release"
+    ) {
+      return true;
+    }
+
+    return (
+      segment === "build" &&
+      index < segments.length - 1 &&
+      segments[index + 1] === "core"
+    );
+  });
+}
+
 async function closeActiveWatcher() {
   if (!activeWatcher) return;
   await activeWatcher.close();
@@ -1739,8 +1766,7 @@ ipcMain.handle("fs:watchFolder", async (_event, folderPath: string) => {
 
   folderWatcher = chokidar.watch(folderPath, {
     ...buildWatcherOptions(),
-    // ignore hidden files, node_modules, vendor, dist
-    ignored: /(^|[\/\\])(\.|node_modules|vendor|dist)/,
+    ignored: shouldIgnoreWorkspaceWatchPath,
     depth: 8,
   });
 

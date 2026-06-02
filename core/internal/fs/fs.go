@@ -7,10 +7,12 @@ package fs
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // FileNode represents a single node in the file system tree.
@@ -30,6 +32,8 @@ type FileContent struct {
 	Content string `json:"content"`
 }
 
+var ErrBinaryFile = errors.New("binary files cannot be opened as text")
+
 // SearchResult is a single workspace text match.
 // The renderer needs the exact file, line, and column so selecting a result can
 // become "open this file here" now and later "jump to this location" when the
@@ -42,11 +46,31 @@ type SearchResult struct {
 }
 
 func shouldSkipEntry(name string) bool {
-	if strings.HasPrefix(name, ".") {
+	// Dotfiles and dependency/build folders are real project entries in an
+	// editor. Axon must show entries like .github, .gitignore, node_modules,
+	// dist, and release because the user may need to inspect or edit them just
+	// like they would in Zed or VS Code. The only entries skipped from the tree
+	// are platform/VCS metadata that would add noise without being useful as
+	// normal editable project content.
+	switch name {
+	case ".git", ".DS_Store":
 		return true
+	default:
+		return false
 	}
+}
 
-	return name == "node_modules" || name == "vendor" || name == "dist"
+func shouldSkipSearchEntry(name string) bool {
+	// Search is different from the visible tree. Showing node_modules and dist
+	// is useful for navigation, but scanning those folders by default would make
+	// workspace search feel broken on real JavaScript projects. This keeps the
+	// tree honest while search stays focused on source files.
+	switch name {
+	case ".git", ".DS_Store", "node_modules", "vendor", "dist", "release":
+		return true
+	default:
+		return false
+	}
 }
 
 func trimSearchPreview(line string) string {
@@ -56,6 +80,30 @@ func trimSearchPreview(line string) string {
 	}
 
 	return preview[:220]
+}
+
+func isBinaryContent(data []byte) bool {
+	if len(data) == 0 {
+		return false
+	}
+
+	sampleSize := len(data)
+	if sampleSize > 8192 {
+		sampleSize = 8192
+	}
+	sample := data[:sampleSize]
+
+	if len(sample) >= 3 && sample[0] == 0xef && sample[1] == 0xbb && sample[2] == 0xbf {
+		sample = sample[3:]
+	}
+
+	for _, value := range sample {
+		if value == 0 {
+			return true
+		}
+	}
+
+	return !utf8.Valid(sample)
 }
 
 // GetTree recursively walks a directory and builds a FileNode tree.
@@ -126,14 +174,19 @@ func GetTree(rootPath string) (FileNode, error) {
 	return node, nil
 }
 
-// ReadFile reads the full contents of a file at the given path
-// and returns it as a FileContent struct.
-// Binary files will return garbled content, caller should validate
-// file type before calling this if that matters.
+// ReadFile reads the full contents of a text file at the given path and returns
+// it as a FileContent struct.
 func ReadFile(path string) (FileContent, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return FileContent{}, err
+	}
+	if isBinaryContent(data) {
+		// The editor should never try to push arbitrary binary bytes into Monaco.
+		// NUL bytes and invalid UTF-8 are strong signals that the file belongs in
+		// a media/download preview path instead of the text-model path. Returning
+		// a specific error lets the HTTP layer explain the limitation clearly.
+		return FileContent{}, ErrBinaryFile
 	}
 
 	return FileContent{
@@ -199,7 +252,7 @@ func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchRes
 			return nil
 		}
 
-		if path != rootPath && shouldSkipEntry(entry.Name()) {
+		if path != rootPath && shouldSkipSearchEntry(entry.Name()) {
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}

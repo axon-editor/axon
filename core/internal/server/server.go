@@ -6,6 +6,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -175,6 +176,14 @@ func (s *Server) handleFSFile(w http.ResponseWriter, r *http.Request) {
 
 		content, err := fs.ReadFile(path)
 		if err != nil {
+			if errors.Is(err, fs.ErrBinaryFile) {
+				writeJSON(w, http.StatusUnsupportedMediaType, Response{
+					Status: "error",
+					Error:  "This file is binary and cannot be opened in the text editor.",
+				})
+				return
+			}
+
 			writeJSON(w, http.StatusInternalServerError, Response{
 				Status: "error",
 				Error:  err.Error(),
