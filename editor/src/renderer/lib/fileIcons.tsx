@@ -3,6 +3,7 @@
 // Icons served as static imports via Vite ?url suffix.
 // getFolderIcon maps folder names to specific folder icons with open/closed variants.
 // Falls back to _file.svg and _folder.svg for unmapped entries.
+import { publicAsset } from "./assets";
 
 function SvgIcon({ src, size = 16 }: { src: string; size?: number }) {
   return (
@@ -19,7 +20,7 @@ function SvgIcon({ src, size = 16 }: { src: string; size?: number }) {
   );
 }
 
-const base = "/icons/";
+const base = publicAsset("icons/");
 
 const extensionMap: Record<string, string> = {
   go: "go.svg",

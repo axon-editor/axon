@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { publicAsset } from "../lib/assets";
 import CommandModal from "./CommandModal";
 
 export interface AppInfo {
@@ -61,7 +62,7 @@ export default function AboutModal({ onClose }: AboutModalProps) {
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-[#222838] bg-[#0a0c12]">
             <img
-              src="/axon.png"
+              src={publicAsset("axon.png")}
               alt=""
               className="h-11 w-11 object-contain"
               draggable={false}

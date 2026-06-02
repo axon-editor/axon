@@ -1,3 +1,5 @@
+import { publicAsset } from "../lib/assets";
+
 interface SplashScreenProps {
   leaving: boolean;
 }
@@ -13,7 +15,7 @@ export default function SplashScreen({ leaving }: SplashScreenProps) {
     >
       <div className="axon-splash__mark-wrap">
         <div className="axon-splash__aura" />
-        <img className="axon-splash__mark" src="/axon.png" alt="" />
+        <img className="axon-splash__mark" src={publicAsset("axon.png")} alt="" />
       </div>
 
       <div className="axon-splash__wordmark" aria-hidden="true">

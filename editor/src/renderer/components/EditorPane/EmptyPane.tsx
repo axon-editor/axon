@@ -1,6 +1,7 @@
 // Welcome screen shown when a pane has no open files.
 // Shows the Axon logo, quick action buttons, and recent folders.
 import { FolderOpen, FilePlus, Clock, ChevronRight } from "lucide-react";
+import { publicAsset } from "../../lib/assets";
 import { getRecentFolders } from "../sidebar/index";
 
 interface Props {
@@ -21,7 +22,7 @@ export default function EmptyPane({
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-1.5">
           <img
-            src="/axon.png"
+            src={publicAsset("axon.png")}
             alt="Axon"
             className="mb-1 h-22 w-22 opacity-80"
             draggable={false}
