@@ -22,9 +22,12 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - name: macOS
+          - name: macOS x64
+            runner: macos-13
+            command: npm run dist:mac:x64
+          - name: macOS arm64
             runner: macos-latest
-            command: npm run dist:mac
+            command: npm run dist:mac:arm64
           - name: Windows
             runner: windows-latest
             command: npm run dist:win
@@ -51,6 +54,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
 
       - name: Install editor dependencies
         run: npm ci

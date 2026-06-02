@@ -53,6 +53,18 @@ npm run dist:linux
 Packaged output is written to `editor/release/`. Release builds include the Go
 core binary and start it automatically when Axon opens.
 
+## Download Guide
+
+- macOS Apple Silicon (M1/M2/M3/M4): `Axon-1.0.0-arm64.dmg`
+- macOS Intel: `Axon-1.0.0.dmg`
+- Windows: `Axon.Setup.1.0.0.exe`
+- Linux AppImage: `Axon-1.0.0.AppImage`
+- Linux Debian/Ubuntu: `axon_1.0.0_amd64.deb`
+
+If macOS says the app is not supported, the downloaded build does not match the
+Mac architecture. Intel Macs need the x64 `.dmg`; Apple Silicon Macs need the
+arm64 `.dmg`.
+
 ## GitHub Release
 
 ```bash

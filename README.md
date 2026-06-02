@@ -98,6 +98,18 @@ npm run dist:linux
 Build artifacts are written to `editor/release/`. Packaged desktop builds
 include the Go core binary and start it automatically when Axon opens.
 
+**Which Release File To Download**
+
+- macOS Apple Silicon (M1/M2/M3/M4): `Axon-1.0.0-arm64.dmg`
+- macOS Intel: `Axon-1.0.0.dmg`
+- Windows: `Axon.Setup.1.0.0.exe`
+- Linux AppImage: `Axon-1.0.0.AppImage`
+- Linux Debian/Ubuntu: `axon_1.0.0_amd64.deb`
+
+If macOS says the app is not supported, you probably downloaded the wrong Mac
+architecture. Intel Macs need the x64 `.dmg`; Apple Silicon Macs need the
+arm64 `.dmg`.
+
 Cross-platform builds can require platform-specific tooling and signing. macOS
 builds are easiest from macOS; Windows and Linux release builds should be
 verified on their target platforms before sharing broadly.

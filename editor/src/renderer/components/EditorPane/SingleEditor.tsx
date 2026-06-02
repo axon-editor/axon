@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { Columns2, FileText, Eye } from "lucide-react";
+import { Columns2, FileWarning, FileText, Eye } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import { readFile, writeFile } from "../../lib/api";
@@ -377,9 +377,25 @@ export default function SingleEditor({
   }
 
   if (error) {
+    const fileName = filePath.split("/").pop() ?? filePath;
+
     return (
-      <div className="w-full h-full flex items-center justify-center text-red-500 text-[13px]">
-        {error}
+      <div className="w-full h-full flex items-center justify-center bg-[#0e1018] px-6">
+        <div className="max-w-sm w-full rounded-lg border border-[#222838] bg-[#11141d] px-5 py-5 shadow-[0_18px_54px_rgba(0,0,0,0.28)]">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-md border border-[#2a3346] bg-[#171c28] flex items-center justify-center text-[#80c8e0] shrink-0">
+              <FileWarning size={17} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-[13px] font-medium text-[#d7deea] truncate">
+                {fileName}
+              </h3>
+              <p className="mt-1 text-[12px] leading-5 text-[#8d98aa]">
+                {error}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
