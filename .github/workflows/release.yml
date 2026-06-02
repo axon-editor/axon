@@ -23,7 +23,11 @@ jobs:
       matrix:
         platform:
           - name: macOS x64
-            runner: macos-13
+            # GitHub has moved the standard Intel macOS lane away from the old
+            # macos-13 label. Using the explicit Intel label keeps the x64 DMG
+            # available for older MacBooks instead of leaving the release job
+            # stuck forever waiting for a deprecated runner pool.
+            runner: macos-15-intel
             command: npm run dist:mac:x64
           - name: macOS arm64
             runner: macos-latest
