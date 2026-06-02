@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
+import { editorFontStack } from "../lib/fonts";
 import { type EditorDiagnostic } from "../lib/diagnostics";
 import { type ResolvedThemeTokens } from "../lib/themeTokens";
 import ChromeTab from "./ChromeTab";
@@ -230,7 +231,7 @@ function getTerminalOptions(
       background: themeTokens["terminal.background"],
       foreground: themeTokens["terminal.foreground"],
     },
-    fontFamily: `'${editorSettings.fontFamily}', monospace`,
+    fontFamily: editorFontStack(editorSettings.fontFamily),
     fontSize: Math.max(10, editorSettings.fontSize - 1),
     lineHeight: Math.max(
       1,

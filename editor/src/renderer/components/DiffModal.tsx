@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
 import { X } from "lucide-react";
 import { type EditorSettings } from "../../shared/settings";
+import { editorFontStack } from "../lib/fonts";
 import { readFile } from "../lib/api";
 import { detectLanguage, getModel } from "../lib/monacoModels";
 import { getMonacoThemeId, registerAxonTheme } from "../lib/soraTheme";
@@ -114,7 +115,7 @@ export default function DiffModal({
               readOnly: true,
               renderSideBySide: true,
               fontSize: editorSettings.fontSize,
-              fontFamily: `'${editorSettings.fontFamily}', monospace`,
+              fontFamily: editorFontStack(editorSettings.fontFamily),
               lineHeight: editorSettings.lineHeight,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,

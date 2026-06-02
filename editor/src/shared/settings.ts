@@ -14,7 +14,9 @@ export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
 
 export const UI_FONT_FAMILIES = [
   ".AxonSans",
+  ".ZedSans",
   "Axon Sans",
+  "IBM Plex Sans",
   "Inter",
   "SF Pro Text",
   "system-ui",
@@ -22,7 +24,10 @@ export const UI_FONT_FAMILIES = [
 
 export const EDITOR_FONT_FAMILIES = [
   ".AxonMono",
+  ".ZedMono",
   "Axon Mono",
+  "Lilex",
+  "IBM Plex Mono",
   "JetBrains Mono",
   "Fira Code",
   "SF Mono",
@@ -128,11 +133,11 @@ export const DEFAULT_SETTINGS: AxonSettings = {
       "tab.active_background": "#000000FF",
       "panel.background": "#000000FF",
       "panel.border": "#000000FF",
-      "editor.foreground": "#000000FF",
-      "editor.background": "#000000FF",
-      "editor.gutter.background": "#000000FF",
+      "editor.foreground": "#B3B1ADFF",
+      "editor.background": "#0B0E14FF",
+      "editor.gutter.background": "#0B0E14FF",
       "terminal.background": "#000000FF",
-      "terminal.foreground": "#000000FF",
+      "terminal.foreground": "#C8D0E0FF",
       "panel.overlay_hover": "#000000FF",
     },
   },

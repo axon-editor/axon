@@ -17,6 +17,7 @@ import TabBar, { getPaneDropId, type PaneDropData } from "../TabBar";
 import MediaPreview, { isMediaFile } from "./MediaPreview";
 import SingleEditor from "./SingleEditor";
 import EmptyPane from "./EmptyPane";
+import WorkspaceBlankPane from "./WorkspaceBlankPane";
 
 interface Props {
   pane: Pane;
@@ -25,6 +26,7 @@ interface Props {
   onActivate: () => void;
   onSelectFile: (filePath: string) => void;
   onCloseTab: (filePath: string) => void;
+  onCloseEmptyPane?: () => void;
   onOpenTabInTerminal?: (filePath: string) => void;
   onDirtyChange: (filePath: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
@@ -45,6 +47,7 @@ export default function PaneInstance({
   onActivate,
   onSelectFile,
   onCloseTab,
+  onCloseEmptyPane,
   onOpenTabInTerminal,
   onDirtyChange,
   onCursorChange,
@@ -157,12 +160,15 @@ export default function PaneInstance({
       />
 
       <div className="flex-1 overflow-hidden relative">
-        {pane.openTabs.length === 0 ? (
+        {pane.openTabs.length === 0 && !folderPath ? (
           <EmptyPane
             onOpenFolder={onOpenFolder}
             onNewFile={onNewFile}
             onSelectRecentFolder={onSelectRecentFolder}
+            onClosePane={onCloseEmptyPane}
           />
+        ) : pane.openTabs.length === 0 ? (
+          <WorkspaceBlankPane />
         ) : (
           pane.openTabs.map((path) => (
             <div

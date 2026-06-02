@@ -1,24 +1,39 @@
 // Welcome screen shown when a pane has no open files.
 // Shows the Axon logo, quick action buttons, and recent folders.
-import { FolderOpen, FilePlus, Clock, ChevronRight } from "lucide-react";
+import { FolderOpen, FilePlus, Clock, ChevronRight, X } from "lucide-react";
 import { publicAsset } from "../../lib/assets";
 import { getRecentFolders } from "../sidebar/index";
+import Tooltip from "../Tooltip";
 
 interface Props {
   onOpenFolder: () => void;
   onNewFile: () => void;
   onSelectRecentFolder: (path: string) => void;
+  onClosePane?: () => void;
 }
 
 export default function EmptyPane({
   onOpenFolder,
   onNewFile,
   onSelectRecentFolder,
+  onClosePane,
 }: Props) {
   const recentFolders = getRecentFolders().slice(0, 5);
 
   return (
-    <div className="flex h-full select-none flex-col items-center justify-center bg-[#0b0e14] px-8">
+    <div className="relative flex h-full select-none flex-col items-center justify-center bg-[#0b0e14] px-8">
+      {onClosePane ? (
+        <Tooltip label="Close empty pane" side="left">
+          <button
+            type="button"
+            onClick={onClosePane}
+            aria-label="Close empty pane"
+            className="absolute right-3 top-3 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-[#364050] transition-colors hover:bg-[#151923] hover:text-white"
+          >
+            <X size={13} />
+          </button>
+        </Tooltip>
+      ) : null}
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-1.5">
           <img

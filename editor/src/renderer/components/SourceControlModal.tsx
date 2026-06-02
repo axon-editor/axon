@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Check,
   Copy,
@@ -17,7 +17,6 @@ import {
   type GitFileState,
   type GitStatusResult,
 } from "../../shared/git";
-import CommandModal from "./CommandModal";
 import Tooltip from "./Tooltip";
 
 interface Props {
@@ -71,6 +70,7 @@ export default function SourceControlModal({
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const stagedChanges = useMemo(
     () => status?.changes.filter((change) => change.staged) ?? [],
@@ -240,6 +240,17 @@ export default function SourceControlModal({
   }, [open, folderPath]);
 
   useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open]);
+
+  useEffect(() => {
     if (!folderPath || !selectedChange) {
       setDiff(null);
       return;
@@ -267,17 +278,42 @@ export default function SourceControlModal({
   if (!open) return null;
 
   return (
-    <CommandModal title="source control" onClose={onClose} width="w-[980px]">
-      <div className="grid h-[min(680px,calc(100vh-10rem))] grid-cols-[320px_1fr] overflow-hidden">
-        <div className="flex min-h-0 flex-col border-r border-[#222838]">
-          <div className="flex h-10 items-center justify-between border-b border-[#222838] px-3">
-            <div className="flex min-w-0 items-center gap-2">
+    <div
+      className="fixed inset-0 z-50 bg-[#05070c]/35 backdrop-blur-[2px]"
+      onMouseDown={(event) => {
+        if (panelRef.current?.contains(event.target as Node)) return;
+        onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        className="absolute bottom-8 left-1/2 top-20 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
+      >
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#222838] bg-[#141824] px-4">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-[#9aa4b8]">
+            source control
+          </span>
+          <Tooltip label="Close" side="left">
+            <button
+              onClick={onClose}
+              aria-label="Close source control"
+              className="cursor-pointer text-[#586478] transition-colors hover:text-white"
+            >
+              <X size={13} />
+            </button>
+          </Tooltip>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] overflow-hidden">
+          <div className="flex min-h-0 flex-col border-r border-[#222838]">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
+              <div className="flex min-w-0 items-center gap-2">
               <GitBranch size={14} className="text-[#80c8e0]" />
               <span className="truncate text-[12px] text-[#c8d0e0]">
                 {status?.branch ?? "no repository"}
               </span>
-            </div>
-            <div className="flex items-center gap-1">
+              </div>
+              <div className="flex items-center gap-1">
               <Tooltip label="Copy all Git context" side="bottom">
                 <button
                   onClick={() => void copyAllDiffs()}
@@ -301,10 +337,10 @@ export default function SourceControlModal({
                   <RefreshCw size={13} />
                 </button>
               </Tooltip>
+              </div>
             </div>
-          </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto py-2">
+            <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain py-2">
             {!folderPath && (
               <div className="px-3 py-2 text-[12px] text-[#586478]">
                 Open a folder to inspect Git changes.
@@ -354,11 +390,11 @@ export default function SourceControlModal({
                 runningAction={runningAction}
               />
             )}
+            </div>
           </div>
-        </div>
 
-        <div className="flex min-w-0 flex-col">
-          <div className="flex h-10 items-center justify-between border-b border-[#222838] px-3">
+          <div className="flex min-w-0 min-h-0 flex-col">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
             <div className="min-w-0">
               <div className="truncate text-[12px] font-medium text-[#c8d0e0]">
                 {selectedChange
@@ -406,9 +442,9 @@ export default function SourceControlModal({
                 </button>
               </Tooltip>
             </div>
-          </div>
+            </div>
 
-          <div className="min-h-0 flex-1 overflow-auto bg-[#080a10]">
+            <div className="min-h-0 flex-1 overflow-scroll overscroll-contain bg-[#080a10]">
             {loadingDiff && (
               <div className="px-4 py-3 text-[12px] text-[#586478]">
                 loading diff...
@@ -425,10 +461,11 @@ export default function SourceControlModal({
                   "No diff available yet. Save the file first if the change is only in the editor buffer."}
               </pre>
             )}
-          </div>
+            </div>
         </div>
       </div>
-    </CommandModal>
+      </div>
+    </div>
   );
 }
 

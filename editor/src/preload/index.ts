@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld("axon", {
   ): Promise<GitActionResult> =>
     ipcRenderer.invoke("git:action", folderPath, filePath, action),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
+  shouldRestoreSession: (): Promise<boolean> =>
+    ipcRenderer.invoke("app:shouldRestoreSession"),
   checkForUpdates: (): Promise<UpdateInfo> =>
     ipcRenderer.invoke("app:checkForUpdates"),
   openUpdatePage: (releaseUrl?: string) =>

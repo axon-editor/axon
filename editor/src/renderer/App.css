@@ -257,6 +257,36 @@
   color: #ff7b72;
 }
 
+.axon-workspace-blank__title {
+  animation: axonWorkspaceWordWave 2.8s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.axon-workspace-loading__bar {
+  animation: axonWorkspaceLoadingBar 1.45s ease-in-out infinite;
+}
+
+@keyframes axonWorkspaceWordWave {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: translateY(0);
+  }
+  45% {
+    opacity: 0.9;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes axonWorkspaceLoadingBar {
+  0% {
+    transform: translateX(-4rem);
+  }
+  100% {
+    transform: translateX(10rem);
+  }
+}
+
 @keyframes axonContextMenuIn {
   0% {
     opacity: 0;

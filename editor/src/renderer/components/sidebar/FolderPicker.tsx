@@ -3,8 +3,7 @@
 // Clicking a recent folder opens it directly.
 // Clicking "open folder" triggers the native folder picker.
 // Closes on outside click or Escape.
-import { useEffect, useRef } from "react";
-import { FolderOpen, Clock, X } from "lucide-react";
+import { FolderOpen, Clock } from "lucide-react";
 import CommandModal from "../CommandModal";
 
 interface Props {
@@ -20,30 +19,12 @@ export default function FolderPicker({
   onOpenNew,
   onClose,
 }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", keyHandler);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", keyHandler);
-    };
-  }, []);
-
   return (
     <CommandModal title="open folder" onClose={onClose} width="w-[480px]">
       <div className="p-2">
         <button
           onClick={() => {
             onOpenNew();
-            onClose();
           }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded text-[12px] text-[#80c8e0] hover:bg-[#1e2430] transition-colors cursor-pointer"
         >

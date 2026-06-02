@@ -81,7 +81,7 @@ interface Props {
   folderPath: string | null;
   activeFile: string | null;
   onFileSelect: (path: string) => void;
-  onOpenFolder: () => void;
+  onOpenFolder: () => void | Promise<void>;
   onFolderChange: (path: string, tree: FileNode) => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
   loading: boolean;
@@ -92,6 +92,7 @@ interface Props {
   onEntryMoved?: (oldPath: string, newPath: string) => void;
   onEntryRenamed?: (oldPath: string, newPath: string) => void;
   gitChanges?: GitChange[];
+  ignoredPaths?: string[];
 }
 
 interface ContextMenuState {
@@ -173,6 +174,10 @@ function buildGitDecorationMap(gitChanges: GitChange[] = []) {
   return decorations;
 }
 
+function buildIgnoredPathSet(ignoredPaths: string[] = []) {
+  return new Set(ignoredPaths.map(normalizeTreePath));
+}
+
 function findNodeByPath(node: FileNode | null, path: string): FileNode | null {
   if (!node) return null;
   if (node.path === path) return node;
@@ -215,6 +220,7 @@ export default function Sidebar({
   onEntryMoved,
   onEntryRenamed,
   gitChanges,
+  ignoredPaths: ignoredPathList,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -222,6 +228,10 @@ export default function Sidebar({
   const gitDecorations = useMemo(
     () => buildGitDecorationMap(gitChanges),
     [gitChanges],
+  );
+  const ignoredPaths = useMemo(
+    () => buildIgnoredPathSet(ignoredPathList),
+    [ignoredPathList],
   );
 
   const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
@@ -327,6 +337,7 @@ export default function Sidebar({
                     onMove={handleMove}
                     revealPath={revealPath}
                     gitDecorations={gitDecorations}
+                    ignoredPaths={ignoredPaths}
                   />
                 ))}
             </div>
@@ -358,8 +369,8 @@ export default function Sidebar({
         <FolderPicker
           recentFolders={getRecentFolders()}
           onSelect={handleSelectRecent}
-          onOpenNew={() => {
-            void onOpenFolder();
+          onOpenNew={async () => {
+            await onOpenFolder();
             setPickerOpen(false);
           }}
           onClose={() => setPickerOpen(false)}

@@ -59,6 +59,7 @@ let mainWindow: BrowserWindow | null = null;
 let bundledCoreProcess: ChildProcess | null = null;
 const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 const activeLanguageServers = new Map<string, LanguageServerSession>();
+const windowSessionRestore = new Map<number, boolean>();
 const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
 const axonReleaseApiUrl =
   "https://api.github.com/repos/GordenArcher/axon/releases/latest";
@@ -315,7 +316,10 @@ function buildApplicationMenu() {
         {
           label: "New Window",
           accelerator: "CmdOrCtrl+Shift+N",
-          click: () => createWindow(),
+          click: () =>
+            createWindow({
+              restoreSession: BrowserWindow.getAllWindows().length === 0,
+            }),
         },
         {
           label: "Open Folder...",
@@ -1197,6 +1201,14 @@ function parseGitStatus(root: string, statusOutput: string): GitChange[] {
     .filter((change) => change.path.length > 0);
 }
 
+function parseGitIgnoredPaths(root: string, ignoredOutput: string): string[] {
+  return ignoredOutput
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((ignoredPath) => path.resolve(root, ignoredPath.replace(/\/$/, "")));
+}
+
 async function getGitStatus(folderPath: string): Promise<GitStatusResult> {
   try {
     const rootResult = await runGit(folderPath, ["rev-parse", "--show-toplevel"]);
@@ -1206,12 +1218,20 @@ async function getGitStatus(folderPath: string): Promise<GitStatusResult> {
       "--show-current",
     ]);
     const statusResult = await runGit(folderPath, ["status", "--porcelain=v1"]);
+    const ignoredResult = await runGit(root, [
+      "ls-files",
+      "--ignored",
+      "--exclude-standard",
+      "--others",
+      "--directory",
+    ]);
 
     return {
       isRepository: true,
       root,
       branch: branchResult.stdout.trim() || "detached",
       changes: parseGitStatus(root, statusResult.stdout),
+      ignoredPaths: parseGitIgnoredPaths(root, ignoredResult.stdout),
     };
   } catch {
     return {
@@ -1219,6 +1239,7 @@ async function getGitStatus(folderPath: string): Promise<GitStatusResult> {
       root: null,
       branch: null,
       changes: [],
+      ignoredPaths: [],
     };
   }
 }
@@ -1527,8 +1548,9 @@ async function runProjectDiagnostics(
   return diagnostics;
 }
 
-function createWindow() {
+function createWindow(options: { restoreSession?: boolean } = {}) {
   const axonIconPath = getAxonIconPath();
+  const restoreSession = options.restoreSession !== false;
 
   app.setAboutPanelOptions({
     applicationName: "Axon",
@@ -1541,7 +1563,7 @@ function createWindow() {
     app.dock.setIcon(axonIconPath);
   }
 
-  mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 800,
@@ -1555,16 +1577,28 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  windowSessionRestore.set(window.webContents.id, restoreSession);
 
   if (isDev) {
-    mainWindow.loadURL("http://localhost:5173");
+    window.loadURL("http://localhost:5173");
   } else {
-    mainWindow.loadFile(path.join(__dirname, "../../dist/renderer/index.html"));
+    window.loadFile(path.join(__dirname, "../../dist/renderer/index.html"));
   }
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = window;
+  }
+
+  window.on("closed", () => {
+    windowSessionRestore.delete(window.webContents.id);
+    if (mainWindow === window) {
+      mainWindow = BrowserWindow.getAllWindows().find(
+        (candidate) => !candidate.isDestroyed(),
+      ) ?? null;
+    }
   });
+
+  return window;
 }
 
 function buildWatcherOptions() {
@@ -1692,6 +1726,10 @@ ipcMain.handle("app:getInfo", async () => {
   };
 });
 
+ipcMain.handle("app:shouldRestoreSession", (event) => {
+  return windowSessionRestore.get(event.sender.id) !== false;
+});
+
 ipcMain.handle("app:checkForUpdates", async () => {
   return checkForAppUpdate();
 });
@@ -1749,6 +1787,7 @@ ipcMain.handle("git:status", async (_event, folderPath: string) => {
       root: null,
       branch: null,
       changes: [],
+      ignoredPaths: [],
     } satisfies GitStatusResult;
   }
 
@@ -1854,7 +1893,13 @@ app.whenReady().then(async () => {
 
   buildApplicationMenu();
   await startBundledAxonCore();
-  createWindow();
+  createWindow({ restoreSession: true });
+});
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow({ restoreSession: true });
+  }
 });
 
 app.on("window-all-closed", () => {

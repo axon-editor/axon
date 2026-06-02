@@ -42,6 +42,7 @@ interface Props {
     sourcePaneId: string,
     targetPaneId: string,
   ) => void;
+  onClosePane: (paneId: string) => void;
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
@@ -94,6 +95,7 @@ export default function EditorPane({
   onCursorChange,
   onLanguageChange,
   onMoveTabBetweenPanes,
+  onClosePane,
   editorSettings,
   themeTokens,
   navigationTarget,
@@ -164,8 +166,8 @@ export default function EditorPane({
     if (!targetPaneId) return;
 
     if (targetPaneId !== activeData.paneId) {
-      onMoveTabBetweenPanes(
-        activeData.filePath,
+              onMoveTabBetweenPanes(
+                activeData.filePath,
         activeData.paneId,
         targetPaneId,
       );
@@ -213,6 +215,9 @@ export default function EditorPane({
               onActivate={() => onActivatePane(pane.id)}
               onSelectFile={(f) => onSelectFile(pane.id, f)}
               onCloseTab={(f) => onCloseTab(pane.id, f)}
+              onCloseEmptyPane={
+                layout.panes.length > 1 ? () => onClosePane(pane.id) : undefined
+              }
               onOpenTabInTerminal={onOpenTabInTerminal}
               onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}
               onCursorChange={onCursorChange}

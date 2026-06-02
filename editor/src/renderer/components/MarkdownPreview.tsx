@@ -2,7 +2,13 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import { Check, Copy, ExternalLink } from "lucide-react";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  isValidElement,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 interface MarkdownPreviewProps {
   content: string;
@@ -85,12 +91,37 @@ function textFromNode(node: ReactNode): string {
     return node.map(textFromNode).join("");
   }
 
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return textFromNode(node.props.children);
+  }
+
   return "";
 }
 
-function copyTextToClipboard(text: string) {
+function getClassNameFromNode(node: ReactNode): string | undefined {
+  if (Array.isArray(node)) {
+    return node.map(getClassNameFromNode).find(Boolean);
+  }
+
+  if (isValidElement<{ className?: string; children?: ReactNode }>(node)) {
+    const props = node.props;
+    return props?.className ?? getClassNameFromNode(props?.children);
+  }
+
+  return undefined;
+}
+
+async function copyTextToClipboard(text: string) {
   if (navigator.clipboard?.writeText) {
-    return navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Electron can expose the browser Clipboard API while still denying the
+      // actual write for the current document/scheme. Falling through to the
+      // preload bridge keeps the code-block button honest: if the native
+      // Electron clipboard succeeds, the UI can safely show the copied mark.
+    }
   }
 
   // Electron's renderer can lose access to the browser Clipboard API depending
@@ -98,10 +129,32 @@ function copyTextToClipboard(text: string) {
   // renderer sandboxed while still using Electron's native clipboard in the
   // main process, so the copy button behaves consistently in dev and packaged
   // builds without relying on deprecated DOM commands.
-  return window.axon.copyText(text);
+  await window.axon.copyText(text);
 }
 
 function getStyleObject(style: unknown): CSSProperties {
+  if (typeof style === "string") {
+    return style
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .reduce<CSSProperties>((styles, declaration) => {
+        const separatorIndex = declaration.indexOf(":");
+        if (separatorIndex === -1) return styles;
+
+        const property = declaration
+          .slice(0, separatorIndex)
+          .trim()
+          .replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+        const value = declaration.slice(separatorIndex + 1).trim();
+        if (!property || !value) return styles;
+
+        return {
+          ...styles,
+          [property]: value,
+        };
+      }, {});
+  }
   if (!style || typeof style !== "object") return {};
   return style as CSSProperties;
 }
@@ -141,32 +194,36 @@ function CodeBlock({
     try {
       await copyTextToClipboard(code);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
+      window.setTimeout(() => setCopied(false), 1800);
     } catch (err) {
       console.error("failed to copy markdown code block:", err);
     }
   };
 
   return (
-    <div className="my-5 overflow-hidden rounded-md border border-[#222838] bg-[#080a10]">
-      <div className="flex h-8 items-center justify-between border-b border-[#222838] bg-[#0a0c12] px-3">
-        <span className="text-[11px] uppercase tracking-normal text-[#586478]">
-          {language}
-        </span>
+    <div className="group relative my-4 overflow-hidden rounded-lg border border-[#30363d] bg-[#0d1117] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+      <pre className="m-0 overflow-x-auto p-4 text-[13px] leading-6 text-[#c9d1d9]">
+        <code className={className}>{children}</code>
+      </pre>
+      <div className="absolute right-2 top-2 flex items-center gap-2">
+        {language !== "text" ? (
+          <span className="rounded bg-[#010409]/80 px-1.5 py-0.5 text-[10px] text-[#7d8590] opacity-0 transition-opacity group-hover:opacity-100">
+            {language}
+          </span>
+        ) : null}
         <button
           type="button"
           onClick={handleCopy}
-          aria-label="Copy code"
-          className={`flex h-6 w-6 items-center justify-center rounded bg-[#14161e] transition-colors hover:text-white cursor-pointer ${
-            copied ? "text-[#80c8e0]" : "text-[#586478]"
+          aria-label={copied ? "Copied code" : "Copy code"}
+          className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-all ${
+            copied
+              ? "border-[#2ea043] bg-[#16351f] text-[#7ee787]"
+              : "border-[#30363d] bg-[#161b22] text-[#8b949e] opacity-80 hover:border-[#8b949e] hover:text-[#f0f6fc] group-hover:opacity-100"
           }`}
         >
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </button>
       </div>
-      <pre className="m-0 overflow-x-auto p-4 text-[13px] leading-6 text-[#c8d0e0]">
-        <code>{children}</code>
-      </pre>
     </div>
   );
 }
@@ -234,26 +291,42 @@ export default function MarkdownPreview({
                 {children}
               </blockquote>
             ),
-            code: ({ inline, className, children, ...props }: any) =>
-              inline ? (
-                <code
-                  className="rounded bg-[#14161e] px-1.5 py-0.5 text-[13px] text-[#80c8e0]"
-                  {...props}
-                >
-                  {children}
-                </code>
-              ) : (
-                <CodeBlock className={className}>{children}</CodeBlock>
-              ),
-            pre: ({ children }) => <>{children}</>,
-            img: ({ src, alt, ...props }: any) => (
-              <img
-                src={resolveMarkdownAsset(src, filePath, folderPath)}
-                alt={alt ?? ""}
-                style={getStyleObject(props.style)}
-                className="my-5 inline-block max-h-[520px] max-w-full rounded-md border border-[#222838] object-contain"
-              />
+            code: ({ children, ...props }: any) => (
+              <code
+                className="rounded bg-[#14161e] px-1.5 py-0.5 text-[13px] text-[#80c8e0]"
+                {...props}
+              >
+                {children}
+              </code>
             ),
+            pre: ({ children }: any) => {
+              // React Markdown no longer gives a dependable `inline` flag in
+              // every renderer path. Treating `pre` as the only fenced-code
+              // entry point prevents single-backtick text like `7777` from
+              // being mistaken for a full GitHub-style code block.
+              return (
+                <CodeBlock className={getClassNameFromNode(children)}>
+                  {textFromNode(children)}
+                </CodeBlock>
+              );
+            },
+            img: ({ src, alt, width, height, ...props }: any) => {
+              const imageStyle = getStyleObject(props.style);
+
+              return (
+                <img
+                  src={resolveMarkdownAsset(src, filePath, folderPath)}
+                  alt={alt ?? ""}
+                  width={width}
+                  height={height}
+                  style={{
+                    maxWidth: "100%",
+                    ...imageStyle,
+                  }}
+                  className="my-4 inline-block align-middle"
+                />
+              );
+            },
             ul: ({ children }) => (
               <ul className="my-4 list-disc space-y-1 pl-6">{children}</ul>
             ),

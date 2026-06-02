@@ -20,6 +20,7 @@ interface Props {
   onMove: (sourcePath: string, targetDirPath: string) => void;
   revealPath?: string | null;
   gitDecorations?: Map<string, GitTreeDecoration>;
+  ignoredPaths?: Set<string>;
   depth?: number;
 }
 
@@ -53,6 +54,23 @@ function normalizeTreePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
+function isIgnoredTreePath(path: string, ignoredPaths?: Set<string>) {
+  if (!ignoredPaths || ignoredPaths.size === 0) return false;
+
+  const normalizedPath = normalizeTreePath(path);
+  if (ignoredPaths.has(normalizedPath)) return true;
+
+  // Git reports ignored directories as the directory path, not every child
+  // inside that directory. Checking parent prefixes lets node_modules/foo.js
+  // inherit the muted ignored tone from node_modules without asking Git for an
+  // enormous file-by-file ignored listing.
+  for (const ignoredPath of ignoredPaths) {
+    if (normalizedPath.startsWith(`${ignoredPath}/`)) return true;
+  }
+
+  return false;
+}
+
 export default function FileTreeNode({
   node,
   activeFile,
@@ -61,6 +79,7 @@ export default function FileTreeNode({
   onMove,
   revealPath,
   gitDecorations,
+  ignoredPaths,
   depth = 0,
 }: Props) {
   const [expanded, setExpanded] = useState(depth === 0);
@@ -176,9 +195,11 @@ export default function FileTreeNode({
   const isBlinkOn = blinking && blinkCount.current % 2 === 0;
   const rowPaddingLeft = TREE_BASE_INDENT + depth * TREE_DEPTH_WIDTH;
   const gitDecoration = gitDecorations?.get(normalizeTreePath(node.path));
+  const ignored = isIgnoredTreePath(node.path, ignoredPaths);
   const gitColor = gitDecoration
     ? gitDecorationColors[gitDecoration.tone]
     : undefined;
+  const entryColor = ignored && !gitDecoration ? "#4b5568" : gitColor;
 
   if (node.is_dir) {
     const isHighlighted = dragOver || isBlinkOn;
@@ -197,7 +218,9 @@ export default function FileTreeNode({
             ${
               isHighlighted
                 ? "text-white"
-                : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
+                : ignored
+                  ? "text-[#4b5568] hover:bg-[#151923] hover:text-[#647086]"
+                  : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
             }`}
           style={{
             paddingLeft: `${rowPaddingLeft}px`,
@@ -217,7 +240,7 @@ export default function FileTreeNode({
           <span className="relative z-10 flex items-center">
             {getFolderIcon(node.name, expanded)}
           </span>
-          <span className="relative z-10 truncate" style={{ color: gitColor }}>
+          <span className="relative z-10 truncate" style={{ color: entryColor }}>
             {node.name}
           </span>
 
@@ -247,6 +270,7 @@ export default function FileTreeNode({
               onMove={onMove}
               revealPath={revealPath}
               gitDecorations={gitDecorations}
+              ignoredPaths={ignoredPaths}
               depth={depth + 1}
             />
           ))}
@@ -268,7 +292,9 @@ export default function FileTreeNode({
         ${
           activeFile === node.path
             ? "bg-[#171a24] text-white"
-            : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
+            : ignored
+              ? "text-[#4b5568] hover:bg-[#151923] hover:text-[#647086]"
+              : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
         }`}
       style={{
         paddingLeft: `${rowPaddingLeft}px`,
@@ -282,7 +308,7 @@ export default function FileTreeNode({
       <span className="relative z-10 flex items-center">
         {getFileIcon(node.name)}
       </span>
-      <span className="relative z-10 truncate" style={{ color: gitColor }}>
+      <span className="relative z-10 truncate" style={{ color: entryColor }}>
         {node.name}
       </span>
       {gitDecoration && (

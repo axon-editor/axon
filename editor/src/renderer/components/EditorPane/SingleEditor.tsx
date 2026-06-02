@@ -7,6 +7,7 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { Columns2, FileWarning, FileText, Eye } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
+import { editorFontStack } from "../../lib/fonts";
 import { type GitChange } from "../../../shared/git";
 import { readFile, writeFile } from "../../lib/api";
 import { type EditorNavigationTarget } from "../../lib/navigation";
@@ -424,7 +425,7 @@ export default function SingleEditor({
         keepCurrentModel
         options={{
           fontSize: editorSettings.fontSize,
-          fontFamily: `'${editorSettings.fontFamily}', monospace`,
+          fontFamily: editorFontStack(editorSettings.fontFamily),
           lineHeight: editorSettings.lineHeight,
           fontLigatures: editorSettings.fontLigatures,
           minimap: { enabled: false },

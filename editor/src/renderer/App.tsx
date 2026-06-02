@@ -36,6 +36,7 @@ import {
   splitPane,
   openFileInPane,
   closeTabInPane,
+  closePane,
   reorderTabsInPane,
   setActivePaneFile,
   setDirtyInPane,
@@ -69,6 +70,8 @@ import {
 import { type UpdateInfo } from "../shared/updates";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
+import { fontStack } from "./lib/fonts";
+import { publicAsset } from "./lib/assets";
 import {
   loadWorkspaceSession,
   sanitizeRestoredLayout,
@@ -78,10 +81,6 @@ import {
 import { getModel } from "./lib/monacoModels";
 import { collectFileSymbols, type FileSymbol } from "./lib/fileSymbols";
 import "./App.css";
-
-function fontStack(primaryFont: string, fallback: string) {
-  return `"${primaryFont}", ${fallback}`;
-}
 
 function formatOutputTime(date = new Date()) {
   return date.toLocaleTimeString([], {
@@ -139,6 +138,7 @@ declare global {
         action: "stage" | "unstage" | "discard",
       ) => Promise<GitActionResult>;
       getAppInfo: () => Promise<AppInfo>;
+      shouldRestoreSession: () => Promise<boolean>;
       checkForUpdates: () => Promise<UpdateInfo>;
       openUpdatePage: (releaseUrl?: string) => Promise<void>;
       copyText: (text: string) => Promise<void>;
@@ -202,6 +202,7 @@ function App() {
   const [splashLeaving, setSplashLeaving] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);
+  const allowSessionPersistenceRef = useRef(true);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
   const themeTokens = useMemo(() => resolveThemeTokens(settings), [settings]);
@@ -495,31 +496,58 @@ function App() {
     if (restoreStartedRef.current) return;
     restoreStartedRef.current = true;
 
-    const session = loadWorkspaceSession();
-    if (!session?.folderPath) {
-      setSessionReady(true);
-      return;
-    }
+    window.axon
+      .shouldRestoreSession()
+      .then((shouldRestoreSession) => {
+        if (!shouldRestoreSession) {
+          allowSessionPersistenceRef.current = false;
+          setSessionReady(true);
+          return;
+        }
 
-    setLoading(true);
-    getTree(session.folderPath)
-      .then(async (fileTree) => {
-        addRecentFolder(session.folderPath as string);
-        await handleFolderChange(session.folderPath as string, fileTree, session);
-        appendOutput("workspace", `Restored ${session.folderPath}`, "success");
+        const session = loadWorkspaceSession();
+        if (!session?.folderPath) {
+          setSessionReady(true);
+          return;
+        }
+
+        setLoading(true);
+        getTree(session.folderPath)
+          .then(async (fileTree) => {
+            addRecentFolder(session.folderPath as string);
+            await handleFolderChange(
+              session.folderPath as string,
+              fileTree,
+              session,
+            );
+            appendOutput(
+              "workspace",
+              `Restored ${session.folderPath}`,
+              "success",
+            );
+          })
+          .catch((err) => {
+            console.error("failed to restore workspace session:", err);
+            appendOutput(
+              "workspace",
+              "Failed to restore previous workspace.",
+              "error",
+            );
+          })
+          .finally(() => {
+            setLoading(false);
+            setSessionReady(true);
+          });
       })
       .catch((err) => {
-        console.error("failed to restore workspace session:", err);
-        appendOutput("workspace", "Failed to restore previous workspace.", "error");
-      })
-      .finally(() => {
-        setLoading(false);
+        console.error("failed to read window restore mode:", err);
         setSessionReady(true);
       });
   }, []);
 
   useEffect(() => {
     if (!sessionReady) return;
+    if (!folderPath && !allowSessionPersistenceRef.current) return;
 
     // I persist only UI/navigation state here, never dirty editor contents.
     // Restoring unsaved buffers would require a separate crash-safe draft store;
@@ -548,6 +576,7 @@ function App() {
     fileTree: FileNode,
     restoredSession?: WorkspaceSession | null,
   ) => {
+    allowSessionPersistenceRef.current = true;
     setFolderPath(path);
     setTree(fileTree);
     setLayout(
@@ -1279,6 +1308,7 @@ function App() {
               setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
             }
             gitChanges={gitStatus?.changes ?? []}
+            ignoredPaths={gitStatus?.ignoredPaths ?? []}
           />
         )}
 
@@ -1348,6 +1378,7 @@ function App() {
             onMoveTabBetweenPanes={(f, src, tgt) =>
               setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
             }
+            onClosePane={(paneId) => setLayout((prev) => closePane(prev, paneId))}
             onOpenTabInTerminal={handleOpenTabInTerminal}
             editorSettings={settings.editor}
             themeTokens={themeTokens}
@@ -1509,7 +1540,33 @@ function App() {
         }
       />
 
+      {loading && !splashVisible && <WorkspaceLoadingOverlay />}
       {splashVisible && <SplashScreen leaving={splashLeaving} />}
+    </div>
+  );
+}
+
+function WorkspaceLoadingOverlay() {
+  return (
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#080a10]/72 backdrop-blur-sm">
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-[#222838] bg-[#10131b]/92 px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.42)]">
+        <img
+          src={publicAsset("axon.png")}
+          alt="Axon"
+          className="h-12 w-12 object-contain opacity-70"
+        />
+        <div className="flex flex-col items-center gap-1">
+          <div className="text-[12px] font-medium text-[#c8d0e0]">
+            Preparing workspace
+          </div>
+          <div className="text-[11px] text-[#586478]">
+            Reading files, settings, Git state, and diagnostics.
+          </div>
+        </div>
+        <div className="mt-1 h-1 w-40 overflow-hidden rounded-full bg-[#1a2030]">
+          <div className="axon-workspace-loading__bar h-full w-16 rounded-full bg-[#80c8e0]" />
+        </div>
+      </div>
     </div>
   );
 }

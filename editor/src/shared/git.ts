@@ -23,6 +23,7 @@ export interface GitStatusResult {
   root: string | null;
   branch: string | null;
   changes: GitChange[];
+  ignoredPaths: string[];
 }
 
 export interface GitDiffResult {

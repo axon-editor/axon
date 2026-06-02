@@ -11,6 +11,7 @@ interface Props {
   onClose: () => void;
   children: React.ReactNode;
   width?: string;
+  bodyClassName?: string;
 }
 
 export default function CommandModal({
@@ -18,6 +19,7 @@ export default function CommandModal({
   onClose,
   children,
   width = "w-[560px]",
+  bodyClassName = "min-h-0 overflow-auto",
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -40,7 +42,7 @@ export default function CommandModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#05070c]/35 px-4 pt-24 backdrop-blur-[2px]">
       <div
         ref={ref}
-        className={`${width} max-h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]`}
+        className={`${width} flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]`}
       >
         {title && (
           <div className="flex items-center justify-between border-b border-[#222838] bg-[#141824] px-4 py-3">
@@ -58,7 +60,7 @@ export default function CommandModal({
             </Tooltip>
           </div>
         )}
-        {children}
+        <div className={bodyClassName}>{children}</div>
       </div>
     </div>
   );
