@@ -4,7 +4,11 @@
   "private": true,
   "productName": "Axon",
   "description": "A personal AI-powered code editor built with Electron, React, TypeScript, and Go.",
-  "author": "Gorden",
+  "homepage": "https://github.com/GordenArcher/axon",
+  "author": {
+    "name": "Gorden",
+    "email": "GordenArcher@users.noreply.github.com"
+  },
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
@@ -13,10 +17,10 @@
     "build": "npm run build:main && npm run build:renderer",
     "preview": "electron .",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist": "npm run build && electron-builder --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:linux": "npm run build && electron-builder --linux --publish never"
   },
   "build": {
     "appId": "com.gorden.axon",
@@ -51,6 +55,7 @@
     },
     "linux": {
       "category": "Development",
+      "maintainer": "Gorden <GordenArcher@users.noreply.github.com>",
       "target": [
         "AppImage",
         "deb"
