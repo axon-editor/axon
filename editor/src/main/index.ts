@@ -16,8 +16,10 @@ import url from "url";
 import {
   execFile,
   spawn,
+  type ChildProcess,
   type ChildProcessWithoutNullStreams,
 } from "child_process";
+import http from "http";
 import { promisify } from "util";
 import {
   DEFAULT_SETTINGS,
@@ -52,8 +54,101 @@ const execFileAsync = promisify(execFile);
 
 const isMac = process.platform === "darwin";
 let mainWindow: BrowserWindow | null = null;
+let bundledCoreProcess: ChildProcess | null = null;
 const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 const activeLanguageServers = new Map<string, LanguageServerSession>();
+const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
+
+function getAxonCoreHealthUrl() {
+  return `http://127.0.0.1:${axonCorePort}/health`;
+}
+
+function waitForAxonCore(timeoutMs = 5000) {
+  const startedAt = Date.now();
+
+  return new Promise<boolean>((resolve) => {
+    const check = () => {
+      const request = http.get(getAxonCoreHealthUrl(), (response) => {
+        response.resume();
+        if (response.statusCode && response.statusCode >= 200 && response.statusCode < 500) {
+          resolve(true);
+          return;
+        }
+        retry();
+      });
+
+      request.on("error", retry);
+      request.setTimeout(750, () => {
+        request.destroy();
+        retry();
+      });
+    };
+
+    const retry = () => {
+      if (Date.now() - startedAt >= timeoutMs) {
+        resolve(false);
+        return;
+      }
+      setTimeout(check, 150);
+    };
+
+    check();
+  });
+}
+
+function getBundledCorePath() {
+  const binaryName = process.platform === "win32" ? "axon-core.exe" : "axon-core";
+  return path.join(process.resourcesPath, "core", binaryName);
+}
+
+async function startBundledAxonCore() {
+  if (isDev || bundledCoreProcess) return;
+
+  if (await waitForAxonCore(400)) return;
+
+  const corePath = getBundledCorePath();
+  if (!fs.existsSync(corePath)) {
+    console.error(`bundled axon-core binary was not found at ${corePath}`);
+    return;
+  }
+
+  // The packaged editor owns axon-core so users can open Axon like a normal
+  // desktop app. I still check for an already-running server first because
+  // developers may launch a packaged build while testing a local core, and
+  // blindly spawning another process would only create a port conflict.
+  bundledCoreProcess = spawn(corePath, [], {
+    env: {
+      ...process.env,
+      AXON_CORE_PORT: axonCorePort,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  bundledCoreProcess.stdout?.on("data", (chunk) => {
+    console.log(`[axon-core] ${chunk.toString().trimEnd()}`);
+  });
+  bundledCoreProcess.stderr?.on("data", (chunk) => {
+    console.error(`[axon-core] ${chunk.toString().trimEnd()}`);
+  });
+  bundledCoreProcess.on("exit", () => {
+    bundledCoreProcess = null;
+  });
+  bundledCoreProcess.on("error", (err) => {
+    console.error("failed to start bundled axon-core:", err);
+    bundledCoreProcess = null;
+  });
+
+  const ready = await waitForAxonCore();
+  if (!ready) {
+    console.error("bundled axon-core did not become ready before timeout");
+  }
+}
+
+function stopBundledAxonCore() {
+  if (!bundledCoreProcess || bundledCoreProcess.killed) return;
+  bundledCoreProcess.kill();
+  bundledCoreProcess = null;
+}
 
 function sendMenuCommand(command: AxonCommand) {
   const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
@@ -1611,7 +1706,7 @@ ipcMain.handle("fs:unwatch", async () => {
   await closeActiveWatcher();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // handle axon://local/absolute/path requests
   // streams the file directly to the renderer
   protocol.handle("axon", (request) => {
@@ -1622,6 +1717,7 @@ app.whenReady().then(() => {
   });
 
   buildApplicationMenu();
+  await startBundledAxonCore();
   createWindow();
 });
 
@@ -1691,6 +1787,7 @@ ipcMain.handle("fs:unwatchFolder", async () => {
 app.on("before-quit", async () => {
   stopActiveTasks();
   stopAllLanguageServers();
+  stopBundledAxonCore();
   await closeActiveWatcher();
   await closeFolderWatcher();
   await closeGitWatcher();

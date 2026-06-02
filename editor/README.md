@@ -50,15 +50,8 @@ npm run dist:win
 npm run dist:linux
 ```
 
-Packaged output is written to `editor/release/`.
-
-For the current v1 build, the desktop app is packaged separately from the Go
-core service. Start the core service before using terminal-backed features:
-
-```bash
-cd ../core
-go run cmd/axon/main.go
-```
+Packaged output is written to `editor/release/`. Release builds include the Go
+core binary and start it automatically when Axon opens.
 
 ## GitHub Release
 

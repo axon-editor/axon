@@ -47,6 +47,11 @@ jobs:
           cache: npm
           cache-dependency-path: editor/package-lock.json
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: core/go.mod
+
       - name: Install editor dependencies
         run: npm ci
 

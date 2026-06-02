@@ -95,16 +95,8 @@ npm run dist:win
 npm run dist:linux
 ```
 
-Build artifacts are written to `editor/release/`.
-
-For this v1 packaging setup, Axon’s Electron app and Go core service are still
-separate. Start the core service before launching packaged builds when you need
-terminal-backed features:
-
-```bash
-cd core
-go run cmd/axon/main.go
-```
+Build artifacts are written to `editor/release/`. Packaged desktop builds
+include the Go core binary and start it automatically when Axon opens.
 
 Cross-platform builds can require platform-specific tooling and signing. macOS
 builds are easiest from macOS; Windows and Linux release builds should be
@@ -150,6 +142,6 @@ release tag such as `v1.0.0`.
 
 - [ ] AI completion (goai trigger, Ollama + OpenAI + Anthropic)
 - [ ] Full LSP diagnostics, definition, references, and completion wiring
-- [ ] Bundle/sign the Go core service with packaged desktop releases
+- [ ] Sign and notarize macOS desktop releases
 - [ ] Search result grouping and replace across files
 - [ ] Extension/plugin system
