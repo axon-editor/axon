@@ -22,6 +22,7 @@ import {
   type LanguageServerLifecycleResult,
   type LanguageServerStatus,
 } from "../shared/lsp";
+import { type UpdateInfo } from "../shared/updates";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -73,6 +74,10 @@ contextBridge.exposeInMainWorld("axon", {
   ): Promise<GitActionResult> =>
     ipcRenderer.invoke("git:action", folderPath, filePath, action),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
+  checkForUpdates: (): Promise<UpdateInfo> =>
+    ipcRenderer.invoke("app:checkForUpdates"),
+  openUpdatePage: (releaseUrl?: string) =>
+    ipcRenderer.invoke("app:openUpdatePage", releaseUrl),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),

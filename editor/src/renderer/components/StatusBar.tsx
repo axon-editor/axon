@@ -9,10 +9,12 @@ import {
   ListChecks,
   PanelLeft,
   TerminalSquare,
+  Download,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
 import { type BottomPanelTab } from "./BottomPanel";
 import { type ResolvedThemeTokens } from "../lib/themeTokens";
+import { type UpdateInfo } from "../../shared/updates";
 
 interface Props {
   activeFile: string | null;
@@ -26,11 +28,13 @@ interface Props {
   problemCount: number;
   gitBranch: string | null;
   gitChangeCount: number;
+  updateInfo: UpdateInfo | null;
   themeTokens: ResolvedThemeTokens;
   onToggleSidebar: () => void;
   onToggleTerminal: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
   onOpenSourceControl: () => void;
+  onOpenUpdatePage: () => void;
 }
 
 export default function StatusBar({
@@ -45,11 +49,13 @@ export default function StatusBar({
   problemCount,
   gitBranch,
   gitChangeCount,
+  updateInfo,
   themeTokens,
   onToggleSidebar,
   onToggleTerminal,
   onOpenBottomPanel,
   onOpenSourceControl,
+  onOpenUpdatePage,
 }: Props) {
   return (
     <div
@@ -91,6 +97,22 @@ export default function StatusBar({
       )}
 
       <div className="ml-auto flex items-center gap-1">
+        {updateInfo?.updateAvailable && (
+          <Tooltip
+            label={`Update to Axon ${updateInfo.latestVersion}`}
+            side="top"
+          >
+            <button
+              onClick={onOpenUpdatePage}
+              aria-label={`Update to Axon ${updateInfo.latestVersion}`}
+              className="flex h-5 cursor-pointer items-center gap-1 rounded border border-[#2a3346] bg-[#142a36] px-2 text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+            >
+              <Download size={11} />
+              Update
+            </button>
+          </Tooltip>
+        )}
+
         {activeFile && (
           <>
             <span className="flex items-center gap-1 px-2 text-[#9aa4b8]">

@@ -8,6 +8,7 @@ import {
   protocol,
   net,
   clipboard,
+  shell,
 } from "electron";
 import path from "path";
 import chokidar, { type FSWatcher } from "chokidar";
@@ -47,6 +48,7 @@ import {
   type LanguageServerLifecycleResult,
   type LanguageServerStatus,
 } from "../shared/lsp";
+import { type UpdateInfo } from "../shared/updates";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -58,6 +60,101 @@ let bundledCoreProcess: ChildProcess | null = null;
 const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 const activeLanguageServers = new Map<string, LanguageServerSession>();
 const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
+const axonReleaseApiUrl =
+  "https://api.github.com/repos/GordenArcher/axon/releases/latest";
+const axonReleasePageUrl =
+  "https://github.com/GordenArcher/axon/releases/latest";
+
+interface GitHubReleasePayload {
+  tag_name?: string;
+  html_url?: string;
+}
+
+function parseVersionParts(version: string) {
+  return version
+    .trim()
+    .replace(/^v/i, "")
+    .split(/[.-]/)
+    .map((part) => {
+      const number = Number.parseInt(part, 10);
+      return Number.isFinite(number) ? number : 0;
+    });
+}
+
+function compareVersions(left: string, right: string) {
+  const leftParts = parseVersionParts(left);
+  const rightParts = parseVersionParts(right);
+  const length = Math.max(leftParts.length, rightParts.length);
+
+  for (let index = 0; index < length; index += 1) {
+    const leftValue = leftParts[index] ?? 0;
+    const rightValue = rightParts[index] ?? 0;
+    if (leftValue > rightValue) return 1;
+    if (leftValue < rightValue) return -1;
+  }
+
+  return 0;
+}
+
+function normalizeUpdatePageUrl(candidateUrl?: string) {
+  if (!candidateUrl) return axonReleasePageUrl;
+
+  try {
+    const parsedUrl = new URL(candidateUrl);
+    const isAxonReleaseUrl =
+      parsedUrl.protocol === "https:" &&
+      parsedUrl.hostname === "github.com" &&
+      parsedUrl.pathname.startsWith("/GordenArcher/axon/releases");
+
+    return isAxonReleaseUrl ? parsedUrl.toString() : axonReleasePageUrl;
+  } catch {
+    return axonReleasePageUrl;
+  }
+}
+
+async function checkForAppUpdate(): Promise<UpdateInfo> {
+  const currentVersion = app.getVersion();
+  const checkedAt = new Date().toISOString();
+
+  try {
+    // I keep update discovery in the main process because it already owns the
+    // trusted Electron surface. The renderer only receives a small typed result,
+    // so a failed request or a malformed GitHub payload cannot leak networking
+    // details into UI state beyond a simple "no update information" message.
+    const response = await fetch(axonReleaseApiUrl, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": `Axon/${currentVersion}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub returned ${response.status}.`);
+    }
+
+    const release = (await response.json()) as GitHubReleasePayload;
+    const latestVersion = release.tag_name?.replace(/^v/i, "") ?? currentVersion;
+    const releaseUrl = release.html_url ?? axonReleasePageUrl;
+
+    return {
+      currentVersion,
+      latestVersion,
+      updateAvailable: compareVersions(latestVersion, currentVersion) > 0,
+      releaseUrl,
+      checkedAt,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Update check failed.";
+    return {
+      currentVersion,
+      latestVersion: currentVersion,
+      updateAvailable: false,
+      releaseUrl: axonReleasePageUrl,
+      checkedAt,
+      error: message,
+    };
+  }
+}
 
 function getAxonCoreHealthUrl() {
   return `http://127.0.0.1:${axonCorePort}/health`;
@@ -1593,6 +1690,18 @@ ipcMain.handle("app:getInfo", async () => {
     node: process.versions.node,
     platform: process.platform,
   };
+});
+
+ipcMain.handle("app:checkForUpdates", async () => {
+  return checkForAppUpdate();
+});
+
+ipcMain.handle("app:openUpdatePage", async (_event, releaseUrl?: string) => {
+  // Until Axon has signed/notarized installers, the safest "update" behavior
+  // is to take the user to the release page and let them choose the artifact
+  // for their platform. This avoids silently replacing an unsigned app bundle
+  // while still making version mismatches obvious from the UI.
+  await shell.openExternal(normalizeUpdatePageUrl(releaseUrl));
 });
 
 ipcMain.handle("clipboard:writeText", async (_event, text: string) => {

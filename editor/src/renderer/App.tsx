@@ -66,6 +66,7 @@ import {
   type LanguageServerLifecycleResult,
   type LanguageServerStatus,
 } from "../shared/lsp";
+import { type UpdateInfo } from "../shared/updates";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import {
@@ -138,6 +139,8 @@ declare global {
         action: "stage" | "unstage" | "discard",
       ) => Promise<GitActionResult>;
       getAppInfo: () => Promise<AppInfo>;
+      checkForUpdates: () => Promise<UpdateInfo>;
+      openUpdatePage: (releaseUrl?: string) => Promise<void>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
       unwatchFile: () => Promise<void>;
@@ -181,6 +184,7 @@ function App() {
   const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
@@ -251,6 +255,10 @@ function App() {
       },
     ]);
   }, []);
+
+  const handleOpenUpdatePage = useCallback(() => {
+    void window.axon.openUpdatePage(updateInfo?.releaseUrl);
+  }, [updateInfo?.releaseUrl]);
 
   const refreshGitStatus = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -331,6 +339,28 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Update checks are informational for v1: Axon can tell the user that a
+    // newer GitHub release exists, but it does not silently replace the app.
+    // That matters while the builds are unsigned because macOS Gatekeeper and
+    // Windows SmartScreen still need the user to approve downloaded installers.
+    window.axon
+      .checkForUpdates()
+      .then((nextUpdateInfo) => {
+        setUpdateInfo(nextUpdateInfo);
+        if (nextUpdateInfo.updateAvailable) {
+          appendOutput(
+            "update",
+            `Axon ${nextUpdateInfo.latestVersion} is available.`,
+            "success",
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("failed to check for updates:", err);
+      });
+  }, [appendOutput]);
+
+  useEffect(() => {
     const styleId = "axon-custom-fonts";
     let styleElement = document.getElementById(
       styleId,
@@ -344,7 +374,7 @@ function App() {
 
     // Custom fonts are loaded from app-owned axon:// URLs returned by the main
     // process importer. Injecting one style tag from settings keeps the font
-    // registry deterministic: changing axon.json, saving settings, or
+    // registry deterministic: changing settings JSON, saving settings, or
     // restarting Axon all rebuild the same @font-face list before UI/editor
     // components ask CSS or Monaco to use those font-family names.
     styleElement.textContent = settings.customFonts
@@ -379,8 +409,8 @@ function App() {
 
       // Manual settings edits should take effect as soon as the user saves the
       // file. We still route through the main-process settings reader so the
-      // same validation and default-filling logic protects both the modal and
-      // axon.json paths.
+      // same validation and default-filling logic protects both app settings
+      // and explicit project axon.json paths.
       window.axon
         .getSettings(folderPath)
         .then((nextSettings) => setSettings(normalizeSettings(nextSettings)))
@@ -534,7 +564,6 @@ function App() {
     setBottomPanelOpen(restoredSession?.bottomPanelOpen === true);
     setBottomPanelTab(restoredSession?.bottomPanelTab ?? "problems");
     setTerminalCreateWorkingDirectory(null);
-    setSettingsJsonPath(`${path}/axon.json`);
     appendOutput("workspace", `Loaded file tree for ${path}`);
 
     try {
@@ -638,7 +667,7 @@ function App() {
 
     try {
       const savedSettings =
-        await window.axon.updateSettings(normalizedSettings, folderPath);
+        await window.axon.updateSettings(normalizedSettings, null);
       setSettings(normalizeSettings(savedSettings));
       appendOutput("settings", "Saved settings.", "success");
     } catch (err) {
@@ -647,14 +676,21 @@ function App() {
     }
   };
 
+  const handleSettingsPreview = useCallback((nextSettings: AxonSettings) => {
+    // SettingsModal owns the editable draft, but App owns the live theme and
+    // editor options. Previewing through this callback keeps the shell, Monaco,
+    // terminal, and panels in sync with the current draft without writing every
+    // slider movement or color keystroke to the app settings file.
+    setSettings(normalizeSettings(nextSettings));
+  }, []);
+
   const handleOpenSettingsJson = async () => {
     try {
       const settingsPath = await window.axon.ensureSettingsFile(
-        folderPath,
+        null,
         settings,
       );
       setSettingsJsonPath(settingsPath);
-      if (folderPath) await handleRefresh();
       handleFileSelect(settingsPath);
       appendOutput("settings", `Opened ${settingsPath}`);
     } catch (err) {
@@ -1080,7 +1116,7 @@ function App() {
       {
         id: AXON_COMMANDS.OPEN_SETTINGS_JSON,
         title: "Open Settings JSON",
-        subtitle: "Edit axon.json directly",
+        subtitle: "Edit settings JSON directly",
         keywords: ["preferences", "config", "theme", "font"],
       },
       {
@@ -1370,6 +1406,7 @@ function App() {
           problemCount={diagnostics.length}
           gitBranch={gitStatus?.branch ?? null}
           gitChangeCount={gitChangeCount}
+          updateInfo={updateInfo}
           themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
@@ -1383,6 +1420,7 @@ function App() {
           onOpenSourceControl={() =>
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
+          onOpenUpdatePage={handleOpenUpdatePage}
         />
       )}
 
@@ -1431,11 +1469,18 @@ function App() {
           folderPath={folderPath}
           settings={settings}
           onClose={() => setSettingsOpen(false)}
+          onPreview={handleSettingsPreview}
           onSave={handleSettingsSave}
         />
       )}
 
-      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <AboutModal
+          updateInfo={updateInfo}
+          onOpenUpdatePage={handleOpenUpdatePage}
+          onClose={() => setAboutOpen(false)}
+        />
+      )}
 
       {diffOpen && (diffFilePath || activePane?.activeFile) && (
         <DiffModal

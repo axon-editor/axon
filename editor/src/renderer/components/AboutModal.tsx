@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
 import { publicAsset } from "../lib/assets";
 import CommandModal from "./CommandModal";
+import { type UpdateInfo } from "../../shared/updates";
 
 export interface AppInfo {
   name: string;
@@ -13,6 +14,8 @@ export interface AppInfo {
 }
 
 interface AboutModalProps {
+  updateInfo: UpdateInfo | null;
+  onOpenUpdatePage: () => void;
   onClose: () => void;
 }
 
@@ -27,7 +30,11 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function AboutModal({ onClose }: AboutModalProps) {
+export default function AboutModal({
+  updateInfo,
+  onOpenUpdatePage,
+  onClose,
+}: AboutModalProps) {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -81,6 +88,9 @@ export default function AboutModal({ onClose }: AboutModalProps) {
 
         <div className="mt-5 rounded-md border border-[#222838] bg-[#0a0c12] px-3">
           <InfoRow label="version" value={appInfo?.version ?? "loading..."} />
+          {updateInfo?.updateAvailable ? (
+            <InfoRow label="latest" value={updateInfo.latestVersion} />
+          ) : null}
           <InfoRow
             label="electron"
             value={appInfo?.electron ?? "loading..."}
@@ -91,15 +101,31 @@ export default function AboutModal({ onClose }: AboutModalProps) {
         </div>
 
         <div className="mt-5 flex items-center justify-between border-t border-[#222838] pt-4">
-          <span className="text-[11px] text-[#586478]">Axon</span>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="flex h-8 items-center gap-2 rounded border border-[#222838] bg-[#14161e] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white cursor-pointer"
-          >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-            {copied ? "copied" : "copy info"}
-          </button>
+          <span className="text-[11px] text-[#586478]">
+            {updateInfo?.updateAvailable
+              ? "A newer Axon release is available."
+              : "Axon is current."}
+          </span>
+          <div className="flex items-center gap-2">
+            {updateInfo?.updateAvailable ? (
+              <button
+                type="button"
+                onClick={onOpenUpdatePage}
+                className="flex h-8 cursor-pointer items-center gap-2 rounded border border-[#2a3346] bg-[#142a36] px-3 text-[12px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+              >
+                <Download size={13} />
+                update
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex h-8 items-center gap-2 rounded border border-[#222838] bg-[#14161e] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white cursor-pointer"
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? "copied" : "copy info"}
+            </button>
+          </div>
         </div>
       </div>
     </CommandModal>

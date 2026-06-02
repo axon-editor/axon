@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Braces,
   Palette,
@@ -41,6 +41,7 @@ interface Props {
   folderPath: string | null;
   settings: AxonSettings;
   onClose: () => void;
+  onPreview: (settings: AxonSettings) => void;
   onSave: (settings: AxonSettings) => void;
 }
 
@@ -69,8 +70,10 @@ export default function SettingsModal({
   folderPath,
   settings,
   onClose,
+  onPreview,
   onSave,
 }: Props) {
+  const initialSettingsRef = useRef(settings);
   const [draft, setDraft] = useState(settings);
   const [activeSection, setActiveSection] =
     useState<SettingsSectionId>("appearance");
@@ -113,6 +116,21 @@ export default function SettingsModal({
     [draft],
   );
 
+  useEffect(() => {
+    if (invalidThemeTokens.length > 0) return;
+
+    // Settings controls should feel like editor preferences, not a form that
+    // only matters after closing the modal. I preview normalized settings here
+    // so theme, chrome colors, UI font, Monaco font, terminal font, and panel
+    // surfaces all update while the user is still choosing values.
+    //
+    // Invalid theme colors are intentionally not previewed. Without that guard
+    // a half-typed value like "#00" could temporarily erase the active override
+    // after normalization, which makes color editing feel jumpy and harder to
+    // reason about.
+    onPreview(normalizeSettings(draft));
+  }, [draft, invalidThemeTokens.length, onPreview]);
+
   const updateEditor = <K extends keyof AxonSettings["editor"]>(
     key: K,
     value: AxonSettings["editor"][K],
@@ -154,9 +172,9 @@ export default function SettingsModal({
 
   const updateThemeColor = (token: ThemeColorToken, value: string) => {
     // Theme overrides are stored by the human-facing theme label because that
-    // is what axon.json already exposes. Keeping UI writes in that same shape
-    // means users can move between the settings screen and raw JSON without
-    // seeing duplicate override blocks for the same active theme.
+    // is what the settings JSON already exposes. Keeping UI writes in that same
+    // shape means users can move between the settings screen and raw JSON
+    // without seeing duplicate override blocks for the same active theme.
     setDraft((prev) => ({
       ...prev,
       theme_overrides: {
@@ -274,17 +292,27 @@ export default function SettingsModal({
     onClose();
   };
 
+  const close = () => {
+    // Because the modal previews settings live, closing without saving needs
+    // to behave like Cancel in other editors: the visible app returns to the
+    // values that were active before the settings session began. Save bypasses
+    // this function and persists the current draft instead.
+    onPreview(initialSettingsRef.current);
+    onClose();
+  };
+
   return (
-    <CommandModal title="settings" onClose={onClose} width="w-[920px]">
-      <div className="grid h-[min(720px,calc(100vh-8rem))] grid-cols-[240px_1fr] overflow-hidden">
+    <CommandModal title="settings" onClose={close} width="w-[920px]">
+      <div className="grid h-[min(680px,calc(100vh-11.5rem))] grid-cols-[240px_1fr] overflow-hidden">
         <aside className="flex min-h-0 flex-col border-r border-[#222838] bg-[#0b0d13]">
           <div className="border-b border-[#222838] px-4 py-3">
             <div className="flex items-center gap-2 text-[12px] font-medium text-[#dce4f0]">
               <Braces size={14} className="text-[#80c8e0]" />
-              axon.json
+              settings.json
             </div>
             <div className="mt-1 text-[11px] leading-4 text-[#586478]">
-              UI changes save to the same normalized settings file.
+              UI changes save to Axon's app settings. Project settings stay
+              manual unless you create them yourself.
             </div>
           </div>
 
@@ -532,7 +560,7 @@ export default function SettingsModal({
             {activeSection === "theme" && (
               <SettingsSection
                 title="Theme Colors"
-                description={`Editing ${activeThemeName} overrides. Values accept #RRGGBB or #RRGGBBAA and are saved under theme_overrides in axon.json.`}
+                description={`Editing ${activeThemeName} overrides. Values accept #RRGGBB or #RRGGBBAA and are saved under theme_overrides in settings JSON.`}
               >
                 {THEME_COLOR_TOKENS.map((token) => {
                   const value = getThemeColorValue(draft, token);
@@ -775,7 +803,7 @@ export default function SettingsModal({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={onClose}
+                onClick={close}
                 className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#1e2430] hover:text-white"
               >
                 Cancel
