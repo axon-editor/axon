@@ -3,7 +3,7 @@ export interface UpdateInfo {
   latestVersion: string;
   updateAvailable: boolean;
   releaseUrl: string;
+  releaseNotes: string;
   checkedAt: string;
   error?: string;
 }
-

@@ -18,8 +18,10 @@ import {
   Settings,
   Search,
   GitCompare,
+  Download,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
+import { type UpdateInfo } from "../../shared/updates";
 
 interface Props {
   onNewFile: () => void;
@@ -30,6 +32,8 @@ interface Props {
   onSplit: (direction: "right" | "left" | "up" | "down") => void;
   onZenMode: () => void;
   onSettings: () => void;
+  updateInfo: UpdateInfo | null;
+  onOpenUpdate: () => void;
   isZenMode: boolean;
 }
 
@@ -44,6 +48,8 @@ export default function EditorToolbar({
   onSplit,
   onZenMode,
   onSettings,
+  updateInfo,
+  onOpenUpdate,
   isZenMode,
 }: Props) {
   const [dropdown, setDropdown] = useState<DropdownType>(null);
@@ -71,6 +77,22 @@ export default function EditorToolbar({
 
   return (
     <div className="flex items-center gap-0.5 px-2">
+      {updateInfo?.updateAvailable ? (
+        <Tooltip
+          label={`View Axon ${updateInfo.latestVersion} update notes`}
+          side="bottom"
+        >
+          <button
+            onClick={onOpenUpdate}
+            aria-label={`View Axon ${updateInfo.latestVersion} update notes`}
+            className="mr-1 flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+          >
+            <Download size={13} />
+            Update
+          </button>
+        </Tooltip>
+      ) : null}
+
       {/* new action button */}
       <div ref={newRef} className="relative">
         <Tooltip label="New..." side="bottom">

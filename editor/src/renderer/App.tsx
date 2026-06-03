@@ -20,6 +20,7 @@ import AboutModal, { type AppInfo } from "./components/AboutModal";
 import SourceControlModal from "./components/SourceControlModal";
 import TaskRunnerModal from "./components/TaskRunnerModal";
 import FileOutlineModal from "./components/FileOutlineModal";
+import UpdateModal from "./components/UpdateModal";
 import {
   getTree,
   createFile,
@@ -184,6 +185,7 @@ function App() {
   const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
@@ -1350,6 +1352,8 @@ function App() {
                 onSplit={handleSplit}
                 onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
                 onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
+                updateInfo={updateInfo}
+                onOpenUpdate={() => setUpdateModalOpen(true)}
                 isZenMode={zenMode}
               />
             </div>
@@ -1437,7 +1441,6 @@ function App() {
           problemCount={diagnostics.length}
           gitBranch={gitStatus?.branch ?? null}
           gitChangeCount={gitChangeCount}
-          updateInfo={updateInfo}
           themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
@@ -1451,7 +1454,6 @@ function App() {
           onOpenSourceControl={() =>
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
-          onOpenUpdatePage={handleOpenUpdatePage}
         />
       )}
 
@@ -1508,8 +1510,16 @@ function App() {
       {aboutOpen && (
         <AboutModal
           updateInfo={updateInfo}
-          onOpenUpdatePage={handleOpenUpdatePage}
+          onOpenUpdatePage={() => setUpdateModalOpen(true)}
           onClose={() => setAboutOpen(false)}
+        />
+      )}
+
+      {updateModalOpen && updateInfo && (
+        <UpdateModal
+          updateInfo={updateInfo}
+          onClose={() => setUpdateModalOpen(false)}
+          onOpenUpdatePage={handleOpenUpdatePage}
         />
       )}
 

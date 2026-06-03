@@ -69,6 +69,7 @@ const axonReleasePageUrl =
 interface GitHubReleasePayload {
   tag_name?: string;
   html_url?: string;
+  body?: string;
 }
 
 function parseVersionParts(version: string) {
@@ -142,6 +143,7 @@ async function checkForAppUpdate(): Promise<UpdateInfo> {
       latestVersion,
       updateAvailable: compareVersions(latestVersion, currentVersion) > 0,
       releaseUrl,
+      releaseNotes: release.body?.trim() || "No release notes were provided.",
       checkedAt,
     };
   } catch (err) {
@@ -151,6 +153,7 @@ async function checkForAppUpdate(): Promise<UpdateInfo> {
       latestVersion: currentVersion,
       updateAvailable: false,
       releaseUrl: axonReleasePageUrl,
+      releaseNotes: "",
       checkedAt,
       error: message,
     };
