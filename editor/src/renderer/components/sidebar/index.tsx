@@ -3,12 +3,11 @@
 // Folder name header is clickable and opens the FolderPicker modal.
 // Recent folders persisted in localStorage under axon:recentFolders.
 import { useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../lib/api";
 import FileTreeNode from "./FileTreeNode";
 import ContextMenu from "./ContextMenu";
 import FolderPicker from "./FolderPicker";
-import Tooltip from "../Tooltip";
+import { publicAsset } from "../../lib/assets";
 import { type GitChange, type GitFileState } from "../../../shared/git";
 
 const RECENT_KEY = "axon:recentFolders";
@@ -94,6 +93,9 @@ interface Props {
   onEntryRenamed?: (oldPath: string, newPath: string) => void;
   gitChanges?: GitChange[];
   ignoredPaths?: string[];
+  folderPickerOpen: boolean;
+  onOpenFolderPicker: () => void;
+  onCloseFolderPicker: () => void;
 }
 
 interface ContextMenuState {
@@ -223,9 +225,11 @@ export default function Sidebar({
   onEntryRenamed,
   gitChanges,
   ignoredPaths: ignoredPathList,
+  folderPickerOpen,
+  onOpenFolderPicker,
+  onCloseFolderPicker,
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [revealPath, setRevealPath] = useState<string | null>(null);
   const gitDecorations = useMemo(
     () => buildGitDecorationMap(gitChanges),
@@ -283,67 +287,83 @@ export default function Sidebar({
     }
   };
 
-  const folderName = folderPath ? folderPath.split("/").pop() : null;
-
   if (collapsed) return null;
+
+  const showEmptySidebar =
+    !loading && (!tree || (tree.children?.length ?? 0) === 0);
 
   return (
     <>
       <div className="flex h-full">
-        <div className="w-52 bg-[var(--axon-sidebar-background)] border-r border-[var(--axon-sidebar-border)] flex flex-col overflow-hidden">
-            <div
-              className="flex items-center px-3 border-b border-[var(--axon-sidebar-border)] pt-8 pb-2"
-              style={{ WebkitAppRegion: "drag" } as any}
+        <div className="w-52 `bg-(--axon-sidebar-background) border-r border-(--axon-sidebar-border) flex flex-col overflow-hidden">
+          <div
+            className="flex items-center justify-between border-b border-(--axon-sidebar-border px-3 py-2 pl-20 pt-[-15px]"
+            style={{ WebkitAppRegion: "drag" } as any}
+          >
+            <button
+              type="button"
+              onClick={onOpenFolderPicker}
+              aria-label="Select folder"
+              className="max-w-[180px] truncate rounded px-2 py-1 text-left text-[11px] font-medium text-[#9aa4b8] transition-colors hover:bg-[#11151c] hover:text-white cursor-pointer"
+              style={{ WebkitAppRegion: "no-drag" } as any}
             >
-              <Tooltip label="Switch folder" side="bottom">
-                <button
-                  onClick={() => setPickerOpen(true)}
-                  aria-label="Switch folder"
-                  className="flex items-center gap-1 text-[11px] text-[#9aa4b8] hover:text-[#80c8e0] transition-colors cursor-pointer truncate max-w-[140px]"
-                  style={{ WebkitAppRegion: "no-drag" } as any}
-                >
-                  <span className="truncate font-medium">
-                    {folderName ?? "open folder"}
-                  </span>
-                  <ChevronDown size={11} className="shrink-0" />
-                </button>
-              </Tooltip>
-            </div>
-
-            <div
-              className="flex-1 overflow-y-auto py-1"
-              onContextMenu={handleRootContextMenu}
-            >
-              {loading && (
-                <div className="px-4 py-2 text-[12px] text-[#364050]">
-                  loading...
-                </div>
-              )}
-              {!loading && !tree && (
-                <div
-                  onClick={() => setPickerOpen(true)}
-                  className="px-4 py-3 text-[12px] text-[#364050] hover:text-[#586478] cursor-pointer transition-colors"
-                >
-                  open a folder to start
-                </div>
-              )}
-              {!loading &&
-                tree &&
-                tree.children?.map((child) => (
-                  <FileTreeNode
-                    key={child.path}
-                    node={child}
-                    activeFile={activeFile}
-                    onFileSelect={onFileSelect}
-                    onContextMenu={handleContextMenu}
-                    onMove={handleMove}
-                    revealPath={revealPath}
-                    gitDecorations={gitDecorations}
-                    ignoredPaths={ignoredPaths}
-                  />
-                ))}
-            </div>
+              {folderPath
+                ? (folderPath.split("/").pop() ?? "open folder")
+                : "open folder"}
+            </button>
           </div>
+
+          <div
+            className="flex-1 overflow-y-auto py-1"
+            onContextMenu={handleRootContextMenu}
+          >
+            {loading && (
+              <div className="px-4 py-2 text-[12px] text-[#364050]">
+                loading...
+              </div>
+            )}
+
+            {showEmptySidebar && (
+              <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                <img
+                  src={publicAsset("axon.png")}
+                  alt="Axon"
+                  className="mb-3 h-12 w-12 opacity-25"
+                  draggable={false}
+                />
+                <div className="text-[12px] font-medium text-[#c8d0e0]">
+                  no folder open
+                </div>
+                <div className="mt-1 max-w-[160px] text-[11px] leading-4 text-[#586478]">
+                  use the folder button above to open a workspace.
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenFolderPicker}
+                  className="mt-4 flex h-7 cursor-pointer items-center rounded border border-[#222838] px-3 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:bg-[#11151c] hover:text-white"
+                >
+                  open folder
+                </button>
+              </div>
+            )}
+
+            {!loading &&
+              tree &&
+              tree.children?.map((child) => (
+                <FileTreeNode
+                  key={child.path}
+                  node={child}
+                  activeFile={activeFile}
+                  onFileSelect={onFileSelect}
+                  onContextMenu={handleContextMenu}
+                  onMove={handleMove}
+                  revealPath={revealPath}
+                  gitDecorations={gitDecorations}
+                  ignoredPaths={ignoredPaths}
+                />
+              ))}
+          </div>
+        </div>
       </div>
 
       {contextMenu && (
@@ -368,15 +388,15 @@ export default function Sidebar({
         />
       )}
 
-      {pickerOpen && (
+      {folderPickerOpen && (
         <FolderPicker
           recentFolders={getRecentFolders()}
           onSelect={handleSelectRecent}
           onOpenNew={async () => {
             await onOpenFolder();
-            setPickerOpen(false);
+            onCloseFolderPicker();
           }}
-          onClose={() => setPickerOpen(false)}
+          onClose={onCloseFolderPicker}
         />
       )}
     </>

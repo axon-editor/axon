@@ -21,6 +21,7 @@ import SourceControlModal from "./components/SourceControlModal";
 import TaskRunnerModal from "./components/TaskRunnerModal";
 import FileOutlineModal from "./components/FileOutlineModal";
 import UpdateModal from "./components/UpdateModal";
+import Tooltip from "./components/Tooltip";
 import {
   getTree,
   createFile,
@@ -215,6 +216,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateInstallState, setUpdateInstallState] =
     useState<UpdateInstallState>({ phase: "idle" });
@@ -239,6 +241,7 @@ function App() {
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
+  const folderName = folderPath ? folderPath.split("/").pop() ?? null : null;
   const themeTokens = useMemo(() => resolveThemeTokens(settings), [settings]);
   const themeCssVariables = useMemo(
     () => createThemeCssVariables(themeTokens),
@@ -1413,6 +1416,9 @@ function App() {
             }
             gitChanges={gitStatus?.changes ?? []}
             ignoredPaths={gitStatus?.ignoredPaths ?? []}
+            folderPickerOpen={folderPickerOpen}
+            onOpenFolderPicker={() => setFolderPickerOpen(true)}
+            onCloseFolderPicker={() => setFolderPickerOpen(false)}
           />
         )}
 
@@ -1425,24 +1431,26 @@ function App() {
                 borderColor: "var(--axon-panel-border)",
               }}
             >
-              <div className="flex-1 overflow-hidden">
+              <div className="flex min-w-0 flex-1 overflow-hidden">
                 {activePane && (
-                  <TabBarForActivePane
-                    layout={layout}
-                    onSelect={(f) =>
-                      setLayout((prev) =>
-                        setActivePaneFile(prev, prev.activePaneId, f),
-                      )
-                    }
-                    onClose={(f) =>
-                      void requestCloseTab(layout.activePaneId, f)
-                    }
-                    onReorder={(tabs) =>
-                      setLayout((prev) =>
-                        reorderTabsInPane(prev, prev.activePaneId, tabs),
-                      )
-                    }
-                  />
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <TabBarForActivePane
+                      layout={layout}
+                      onSelect={(f) =>
+                        setLayout((prev) =>
+                          setActivePaneFile(prev, prev.activePaneId, f),
+                        )
+                      }
+                      onClose={(f) =>
+                        void requestCloseTab(layout.activePaneId, f)
+                      }
+                      onReorder={(tabs) =>
+                        setLayout((prev) =>
+                          reorderTabsInPane(prev, prev.activePaneId, tabs),
+                        )
+                      }
+                    />
+                  </div>
                 )}
               </div>
               <EditorToolbar
@@ -1536,7 +1544,7 @@ function App() {
           activeFile={activePane?.activeFile ?? null}
           language={language}
           cursor={cursorInfo}
-          folderName={folderPath ? (folderPath.split("/").pop() ?? null) : null}
+          folderName={folderName}
           sidebarCollapsed={sidebarCollapsed}
           terminalOpen={terminalOpen}
           bottomPanelOpen={bottomPanelOpen}
@@ -1546,6 +1554,7 @@ function App() {
           gitChangeCount={gitChangeCount}
           themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+          onOpenFolderPicker={() => setFolderPickerOpen(true)}
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
           onOpenBottomPanel={(tab) =>
             runCommand(
