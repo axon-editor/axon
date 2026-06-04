@@ -1122,6 +1122,27 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     },
   },
   {
+    id: "cpp",
+    label: "C++",
+    languages: ["C", "C++"],
+    command: "clangd",
+    args: ["--version"],
+    launchArgs: ["--background-index", "--stdio"],
+    workspaceMarkers: [
+      "compile_commands.json",
+      "CMakeLists.txt",
+      "meson.build",
+      "Makefile",
+    ],
+    // clangd is the practical C/C++ server for Axon because it can attach to
+    // existing build metadata when the project already has it, but it still
+    // gives us a clean installation check when the binary is missing. That
+    // keeps the settings UI honest: the workspace may be a C++ project, but
+    // Axon only claims the server is startable when the actual executable is
+    // available on PATH.
+    installHint: "Install clangd.",
+  },
+  {
     id: "go",
     label: "Go",
     languages: ["Go"],
@@ -1179,13 +1200,82 @@ function resolveLanguageServerCommand(
   );
 }
 
+function getExecutableSearchDirectories() {
+  // Electron apps launched from the dock or app bundle do not always inherit
+  // the same PATH the user sees in their shell. That is why Axon looks in a
+  // small set of common install locations before declaring a language server
+  // missing. The goal is not to guess blindly; it is to cover the common
+  // Homebrew, Xcode, rustup, pyenv, and Go bin paths that developers already
+  // use when they install editor tooling locally.
+  const dirs = new Set<string>();
+  const home = process.env.HOME ?? "";
+
+  for (const entry of (process.env.PATH ?? "").split(path.delimiter)) {
+    if (entry.trim()) dirs.add(entry.trim());
+  }
+
+  if (home) {
+    dirs.add(path.join(home, ".local", "bin"));
+    dirs.add(path.join(home, ".cargo", "bin"));
+    dirs.add(path.join(home, "go", "bin"));
+  }
+
+  if (process.platform === "darwin") {
+    [
+      "/opt/homebrew/bin",
+      "/opt/homebrew/sbin",
+      "/usr/local/bin",
+      "/usr/local/sbin",
+      "/Library/Developer/CommandLineTools/usr/bin",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+      "/usr/bin",
+      "/bin",
+    ].forEach((dir) => dirs.add(dir));
+  } else if (process.platform === "linux") {
+    ["/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin"].forEach((dir) =>
+      dirs.add(dir),
+    );
+  } else if (process.platform === "win32") {
+    [
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs"),
+      process.env.ProgramFiles,
+      process.env["ProgramFiles(x86)"],
+    ].forEach((dir) => {
+      if (dir) dirs.add(dir);
+    });
+  }
+
+  return Array.from(dirs);
+}
+
+function resolveCommandPath(command: string) {
+  if (path.isAbsolute(command) && fs.existsSync(command)) return command;
+
+  const commandVariants =
+    process.platform === "win32"
+      ? [command, `${command}.exe`, `${command}.cmd`, `${command}.bat`]
+      : [command];
+
+  for (const dir of getExecutableSearchDirectories()) {
+    for (const candidate of commandVariants) {
+      const resolved = path.join(dir, candidate);
+      if (fs.existsSync(resolved)) {
+        return resolved;
+      }
+    }
+  }
+
+  return command;
+}
+
 async function canRunCommand(command: string, args: string[]) {
-  if (path.isAbsolute(command) && fs.existsSync(command) && args.length === 0) {
+  const resolvedCommand = resolveCommandPath(command);
+  if (path.isAbsolute(resolvedCommand) && fs.existsSync(resolvedCommand) && args.length === 0) {
     return true;
   }
 
   try {
-    await execFileAsync(command, args, {
+    await execFileAsync(resolvedCommand, args, {
       timeout: 3000,
       maxBuffer: 1024 * 256,
     });
@@ -1384,9 +1474,10 @@ async function startRelevantLanguageServers(
 
     const resolved = resolveLanguageServerCommand(definition, folderPath);
     const key = getLanguageServerSessionKey(folderPath, definition.id);
+    const launchCommand = resolveCommandPath(resolved.launchCommand);
 
     try {
-      const child = spawn(resolved.launchCommand, resolved.launchArgs, {
+      const child = spawn(launchCommand, resolved.launchArgs, {
         cwd: folderPath,
         stdio: "pipe",
       });

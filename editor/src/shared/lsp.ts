@@ -1,5 +1,6 @@
 export const LANGUAGE_SERVER_IDS = [
   "typescript",
+  "cpp",
   "go",
   "rust",
   "python",
