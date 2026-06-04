@@ -22,7 +22,11 @@ import {
   type LanguageServerLifecycleResult,
   type LanguageServerStatus,
 } from "../shared/lsp";
-import { type UpdateInfo } from "../shared/updates";
+import {
+  type UpdateActionResult,
+  type UpdateInfo,
+  type UpdateInstallState,
+} from "../shared/updates";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -78,6 +82,16 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("app:shouldRestoreSession"),
   checkForUpdates: (): Promise<UpdateInfo> =>
     ipcRenderer.invoke("app:checkForUpdates"),
+  // The renderer can request updater actions, but it still cannot touch
+  // electron-updater directly. Keeping these as IPC calls means download,
+  // install, and restart control stay in the main process where Electron
+  // expects them, while React only renders state and user intent.
+  getUpdateInstallState: (): Promise<UpdateInstallState> =>
+    ipcRenderer.invoke("app:getUpdateInstallState"),
+  downloadUpdate: (): Promise<UpdateActionResult> =>
+    ipcRenderer.invoke("app:downloadUpdate"),
+  installUpdate: (): Promise<UpdateActionResult> =>
+    ipcRenderer.invoke("app:installUpdate"),
   openUpdatePage: (releaseUrl?: string) =>
     ipcRenderer.invoke("app:openUpdatePage", releaseUrl),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
@@ -115,6 +129,15 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = (_: unknown, event: TaskFinishedEvent) => callback(event);
     ipcRenderer.on("task:finished", handler);
     return () => ipcRenderer.removeListener("task:finished", handler);
+  },
+
+  // Updater events can happen after the modal closes or before it opens. This
+  // subscription gives App a single source of truth so any update surface can
+  // render the current phase without polling or duplicating updater logic.
+  onUpdateState: (callback: (state: UpdateInstallState) => void) => {
+    const handler = (_: unknown, state: UpdateInstallState) => callback(state);
+    ipcRenderer.on("app:updateState", handler);
+    return () => ipcRenderer.removeListener("app:updateState", handler);
   },
 
   onMenuCommand: (callback: (command: AxonCommand) => void) => {

@@ -68,7 +68,11 @@ import {
   type LanguageServerLifecycleResult,
   type LanguageServerStatus,
 } from "../shared/lsp";
-import { type UpdateInfo } from "../shared/updates";
+import {
+  type UpdateActionResult,
+  type UpdateInfo,
+  type UpdateInstallState,
+} from "../shared/updates";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { fontStack } from "./lib/fonts";
@@ -141,6 +145,9 @@ declare global {
       getAppInfo: () => Promise<AppInfo>;
       shouldRestoreSession: () => Promise<boolean>;
       checkForUpdates: () => Promise<UpdateInfo>;
+      getUpdateInstallState: () => Promise<UpdateInstallState>;
+      downloadUpdate: () => Promise<UpdateActionResult>;
+      installUpdate: () => Promise<UpdateActionResult>;
       openUpdatePage: (releaseUrl?: string) => Promise<void>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
@@ -155,6 +162,9 @@ declare global {
       onTaskOutput: (callback: (event: TaskOutputEvent) => void) => () => void;
       onTaskFinished: (
         callback: (event: TaskFinishedEvent) => void,
+      ) => () => void;
+      onUpdateState: (
+        callback: (state: UpdateInstallState) => void,
       ) => () => void;
       onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
     };
@@ -187,6 +197,8 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateInstallState, setUpdateInstallState] =
+    useState<UpdateInstallState>({ phase: "idle" });
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
@@ -262,6 +274,24 @@ function App() {
   const handleOpenUpdatePage = useCallback(() => {
     void window.axon.openUpdatePage(updateInfo?.releaseUrl);
   }, [updateInfo?.releaseUrl]);
+
+  const handleDownloadUpdate = useCallback(async () => {
+    const result = await window.axon.downloadUpdate();
+    appendOutput(
+      "update",
+      result.message,
+      result.ok ? "success" : "error",
+    );
+  }, [appendOutput]);
+
+  const handleInstallUpdate = useCallback(async () => {
+    const result = await window.axon.installUpdate();
+    appendOutput(
+      "update",
+      result.message,
+      result.ok ? "success" : "error",
+    );
+  }, [appendOutput]);
 
   const refreshGitStatus = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -342,10 +372,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Update checks are informational for v1: Axon can tell the user that a
-    // newer GitHub release exists, but it does not silently replace the app.
-    // That matters while the builds are unsigned because macOS Gatekeeper and
-    // Windows SmartScreen still need the user to approve downloaded installers.
+    // Axon uses two update data streams on purpose:
+    //
+    // - checkForUpdates reads the public GitHub release so the UI can show the
+    //   newest version and render release notes as markdown.
+    // - onUpdateState mirrors electron-updater's packaged-app lifecycle so the
+    //   modal can move from Update -> progress -> Restart without guessing.
+    //
+    // Keeping those separate lets dev builds still preview release notes while
+    // packaged builds get the real download/install path.
     window.axon
       .checkForUpdates()
       .then((nextUpdateInfo) => {
@@ -361,6 +396,15 @@ function App() {
       .catch((err) => {
         console.error("failed to check for updates:", err);
       });
+
+    window.axon
+      .getUpdateInstallState()
+      .then(setUpdateInstallState)
+      .catch((err) => {
+        console.error("failed to load updater state:", err);
+      });
+
+    return window.axon.onUpdateState(setUpdateInstallState);
   }, [appendOutput]);
 
   useEffect(() => {
@@ -1518,7 +1562,10 @@ function App() {
       {updateModalOpen && updateInfo && (
         <UpdateModal
           updateInfo={updateInfo}
+          installState={updateInstallState}
           onClose={() => setUpdateModalOpen(false)}
+          onDownloadUpdate={handleDownloadUpdate}
+          onInstallUpdate={handleInstallUpdate}
           onOpenUpdatePage={handleOpenUpdatePage}
         />
       )}

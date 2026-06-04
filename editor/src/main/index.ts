@@ -22,6 +22,7 @@ import {
 } from "child_process";
 import http from "http";
 import { promisify } from "util";
+import { autoUpdater } from "electron-updater";
 import {
   DEFAULT_SETTINGS,
   normalizeSettings,
@@ -48,10 +49,15 @@ import {
   type LanguageServerLifecycleResult,
   type LanguageServerStatus,
 } from "../shared/lsp";
-import { type UpdateInfo } from "../shared/updates";
+import {
+  type UpdateActionResult,
+  type UpdateInfo,
+  type UpdateInstallState,
+} from "../shared/updates";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
+configureAutoUpdater();
 const execFileAsync = promisify(execFile);
 
 const isMac = process.platform === "darwin";
@@ -65,11 +71,82 @@ const axonReleaseApiUrl =
   "https://api.github.com/repos/GordenArcher/axon/releases/latest";
 const axonReleasePageUrl =
   "https://github.com/GordenArcher/axon/releases/latest";
+let updateInstallState: UpdateInstallState = { phase: "idle" };
 
 interface GitHubReleasePayload {
   tag_name?: string;
   html_url?: string;
   body?: string;
+}
+
+function publishUpdateInstallState(
+  nextState: UpdateInstallState,
+): UpdateInstallState {
+  // The updater lifecycle is owned by Electron's main process because it needs
+  // filesystem access, app restart control, and the packaged app metadata that
+  // the renderer should never touch directly.
+  //
+  // I keep the current state cached here before broadcasting it because the
+  // update modal may open after a download has already started or completed.
+  // Without this cache, the renderer could only react to future events and
+  // would show an idle button even though the updater is already mid-flow.
+  updateInstallState = nextState;
+  sendToRenderer("app:updateState", updateInstallState);
+  return updateInstallState;
+}
+
+function configureAutoUpdater() {
+  // Axon already has its own release-notes check against the GitHub Releases
+  // API. The auto-updater is only responsible for downloading and installing
+  // the packaged artifact, so I disable automatic downloads here and let the
+  // user start that step from the in-app update modal.
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.logger = null;
+
+  autoUpdater.on("checking-for-update", () => {
+    publishUpdateInstallState({ phase: "checking" });
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    publishUpdateInstallState({
+      phase: "available",
+      version: info.version,
+    });
+  });
+
+  autoUpdater.on("update-not-available", (info) => {
+    publishUpdateInstallState({
+      phase: "not-available",
+      version: info.version,
+      message: "Axon is current.",
+    });
+  });
+
+  autoUpdater.on("download-progress", (progress) => {
+    publishUpdateInstallState({
+      phase: "downloading",
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond,
+    });
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    publishUpdateInstallState({
+      phase: "downloaded",
+      version: info.version,
+      message: "Ready to install.",
+    });
+  });
+
+  autoUpdater.on("error", (error) => {
+    publishUpdateInstallState({
+      phase: "error",
+      message: error.message,
+    });
+  });
 }
 
 function parseVersionParts(version: string) {
@@ -1737,11 +1814,61 @@ ipcMain.handle("app:checkForUpdates", async () => {
   return checkForAppUpdate();
 });
 
+ipcMain.handle("app:getUpdateInstallState", async () => {
+  return updateInstallState;
+});
+
+ipcMain.handle("app:downloadUpdate", async (): Promise<UpdateActionResult> => {
+  if (isDev) {
+    const message = "Packaged builds are required for in-app updates.";
+    publishUpdateInstallState({ phase: "error", message });
+    return { ok: false, message };
+  }
+
+  try {
+    publishUpdateInstallState({ phase: "checking" });
+    const result = await autoUpdater.checkForUpdates();
+    const latestVersion = result?.updateInfo?.version;
+    // `electron-updater` reads platform-specific metadata such as latest.yml
+    // from the GitHub release. I still compare versions here before calling
+    // downloadUpdate because a stale modal or a repeated click should not ask
+    // the updater to download when the installed app is already current.
+    if (!latestVersion || compareVersions(latestVersion, app.getVersion()) <= 0) {
+      publishUpdateInstallState({
+        phase: "not-available",
+        version: latestVersion ?? app.getVersion(),
+        message: "Axon is current.",
+      });
+      return { ok: false, message: "Axon is current." };
+    }
+
+    await autoUpdater.downloadUpdate();
+    return { ok: true, message: "Downloading update." };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to download update.";
+    publishUpdateInstallState({ phase: "error", message });
+    return { ok: false, message };
+  }
+});
+
+ipcMain.handle("app:installUpdate", async (): Promise<UpdateActionResult> => {
+  // Installation is intentionally gated on the downloaded state. Calling
+  // quitAndInstall too early can close the editor without a ready installer,
+  // which is the worst possible failure mode for an update button.
+  if (updateInstallState.phase !== "downloaded") {
+    return {
+      ok: false,
+      message: "Download the update before installing.",
+    };
+  }
+
+  publishUpdateInstallState({ ...updateInstallState, phase: "installing" });
+  autoUpdater.quitAndInstall(false, true);
+  return { ok: true, message: "Installing update." };
+});
+
 ipcMain.handle("app:openUpdatePage", async (_event, releaseUrl?: string) => {
-  // Until Axon has signed/notarized installers, the safest "update" behavior
-  // is to take the user to the release page and let them choose the artifact
-  // for their platform. This avoids silently replacing an unsigned app bundle
-  // while still making version mismatches obvious from the UI.
   await shell.openExternal(normalizeUpdatePageUrl(releaseUrl));
 });
 
