@@ -519,14 +519,25 @@ function importCustomFontFile(sourcePath: string): CustomFont {
 
 function getAxonIconPath() {
   if (isDev) {
-    const devIcon = path.join(app.getAppPath(), "src/renderer/public/axon.png");
+    // Vite now packages static renderer assets from editor/public so the app
+    // icon, splash logo, and file-tree assets all come from the same source of
+    // truth. I still keep the old renderer-local path as a fallback because
+    // older working trees may have the image there while someone is moving
+    // between release branches.
+    const devIcon = path.join(app.getAppPath(), "public/axon.png");
     if (fs.existsSync(devIcon)) return devIcon;
+
+    const legacyDevIcon = path.join(
+      app.getAppPath(),
+      "src/renderer/public/axon.png",
+    );
+    if (fs.existsSync(legacyDevIcon)) return legacyDevIcon;
   }
 
   const builtIcon = path.join(__dirname, "../renderer/axon.png");
   if (fs.existsSync(builtIcon)) return builtIcon;
 
-  return path.join(app.getAppPath(), "src/renderer/public/axon.png");
+  return path.join(app.getAppPath(), "public/axon.png");
 }
 
 function readSettingsFromDisk(settingsPath: string): AxonSettings {
@@ -1669,8 +1680,15 @@ function createWindow(options: { restoreSession?: boolean } = {}) {
     mainWindow = window;
   }
 
+  const webContentsId = window.webContents.id;
   window.on("closed", () => {
-    windowSessionRestore.delete(window.webContents.id);
+    // Electron destroys webContents as part of native window teardown. The
+    // macOS menu-bar Quit path can reach this listener after the BrowserWindow
+    // object is already half torn down, so reading `window.webContents.id` here
+    // is unsafe and can throw "Object has been destroyed". Capturing the id
+    // while the window is alive gives the cleanup path a stable key and keeps
+    // native Quit from crashing the packaged app.
+    windowSessionRestore.delete(webContentsId);
     if (mainWindow === window) {
       mainWindow = BrowserWindow.getAllWindows().find(
         (candidate) => !candidate.isDestroyed(),

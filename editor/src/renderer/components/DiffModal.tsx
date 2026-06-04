@@ -33,11 +33,26 @@ export default function DiffModal({
 
   useEffect(() => {
     let cancelled = false;
+    let modelDisposable: { dispose: () => void } | null = null;
     setLoading(true);
     setError(null);
 
     const currentModel = getModel(filePath);
-    setCurrentContent(currentModel?.getValue() ?? "");
+    if (currentModel) {
+      setCurrentContent(currentModel.getValue());
+
+      // The compare modal is meant to show "Git base vs the editor buffer",
+      // not only "Git base vs whatever was on disk when the modal opened".
+      // Monaco keeps unsaved edits in its model, so I subscribe directly to
+      // that model while the modal is mounted. Without this listener, the user
+      // has to close/reopen the compare view before fresh edits appear, which
+      // makes the diff feel stale even though the editor already has the data.
+      modelDisposable = currentModel.onDidChangeContent(() => {
+        if (!cancelled) setCurrentContent(currentModel.getValue());
+      });
+    } else {
+      setCurrentContent("");
+    }
 
     const loadCurrentContent = readFile(filePath).then((file) => {
       if (!currentModel) setCurrentContent(file.content);
@@ -62,6 +77,7 @@ export default function DiffModal({
 
     return () => {
       cancelled = true;
+      modelDisposable?.dispose();
     };
   }, [filePath, folderPath]);
 
