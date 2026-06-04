@@ -32,6 +32,7 @@ export default function UpdateModal({
   const checking = installState.phase === "checking";
   const failed = installState.phase === "error";
   const progress = Math.max(0, Math.min(100, installState.percent ?? 0));
+  const statusMessage = installState.message;
 
   // The modal intentionally renders one primary action at a time. Before the
   // package is downloaded, the action starts the updater. After the package is
@@ -51,10 +52,15 @@ export default function UpdateModal({
             <div className="mt-1 text-[11px] text-[#586478]">
               {updateInfo.currentVersion} {"->"} {updateInfo.latestVersion}
             </div>
+            {statusMessage ? (
+              <div className="mt-1 max-w-[520px] truncate text-[11px] text-[#7b8496]">
+                {statusMessage}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2">
-            {downloaded ? (
+            {downloaded || installing ? (
               <button
                 type="button"
                 onClick={onInstallUpdate}
@@ -62,7 +68,7 @@ export default function UpdateModal({
                 className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Download size={12} />
-                Restart
+                {installing ? "Restarting..." : "Restart to Update"}
               </button>
             ) : (
               <button

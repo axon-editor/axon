@@ -81,6 +81,7 @@ const axonReleaseApiUrl =
 const axonReleasePageUrl =
   "https://github.com/GordenArcher/axon/releases/latest";
 let updateInstallState: UpdateInstallState = { phase: "idle" };
+let updateInstallTimeout: ReturnType<typeof setTimeout> | null = null;
 let htmlPreviewServer: Server | null = null;
 let htmlPreviewRootPath: string | null = null;
 let htmlPreviewServerId: string | null = null;
@@ -150,6 +151,10 @@ function configureAutoUpdater() {
   });
 
   autoUpdater.on("update-downloaded", (info) => {
+    // Once a package is fully downloaded, a normal user-driven app quit should
+    // also finish the update. That matches editors like Zed/VS Code: the app
+    // does not interrupt work, but the next restart applies the ready package.
+    autoUpdater.autoInstallOnAppQuit = true;
     publishUpdateInstallState({
       phase: "downloaded",
       version: info.version,
@@ -204,6 +209,38 @@ function normalizeUpdatePageUrl(candidateUrl?: string) {
     return isAxonReleaseUrl ? parsedUrl.toString() : axonReleasePageUrl;
   } catch {
     return axonReleasePageUrl;
+  }
+}
+
+function resolveMacAppBundlePath() {
+  if (!isMac) return null;
+
+  const appPathParts = process.execPath.split(`${path.sep}Contents${path.sep}`);
+  if (appPathParts.length < 2 || !appPathParts[0].endsWith(".app")) {
+    return null;
+  }
+
+  return appPathParts[0];
+}
+
+async function getMacUpdateInstallBlocker() {
+  if (!isMac || isDev || !app.isPackaged) return null;
+
+  const appBundlePath = resolveMacAppBundlePath();
+  if (!appBundlePath) {
+    return "Axon could not locate the macOS app bundle. Download the latest DMG from GitHub.";
+  }
+
+  try {
+    await execFileAsync("codesign", [
+      "--verify",
+      "--deep",
+      "--strict",
+      appBundlePath,
+    ]);
+    return null;
+  } catch {
+    return "This Axon macOS build is not code signed, so macOS cannot apply in-app updates. Download the latest DMG from GitHub.";
   }
 }
 
@@ -2384,6 +2421,22 @@ ipcMain.handle("app:downloadUpdate", async (): Promise<UpdateActionResult> => {
     return { ok: false, message };
   }
 
+  const macInstallBlocker = await getMacUpdateInstallBlocker();
+  if (macInstallBlocker) {
+    publishUpdateInstallState({ phase: "error", message: macInstallBlocker });
+    return { ok: false, message: macInstallBlocker };
+  }
+
+  if (
+    updateInstallState.phase === "checking" ||
+    updateInstallState.phase === "downloading"
+  ) {
+    return { ok: true, message: "Update download is already running." };
+  }
+  if (updateInstallState.phase === "downloaded") {
+    return { ok: true, message: "Update is ready to install." };
+  }
+
   try {
     publishUpdateInstallState({ phase: "checking" });
     const result = await autoUpdater.checkForUpdates();
@@ -2401,7 +2454,22 @@ ipcMain.handle("app:downloadUpdate", async (): Promise<UpdateActionResult> => {
       return { ok: false, message: "Axon is current." };
     }
 
-    await autoUpdater.downloadUpdate();
+    publishUpdateInstallState({
+      phase: "downloading",
+      version: latestVersion,
+      percent: 0,
+      transferred: 0,
+      total: 0,
+      bytesPerSecond: 0,
+      message: "Downloading update.",
+    });
+    // Let the IPC call resolve immediately so the renderer can show feedback
+    // while electron-updater streams progress through the event listeners above.
+    void autoUpdater.downloadUpdate().catch((err) => {
+      const message =
+        err instanceof Error ? err.message : "Failed to download update.";
+      publishUpdateInstallState({ phase: "error", message });
+    });
     return { ok: true, message: "Downloading update." };
   } catch (err) {
     const message =
@@ -2412,6 +2480,12 @@ ipcMain.handle("app:downloadUpdate", async (): Promise<UpdateActionResult> => {
 });
 
 ipcMain.handle("app:installUpdate", async (): Promise<UpdateActionResult> => {
+  const macInstallBlocker = await getMacUpdateInstallBlocker();
+  if (macInstallBlocker) {
+    publishUpdateInstallState({ phase: "error", message: macInstallBlocker });
+    return { ok: false, message: macInstallBlocker };
+  }
+
   // Installation is intentionally gated on the downloaded state. Calling
   // quitAndInstall too early can close the editor without a ready installer,
   // which is the worst possible failure mode for an update button.
@@ -2422,7 +2496,13 @@ ipcMain.handle("app:installUpdate", async (): Promise<UpdateActionResult> => {
     };
   }
 
-  publishUpdateInstallState({ ...updateInstallState, phase: "installing" });
+  publishUpdateInstallState({
+    ...updateInstallState,
+    phase: "installing",
+    message: "Restarting to install update.",
+  });
+  autoUpdater.autoInstallOnAppQuit = true;
+  if (updateInstallTimeout) clearTimeout(updateInstallTimeout);
 
   // I schedule the actual restart after the IPC handler returns because the
   // renderer is waiting for this call to resolve before it can record the
@@ -2431,7 +2511,6 @@ ipcMain.handle("app:installUpdate", async (): Promise<UpdateActionResult> => {
   // updater does not immediately close the app.
   setTimeout(() => {
     try {
-      autoUpdater.autoInstallOnAppQuit = true;
       autoUpdater.quitAndInstall(false, true);
     } catch (err) {
       const message =
@@ -2439,6 +2518,16 @@ ipcMain.handle("app:installUpdate", async (): Promise<UpdateActionResult> => {
       publishUpdateInstallState({ phase: "error", message });
     }
   }, 100);
+  updateInstallTimeout = setTimeout(() => {
+    if (updateInstallState.phase !== "installing") return;
+
+    publishUpdateInstallState({
+      phase: "downloaded",
+      version: updateInstallState.version,
+      message:
+        "Axon could not restart automatically. Quit and reopen Axon to finish installing the downloaded update.",
+    });
+  }, 10000);
 
   return { ok: true, message: "Installing update." };
 });

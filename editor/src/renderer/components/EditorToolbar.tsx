@@ -84,9 +84,11 @@ export default function EditorToolbar({
       ? `Downloading ${updateDownloadProgress}%`
       : updatePhase === "downloaded"
         ? "Restart to Update"
-        : updatePhase === "checking"
-          ? "Checking..."
-          : "Update";
+        : updatePhase === "installing"
+          ? "Restarting..."
+          : updatePhase === "checking"
+            ? "Checking..."
+            : "Update";
   return (
     <div className="flex items-center gap-0.5 px-2">
       {updateInfo?.updateAvailable ? (
@@ -94,9 +96,11 @@ export default function EditorToolbar({
           label={
             updatePhase === "downloaded"
               ? `Restart to apply Axon ${updateInfo.latestVersion}`
-              : updatePhase === "downloading"
-                ? `Downloading Axon ${updateInfo.latestVersion}`
-                : `View Axon ${updateInfo.latestVersion} update notes`
+              : updatePhase === "installing"
+                ? `Restarting Axon to apply ${updateInfo.latestVersion}`
+                : updatePhase === "downloading"
+                  ? `Downloading Axon ${updateInfo.latestVersion}`
+                  : `View Axon ${updateInfo.latestVersion} update notes`
           }
           side="bottom"
         >
