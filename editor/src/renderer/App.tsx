@@ -762,7 +762,22 @@ function App() {
         id: Date.now(),
       };
       setNavigationTarget(nextTarget);
-      setLayout((prev) => openFileInPane(prev, prev.activePaneId, target.path));
+      setLayout((prev) => {
+        const existingPane = prev.panes.find((pane) =>
+          pane.openTabs.includes(target.path),
+        );
+
+        // Search should feel like a navigation command, not a duplicate file
+        // opener. If the match already lives in another pane, Axon should
+        // focus that pane and reveal the line in place instead of opening a
+        // second copy in the active pane and making the same file feel split
+        // across two surfaces for no reason.
+        if (existingPane) {
+          return openFileInPane(prev, existingPane.id, target.path);
+        }
+
+        return openFileInPane(prev, prev.activePaneId, target.path);
+      });
     },
     [],
   );

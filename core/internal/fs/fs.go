@@ -61,12 +61,23 @@ func shouldSkipEntry(name string) bool {
 }
 
 func shouldSkipSearchEntry(name string) bool {
-	// Search is different from the visible tree. Showing node_modules and dist
-	// is useful for navigation, but scanning those folders by default would make
-	// workspace search feel broken on real JavaScript projects. This keeps the
-	// tree honest while search stays focused on source files.
+	// Search needs a broader ignore list than the visible tree because the
+	// walker would otherwise burn time scanning generated output, dependency
+	// installs, and language caches from every ecosystem the user might open.
+	// Those directories are usually enormous, rarely contain hand-written code,
+	// and create noisy duplicate matches that bury the actual source hit. By
+	// skipping them here, Axon keeps search fast and focused without hiding the
+	// same folders from the explorer.
 	switch name {
-	case ".git", ".DS_Store", "node_modules", "vendor", "dist", "release":
+	case ".git", ".DS_Store":
+		return true
+	case "node_modules", "vendor", "dist", "release", "build", "out", "target":
+		return true
+	case "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".venv", "venv", "env":
+		return true
+	case ".gradle", ".next", ".turbo", ".parcel-cache", ".cache", ".gocache":
+		return true
+	case "bin", "obj", "coverage", "coverage-final", "tmp", "temp":
 		return true
 	default:
 		return false

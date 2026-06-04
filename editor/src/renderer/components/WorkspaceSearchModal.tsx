@@ -19,6 +19,22 @@ function relativePath(rootPath: string | null, path: string) {
   return path.slice(rootPath.length + 1);
 }
 
+function highlightPreview(preview: string, query: string) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return [preview];
+
+  const lowerPreview = preview.toLowerCase();
+  const lowerQuery = trimmedQuery.toLowerCase();
+  const matchIndex = lowerPreview.indexOf(lowerQuery);
+  if (matchIndex < 0) return [preview];
+
+  const before = preview.slice(0, matchIndex);
+  const match = preview.slice(matchIndex, matchIndex + trimmedQuery.length);
+  const after = preview.slice(matchIndex + trimmedQuery.length);
+
+  return [before, match, after];
+}
+
 export default function WorkspaceSearchModal({
   rootPath,
   open,
@@ -165,7 +181,18 @@ export default function WorkspaceSearchModal({
                 </span>
               </span>
               <span className="block text-[11px] text-[#586478] truncate mt-0.5">
-                {result.preview}
+                {highlightPreview(result.preview, query).map((part, index) =>
+                  index === 1 ? (
+                    <mark
+                      key={`${result.path}-hit-${index}`}
+                      className="rounded bg-[#2a3346] px-0.5 text-[#dce4f0]"
+                    >
+                      {part}
+                    </mark>
+                  ) : (
+                    <span key={`${result.path}-hit-${index}`}>{part}</span>
+                  ),
+                )}
               </span>
             </span>
           </button>
