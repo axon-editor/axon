@@ -68,6 +68,7 @@ func shouldSkipSearchEntry(name string) bool {
 	// and create noisy duplicate matches that bury the actual source hit. By
 	// skipping them here, Axon keeps search fast and focused without hiding the
 	// same folders from the explorer.
+	lowerName := strings.ToLower(name)
 	switch name {
 	case ".git", ".DS_Store":
 		return true
@@ -75,12 +76,14 @@ func shouldSkipSearchEntry(name string) bool {
 		return true
 	case "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".venv", "venv", "env":
 		return true
-	case ".gradle", ".next", ".turbo", ".parcel-cache", ".cache", ".gocache":
+	case ".gradle", ".next", ".turbo", ".parcel-cache", ".cache", ".gocache", "gocache", "go-build":
 		return true
 	case "bin", "obj", "coverage", "coverage-final", "tmp", "temp":
 		return true
 	default:
-		return false
+		return strings.HasPrefix(lowerName, ".cache") ||
+			strings.HasPrefix(lowerName, "cache") ||
+			strings.HasSuffix(lowerName, "-cache")
 	}
 }
 

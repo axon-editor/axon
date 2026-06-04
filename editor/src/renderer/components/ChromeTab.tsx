@@ -46,7 +46,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
     <div
       ref={ref}
       {...props}
-      className={`group flex h-7 min-w-0 max-w-44 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded border px-2 text-[11px] transition-colors ${
+      className={`group flex h-7 min-w-0 max-w-32 shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded border px-2 text-[11px] transition-colors ${
         active
           ? "border-[#2a3346] bg-[#151923] text-[#dce4f0]"
           : "border-transparent bg-transparent text-[#7b8496] hover:bg-[#111722] hover:text-neutral-100"
