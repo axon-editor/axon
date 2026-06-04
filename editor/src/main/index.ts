@@ -81,7 +81,6 @@ const axonReleaseApiUrl =
 const axonReleasePageUrl =
   "https://github.com/GordenArcher/axon/releases/latest";
 let updateInstallState: UpdateInstallState = { phase: "idle" };
-let updateQuitFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 let htmlPreviewServer: Server | null = null;
 let htmlPreviewRootPath: string | null = null;
 let htmlPreviewServerId: string | null = null;
@@ -2339,26 +2338,10 @@ ipcMain.handle("app:installUpdate", async (): Promise<UpdateActionResult> => {
   // action in Output. Calling quitAndInstall synchronously from inside the IPC
   // handler can leave the UI in an "Installing" state with no recovery if the
   // updater does not immediately close the app.
-  //
-  // autoInstallOnAppQuit is normally disabled so Axon never installs a download
-  // just because the user quits later. For this explicit Restart action I turn
-  // it on only for the install window, then add a short app.quit fallback. That
-  // gives electron-updater two chances to enter the installer path instead of
-  // leaving the button disabled forever.
-  if (updateQuitFallbackTimer) {
-    clearTimeout(updateQuitFallbackTimer);
-    updateQuitFallbackTimer = null;
-  }
-
   setTimeout(() => {
     try {
       autoUpdater.autoInstallOnAppQuit = true;
       autoUpdater.quitAndInstall(false, true);
-
-      updateQuitFallbackTimer = setTimeout(() => {
-        if (BrowserWindow.getAllWindows().length === 0) return;
-        app.quit();
-      }, 2500);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to install update.";
