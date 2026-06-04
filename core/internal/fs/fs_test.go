@@ -114,3 +114,44 @@ func TestReadFileAllowsUtf8Text(t *testing.T) {
 		t.Fatalf("unexpected content: %q", content.Content)
 	}
 }
+
+func TestSearchWorkspaceSkipsGoCaches(t *testing.T) {
+	root := t.TempDir()
+
+	sourceDir := filepath.Join(root, "src")
+	dotGoCacheDir := filepath.Join(root, ".gocache", "ab")
+	plainGoCacheDir := filepath.Join(root, "gocache", "cd")
+	goBuildDir := filepath.Join(root, "go-build123", "ef")
+	for _, dir := range []string{sourceDir, dotGoCacheDir, plainGoCacheDir, goBuildDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("failed to create %s: %v", dir, err)
+		}
+	}
+
+	sourcePath := filepath.Join(sourceDir, "main.go")
+	if err := os.WriteFile(sourcePath, []byte("package main\nconst marker = \"axon-search\"\n"), 0644); err != nil {
+		t.Fatalf("failed to write source file: %v", err)
+	}
+
+	cacheFiles := []string{
+		filepath.Join(dotGoCacheDir, "cached.go"),
+		filepath.Join(plainGoCacheDir, "cached.go"),
+		filepath.Join(goBuildDir, "cached.go"),
+	}
+	for _, cachePath := range cacheFiles {
+		if err := os.WriteFile(cachePath, []byte("const marker = \"axon-search\"\n"), 0644); err != nil {
+			t.Fatalf("failed to write cache file %s: %v", cachePath, err)
+		}
+	}
+
+	results, err := SearchWorkspace(root, "axon-search", 20)
+	if err != nil {
+		t.Fatalf("SearchWorkspace failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected only the source match, got %d results: %#v", len(results), results)
+	}
+	if results[0].Path != sourcePath {
+		t.Fatalf("expected result path %s, got %s", sourcePath, results[0].Path)
+	}
+}

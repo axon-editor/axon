@@ -57,12 +57,12 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
           label={tooltipLabel}
           side="bottom"
           delayMs={tooltipDelayMs}
-          triggerClassName="min-w-0 flex-1"
+          triggerClassName="min-w-0 flex-1 pr-1"
         >
-          <span className="truncate">{label}</span>
+          <span className="block truncate">{label}</span>
         </Tooltip>
       ) : (
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate pr-1">{label}</span>
       )}
 
       {dirty ? (
@@ -76,7 +76,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
             aria-label={closeLabel}
             onPointerDown={handleClosePointerDown}
             onClick={onClose}
-            className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded bg-[#202838] text-[#7b8496] transition hover:bg-[#2a3346] hover:text-white ${
+            className={`ml-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded bg-[#202838] text-[#7b8496] transition hover:bg-[#2a3346] hover:text-white ${
               dirty ? "hidden group-hover:flex" : "opacity-0 group-hover:opacity-100"
             }`}
           >

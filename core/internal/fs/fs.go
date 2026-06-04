@@ -83,8 +83,29 @@ func shouldSkipSearchEntry(name string) bool {
 	default:
 		return strings.HasPrefix(lowerName, ".cache") ||
 			strings.HasPrefix(lowerName, "cache") ||
+			strings.HasPrefix(lowerName, "go-build") ||
+			strings.Contains(lowerName, "gocache") ||
 			strings.HasSuffix(lowerName, "-cache")
 	}
+}
+
+func shouldSkipSearchPath(rootPath string, candidatePath string) bool {
+	relativePath, err := filepath.Rel(rootPath, candidatePath)
+	if err != nil || relativePath == "." {
+		return false
+	}
+
+	// Check every segment, not only the current WalkDir entry name. Generated
+	// cache folders can contain thousands of nested files, and path-level
+	// filtering guarantees anything already below .gocache/go-build never gets
+	// opened or returned as a search hit.
+	for _, segment := range strings.Split(relativePath, string(os.PathSeparator)) {
+		if shouldSkipSearchEntry(segment) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func trimSearchPreview(line string) string {
@@ -278,7 +299,7 @@ func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchRes
 			return nil
 		}
 
-		if path != rootPath && shouldSkipSearchEntry(entry.Name()) {
+		if path != rootPath && shouldSkipSearchPath(rootPath, path) {
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}
