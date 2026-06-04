@@ -82,7 +82,7 @@ import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { fontStack } from "./lib/fonts";
 import { publicAsset } from "./lib/assets";
-import { createHtmlPreviewTabPath } from "./lib/htmlPreviewTabs";
+import { createHtmlPreviewTabPath, isHtmlFile } from "./lib/htmlPreviewTabs";
 import {
   loadWorkspaceSession,
   sanitizeRestoredLayout,
@@ -1049,6 +1049,11 @@ function App() {
         case AXON_COMMANDS.FIND_REFERENCES:
           runEditorAction("references");
           break;
+        case AXON_COMMANDS.OPEN_HTML_PREVIEW:
+          if (activePane?.activeFile && isHtmlFile(activePane.activeFile)) {
+            handleOpenHtmlPreview(activePane.activeFile);
+          }
+          break;
         case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
           setBottomPanelTab("problems");
           setBottomPanelOpen(true);
@@ -1097,6 +1102,11 @@ function App() {
         case AXON_COMMANDS.OPEN_SETTINGS_JSON:
           void handleOpenSettingsJson();
           break;
+        case AXON_COMMANDS.OPEN_UPDATE_NOTES:
+          if (updateInfo?.updateAvailable) {
+            setUpdateModalOpen(true);
+          }
+          break;
         case AXON_COMMANDS.TOGGLE_ZEN_MODE:
           setZenMode((prev) => !prev);
           break;
@@ -1117,6 +1127,7 @@ function App() {
       runEditorAction,
       settings,
       terminalOpen,
+      updateInfo?.updateAvailable,
     ],
   );
 
@@ -1125,6 +1136,8 @@ function App() {
       {
         id: AXON_COMMANDS.NEW_FILE,
         title: "New File",
+        group: "File",
+        shortcut: "Cmd N",
         subtitle: folderPath
           ? "Create a file in the current workspace"
           : "Open a folder first",
@@ -1134,12 +1147,16 @@ function App() {
       {
         id: AXON_COMMANDS.OPEN_FOLDER,
         title: "Open Folder",
+        group: "File",
+        shortcut: "Cmd O",
         subtitle: "Choose another workspace folder",
         keywords: ["workspace", "project"],
       },
       {
         id: AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
         title: "Search Workspace",
+        group: "Search",
+        shortcut: "Cmd Shift F",
         subtitle: folderPath
           ? "Search text across the current folder"
           : "Open a folder first",
@@ -1149,6 +1166,7 @@ function App() {
       {
         id: AXON_COMMANDS.OPEN_TASK_RUNNER,
         title: "Run Task",
+        group: "Workspace",
         subtitle: folderPath
           ? "Run package, Go, or Cargo workspace tasks"
           : "Open a folder first",
@@ -1158,6 +1176,8 @@ function App() {
       {
         id: AXON_COMMANDS.OPEN_FILE_OUTLINE,
         title: "File Outline",
+        group: "Navigation",
+        shortcut: "Cmd Shift O",
         subtitle: activePane?.activeFile
           ? `${activeFileSymbols.length} symbols in active file`
           : "Select a file first",
@@ -1167,6 +1187,8 @@ function App() {
       {
         id: AXON_COMMANDS.GO_TO_DEFINITION,
         title: "Go to Definition",
+        group: "Navigation",
+        shortcut: "F12",
         subtitle: activePane?.activeFile
           ? "Jump to the symbol definition Monaco can resolve"
           : "Select a file first",
@@ -1176,6 +1198,8 @@ function App() {
       {
         id: AXON_COMMANDS.FIND_REFERENCES,
         title: "Find References",
+        group: "Navigation",
+        shortcut: "Shift F12",
         subtitle: activePane?.activeFile
           ? "Show usages for the current symbol"
           : "Select a file first",
@@ -1183,14 +1207,27 @@ function App() {
         disabled: !activePane?.activeFile,
       },
       {
+        id: AXON_COMMANDS.OPEN_HTML_PREVIEW,
+        title: "Open HTML Preview",
+        group: "Preview",
+        subtitle:
+          activePane?.activeFile && isHtmlFile(activePane.activeFile)
+            ? "Open the active HTML file in Axon's preview tab"
+            : "Select an HTML file first",
+        keywords: ["browser", "live", "preview", "web"],
+        disabled: !activePane?.activeFile || !isHtmlFile(activePane.activeFile),
+      },
+      {
         id: AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
         title: "Show Problems",
+        group: "Panel",
         subtitle: `${diagnostics.length} diagnostics`,
         keywords: ["diagnostics", "errors", "warnings"],
       },
       {
         id: AXON_COMMANDS.REFRESH_DIAGNOSTICS,
         title: "Refresh Diagnostics",
+        group: "Diagnostics",
         subtitle: folderPath
           ? "Run project diagnostics for the current workspace"
           : "Open a folder first",
@@ -1200,30 +1237,37 @@ function App() {
       {
         id: AXON_COMMANDS.OPEN_OUTPUT_PANEL,
         title: "Show Output",
+        group: "Panel",
         subtitle: "Open logs, task output, and future AI output",
         keywords: ["logs", "panel"],
       },
       {
         id: AXON_COMMANDS.CLEAR_OUTPUT,
         title: "Clear Output",
+        group: "Panel",
         subtitle: "Clear the Output panel log",
         keywords: ["logs", "output", "reset"],
       },
       {
         id: AXON_COMMANDS.TOGGLE_TERMINAL,
         title: terminalOpen ? "Hide Terminal" : "Show Terminal",
+        group: "Terminal",
+        shortcut: "Cmd J",
         subtitle: "Toggle the terminal panel",
         keywords: ["shell", "console"],
       },
       {
         id: AXON_COMMANDS.NEW_TERMINAL,
         title: "New Terminal",
+        group: "Terminal",
         subtitle: "Create a terminal tab",
         keywords: ["shell", "pty"],
       },
       {
         id: AXON_COMMANDS.OPEN_DIFF_VIEW,
         title: "Compare Active File",
+        group: "Git",
+        shortcut: "Cmd Shift D",
         subtitle: activePane?.activeFile
           ? "Open the active file diff view"
           : "Select a file first",
@@ -1233,6 +1277,8 @@ function App() {
       {
         id: AXON_COMMANDS.OPEN_SOURCE_CONTROL,
         title: "Source Control",
+        group: "Git",
+        shortcut: "Cmd Shift G",
         subtitle: folderPath
           ? `${gitChangeCount} changed file${gitChangeCount === 1 ? "" : "s"}`
           : "Open a folder first",
@@ -1242,6 +1288,8 @@ function App() {
       {
         id: AXON_COMMANDS.SAVE,
         title: "Save Active File",
+        group: "File",
+        shortcut: "Cmd S",
         subtitle: activePane?.activeFile
           ? "Save the current tab"
           : "No active file",
@@ -1251,6 +1299,8 @@ function App() {
       {
         id: AXON_COMMANDS.CLOSE_TAB,
         title: "Close Active Tab",
+        group: "File",
+        shortcut: "Cmd W",
         subtitle: activePane?.activeFile
           ? "Close the current tab"
           : "No active file",
@@ -1260,24 +1310,43 @@ function App() {
       {
         id: AXON_COMMANDS.OPEN_SETTINGS,
         title: "Open Settings",
+        group: "Settings",
+        shortcut: "Cmd ,",
         subtitle: "Edit settings from the UI",
         keywords: ["preferences", "theme", "font"],
       },
       {
         id: AXON_COMMANDS.OPEN_SETTINGS_JSON,
         title: "Open Settings JSON",
+        group: "Settings",
+        shortcut: "Cmd Shift ,",
         subtitle: "Edit settings JSON directly",
         keywords: ["preferences", "config", "theme", "font"],
       },
       {
+        id: AXON_COMMANDS.OPEN_UPDATE_NOTES,
+        title: updateInfo?.updateAvailable
+          ? `View Axon ${updateInfo.latestVersion} Update`
+          : "View Update Notes",
+        group: "Update",
+        subtitle: updateInfo?.updateAvailable
+          ? "Open release notes and update actions"
+          : "No update is available",
+        keywords: ["release", "version", "download"],
+        disabled: !updateInfo?.updateAvailable,
+      },
+      {
         id: AXON_COMMANDS.TOGGLE_ZEN_MODE,
         title: zenMode ? "Exit Zen Mode" : "Enter Zen Mode",
+        group: "View",
+        shortcut: "Cmd Shift Z",
         subtitle: "Toggle focused editor layout",
         keywords: ["focus", "fullscreen"],
       },
       {
         id: AXON_COMMANDS.ABOUT,
         title: "About Axon",
+        group: "Help",
         subtitle: "Show app and runtime information",
         keywords: ["version"],
       },
@@ -1289,6 +1358,8 @@ function App() {
       folderPath,
       gitChangeCount,
       terminalOpen,
+      updateInfo?.latestVersion,
+      updateInfo?.updateAvailable,
       zenMode,
     ],
   );

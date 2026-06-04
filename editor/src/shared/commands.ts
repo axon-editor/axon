@@ -16,9 +16,11 @@ export const AXON_COMMANDS = {
   OPEN_FILE_OUTLINE: "open-file-outline",
   GO_TO_DEFINITION: "go-to-definition",
   FIND_REFERENCES: "find-references",
+  OPEN_HTML_PREVIEW: "open-html-preview",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",
   OPEN_SETTINGS_JSON: "open-settings-json",
+  OPEN_UPDATE_NOTES: "open-update-notes",
   TOGGLE_ZEN_MODE: "toggle-zen-mode",
   NEW_TERMINAL: "new-terminal",
 } as const;

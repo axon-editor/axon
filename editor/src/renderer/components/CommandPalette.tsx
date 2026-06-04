@@ -19,7 +19,9 @@ import { type AxonCommand } from "../../shared/commands";
 export interface CommandPaletteCommand {
   id: AxonCommand;
   title: string;
+  group?: string;
   subtitle?: string;
+  shortcut?: string;
   keywords?: string[];
   disabled?: boolean;
 }
@@ -39,8 +41,11 @@ type PaletteItem =
       id: string;
       title: string;
       subtitle: string;
+      group: string;
+      shortcut?: string;
       disabled: boolean;
       command: CommandPaletteCommand;
+      score: number;
     }
   | {
       type: "file";
@@ -48,6 +53,7 @@ type PaletteItem =
       title: string;
       subtitle: string;
       file: FileNode;
+      score: number;
     };
 
 // flattenTree recursively walks the FileNode tree and returns
@@ -62,7 +68,6 @@ function flattenTree(node: FileNode): FileNode[] {
 // in order within the target string. Case insensitive.
 // Simple but effective for file path searching.
 function fuzzyMatch(target: string, query: string): boolean {
-  if (!query) return true;
   const t = target.toLowerCase();
   const q = query.toLowerCase();
   let ti = 0;
@@ -72,6 +77,51 @@ function fuzzyMatch(target: string, query: string): boolean {
     ti++;
   }
   return true;
+}
+
+function matchScore(target: string, query: string): number | null {
+  const normalizedTarget = target.toLowerCase();
+  const normalizedQuery = query.toLowerCase();
+
+  // Prefer exact and prefix matches, then fall back to substring and fuzzy
+  // matching. This keeps "save" near Save Active File while still allowing
+  // loose editor-style searches such as "scm" for source control.
+  if (!normalizedQuery) return 0;
+  if (normalizedTarget === normalizedQuery) return 100;
+  if (normalizedTarget.startsWith(normalizedQuery)) return 90;
+  if (normalizedTarget.includes(` ${normalizedQuery}`)) return 82;
+  if (normalizedTarget.includes(normalizedQuery)) return 70;
+  if (fuzzyMatch(normalizedTarget, normalizedQuery)) return 45;
+
+  return null;
+}
+
+function commandScore(
+  command: CommandPaletteCommand,
+  query: string,
+): number | null {
+  const targets = [
+    command.title,
+    command.group ?? "",
+    command.subtitle ?? "",
+    ...(command.keywords ?? []),
+  ];
+  const scores = targets
+    .map((target) => matchScore(target, query))
+    .filter((score): score is number => score !== null);
+
+  if (scores.length === 0) return null;
+  const bestScore = Math.max(...scores);
+  return bestScore - (command.disabled ? 12 : 0);
+}
+
+function fileScore(file: FileNode, query: string): number | null {
+  const title = file.path.split("/").pop() ?? file.path;
+  const titleScore = matchScore(title, query);
+  const pathScore = matchScore(file.path, query);
+  const bestScore = Math.max(titleScore ?? -1, pathScore ?? -1);
+
+  return bestScore < 0 ? null : bestScore;
 }
 
 function commandIcon(commandId: AxonCommand): LucideIcon {
@@ -102,37 +152,52 @@ export default function CommandPalette({
     const normalizedQuery = commandOnly ? rawQuery.slice(1).trim() : rawQuery;
 
     const commandItems = commands
-      .filter((command) => {
-        const searchable = [
-          command.title,
-          command.subtitle ?? "",
-          ...(command.keywords ?? []),
-        ].join(" ");
-        return fuzzyMatch(searchable, normalizedQuery);
-      })
+      .map((command) => ({
+        command,
+        score: commandScore(command, normalizedQuery),
+      }))
+      .filter(
+        (entry): entry is { command: CommandPaletteCommand; score: number } =>
+          entry.score !== null,
+      )
+      .sort(
+        (a, b) =>
+          b.score - a.score || a.command.title.localeCompare(b.command.title),
+      )
       .map<PaletteItem>((command) => ({
         type: "command",
-        id: `command:${command.id}`,
-        title: command.title,
-        subtitle: command.subtitle ?? "Command",
-        disabled: command.disabled ?? false,
-        command,
+        id: `command:${command.command.id}`,
+        title: command.command.title,
+        subtitle: command.command.subtitle ?? "Command",
+        group: command.command.group ?? "Command",
+        shortcut: command.command.shortcut,
+        disabled: command.command.disabled ?? false,
+        command: command.command,
+        score: command.score,
       }));
 
     if (commandOnly) return commandItems.slice(0, 30);
 
     const fileItems = allFiles
-      .filter((file) => fuzzyMatch(file.path, normalizedQuery))
+      .map((file) => ({ file, score: fileScore(file, normalizedQuery) }))
+      .filter(
+        (entry): entry is { file: FileNode; score: number } =>
+          entry.score !== null,
+      )
+      .sort(
+        (a, b) => b.score - a.score || a.file.path.localeCompare(b.file.path),
+      )
       .slice(0, 20)
       .map<PaletteItem>((file) => {
-        const parts = file.path.split("/");
-        const title = parts.pop() ?? file.path;
+        const parts = file.file.path.split("/");
+        const title = parts.pop() ?? file.file.path;
         return {
           type: "file",
-          id: `file:${file.path}`,
+          id: `file:${file.file.path}`,
           title,
           subtitle: parts.join("/"),
-          file,
+          file: file.file,
+          score: file.score,
         };
       });
 
@@ -175,6 +240,20 @@ export default function CommandPalette({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "PageDown") {
+      e.preventDefault();
+      setSelectedIndex((i) =>
+        Math.min(i + 6, Math.max(0, filteredItems.length - 1)),
+      );
+    } else if (e.key === "PageUp") {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.max(i - 6, 0));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setSelectedIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setSelectedIndex(Math.max(0, filteredItems.length - 1));
     } else if (e.key === "Enter") {
       if (filteredItems[selectedIndex]) {
         handleSelect(filteredItems[selectedIndex]);
@@ -246,8 +325,15 @@ export default function CommandPalette({
                     {item.subtitle}
                   </span>
                 </span>
-                <span className="shrink-0 rounded border border-[#222838] px-1.5 py-0.5 text-[10px] text-[#586478]">
-                  command
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {item.shortcut ? (
+                    <span className="rounded border border-[#222838] px-1.5 py-0.5 text-[10px] text-[#586478]">
+                      {item.shortcut}
+                    </span>
+                  ) : null}
+                  <span className="rounded border border-[#222838] px-1.5 py-0.5 text-[10px] text-[#586478]">
+                    {item.group}
+                  </span>
                 </span>
               </button>
             );
