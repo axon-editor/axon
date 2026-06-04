@@ -72,6 +72,7 @@ const axonReleaseApiUrl =
 const axonReleasePageUrl =
   "https://github.com/GordenArcher/axon/releases/latest";
 let updateInstallState: UpdateInstallState = { phase: "idle" };
+let updateQuitFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface GitHubReleasePayload {
   tag_name?: string;
@@ -352,6 +353,68 @@ function closeFocusedWindow() {
   targetWindow?.close();
 }
 
+function shouldBlockBrowserShortcut(input: {
+  key: string;
+  control: boolean;
+  meta: boolean;
+  alt: boolean;
+  shift: boolean;
+}) {
+  if (isDev) return false;
+
+  const key = input.key.toLowerCase();
+  const commandOrControl = input.meta || input.control;
+
+  // Packaged Axon should behave like an editor, not like a browser tab. The
+  // default Electron View menu exposes reload and DevTools shortcuts that can
+  // wipe renderer state or expose internals. I block those browser-level
+  // shortcuts in the main process so they never reach Chromium, while leaving
+  // Axon-owned shortcuts like plain F12 available to the renderer.
+  if (key === "f5") return true;
+  if (commandOrControl && key === "r") return true;
+  if (commandOrControl && input.shift && key === "r") return true;
+  if (commandOrControl && input.alt && key === "i") return true;
+  if (commandOrControl && input.shift && key === "i") return true;
+
+  return false;
+}
+
+function buildViewMenu(): MenuItemConstructorOptions {
+  if (isDev) return { role: "viewMenu" };
+
+  return {
+    label: "View",
+    submenu: [
+      {
+        label: "Command Palette",
+        accelerator: "CmdOrCtrl+P",
+        click: () => sendMenuCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE),
+      },
+      {
+        label: "Workspace Search",
+        accelerator: "CmdOrCtrl+Shift+F",
+        click: () => sendMenuCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH),
+      },
+      {
+        label: "File Outline",
+        accelerator: "CmdOrCtrl+Shift+O",
+        click: () => sendMenuCommand(AXON_COMMANDS.OPEN_FILE_OUTLINE),
+      },
+      { type: "separator" },
+      {
+        label: "Toggle Terminal",
+        accelerator: "CmdOrCtrl+J",
+        click: () => sendMenuCommand(AXON_COMMANDS.TOGGLE_TERMINAL),
+      },
+      {
+        label: "Toggle Zen Mode",
+        accelerator: "CmdOrCtrl+Shift+Z",
+        click: () => sendMenuCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE),
+      },
+    ],
+  };
+}
+
 function buildApplicationMenu() {
   const axonAppMenu: MenuItemConstructorOptions = {
     label: "Axon",
@@ -444,7 +507,7 @@ function buildApplicationMenu() {
       ],
     },
     { role: "editMenu" },
-    { role: "viewMenu" },
+    buildViewMenu(),
     { role: "windowMenu" },
     helpMenu,
   ];
@@ -1669,6 +1732,10 @@ function createWindow(options: { restoreSession?: boolean } = {}) {
     },
   });
   windowSessionRestore.set(window.webContents.id, restoreSession);
+  window.webContents.on("before-input-event", (event, input) => {
+    if (!shouldBlockBrowserShortcut(input)) return;
+    event.preventDefault();
+  });
 
   if (isDev) {
     window.loadURL("http://localhost:5173");
@@ -1882,7 +1949,39 @@ ipcMain.handle("app:installUpdate", async (): Promise<UpdateActionResult> => {
   }
 
   publishUpdateInstallState({ ...updateInstallState, phase: "installing" });
-  autoUpdater.quitAndInstall(false, true);
+
+  // I schedule the actual restart after the IPC handler returns because the
+  // renderer is waiting for this call to resolve before it can record the
+  // action in Output. Calling quitAndInstall synchronously from inside the IPC
+  // handler can leave the UI in an "Installing" state with no recovery if the
+  // updater does not immediately close the app.
+  //
+  // autoInstallOnAppQuit is normally disabled so Axon never installs a download
+  // just because the user quits later. For this explicit Restart action I turn
+  // it on only for the install window, then add a short app.quit fallback. That
+  // gives electron-updater two chances to enter the installer path instead of
+  // leaving the button disabled forever.
+  if (updateQuitFallbackTimer) {
+    clearTimeout(updateQuitFallbackTimer);
+    updateQuitFallbackTimer = null;
+  }
+
+  setTimeout(() => {
+    try {
+      autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.quitAndInstall(false, true);
+
+      updateQuitFallbackTimer = setTimeout(() => {
+        if (BrowserWindow.getAllWindows().length === 0) return;
+        app.quit();
+      }, 2500);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to install update.";
+      publishUpdateInstallState({ phase: "error", message });
+    }
+  }, 100);
+
   return { ok: true, message: "Installing update." };
 });
 
