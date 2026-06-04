@@ -236,6 +236,7 @@ function App() {
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);
   const allowSessionPersistenceRef = useRef(true);
+  const updateAutoDownloadVersionRef = useRef<string | null>(null);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
   const themeTokens = useMemo(() => resolveThemeTokens(settings), [settings]);
@@ -434,6 +435,19 @@ function App() {
 
     return window.axon.onUpdateState(setUpdateInstallState);
   }, [appendOutput]);
+
+  useEffect(() => {
+    if (!updateInfo?.updateAvailable) return;
+    if (updateInstallState.phase !== "idle" && updateInstallState.phase !== "not-available") {
+      return;
+    }
+    if (updateAutoDownloadVersionRef.current === updateInfo.latestVersion) {
+      return;
+    }
+
+    updateAutoDownloadVersionRef.current = updateInfo.latestVersion;
+    void handleDownloadUpdate();
+  }, [handleDownloadUpdate, updateInfo?.latestVersion, updateInfo?.updateAvailable, updateInstallState.phase]);
 
   useEffect(() => {
     const styleId = "axon-custom-fonts";
@@ -1441,6 +1455,7 @@ function App() {
                 onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
                 onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
                 updateInfo={updateInfo}
+                updateInstallState={updateInstallState}
                 onOpenUpdate={() => setUpdateModalOpen(true)}
                 isZenMode={zenMode}
               />

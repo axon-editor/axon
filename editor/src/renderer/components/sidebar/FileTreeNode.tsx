@@ -85,7 +85,11 @@ export default function FileTreeNode({
   ignoredPaths,
   depth = 0,
 }: Props) {
-  const [expanded, setExpanded] = useState(depth === 0);
+  // Folder nodes should start collapsed unless the user expands them or a
+  // reveal path tells us to open them. The old default opened every first
+  // level folder as soon as a workspace was loaded, which made new workspaces
+  // look like the tree had auto-expanded on fetch.
+  const [expanded, setExpanded] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [blinking, setBlinking] = useState(false);
   const [children, setChildren] = useState<FileNode[] | undefined>(

@@ -21,7 +21,7 @@ import {
   Download,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
-import { type UpdateInfo } from "../../shared/updates";
+import { type UpdateInfo, type UpdateInstallState } from "../../shared/updates";
 
 interface Props {
   onNewFile: () => void;
@@ -33,6 +33,7 @@ interface Props {
   onZenMode: () => void;
   onSettings: () => void;
   updateInfo: UpdateInfo | null;
+  updateInstallState: UpdateInstallState;
   onOpenUpdate: () => void;
   isZenMode: boolean;
 }
@@ -49,6 +50,7 @@ export default function EditorToolbar({
   onZenMode,
   onSettings,
   updateInfo,
+  updateInstallState,
   onOpenUpdate,
   isZenMode,
 }: Props) {
@@ -75,11 +77,27 @@ export default function EditorToolbar({
     setDropdown((prev) => (prev === type ? null : type));
   };
 
+  const updatePhase = updateInstallState.phase;
+  const updateDownloadProgress = Math.round(updateInstallState.percent ?? 0);
+  const updateButtonLabel =
+    updatePhase === "downloading"
+      ? `Downloading ${updateDownloadProgress}%`
+      : updatePhase === "downloaded"
+        ? "Restart to Update"
+        : updatePhase === "checking"
+          ? "Checking..."
+          : "Update";
   return (
     <div className="flex items-center gap-0.5 px-2">
       {updateInfo?.updateAvailable ? (
         <Tooltip
-          label={`View Axon ${updateInfo.latestVersion} update notes`}
+          label={
+            updatePhase === "downloaded"
+              ? `Restart to apply Axon ${updateInfo.latestVersion}`
+              : updatePhase === "downloading"
+                ? `Downloading Axon ${updateInfo.latestVersion}`
+                : `View Axon ${updateInfo.latestVersion} update notes`
+          }
           side="bottom"
         >
           <button
@@ -88,7 +106,7 @@ export default function EditorToolbar({
             className="mr-1 flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white"
           >
             <Download size={13} />
-            Update
+            {updateButtonLabel}
           </button>
         </Tooltip>
       ) : null}

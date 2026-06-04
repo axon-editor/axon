@@ -59,9 +59,9 @@ export default function UpdateModal({
                 type="button"
                 onClick={onInstallUpdate}
                 disabled={installing}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded border border-[#2a3346] bg-[#142a36] px-3 text-[12px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Download size={13} />
+                <Download size={12} />
                 Restart
               </button>
             ) : (
@@ -69,9 +69,9 @@ export default function UpdateModal({
                 type="button"
                 onClick={onDownloadUpdate}
                 disabled={checking || downloading || installing}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded border border-[#2a3346] bg-[#142a36] px-3 text-[12px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Download size={13} />
+                <Download size={12} />
                 {downloading ? `${Math.round(progress)}%` : "Update"}
               </button>
             )}
@@ -79,9 +79,9 @@ export default function UpdateModal({
               <button
                 type="button"
                 onClick={onOpenUpdatePage}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded border border-[#222838] bg-[#14161e] px-3 text-[12px] text-[#9aa4b8] transition-colors hover:border-[#80c8e0] hover:text-white"
+                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#222838] bg-[#14161e] px-2.5 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#80c8e0] hover:text-white"
               >
-                <ExternalLink size={12} />
+                <ExternalLink size={11} />
                 GitHub
               </button>
             ) : null}
@@ -90,9 +90,9 @@ export default function UpdateModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close update notes"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#1e2430] hover:text-white"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#1e2430] hover:text-white"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             </Tooltip>
           </div>
