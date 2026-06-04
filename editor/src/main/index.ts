@@ -20,7 +20,11 @@ import {
   type ChildProcess,
   type ChildProcessWithoutNullStreams,
 } from "child_process";
-import http from "http";
+import http, {
+  type IncomingMessage,
+  type ServerResponse,
+  type Server,
+} from "http";
 import { promisify } from "util";
 import { autoUpdater } from "electron-updater";
 import {
@@ -54,6 +58,11 @@ import {
   type UpdateInfo,
   type UpdateInstallState,
 } from "../shared/updates";
+import {
+  type HtmlPreviewActionResult,
+  type HtmlPreviewConsoleEvent,
+  type HtmlPreviewTarget,
+} from "../shared/htmlPreview";
 
 const isDev = process.env.NODE_ENV === "development";
 app.setName("Axon");
@@ -73,6 +82,13 @@ const axonReleasePageUrl =
   "https://github.com/GordenArcher/axon/releases/latest";
 let updateInstallState: UpdateInstallState = { phase: "idle" };
 let updateQuitFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+let htmlPreviewServer: Server | null = null;
+let htmlPreviewRootPath: string | null = null;
+let htmlPreviewServerId: string | null = null;
+let htmlPreviewBaseUrl: string | null = null;
+let htmlPreviewWatcher: FSWatcher | null = null;
+let htmlPreviewReloadTimer: ReturnType<typeof setTimeout> | null = null;
+const htmlPreviewClients = new Set<ServerResponse>();
 
 interface GitHubReleasePayload {
   tag_name?: string;
@@ -346,6 +362,374 @@ function sendToRenderer(
   if (!targetWindow || targetWindow.isDestroyed()) return;
   if (targetWindow.webContents.isDestroyed()) return;
   targetWindow.webContents.send(channel, payload);
+}
+
+function normalizePreviewRoot(rootPath: string) {
+  return path.resolve(rootPath);
+}
+
+function isPathInsideRoot(candidatePath: string, rootPath: string) {
+  const relativePath = path.relative(rootPath, candidatePath);
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+  );
+}
+
+function getPreviewContentType(filePath: string) {
+  const extension = path.extname(filePath).toLowerCase();
+  const types: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".htm": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".ico": "image/x-icon",
+    ".wasm": "application/wasm",
+  };
+
+  return types[extension] ?? "application/octet-stream";
+}
+
+function createHtmlPreviewClientScript(serverId: string) {
+  const encodedServerId = JSON.stringify(serverId);
+
+  return `
+<script data-axon-html-preview>
+(() => {
+  const serverId = ${encodedServerId};
+  const send = (payload) => {
+    fetch("/__axon_preview/console", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serverId, ...payload }),
+    }).catch(() => {});
+  };
+  const format = (value) => {
+    if (value instanceof Error) return value.stack || value.message;
+    if (typeof value === "string") return value;
+    try { return JSON.stringify(value); } catch { return String(value); }
+  };
+  ["log", "info", "warn", "error"].forEach((level) => {
+    const original = console[level];
+    console[level] = (...args) => {
+      original.apply(console, args);
+      send({ level, message: args.map(format).join(" "), source: location.href });
+    };
+  });
+  window.addEventListener("error", (event) => {
+    const target = event.target;
+    if (target && target !== window && "tagName" in target) {
+      const source = target.src || target.href || "";
+      send({ level: "error", message: "Failed to load " + target.tagName.toLowerCase(), source });
+      return;
+    }
+    send({
+      level: "error",
+      message: event.message || "Runtime error",
+      source: event.filename || location.href,
+      line: event.lineno,
+      column: event.colno,
+    });
+  }, true);
+  window.addEventListener("unhandledrejection", (event) => {
+    send({ level: "error", message: "Unhandled promise rejection: " + format(event.reason), source: location.href });
+  });
+  const events = new EventSource("/__axon_preview/events");
+  events.onmessage = () => location.reload();
+})();
+</script>`;
+}
+
+function injectHtmlPreviewClient(html: string, serverId: string) {
+  const script = createHtmlPreviewClientScript(serverId);
+  if (html.includes("data-axon-html-preview")) return html;
+  if (html.includes("</head>")) return html.replace("</head>", `${script}</head>`);
+  if (html.includes("</body>")) return html.replace("</body>", `${script}</body>`);
+  return `${html}${script}`;
+}
+
+function writePreviewJson(
+  response: ServerResponse,
+  statusCode: number,
+  body: unknown,
+) {
+  response.writeHead(statusCode, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(JSON.stringify(body));
+}
+
+function collectRequestBody(request: IncomingMessage) {
+  return new Promise<string>((resolve, reject) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 1024 * 1024) {
+        reject(new Error("Preview console payload is too large."));
+      }
+    });
+    request.on("end", () => resolve(body));
+    request.on("error", reject);
+  });
+}
+
+async function handleHtmlPreviewConsoleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+) {
+  try {
+    const rawBody = await collectRequestBody(request);
+    const payload = JSON.parse(rawBody || "{}") as Partial<HtmlPreviewConsoleEvent>;
+    const event: HtmlPreviewConsoleEvent = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      serverId:
+        typeof payload.serverId === "string"
+          ? payload.serverId
+          : (htmlPreviewServerId ?? "preview"),
+      level:
+        payload.level === "log" ||
+        payload.level === "info" ||
+        payload.level === "warn" ||
+        payload.level === "error"
+          ? payload.level
+          : "log",
+      message:
+        typeof payload.message === "string" ? payload.message : String(payload),
+      source: typeof payload.source === "string" ? payload.source : undefined,
+      line: typeof payload.line === "number" ? payload.line : undefined,
+      column: typeof payload.column === "number" ? payload.column : undefined,
+      timestamp: Date.now(),
+    };
+
+    sendToRenderer("htmlPreview:console", event);
+    response.writeHead(204, { "Cache-Control": "no-store" });
+    response.end();
+  } catch (err) {
+    writePreviewJson(response, 400, {
+      error: err instanceof Error ? err.message : "Invalid console payload.",
+    });
+  }
+}
+
+function handleHtmlPreviewEventStream(response: ServerResponse) {
+  response.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-store",
+    Connection: "keep-alive",
+  });
+  response.write("\n");
+  htmlPreviewClients.add(response);
+  response.on("close", () => htmlPreviewClients.delete(response));
+}
+
+function broadcastHtmlPreviewReload(changedPath: string) {
+  if (htmlPreviewReloadTimer) clearTimeout(htmlPreviewReloadTimer);
+
+  htmlPreviewReloadTimer = setTimeout(() => {
+    const payload = JSON.stringify({ path: changedPath, timestamp: Date.now() });
+    for (const client of htmlPreviewClients) {
+      if (client.destroyed) {
+        htmlPreviewClients.delete(client);
+        continue;
+      }
+      client.write(`data: ${payload}\n\n`);
+    }
+    sendToRenderer("htmlPreview:changed", {
+      path: changedPath,
+      serverId: htmlPreviewServerId,
+    });
+  }, 100);
+}
+
+async function serveHtmlPreviewFile(
+  request: IncomingMessage,
+  response: ServerResponse,
+  requestUrl: URL,
+) {
+  if (!htmlPreviewRootPath || !htmlPreviewServerId) {
+    writePreviewJson(response, 503, { error: "Preview server is not ready." });
+    return;
+  }
+
+  const decodedPath = decodeURIComponent(requestUrl.pathname);
+  const normalizedRequestPath = decodedPath === "/" ? "/index.html" : decodedPath;
+  const requestedPath = path.resolve(
+    htmlPreviewRootPath,
+    `.${normalizedRequestPath}`,
+  );
+
+  // The preview server intentionally behaves like a tiny browser server, but it
+  // must never become a general filesystem reader. Every request is resolved
+  // relative to the active workspace root and rejected if path normalization
+  // would escape that root through "../" traversal.
+  if (!isPathInsideRoot(requestedPath, htmlPreviewRootPath)) {
+    writePreviewJson(response, 403, { error: "Preview path is outside workspace." });
+    return;
+  }
+
+  try {
+    const stat = await fs.promises.stat(requestedPath);
+    const filePath = stat.isDirectory()
+      ? path.join(requestedPath, "index.html")
+      : requestedPath;
+    const contentType = getPreviewContentType(filePath);
+    const rawBuffer = await fs.promises.readFile(filePath);
+
+    response.writeHead(200, {
+      "Content-Type": contentType,
+      "Cache-Control": "no-store",
+    });
+
+    if (contentType.startsWith("text/html")) {
+      response.end(
+        injectHtmlPreviewClient(rawBuffer.toString("utf8"), htmlPreviewServerId),
+      );
+      return;
+    }
+
+    response.end(rawBuffer);
+  } catch {
+    writePreviewJson(response, 404, { error: "Preview file was not found." });
+  }
+}
+
+async function handleHtmlPreviewRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+) {
+  const host = request.headers.host ?? "127.0.0.1";
+  const requestUrl = new URL(request.url ?? "/", `http://${host}`);
+
+  if (requestUrl.pathname === "/__axon_preview/events") {
+    handleHtmlPreviewEventStream(response);
+    return;
+  }
+
+  if (requestUrl.pathname === "/__axon_preview/console") {
+    await handleHtmlPreviewConsoleRequest(request, response);
+    return;
+  }
+
+  await serveHtmlPreviewFile(request, response, requestUrl);
+}
+
+async function closeHtmlPreviewServer() {
+  if (htmlPreviewReloadTimer) {
+    clearTimeout(htmlPreviewReloadTimer);
+    htmlPreviewReloadTimer = null;
+  }
+
+  for (const client of htmlPreviewClients) {
+    client.end();
+  }
+  htmlPreviewClients.clear();
+
+  if (htmlPreviewWatcher) {
+    await htmlPreviewWatcher.close();
+    htmlPreviewWatcher = null;
+  }
+
+  if (htmlPreviewServer) {
+    const serverToClose = htmlPreviewServer;
+    await new Promise<void>((resolve) => serverToClose.close(() => resolve()));
+    htmlPreviewServer = null;
+  }
+
+  htmlPreviewRootPath = null;
+  htmlPreviewServerId = null;
+  htmlPreviewBaseUrl = null;
+}
+
+async function ensureHtmlPreviewServer(rootPath: string) {
+  const normalizedRoot = normalizePreviewRoot(rootPath);
+  if (htmlPreviewServer && htmlPreviewRootPath === normalizedRoot) return;
+
+  await closeHtmlPreviewServer();
+
+  htmlPreviewRootPath = normalizedRoot;
+  htmlPreviewServerId = `preview-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+  htmlPreviewServer = http.createServer((request, response) => {
+    void handleHtmlPreviewRequest(request, response);
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    htmlPreviewServer?.once("error", reject);
+    htmlPreviewServer?.listen(0, "127.0.0.1", () => resolve());
+  });
+
+  const address = htmlPreviewServer.address();
+  if (!address || typeof address === "string") {
+    await closeHtmlPreviewServer();
+    throw new Error("Could not bind the HTML preview server.");
+  }
+
+  htmlPreviewBaseUrl = `http://127.0.0.1:${address.port}`;
+  htmlPreviewWatcher = chokidar.watch(normalizedRoot, {
+    ...buildWatcherOptions(),
+    ignored: shouldIgnoreWorkspaceWatchPath,
+    depth: 8,
+  });
+
+  const notifyReload = (changedPath: string) => {
+    broadcastHtmlPreviewReload(changedPath);
+  };
+
+  htmlPreviewWatcher.on("change", notifyReload);
+  htmlPreviewWatcher.on("add", notifyReload);
+  htmlPreviewWatcher.on("unlink", notifyReload);
+}
+
+function resolveHtmlPreviewRoot(filePath: string, folderPath?: string | null) {
+  const resolvedFilePath = path.resolve(filePath);
+  if (folderPath) {
+    const workspaceRoot = normalizePreviewRoot(folderPath);
+    if (isPathInsideRoot(resolvedFilePath, workspaceRoot)) return workspaceRoot;
+  }
+
+  return path.dirname(resolvedFilePath);
+}
+
+async function getHtmlPreviewTarget(
+  filePath: string,
+  folderPath?: string | null,
+): Promise<HtmlPreviewTarget> {
+  const resolvedFilePath = path.resolve(filePath);
+  const rootPath = resolveHtmlPreviewRoot(resolvedFilePath, folderPath);
+
+  if (!fs.existsSync(resolvedFilePath)) {
+    throw new Error("HTML file does not exist.");
+  }
+
+  await ensureHtmlPreviewServer(rootPath);
+
+  if (!htmlPreviewBaseUrl || !htmlPreviewServerId || !htmlPreviewRootPath) {
+    throw new Error("HTML preview server did not start.");
+  }
+
+  const relativePath = path
+    .relative(htmlPreviewRootPath, resolvedFilePath)
+    .split(path.sep)
+    .map(encodeURIComponent)
+    .join("/");
+
+  return {
+    filePath: resolvedFilePath,
+    rootPath: htmlPreviewRootPath,
+    serverId: htmlPreviewServerId,
+    url: `${htmlPreviewBaseUrl}/${relativePath}`,
+  };
 }
 
 function closeFocusedWindow() {
@@ -1989,6 +2373,47 @@ ipcMain.handle("app:openUpdatePage", async (_event, releaseUrl?: string) => {
   await shell.openExternal(normalizeUpdatePageUrl(releaseUrl));
 });
 
+ipcMain.handle(
+  "htmlPreview:getTarget",
+  async (
+    _event,
+    filePath: string,
+    folderPath?: string | null,
+  ): Promise<HtmlPreviewActionResult> => {
+    try {
+      const target = await getHtmlPreviewTarget(filePath, folderPath);
+      return { ok: true, target };
+    } catch (err) {
+      return {
+        ok: false,
+        message:
+          err instanceof Error ? err.message : "Failed to start HTML preview.",
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "htmlPreview:openExternal",
+  async (
+    _event,
+    filePath: string,
+    folderPath?: string | null,
+  ): Promise<HtmlPreviewActionResult> => {
+    try {
+      const target = await getHtmlPreviewTarget(filePath, folderPath);
+      await shell.openExternal(target.url);
+      return { ok: true, target };
+    } catch (err) {
+      return {
+        ok: false,
+        message:
+          err instanceof Error ? err.message : "Failed to open HTML preview.",
+      };
+    }
+  },
+);
+
 ipcMain.handle("clipboard:writeText", async (_event, text: string) => {
   clipboard.writeText(text);
 });
@@ -2218,6 +2643,7 @@ app.on("before-quit", async () => {
   await closeActiveWatcher();
   await closeFolderWatcher();
   await closeGitWatcher();
+  await closeHtmlPreviewServer();
 });
 
 // register axon:// protocol before app is ready

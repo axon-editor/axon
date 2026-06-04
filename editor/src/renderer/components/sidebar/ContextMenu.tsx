@@ -7,6 +7,7 @@ import {
   Copy,
   FilePlus,
   FolderPlus,
+  MonitorPlay,
   Pencil,
   Terminal as TerminalIcon,
   Trash2,
@@ -18,6 +19,7 @@ import {
   deleteEntry,
   renameEntry,
 } from "../../lib/api";
+import { isHtmlFile } from "../../lib/htmlPreviewTabs";
 
 interface Props {
   menu: { x: number; y: number; node: FileNode; isRoot?: boolean };
@@ -29,6 +31,7 @@ interface Props {
   onEntryRenamed?: (oldPath: string, newPath: string) => void;
   onSplitFile?: (filePath: string) => void;
   onOpenInTerminal?: (path: string) => void;
+  onOpenHtmlPreview?: (filePath: string) => void;
 }
 
 export default function ContextMenu({
@@ -41,6 +44,7 @@ export default function ContextMenu({
   onEntryRenamed,
   onSplitFile,
   onOpenInTerminal,
+  onOpenHtmlPreview,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +70,7 @@ export default function ContextMenu({
   const basePath = menu.node.is_dir
     ? menu.node.path
     : menu.node.path.split("/").slice(0, -1).join("/");
+  const canPreviewHtml = !menu.node.is_dir && isHtmlFile(menu.node.path);
 
   const trimmedName = inputValue.trim();
   const isDuplicateName =
@@ -152,6 +157,18 @@ export default function ContextMenu({
             >
               <TerminalIcon size={13} className="text-[#9aa4b8]" />
               open in terminal
+            </button>
+          )}
+          {onOpenHtmlPreview && canPreviewHtml && (
+            <button
+              onClick={() => {
+                onOpenHtmlPreview(menu.node.path);
+                onClose();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+            >
+              <MonitorPlay size={13} className="text-[#9aa4b8]" />
+              preview html
             </button>
           )}
           <button

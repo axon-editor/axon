@@ -1,12 +1,41 @@
 import ReactDOM from "react-dom/client";
 import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
+import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import CssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
+import HtmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
+import TsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import App from "./App";
 import "./index.css";
 import { registerAxonTheme } from "./lib/soraTheme";
 import { configureMonacoDiagnostics } from "./lib/monacoDiagnostics";
 
 loader.config({ monaco });
+
+// Monaco needs an explicit worker factory in Vite/Electron so the language
+// services stay on their own threads. Without this, Monaco falls back to the
+// main thread, which makes the editor feel laggy and produces the worker
+// warning that shows up in the browser console.
+(self as typeof self & {
+  MonacoEnvironment?: {
+    getWorker: (_: unknown, label: string) => Worker;
+  };
+}).MonacoEnvironment = {
+  getWorker: (_: unknown, label: string) => {
+    if (label === "json") return new JsonWorker();
+    if (label === "css" || label === "scss" || label === "less") {
+      return new CssWorker();
+    }
+    if (label === "html" || label === "handlebars" || label === "razor") {
+      return new HtmlWorker();
+    }
+    if (label === "typescript" || label === "javascript") {
+      return new TsWorker();
+    }
+    return new EditorWorker();
+  },
+};
 
 // I register the Axon theme against the same Monaco instance that the React
 // wrapper will use. Without loader.config, @monaco-editor/react can initialize

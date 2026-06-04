@@ -76,8 +76,9 @@ jobs:
           draft: true
           # Rebuilding the same patch release is intentional while Axon is
           # still unsigned and personal-use only. The release page should keep
-          # the stable v1.0.2 URL, but the installer assets must be replaced
-          # when we fix packaging or updater behavior inside that same version.
+          # the selected tag URL stable, but the installer assets must be
+          # replaced when we fix packaging or updater behavior inside that same
+          # version.
           overwrite_files: true
           fail_on_unmatched_files: false
           files: |

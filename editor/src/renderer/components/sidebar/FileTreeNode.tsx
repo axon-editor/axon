@@ -1,10 +1,13 @@
 // Recursively renders a FileNode tree with drag and drop support.
+// The core now returns only one directory level, so folders are expanded on
+// demand here. That keeps workspace loads fast while still preserving the same
+// nested tree interaction the user expects from an editor sidebar.
 // Dragging over a folder highlights it and auto-expands it after a delay
 // with a 3-blink animation before opening so the user sees clear feedback.
 // Drop target shows a distinct highlight to confirm the landing zone.
 import { useState, useRef, useEffect } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
-import { type FileNode } from "../../lib/api";
+import { getTree, type FileNode } from "../../lib/api";
 import {
   encodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
@@ -85,6 +88,9 @@ export default function FileTreeNode({
   const [expanded, setExpanded] = useState(depth === 0);
   const [dragOver, setDragOver] = useState(false);
   const [blinking, setBlinking] = useState(false);
+  const [children, setChildren] = useState<FileNode[] | undefined>(
+    node.children,
+  );
 
   const dragCounter = useRef(0);
 
@@ -112,10 +118,36 @@ export default function FileTreeNode({
   useEffect(() => () => clearTimers(), []);
 
   useEffect(() => {
+    // I keep the local child cache in sync with the latest node payload so a
+    // refresh or rename does not leave the sidebar pointing at stale children.
+    // When the core returns a shallow node with no children yet, the cache stays
+    // undefined until the folder is actually expanded and fetched on demand.
+    setChildren(node.children);
+  }, [node.children, node.path]);
+
+  useEffect(() => {
     if (revealPath && node.is_dir && revealPath.startsWith(`${node.path}/`)) {
       setExpanded(true);
     }
   }, [node.is_dir, node.path, revealPath]);
+
+  useEffect(() => {
+    if (!node.is_dir || !expanded || children !== undefined) return;
+
+    let cancelled = false;
+    getTree(node.path)
+      .then((tree) => {
+        if (cancelled) return;
+        setChildren(tree.children ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setChildren([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [children, expanded, node.is_dir, node.path]);
 
   const handleDragStart = (e: React.DragEvent) => {
     e.stopPropagation();
@@ -204,6 +236,8 @@ export default function FileTreeNode({
   if (node.is_dir) {
     const isHighlighted = dragOver || isBlinkOn;
 
+    const renderedChildren = children ?? [];
+
     return (
       <div
         onDragEnter={handleDragEnter}
@@ -260,7 +294,7 @@ export default function FileTreeNode({
         </div>
 
         {expanded &&
-          node.children?.map((child) => (
+          renderedChildren.map((child) => (
             <FileTreeNode
               key={child.path}
               node={child}

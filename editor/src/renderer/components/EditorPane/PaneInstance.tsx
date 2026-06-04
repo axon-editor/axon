@@ -14,7 +14,12 @@ import { type EditorNavigationTarget } from "../../lib/navigation";
 import { type ResolvedThemeTokens } from "../../lib/themeTokens";
 import { type Pane } from "../../lib/types";
 import TabBar, { getPaneDropId, type PaneDropData } from "../TabBar";
+import {
+  getHtmlPreviewFilePath,
+  isHtmlPreviewTabPath,
+} from "../../lib/htmlPreviewTabs";
 import MediaPreview, { isMediaFile } from "./MediaPreview";
+import HtmlPreview from "./HtmlPreview";
 import SingleEditor from "./SingleEditor";
 import EmptyPane from "./EmptyPane";
 import WorkspaceBlankPane from "./WorkspaceBlankPane";
@@ -179,7 +184,12 @@ export default function PaneInstance({
                 flexDirection: "column",
               }}
             >
-              {isMediaFile(path) ? (
+              {isHtmlPreviewTabPath(path) ? (
+                <HtmlPreview
+                  filePath={getHtmlPreviewFilePath(path)}
+                  folderPath={folderPath}
+                />
+              ) : isMediaFile(path) ? (
                 <MediaPreview filePath={path} />
               ) : (
                 <SingleEditor

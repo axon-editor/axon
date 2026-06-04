@@ -106,9 +106,13 @@ func isBinaryContent(data []byte) bool {
 	return !utf8.Valid(sample)
 }
 
-// GetTree recursively walks a directory and builds a FileNode tree.
-// It skips hidden files/folders (dot-prefixed) and known noise directories
-// like node_modules and vendor to keep the tree clean and relevant.
+// GetTree reads one directory level and builds a FileNode tree.
+//
+// I keep this shallow on purpose because the renderer now expands folders
+// lazily. That avoids doing a full recursive walk every time a workspace is
+// selected, which used to "open" the entire tree up front and made large
+// projects slower to fetch than they needed to be.
+//
 // If a child entry fails to read (permissions etc), it is silently skipped
 // rather than failing the entire tree, partial tree is better than nothing.
 func GetTree(rootPath string) (FileNode, error) {
@@ -124,8 +128,8 @@ func GetTree(rootPath string) (FileNode, error) {
 		IsDir: info.IsDir(),
 	}
 
-	// if this is a file (not a directory), return immediately —
-	// no children to walk
+	// If this is a file (not a directory), return immediately — there are no
+	// children to walk and the renderer only needs the leaf node metadata.
 	if !info.IsDir() {
 		return node, nil
 	}
@@ -135,9 +139,8 @@ func GetTree(rootPath string) (FileNode, error) {
 		return FileNode{}, err
 	}
 
-	// separate directories and files so we can sort them independently.
-	// directories always come first in the tree, files after.
-	// both groups are sorted alphabetically within themselves.
+	// Separate directories and files so the sidebar can keep folder names above
+	// files while still preserving alphabetical order inside each group.
 	var dirs []os.DirEntry
 	var files []os.DirEntry
 
@@ -161,13 +164,22 @@ func GetTree(rootPath string) (FileNode, error) {
 		return strings.ToLower(files[i].Name()) < strings.ToLower(files[j].Name())
 	})
 
-	// dirs first, then files
+	// The renderer expands directories on demand, so I only return the direct
+	// children here. That keeps workspace fetches cheap and avoids paying the
+	// cost of walking every nested folder before the user has asked to see it.
 	for _, entry := range append(dirs, files...) {
 		childPath := filepath.Join(rootPath, entry.Name())
-		child, err := GetTree(childPath)
+		childInfo, err := entry.Info()
 		if err != nil {
 			continue
 		}
+
+		child := FileNode{
+			Name:  entry.Name(),
+			Path:  childPath,
+			IsDir: childInfo.IsDir(),
+		}
+
 		node.Children = append(node.Children, child)
 	}
 

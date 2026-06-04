@@ -12,6 +12,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Copy, PanelRightClose, Terminal as TerminalIcon, X } from "lucide-react";
 import ChromeTab from "./ChromeTab";
+import {
+  getTabDisplayName,
+  getTabFilePath,
+  isHtmlPreviewTabPath,
+} from "../lib/htmlPreviewTabs";
 
 export interface DragTabData {
   type: "tab";
@@ -88,7 +93,8 @@ function SortableTab({
     opacity: isDragging ? 0 : 1,
   };
 
-  const name = path.split("/").pop() ?? path;
+  const name = getTabDisplayName(path);
+  const realPath = getTabFilePath(path);
 
   return (
     <ChromeTab
@@ -99,7 +105,9 @@ function SortableTab({
       label={name}
       active={isActive}
       dirty={isDirty}
-      tooltipLabel={path}
+      tooltipLabel={
+        isHtmlPreviewTabPath(path) ? `HTML preview: ${realPath}` : realPath
+      }
       tooltipDelayMs={3000}
       closeLabel={`Close ${name}`}
       onClick={() => onSelect(path)}
@@ -135,6 +143,7 @@ function ContextMenu({
   const tabIndex = openTabs.indexOf(menu.path);
   const canCloseRight = tabIndex >= 0 && tabIndex < openTabs.length - 1;
   const canCloseOthers = openTabs.length > 1;
+  const realPath = getTabFilePath(menu.path);
 
   const runAction = (action: () => void) => {
     action();
@@ -191,7 +200,7 @@ function ContextMenu({
         <button
           type="button"
           className={menuItemClass}
-          onClick={() => runAction(() => onOpenInTerminal(menu.path))}
+          onClick={() => runAction(() => onOpenInTerminal(realPath))}
         >
           <TerminalIcon size={13} />
           <span>Open in terminal</span>
@@ -202,7 +211,7 @@ function ContextMenu({
         className={menuItemClass}
         onClick={() =>
           runAction(() => {
-            void window.axon.copyText(menu.path);
+            void window.axon.copyText(realPath);
           })
         }
       >

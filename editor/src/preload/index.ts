@@ -27,6 +27,10 @@ import {
   type UpdateInfo,
   type UpdateInstallState,
 } from "../shared/updates";
+import {
+  type HtmlPreviewActionResult,
+  type HtmlPreviewConsoleEvent,
+} from "../shared/htmlPreview";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -94,6 +98,16 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("app:installUpdate"),
   openUpdatePage: (releaseUrl?: string) =>
     ipcRenderer.invoke("app:openUpdatePage", releaseUrl),
+  getHtmlPreviewTarget: (
+    filePath: string,
+    folderPath?: string | null,
+  ): Promise<HtmlPreviewActionResult> =>
+    ipcRenderer.invoke("htmlPreview:getTarget", filePath, folderPath),
+  openHtmlPreviewInBrowser: (
+    filePath: string,
+    folderPath?: string | null,
+  ): Promise<HtmlPreviewActionResult> =>
+    ipcRenderer.invoke("htmlPreview:openExternal", filePath, folderPath),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
@@ -138,6 +152,24 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = (_: unknown, state: UpdateInstallState) => callback(state);
     ipcRenderer.on("app:updateState", handler);
     return () => ipcRenderer.removeListener("app:updateState", handler);
+  },
+
+  onHtmlPreviewChanged: (
+    callback: (event: { path: string; serverId: string | null }) => void,
+  ) => {
+    const handler = (
+      _: unknown,
+      event: { path: string; serverId: string | null },
+    ) => callback(event);
+    ipcRenderer.on("htmlPreview:changed", handler);
+    return () => ipcRenderer.removeListener("htmlPreview:changed", handler);
+  },
+
+  onHtmlPreviewConsole: (callback: (event: HtmlPreviewConsoleEvent) => void) => {
+    const handler = (_: unknown, event: HtmlPreviewConsoleEvent) =>
+      callback(event);
+    ipcRenderer.on("htmlPreview:console", handler);
+    return () => ipcRenderer.removeListener("htmlPreview:console", handler);
   },
 
   onMenuCommand: (callback: (command: AxonCommand) => void) => {

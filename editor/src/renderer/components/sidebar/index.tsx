@@ -88,6 +88,7 @@ interface Props {
   collapsed: boolean;
   onSplitFile: (filePath: string) => void;
   onOpenInTerminal?: (path: string) => void;
+  onOpenHtmlPreview?: (filePath: string) => void;
   onEntryDeleted?: (path: string) => void;
   onEntryMoved?: (oldPath: string, newPath: string) => void;
   onEntryRenamed?: (oldPath: string, newPath: string) => void;
@@ -216,6 +217,7 @@ export default function Sidebar({
   collapsed,
   onSplitFile,
   onOpenInTerminal,
+  onOpenHtmlPreview,
   onEntryDeleted,
   onEntryMoved,
   onEntryRenamed,
@@ -362,6 +364,7 @@ export default function Sidebar({
           onEntryRenamed={onEntryRenamed}
           onSplitFile={onSplitFile}
           onOpenInTerminal={onOpenInTerminal}
+          onOpenHtmlPreview={onOpenHtmlPreview}
         />
       )}
 

@@ -73,10 +73,15 @@ import {
   type UpdateInfo,
   type UpdateInstallState,
 } from "../shared/updates";
+import {
+  type HtmlPreviewActionResult,
+  type HtmlPreviewConsoleEvent,
+} from "../shared/htmlPreview";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { fontStack } from "./lib/fonts";
 import { publicAsset } from "./lib/assets";
+import { createHtmlPreviewTabPath } from "./lib/htmlPreviewTabs";
 import {
   loadWorkspaceSession,
   sanitizeRestoredLayout,
@@ -149,6 +154,14 @@ declare global {
       downloadUpdate: () => Promise<UpdateActionResult>;
       installUpdate: () => Promise<UpdateActionResult>;
       openUpdatePage: (releaseUrl?: string) => Promise<void>;
+      getHtmlPreviewTarget: (
+        filePath: string,
+        folderPath?: string | null,
+      ) => Promise<HtmlPreviewActionResult>;
+      openHtmlPreviewInBrowser: (
+        filePath: string,
+        folderPath?: string | null,
+      ) => Promise<HtmlPreviewActionResult>;
       copyText: (text: string) => Promise<void>;
       watchFile: (path: string) => Promise<void>;
       unwatchFile: () => Promise<void>;
@@ -165,6 +178,12 @@ declare global {
       ) => () => void;
       onUpdateState: (
         callback: (state: UpdateInstallState) => void,
+      ) => () => void;
+      onHtmlPreviewChanged: (
+        callback: (event: { path: string; serverId: string | null }) => void,
+      ) => () => void;
+      onHtmlPreviewConsole: (
+        callback: (event: HtmlPreviewConsoleEvent) => void,
       ) => () => void;
       onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
     };
@@ -401,6 +420,15 @@ function App() {
       .getUpdateInstallState()
       .then(setUpdateInstallState)
       .catch((err) => {
+        // Dev launches can briefly race ahead of the main-process handlers if
+        // the renderer is talking to an older compiled main bundle. In that
+        // case I keep the UI on the idle state instead of turning a stale
+        // bootstrap mismatch into a noisy console error that does not help the
+        // user.
+        if (err instanceof Error && err.message.includes("No handler registered")) {
+          setUpdateInstallState({ phase: "idle" });
+          return;
+        }
         console.error("failed to load updater state:", err);
       });
 
@@ -689,6 +717,21 @@ function App() {
   // open a file in the active pane
   const handleFileSelect = (filePath: string) => {
     setLayout((prev) => openFileInPane(prev, prev.activePaneId, filePath));
+  };
+
+  const handleOpenHtmlPreview = (filePath: string) => {
+    // HTML previews are represented as their own tab identity because a source
+    // document and its rendered browser view are different editor surfaces.
+    // Reusing the raw file path would make the preview fight with the Monaco
+    // editor tab, while this wrapped path lets normal tab actions still move,
+    // close, and persist the preview like every other pane tab.
+    setLayout((prev) =>
+      openFileInPane(
+        prev,
+        prev.activePaneId,
+        createHtmlPreviewTabPath(filePath),
+      ),
+    );
   };
 
   const handleOpenNavigationTarget = useCallback(
@@ -1344,6 +1387,7 @@ function App() {
             collapsed={sidebarCollapsed}
             onSplitFile={(filePath) => handleSplit("right", filePath)}
             onOpenInTerminal={handleOpenPathInTerminal}
+            onOpenHtmlPreview={handleOpenHtmlPreview}
             onEntryDeleted={(path) =>
               setLayout((prev) => removePathFromLayout(prev, path))
             }

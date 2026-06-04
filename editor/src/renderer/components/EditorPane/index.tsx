@@ -25,6 +25,7 @@ import PaneDivider from "../PaneDivider";
 import { type DragTabData, type PaneDropData } from "../TabBar";
 import { getTree, type FileNode } from "../../lib/api";
 import { addRecentFolder } from "../sidebar";
+import { getTabDisplayName } from "../../lib/htmlPreviewTabs";
 
 interface Props {
   layout: Layout;
@@ -72,7 +73,7 @@ function isPaneDropData(data: unknown): data is PaneDropData {
 }
 
 function GhostTab({ path }: { path: string }) {
-  const name = path.split("/").pop() ?? path;
+  const name = getTabDisplayName(path);
   return (
     <div
       className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-t

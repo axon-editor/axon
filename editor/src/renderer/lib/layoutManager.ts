@@ -2,6 +2,11 @@
 // All functions take the current layout and return a new layout.
 // No side effects, state updates happen in App via setState.
 import { type Layout, type Pane, type SplitDirection } from "./types";
+import {
+  createHtmlPreviewTabPath,
+  getHtmlPreviewFilePath,
+  isHtmlPreviewTabPath,
+} from "./htmlPreviewTabs";
 
 const MAX_PANES = 5;
 
@@ -231,14 +236,31 @@ export function moveTabBetweenPanes(
   return { ...newLayout, activePaneId: targetPaneId };
 }
 
+function getComparableTabPath(tabPath: string) {
+  return isHtmlPreviewTabPath(tabPath)
+    ? getHtmlPreviewFilePath(tabPath)
+    : tabPath;
+}
+
 function isSamePathOrChild(filePath: string, parentPath: string) {
   return filePath === parentPath || filePath.startsWith(`${parentPath}/`);
 }
 
-function replacePathPrefix(filePath: string, oldPath: string, newPath: string) {
-  if (filePath === oldPath) return newPath;
-  if (!filePath.startsWith(`${oldPath}/`)) return filePath;
-  return `${newPath}${filePath.slice(oldPath.length)}`;
+function replacePathPrefix(tabPath: string, oldPath: string, newPath: string) {
+  const isPreviewTab = isHtmlPreviewTabPath(tabPath);
+  const filePath = getComparableTabPath(tabPath);
+
+  if (filePath === oldPath) {
+    return isPreviewTab ? createHtmlPreviewTabPath(newPath) : newPath;
+  }
+  if (!filePath.startsWith(`${oldPath}/`)) return tabPath;
+
+  const replacedPath = `${newPath}${filePath.slice(oldPath.length)}`;
+  // Preview tabs store a wrapped source path so the real editor tab and the
+  // preview tab can coexist. When a file/folder is renamed, the wrapper has to
+  // be rebuilt around the new underlying path; otherwise the preview would keep
+  // pointing at the deleted name even though normal source tabs moved forward.
+  return isPreviewTab ? createHtmlPreviewTabPath(replacedPath) : replacedPath;
 }
 
 // removePathFromLayout keeps editor state honest after a file or folder is
@@ -249,11 +271,11 @@ export function removePathFromLayout(layout: Layout, removedPath: string): Layou
     ...layout,
     panes: layout.panes.map((pane) => {
       const openTabs = pane.openTabs.filter(
-        (tab) => !isSamePathOrChild(tab, removedPath),
+        (tab) => !isSamePathOrChild(getComparableTabPath(tab), removedPath),
       );
       const dirtyFiles = Object.fromEntries(
         Object.entries(pane.dirtyFiles).filter(
-          ([path]) => !isSamePathOrChild(path, removedPath),
+          ([path]) => !isSamePathOrChild(getComparableTabPath(path), removedPath),
         ),
       );
 
