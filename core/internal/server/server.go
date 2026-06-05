@@ -402,7 +402,7 @@ func (s *Server) handleFSSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := fs.SearchWorkspace(rootPath, query, 100)
+	results, err := fs.SearchWorkspaceContext(r.Context(), rootPath, query, 80)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
 		return

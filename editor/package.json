@@ -96,7 +96,9 @@
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "typescript": "^6.0.3",
+    "typescript-language-server": "^5.3.0"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
@@ -107,7 +109,6 @@
     "cross-env": "^10.1.0",
     "electron": "^42.2.0",
     "electron-builder": "^26.8.1",
-    "typescript": "^6.0.3",
     "wait-on": "^9.0.10"
   }
 }

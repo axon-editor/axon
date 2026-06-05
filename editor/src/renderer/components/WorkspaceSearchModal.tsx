@@ -19,20 +19,61 @@ function relativePath(rootPath: string | null, path: string) {
   return path.slice(rootPath.length + 1);
 }
 
+function isGeneratedSearchPath(path: string) {
+  const normalizedPath = path.replace(/\\/g, "/");
+  const generatedSegment = normalizedPath.split("/").some((segment) => {
+    const name = segment.toLowerCase();
+    return (
+      name === ".gocache" ||
+      name === "gocache" ||
+      name === "go-build" ||
+      name.startsWith("go-build") ||
+      name.includes("gocache")
+    );
+  });
+  if (generatedSegment) return true;
+
+  return [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".icns",
+    ".mp4",
+    ".mov",
+    ".webm",
+    ".mp3",
+    ".wav",
+    ".zip",
+    ".pdf",
+    ".wasm",
+    ".ttf",
+    ".otf",
+    ".woff",
+    ".woff2",
+  ].some((extension) => normalizedPath.toLowerCase().endsWith(extension));
+}
+
 function highlightPreview(preview: string, query: string) {
   const trimmedQuery = query.trim();
-  if (!trimmedQuery) return [preview];
+  if (!trimmedQuery) return [{ text: preview, match: false }];
 
   const lowerPreview = preview.toLowerCase();
   const lowerQuery = trimmedQuery.toLowerCase();
   const matchIndex = lowerPreview.indexOf(lowerQuery);
-  if (matchIndex < 0) return [preview];
+  if (matchIndex < 0) return [{ text: preview, match: false }];
 
   const before = preview.slice(0, matchIndex);
   const match = preview.slice(matchIndex, matchIndex + trimmedQuery.length);
   const after = preview.slice(matchIndex + trimmedQuery.length);
 
-  return [before, match, after];
+  return [
+    { text: before, match: false },
+    { text: match, match: true },
+    { text: after, match: false },
+  ].filter((part) => part.text.length > 0);
 }
 
 export default function WorkspaceSearchModal({
@@ -47,6 +88,7 @@ export default function WorkspaceSearchModal({
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const cacheRef = useRef(new Map<string, WorkspaceSearchResult[]>());
 
   const selectedResult = results[selectedIndex];
 
@@ -65,21 +107,41 @@ export default function WorkspaceSearchModal({
       return;
     }
 
+    const searchKey = `${rootPath}\n${query.trim().toLowerCase()}`;
+    const cachedResults = cacheRef.current.get(searchKey);
+    if (cachedResults) {
+      setResults(cachedResults);
+      setSelectedIndex(0);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       setLoading(true);
-      searchWorkspace(rootPath, query)
+      searchWorkspace(rootPath, query, controller.signal)
         .then((matches) => {
-          setResults(matches);
+          const visibleMatches = matches.filter(
+            (match) => !isGeneratedSearchPath(match.path),
+          );
+          cacheRef.current.set(searchKey, visibleMatches);
+          setResults(visibleMatches);
           setSelectedIndex(0);
         })
         .catch((err) => {
+          if (controller.signal.aborted) return;
           console.error("workspace search failed:", err);
           setResults([]);
         })
-        .finally(() => setLoading(false));
-    }, 180);
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    }, 80);
 
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [open, rootPath, query]);
 
   useEffect(() => {
@@ -148,8 +210,16 @@ export default function WorkspaceSearchModal({
           </div>
         )}
         {rootPath && query.trim().length >= 2 && loading && (
-          <div className="px-4 py-3 text-[12px] text-[#364050]">
-            searching...
+          <div className="space-y-2 px-4 py-3">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="flex items-start gap-2.5">
+                <div className="mt-0.5 h-4 w-4 shrink-0 animate-pulse rounded bg-[#202638]" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-[#202638]" />
+                  <div className="h-2.5 w-full animate-pulse rounded bg-[#171c2a]" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
         {rootPath &&
@@ -166,8 +236,8 @@ export default function WorkspaceSearchModal({
             onClick={() => selectResult(result)}
             className={`w-full flex items-start gap-2.5 px-4 py-2.5 text-left cursor-pointer transition-colors ${
               index === selectedIndex
-                ? "bg-[#1e2430] text-white"
-                : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"
+                ? "bg-[#1e2430] text-[#f3f6fb]"
+                : "text-[#c4cbd8] hover:bg-[#14161e] hover:text-[#f3f6fb]"
             }`}
           >
             <span className="mt-0.5 shrink-0">{getFileIcon(result.name)}</span>
@@ -180,17 +250,17 @@ export default function WorkspaceSearchModal({
                   {result.line}:{result.column}
                 </span>
               </span>
-              <span className="block text-[11px] text-[#586478] truncate mt-0.5">
+              <span className="block text-[11px] text-[#8f98aa] truncate mt-0.5">
                 {highlightPreview(result.preview, query).map((part, index) =>
-                  index === 1 ? (
+                  part.match ? (
                     <mark
                       key={`${result.path}-hit-${index}`}
-                      className="rounded bg-[#2a3346] px-0.5 text-[#dce4f0]"
+                      className="rounded bg-[#3a2f1c] px-0.5 text-[#ffd58a]"
                     >
-                      {part}
+                      {part.text}
                     </mark>
                   ) : (
-                    <span key={`${result.path}-hit-${index}`}>{part}</span>
+                    <span key={`${result.path}-hit-${index}`}>{part.text}</span>
                   ),
                 )}
               </span>

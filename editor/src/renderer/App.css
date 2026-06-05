@@ -262,10 +262,6 @@
   transform-origin: center bottom;
 }
 
-.axon-workspace-loading__bar {
-  animation: axonWorkspaceLoadingBar 1.45s ease-in-out infinite;
-}
-
 @keyframes axonWorkspaceWordWave {
   0%,
   100% {
@@ -275,15 +271,6 @@
   45% {
     opacity: 0.9;
     transform: translateY(-2px);
-  }
-}
-
-@keyframes axonWorkspaceLoadingBar {
-  0% {
-    transform: translateX(-4rem);
-  }
-  100% {
-    transform: translateX(10rem);
   }
 }
 

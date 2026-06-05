@@ -1,3 +1,46 @@
 @import "tailwindcss";
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+
+.monaco-editor .suggest-widget {
+  border: 1px solid rgba(82, 93, 119, 0.42) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34) !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list {
+  background: rgba(13, 16, 24, 0.98) !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row,
+.monaco-editor .suggest-widget .monaco-list-row .label-name,
+.monaco-editor .suggest-widget .monaco-list-row .signature-label {
+  color: #c4cbd8 !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row {
+  border-radius: 7px !important;
+  margin: 2px 5px !important;
+  width: calc(100% - 10px) !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row.focused {
+  background: rgba(93, 147, 176, 0.2) !important;
+  color: #edf6ff !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .contents {
+  padding-inline: 2px !important;
+}
+
+.monaco-editor .suggest-widget .details {
+  border-left: 1px solid rgba(82, 93, 119, 0.35) !important;
+  background: rgba(13, 16, 24, 0.98) !important;
+  color: #c4cbd8 !important;
+}
+
+.monaco-editor .suggest-widget .monaco-highlighted-label .highlight {
+  color: #ffd58a !important;
+  font-weight: 600 !important;
+}

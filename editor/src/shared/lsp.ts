@@ -42,14 +42,34 @@ export interface LanguageServerCompletionRequest {
   triggerCharacter?: string;
 }
 
+export interface LanguageServerTextPosition {
+  line: number;
+  character: number;
+}
+
+export interface LanguageServerTextRange {
+  start: LanguageServerTextPosition;
+  end: LanguageServerTextPosition;
+}
+
+export interface LanguageServerTextEdit {
+  range: LanguageServerTextRange;
+  newText: string;
+}
+
 export interface LanguageServerCompletionItem {
   label: string;
   kind?: number;
   detail?: string;
   documentation?: string;
   insertText?: string;
+  insertTextFormat?: number;
   filterText?: string;
   sortText?: string;
+  commitCharacters?: string[];
+  preselect?: boolean;
+  textEdit?: LanguageServerTextEdit;
+  additionalTextEdits?: LanguageServerTextEdit[];
 }
 
 export interface LanguageServerCompletionResult {

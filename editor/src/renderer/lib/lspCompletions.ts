@@ -12,6 +12,17 @@ const lspCompletionLanguages = [
 ];
 
 const webTagLanguages = ["html", "javascript", "typescript"];
+const localSymbolLanguages = [
+  "typescript",
+  "javascript",
+  "go",
+  "rust",
+  "python",
+  "cpp",
+  "html",
+  "css",
+  "json",
+];
 
 const webTagSnippets = [
   {
@@ -95,6 +106,24 @@ function getWordReplaceRange(
   );
 }
 
+function toMonacoRange(
+  range:
+    | {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      }
+    | undefined,
+) {
+  if (!range) return undefined;
+
+  return new monaco.Range(
+    range.start.line + 1,
+    range.start.character + 1,
+    range.end.line + 1,
+    range.end.character + 1,
+  );
+}
+
 function isFileInsideWorkspace(filePath: string, folderPath: string) {
   const normalizedFile = filePath.replace(/\\/g, "/");
   const normalizedFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -102,6 +131,109 @@ function isFileInsideWorkspace(filePath: string, folderPath: string) {
     normalizedFile === normalizedFolder ||
     normalizedFile.startsWith(`${normalizedFolder}/`)
   );
+}
+
+function collectLocalSymbolSuggestions(
+  monacoInstance: typeof monaco,
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) {
+  const word = model.getWordUntilPosition(position);
+  const prefix = word.word;
+  if (prefix.length < 2) return [];
+
+  const prefixLower = prefix.toLowerCase();
+  const range = getWordReplaceRange(model, position);
+  const currentLine = position.lineNumber;
+  const symbols = new Map<string, number>();
+  const symbolPattern = /\b[A-Za-z_$][A-Za-z0-9_$]*\b/g;
+
+  // This provider is intentionally local and synchronous. LSP results are the
+  // authority for types, imports, and project-wide intelligence, but they can
+  // take a moment when a server is cold. Scanning the open model gives the
+  // suggest widget useful prefix matches immediately, which keeps typing fast
+  // while the richer LSP provider fills in behind it.
+  for (let lineNumber = 1; lineNumber <= model.getLineCount(); lineNumber++) {
+    const line = model.getLineContent(lineNumber);
+    symbolPattern.lastIndex = 0;
+
+    let match: RegExpExecArray | null;
+    while ((match = symbolPattern.exec(line))) {
+      const label = match[0];
+      if (label === prefix || !label.toLowerCase().startsWith(prefixLower)) {
+        continue;
+      }
+
+      const existingDistance = symbols.get(label);
+      const distance = Math.abs(currentLine - lineNumber);
+      if (existingDistance === undefined || distance < existingDistance) {
+        symbols.set(label, distance);
+      }
+    }
+  }
+
+  return Array.from(symbols.entries())
+    .sort(([leftLabel, leftDistance], [rightLabel, rightDistance]) => {
+      return (
+        leftDistance - rightDistance ||
+        leftLabel.length - rightLabel.length ||
+        leftLabel.localeCompare(rightLabel)
+      );
+    })
+    .slice(0, 40)
+    .map(([label], index) => ({
+      label,
+      kind: monacoInstance.languages.CompletionItemKind.Variable,
+      detail: "Local symbol",
+      insertText: label,
+      filterText: label,
+      sortText: `0${String(index).padStart(3, "0")}`,
+      range,
+    }));
+}
+
+function registerLocalSymbolProvider(monacoInstance: typeof monaco) {
+  for (const languageId of localSymbolLanguages) {
+    monacoInstance.languages.registerCompletionItemProvider(languageId, {
+      triggerCharacters: [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+        "_",
+        "$",
+      ],
+      provideCompletionItems: (model, position) => ({
+        suggestions: collectLocalSymbolSuggestions(
+          monacoInstance,
+          model,
+          position,
+        ),
+      }),
+    });
+  }
 }
 
 function registerWebTagSnippets(monacoInstance: typeof monaco) {
@@ -137,7 +269,7 @@ function registerWebTagSnippets(monacoInstance: typeof monaco) {
 function registerExternalLspProvider(monacoInstance: typeof monaco) {
   for (const languageId of lspCompletionLanguages) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
-      triggerCharacters: [".", ":", "/", "\"", "'", "<"],
+      triggerCharacters: [".", ":", "/", "\"", "'", "<", "@", "#", "("],
       provideCompletionItems: async (model, position, _context, token) => {
         const folderPath = window.axonCompletionWorkspacePath;
         const filePath = model.uri.fsPath;
@@ -159,20 +291,42 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
 
         const range = getWordReplaceRange(model, position);
         return {
-          suggestions: result.items.map((item) => ({
-            label: item.label,
-            kind:
-              item.kind !== undefined
-                ? (lspToMonacoCompletionKind[item.kind] ??
-                  monacoInstance.languages.CompletionItemKind.Text)
-                : monacoInstance.languages.CompletionItemKind.Text,
-            detail: item.detail,
-            documentation: item.documentation,
-            insertText: item.insertText ?? item.label,
-            filterText: item.filterText,
-            sortText: item.sortText,
-            range,
-          })),
+          suggestions: result.items.map((item) => {
+            const textEditRange = toMonacoRange(item.textEdit?.range);
+            const insertText = item.textEdit?.newText ?? item.insertText ?? item.label;
+
+            // Monaco already owns the same suggest-widget interaction model
+            // users know from VS Code: keyboard navigation, mouse selection,
+            // filtering by the typed prefix, commit characters, and snippet
+            // tab stops. The important part here is preserving the LSP fields
+            // instead of flattening everything into plain text suggestions.
+            return {
+              label: item.label,
+              kind:
+                item.kind !== undefined
+                  ? (lspToMonacoCompletionKind[item.kind] ??
+                    monacoInstance.languages.CompletionItemKind.Text)
+                  : monacoInstance.languages.CompletionItemKind.Text,
+              detail: item.detail,
+              documentation: item.documentation,
+              insertText,
+              insertTextRules:
+                item.insertTextFormat === 2
+                  ? monacoInstance.languages.CompletionItemInsertTextRule
+                      .InsertAsSnippet
+                  : undefined,
+              filterText: item.filterText,
+              sortText: item.sortText,
+              commitCharacters: item.commitCharacters,
+              preselect: item.preselect,
+              additionalTextEdits: item.additionalTextEdits?.map((edit) => ({
+                range: toMonacoRange(edit.range) ?? range,
+                text: edit.newText,
+                forceMoveMarkers: true,
+              })),
+              range: textEditRange ?? range,
+            };
+          }),
         };
       },
     });
@@ -185,9 +339,9 @@ export function configureLspCompletions(monacoInstance: typeof monaco = monaco) 
 
   // Monaco owns fast built-in suggestions for HTML/CSS/TypeScript, while Axon's
   // external LSP bridge adds project-aware completions when a real server is
-  // running. I also register a tiny web-snippet provider because users expect
-  // common tags like `div` to pop up immediately in HTML and JSX/TSX, even
-  // before a project language server has warmed up.
+  // running. Local symbols give the popup an instant first paint, and web
+  // snippets keep common tags like `div` available before a server warms up.
+  registerLocalSymbolProvider(monacoInstance);
   registerWebTagSnippets(monacoInstance);
   registerExternalLspProvider(monacoInstance);
 }

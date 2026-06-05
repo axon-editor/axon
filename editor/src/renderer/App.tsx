@@ -22,6 +22,7 @@ import TaskRunnerModal from "./components/TaskRunnerModal";
 import FileOutlineModal from "./components/FileOutlineModal";
 import UpdateModal from "./components/UpdateModal";
 import Tooltip from "./components/Tooltip";
+import WorkspaceLoadingOverlay from "./components/WorkspaceLoadingOverlay";
 import {
   getTree,
   createFile,
@@ -84,7 +85,6 @@ import {
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { fontStack } from "./lib/fonts";
-import { publicAsset } from "./lib/assets";
 import { createHtmlPreviewTabPath, isHtmlFile } from "./lib/htmlPreviewTabs";
 import {
   loadWorkspaceSession,
@@ -1594,28 +1594,7 @@ function App() {
                 borderColor: "var(--axon-panel-border)",
               }}
             >
-              <div className="flex min-w-0 flex-1 overflow-hidden">
-                {activePane && (
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <TabBarForActivePane
-                      layout={layout}
-                      onSelect={(f) =>
-                        setLayout((prev) =>
-                          setActivePaneFile(prev, prev.activePaneId, f),
-                        )
-                      }
-                      onClose={(f) =>
-                        void requestCloseTab(layout.activePaneId, f)
-                      }
-                      onReorder={(tabs) =>
-                        setLayout((prev) =>
-                          reorderTabsInPane(prev, prev.activePaneId, tabs),
-                        )
-                      }
-                    />
-                  </div>
-                )}
-              </div>
+              <div className="flex min-w-0 flex-1 overflow-hidden" />
               <EditorToolbar
                 onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
                 onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
@@ -1832,49 +1811,6 @@ function App() {
       {splashVisible && <SplashScreen leaving={splashLeaving} />}
     </div>
   );
-}
-
-function WorkspaceLoadingOverlay() {
-  return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#080a10]/72 backdrop-blur-sm">
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-[#222838] bg-[#10131b]/92 px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.42)]">
-        <img
-          src={publicAsset("axon.png")}
-          alt="Axon"
-          className="h-12 w-12 object-contain opacity-70"
-        />
-        <div className="flex flex-col items-center gap-1">
-          <div className="text-[12px] font-medium text-[#c8d0e0]">
-            Preparing workspace
-          </div>
-          <div className="text-[11px] text-[#586478]">
-            Reading files, settings, Git state, and diagnostics.
-          </div>
-        </div>
-        <div className="mt-1 h-1 w-40 overflow-hidden rounded-full bg-[#1a2030]">
-          <div className="axon-workspace-loading__bar h-full w-16 rounded-full bg-[#80c8e0]" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// TabBarForActivePane is a thin wrapper, the toolbar area only shows
-// the active pane tabs. Each pane's full tab bar is inside PaneInstance.
-function TabBarForActivePane({
-  layout,
-  onSelect,
-  onClose,
-  onReorder,
-}: {
-  layout: Layout;
-  onSelect: (f: string) => void;
-  onClose: (f: string) => void;
-  onReorder: (tabs: string[]) => void;
-}) {
-  const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
-  if (!activePane) return null;
-  return null;
 }
 
 export default App;

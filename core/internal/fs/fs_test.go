@@ -2,6 +2,7 @@ package fs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -153,5 +154,89 @@ func TestSearchWorkspaceSkipsGoCaches(t *testing.T) {
 	}
 	if results[0].Path != sourcePath {
 		t.Fatalf("expected result path %s, got %s", sourcePath, results[0].Path)
+	}
+}
+
+func TestSearchWorkspaceStopsAtResultLimit(t *testing.T) {
+	root := t.TempDir()
+
+	for index := 0; index < 20; index++ {
+		filePath := filepath.Join(root, "src", fmt.Sprintf("file-%02d.go", index))
+		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+			t.Fatalf("failed to create source dir: %v", err)
+		}
+		if err := os.WriteFile(filePath, []byte("package main\nconst marker = \"fast-search\"\n"), 0644); err != nil {
+			t.Fatalf("failed to write source file: %v", err)
+		}
+	}
+
+	results, err := SearchWorkspace(root, "fast-search", 5)
+	if err != nil {
+		t.Fatalf("SearchWorkspace failed: %v", err)
+	}
+	if len(results) != 5 {
+		t.Fatalf("expected exactly 5 capped results, got %d", len(results))
+	}
+}
+
+func TestSearchWorkspaceSkipsBinaryExtensions(t *testing.T) {
+	root := t.TempDir()
+
+	textPath := filepath.Join(root, "src", "main.go")
+	if err := os.MkdirAll(filepath.Dir(textPath), 0755); err != nil {
+		t.Fatalf("failed to create source dir: %v", err)
+	}
+	if err := os.WriteFile(textPath, []byte("package main\nconst marker = \"binary-skip\"\n"), 0644); err != nil {
+		t.Fatalf("failed to write source file: %v", err)
+	}
+
+	imagePath := filepath.Join(root, "public", "image.png")
+	if err := os.MkdirAll(filepath.Dir(imagePath), 0755); err != nil {
+		t.Fatalf("failed to create public dir: %v", err)
+	}
+	if err := os.WriteFile(imagePath, []byte("binary-skip"), 0644); err != nil {
+		t.Fatalf("failed to write binary-extension file: %v", err)
+	}
+
+	results, err := SearchWorkspace(root, "binary-skip", 20)
+	if err != nil {
+		t.Fatalf("SearchWorkspace failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected only the text match, got %d results: %#v", len(results), results)
+	}
+	if results[0].Path != textPath {
+		t.Fatalf("expected result path %s, got %s", textPath, results[0].Path)
+	}
+}
+
+func TestSearchWorkspaceSkipsBinaryContentWithoutExtension(t *testing.T) {
+	root := t.TempDir()
+
+	textPath := filepath.Join(root, "src", "main.go")
+	if err := os.MkdirAll(filepath.Dir(textPath), 0755); err != nil {
+		t.Fatalf("failed to create source dir: %v", err)
+	}
+	if err := os.WriteFile(textPath, []byte("package main\nconst marker = \"binary-content-skip\"\n"), 0644); err != nil {
+		t.Fatalf("failed to write source file: %v", err)
+	}
+
+	binaryPath := filepath.Join(root, "tools", "axon-core")
+	if err := os.MkdirAll(filepath.Dir(binaryPath), 0755); err != nil {
+		t.Fatalf("failed to create tools dir: %v", err)
+	}
+	if err := os.WriteFile(binaryPath, []byte{'b', 'i', 'n', 'a', 'r', 'y', '-', 'c', 'o', 'n', 't', 'e', 'n', 't', '-', 's', 'k', 'i', 'p', 0x00}, 0644); err != nil {
+		t.Fatalf("failed to write binary file: %v", err)
+	}
+
+	results, err := SearchWorkspace(root, "binary-content-skip", 20)
+	if err != nil {
+		t.Fatalf("SearchWorkspace failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected only the text match, got %d results: %#v", len(results), results)
+	}
+	if results[0].Path != textPath {
+		t.Fatalf("expected result path %s, got %s", textPath, results[0].Path)
 	}
 }

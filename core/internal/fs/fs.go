@@ -7,6 +7,7 @@ package fs
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ type FileContent struct {
 }
 
 var ErrBinaryFile = errors.New("binary files cannot be opened as text")
+var errSearchLimitReached = errors.New("search result limit reached")
 
 // SearchResult is a single workspace text match.
 // The renderer needs the exact file, line, and column so selecting a result can
@@ -69,8 +71,8 @@ func shouldSkipSearchEntry(name string) bool {
 	// skipping them here, Axon keeps search fast and focused without hiding the
 	// same folders from the explorer.
 	lowerName := strings.ToLower(name)
-	switch name {
-	case ".git", ".DS_Store":
+	switch lowerName {
+	case ".git", ".ds_store":
 		return true
 	case "node_modules", "vendor", "dist", "release", "build", "out", "target":
 		return true
@@ -106,6 +108,30 @@ func shouldSkipSearchPath(rootPath string, candidatePath string) bool {
 	}
 
 	return false
+}
+
+func shouldSkipSearchFile(path string) bool {
+	// The text searcher should be ruthless about files that cannot produce a
+	// useful source-code hit. Checking the extension before opening the file is
+	// much cheaper than sampling content from images, archives, videos, fonts,
+	// executables, and generated maps. This keeps search responsive in normal
+	// projects while still allowing extensionless text files to be scanned.
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".icns", ".bmp", ".tiff", ".avif":
+		return true
+	case ".mp4", ".mov", ".webm", ".m4v", ".mp3", ".wav", ".ogg", ".flac":
+		return true
+	case ".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar":
+		return true
+	case ".pdf", ".wasm", ".bin", ".exe", ".dll", ".dylib", ".so", ".a", ".o":
+		return true
+	case ".ttf", ".otf", ".woff", ".woff2", ".eot":
+		return true
+	case ".lock", ".map":
+		return true
+	default:
+		return false
+	}
 }
 
 func trimSearchPreview(line string) string {
@@ -284,6 +310,15 @@ func RenameEntry(sourcePath string, newName string) (string, error) {
 // aligned with what the user sees in the sidebar, and it caps large files to
 // avoid freezing the local core process on generated bundles or binary assets.
 func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchResult, error) {
+	return SearchWorkspaceContext(context.Background(), rootPath, query, maxResults)
+}
+
+// SearchWorkspaceContext is the cancellable search path used by the HTTP
+// server. Search queries are fired while the user is typing, so an older query
+// must stop as soon as the renderer asks for a newer one. Without this context
+// check, the core can keep walking a large workspace for a search result the UI
+// will never display, which makes the next query feel slower than it should.
+func SearchWorkspaceContext(ctx context.Context, rootPath string, query string, maxResults int) ([]SearchResult, error) {
 	if maxResults <= 0 {
 		maxResults = 100
 	}
@@ -295,6 +330,12 @@ func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchRes
 
 	results := []SearchResult{}
 	err := filepath.WalkDir(rootPath, func(path string, entry os.DirEntry, err error) error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		if len(results) >= maxResults {
+			return errSearchLimitReached
+		}
 		if err != nil {
 			return nil
 		}
@@ -306,7 +347,10 @@ func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchRes
 			return nil
 		}
 
-		if entry.IsDir() || len(results) >= maxResults {
+		if entry.IsDir() {
+			return nil
+		}
+		if shouldSkipSearchFile(path) {
 			return nil
 		}
 
@@ -320,6 +364,18 @@ func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchRes
 			return nil
 		}
 		defer file.Close()
+
+		sample := make([]byte, 8192)
+		sampleSize, sampleErr := file.Read(sample)
+		if sampleErr != nil && sampleSize == 0 {
+			return nil
+		}
+		if isBinaryContent(sample[:sampleSize]) {
+			return nil
+		}
+		if _, err := file.Seek(0, 0); err != nil {
+			return nil
+		}
 
 		scanner := bufio.NewScanner(file)
 		scanner.Buffer(make([]byte, 1024), 1024*1024)
@@ -340,12 +396,15 @@ func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchRes
 			})
 
 			if len(results) >= maxResults {
-				return nil
+				return errSearchLimitReached
 			}
 		}
 
 		return nil
 	})
+	if errors.Is(err, errSearchLimitReached) {
+		return results, nil
+	}
 
 	return results, err
 }

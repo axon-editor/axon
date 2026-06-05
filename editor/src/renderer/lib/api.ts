@@ -117,8 +117,10 @@ export async function renameEntry(
 export async function searchWorkspace(
   root: string,
   query: string,
+  signal?: AbortSignal,
 ): Promise<WorkspaceSearchResult[]> {
   return request<WorkspaceSearchResult[]>(
     `/fs/search?root=${encodeURIComponent(root)}&q=${encodeURIComponent(query)}`,
+    { signal },
   );
 }

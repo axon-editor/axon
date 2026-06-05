@@ -1090,6 +1090,7 @@ interface LanguageServerDefinition {
     args: string[];
     launchCommand: string;
     launchArgs: string[];
+    env?: NodeJS.ProcessEnv;
     startable: boolean;
   };
 }
@@ -1138,6 +1139,14 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
         folderPath,
         "node_modules/typescript/lib/tsserver.js",
       );
+      const bundledServer = path.join(
+        app.getAppPath(),
+        "node_modules/typescript-language-server/lib/cli.mjs",
+      );
+      const runBundledServerWithElectronNode = {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+      };
 
       if (fs.existsSync(workspaceServer)) {
         return {
@@ -1145,6 +1154,23 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
           args: ["--version"],
           launchCommand: workspaceServer,
           launchArgs: ["--stdio"],
+          startable: true,
+        };
+      }
+
+      // Packaged Electron apps cannot rely on the user's shell PATH, and many
+      // users should not have to install TypeScript tooling globally just to
+      // get normal editor completion. Axon ships the TypeScript language
+      // server as an app dependency and runs its CLI through Electron's Node
+      // mode, which gives us a real LSP process without requiring a separate
+      // Node binary to be installed on the machine.
+      if (fs.existsSync(bundledServer)) {
+        return {
+          command: process.execPath,
+          args: [bundledServer, "--version"],
+          launchCommand: process.execPath,
+          launchArgs: [bundledServer, "--stdio"],
+          env: runBundledServerWithElectronNode,
           startable: true,
         };
       }
@@ -1246,6 +1272,7 @@ function resolveLanguageServerCommand(
       args: definition.args,
       launchCommand: definition.command,
       launchArgs: definition.launchArgs,
+      env: process.env,
       startable: true,
     }
   );
@@ -1319,7 +1346,11 @@ function resolveCommandPath(command: string) {
   return command;
 }
 
-async function canRunCommand(command: string, args: string[]) {
+async function canRunCommand(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+) {
   const resolvedCommand = resolveCommandPath(command);
   if (path.isAbsolute(resolvedCommand) && fs.existsSync(resolvedCommand) && args.length === 0) {
     return true;
@@ -1327,6 +1358,7 @@ async function canRunCommand(command: string, args: string[]) {
 
   try {
     await execFileAsync(resolvedCommand, args, {
+      env,
       timeout: 3000,
       maxBuffer: 1024 * 256,
     });
@@ -1657,7 +1689,11 @@ async function startLanguageServerDefinition(
     };
   }
 
-  const available = await canRunCommand(resolved.command, resolved.args);
+  const available = await canRunCommand(
+    resolved.command,
+    resolved.args,
+    resolved.env,
+  );
   if (!available) {
     return {
       label: definition.label,
@@ -1678,6 +1714,7 @@ async function startLanguageServerDefinition(
   try {
     const child = spawn(launchCommand, resolved.launchArgs, {
       cwd: folderPath,
+      env: resolved.env,
       stdio: "pipe",
     });
     const session: LanguageServerSession = {
@@ -1890,6 +1927,51 @@ function normalizeCompletionDocumentation(documentation: unknown) {
   return undefined;
 }
 
+function normalizeLanguageServerTextPosition(position: unknown) {
+  if (!position || typeof position !== "object") return undefined;
+  const rawPosition = position as { line?: unknown; character?: unknown };
+  if (
+    typeof rawPosition.line !== "number" ||
+    typeof rawPosition.character !== "number"
+  ) {
+    return undefined;
+  }
+
+  return {
+    line: Math.max(0, rawPosition.line),
+    character: Math.max(0, rawPosition.character),
+  };
+}
+
+function normalizeLanguageServerTextEdit(edit: unknown) {
+  if (!edit || typeof edit !== "object") return undefined;
+  const rawEdit = edit as {
+    range?: unknown;
+    newText?: unknown;
+  };
+  if (typeof rawEdit.newText !== "string") return undefined;
+  if (!rawEdit.range || typeof rawEdit.range !== "object") return undefined;
+
+  const rawRange = rawEdit.range as { start?: unknown; end?: unknown };
+  const start = normalizeLanguageServerTextPosition(rawRange.start);
+  const end = normalizeLanguageServerTextPosition(rawRange.end);
+  if (!start || !end) return undefined;
+
+  return {
+    range: { start, end },
+    newText: rawEdit.newText,
+  };
+}
+
+function normalizeLanguageServerTextEdits(edits: unknown) {
+  if (!Array.isArray(edits)) return undefined;
+  const normalizedEdits = edits
+    .map(normalizeLanguageServerTextEdit)
+    .filter((edit): edit is NonNullable<typeof edit> => edit !== undefined);
+
+  return normalizedEdits.length > 0 ? normalizedEdits : undefined;
+}
+
 function normalizeLanguageServerCompletionItems(
   result: unknown,
 ): LanguageServerCompletionItem[] {
@@ -1908,10 +1990,28 @@ function normalizeLanguageServerCompletionItems(
         detail?: unknown;
         documentation?: unknown;
         insertText?: unknown;
+        insertTextFormat?: unknown;
         filterText?: unknown;
         sortText?: unknown;
+        commitCharacters?: unknown;
+        preselect?: unknown;
+        textEdit?: unknown;
+        additionalTextEdits?: unknown;
       };
       if (typeof completionItem.label !== "string") return null;
+
+      // LSP completion items contain more than a visible label. Servers use
+      // textEdit to replace the exact typed range, insertTextFormat to mark
+      // snippets, commitCharacters to accept on keys like "." or "(", and
+      // additionalTextEdits for things like auto-imports. Axon keeps this
+      // payload narrow and validated before it crosses IPC so the renderer can
+      // feel like a real editor without receiving arbitrary server objects.
+      const textEdit = normalizeLanguageServerTextEdit(
+        completionItem.textEdit,
+      );
+      const additionalTextEdits = normalizeLanguageServerTextEdits(
+        completionItem.additionalTextEdits,
+      );
 
       return {
         label: completionItem.label,
@@ -1930,6 +2030,10 @@ function normalizeLanguageServerCompletionItems(
           typeof completionItem.insertText === "string"
             ? completionItem.insertText
             : undefined,
+        insertTextFormat:
+          typeof completionItem.insertTextFormat === "number"
+            ? completionItem.insertTextFormat
+            : undefined,
         filterText:
           typeof completionItem.filterText === "string"
             ? completionItem.filterText
@@ -1938,10 +2042,21 @@ function normalizeLanguageServerCompletionItems(
           typeof completionItem.sortText === "string"
             ? completionItem.sortText
             : undefined,
+        commitCharacters: Array.isArray(completionItem.commitCharacters)
+          ? completionItem.commitCharacters.filter(
+              (character): character is string => typeof character === "string",
+            )
+          : undefined,
+        preselect:
+          typeof completionItem.preselect === "boolean"
+            ? completionItem.preselect
+            : undefined,
+        textEdit,
+        additionalTextEdits,
       };
     })
     .filter((item): item is LanguageServerCompletionItem => item !== null)
-    .slice(0, 80);
+    .slice(0, 200);
 }
 
 async function getLanguageServerCompletions(
