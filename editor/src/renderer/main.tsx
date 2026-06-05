@@ -10,6 +10,7 @@ import App from "./App";
 import "./index.css";
 import { registerAxonTheme } from "./lib/soraTheme";
 import { configureMonacoDiagnostics } from "./lib/monacoDiagnostics";
+import { configureLspCompletions } from "./lib/lspCompletions";
 
 loader.config({ monaco });
 
@@ -43,6 +44,7 @@ loader.config({ monaco });
 // that instance knows the custom theme exists.
 registerAxonTheme(monaco);
 configureMonacoDiagnostics(monaco);
+configureLspCompletions(monaco);
 
 // StrictMode is disabled because it double-invokes effects in development
 // which causes Monaco's InstantiationService to be disposed and crash

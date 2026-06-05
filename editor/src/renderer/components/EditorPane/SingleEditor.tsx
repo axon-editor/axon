@@ -68,6 +68,9 @@ export default function SingleEditor({
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const suggestTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
+    null,
+  );
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const gitDecorationsRef =
@@ -299,6 +302,10 @@ export default function SingleEditor({
       gitDecorationsRef.current = null;
       cleanup();
       window.axon.unwatchFile();
+      if (suggestTimerRef.current) {
+        window.clearTimeout(suggestTimerRef.current);
+        suggestTimerRef.current = null;
+      }
       // Release only if the async read reached acquireModel. Closing a split
       // quickly used to run this cleanup before the second editor acquired its
       // reference, which could decrement the first pane's shared model and
@@ -354,10 +361,41 @@ export default function SingleEditor({
       handleSave(),
     );
 
-    editor.onDidChangeModelContent(() => {
+    editor.onDidChangeModelContent((event) => {
       const current = editor.getValue();
       setLiveContent(current);
       onDirtyChange(filePath, current !== diskContentRef.current);
+
+      const model = editor.getModel();
+      const position = editor.getPosition();
+      if (!model || !position) return;
+
+      const languageId = model.getLanguageId();
+      const insertedSuggestCharacter = event.changes.some((change) =>
+        /[A-Za-z<]/.test(change.text),
+      );
+      const currentWord = model.getWordUntilPosition(position).word;
+      const canSuggestWebCode =
+        languageId === "html" ||
+        languageId === "javascript" ||
+        languageId === "typescript";
+
+      if (!canSuggestWebCode || !insertedSuggestCharacter) return;
+      if (currentWord.length === 0 && !event.changes.some((change) => change.text.includes("<"))) {
+        return;
+      }
+
+      // Monaco normally opens quick suggestions on its own, but Electron/Vite
+      // timing plus custom providers can make that feel inconsistent. This
+      // small debounce explicitly opens the suggest widget for web languages
+      // after normal typing, which is the behavior users expect when they type
+      // common tags like `div` in HTML or JSX/TSX.
+      if (suggestTimerRef.current) {
+        window.clearTimeout(suggestTimerRef.current);
+      }
+      suggestTimerRef.current = window.setTimeout(() => {
+        editor.trigger("axon", "editor.action.triggerSuggest", {});
+      }, 20);
     });
 
     editor.onDidChangeCursorPosition((e) => {
@@ -432,6 +470,20 @@ export default function SingleEditor({
           scrollBeyondLastLine: false,
           lineNumbers: "on",
           glyphMargin: true,
+          quickSuggestions: {
+            other: true,
+            comments: false,
+            strings: true,
+          },
+          quickSuggestionsDelay: 0,
+          suggestOnTriggerCharacters: true,
+          acceptSuggestionOnCommitCharacter: true,
+          snippetSuggestions: "top",
+          suggest: {
+            showSnippets: true,
+            snippetsPreventQuickSuggestions: false,
+          },
+          tabCompletion: "on",
           renderLineHighlight: "line",
           padding: { top: 16 },
           cursorBlinking: "expand",

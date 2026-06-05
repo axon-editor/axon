@@ -66,7 +66,10 @@ import {
   type WorkspaceTask,
 } from "../shared/tasks";
 import {
+  type LanguageServerCompletionRequest,
+  type LanguageServerCompletionResult,
   type LanguageServerLifecycleResult,
+  type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
 } from "../shared/lsp";
 import {
@@ -89,7 +92,7 @@ import {
   saveWorkspaceSession,
   type WorkspaceSession,
 } from "./lib/workspaceSession";
-import { getModel } from "./lib/monacoModels";
+import { detectLanguage, getModel } from "./lib/monacoModels";
 import { collectFileSymbols, type FileSymbol } from "./lib/fileSymbols";
 import "./App.css";
 
@@ -107,6 +110,7 @@ function escapeCssString(value: string) {
 
 declare global {
   interface Window {
+    axonCompletionWorkspacePath?: string | null;
     axon: {
       platform: string;
       openFolder: () => Promise<string | null>;
@@ -127,9 +131,15 @@ declare global {
       startLanguageServers: (
         folderPath: string,
       ) => Promise<LanguageServerLifecycleResult>;
+      startLanguageServerForLanguage: (
+        request: LanguageServerStartForFileRequest,
+      ) => Promise<LanguageServerLifecycleResult>;
       stopLanguageServers: (
         folderPath: string,
       ) => Promise<LanguageServerLifecycleResult>;
+      getLanguageServerCompletions: (
+        request: LanguageServerCompletionRequest,
+      ) => Promise<LanguageServerCompletionResult>;
       listWorkspaceTasks: (folderPath: string) => Promise<WorkspaceTask[]>;
       runWorkspaceTask: (
         folderPath: string,
@@ -239,6 +249,8 @@ function App() {
   const restoreStartedRef = useRef(false);
   const allowSessionPersistenceRef = useRef(true);
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
+  const autoStartedLspWorkspaceRef = useRef<string | null>(null);
+  const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
   const folderName = folderPath ? folderPath.split("/").pop() ?? null : null;
@@ -293,6 +305,67 @@ function App() {
       },
     ]);
   }, []);
+
+  useEffect(() => {
+    if (!folderPath || !settings.lsp.enabled) {
+      autoStartedLspWorkspaceRef.current = null;
+      activeLanguageServerStartRef.current.clear();
+      return;
+    }
+
+    if (autoStartedLspWorkspaceRef.current === folderPath) return;
+    autoStartedLspWorkspaceRef.current = folderPath;
+
+    // Completion should be ready by the time the user starts typing, not only
+    // after they visit Settings. I auto-start relevant language servers once
+    // per workspace while still respecting the LSP toggle, then leave manual
+    // Start/Stop in Settings as the explicit override surface.
+    window.axon
+      .startLanguageServers(folderPath)
+      .then((result) => {
+        appendOutput("lsp", result.message, result.ok ? "success" : "error");
+      })
+      .catch((err) => {
+        appendOutput(
+          "lsp",
+          err instanceof Error
+            ? err.message
+            : "Failed to start language servers.",
+          "error",
+        );
+      });
+  }, [appendOutput, folderPath, settings.lsp.enabled]);
+
+  useEffect(() => {
+    if (!folderPath || !settings.lsp.enabled || !activePane?.activeFile) return;
+
+    const languageId = detectLanguage(activePane.activeFile);
+    const startKey = `${folderPath}::${languageId}`;
+    if (activeLanguageServerStartRef.current.has(startKey)) return;
+    if (!window.axon.startLanguageServerForLanguage) return;
+    activeLanguageServerStartRef.current.add(startKey);
+
+    window.axon
+      .startLanguageServerForLanguage({ folderPath, languageId })
+      .then((result) => {
+        if (result.message.startsWith("No external language server")) return;
+        appendOutput("lsp", result.message, result.ok ? "success" : "error");
+      })
+      .catch((err) => {
+        appendOutput(
+          "lsp",
+          err instanceof Error
+            ? err.message
+            : "Failed to start language server.",
+          "error",
+        );
+      });
+  }, [
+    activePane?.activeFile,
+    appendOutput,
+    folderPath,
+    settings.lsp.enabled,
+  ]);
 
   const handleOpenUpdatePage = useCallback(() => {
     void window.axon.openUpdatePage(updateInfo?.releaseUrl);
@@ -1363,6 +1436,10 @@ function App() {
       zenMode,
     ],
   );
+
+  useEffect(() => {
+    window.axonCompletionWorkspacePath = folderPath;
+  }, [folderPath]);
 
   useEffect(() => {
     const cleanup = window.axon.onMenuCommand(runCommand);

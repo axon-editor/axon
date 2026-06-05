@@ -26,3 +26,34 @@ export interface LanguageServerLifecycleResult {
   message: string;
   servers: LanguageServerStatus[];
 }
+
+export interface LanguageServerStartForFileRequest {
+  folderPath: string;
+  languageId: string;
+}
+
+export interface LanguageServerCompletionRequest {
+  folderPath: string;
+  filePath: string;
+  languageId: string;
+  content: string;
+  line: number;
+  column: number;
+  triggerCharacter?: string;
+}
+
+export interface LanguageServerCompletionItem {
+  label: string;
+  kind?: number;
+  detail?: string;
+  documentation?: string;
+  insertText?: string;
+  filterText?: string;
+  sortText?: string;
+}
+
+export interface LanguageServerCompletionResult {
+  ok: boolean;
+  message?: string;
+  items: LanguageServerCompletionItem[];
+}

@@ -19,7 +19,10 @@ import {
   type WorkspaceTask,
 } from "../shared/tasks";
 import {
+  type LanguageServerCompletionRequest,
+  type LanguageServerCompletionResult,
   type LanguageServerLifecycleResult,
+  type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
 } from "../shared/lsp";
 import {
@@ -53,10 +56,18 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath: string,
   ): Promise<LanguageServerLifecycleResult> =>
     ipcRenderer.invoke("lsp:start", folderPath),
+  startLanguageServerForLanguage: (
+    request: LanguageServerStartForFileRequest,
+  ): Promise<LanguageServerLifecycleResult> =>
+    ipcRenderer.invoke("lsp:startForLanguage", request),
   stopLanguageServers: (
     folderPath: string,
   ): Promise<LanguageServerLifecycleResult> =>
     ipcRenderer.invoke("lsp:stop", folderPath),
+  getLanguageServerCompletions: (
+    request: LanguageServerCompletionRequest,
+  ): Promise<LanguageServerCompletionResult> =>
+    ipcRenderer.invoke("lsp:completion", request),
   getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke("git:status", folderPath),
   listWorkspaceTasks: (folderPath: string): Promise<WorkspaceTask[]> =>
