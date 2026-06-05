@@ -69,6 +69,7 @@ import {
 import {
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
+  type LanguageServerDocumentSyncRequest,
   type LanguageServerLifecycleResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
@@ -140,6 +141,16 @@ declare global {
       getLanguageServerCompletions: (
         request: LanguageServerCompletionRequest,
       ) => Promise<LanguageServerCompletionResult>;
+      syncLanguageServerDocument: (
+        request: LanguageServerDocumentSyncRequest,
+      ) => Promise<void>;
+      onLanguageServerDiagnostics: (
+        callback: (event: {
+          folderPath: string;
+          filePath: string;
+          diagnostics: EditorDiagnostic[];
+        }) => void,
+      ) => () => void;
       listWorkspaceTasks: (folderPath: string) => Promise<WorkspaceTask[]>;
       runWorkspaceTask: (
         folderPath: string,
@@ -165,6 +176,7 @@ declare global {
       downloadUpdate: () => Promise<UpdateActionResult>;
       installUpdate: () => Promise<UpdateActionResult>;
       openUpdatePage: (releaseUrl?: string) => Promise<void>;
+      openExternalLink: (href: string) => Promise<void>;
       getHtmlPreviewTarget: (
         filePath: string,
         folderPath?: string | null,
@@ -238,6 +250,9 @@ function App() {
   const [projectDiagnostics, setProjectDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
+  const [lspDiagnosticsByFile, setLspDiagnosticsByFile] = useState<
+    Record<string, EditorDiagnostic[]>
+  >({});
   const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
   const [navigationTarget, setNavigationTarget] =
     useState<EditorNavigationTarget | null>(null);
@@ -260,8 +275,12 @@ function App() {
     [themeTokens],
   );
   const diagnostics = useMemo(
-    () => [...projectDiagnostics, ...monacoDiagnostics],
-    [monacoDiagnostics, projectDiagnostics],
+    () => [
+      ...projectDiagnostics,
+      ...monacoDiagnostics,
+      ...Object.values(lspDiagnosticsByFile).flat(),
+    ],
+    [lspDiagnosticsByFile, monacoDiagnostics, projectDiagnostics],
   );
   const activeFileSymbols = useMemo<FileSymbol[]>(() => {
     const activeFile = activePane?.activeFile;
@@ -554,6 +573,22 @@ function App() {
   useEffect(() => {
     return onEditorDiagnosticsChanged(setMonacoDiagnostics);
   }, []);
+
+  useEffect(() => {
+    setLspDiagnosticsByFile({});
+    if (!folderPath || !settings.lsp.enabled) return;
+
+    // LSP diagnostics arrive asynchronously from whichever server owns the
+    // changed document. Keeping them keyed by file lets a server clear one
+    // file's diagnostics without wiping problems from another language server.
+    return window.axon.onLanguageServerDiagnostics((event) => {
+      if (event.folderPath !== folderPath) return;
+      setLspDiagnosticsByFile((current) => ({
+        ...current,
+        [event.filePath]: event.diagnostics,
+      }));
+    });
+  }, [folderPath, settings.lsp.enabled]);
 
   useEffect(() => {
     const handleFileSaved = (event: Event) => {
@@ -1637,6 +1672,7 @@ function App() {
             }
             onClosePane={(paneId) => setLayout((prev) => closePane(prev, paneId))}
             onOpenTabInTerminal={handleOpenTabInTerminal}
+            onOpenFile={handleFileSelect}
             editorSettings={settings.editor}
             themeTokens={themeTokens}
             navigationTarget={navigationTarget}

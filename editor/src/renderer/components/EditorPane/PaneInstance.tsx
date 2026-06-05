@@ -33,6 +33,7 @@ interface Props {
   onCloseTab: (filePath: string) => void;
   onCloseEmptyPane?: () => void;
   onOpenTabInTerminal?: (filePath: string) => void;
+  onOpenFile?: (filePath: string) => void;
   onDirtyChange: (filePath: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
@@ -54,6 +55,7 @@ export default function PaneInstance({
   onCloseTab,
   onCloseEmptyPane,
   onOpenTabInTerminal,
+  onOpenFile,
   onDirtyChange,
   onCursorChange,
   onLanguageChange,
@@ -197,6 +199,7 @@ export default function PaneInstance({
                   folderPath={folderPath}
                   visible={path === pane.activeFile && isActive}
                   onDirtyChange={onDirtyChange}
+                  onOpenFile={onOpenFile}
                   onCursorChange={isActive ? onCursorChange : () => {}}
                   onLanguageChange={isActive ? onLanguageChange : () => {}}
                   editorSettings={editorSettings}

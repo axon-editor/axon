@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
   type CSSProperties,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 
@@ -14,6 +15,7 @@ interface MarkdownPreviewProps {
   content: string;
   filePath: string;
   folderPath: string | null;
+  onOpenFile?: (path: string) => void;
 }
 
 function getParentPath(filePath: string) {
@@ -40,7 +42,11 @@ function normalizePath(path: string) {
 }
 
 function isExternalUrl(src: string) {
-  return /^(https?:|data:|blob:|mailto:|tel:|#)/i.test(src);
+  return /^(https?:|mailto:|tel:)/i.test(src);
+}
+
+function isInlineReference(src: string) {
+  return /^(#|data:|blob:)/i.test(src);
 }
 
 function encodeLocalPath(path: string) {
@@ -65,7 +71,7 @@ function resolveMarkdownAsset(
   filePath: string,
   folderPath: string | null,
 ) {
-  if (!src || isExternalUrl(src)) return src;
+  if (!src || isExternalUrl(src) || isInlineReference(src)) return src;
 
   const { pathname, suffix } = splitLocalReference(src);
   const markdownRoot = folderPath ?? getParentPath(filePath);
@@ -80,6 +86,22 @@ function resolveMarkdownAsset(
     : normalizePath(`${getParentPath(filePath)}/${pathname}`);
 
   return `axon://local${encodeLocalPath(absolutePath)}${suffix}`;
+}
+
+function resolveMarkdownLinkPath(
+  href: string | undefined,
+  filePath: string,
+  folderPath: string | null,
+) {
+  if (!href || isExternalUrl(href) || isInlineReference(href)) return null;
+
+  const { pathname } = splitLocalReference(href);
+  if (!pathname) return null;
+  const markdownRoot = folderPath ?? getParentPath(filePath);
+
+  return pathname.startsWith("/")
+    ? normalizePath(`${markdownRoot}/${pathname}`)
+    : normalizePath(`${getParentPath(filePath)}/${pathname}`);
 }
 
 function textFromNode(node: ReactNode): string {
@@ -232,7 +254,26 @@ export default function MarkdownPreview({
   content,
   filePath,
   folderPath,
+  onOpenFile,
 }: MarkdownPreviewProps) {
+  const handleLinkClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    href: string | undefined,
+  ) => {
+    if (!href || isInlineReference(href)) return;
+    event.preventDefault();
+
+    if (isExternalUrl(href)) {
+      void window.axon.openExternalLink(href);
+      return;
+    }
+
+    const targetPath = resolveMarkdownLinkPath(href, filePath, folderPath);
+    if (targetPath && onOpenFile) {
+      onOpenFile(targetPath);
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-[#0e1018] px-5 py-6">
       <article className="mx-auto w-full max-w-5xl text-[14px] leading-7 text-[#c8d0e0]">
@@ -277,8 +318,12 @@ export default function MarkdownPreview({
             ),
             a: ({ children, href }) => (
               <a
-                href={resolveMarkdownAsset(href, filePath, folderPath)}
-                target={href && isExternalUrl(href) ? "_blank" : undefined}
+                href={
+                  isExternalUrl(href ?? "") || isInlineReference(href ?? "")
+                    ? href
+                    : resolveMarkdownLinkPath(href, filePath, folderPath) ?? href
+                }
+                onClick={(event) => handleLinkClick(event, href)}
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-[#80c8e0] underline-offset-4 hover:underline"
               >

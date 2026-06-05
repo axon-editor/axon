@@ -34,6 +34,7 @@ interface Props {
   onSelectFile: (paneId: string, filePath: string) => void;
   onCloseTab: (paneId: string, filePath: string) => void;
   onOpenTabInTerminal?: (filePath: string) => void;
+  onOpenFile?: (filePath: string) => void;
   onReorderTabs: (paneId: string, newTabs: string[]) => void;
   onDirtyChange: (paneId: string, filePath: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
@@ -91,6 +92,7 @@ export default function EditorPane({
   onSelectFile,
   onCloseTab,
   onOpenTabInTerminal,
+  onOpenFile,
   onReorderTabs,
   onDirtyChange,
   onCursorChange,
@@ -220,6 +222,7 @@ export default function EditorPane({
                 layout.panes.length > 1 ? () => onClosePane(pane.id) : undefined
               }
               onOpenTabInTerminal={onOpenTabInTerminal}
+              onOpenFile={onOpenFile}
               onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}
               onCursorChange={onCursorChange}
               onLanguageChange={onLanguageChange}

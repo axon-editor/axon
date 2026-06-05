@@ -29,6 +29,7 @@ interface Props {
   folderPath: string | null;
   visible: boolean;
   onDirtyChange: (path: string, dirty: boolean) => void;
+  onOpenFile?: (path: string) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
@@ -53,6 +54,7 @@ export default function SingleEditor({
   folderPath,
   visible,
   onDirtyChange,
+  onOpenFile,
   onCursorChange,
   onLanguageChange,
   editorSettings,
@@ -71,6 +73,9 @@ export default function SingleEditor({
   const suggestTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
     null,
   );
+  const lspSyncTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
+    null,
+  );
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const gitDecorationsRef =
@@ -80,6 +85,32 @@ export default function SingleEditor({
   const isMd = isMarkdown(filePath);
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
+  );
+
+  const syncDocumentWithLanguageServer = useCallback(
+    (content: string) => {
+      if (!folderPath) return;
+      const languageId = detectLanguage(filePathRef.current);
+      if (languageId === "plaintext") return;
+
+      // Diagnostics are pushed by the language server after it sees the latest
+      // in-memory document. I debounce the full-text sync because users can
+      // type many edits in a burst, and sending every single keystroke through
+      // IPC would make the editor feel heavier without producing more useful
+      // diagnostics.
+      if (lspSyncTimerRef.current) {
+        window.clearTimeout(lspSyncTimerRef.current);
+      }
+      lspSyncTimerRef.current = window.setTimeout(() => {
+        void window.axon.syncLanguageServerDocument({
+          folderPath,
+          filePath: filePathRef.current,
+          languageId,
+          content,
+        });
+      }, 180);
+    },
+    [folderPath],
   );
 
   useEffect(() => {
@@ -276,6 +307,7 @@ export default function SingleEditor({
         if (editorRef.current && !model.isDisposed()) {
           editorRef.current.setModel(model);
         }
+        syncDocumentWithLanguageServer(fc.content);
 
         window.axon.watchFile(filePath);
       })
@@ -305,6 +337,10 @@ export default function SingleEditor({
       if (suggestTimerRef.current) {
         window.clearTimeout(suggestTimerRef.current);
         suggestTimerRef.current = null;
+      }
+      if (lspSyncTimerRef.current) {
+        window.clearTimeout(lspSyncTimerRef.current);
+        lspSyncTimerRef.current = null;
       }
       // Release only if the async read reached acquireModel. Closing a split
       // quickly used to run this cleanup before the second editor acquired its
@@ -365,6 +401,7 @@ export default function SingleEditor({
       const current = editor.getValue();
       setLiveContent(current);
       onDirtyChange(filePath, current !== diskContentRef.current);
+      syncDocumentWithLanguageServer(current);
 
       const model = editor.getModel();
       const position = editor.getPosition();
@@ -535,6 +572,7 @@ export default function SingleEditor({
               content={liveContent}
               filePath={filePath}
               folderPath={folderPath}
+              onOpenFile={onOpenFile}
             />
           </div>
         )}
@@ -547,6 +585,7 @@ export default function SingleEditor({
                 content={liveContent}
                 filePath={filePath}
                 folderPath={folderPath}
+                onOpenFile={onOpenFile}
               />
             </div>
           </>

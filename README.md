@@ -4,156 +4,147 @@
   <img src="editor/src/renderer/public/axon.png" width="80" height="80" alt="Axon" />
 </p>
 
-
-A lightweight, AI-powered code editor built from scratch with Electron, React, TypeScript, and a Go backend.<br/>
-Built for personal use, designed to grow.
-
-
-
-<p align="center">
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black" />
-  <img src="https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white" />
-  <img src="https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white" />
-  <img src="https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white" />
-  <img src="https://img.shields.io/badge/Monaco_Editor-007ACC?style=flat&logo=visualstudiocode&logoColor=white" />
-</p>
+Axon is a personal AI-powered code editor built with Electron, React, TypeScript,
+Monaco, and a Go backend. It is built for day-to-day coding first: files,
+panes, terminal, Git, search, settings, previews, and language-server support.
 
 ## Stack
 
-**Editor — Electron + React + TypeScript**
-- Electron for the desktop shell
-- React + TypeScript + Tailwind CSS for UI
-- Monaco Editor for the editing surface
-- Vite as the bundler
+**Editor**
+- Electron desktop shell
+- React, TypeScript, Tailwind CSS
+- Monaco Editor
+- xterm.js terminal
 
-**Core — Go**
-- HTTP server on port 7777
-- File system API (tree, read, write, move, create, delete)
-- PTY terminal via WebSocket (gorilla/websocket + creack/pty)
-- AI routing (coming soon)
+**Core**
+- Go HTTP server on `localhost:7777`
+- File system, workspace search, Git, terminal PTY, and future AI routes
 
 ## Project Structure
 
-```
+```text
 axon/
-├── editor/                      # Electron + React + TypeScript frontend
+├── core/                         # Go backend
+│   ├── cmd/axon/                 # backend entry point
+│   └── internal/
+│       ├── fs/                   # file tree, text reads, writes, search
+│       ├── server/               # HTTP routes
+│       ├── terminal/             # PTY + websocket bridge
+│       └── ai/                   # future AI backend surface
+├── editor/                       # Electron + React app
 │   └── src/
-│       ├── main/                # Electron main process
-│       ├── preload/             # contextBridge API surface
-│       └── renderer/            # React UI
-│           ├── components/
-│           │   ├── EditorPane/  # Monaco editor, split panes, media preview
-│           │   ├── Sidebar/     # File tree, context menu, folder picker
-│           │   ├── TabBar/      # Tabs with drag reorder and inter-pane drag
-│           │   └── Terminal/    # xterm.js terminal panel
-│           └── lib/             # API client, layout manager, Monaco models
-└── core/                        # Go backend
-    ├── cmd/axon/                # Entry point
-    └── internal/
-        ├── server/              # HTTP server and route handlers
-        ├── fs/                  # File system operations
-        ├── terminal/            # PTY + WebSocket bridge
-        └── ai/                  # AI routing (coming soon)
+│       ├── main/                 # Electron main process, IPC, updater, LSP
+│       ├── preload/              # safe contextBridge API
+│       └── renderer/             # Axon UI
+└── docs/                         # release, update, and LSP notes
 ```
 
-## Running Locally
+## Run Locally
 
-**Start the Go backend**
 ```bash
 cd core
 go run cmd/axon/main.go
 ```
 
-**Start the editor**
 ```bash
 cd editor
+npm install
 npm run build:main
 npm run dev
 ```
 
-## Building V1
+In development, the Electron app expects the Go core to be running on
+`localhost:7777`. Packaged builds include the Go core binary and start it
+automatically.
 
-**Build the editor bundles**
+## Build
+
 ```bash
 cd editor
 npm run build
+npm run pack
 ```
 
-**Create a packaged desktop app**
+Platform packages:
+
 ```bash
-# Unpacked app for local inspection
-npm run pack
-
-# Installer/package for the current platform
-npm run dist
-
-# Platform-specific package commands
 npm run dist:mac
 npm run dist:win
 npm run dist:linux
 ```
 
-Build artifacts are written to `editor/release/`. Packaged desktop builds
-include the Go core binary and start it automatically when Axon opens.
+Build output goes to `editor/release/`.
 
-**Which Release File To Download**
+## Downloads
 
-- macOS Apple Silicon (M1/M2/M3/M4): `Axon-1.0.0-arm64.dmg`
-- macOS Intel: `Axon-1.0.0.dmg`
-- Windows: `Axon.Setup.1.0.0.exe`
-- Linux AppImage: `Axon-1.0.0.AppImage`
-- Linux Debian/Ubuntu: `axon_1.0.0_amd64.deb`
+Use the file that matches your platform and CPU:
 
-If macOS says the app is not supported, you probably downloaded the wrong Mac
-architecture. Intel Macs need the x64 `.dmg`; Apple Silicon Macs need the
-arm64 `.dmg`.
+- macOS Apple Silicon: `Axon-<version>-arm64.dmg`
+- macOS Intel: `Axon-<version>.dmg`
+- Windows: `Axon.Setup.<version>.exe`
+- Linux AppImage: `Axon-<version>.AppImage`
+- Linux Debian/Ubuntu: `axon_<version>_amd64.deb`
 
-Cross-platform builds can require platform-specific tooling and signing. macOS
-builds are easiest from macOS; Windows and Linux release builds should be
-verified on their target platforms before sharing broadly.
+If macOS says the app is not supported, the downloaded build probably does not
+match your CPU architecture.
 
-**Publish a GitHub Release**
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+## Updates
 
-Pushing a `v*` tag runs the release workflow in `.github/workflows/release.yml`.
-The workflow builds macOS, Windows, and Linux packages on GitHub Actions and
-uploads the generated installers into a draft GitHub Release. Keep the release
-as a draft until the platform artifacts have been checked.
+Axon checks GitHub releases for newer versions. On unsigned personal macOS
+builds, fully automatic in-app replacement is not guaranteed because macOS
+Gatekeeper and Electron updater flows expect signed/notarized apps for the
+smoothest install-and-relaunch path. For that reason, the safest update path is:
 
-You can also start the same workflow manually from GitHub Actions by choosing a
-release tag such as `v1.0.0`.
+1. Open the update notice in Axon.
+2. Download the correct release artifact for your platform.
+3. Replace the old app manually if the in-app updater cannot relaunch.
+
+Windows and Linux builds do not require Apple notarization, but releases still
+need to be tested on their target platform before being treated as stable.
+
+More detail: [docs/UPDATES.md](docs/UPDATES.md).
 
 ## Current Features
 
-- Open any folder and browse the real file tree
-- Collapsible sidebar with Catppuccin file and folder icons
-- Drag and drop files between folders in the sidebar
-- Multi-pane split editor (up to 5 panes, horizontal and vertical)
-- Drag tabs between panes, resize panes with the divider
-- Shared Monaco models — edits reflect across split panes instantly
-- Multi-tab editing with per-tab dirty state indicator
-- Cmd+S to save, external change detection via chokidar
-- Right click context menu — new file, new folder, delete, split right
-- Markdown preview with editor, split, and full preview modes
-- Image and video preview via custom axon:// protocol
-- Real terminal via PTY over WebSocket (zsh/bash)
-- Command palette (Cmd+P) with fuzzy file search
-- Sora dark theme ported from Zed with full Monaco syntax token mapping
-- Recent folders with quick open from the sidebar and empty pane
-- Zen mode — hides all chrome for distraction-free editing
-- Git status, diffs, changed-file context copy, and gutter indicators
-- Settings UI with theme, color, font, imported font, AI, and language-server sections
-- Language-server detection and lifecycle groundwork
+- Real folder/workspace opening
+- Lazy file tree with Git colors and ignored-path handling
+- Split panes, draggable tabs, dirty indicators, and close prompts
+- Shared Monaco models across panes
+- Markdown preview and HTML preview
+- Image/video preview through Axon protocols
+- Workspace search with jump-to-line and binary/cache exclusions
+- Command palette
+- Source control modal, diffs, Git gutter markers
+- Integrated terminal with tabs
+- Settings UI and settings JSON
+- Custom themes, theme overrides, and imported fonts
+- Splash screen and custom app icon/name
+- LSP completion for TypeScript/JavaScript, Go, Python, Rust, and C/C++
+- Live LSP diagnostics routed into Problems
+
+## Language Servers
+
+Axon does not reimplement language intelligence itself. Like Zed and VS Code, it
+acts as an LSP client and talks to language servers.
+
+Currently targeted:
+
+- TypeScript/JavaScript: bundled `typescript-language-server`
+- Go: `gopls`
+- Python: `pyright-langserver`
+- Rust: `rust-analyzer`
+- C/C++: `clangd`
+
+More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
+
+## Release Notes
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-- [ ] AI completion (goai trigger, Ollama + OpenAI + Anthropic)
-- [ ] Full LSP diagnostics, definition, references, and completion wiring
-- [ ] Sign and notarize macOS desktop releases
-- [ ] Search result grouping and replace across files
-- [ ] Extension/plugin system
+- Hover, go-to-definition, references, rename, and formatting through LSP
+- Workspace replace
+- AI provider service and streaming chat panel
+- AI patch preview/apply workflow
+- Plugin/extension architecture

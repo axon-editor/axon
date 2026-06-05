@@ -52,6 +52,7 @@ import {
   type LanguageServerCompletionItem,
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
+  type LanguageServerDocumentSyncRequest,
   type LanguageServerId,
   type LanguageServerLifecycleResult,
   type LanguageServerStartForFileRequest,
@@ -1407,9 +1408,16 @@ function handleLanguageServerPayload(
 
   const message = payload as {
     id?: unknown;
+    method?: unknown;
+    params?: unknown;
     result?: unknown;
     error?: { message?: string };
   };
+  if (message.method === "textDocument/publishDiagnostics") {
+    publishLanguageServerDiagnostics(session, message.params);
+    return;
+  }
+
   if (typeof message.id !== "number") return;
 
   const pending = session.pendingRequests.get(message.id);
@@ -1426,6 +1434,96 @@ function handleLanguageServerPayload(
   }
 
   pending.resolve(message.result);
+}
+
+function normalizeLanguageServerDiagnosticSeverity(
+  severity: unknown,
+): EditorDiagnostic["severity"] {
+  switch (severity) {
+    case 1:
+      return "error";
+    case 2:
+      return "warning";
+    case 3:
+      return "info";
+    default:
+      return "hint";
+  }
+}
+
+function publishLanguageServerDiagnostics(
+  session: LanguageServerSession,
+  params: unknown,
+) {
+  if (!params || typeof params !== "object") return;
+  const diagnosticParams = params as {
+    uri?: unknown;
+    diagnostics?: unknown;
+  };
+  if (
+    typeof diagnosticParams.uri !== "string" ||
+    !Array.isArray(diagnosticParams.diagnostics)
+  ) {
+    return;
+  }
+
+  let filePath = "";
+  try {
+    filePath = url.fileURLToPath(diagnosticParams.uri);
+  } catch {
+    return;
+  }
+
+  const diagnostics = diagnosticParams.diagnostics
+    .map((diagnostic): EditorDiagnostic | null => {
+      if (!diagnostic || typeof diagnostic !== "object") return null;
+      const rawDiagnostic = diagnostic as {
+        message?: unknown;
+        severity?: unknown;
+        source?: unknown;
+        range?: {
+          start?: { line?: unknown; character?: unknown };
+        };
+      };
+      if (typeof rawDiagnostic.message !== "string") return null;
+
+      const line =
+        typeof rawDiagnostic.range?.start?.line === "number"
+          ? rawDiagnostic.range.start.line + 1
+          : 1;
+      const column =
+        typeof rawDiagnostic.range?.start?.character === "number"
+          ? rawDiagnostic.range.start.character + 1
+          : 1;
+      const severity = normalizeLanguageServerDiagnosticSeverity(
+        rawDiagnostic.severity,
+      );
+      const source =
+        typeof rawDiagnostic.source === "string"
+          ? rawDiagnostic.source
+          : `lsp:${session.id}`;
+
+      return {
+        id: `${source}:${filePath}:${line}:${column}:${severity}:${rawDiagnostic.message}`,
+        path: filePath,
+        message: rawDiagnostic.message,
+        line,
+        column,
+        severity,
+        source,
+      };
+    })
+    .filter((diagnostic): diagnostic is EditorDiagnostic => diagnostic !== null);
+
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+      window.webContents.send("lsp:diagnostics", {
+        folderPath: session.folderPath,
+        filePath,
+        diagnostics,
+      });
+    }
+  }
 }
 
 function readLanguageServerMessages(
@@ -1874,7 +1972,7 @@ function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
 
 function syncLanguageServerDocument(
   session: LanguageServerSession,
-  request: LanguageServerCompletionRequest,
+  request: LanguageServerDocumentSyncRequest,
 ) {
   const uri = url.pathToFileURL(request.filePath).toString();
   const existingDocument = session.syncedDocuments.get(uri);
@@ -1911,6 +2009,20 @@ function syncLanguageServerDocument(
     languageId: existingDocument.languageId,
   });
   return uri;
+}
+
+async function syncDocumentWithLanguageServer(
+  request: LanguageServerDocumentSyncRequest,
+) {
+  const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
+  if (!serverId) return;
+
+  const session = activeLanguageServers.get(
+    getLanguageServerSessionKey(request.folderPath, serverId),
+  );
+  if (!session?.initialized) return;
+
+  syncLanguageServerDocument(session, request);
 }
 
 function normalizeCompletionDocumentation(documentation: unknown) {
@@ -3065,6 +3177,14 @@ ipcMain.handle("app:openUpdatePage", async (_event, releaseUrl?: string) => {
   await shell.openExternal(normalizeUpdatePageUrl(releaseUrl));
 });
 
+ipcMain.handle("shell:openExternal", async (_event, href: string) => {
+  if (!/^(https?:|mailto:|tel:)/i.test(href)) {
+    throw new Error("Only external web, mail, and phone links can be opened.");
+  }
+
+  await shell.openExternal(href);
+});
+
 ipcMain.handle(
   "htmlPreview:getTarget",
   async (
@@ -3190,6 +3310,18 @@ ipcMain.handle(
     }
 
     return getLanguageServerCompletions(request);
+  },
+);
+
+ipcMain.handle(
+  "lsp:syncDocument",
+  async (_event, request: LanguageServerDocumentSyncRequest): Promise<void> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) return;
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return;
+
+    await syncDocumentWithLanguageServer(request);
   },
 );
 

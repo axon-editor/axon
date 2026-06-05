@@ -32,11 +32,15 @@ export interface LanguageServerStartForFileRequest {
   languageId: string;
 }
 
-export interface LanguageServerCompletionRequest {
+export interface LanguageServerDocumentSyncRequest {
   folderPath: string;
   filePath: string;
   languageId: string;
   content: string;
+}
+
+export interface LanguageServerCompletionRequest
+  extends LanguageServerDocumentSyncRequest {
   line: number;
   column: number;
   triggerCharacter?: string;

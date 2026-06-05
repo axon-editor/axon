@@ -21,6 +21,7 @@ import {
 import {
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
+  type LanguageServerDocumentSyncRequest,
   type LanguageServerLifecycleResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
@@ -68,6 +69,27 @@ contextBridge.exposeInMainWorld("axon", {
     request: LanguageServerCompletionRequest,
   ): Promise<LanguageServerCompletionResult> =>
     ipcRenderer.invoke("lsp:completion", request),
+  syncLanguageServerDocument: (
+    request: LanguageServerDocumentSyncRequest,
+  ): Promise<void> => ipcRenderer.invoke("lsp:syncDocument", request),
+  onLanguageServerDiagnostics: (
+    callback: (event: {
+      folderPath: string;
+      filePath: string;
+      diagnostics: EditorDiagnostic[];
+    }) => void,
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: {
+        folderPath: string;
+        filePath: string;
+        diagnostics: EditorDiagnostic[];
+      },
+    ) => callback(payload);
+    ipcRenderer.on("lsp:diagnostics", listener);
+    return () => ipcRenderer.removeListener("lsp:diagnostics", listener);
+  },
   getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke("git:status", folderPath),
   listWorkspaceTasks: (folderPath: string): Promise<WorkspaceTask[]> =>
@@ -109,6 +131,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("app:installUpdate"),
   openUpdatePage: (releaseUrl?: string) =>
     ipcRenderer.invoke("app:openUpdatePage", releaseUrl),
+  openExternalLink: (href: string): Promise<void> =>
+    ipcRenderer.invoke("shell:openExternal", href),
   getHtmlPreviewTarget: (
     filePath: string,
     folderPath?: string | null,
