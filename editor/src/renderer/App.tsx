@@ -15,6 +15,7 @@ import {
 import DiffModal from "./components/DiffModal";
 import EditorToolbar from "./components/EditorToolbar";
 import SettingsModal from "./components/settings";
+import ExtensionsModal from "./components/extensions";
 import SplashScreen from "./components/SplashScreen";
 import AboutModal, { type AppInfo } from "./components/AboutModal";
 import SourceControlModal from "./components/SourceControlModal";
@@ -98,6 +99,10 @@ import {
   type HtmlPreviewActionResult,
   type HtmlPreviewConsoleEvent,
 } from "../shared/htmlPreview";
+import {
+  type ExtensionActionResult,
+  type ExtensionState,
+} from "../shared/extensions";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { registerAxonTheme } from "./lib/soraTheme";
 import { type EditorNavigationTarget } from "./lib/navigation";
@@ -212,6 +217,18 @@ declare global {
         message: string,
       ) => Promise<GitCommitResult>;
       getAppInfo: () => Promise<AppInfo>;
+      listExtensions: (folderPath?: string | null) => Promise<ExtensionState>;
+      setExtensionEnabled: (
+        extensionId: string,
+        enabled: boolean,
+        folderPath?: string | null,
+      ) => Promise<ExtensionActionResult>;
+      reloadExtensions: (
+        folderPath?: string | null,
+      ) => Promise<ExtensionActionResult>;
+      openExtensionsFolder: (
+        folderPath?: string | null,
+      ) => Promise<ExtensionActionResult>;
       shouldRestoreSession: () => Promise<boolean>;
       checkForUpdates: () => Promise<UpdateInfo>;
       getUpdateInstallState: () => Promise<UpdateInstallState>;
@@ -278,6 +295,7 @@ function App() {
   const [sourceControlOpen, setSourceControlOpen] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [extensionsOpen, setExtensionsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
@@ -287,6 +305,9 @@ function App() {
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
+  const [extensionState, setExtensionState] = useState<ExtensionState | null>(
+    null,
+  );
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
@@ -312,7 +333,17 @@ function App() {
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
   const folderName = folderPath ? folderPath.split("/").pop() ?? null : null;
-  const themeTokens = useMemo(() => resolveThemeTokens(settings), [settings]);
+  const extensionThemes = useMemo(
+    () =>
+      extensionState?.extensions.flatMap((extension) =>
+        extension.enabled ? extension.themes : [],
+      ) ?? [],
+    [extensionState],
+  );
+  const themeTokens = useMemo(
+    () => resolveThemeTokens(settings, extensionThemes),
+    [extensionThemes, settings],
+  );
   const themeCssVariables = useMemo(
     () => createThemeCssVariables(themeTokens),
     [themeTokens],
@@ -324,8 +355,8 @@ function App() {
     // no editor has remounted, and Monaco keeps a global theme registry. This
     // effect keeps Monaco's active theme synchronized with Axon's resolved UI
     // tokens on every settings change.
-    registerAxonTheme(monaco, settings.editor.themeId, themeTokens);
-  }, [settings.editor.themeId, themeTokens]);
+    registerAxonTheme(monaco, settings.editor.themeId, themeTokens, extensionThemes);
+  }, [extensionThemes, settings.editor.themeId, themeTokens]);
 
   useEffect(() => {
     const styleId = "axon-monaco-default-token-fallback";
@@ -567,6 +598,20 @@ function App() {
         setSettingsHydrated(true);
       });
   }, []);
+
+  const refreshExtensions = useCallback(async () => {
+    try {
+      const nextExtensionState = await window.axon.listExtensions(folderPath);
+      setExtensionState(nextExtensionState);
+    } catch (err) {
+      console.error("failed to load extensions:", err);
+      appendOutput("extensions", "Failed to load extensions.", "error");
+    }
+  }, [appendOutput, folderPath]);
+
+  useEffect(() => {
+    void refreshExtensions();
+  }, [refreshExtensions]);
 
   useEffect(() => {
     // Axon uses two update data streams on purpose:
@@ -1205,6 +1250,16 @@ function App() {
 
   const runCommand = useCallback(
     (command: AxonCommand) => {
+      if (command.startsWith("extension:")) {
+        const commandId = command.slice("extension:".length);
+        appendOutput(
+          "extensions",
+          `Extension command '${commandId}' is registered. Executable extension hosts are intentionally disabled until the sandbox API is expanded.`,
+          "warning",
+        );
+        return;
+      }
+
       switch (command) {
         case AXON_COMMANDS.ABOUT:
           setAboutOpen(true);
@@ -1295,6 +1350,9 @@ function App() {
         case AXON_COMMANDS.OPEN_SETTINGS:
           setSettingsOpen(true);
           break;
+        case AXON_COMMANDS.OPEN_EXTENSIONS:
+          setExtensionsOpen(true);
+          break;
         case AXON_COMMANDS.OPEN_SETTINGS_JSON:
           void handleOpenSettingsJson();
           break;
@@ -1327,8 +1385,23 @@ function App() {
     ],
   );
 
-  const paletteCommands = useMemo<CommandPaletteCommand[]>(
-    () => [
+  const paletteCommands = useMemo<CommandPaletteCommand[]>(() => {
+    const extensionCommands =
+      extensionState?.extensions.flatMap((extension) =>
+        extension.enabled
+          ? extension.contributes.commands.map((command) => ({
+              id: `extension:${extension.id}.${command.id}` as const,
+              title: command.title,
+              group: command.category ?? "Extensions",
+              subtitle:
+                command.description ??
+                `${extension.name} command contribution`,
+              keywords: [extension.name, extension.publisher, command.id],
+            }))
+          : [],
+      ) ?? [];
+
+    return [
       {
         id: AXON_COMMANDS.NEW_FILE,
         title: "New File",
@@ -1532,6 +1605,13 @@ function App() {
         keywords: ["preferences", "theme", "font"],
       },
       {
+        id: AXON_COMMANDS.OPEN_EXTENSIONS,
+        title: "Open Extensions",
+        group: "Extensions",
+        subtitle: "Manage local extension packages and contributed themes",
+        keywords: ["plugins", "themes", "syntax", "packages"],
+      },
+      {
         id: AXON_COMMANDS.OPEN_SETTINGS_JSON,
         title: "Open Settings JSON",
         group: "Settings",
@@ -1566,19 +1646,20 @@ function App() {
         subtitle: "Show app and runtime information",
         keywords: ["version"],
       },
-    ],
-    [
-      activePane?.activeFile,
-      activeFileSymbols.length,
-      diagnostics.length,
-      folderPath,
-      gitChangeCount,
-      terminalOpen,
-      updateInfo?.latestVersion,
-      updateInfo?.updateAvailable,
-      zenMode,
-    ],
-  );
+      ...extensionCommands,
+    ];
+  }, [
+    activePane?.activeFile,
+    activeFileSymbols.length,
+    diagnostics.length,
+    extensionState,
+    folderPath,
+    gitChangeCount,
+    terminalOpen,
+    updateInfo?.latestVersion,
+    updateInfo?.updateAvailable,
+    zenMode,
+  ]);
 
   useEffect(() => {
     window.axonCompletionWorkspacePath = folderPath;
@@ -1743,12 +1824,13 @@ function App() {
               <EditorToolbar
                 onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
                 onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
-                onSearch={() => runCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH)}
                 onDiff={() => runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW)}
                 onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
                 onSplit={handleSplit}
                 onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
                 onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
+                onExtensions={() => setExtensionsOpen(true)}
+                onAbout={() => setAboutOpen(true)}
                 updateInfo={updateInfo}
                 updateInstallState={updateInstallState}
                 onOpenUpdate={() => setUpdateModalOpen(true)}
@@ -1851,6 +1933,9 @@ function App() {
           themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
           onOpenFolderPicker={() => setFolderPickerOpen(true)}
+          onOpenWorkspaceSearch={() =>
+            runCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH)
+          }
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
           onOpenBottomPanel={(tab) =>
             runCommand(
@@ -1908,10 +1993,20 @@ function App() {
       {settingsOpen && (
         <SettingsModal
           folderPath={folderPath}
+          extensionState={extensionState}
           settings={settings}
           onClose={() => setSettingsOpen(false)}
           onPreview={handleSettingsPreview}
           onSave={handleSettingsSave}
+        />
+      )}
+
+      {extensionsOpen && (
+        <ExtensionsModal
+          folderPath={folderPath}
+          extensionState={extensionState}
+          onExtensionsChanged={setExtensionState}
+          onClose={() => setExtensionsOpen(false)}
         />
       )}
 

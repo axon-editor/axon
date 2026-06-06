@@ -1,5 +1,6 @@
 import { type editor } from "monaco-editor";
 import { type BuiltInThemeId, type ThemeColorToken } from "../../../shared/settings";
+import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 
 export type ThemeTokenMap = Record<ThemeColorToken, string>;
 
@@ -127,4 +128,26 @@ export function createSyntaxRules(tokens: ThemeTokenMap): editor.ITokenThemeRule
     { token: "plain", foreground },
     { token: "", foreground },
   ];
+}
+
+function normalizeFontStyle(style: ExtensionThemeSyntaxStyle) {
+  const parts = [
+    style.fontStyle,
+    style.fontWeight === "bold" || style.fontWeight === 700 ? "bold" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return parts || undefined;
+}
+
+export function createExtensionSyntaxRules(
+  syntax: Record<string, ExtensionThemeSyntaxStyle>,
+): editor.ITokenThemeRule[] {
+  return Object.entries(syntax)
+    .filter(([, style]) => typeof style.color === "string")
+    .map(([token, style]) => ({
+      token,
+      foreground: hexToMonaco(style.color ?? "#d8dee9"),
+      fontStyle: normalizeFontStyle(style),
+    }));
 }

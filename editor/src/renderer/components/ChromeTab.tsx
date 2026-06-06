@@ -46,10 +46,10 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
     <div
       ref={ref}
       {...props}
-      className={`group flex h-7 min-w-0 max-w-32 shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded border px-2 text-[11px] transition-colors ${
+      className={`group relative flex h-8 w-fit min-w-[72px] max-w-[190px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded-t-md border border-b-0 px-2.5 text-[11px] transition-colors ${
         active
-          ? "border-[#2a3346] bg-[#151923] text-[#dce4f0]"
-          : "border-transparent bg-transparent text-[#7b8496] hover:bg-[#111722] hover:text-neutral-100"
+          ? "border-[#2a3346] bg-[#151923] text-[#dce4f0] shadow-[inset_0_1px_0_rgba(128,200,224,0.22)] after:absolute after:bottom-0 after:left-2 after:right-2 after:h-px after:bg-[#80c8e0]"
+          : "border-transparent bg-transparent text-[#7b8496] hover:border-[#1e2635] hover:bg-[#111722] hover:text-neutral-100"
       } ${className}`}
     >
       {tooltipLabel ? (
@@ -57,12 +57,12 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
           label={tooltipLabel}
           side="bottom"
           delayMs={tooltipDelayMs}
-          triggerClassName="min-w-0 flex-1 pr-1"
+          triggerClassName="min-w-0 flex-auto pr-1"
         >
           <span className="block truncate">{label}</span>
         </Tooltip>
       ) : (
-        <span className="min-w-0 flex-1 truncate pr-1">{label}</span>
+        <span className="min-w-0 flex-auto truncate pr-1">{label}</span>
       )}
 
       {dirty ? (

@@ -14,6 +14,8 @@ import {
   type AxonSettings,
   type ThemeColorToken,
 } from "../../../shared/settings";
+import { type ExtensionState } from "../../../shared/extensions";
+import { getThemeLabel } from "../../lib/themes";
 import { type LanguageServerStatus } from "../../../shared/lsp";
 import CommandModal from "../CommandModal";
 import SearchSelect from "../SearchSelect";
@@ -25,7 +27,6 @@ import {
   SYNTAX_THEME_COLOR_TOKENS,
   THEME_COLOR_LABELS,
   THEME_ITEMS,
-  THEME_LABELS,
   UI_THEME_COLOR_TOKENS,
   UI_FONT_ITEMS,
   type SettingsSectionId,
@@ -41,6 +42,7 @@ import {
 
 interface Props {
   folderPath: string | null;
+  extensionState: ExtensionState | null;
   settings: AxonSettings;
   onClose: () => void;
   onPreview: (settings: AxonSettings) => void;
@@ -60,8 +62,11 @@ const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
 function getThemeColorValue(
   settings: AxonSettings,
   token: ThemeColorToken,
+  extensionState: ExtensionState | null,
 ) {
-  const themeName = THEME_LABELS[settings.editor.themeId];
+  const extensionThemes =
+    extensionState?.extensions.flatMap((extension) => extension.themes) ?? [];
+  const themeName = getThemeLabel(settings.editor.themeId, extensionThemes);
   return (
     settings.theme_overrides[themeName]?.[token] ??
     settings.theme_overrides[settings.editor.themeId]?.[token] ??
@@ -71,6 +76,7 @@ function getThemeColorValue(
 
 export default function SettingsModal({
   folderPath,
+  extensionState,
   settings,
   onClose,
   onPreview,
@@ -109,14 +115,32 @@ export default function SettingsModal({
     () => [...EDITOR_FONT_ITEMS, ...customFontItems],
     [customFontItems],
   );
-  const activeThemeName = THEME_LABELS[draft.editor.themeId];
+  const extensionThemes = useMemo(
+    () =>
+      extensionState?.extensions.flatMap((extension) =>
+        extension.enabled ? extension.themes : [],
+      ) ?? [],
+    [extensionState],
+  );
+  const themeItems = useMemo(
+    () => [
+      ...THEME_ITEMS,
+      ...extensionThemes.map((theme) => ({
+        value: theme.id,
+        label: theme.label,
+        description: `${theme.extensionName} extension`,
+      })),
+    ],
+    [extensionThemes],
+  );
+  const activeThemeName = getThemeLabel(draft.editor.themeId, extensionThemes);
   const invalidThemeTokens = useMemo(
     () =>
       [...UI_THEME_COLOR_TOKENS, ...SYNTAX_THEME_COLOR_TOKENS].filter((token) => {
-        const value = getThemeColorValue(draft, token);
+        const value = getThemeColorValue(draft, token, extensionState);
         return value.trim().length > 0 && !isValidHexColor(value);
       }),
-    [draft],
+    [draft, extensionState],
   );
 
   useEffect(() => {
@@ -464,7 +488,7 @@ export default function SettingsModal({
                 >
                   <SearchSelect
                     value={draft.editor.themeId}
-                    items={THEME_ITEMS}
+                    items={themeItems}
                     onChange={(themeId) => updateEditor("themeId", themeId)}
                     ariaLabel="Theme"
                     placeholder="Search themes..."
@@ -684,7 +708,7 @@ export default function SettingsModal({
                 description={`Editing ${activeThemeName} syntax overrides. Values accept #RRGGBB or #RRGGBBAA and are saved under theme_overrides in settings JSON.`}
               >
                 {SYNTAX_THEME_COLOR_TOKENS.map((token) => {
-                  const value = getThemeColorValue(draft, token);
+                  const value = getThemeColorValue(draft, token, extensionState);
                   const invalid =
                     value.trim().length > 0 && !isValidHexColor(value);
                   const colorValue = isValidHexColor(value)
@@ -733,7 +757,7 @@ export default function SettingsModal({
                 description={`Editing ${activeThemeName} UI overrides. Values accept #RRGGBB or #RRGGBBAA and are saved under theme_overrides in settings JSON.`}
               >
                 {UI_THEME_COLOR_TOKENS.map((token) => {
-                  const value = getThemeColorValue(draft, token);
+                  const value = getThemeColorValue(draft, token, extensionState);
                   const invalid =
                     value.trim().length > 0 && !isValidHexColor(value);
                   const colorValue = isValidHexColor(value)

@@ -51,17 +51,22 @@ export function SettingsToggle({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) onChange(!checked);
+      }}
       aria-pressed={checked}
-      className="flex w-fit cursor-pointer items-center gap-2 rounded px-1 py-1 text-[12px] text-[#c8d0e0] transition-colors hover:bg-[#151923]"
+      className="flex w-fit cursor-pointer items-center gap-2 rounded px-1 py-1 text-[12px] text-[#c8d0e0] transition-colors hover:bg-[#151923] disabled:cursor-not-allowed disabled:text-[#586478] disabled:hover:bg-transparent"
     >
       <span
         className={`flex h-5 w-9 items-center rounded-full border p-0.5 transition-colors ${

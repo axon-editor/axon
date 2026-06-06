@@ -7,6 +7,7 @@ export const BUILT_IN_THEME_IDS = [
 ] as const;
 
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
+export type ThemeId = BuiltInThemeId | string;
 
 export const AI_PROVIDER_IDS = ["openai", "local"] as const;
 
@@ -111,7 +112,7 @@ export interface CustomFont {
 export interface EditorSettings {
   fontPreset: FontPresetId;
   uiFontFamily: string;
-  themeId: BuiltInThemeId;
+  themeId: ThemeId;
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
@@ -168,11 +169,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isThemeId(value: unknown): value is BuiltInThemeId {
-  return (
-    typeof value === "string" &&
-    BUILT_IN_THEME_IDS.includes(value as BuiltInThemeId)
-  );
+function isThemeId(value: unknown): value is ThemeId {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function isAiProviderId(value: unknown): value is AiProviderId {

@@ -21,10 +21,14 @@ export const AXON_COMMANDS = {
   OPEN_HTML_PREVIEW: "open-html-preview",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",
+  OPEN_EXTENSIONS: "open-extensions",
   OPEN_SETTINGS_JSON: "open-settings-json",
   OPEN_UPDATE_NOTES: "open-update-notes",
   TOGGLE_ZEN_MODE: "toggle-zen-mode",
   NEW_TERMINAL: "new-terminal",
 } as const;
 
-export type AxonCommand = (typeof AXON_COMMANDS)[keyof typeof AXON_COMMANDS];
+export type BuiltInAxonCommand =
+  (typeof AXON_COMMANDS)[keyof typeof AXON_COMMANDS];
+export type ExtensionAxonCommand = `extension:${string}`;
+export type AxonCommand = BuiltInAxonCommand | ExtensionAxonCommand;

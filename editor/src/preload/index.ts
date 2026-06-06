@@ -50,6 +50,10 @@ import {
   type HtmlPreviewActionResult,
   type HtmlPreviewConsoleEvent,
 } from "../shared/htmlPreview";
+import {
+  type ExtensionActionResult,
+  type ExtensionState,
+} from "../shared/extensions";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -163,6 +167,22 @@ contextBridge.exposeInMainWorld("axon", {
   ): Promise<GitCommitResult> =>
     ipcRenderer.invoke("git:commit", folderPath, message),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
+  listExtensions: (folderPath?: string | null): Promise<ExtensionState> =>
+    ipcRenderer.invoke("extensions:list", folderPath),
+  setExtensionEnabled: (
+    extensionId: string,
+    enabled: boolean,
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> =>
+    ipcRenderer.invoke("extensions:setEnabled", extensionId, enabled, folderPath),
+  reloadExtensions: (
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> =>
+    ipcRenderer.invoke("extensions:reload", folderPath),
+  openExtensionsFolder: (
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> =>
+    ipcRenderer.invoke("extensions:openFolder", folderPath),
   shouldRestoreSession: (): Promise<boolean> =>
     ipcRenderer.invoke("app:shouldRestoreSession"),
   checkForUpdates: (): Promise<UpdateInfo> =>

@@ -150,7 +150,7 @@ export default function SearchSelect<T extends string>({
       </button>
 
       {open ? (
-        <div className="absolute left-0 right-0 top-9 z-[120] overflow-hidden rounded-md border border-[#2a3346] bg-[#10131a] shadow-2xl">
+        <div className="axon-popover absolute left-0 right-0 top-9 z-[120] overflow-hidden rounded-md border border-[#2a3346] bg-[#10131a] shadow-2xl">
           <div className="flex h-8 items-center gap-2 border-b border-[#202838] px-2">
             <Search size={13} className="shrink-0 text-[#586478]" />
             <input

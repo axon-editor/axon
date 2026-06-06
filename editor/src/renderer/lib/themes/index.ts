@@ -3,13 +3,16 @@ import {
   THEME_LABELS,
   type AxonSettings,
   type BuiltInThemeId,
+  type ThemeId,
 } from "../../../shared/settings";
+import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import { axonDarkTheme } from "./axonDark";
 import { ayuDarkTheme } from "./ayuDark";
 import { catppuccinMochaTheme } from "./catppuccinMocha";
 import { soraTheme } from "./sora";
 import { zedDarkTheme } from "./zedDark";
 import {
+  createExtensionSyntaxRules,
   createSyntaxRules,
   type AxonThemeDefinition,
   type ThemeTokenMap,
@@ -29,13 +32,33 @@ export const BUILT_IN_THEMES: Record<BuiltInThemeId, AxonThemeDefinition> = {
   "ayu-dark": ayuDarkTheme,
 };
 
-export function getThemeDefinition(themeId: BuiltInThemeId) {
-  return BUILT_IN_THEMES[themeId] ?? BUILT_IN_THEMES["axon-dark"];
+export function getThemeDefinition(themeId: ThemeId) {
+  return BUILT_IN_THEMES[themeId as BuiltInThemeId] ?? BUILT_IN_THEMES["axon-dark"];
 }
 
-export function resolveThemeTokens(settings: AxonSettings): ThemeTokenMap {
+function getExtensionTheme(
+  themeId: ThemeId,
+  extensionThemes: ResolvedExtensionTheme[] = [],
+) {
+  return extensionThemes.find((theme) => theme.id === themeId);
+}
+
+export function getThemeLabel(
+  themeId: ThemeId,
+  extensionThemes: ResolvedExtensionTheme[] = [],
+) {
+  return getExtensionTheme(themeId, extensionThemes)?.label ??
+    THEME_LABELS[themeId as BuiltInThemeId] ??
+    themeId;
+}
+
+export function resolveThemeTokens(
+  settings: AxonSettings,
+  extensionThemes: ResolvedExtensionTheme[] = [],
+): ThemeTokenMap {
+  const extensionTheme = getExtensionTheme(settings.editor.themeId, extensionThemes);
   const theme = getThemeDefinition(settings.editor.themeId);
-  const themeLabel = THEME_LABELS[settings.editor.themeId];
+  const themeLabel = getThemeLabel(settings.editor.themeId, extensionThemes);
   const overrides =
     settings.theme_overrides[themeLabel] ??
     settings.theme_overrides[settings.editor.themeId] ??
@@ -43,6 +66,7 @@ export function resolveThemeTokens(settings: AxonSettings): ThemeTokenMap {
 
   return {
     ...theme.tokens,
+    ...(extensionTheme?.tokens ?? {}),
     ...overrides,
   };
 }
@@ -50,11 +74,15 @@ export function resolveThemeTokens(settings: AxonSettings): ThemeTokenMap {
 function buildMonacoTheme(
   theme: AxonThemeDefinition,
   tokens: ThemeTokenMap = theme.tokens,
+  extensionTheme?: ResolvedExtensionTheme,
 ) {
   return {
     base: theme.base,
     inherit: true,
-    rules: createSyntaxRules(tokens),
+    rules: [
+      ...createSyntaxRules(tokens),
+      ...(extensionTheme ? createExtensionSyntaxRules(extensionTheme.syntax) : []),
+    ],
     colors: {
       foreground: tokens["editor.foreground"],
       "editor.background": tokens["editor.background"],
@@ -72,8 +100,9 @@ function buildMonacoTheme(
 
 function defineAllThemes(
   monacoInstance: MonacoInstance,
-  activeThemeId: BuiltInThemeId,
+  activeThemeId: ThemeId,
   activeTokens?: ThemeTokenMap,
+  extensionThemes: ResolvedExtensionTheme[] = [],
 ) {
   for (const theme of Object.values(BUILT_IN_THEMES)) {
     const tokens = theme.id === activeThemeId && activeTokens
@@ -81,22 +110,39 @@ function defineAllThemes(
       : theme.tokens;
     monacoInstance.editor.defineTheme(theme.id, buildMonacoTheme(theme, tokens));
   }
+
+  for (const extensionTheme of extensionThemes) {
+    const baseTheme = extensionTheme.appearance === "light"
+      ? BUILT_IN_THEMES["axon-dark"]
+      : BUILT_IN_THEMES["axon-dark"];
+    const tokens = extensionTheme.id === activeThemeId && activeTokens
+      ? activeTokens
+      : {
+          ...baseTheme.tokens,
+          ...extensionTheme.tokens,
+        };
+    monacoInstance.editor.defineTheme(
+      extensionTheme.id,
+      buildMonacoTheme(baseTheme, tokens, extensionTheme),
+    );
+  }
 }
 
-export function getMonacoThemeId(themeId: BuiltInThemeId) {
+export function getMonacoThemeId(themeId: ThemeId) {
   return themeId;
 }
 
 export function registerAxonTheme(
   monacoInstance: MonacoInstance = monaco,
-  themeId: BuiltInThemeId = AXON_MONACO_THEME,
+  themeId: ThemeId = AXON_MONACO_THEME,
   themeTokens?: ThemeTokenMap,
+  extensionThemes: ResolvedExtensionTheme[] = [],
 ) {
   // Every Monaco instance used by @monaco-editor/react must receive the same
   // theme definitions. The active theme can include live user overrides, while
   // inactive built-ins stay clean so switching themes never copies old override
   // values into the next theme.
-  defineAllThemes(monacoInstance, themeId, themeTokens);
+  defineAllThemes(monacoInstance, themeId, themeTokens, extensionThemes);
   registeredMonacos.add(monacoInstance);
   monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
 }

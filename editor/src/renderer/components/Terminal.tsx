@@ -227,7 +227,8 @@ function getTerminalOptions(
 ) {
   return {
     theme: {
-      ...terminalThemes[editorSettings.themeId],
+      ...(terminalThemes[editorSettings.themeId as BuiltInThemeId] ??
+        terminalThemes["axon-dark"]),
       background: themeTokens["terminal.background"],
       foreground: themeTokens["terminal.foreground"],
     },

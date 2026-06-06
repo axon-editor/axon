@@ -3,10 +3,18 @@ import {
   resolveThemeTokens,
   type ThemeTokenMap,
 } from "./themes";
+import { type ResolvedExtensionTheme } from "../../shared/extensions";
 
 export type ResolvedThemeTokens = ThemeTokenMap;
 
 export { resolveThemeTokens };
+
+export function resolveThemeTokensWithExtensions(
+  settings: Parameters<typeof resolveThemeTokens>[0],
+  extensionThemes: ResolvedExtensionTheme[],
+) {
+  return resolveThemeTokens(settings, extensionThemes);
+}
 
 export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
   // These variables are the bridge between axon.json and the React chrome.

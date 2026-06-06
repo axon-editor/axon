@@ -8,6 +8,7 @@ import {
   GitBranch,
   ListChecks,
   PanelLeft,
+  Search,
   TerminalSquare,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
@@ -29,6 +30,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   onToggleSidebar: () => void;
   onOpenFolderPicker: () => void;
+  onOpenWorkspaceSearch: () => void;
   onToggleTerminal: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
   onOpenSourceControl: () => void;
@@ -49,6 +51,7 @@ export default function StatusBar({
   themeTokens,
   onToggleSidebar,
   onOpenFolderPicker,
+  onOpenWorkspaceSearch,
   onToggleTerminal,
   onOpenBottomPanel,
   onOpenSourceControl,
@@ -85,6 +88,20 @@ export default function StatusBar({
           </button>
         </Tooltip>
 
+        <Tooltip label="Search workspace" side="top">
+          <button
+            onClick={onOpenWorkspaceSearch}
+            aria-label="Search workspace"
+            className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#80c8e0]"
+          >
+            <Search size={12} />
+          </button>
+        </Tooltip>
+
+        {gitBranch ? (
+          <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+        ) : null}
+
         {gitBranch && (
           <Tooltip label="Source control" side="top">
             <button
@@ -109,10 +126,13 @@ export default function StatusBar({
               <FileCode size={11} />
               {language}
             </span>
+            <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
             <span className="px-2 text-[#586478]">UTF-8</span>
+            <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
             <span className="px-2 text-[#586478]">
               Ln {cursor.line}, Col {cursor.col}
             </span>
+            <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
           </>
         )}
 
@@ -138,6 +158,8 @@ export default function StatusBar({
             <ListChecks size={13} />
           </button>
         </Tooltip>
+
+        <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 
         <Tooltip label="Toggle terminal (Cmd+J)" side="top">
           <button
