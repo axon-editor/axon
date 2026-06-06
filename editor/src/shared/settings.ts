@@ -31,6 +31,8 @@ export const EDITOR_FONT_FAMILIES = [
   "JetBrains Mono",
   "Fira Code",
   "Geist Mono",
+  "Cascadia Code",
+  "Berkeley Mono",
   "SF Mono",
   "Menlo",
   "Monaco",
@@ -46,6 +48,8 @@ export const FONT_PRESET_IDS = [
   "sf-mono",
   "fira-code",
   "geist-mono",
+  "cascadia-code",
+  "berkeley-mono",
 ] as const;
 
 export type FontPresetId = (typeof FONT_PRESET_IDS)[number];

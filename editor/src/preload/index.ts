@@ -9,6 +9,7 @@ import { type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
   type GitActionResult,
+  type GitCommitResult,
   type GitDiffResult,
   type GitStatusResult,
 } from "../shared/git";
@@ -19,6 +20,8 @@ import {
   type WorkspaceTask,
 } from "../shared/tasks";
 import {
+  type LanguageServerCodeActionRequest,
+  type LanguageServerCodeActionResult,
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
   type LanguageServerDefinitionRequest,
@@ -33,6 +36,8 @@ import {
   type LanguageServerReferencesResult,
   type LanguageServerRenameRequest,
   type LanguageServerRenameResult,
+  type LanguageServerSignatureHelpRequest,
+  type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
 } from "../shared/lsp";
@@ -102,6 +107,14 @@ contextBridge.exposeInMainWorld("axon", {
     request: LanguageServerFormatRequest,
   ): Promise<LanguageServerFormatResult> =>
     ipcRenderer.invoke("lsp:format", request),
+  getLanguageServerSignatureHelp: (
+    request: LanguageServerSignatureHelpRequest,
+  ): Promise<LanguageServerSignatureHelpResult> =>
+    ipcRenderer.invoke("lsp:signatureHelp", request),
+  getLanguageServerCodeActions: (
+    request: LanguageServerCodeActionRequest,
+  ): Promise<LanguageServerCodeActionResult> =>
+    ipcRenderer.invoke("lsp:codeActions", request),
   onLanguageServerDiagnostics: (
     callback: (event: {
       folderPath: string;
@@ -144,6 +157,11 @@ contextBridge.exposeInMainWorld("axon", {
     action: "stage" | "unstage" | "discard",
   ): Promise<GitActionResult> =>
     ipcRenderer.invoke("git:action", folderPath, filePath, action),
+  commitGitChanges: (
+    folderPath: string,
+    message: string,
+  ): Promise<GitCommitResult> =>
+    ipcRenderer.invoke("git:commit", folderPath, message),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   shouldRestoreSession: (): Promise<boolean> =>
     ipcRenderer.invoke("app:shouldRestoreSession"),

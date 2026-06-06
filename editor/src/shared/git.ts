@@ -35,3 +35,8 @@ export interface GitActionResult {
   ok: boolean;
   message: string;
 }
+
+export interface GitCommitResult {
+  ok: boolean;
+  message: string;
+}

@@ -57,6 +57,7 @@ import {
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import {
   type GitActionResult,
+  type GitCommitResult,
   type GitDiffResult,
   type GitStatusResult,
 } from "../shared/git";
@@ -67,6 +68,8 @@ import {
   type WorkspaceTask,
 } from "../shared/tasks";
 import {
+  type LanguageServerCodeActionRequest,
+  type LanguageServerCodeActionResult,
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
   type LanguageServerDefinitionRequest,
@@ -81,6 +84,8 @@ import {
   type LanguageServerReferencesResult,
   type LanguageServerRenameRequest,
   type LanguageServerRenameResult,
+  type LanguageServerSignatureHelpRequest,
+  type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
 } from "../shared/lsp";
@@ -171,6 +176,12 @@ declare global {
       formatLanguageServerDocument: (
         request: LanguageServerFormatRequest,
       ) => Promise<LanguageServerFormatResult>;
+      getLanguageServerSignatureHelp: (
+        request: LanguageServerSignatureHelpRequest,
+      ) => Promise<LanguageServerSignatureHelpResult>;
+      getLanguageServerCodeActions: (
+        request: LanguageServerCodeActionRequest,
+      ) => Promise<LanguageServerCodeActionResult>;
       onLanguageServerDiagnostics: (
         callback: (event: {
           folderPath: string;
@@ -196,6 +207,10 @@ declare global {
         filePath: string,
         action: "stage" | "unstage" | "discard",
       ) => Promise<GitActionResult>;
+      commitGitChanges: (
+        folderPath: string,
+        message: string,
+      ) => Promise<GitCommitResult>;
       getAppInfo: () => Promise<AppInfo>;
       shouldRestoreSession: () => Promise<boolean>;
       checkForUpdates: () => Promise<UpdateInfo>;

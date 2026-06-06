@@ -9,9 +9,26 @@ const lspCompletionLanguages = [
   "rust",
   "python",
   "cpp",
+  "dockerfile",
+  "html",
+  "css",
 ];
 
-const webTagLanguages = ["html", "javascript", "typescript"];
+const webTagLanguages = [
+  "html",
+  "javascript",
+  "typescript",
+  "javascriptreact",
+  "typescriptreact",
+];
+const tailwindUtilityLanguages = [
+  "html",
+  "css",
+  "javascript",
+  "typescript",
+  "javascriptreact",
+  "typescriptreact",
+];
 const localSymbolLanguages = [
   "typescript",
   "javascript",
@@ -21,7 +38,10 @@ const localSymbolLanguages = [
   "cpp",
   "html",
   "css",
+  "javascriptreact",
+  "typescriptreact",
   "json",
+  "dockerfile",
 ];
 
 const webTagSnippets = [
@@ -60,6 +80,65 @@ const webTagSnippets = [
     insertText: "<form>$0</form>",
     detail: "HTML form element",
   },
+];
+
+const dockerfileSnippets = [
+  ["FROM", "FROM ${1:node:22-alpine}"],
+  ["WORKDIR", "WORKDIR ${1:/app}"],
+  ["COPY", "COPY ${1:.} ${2:.}"],
+  ["RUN", "RUN ${1:npm install}"],
+  ["CMD", "CMD [\"${1:npm}\", \"${2:start}\"]"],
+  ["EXPOSE", "EXPOSE ${1:3000}"],
+  ["ENV", "ENV ${1:NODE_ENV}=${2:production}"],
+  ["ARG", "ARG ${1:VERSION}"],
+].map(([label, insertText]) => ({
+  label,
+  insertText,
+  detail: "Dockerfile instruction",
+}));
+
+const tailwindUtilitySuggestions = [
+  "flex",
+  "grid",
+  "hidden",
+  "block",
+  "inline-flex",
+  "items-center",
+  "items-start",
+  "justify-center",
+  "justify-between",
+  "gap-1",
+  "gap-2",
+  "gap-3",
+  "p-2",
+  "px-3",
+  "py-2",
+  "m-0",
+  "mx-auto",
+  "w-full",
+  "h-full",
+  "min-h-0",
+  "rounded",
+  "rounded-md",
+  "rounded-lg",
+  "border",
+  "border-transparent",
+  "bg-transparent",
+  "bg-black",
+  "bg-white",
+  "text-white",
+  "text-black",
+  "text-sm",
+  "text-xs",
+  "font-medium",
+  "font-semibold",
+  "truncate",
+  "overflow-hidden",
+  "overflow-y-auto",
+  "transition-colors",
+  "cursor-pointer",
+  "hover:bg-[#11151c]",
+  "hover:text-white",
 ];
 
 const lspToMonacoCompletionKind: Record<
@@ -131,6 +210,38 @@ function isFileInsideWorkspace(filePath: string, folderPath: string) {
     normalizedFile === normalizedFolder ||
     normalizedFile.startsWith(`${normalizedFolder}/`)
   );
+}
+
+function getLinePrefix(model: monaco.editor.ITextModel, position: monaco.Position) {
+  return model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+}
+
+function isClassLikeCompletionContext(linePrefix: string) {
+  return /\b(class|className)\s*=\s*["'`][^"'`]*$/i.test(linePrefix) ||
+    /@apply\s+[^;{}]*$/i.test(linePrefix);
+}
+
+function isStyleAttributeCompletionContext(linePrefix: string) {
+  return /\bstyle\s*=\s*(["'`][^"'`]*$|\{\{?[^}]*$)/i.test(linePrefix);
+}
+
+function isTagSnippetCompletionContext(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) {
+  const linePrefix = getLinePrefix(model, position);
+  if (
+    isClassLikeCompletionContext(linePrefix) ||
+    isStyleAttributeCompletionContext(linePrefix)
+  ) {
+    return false;
+  }
+
+  // HTML/JSX element snippets should feel eager after `<`, but they should not
+  // pollute normal string and attribute completions. This check allows
+  // `<d`, `return d`, and a line-leading `d` while blocking `className="d"` and
+  // `style={{ d }}` where Tailwind/CSS suggestions are the expected behavior.
+  return /(^|[<>{}();,\s])[\w-]*$/u.test(linePrefix);
 }
 
 function collectLocalSymbolSuggestions(
@@ -241,6 +352,10 @@ function registerWebTagSnippets(monacoInstance: typeof monaco) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
       triggerCharacters: ["<", "d", "s", "m", "b", "i", "f"],
       provideCompletionItems: (model, position) => {
+        if (!isTagSnippetCompletionContext(model, position)) {
+          return { suggestions: [] };
+        }
+
         const range = getWordReplaceRange(model, position);
         const word = model.getWordUntilPosition(position).word.toLowerCase();
         const suggestions = webTagSnippets
@@ -260,6 +375,64 @@ function registerWebTagSnippets(monacoInstance: typeof monaco) {
 
         return {
           suggestions,
+        };
+      },
+    });
+  }
+}
+
+function registerDockerfileSnippets(monacoInstance: typeof monaco) {
+  monacoInstance.languages.registerCompletionItemProvider("dockerfile", {
+    triggerCharacters: ["F", "W", "C", "R", "E", "A"],
+    provideCompletionItems: (model, position) => {
+      const range = getWordReplaceRange(model, position);
+      const word = model.getWordUntilPosition(position).word.toUpperCase();
+      return {
+        suggestions: dockerfileSnippets
+          .filter((snippet) => !word || snippet.label.startsWith(word))
+          .map((snippet, index) => ({
+            label: snippet.label,
+            kind: monacoInstance.languages.CompletionItemKind.Snippet,
+            insertText: snippet.insertText,
+            insertTextRules:
+              monacoInstance.languages.CompletionItemInsertTextRule
+                .InsertAsSnippet,
+            detail: snippet.detail,
+            sortText: `0${String(index).padStart(3, "0")}`,
+            range,
+          })),
+      };
+    },
+  });
+}
+
+function registerTailwindUtilityProvider(monacoInstance: typeof monaco) {
+  for (const languageId of tailwindUtilityLanguages) {
+    monacoInstance.languages.registerCompletionItemProvider(languageId, {
+      triggerCharacters: ["\"", "'", "`", " ", "-", ":"],
+      provideCompletionItems: (model, position) => {
+        const range = getWordReplaceRange(model, position);
+        const word = model.getWordUntilPosition(position).word.toLowerCase();
+        const linePrefix = getLinePrefix(model, position);
+        const inClassLikeContext = isClassLikeCompletionContext(linePrefix);
+        if (!inClassLikeContext && word.length < 2) {
+          return { suggestions: [] };
+        }
+
+        return {
+          suggestions: tailwindUtilitySuggestions
+            .filter((utility) => !word || utility.startsWith(word))
+            .slice(0, 40)
+            .map((utility, index) => ({
+              label: utility,
+              kind: monacoInstance.languages.CompletionItemKind.Keyword,
+              insertText: utility,
+              detail: "Tailwind utility",
+              documentation:
+                "Local Tailwind utility hint. The Tailwind language server can add project-aware completions when it is installed.",
+              sortText: `1${String(index).padStart(3, "0")}`,
+              range,
+            })),
         };
       },
     });
@@ -343,5 +516,7 @@ export function configureLspCompletions(monacoInstance: typeof monaco = monaco) 
   // snippets keep common tags like `div` available before a server warms up.
   registerLocalSymbolProvider(monacoInstance);
   registerWebTagSnippets(monacoInstance);
+  registerDockerfileSnippets(monacoInstance);
+  registerTailwindUtilityProvider(monacoInstance);
   registerExternalLspProvider(monacoInstance);
 }

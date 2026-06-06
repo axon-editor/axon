@@ -10,6 +10,9 @@ const lspNavigationLanguages = [
   "python",
   "cpp",
   "c",
+  "dockerfile",
+  "html",
+  "css",
 ];
 
 function isFileInsideWorkspace(filePath: string, folderPath: string) {
@@ -194,6 +197,110 @@ function registerFormatProvider(monacoInstance: typeof monaco, languageId: strin
   });
 }
 
+function registerSignatureHelpProvider(
+  monacoInstance: typeof monaco,
+  languageId: string,
+) {
+  monacoInstance.languages.registerSignatureHelpProvider(languageId, {
+    signatureHelpTriggerCharacters: ["(", ",", "<"],
+    signatureHelpRetriggerCharacters: [",", ")"],
+    provideSignatureHelp: async (model, position, token, context) => {
+      const base = toLspRequestBase(model, languageId);
+      if (!base) {
+        return {
+          value: { signatures: [], activeSignature: 0, activeParameter: 0 },
+          dispose: () => undefined,
+        };
+      }
+
+      const result = await window.axon.getLanguageServerSignatureHelp({
+        ...base,
+        line: position.lineNumber,
+        column: position.column,
+        triggerCharacter: context.triggerCharacter,
+      });
+      if (token.isCancellationRequested || !result.ok) {
+        return {
+          value: { signatures: [], activeSignature: 0, activeParameter: 0 },
+          dispose: () => undefined,
+        };
+      }
+
+      return {
+        value: {
+          signatures: result.signatures.map((signature) => ({
+            label: signature.label,
+            documentation: signature.documentation,
+            parameters: signature.parameters.map((parameter) => ({
+              label: parameter.label,
+              documentation: parameter.documentation,
+            })),
+          })),
+          activeSignature: result.activeSignature ?? 0,
+          activeParameter: result.activeParameter ?? 0,
+        },
+        dispose: () => undefined,
+      };
+    },
+  });
+}
+
+function registerCodeActionProvider(
+  monacoInstance: typeof monaco,
+  languageId: string,
+) {
+  monacoInstance.languages.registerCodeActionProvider(languageId, {
+    provideCodeActions: async (model, range, _context, token) => {
+      const base = toLspRequestBase(model, languageId);
+      if (!base) return { actions: [], dispose: () => undefined };
+
+      const result = await window.axon.getLanguageServerCodeActions({
+        ...base,
+        range: {
+          start: {
+            line: range.startLineNumber - 1,
+            character: range.startColumn - 1,
+          },
+          end: {
+            line: range.endLineNumber - 1,
+            character: range.endColumn - 1,
+          },
+        },
+      });
+      if (token.isCancellationRequested || !result.ok) {
+        return { actions: [], dispose: () => undefined };
+      }
+
+      const actions = result.actions.map((action) => ({
+        title: action.title,
+        kind:
+          action.kind === "quickfix"
+            ? "quickfix"
+            : action.kind?.startsWith("source")
+              ? "source"
+              : "refactor",
+        edit: {
+          edits: Object.entries(action.edits).flatMap(([filePath, edits]) =>
+            edits.map((edit) => ({
+              resource: monaco.Uri.file(filePath),
+              edit: {
+                range: toMonacoRange(edit.range),
+                text: edit.newText,
+                forceMoveMarkers: true,
+              },
+            })),
+          ),
+        },
+      }));
+
+      return {
+        actions,
+        dispose: () => undefined,
+      };
+    },
+  });
+}
+
 export function configureLspNavigation(
   monacoInstance: typeof monaco = monaco,
 ) {
@@ -211,5 +318,7 @@ export function configureLspNavigation(
     registerReferenceProvider(monacoInstance, languageId);
     registerRenameProvider(monacoInstance, languageId);
     registerFormatProvider(monacoInstance, languageId);
+    registerSignatureHelpProvider(monacoInstance, languageId);
+    registerCodeActionProvider(monacoInstance, languageId);
   }
 }

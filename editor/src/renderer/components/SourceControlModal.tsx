@@ -70,6 +70,8 @@ export default function SourceControlModal({
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const [commitMessage, setCommitMessage] = useState("");
+  const [committing, setCommitting] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const stagedChanges = useMemo(
@@ -148,6 +150,70 @@ export default function SourceControlModal({
       onOutput(`Failed to ${action} ${change.path}.`, "error");
     } finally {
       setRunningAction(null);
+    }
+  };
+
+  const runBatchAction = async (
+    changes: GitChange[],
+    action: "stage" | "unstage" | "discard",
+  ) => {
+    if (!folderPath || changes.length === 0) return;
+    if (
+      action === "discard" &&
+      !window.confirm(
+        `Discard unstaged changes in ${changes.length} file(s)? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setRunningAction(`${action}:all`);
+    try {
+      // Batch actions deliberately reuse the single-file IPC instead of adding
+      // a broad "git add ." command. That keeps every mutation path-scoped,
+      // which is slower for many files but safer for an editor UI where users
+      // expect exactly the visible files to be affected.
+      const actionableChanges = changes.filter((change) => {
+        if (action === "stage") return change.unstaged;
+        if (action === "unstage") return change.staged;
+        return change.unstaged;
+      });
+      for (const change of actionableChanges) {
+        await window.axon.runGitAction(folderPath, change.path, action);
+      }
+      onOutput(
+        `${action === "stage" ? "Staged" : action === "unstage" ? "Unstaged" : "Discarded"} ${actionableChanges.length} file${actionableChanges.length === 1 ? "" : "s"}.`,
+        "success",
+      );
+      await loadStatus();
+      onGitStatusChanged();
+    } catch (err) {
+      console.error("git batch action failed:", err);
+      onOutput(`Failed to ${action} selected Git changes.`, "error");
+    } finally {
+      setRunningAction(null);
+    }
+  };
+
+  const commitStagedChanges = async () => {
+    if (!folderPath) return;
+    setCommitting(true);
+    try {
+      const result = await window.axon.commitGitChanges(
+        folderPath,
+        commitMessage,
+      );
+      onOutput(result.message, result.ok ? "success" : "error");
+      if (result.ok) {
+        setCommitMessage("");
+        await loadStatus();
+        onGitStatusChanged();
+      }
+    } catch (err) {
+      console.error("git commit failed:", err);
+      onOutput("Failed to commit staged changes.", "error");
+    } finally {
+      setCommitting(false);
     }
   };
 
@@ -314,6 +380,26 @@ export default function SourceControlModal({
               </span>
               </div>
               <div className="flex items-center gap-1">
+              <Tooltip label="Stage all changes" side="bottom">
+                <button
+                  onClick={() => void runBatchAction(unstagedChanges, "stage")}
+                  disabled={unstagedChanges.length === 0 || runningAction === "stage:all"}
+                  aria-label="Stage all changes"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                >
+                  <Plus size={13} />
+                </button>
+              </Tooltip>
+              <Tooltip label="Unstage all staged files" side="bottom">
+                <button
+                  onClick={() => void runBatchAction(stagedChanges, "unstage")}
+                  disabled={stagedChanges.length === 0 || runningAction === "unstage:all"}
+                  aria-label="Unstage all staged files"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                >
+                  <Minus size={13} />
+                </button>
+              </Tooltip>
               <Tooltip label="Copy all Git context" side="bottom">
                 <button
                   onClick={() => void copyAllDiffs()}
@@ -390,6 +476,38 @@ export default function SourceControlModal({
                 runningAction={runningAction}
               />
             )}
+            </div>
+
+            <div className="shrink-0 border-t border-[#222838] p-3">
+              <textarea
+                value={commitMessage}
+                onChange={(event) => setCommitMessage(event.target.value)}
+                placeholder="commit message..."
+                rows={4}
+                className="min-h-20 w-full resize-none rounded-md border border-[#222838] bg-[#0b0e15] px-3 py-2 text-[12px] leading-5 text-[#c8d0e0] outline-none transition-colors placeholder:text-[#364050] focus:border-[#3a455a]"
+              />
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => void runBatchAction(unstagedChanges, "discard")}
+                  disabled={unstagedChanges.length === 0 || runningAction === "discard:all"}
+                  className="h-7 cursor-pointer rounded-md px-2 text-[11px] text-[#586478] transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72] disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                >
+                  discard all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void commitStagedChanges()}
+                  disabled={
+                    committing ||
+                    stagedChanges.length === 0 ||
+                    commitMessage.trim().length === 0
+                  }
+                  className="h-7 cursor-pointer rounded-md border border-[#2a3346] bg-[#142a36] px-3 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:border-[#222838] disabled:bg-transparent disabled:text-[#364050]"
+                >
+                  {committing ? "committing..." : "commit staged"}
+                </button>
+              </div>
             </div>
           </div>
 

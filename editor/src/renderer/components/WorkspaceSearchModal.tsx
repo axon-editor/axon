@@ -1,17 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { History, Replace, Search } from "lucide-react";
 import {
+  readFile,
   searchWorkspace,
+  writeFile,
   type WorkspaceSearchResult,
 } from "../lib/api";
 import { getFileIcon } from "../lib/fileIcons";
 import CommandModal from "./CommandModal";
+
+const SEARCH_HISTORY_KEY = "axon.workspaceSearch.history";
 
 interface Props {
   rootPath: string | null;
   open: boolean;
   onClose: () => void;
   onResultSelect: (result: WorkspaceSearchResult, query: string) => void;
+}
+
+function readSearchHistory() {
+  try {
+    const value = window.localStorage.getItem(SEARCH_HISTORY_KEY);
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string").slice(0, 8)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSearchHistory(items: string[]) {
+  window.localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, 8)));
 }
 
 function relativePath(rootPath: string | null, path: string) {
@@ -83,9 +103,12 @@ export default function WorkspaceSearchModal({
   onResultSelect,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [replaceValue, setReplaceValue] = useState("");
   const [results, setResults] = useState<WorkspaceSearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [history, setHistory] = useState<string[]>(() => readSearchHistory());
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const cacheRef = useRef(new Map<string, WorkspaceSearchResult[]>());
@@ -158,8 +181,67 @@ export default function WorkspaceSearchModal({
   }, [results, rootPath]);
 
   const selectResult = (result: WorkspaceSearchResult) => {
+    const nextHistory = [
+      query.trim(),
+      ...history.filter((item) => item !== query.trim()),
+    ].filter(Boolean);
+    setHistory(nextHistory);
+    writeSearchHistory(nextHistory);
     onResultSelect(result, query);
     onClose();
+  };
+
+  const replaceInFile = async (
+    filePath: string,
+    searchText: string,
+    nextText: string,
+  ) => {
+    const file = await readFile(filePath);
+    const updated = file.content.replaceAll(searchText, nextText);
+    if (updated === file.content) return false;
+    await writeFile(filePath, updated);
+    return true;
+  };
+
+  const replaceSelected = async () => {
+    if (!selectedResult || !query.trim()) return;
+    setReplacing(true);
+    try {
+      await replaceInFile(selectedResult.path, query.trim(), replaceValue);
+      cacheRef.current.clear();
+      setQuery((current) => `${current}`);
+    } finally {
+      setReplacing(false);
+    }
+  };
+
+  const replaceAllVisible = async () => {
+    if (!query.trim() || groupedResults.length === 0) return;
+    const confirmed = window.confirm(
+      `Replace "${query.trim()}" in ${new Set(groupedResults.map((result) => result.path)).size} file(s)?`,
+    );
+    if (!confirmed) return;
+
+    setReplacing(true);
+    try {
+      // Search results are line-level, but replacing one file multiple times is
+      // wasteful and can create confusing progress. I collapse the visible
+      // matches to unique files, then use the existing file read/write API so
+      // the operation stays inside Axon's normal save path.
+      const uniquePaths = Array.from(
+        new Set(groupedResults.map((result) => result.path)),
+      );
+      await Promise.all(
+        uniquePaths.map((filePath) =>
+          replaceInFile(filePath, query.trim(), replaceValue),
+        ),
+      );
+      cacheRef.current.clear();
+      setResults([]);
+      setQuery((current) => `${current}`);
+    } finally {
+      setReplacing(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -198,6 +280,32 @@ export default function WorkspaceSearchModal({
         </span>
       </div>
 
+      <div className="flex items-center gap-2 border-b border-[#222838] px-4 py-2">
+        <Replace size={14} className="shrink-0 text-[#586478]" />
+        <input
+          value={replaceValue}
+          onChange={(event) => setReplaceValue(event.target.value)}
+          placeholder="replace with..."
+          className="flex-1 bg-transparent text-[12px] text-[#c8d0e0] placeholder-[#364050] outline-none"
+        />
+        <button
+          type="button"
+          disabled={!selectedResult || !query.trim() || replacing}
+          onClick={() => void replaceSelected()}
+          className="h-7 cursor-pointer rounded-md border border-[#222838] px-2 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+        >
+          replace
+        </button>
+        <button
+          type="button"
+          disabled={groupedResults.length === 0 || !query.trim() || replacing}
+          onClick={() => void replaceAllVisible()}
+          className="h-7 cursor-pointer rounded-md border border-[#222838] px-2 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+        >
+          replace all
+        </button>
+      </div>
+
       <div ref={listRef} className="max-h-96 overflow-y-auto py-1">
         {!rootPath && (
           <div className="px-4 py-3 text-[12px] text-[#364050]">
@@ -205,8 +313,25 @@ export default function WorkspaceSearchModal({
           </div>
         )}
         {rootPath && query.trim().length < 2 && (
-          <div className="px-4 py-3 text-[12px] text-[#364050]">
-            type at least two characters
+          <div className="px-4 py-3">
+            <div className="text-[12px] text-[#364050]">
+              type at least two characters
+            </div>
+            {history.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {history.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setQuery(item)}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-[#8f98aa] transition-colors hover:bg-[#14161e] hover:text-white"
+                  >
+                    <History size={12} className="shrink-0 text-[#586478]" />
+                    <span className="truncate">{item}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {rootPath && query.trim().length >= 2 && loading && (

@@ -91,6 +91,8 @@ const FONT_PRESET_LABELS: Record<FontPresetId, string> = {
   "sf-mono": "SF Mono",
   "fira-code": "Fira Code",
   "geist-mono": "Geist Mono",
+  "cascadia-code": "Cascadia Code",
+  "berkeley-mono": "Berkeley Mono",
 };
 
 export const FONT_PRESET_ITEMS: SearchSelectItem<FontPresetId>[] =

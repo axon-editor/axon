@@ -4,6 +4,8 @@ export const LANGUAGE_SERVER_IDS = [
   "go",
   "rust",
   "python",
+  "docker",
+  "tailwind",
 ] as const;
 
 export type LanguageServerId = (typeof LANGUAGE_SERVER_IDS)[number];
@@ -148,4 +150,48 @@ export interface LanguageServerFormatResult {
   ok: boolean;
   message?: string;
   edits: LanguageServerTextEdit[];
+}
+
+export interface LanguageServerSignatureHelpRequest
+  extends LanguageServerDocumentSyncRequest {
+  line: number;
+  column: number;
+  triggerCharacter?: string;
+}
+
+export interface LanguageServerSignatureParameter {
+  label: string;
+  documentation?: string;
+}
+
+export interface LanguageServerSignature {
+  label: string;
+  documentation?: string;
+  parameters: LanguageServerSignatureParameter[];
+  activeParameter?: number;
+}
+
+export interface LanguageServerSignatureHelpResult {
+  ok: boolean;
+  message?: string;
+  signatures: LanguageServerSignature[];
+  activeSignature?: number;
+  activeParameter?: number;
+}
+
+export interface LanguageServerCodeActionRequest
+  extends LanguageServerDocumentSyncRequest {
+  range: LanguageServerTextRange;
+}
+
+export interface LanguageServerCodeAction {
+  title: string;
+  kind?: string;
+  edits: Record<string, LanguageServerTextEdit[]>;
+}
+
+export interface LanguageServerCodeActionResult {
+  ok: boolean;
+  message?: string;
+  actions: LanguageServerCodeAction[];
 }

@@ -251,6 +251,22 @@ export default function SettingsModal({
         lineHeight: 22,
         fontLigatures: false,
       },
+      "cascadia-code": {
+        fontPreset: "cascadia-code",
+        uiFontFamily: ".AxonSans",
+        fontFamily: "Cascadia Code",
+        fontWeight: 400,
+        lineHeight: 23,
+        fontLigatures: true,
+      },
+      "berkeley-mono": {
+        fontPreset: "berkeley-mono",
+        uiFontFamily: ".AxonSans",
+        fontFamily: "Berkeley Mono",
+        fontWeight: 400,
+        lineHeight: 22,
+        fontLigatures: false,
+      },
     };
 
     setDraft((prev) => ({

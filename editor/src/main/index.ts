@@ -36,6 +36,7 @@ import {
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
+  type GitCommitResult,
   type GitActionResult,
   type GitChange,
   type GitDiffResult,
@@ -49,6 +50,9 @@ import {
   type WorkspaceTask,
 } from "../shared/tasks";
 import {
+  type LanguageServerCodeAction,
+  type LanguageServerCodeActionRequest,
+  type LanguageServerCodeActionResult,
   type LanguageServerCompletionItem,
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
@@ -66,6 +70,9 @@ import {
   type LanguageServerReferencesResult,
   type LanguageServerRenameRequest,
   type LanguageServerRenameResult,
+  type LanguageServerSignature,
+  type LanguageServerSignatureHelpRequest,
+  type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
   type LanguageServerTextEdit,
@@ -1260,6 +1267,38 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt"],
     installHint: "Install pyright.",
   },
+  {
+    id: "docker",
+    label: "Docker",
+    languages: ["Dockerfile", "Docker Compose"],
+    command: "docker-langserver",
+    args: ["--version"],
+    launchArgs: ["--stdio"],
+    workspaceMarkers: [
+      "Dockerfile",
+      ".dockerignore",
+      "docker-compose.yml",
+      "docker-compose.yaml",
+    ],
+    installHint: "Install dockerfile-language-server-nodejs.",
+  },
+  {
+    id: "tailwind",
+    label: "Tailwind CSS",
+    languages: ["HTML", "CSS", "JSX", "TSX"],
+    command: "tailwindcss-language-server",
+    args: ["--version"],
+    launchArgs: ["--stdio"],
+    workspaceMarkers: [
+      "tailwind.config.js",
+      "tailwind.config.cjs",
+      "tailwind.config.mjs",
+      "tailwind.config.ts",
+      "postcss.config.js",
+      "package.json",
+    ],
+    installHint: "Install @tailwindcss/language-server.",
+  },
 ];
 
 function hasWorkspaceMarker(folderPath: string, markers: string[]) {
@@ -1647,6 +1686,32 @@ function initializeLanguageServer(session: LanguageServerSession) {
           formatting: {
             dynamicRegistration: false,
           },
+          signatureHelp: {
+            dynamicRegistration: false,
+            signatureInformation: {
+              documentationFormat: ["markdown", "plaintext"],
+              parameterInformation: {
+                labelOffsetSupport: true,
+              },
+            },
+          },
+          codeAction: {
+            dynamicRegistration: false,
+            codeActionLiteralSupport: {
+              codeActionKind: {
+                valueSet: [
+                  "",
+                  "quickfix",
+                  "refactor",
+                  "refactor.extract",
+                  "refactor.inline",
+                  "refactor.rewrite",
+                  "source",
+                  "source.organizeImports",
+                ],
+              },
+            },
+          },
         },
       },
     },
@@ -1971,6 +2036,17 @@ function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   if (normalizedLanguageId === "python") return "python" satisfies LanguageServerId;
   if (normalizedLanguageId === "cpp" || normalizedLanguageId === "c") {
     return "cpp" satisfies LanguageServerId;
+  }
+  if (normalizedLanguageId === "dockerfile") {
+    return "docker" satisfies LanguageServerId;
+  }
+  if (
+    normalizedLanguageId === "html" ||
+    normalizedLanguageId === "css" ||
+    normalizedLanguageId === "scss" ||
+    normalizedLanguageId === "less"
+  ) {
+    return "tailwind" satisfies LanguageServerId;
   }
 
   return null;
@@ -2595,6 +2671,208 @@ async function formatLanguageServerDocument(
   }
 }
 
+function normalizeSignatureDocumentation(documentation: unknown) {
+  if (typeof documentation === "string") return documentation;
+  if (
+    documentation &&
+    typeof documentation === "object" &&
+    "value" in documentation &&
+    typeof documentation.value === "string"
+  ) {
+    return documentation.value;
+  }
+
+  return undefined;
+}
+
+function normalizeSignatureParameter(parameter: unknown) {
+  if (!parameter || typeof parameter !== "object") return undefined;
+  const rawParameter = parameter as {
+    label?: unknown;
+    documentation?: unknown;
+  };
+  const label = Array.isArray(rawParameter.label)
+    ? rawParameter.label.join(":")
+    : rawParameter.label;
+  if (typeof label !== "string") return undefined;
+
+  return {
+    label,
+    documentation: normalizeSignatureDocumentation(rawParameter.documentation),
+  };
+}
+
+function normalizeLanguageServerSignatures(result: unknown) {
+  if (!result || typeof result !== "object") {
+    return {
+      signatures: [],
+      activeSignature: undefined,
+      activeParameter: undefined,
+    };
+  }
+
+  const rawResult = result as {
+    signatures?: unknown;
+    activeSignature?: unknown;
+    activeParameter?: unknown;
+  };
+  const signatures = Array.isArray(rawResult.signatures)
+    ? rawResult.signatures
+        .map((signature): LanguageServerSignature | null => {
+          if (!signature || typeof signature !== "object") return null;
+          const rawSignature = signature as {
+            label?: unknown;
+            documentation?: unknown;
+            parameters?: unknown;
+            activeParameter?: unknown;
+          };
+          if (typeof rawSignature.label !== "string") return null;
+
+          return {
+            label: rawSignature.label,
+            documentation: normalizeSignatureDocumentation(
+              rawSignature.documentation,
+            ),
+            parameters: Array.isArray(rawSignature.parameters)
+              ? rawSignature.parameters
+                  .map(normalizeSignatureParameter)
+                  .filter(
+                    (
+                      parameter,
+                    ): parameter is NonNullable<typeof parameter> =>
+                      parameter !== undefined,
+                  )
+              : [],
+            activeParameter:
+              typeof rawSignature.activeParameter === "number"
+                ? rawSignature.activeParameter
+                : undefined,
+          };
+        })
+        .filter(
+          (signature): signature is LanguageServerSignature =>
+            signature !== null,
+        )
+    : [];
+
+  return {
+    signatures,
+    activeSignature:
+      typeof rawResult.activeSignature === "number"
+        ? rawResult.activeSignature
+        : undefined,
+    activeParameter:
+      typeof rawResult.activeParameter === "number"
+        ? rawResult.activeParameter
+        : undefined,
+  };
+}
+
+async function getLanguageServerSignatureHelp(
+  request: LanguageServerSignatureHelpRequest,
+): Promise<LanguageServerSignatureHelpResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, signatures: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const signatureResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/signatureHelp",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+        context: {
+          triggerKind: request.triggerCharacter ? 2 : 1,
+          triggerCharacter: request.triggerCharacter,
+          isRetrigger: false,
+        },
+      },
+    );
+    return {
+      ok: true,
+      ...normalizeLanguageServerSignatures(signatureResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server signature help failed.",
+      signatures: [],
+    };
+  }
+}
+
+function normalizeLanguageServerCodeActions(result: unknown) {
+  const rawActions = Array.isArray(result) ? result : [];
+  return rawActions
+    .map((action): LanguageServerCodeAction | null => {
+      if (!action || typeof action !== "object") return null;
+      const rawAction = action as {
+        title?: unknown;
+        kind?: unknown;
+        edit?: unknown;
+      };
+      if (typeof rawAction.title !== "string") return null;
+
+      return {
+        title: rawAction.title,
+        kind: typeof rawAction.kind === "string" ? rawAction.kind : undefined,
+        edits: normalizeWorkspaceEdit(rawAction.edit),
+      };
+    })
+    .filter((action): action is LanguageServerCodeAction => action !== null);
+}
+
+async function getLanguageServerCodeActions(
+  request: LanguageServerCodeActionRequest,
+): Promise<LanguageServerCodeActionResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, actions: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const codeActionResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/codeAction",
+      {
+        textDocument: { uri },
+        range: request.range,
+        context: {
+          // Axon currently streams diagnostics straight to the renderer instead
+          // of caching the raw LSP diagnostic objects in the main process.
+          // Sending an empty context still lets servers expose refactors and
+          // source actions. Quick-fix diagnostics can be added later by keeping
+          // a per-session diagnostic cache beside publishDiagnostics.
+          diagnostics: [],
+          only: undefined,
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      actions: normalizeLanguageServerCodeActions(codeActionResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server code action failed.",
+      actions: [],
+    };
+  }
+}
+
 function getWorkspaceTasks(folderPath: string): WorkspaceTask[] {
   // Tasks are detected in the main process instead of letting the renderer send
   // arbitrary shell strings. That gives Axon a real task runner while keeping
@@ -3060,6 +3338,72 @@ async function runGitAction(
     return {
       ok: false,
       message: message || `Failed to ${action} ${relativePath}.`,
+    };
+  }
+}
+
+async function commitGitChanges(
+  folderPath: string,
+  message: string,
+): Promise<GitCommitResult> {
+  const status = await getGitStatus(folderPath);
+  if (!status.isRepository || !status.root) {
+    return {
+      ok: false,
+      message: "Current workspace is not a Git repository.",
+    };
+  }
+
+  const cleanMessage = message.trim();
+  if (!cleanMessage) {
+    return {
+      ok: false,
+      message: "Write a commit message before committing.",
+    };
+  }
+
+  const hasStagedChanges = status.changes.some((change) => change.staged);
+  if (!hasStagedChanges) {
+    return {
+      ok: false,
+      message: "Stage at least one file before committing.",
+    };
+  }
+
+  try {
+    // The renderer should never assemble shell commands. A commit message can
+    // contain quotes, bullets, and multiple lines, so I pass it through stdin
+    // with `git commit -F -`. That keeps the exact message while avoiding
+    // shell escaping bugs that would be painful in a desktop editor.
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn("git", ["commit", "-F", "-"], {
+        cwd: status.root ?? folderPath,
+        env: process.env,
+      });
+      let stderr = "";
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString("utf-8");
+      });
+      child.on("error", reject);
+      child.on("exit", (code) => {
+        if (code === 0) {
+          resolve();
+          return;
+        }
+        reject(new Error(stderr.trim() || "Git commit failed."));
+      });
+      child.stdin.end(`${cleanMessage}\n`);
+    });
+
+    return {
+      ok: true,
+      message: "Committed staged changes.",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Failed to commit staged changes.",
     };
   }
 }
@@ -3774,6 +4118,40 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "lsp:signatureHelp",
+  async (
+    _event,
+    request: LanguageServerSignatureHelpRequest,
+  ): Promise<LanguageServerSignatureHelpResult> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+      return { ok: true, signatures: [] };
+    }
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return { ok: true, signatures: [] };
+
+    return getLanguageServerSignatureHelp(request);
+  },
+);
+
+ipcMain.handle(
+  "lsp:codeActions",
+  async (
+    _event,
+    request: LanguageServerCodeActionRequest,
+  ): Promise<LanguageServerCodeActionResult> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+      return { ok: true, actions: [] };
+    }
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return { ok: true, actions: [] };
+
+    return getLanguageServerCodeActions(request);
+  },
+);
+
 ipcMain.handle("git:status", async (_event, folderPath: string) => {
   if (!folderPath || !fs.existsSync(folderPath)) {
     return {
@@ -3840,6 +4218,24 @@ ipcMain.handle(
     }
 
     return runGitAction(folderPath, filePath, action);
+  },
+);
+
+ipcMain.handle(
+  "git:commit",
+  async (
+    _event,
+    folderPath: string,
+    message: string,
+  ): Promise<GitCommitResult> => {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return {
+        ok: false,
+        message: "Open a Git workspace before committing changes.",
+      };
+    }
+
+    return commitGitChanges(folderPath, message);
   },
 );
 
