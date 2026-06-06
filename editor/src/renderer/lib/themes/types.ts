@@ -145,9 +145,13 @@ export function createExtensionSyntaxRules(
 ): editor.ITokenThemeRule[] {
   return Object.entries(syntax)
     .filter(([, style]) => typeof style.color === "string")
-    .map(([token, style]) => ({
-      token,
-      foreground: hexToMonaco(style.color ?? "#d8dee9"),
-      fontStyle: normalizeFontStyle(style),
-    }));
+    .map(([token, style]) => {
+      const rule: editor.ITokenThemeRule = {
+        token,
+        foreground: hexToMonaco(style.color ?? "#d8dee9"),
+      };
+      const fontStyle = normalizeFontStyle(style);
+      if (fontStyle) rule.fontStyle = fontStyle;
+      return rule;
+    });
 }

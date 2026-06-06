@@ -121,10 +121,19 @@ function defineAllThemes(
           ...baseTheme.tokens,
           ...extensionTheme.tokens,
         };
-    monacoInstance.editor.defineTheme(
-      extensionTheme.id,
-      buildMonacoTheme(baseTheme, tokens, extensionTheme),
-    );
+    try {
+      // Extension themes come from local packages, and the first extension
+      // host intentionally accepts Zed-compatible JSON. If a contributed
+      // syntax scope or color shape hits a Monaco edge case, Axon should keep
+      // running and simply skip that one contributed theme instead of letting
+      // Reload Extensions crash the whole renderer.
+      monacoInstance.editor.defineTheme(
+        extensionTheme.id,
+        buildMonacoTheme(baseTheme, tokens, extensionTheme),
+      );
+    } catch (err) {
+      console.error(`failed to register extension theme ${extensionTheme.id}:`, err);
+    }
   }
 }
 
@@ -144,7 +153,12 @@ export function registerAxonTheme(
   // values into the next theme.
   defineAllThemes(monacoInstance, themeId, themeTokens, extensionThemes);
   registeredMonacos.add(monacoInstance);
-  monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
+  try {
+    monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
+  } catch (err) {
+    console.error(`failed to activate theme ${themeId}:`, err);
+    monacoInstance.editor.setTheme(AXON_MONACO_THEME);
+  }
 }
 
 export function hasRegisteredAxonThemes(monacoInstance: MonacoInstance = monaco) {

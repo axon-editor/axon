@@ -123,6 +123,7 @@ function normalizeZedTheme(
   contributionId: string,
   contributionLabel: string,
   rawTheme: Record<string, unknown>,
+  resolvedThemeId = contributionId,
 ): ResolvedExtensionTheme {
   const style = isRecord(rawTheme.style) ? rawTheme.style : {};
   const syntaxStyle = isRecord(style.syntax) ? style.syntax : {};
@@ -152,7 +153,7 @@ function normalizeZedTheme(
   }
 
   return {
-    id: contributionId,
+    id: resolvedThemeId,
     label:
       typeof rawTheme.name === "string" && rawTheme.name.trim()
         ? rawTheme.name
@@ -180,15 +181,17 @@ export function readExtensionTheme(
   // syntax scope before they can try a theme. Native Axon themes still use the
   // smaller `ui/syntax/terminal` shape because that is easier to author by hand.
   if (isRecord(raw) && Array.isArray(raw.themes)) {
+    const zedThemes = raw.themes.filter(isRecord);
     return raw.themes
       .filter(isRecord)
       .map((theme, index) =>
         normalizeZedTheme(
           extensionId,
           extensionName,
-          `${contributionId}.${index}`,
+          contributionId,
           contributionLabel,
           theme,
+          zedThemes.length === 1 ? contributionId : `${contributionId}-${index + 1}`,
         ),
       );
   }
