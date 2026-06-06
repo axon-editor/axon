@@ -225,7 +225,8 @@ export default function SettingsModal({
         | "fontWeight"
         | "lineHeight"
         | "fontLigatures"
-      >
+      > &
+        Partial<Pick<AxonSettings["editor"], "fontSize">>
     > = {
       "axon-default": {
         fontPreset: "axon-default",
@@ -290,6 +291,23 @@ export default function SettingsModal({
         fontWeight: 400,
         lineHeight: 22,
         fontLigatures: false,
+      },
+      "monaspace-neon-nerd": {
+        fontPreset: "monaspace-neon-nerd",
+        uiFontFamily: ".AxonSans",
+        fontFamily: "Monaspace Neon NF",
+        fontWeight: 400,
+        lineHeight: 22,
+        fontLigatures: true,
+      },
+      "apathy-ocean": {
+        fontPreset: "apathy-ocean",
+        uiFontFamily: ".AxonSans",
+        fontFamily: "Monaspace Neon NF",
+        fontSize: 11,
+        fontWeight: 200,
+        lineHeight: 18,
+        fontLigatures: true,
       },
     };
 
@@ -568,10 +586,10 @@ export default function SettingsModal({
 
                 <SettingsField
                   label="Font weight"
-                  description="Allowed range 300-800. Letter spacing stays 0 for predictable code layout."
+                  description="Allowed range 200-800. Letter spacing stays 0 for predictable code layout."
                 >
                   <SettingsNumberSlider
-                    min={300}
+                    min={200}
                     max={800}
                     step={50}
                     value={draft.editor.fontWeight}

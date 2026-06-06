@@ -107,6 +107,7 @@ import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
 import { registerAxonTheme } from "./lib/soraTheme";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { fontStack } from "./lib/fonts";
+import { createBundledFontFaces } from "./lib/bundledFonts";
 import { createHtmlPreviewTabPath, isHtmlFile } from "./lib/htmlPreviewTabs";
 import {
   loadWorkspaceSession,
@@ -688,13 +689,18 @@ function App() {
     // registry deterministic: changing settings JSON, saving settings, or
     // restarting Axon all rebuild the same @font-face list before UI/editor
     // components ask CSS or Monaco to use those font-family names.
-    styleElement.textContent = settings.customFonts
+    const customFontFaces = settings.customFonts
       .map((font) => {
         const family = escapeCssString(font.family);
         const url = escapeCssString(font.url);
         return `@font-face{font-family:"${family}";src:url("${url}");font-display:swap;}`;
       })
       .join("\n");
+
+    styleElement.textContent = [
+      createBundledFontFaces(),
+      customFontFaces,
+    ].filter(Boolean).join("\n");
   }, [settings.customFonts]);
 
   useEffect(() => {

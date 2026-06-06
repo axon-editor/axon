@@ -34,6 +34,11 @@ export const EDITOR_FONT_FAMILIES = [
   "Geist Mono",
   "Cascadia Code",
   "Berkeley Mono",
+  "Monaspace Neon NF",
+  "Monaspace Argon NF",
+  "Monaspace Krypton NF",
+  "Monaspace Radon NF",
+  "Monaspace Xenon NF",
   "SF Mono",
   "Menlo",
   "Monaco",
@@ -51,6 +56,8 @@ export const FONT_PRESET_IDS = [
   "geist-mono",
   "cascadia-code",
   "berkeley-mono",
+  "monaspace-neon-nerd",
+  "apathy-ocean",
 ] as const;
 
 export type FontPresetId = (typeof FONT_PRESET_IDS)[number];
@@ -298,7 +305,7 @@ export function normalizeSettings(value: unknown): AxonSettings {
       fontWeight: clampNumber(
         editor.fontWeight,
         DEFAULT_SETTINGS.editor.fontWeight,
-        300,
+        200,
         800,
       ),
       fontLigatures:
