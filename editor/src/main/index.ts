@@ -90,6 +90,7 @@ const execFileAsync = promisify(execFile);
 const isMac = process.platform === "darwin";
 let mainWindow: BrowserWindow | null = null;
 let bundledCoreProcess: ChildProcess | null = null;
+let isQuitting = false;
 const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 const activeLanguageServers = new Map<string, LanguageServerSession>();
 const windowSessionRestore = new Map<number, boolean>();
@@ -798,8 +799,6 @@ function shouldBlockBrowserShortcut(input: {
   alt: boolean;
   shift: boolean;
 }) {
-  if (isDev) return false;
-
   const key = input.key.toLowerCase();
   const commandOrControl = input.meta || input.control;
 
@@ -818,8 +817,6 @@ function shouldBlockBrowserShortcut(input: {
 }
 
 function buildViewMenu(): MenuItemConstructorOptions {
-  if (isDev) return { role: "viewMenu" };
-
   return {
     label: "View",
     submenu: [
@@ -1360,33 +1357,16 @@ function resolveCommandPath(command: string) {
   return command;
 }
 
-async function canRunCommand(
-  command: string,
-  args: string[],
-  env: NodeJS.ProcessEnv = process.env,
-) {
+async function canRunCommand(command: string, _args: string[]) {
   const resolvedCommand = resolveCommandPath(command);
-  if (path.isAbsolute(resolvedCommand) && fs.existsSync(resolvedCommand) && args.length === 0) {
-    return true;
-  }
-
-  try {
-    await execFileAsync(resolvedCommand, args, {
-      env,
-      timeout: 3000,
-      maxBuffer: 1024 * 256,
-    });
-    return true;
-  } catch (err) {
-    const code = (err as { code?: string | number }).code;
-    const stdout = (err as { stdout?: string }).stdout ?? "";
-    const stderr = (err as { stderr?: string }).stderr ?? "";
-
-    // Some language-server binaries print their version to stderr or exit with
-    // a non-zero code for --version. If the executable was found and produced
-    // output, Axon can still treat it as available for the future client path.
-    return code !== "ENOENT" && `${stdout}${stderr}`.trim().length > 0;
-  }
+  // Settings refresh should be a read-only check. The previous implementation
+  // executed `--version` for every language server, but the bundled TypeScript
+  // server is launched through Electron's own binary in Node mode. Probing that
+  // binary from a settings refresh can briefly create a native Electron window
+  // before the process exits, which makes the LSP buttons look like they reload
+  // Axon. Existence is enough here; the real start path still owns process
+  // spawn errors and reports them as lifecycle messages.
+  return path.isAbsolute(resolvedCommand) && fs.existsSync(resolvedCommand);
 }
 
 function writeLanguageServerMessage(
@@ -1817,11 +1797,7 @@ async function startLanguageServerDefinition(
     };
   }
 
-  const available = await canRunCommand(
-    resolved.command,
-    resolved.args,
-    resolved.env,
-  );
+  const available = await canRunCommand(resolved.command, resolved.args);
   if (!available) {
     return {
       label: definition.label,
@@ -3915,8 +3891,17 @@ app.whenReady().then(async () => {
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow({ restoreSession: true });
+  if (isQuitting) return;
+
+  const hasLiveWindow = BrowserWindow.getAllWindows().some(
+    (window) => !window.isDestroyed(),
+  );
+  if (!hasLiveWindow) {
+    // macOS sends activate when the Dock icon is clicked after all windows are
+    // closed. That should open a blank session, not silently restore the last
+    // workspace or reopen during a quit/update teardown. Session restore stays
+    // reserved for the normal cold app launch path above.
+    createWindow({ restoreSession: false });
   }
 });
 
@@ -3983,6 +3968,7 @@ ipcMain.handle("fs:unwatchFolder", async () => {
 });
 
 app.on("before-quit", async () => {
+  isQuitting = true;
   stopActiveTasks();
   stopAllLanguageServers();
   stopBundledAxonCore();
