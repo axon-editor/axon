@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.arctikai-theme",
+  "name": "Arctikai",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "A bundled Axon cool-toned dark theme with muted Monokai-inspired color accents.",
+  "author": "Axon",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "arctikai",
+        "label": "Arctikai",
+        "path": "./themes/arctikai.json"
+      }
+    ]
+  }
+}

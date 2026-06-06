@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.anysphere-theme",
+  "name": "Anysphere",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "A bundled Axon dark theme with a restrained Anysphere-inspired palette.",
+  "author": "Axon",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "anysphere-dark",
+        "label": "Anysphere",
+        "path": "./themes/anysphere.json"
+      }
+    ]
+  }
+}

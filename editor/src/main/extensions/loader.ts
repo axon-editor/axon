@@ -9,6 +9,7 @@ import {
 } from "../../shared/extensions";
 import {
   EXTENSION_MANIFEST_FILE,
+  getBundledExtensionsPath,
   getExtensionStatePath,
   getUserExtensionsPath,
   getWorkspaceExtensionsPath,
@@ -186,11 +187,15 @@ function createInternalExtension(): ExtensionInfo {
 }
 
 export function getExtensionState(folderPath?: string | null): ExtensionState {
+  const bundledExtensionsPath = getBundledExtensionsPath();
   const userExtensionsPath = getUserExtensionsPath();
   const workspaceExtensionsPath = getWorkspaceExtensionsPath(folderPath);
   fs.mkdirSync(userExtensionsPath, { recursive: true });
 
   const disabledIds = new Set(readEnablementState().disabled);
+  const bundledExtensions = findExtensionDirectories(bundledExtensionsPath).map(
+    (extensionPath) => loadExtensionFromPath(extensionPath, "internal", disabledIds),
+  );
   const workspaceExtensions = findExtensionDirectories(workspaceExtensionsPath).map(
     (extensionPath) => loadExtensionFromPath(extensionPath, "workspace", disabledIds),
   );
@@ -201,6 +206,7 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   return {
     extensions: [
       createInternalExtension(),
+      ...bundledExtensions,
       ...workspaceExtensions,
       ...userExtensions,
     ].filter((extension): extension is ExtensionInfo => extension !== null),

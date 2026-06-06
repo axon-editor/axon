@@ -1,0 +1,30 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.apathy-theme",
+  "name": "Apathy",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "A bundled Axon low-contrast dark theme family with calm muted tones.",
+  "author": "Axon",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "apathy",
+        "label": "Apathy",
+        "path": "./themes/apathy.json"
+      },
+      {
+        "id": "apathetic-ocean",
+        "label": "Apathetic Ocean",
+        "path": "./themes/apathetic-ocean.json"
+      },
+      {
+        "id": "minted",
+        "label": "Minted",
+        "path": "./themes/minted.json"
+      }
+    ]
+  }
+}

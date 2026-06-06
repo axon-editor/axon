@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.1.0
+
+- Added a bundled local extension system path so Axon can ship default
+  extension packages alongside the packaged app.
+- Added bundled Axon theme extensions for Arctikai, Anysphere, Apathy,
+  Apathetic Ocean, and Minted.
+- Included bundled extensions in Electron Builder packaging so shipped themes
+  are available in development and packaged builds.
+- Added Monaspace Nerd Font families for Neon, Argon, Krypton, Radon, and
+  Xenon, with core weights available from ExtraLight through ExtraBold.
+- Added Monaspace Nerd Font presets for editor and terminal usage.
+- Hardened extension theme reload so broken theme contributions cannot crash
+  Monaco theme registration.
+
 ## v1.0.8
 
 - Added a real theme system under `editor/src/renderer/lib/themes/` with
