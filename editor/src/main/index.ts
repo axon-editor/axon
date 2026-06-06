@@ -1281,6 +1281,54 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "docker-compose.yaml",
     ],
     installHint: "Install dockerfile-language-server-nodejs.",
+    resolveCommand: (folderPath) => {
+      const workspaceServer = path.join(
+        folderPath,
+        "node_modules/.bin/docker-langserver",
+      );
+      const bundledServer = path.join(
+        app.getAppPath(),
+        "node_modules/dockerfile-language-server-nodejs/bin/docker-langserver",
+      );
+      const runBundledServerWithElectronNode = {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+      };
+
+      if (fs.existsSync(workspaceServer)) {
+        return {
+          command: workspaceServer,
+          args: ["--version"],
+          launchCommand: workspaceServer,
+          launchArgs: ["--stdio"],
+          startable: true,
+        };
+      }
+
+      // Dockerfile support is small enough to ship with Axon, and bundling it
+      // removes another global-tooling requirement from first launch. The
+      // server is a Node entry point, so Electron's Node mode gives packaged
+      // builds the same self-contained behavior as the bundled TS/Tailwind
+      // servers.
+      if (fs.existsSync(bundledServer)) {
+        return {
+          command: process.execPath,
+          args: [bundledServer, "--version"],
+          launchCommand: process.execPath,
+          launchArgs: [bundledServer, "--stdio"],
+          env: runBundledServerWithElectronNode,
+          startable: true,
+        };
+      }
+
+      return {
+        command: "docker-langserver",
+        args: ["--version"],
+        launchCommand: "docker-langserver",
+        launchArgs: ["--stdio"],
+        startable: true,
+      };
+    },
   },
   {
     id: "tailwind",
@@ -1298,6 +1346,54 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "package.json",
     ],
     installHint: "Install @tailwindcss/language-server.",
+    resolveCommand: (folderPath) => {
+      const workspaceServer = path.join(
+        folderPath,
+        "node_modules/.bin/tailwindcss-language-server",
+      );
+      const bundledServer = path.join(
+        app.getAppPath(),
+        "node_modules/@tailwindcss/language-server/bin/tailwindcss-language-server",
+      );
+      const runBundledServerWithElectronNode = {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+      };
+
+      if (fs.existsSync(workspaceServer)) {
+        return {
+          command: workspaceServer,
+          args: ["--version"],
+          launchCommand: workspaceServer,
+          launchArgs: ["--stdio"],
+          startable: true,
+        };
+      }
+
+      // Axon bundles Tailwind's language server for the same reason it bundles
+      // TypeScript's server: CSS class completion should work in a packaged
+      // editor even when the user has not installed editor tooling globally.
+      // The CLI is a Node script, so Electron's Node mode lets the packaged app
+      // run it without depending on a separate `node` binary being available.
+      if (fs.existsSync(bundledServer)) {
+        return {
+          command: process.execPath,
+          args: [bundledServer, "--version"],
+          launchCommand: process.execPath,
+          launchArgs: [bundledServer, "--stdio"],
+          env: runBundledServerWithElectronNode,
+          startable: true,
+        };
+      }
+
+      return {
+        command: "tailwindcss-language-server",
+        args: ["--version"],
+        launchCommand: "tailwindcss-language-server",
+        launchArgs: ["--stdio"],
+        startable: true,
+      };
+    },
   },
 ];
 
