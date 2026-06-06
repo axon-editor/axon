@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.0.8
+
+- Added a real theme system under `editor/src/renderer/lib/themes/` with
+  separate Axon Dark, Sora, Zed Dark, Catppuccin Mocha, and Ayu Dark modules.
+- Added Appearance Engine v1 with UI tokens and syntax-color tokens defined
+  together by each built-in theme.
+- Added richer syntax-color tokens for comments, strings, numbers, keywords,
+  functions, methods, classes, types, interfaces, variables, constants,
+  operators, brackets, imports, JSX tags, and attributes.
+- Added live syntax-color and UI-token overrides through settings JSON and the
+  Settings UI, with overrides layered on top of built-in themes instead of
+  hardcoding Ayu Dark as a default override.
+- Added font style presets, font weight, and live editor/UI/terminal font
+  updates while keeping letter spacing fixed at 0.
+- Added LSP hover support through Monaco's native hover cards.
+- Added LSP-backed go-to-definition and find-references providers for
+  TypeScript/JavaScript, Go, Rust, Python, and C/C++.
+- Added LSP-backed rename symbol and format document commands through the
+  command palette.
+- Kept language-server responses normalized in the main process before crossing
+  IPC, which keeps the renderer contract small and safer for future AI usage.
+
 ## v1.0.7
 
 - Added richer LSP completion handling with snippets, text edits, commit

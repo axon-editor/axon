@@ -46,8 +46,19 @@ function normalizePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
+const goCallExclusions = new Set([
+  "if",
+  "for",
+  "switch",
+  "select",
+  "return",
+  "defer",
+  "go",
+  "func",
+]);
+
 type PreviewMode = "editor" | "preview" | "split";
-type EditorActionRequest = "definition" | "references";
+type EditorActionRequest = "definition" | "references" | "rename" | "format";
 
 export default function SingleEditor({
   filePath,
@@ -79,6 +90,8 @@ export default function SingleEditor({
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const gitDecorationsRef =
+    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const goSyntaxDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
@@ -112,6 +125,86 @@ export default function SingleEditor({
     },
     [folderPath],
   );
+
+  const refreshGoSyntaxDecorations = useCallback(() => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model || model.getLanguageId() !== "go") {
+      goSyntaxDecorationsRef.current?.clear();
+      return;
+    }
+
+    const decorations: monaco.editor.IModelDeltaDecoration[] = [];
+    const decoratedRanges = new Set<string>();
+    const addDecoration = (
+      lineNumber: number,
+      startColumn: number,
+      endColumn: number,
+      className: string,
+    ) => {
+      const key = `${lineNumber}:${startColumn}:${endColumn}`;
+      if (decoratedRanges.has(key)) return;
+      decoratedRanges.add(key);
+      decorations.push({
+        range: new monaco.Range(
+          lineNumber,
+          startColumn,
+          lineNumber,
+          endColumn,
+        ),
+        options: {
+          inlineClassName: className,
+        },
+      });
+    };
+
+    for (let lineNumber = 1; lineNumber <= model.getLineCount(); lineNumber++) {
+      const line = model.getLineContent(lineNumber);
+      const commentStart = line.indexOf("//");
+      const searchableLine =
+        commentStart >= 0 ? line.slice(0, commentStart) : line;
+
+      const declarationPattern =
+        /\bfunc\s+(\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
+      let declarationMatch: RegExpExecArray | null;
+      while ((declarationMatch = declarationPattern.exec(searchableLine))) {
+        const receiver = declarationMatch[1];
+        const name = declarationMatch[2];
+        const nameStart =
+          declarationMatch.index + declarationMatch[0].indexOf(name);
+        addDecoration(
+          lineNumber,
+          nameStart + 1,
+          nameStart + name.length + 1,
+          receiver ? "axon-go-method-token" : "axon-go-function-token",
+        );
+      }
+
+      const callPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
+      let callMatch: RegExpExecArray | null;
+      while ((callMatch = callPattern.exec(searchableLine))) {
+        const name = callMatch[1];
+        if (goCallExclusions.has(name)) continue;
+        const nameStart = callMatch.index;
+        const previousCharacter = searchableLine[nameStart - 1];
+        addDecoration(
+          lineNumber,
+          nameStart + 1,
+          nameStart + name.length + 1,
+          previousCharacter === "."
+            ? "axon-go-method-token"
+            : "axon-go-function-token",
+        );
+      }
+    }
+
+    // Monaco's bundled Go grammar does not identify function names as a
+    // distinct token; it reports them as plain identifiers. I add these inline
+    // decorations only for Go so the theme can still color function and method
+    // names without weakening identifier colors for every other language.
+    goSyntaxDecorationsRef.current ??= editor.createDecorationsCollection();
+    goSyntaxDecorationsRef.current.set(decorations);
+  }, []);
 
   useEffect(() => {
     filePathRef.current = filePath;
@@ -164,8 +257,14 @@ export default function SingleEditor({
       onLanguageChange(detectLanguage(filePath));
       onCursorChange(1, 1);
       registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
+      refreshGoSyntaxDecorations();
     }
-  }, [visible, editorSettings.themeId, themeTokens]);
+  }, [
+    visible,
+    editorSettings.themeId,
+    themeTokens,
+    refreshGoSyntaxDecorations,
+  ]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -266,14 +365,18 @@ export default function SingleEditor({
       const editor = editorRef.current;
       if (!editor) return;
 
-      // Monaco already owns the language-feature UI for definitions and
-      // references. Triggering its built-in actions here keeps Axon's command
-      // palette and shortcuts thin while still leaving room for a future LSP
-      // client to register richer providers behind the same editor actions.
-      const actionId =
-        actionEvent.detail.action === "references"
-          ? "editor.action.referenceSearch.trigger"
-          : "editor.action.revealDefinition";
+      // Monaco owns the final UI for these language actions: definition peeks,
+      // reference search, rename inputs, and formatter edits. Axon's job is to
+      // register LSP providers behind Monaco and keep the app shell command
+      // layer small, so the palette and menu never need to know server details.
+      const actionIdByRequest: Record<EditorActionRequest, string> = {
+        definition: "editor.action.revealDefinition",
+        references: "editor.action.referenceSearch.trigger",
+        rename: "editor.action.rename",
+        format: "editor.action.formatDocument",
+      };
+      const action = actionEvent.detail.action ?? "definition";
+      const actionId = actionIdByRequest[action];
 
       void editor.getAction(actionId)?.run();
     };
@@ -306,6 +409,7 @@ export default function SingleEditor({
         // already closed.
         if (editorRef.current && !model.isDisposed()) {
           editorRef.current.setModel(model);
+          window.requestAnimationFrame(refreshGoSyntaxDecorations);
         }
         syncDocumentWithLanguageServer(fc.content);
 
@@ -323,6 +427,7 @@ export default function SingleEditor({
       setLiveContent(content);
       diskContentRef.current = content;
       updateModel(filePath, content);
+      window.requestAnimationFrame(refreshGoSyntaxDecorations);
       onDirtyChange(filePath, false);
     });
 
@@ -332,6 +437,8 @@ export default function SingleEditor({
       navigationDecorationsRef.current = null;
       gitDecorationsRef.current?.clear();
       gitDecorationsRef.current = null;
+      goSyntaxDecorationsRef.current?.clear();
+      goSyntaxDecorationsRef.current = null;
       cleanup();
       window.axon.unwatchFile();
       if (suggestTimerRef.current) {
@@ -402,6 +509,7 @@ export default function SingleEditor({
       setLiveContent(current);
       onDirtyChange(filePath, current !== diskContentRef.current);
       syncDocumentWithLanguageServer(current);
+      refreshGoSyntaxDecorations();
 
       const model = editor.getModel();
       const position = editor.getPosition();
@@ -442,6 +550,7 @@ export default function SingleEditor({
     });
 
     onLanguageChange(detectLanguage(filePath));
+    refreshGoSyntaxDecorations();
   };
 
   if (loading) {
@@ -501,8 +610,11 @@ export default function SingleEditor({
         options={{
           fontSize: editorSettings.fontSize,
           fontFamily: editorFontStack(editorSettings.fontFamily),
+          fontWeight: String(editorSettings.fontWeight),
           lineHeight: editorSettings.lineHeight,
+          letterSpacing: 0,
           fontLigatures: editorSettings.fontLigatures,
+          "semanticHighlighting.enabled": false,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           lineNumbers: "on",

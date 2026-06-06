@@ -11,6 +11,7 @@ import "./index.css";
 import { registerAxonTheme } from "./lib/soraTheme";
 import { configureMonacoDiagnostics } from "./lib/monacoDiagnostics";
 import { configureLspCompletions } from "./lib/lspCompletions";
+import { configureLspNavigation } from "./lib/lspNavigation";
 
 loader.config({ monaco });
 
@@ -45,6 +46,7 @@ loader.config({ monaco });
 registerAxonTheme(monaco);
 configureMonacoDiagnostics(monaco);
 configureLspCompletions(monaco);
+configureLspNavigation(monaco);
 
 // StrictMode is disabled because it double-invokes effects in development
 // which causes Monaco's InstantiationService to be disposed and crash

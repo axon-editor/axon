@@ -87,11 +87,13 @@ export function SettingsNumberSlider({
   value,
   min,
   max,
+  step = 1,
   onChange,
 }: {
   value: number;
   min: number;
   max: number;
+  step?: number;
   onChange: (value: number) => void;
 }) {
   return (
@@ -100,6 +102,7 @@ export function SettingsNumberSlider({
         type="range"
         min={min}
         max={max}
+        step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className="flex-1 cursor-pointer accent-[#80c8e0]"
@@ -108,6 +111,7 @@ export function SettingsNumberSlider({
         type="number"
         min={min}
         max={max}
+        step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className="h-8 w-16 rounded border border-[#222838] bg-[#0e1018] px-2 text-[12px] text-[#c8d0e0] outline-none transition-colors focus:border-[#80c8e0]"

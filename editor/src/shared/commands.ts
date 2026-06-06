@@ -16,6 +16,8 @@ export const AXON_COMMANDS = {
   OPEN_FILE_OUTLINE: "open-file-outline",
   GO_TO_DEFINITION: "go-to-definition",
   FIND_REFERENCES: "find-references",
+  RENAME_SYMBOL: "rename-symbol",
+  FORMAT_DOCUMENT: "format-document",
   OPEN_HTML_PREVIEW: "open-html-preview",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",

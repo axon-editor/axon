@@ -21,8 +21,18 @@ import {
 import {
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
+  type LanguageServerDefinitionRequest,
+  type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
+  type LanguageServerFormatRequest,
+  type LanguageServerFormatResult,
+  type LanguageServerHoverRequest,
+  type LanguageServerHoverResult,
   type LanguageServerLifecycleResult,
+  type LanguageServerReferencesRequest,
+  type LanguageServerReferencesResult,
+  type LanguageServerRenameRequest,
+  type LanguageServerRenameResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
 } from "../shared/lsp";
@@ -72,6 +82,26 @@ contextBridge.exposeInMainWorld("axon", {
   syncLanguageServerDocument: (
     request: LanguageServerDocumentSyncRequest,
   ): Promise<void> => ipcRenderer.invoke("lsp:syncDocument", request),
+  getLanguageServerHover: (
+    request: LanguageServerHoverRequest,
+  ): Promise<LanguageServerHoverResult> =>
+    ipcRenderer.invoke("lsp:hover", request),
+  getLanguageServerDefinitions: (
+    request: LanguageServerDefinitionRequest,
+  ): Promise<LanguageServerDefinitionResult> =>
+    ipcRenderer.invoke("lsp:definition", request),
+  getLanguageServerReferences: (
+    request: LanguageServerReferencesRequest,
+  ): Promise<LanguageServerReferencesResult> =>
+    ipcRenderer.invoke("lsp:references", request),
+  renameLanguageServerSymbol: (
+    request: LanguageServerRenameRequest,
+  ): Promise<LanguageServerRenameResult> =>
+    ipcRenderer.invoke("lsp:rename", request),
+  formatLanguageServerDocument: (
+    request: LanguageServerFormatRequest,
+  ): Promise<LanguageServerFormatResult> =>
+    ipcRenderer.invoke("lsp:format", request),
   onLanguageServerDiagnostics: (
     callback: (event: {
       folderPath: string;

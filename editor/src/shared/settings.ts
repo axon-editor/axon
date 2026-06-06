@@ -1,8 +1,8 @@
 export const BUILT_IN_THEME_IDS = [
   "axon-dark",
   "sora",
+  "zed-dark",
   "catppuccin-mocha",
-  "tokyo-night",
   "ayu-dark",
 ] as const;
 
@@ -30,6 +30,7 @@ export const EDITOR_FONT_FAMILIES = [
   "IBM Plex Mono",
   "JetBrains Mono",
   "Fira Code",
+  "Geist Mono",
   "SF Mono",
   "Menlo",
   "Monaco",
@@ -38,11 +39,22 @@ export const EDITOR_FONT_FAMILIES = [
 export type UiFontFamily = (typeof UI_FONT_FAMILIES)[number];
 export type EditorFontFamily = (typeof EDITOR_FONT_FAMILIES)[number];
 
+export const FONT_PRESET_IDS = [
+  "axon-default",
+  "zed-like",
+  "jetbrains-mono",
+  "sf-mono",
+  "fira-code",
+  "geist-mono",
+] as const;
+
+export type FontPresetId = (typeof FONT_PRESET_IDS)[number];
+
 export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "axon-dark": "Axon Dark",
   sora: "Sora",
+  "zed-dark": "Zed Dark",
   "catppuccin-mocha": "Catppuccin Mocha",
-  "tokyo-night": "Tokyo Night",
   "ayu-dark": "Ayu Dark",
 };
 
@@ -62,6 +74,24 @@ export const THEME_COLOR_TOKENS = [
   "editor.gutter.background",
   "terminal.background",
   "terminal.foreground",
+  "syntax.comment",
+  "syntax.keyword",
+  "syntax.string",
+  "syntax.number",
+  "syntax.type",
+  "syntax.function",
+  "syntax.method",
+  "syntax.class",
+  "syntax.interface",
+  "syntax.variable",
+  "syntax.parameter",
+  "syntax.property",
+  "syntax.constant",
+  "syntax.operator",
+  "syntax.bracket",
+  "syntax.import",
+  "syntax.tag",
+  "syntax.attribute",
 ] as const;
 
 export type ThemeColorToken = (typeof THEME_COLOR_TOKENS)[number];
@@ -75,11 +105,13 @@ export interface CustomFont {
 }
 
 export interface EditorSettings {
+  fontPreset: FontPresetId;
   uiFontFamily: string;
   themeId: BuiltInThemeId;
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
+  fontWeight: number;
   fontLigatures: boolean;
 }
 
@@ -105,11 +137,13 @@ export interface AiSettings {
 
 export const DEFAULT_SETTINGS: AxonSettings = {
   editor: {
+    fontPreset: "axon-default",
     uiFontFamily: ".AxonSans",
     themeId: "ayu-dark",
     fontFamily: ".AxonMono",
     fontSize: 14,
     lineHeight: 22,
+    fontWeight: 400,
     fontLigatures: true,
   },
   ai: {
@@ -122,25 +156,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
   lsp: {
     enabled: true,
   },
-  theme_overrides: {
-    "Ayu Dark": {
-      background: "#000000FF",
-      "status_bar.background": "#000000FF",
-      "title_bar.background": "#000000FF",
-      "toolbar.background": "#000000FF",
-      "sidebar.background": "#000000FF",
-      "sidebar.border": "#000000FF",
-      "tab.active_background": "#000000FF",
-      "panel.background": "#000000FF",
-      "panel.border": "#000000FF",
-      "editor.foreground": "#B3B1ADFF",
-      "editor.background": "#0B0E14FF",
-      "editor.gutter.background": "#0B0E14FF",
-      "terminal.background": "#000000FF",
-      "terminal.foreground": "#C8D0E0FF",
-      "panel.overlay_hover": "#000000FF",
-    },
-  },
+  theme_overrides: {},
   customFonts: [],
 };
 
@@ -159,6 +175,13 @@ function isAiProviderId(value: unknown): value is AiProviderId {
   return (
     typeof value === "string" &&
     AI_PROVIDER_IDS.includes(value as AiProviderId)
+  );
+}
+
+function isFontPresetId(value: unknown): value is FontPresetId {
+  return (
+    typeof value === "string" &&
+    FONT_PRESET_IDS.includes(value as FontPresetId)
   );
 }
 
@@ -250,6 +273,9 @@ export function normalizeSettings(value: unknown): AxonSettings {
 
   return {
     editor: {
+      fontPreset: isFontPresetId(editor.fontPreset)
+        ? editor.fontPreset
+        : DEFAULT_SETTINGS.editor.fontPreset,
       uiFontFamily,
       themeId: isThemeId(editor.themeId)
         ? editor.themeId
@@ -266,6 +292,12 @@ export function normalizeSettings(value: unknown): AxonSettings {
         DEFAULT_SETTINGS.editor.lineHeight,
         14,
         40,
+      ),
+      fontWeight: clampNumber(
+        editor.fontWeight,
+        DEFAULT_SETTINGS.editor.fontWeight,
+        300,
+        800,
       ),
       fontLigatures:
         typeof editor.fontLigatures === "boolean"

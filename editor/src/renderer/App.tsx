@@ -69,8 +69,18 @@ import {
 import {
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
+  type LanguageServerDefinitionRequest,
+  type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
+  type LanguageServerFormatRequest,
+  type LanguageServerFormatResult,
+  type LanguageServerHoverRequest,
+  type LanguageServerHoverResult,
   type LanguageServerLifecycleResult,
+  type LanguageServerReferencesRequest,
+  type LanguageServerReferencesResult,
+  type LanguageServerRenameRequest,
+  type LanguageServerRenameResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
 } from "../shared/lsp";
@@ -84,6 +94,7 @@ import {
   type HtmlPreviewConsoleEvent,
 } from "../shared/htmlPreview";
 import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
+import { registerAxonTheme } from "./lib/soraTheme";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { fontStack } from "./lib/fonts";
 import { createHtmlPreviewTabPath, isHtmlFile } from "./lib/htmlPreviewTabs";
@@ -96,6 +107,7 @@ import {
 import { detectLanguage, getModel } from "./lib/monacoModels";
 import { collectFileSymbols, type FileSymbol } from "./lib/fileSymbols";
 import "./App.css";
+import * as monaco from "monaco-editor";
 
 function formatOutputTime(date = new Date()) {
   return date.toLocaleTimeString([], {
@@ -144,6 +156,21 @@ declare global {
       syncLanguageServerDocument: (
         request: LanguageServerDocumentSyncRequest,
       ) => Promise<void>;
+      getLanguageServerHover: (
+        request: LanguageServerHoverRequest,
+      ) => Promise<LanguageServerHoverResult>;
+      getLanguageServerDefinitions: (
+        request: LanguageServerDefinitionRequest,
+      ) => Promise<LanguageServerDefinitionResult>;
+      getLanguageServerReferences: (
+        request: LanguageServerReferencesRequest,
+      ) => Promise<LanguageServerReferencesResult>;
+      renameLanguageServerSymbol: (
+        request: LanguageServerRenameRequest,
+      ) => Promise<LanguageServerRenameResult>;
+      formatLanguageServerDocument: (
+        request: LanguageServerFormatRequest,
+      ) => Promise<LanguageServerFormatResult>;
       onLanguageServerDiagnostics: (
         callback: (event: {
           folderPath: string;
@@ -243,6 +270,7 @@ function App() {
   const [updateInstallState, setUpdateInstallState] =
     useState<UpdateInstallState>({ phase: "idle" });
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
+  const [settingsHydrated, setSettingsHydrated] = useState(false);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
     EditorDiagnostic[]
@@ -274,6 +302,42 @@ function App() {
     () => createThemeCssVariables(themeTokens),
     [themeTokens],
   );
+
+  useEffect(() => {
+    // Theme selection has to be applied at the app level, not only when an
+    // editor widget mounts. Settings preview can change the active theme while
+    // no editor has remounted, and Monaco keeps a global theme registry. This
+    // effect keeps Monaco's active theme synchronized with Axon's resolved UI
+    // tokens on every settings change.
+    registerAxonTheme(monaco, settings.editor.themeId, themeTokens);
+  }, [settings.editor.themeId, themeTokens]);
+
+  useEffect(() => {
+    const styleId = "axon-monaco-default-token-fallback";
+    const styleElement =
+      document.getElementById(styleId) ??
+      (() => {
+        const nextStyleElement = document.createElement("style");
+        nextStyleElement.id = styleId;
+        document.head.appendChild(nextStyleElement);
+        return nextStyleElement;
+      })();
+
+    // Monaco generates token CSS dynamically, and files with weak tokenization
+    // such as Markdown body text, go.mod, go.sum, .sim, and plaintext can land
+    // on its default token classes instead of one of Axon's rich syntax scopes.
+    // I inject this after theme resolution with a concrete color so those
+    // default spans cannot fall back to black on dark editor backgrounds.
+    styleElement.textContent = `
+      .monaco-editor .view-line,
+      .monaco-editor .view-line span:not(.axon-go-function-token):not(.axon-go-method-token).mtk1,
+      .monaco-editor .view-line span:not(.axon-go-function-token):not(.axon-go-method-token).mtk0,
+      .monaco-editor .view-line span:not([class*="mtk"]) {
+        color: ${themeTokens["editor.foreground"]} !important;
+      }
+    `;
+  }, [themeTokens]);
+
   const diagnostics = useMemo(
     () => [
       ...projectDiagnostics,
@@ -483,6 +547,9 @@ function App() {
       .then((nextSettings) => setSettings(normalizeSettings(nextSettings)))
       .catch((err) => {
         console.error("failed to load settings:", err);
+      })
+      .finally(() => {
+        setSettingsHydrated(true);
       });
   }, []);
 
@@ -1102,7 +1169,7 @@ function App() {
   };
 
   const runEditorAction = useCallback(
-    (action: "definition" | "references") => {
+    (action: "definition" | "references" | "rename" | "format") => {
       const activeFile = activePane?.activeFile;
       if (!activeFile) return;
 
@@ -1156,6 +1223,12 @@ function App() {
           break;
         case AXON_COMMANDS.FIND_REFERENCES:
           runEditorAction("references");
+          break;
+        case AXON_COMMANDS.RENAME_SYMBOL:
+          runEditorAction("rename");
+          break;
+        case AXON_COMMANDS.FORMAT_DOCUMENT:
+          runEditorAction("format");
           break;
         case AXON_COMMANDS.OPEN_HTML_PREVIEW:
           if (activePane?.activeFile && isHtmlFile(activePane.activeFile)) {
@@ -1312,6 +1385,26 @@ function App() {
           ? "Show usages for the current symbol"
           : "Select a file first",
         keywords: ["references", "usages", "symbol"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.RENAME_SYMBOL,
+        title: "Rename Symbol",
+        group: "Navigation",
+        subtitle: activePane?.activeFile
+          ? "Rename the current symbol through the active language server"
+          : "Select a file first",
+        keywords: ["rename", "symbol", "refactor"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.FORMAT_DOCUMENT,
+        title: "Format Document",
+        group: "Editor",
+        subtitle: activePane?.activeFile
+          ? "Format the active file through the active language server"
+          : "Select a file first",
+        keywords: ["format", "pretty", "indent"],
         disabled: !activePane?.activeFile,
       },
       {
@@ -1562,6 +1655,8 @@ function App() {
           settings.editor.uiFontFamily,
           "system-ui, sans-serif",
         ),
+        fontWeight: settings.editor.fontWeight,
+        letterSpacing: 0,
       }}
     >
       {zenMode && (
@@ -1647,40 +1742,48 @@ function App() {
             </div>
           )}
 
-          <EditorPane
-            layout={layout}
-            folderPath={folderPath}
-            onActivatePane={(id) =>
-              setLayout((prev) => ({ ...prev, activePaneId: id }))
-            }
-            onSelectFile={(paneId, f) =>
-              setLayout((prev) => openFileInPane(prev, paneId, f))
-            }
-            onCloseTab={(paneId, f) =>
-              void requestCloseTab(paneId, f)
-            }
-            onReorderTabs={(paneId, tabs) =>
-              setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
-            }
-            onDirtyChange={(paneId, f, d) =>
-              setLayout((prev) => setDirtyInPane(prev, paneId, f, d))
-            }
-            onCursorChange={(line, col) => setCursorInfo({ line, col })}
-            onLanguageChange={setLanguage}
-            onMoveTabBetweenPanes={(f, src, tgt) =>
-              setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
-            }
-            onClosePane={(paneId) => setLayout((prev) => closePane(prev, paneId))}
-            onOpenTabInTerminal={handleOpenTabInTerminal}
-            onOpenFile={handleFileSelect}
-            editorSettings={settings.editor}
-            themeTokens={themeTokens}
-            navigationTarget={navigationTarget}
-            gitChanges={gitStatus?.changes ?? []}
-            handleOpenFolder={handleOpenFolder}
-            handleNewFile={handleNewFile}
-            handleFolderChange={handleFolderChange}
-          />
+          {settingsHydrated ? (
+            <EditorPane
+              layout={layout}
+              folderPath={folderPath}
+              onActivatePane={(id) =>
+                setLayout((prev) => ({ ...prev, activePaneId: id }))
+              }
+              onSelectFile={(paneId, f) =>
+                setLayout((prev) => openFileInPane(prev, paneId, f))
+              }
+              onCloseTab={(paneId, f) =>
+                void requestCloseTab(paneId, f)
+              }
+              onReorderTabs={(paneId, tabs) =>
+                setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
+              }
+              onDirtyChange={(paneId, f, d) =>
+                setLayout((prev) => setDirtyInPane(prev, paneId, f, d))
+              }
+              onCursorChange={(line, col) => setCursorInfo({ line, col })}
+              onLanguageChange={setLanguage}
+              onMoveTabBetweenPanes={(f, src, tgt) =>
+                setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
+              }
+              onClosePane={(paneId) =>
+                setLayout((prev) => closePane(prev, paneId))
+              }
+              onOpenTabInTerminal={handleOpenTabInTerminal}
+              onOpenFile={handleFileSelect}
+              editorSettings={settings.editor}
+              themeTokens={themeTokens}
+              navigationTarget={navigationTarget}
+              gitChanges={gitStatus?.changes ?? []}
+              handleOpenFolder={handleOpenFolder}
+              handleNewFile={handleNewFile}
+              handleFolderChange={handleFolderChange}
+            />
+          ) : (
+            <div className="flex flex-1 items-center justify-center bg-[var(--axon-editor-background)] text-[12px] text-[#586478]">
+              loading editor...
+            </div>
+          )}
 
           <Terminal
             open={terminalOpen && !zenMode}
@@ -1821,6 +1924,7 @@ function App() {
           filePath={diffFilePath ?? activePane?.activeFile ?? ""}
           folderPath={folderPath}
           editorSettings={settings.editor}
+          themeTokens={themeTokens}
           onClose={() => {
             setDiffOpen(false);
             setDiffFilePath(null);

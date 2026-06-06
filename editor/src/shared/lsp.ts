@@ -81,3 +81,71 @@ export interface LanguageServerCompletionResult {
   message?: string;
   items: LanguageServerCompletionItem[];
 }
+
+export interface LanguageServerLocation {
+  filePath: string;
+  range: LanguageServerTextRange;
+}
+
+export interface LanguageServerHoverRequest
+  extends LanguageServerDocumentSyncRequest {
+  line: number;
+  column: number;
+}
+
+export interface LanguageServerHoverResult {
+  ok: boolean;
+  message?: string;
+  contents: string[];
+  range?: LanguageServerTextRange;
+}
+
+export interface LanguageServerDefinitionRequest
+  extends LanguageServerDocumentSyncRequest {
+  line: number;
+  column: number;
+}
+
+export interface LanguageServerDefinitionResult {
+  ok: boolean;
+  message?: string;
+  locations: LanguageServerLocation[];
+}
+
+export interface LanguageServerReferencesRequest
+  extends LanguageServerDocumentSyncRequest {
+  line: number;
+  column: number;
+  includeDeclaration?: boolean;
+}
+
+export interface LanguageServerReferencesResult {
+  ok: boolean;
+  message?: string;
+  locations: LanguageServerLocation[];
+}
+
+export interface LanguageServerRenameRequest
+  extends LanguageServerDocumentSyncRequest {
+  line: number;
+  column: number;
+  newName: string;
+}
+
+export interface LanguageServerRenameResult {
+  ok: boolean;
+  message?: string;
+  edits: Record<string, LanguageServerTextEdit[]>;
+}
+
+export interface LanguageServerFormatRequest
+  extends LanguageServerDocumentSyncRequest {
+  tabSize: number;
+  insertSpaces: boolean;
+}
+
+export interface LanguageServerFormatResult {
+  ok: boolean;
+  message?: string;
+  edits: LanguageServerTextEdit[];
+}

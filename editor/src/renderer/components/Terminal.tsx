@@ -143,28 +143,28 @@ const terminalThemes: Record<BuiltInThemeId, ITheme> = {
     white: "#cdd6f4",
     brightWhite: "#f5e0dc",
   },
-  "tokyo-night": {
-    background: "#1a1b26",
-    foreground: "#c0caf5",
-    cursor: "#c0caf5",
-    cursorAccent: "#1a1b26",
-    selectionBackground: "#33467c88",
-    black: "#15161e",
-    brightBlack: "#414868",
-    red: "#f7768e",
-    brightRed: "#f7768e",
-    green: "#9ece6a",
-    brightGreen: "#9ece6a",
-    yellow: "#e0af68",
-    brightYellow: "#e0af68",
-    blue: "#7aa2f7",
-    brightBlue: "#7aa2f7",
-    magenta: "#bb9af7",
-    brightMagenta: "#bb9af7",
-    cyan: "#7dcfff",
-    brightCyan: "#7dcfff",
-    white: "#c0caf5",
-    brightWhite: "#ffffff",
+  "zed-dark": {
+    background: "#111316",
+    foreground: "#d6d9df",
+    cursor: "#7cc7e8",
+    cursorAccent: "#111316",
+    selectionBackground: "#2f3a4588",
+    black: "#0d0f12",
+    brightBlack: "#4d5562",
+    red: "#ff9aa2",
+    brightRed: "#ffb2b8",
+    green: "#9fd68b",
+    brightGreen: "#b7e8a6",
+    yellow: "#e7c07a",
+    brightYellow: "#f3d394",
+    blue: "#7cc7e8",
+    brightBlue: "#99d7f2",
+    magenta: "#d7b7ff",
+    brightMagenta: "#e2c8ff",
+    cyan: "#72d0c9",
+    brightCyan: "#95e3dd",
+    white: "#d6d9df",
+    brightWhite: "#f3f5f8",
   },
   "ayu-dark": {
     background: "#0b0e14",
@@ -232,6 +232,7 @@ function getTerminalOptions(
       foreground: themeTokens["terminal.foreground"],
     },
     fontFamily: editorFontStack(editorSettings.fontFamily),
+    fontWeight: editorSettings.fontWeight,
     fontSize: Math.max(10, editorSettings.fontSize - 1),
     lineHeight: Math.max(
       1,
@@ -542,6 +543,7 @@ export default function Terminal({
 
       session.term.options.theme = terminalOptions.theme;
       session.term.options.fontFamily = terminalOptions.fontFamily;
+      session.term.options.fontWeight = terminalOptions.fontWeight;
       session.term.options.fontSize = terminalOptions.fontSize;
       session.term.options.lineHeight = terminalOptions.lineHeight;
       sendResize(id);

@@ -52,11 +52,24 @@ import {
   type LanguageServerCompletionItem,
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
+  type LanguageServerDefinitionRequest,
+  type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
+  type LanguageServerFormatRequest,
+  type LanguageServerFormatResult,
+  type LanguageServerHoverRequest,
+  type LanguageServerHoverResult,
   type LanguageServerId,
   type LanguageServerLifecycleResult,
+  type LanguageServerLocation,
+  type LanguageServerReferencesRequest,
+  type LanguageServerReferencesResult,
+  type LanguageServerRenameRequest,
+  type LanguageServerRenameResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
+  type LanguageServerTextEdit,
+  type LanguageServerTextRange,
 } from "../shared/lsp";
 import {
   type UpdateActionResult,
@@ -1637,6 +1650,23 @@ function initializeLanguageServer(session: LanguageServerSession) {
             contextSupport: true,
             dynamicRegistration: false,
           },
+          hover: {
+            contentFormat: ["markdown", "plaintext"],
+            dynamicRegistration: false,
+          },
+          definition: {
+            dynamicRegistration: false,
+          },
+          references: {
+            dynamicRegistration: false,
+          },
+          rename: {
+            dynamicRegistration: false,
+            prepareSupport: true,
+          },
+          formatting: {
+            dynamicRegistration: false,
+          },
         },
       },
     },
@@ -2025,6 +2055,39 @@ async function syncDocumentWithLanguageServer(
   syncLanguageServerDocument(session, request);
 }
 
+function getReadyLanguageServerSession(
+  request: LanguageServerDocumentSyncRequest,
+) {
+  const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
+  if (!serverId) {
+    return {
+      ok: false as const,
+      message: `No language server is configured for ${request.languageId}.`,
+      session: null,
+    };
+  }
+
+  const session = activeLanguageServers.get(
+    getLanguageServerSessionKey(request.folderPath, serverId),
+  );
+  if (!session) {
+    return {
+      ok: false as const,
+      message: `${serverId} language server is not running.`,
+      session: null,
+    };
+  }
+  if (!session.initialized) {
+    return {
+      ok: false as const,
+      message: `${serverId} language server is still starting.`,
+      session: null,
+    };
+  }
+
+  return { ok: true as const, message: "", session };
+}
+
 function normalizeCompletionDocumentation(documentation: unknown) {
   if (typeof documentation === "string") return documentation;
   if (
@@ -2082,6 +2145,136 @@ function normalizeLanguageServerTextEdits(edits: unknown) {
     .filter((edit): edit is NonNullable<typeof edit> => edit !== undefined);
 
   return normalizedEdits.length > 0 ? normalizedEdits : undefined;
+}
+
+function normalizeLanguageServerTextRange(range: unknown) {
+  if (!range || typeof range !== "object") return undefined;
+  const rawRange = range as { start?: unknown; end?: unknown };
+  const start = normalizeLanguageServerTextPosition(rawRange.start);
+  const end = normalizeLanguageServerTextPosition(rawRange.end);
+  if (!start || !end) return undefined;
+
+  return { start, end };
+}
+
+function normalizeLanguageServerLocation(location: unknown) {
+  if (!location || typeof location !== "object") return undefined;
+  const rawLocation = location as {
+    uri?: unknown;
+    targetUri?: unknown;
+    range?: unknown;
+    targetSelectionRange?: unknown;
+  };
+  const rawUri = rawLocation.uri ?? rawLocation.targetUri;
+  if (typeof rawUri !== "string") return undefined;
+
+  let filePath = "";
+  try {
+    filePath = url.fileURLToPath(rawUri);
+  } catch {
+    return undefined;
+  }
+
+  const range = normalizeLanguageServerTextRange(
+    rawLocation.range ?? rawLocation.targetSelectionRange,
+  );
+  if (!range) return undefined;
+
+  return { filePath, range } satisfies LanguageServerLocation;
+}
+
+function normalizeLanguageServerLocations(result: unknown) {
+  const rawLocations = Array.isArray(result) ? result : result ? [result] : [];
+  return rawLocations
+    .map(normalizeLanguageServerLocation)
+    .filter(
+      (location): location is LanguageServerLocation => location !== undefined,
+    );
+}
+
+function normalizeHoverContents(contents: unknown): string[] {
+  const values = Array.isArray(contents) ? contents : [contents];
+  return values
+    .map((value) => {
+      if (typeof value === "string") return value;
+      if (
+        value &&
+        typeof value === "object" &&
+        "value" in value &&
+        typeof value.value === "string"
+      ) {
+        return value.value;
+      }
+      return "";
+    })
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function normalizeWorkspaceEdit(result: unknown) {
+  if (!result || typeof result !== "object") return {};
+  const rawEdit = result as {
+    changes?: unknown;
+    documentChanges?: unknown;
+  };
+  const editsByFile: Record<string, LanguageServerTextEdit[]> = {};
+
+  if (rawEdit.changes && typeof rawEdit.changes === "object") {
+    for (const [uri, edits] of Object.entries(rawEdit.changes)) {
+      if (!Array.isArray(edits)) continue;
+
+      let filePath = "";
+      try {
+        filePath = url.fileURLToPath(uri);
+      } catch {
+        continue;
+      }
+
+      const normalizedEdits = edits
+        .map(normalizeLanguageServerTextEdit)
+        .filter(
+          (edit): edit is LanguageServerTextEdit => edit !== undefined,
+        );
+      if (normalizedEdits.length > 0) editsByFile[filePath] = normalizedEdits;
+    }
+  }
+
+  if (Array.isArray(rawEdit.documentChanges)) {
+    for (const change of rawEdit.documentChanges) {
+      if (!change || typeof change !== "object") continue;
+      const rawChange = change as {
+        textDocument?: { uri?: unknown };
+        edits?: unknown;
+      };
+      if (
+        typeof rawChange.textDocument?.uri !== "string" ||
+        !Array.isArray(rawChange.edits)
+      ) {
+        continue;
+      }
+
+      let filePath = "";
+      try {
+        filePath = url.fileURLToPath(rawChange.textDocument.uri);
+      } catch {
+        continue;
+      }
+
+      const normalizedEdits = rawChange.edits
+        .map(normalizeLanguageServerTextEdit)
+        .filter(
+          (edit): edit is LanguageServerTextEdit => edit !== undefined,
+        );
+      if (normalizedEdits.length > 0) {
+        editsByFile[filePath] = [
+          ...(editsByFile[filePath] ?? []),
+          ...normalizedEdits,
+        ];
+      }
+    }
+  }
+
+  return editsByFile;
 }
 
 function normalizeLanguageServerCompletionItems(
@@ -2227,6 +2420,201 @@ async function getLanguageServerCompletions(
           ? err.message
           : "Language server completion failed.",
       items: [],
+    };
+  }
+}
+
+async function getLanguageServerHover(
+  request: LanguageServerHoverRequest,
+): Promise<LanguageServerHoverResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, contents: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const hoverResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/hover",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+      },
+    );
+    const rawHover =
+      hoverResult && typeof hoverResult === "object"
+        ? (hoverResult as { contents?: unknown; range?: unknown })
+        : null;
+
+    return {
+      ok: true,
+      contents: normalizeHoverContents(rawHover?.contents),
+      range: normalizeLanguageServerTextRange(rawHover?.range),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server hover failed.",
+      contents: [],
+    };
+  }
+}
+
+async function getLanguageServerDefinitions(
+  request: LanguageServerDefinitionRequest,
+): Promise<LanguageServerDefinitionResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, locations: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const definitionResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/definition",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      locations: normalizeLanguageServerLocations(definitionResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server definition failed.",
+      locations: [],
+    };
+  }
+}
+
+async function getLanguageServerReferences(
+  request: LanguageServerReferencesRequest,
+): Promise<LanguageServerReferencesResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, locations: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const referencesResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/references",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+        context: {
+          includeDeclaration: request.includeDeclaration ?? true,
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      locations: normalizeLanguageServerLocations(referencesResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server references failed.",
+      locations: [],
+    };
+  }
+}
+
+async function renameLanguageServerSymbol(
+  request: LanguageServerRenameRequest,
+): Promise<LanguageServerRenameResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, edits: {} };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const renameResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/rename",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+        newName: request.newName,
+      },
+    );
+
+    return {
+      ok: true,
+      edits: normalizeWorkspaceEdit(renameResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server rename failed.",
+      edits: {},
+    };
+  }
+}
+
+async function formatLanguageServerDocument(
+  request: LanguageServerFormatRequest,
+): Promise<LanguageServerFormatResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, edits: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const formatResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/formatting",
+      {
+        textDocument: { uri },
+        options: {
+          tabSize: request.tabSize,
+          insertSpaces: request.insertSpaces,
+          trimTrailingWhitespace: true,
+          insertFinalNewline: true,
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      edits: normalizeLanguageServerTextEdits(formatResult) ?? [],
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server format failed.",
+      edits: [],
     };
   }
 }
@@ -3322,6 +3710,91 @@ ipcMain.handle(
     if (!settings.lsp.enabled) return;
 
     await syncDocumentWithLanguageServer(request);
+  },
+);
+
+ipcMain.handle(
+  "lsp:hover",
+  async (
+    _event,
+    request: LanguageServerHoverRequest,
+  ): Promise<LanguageServerHoverResult> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+      return { ok: true, contents: [] };
+    }
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return { ok: true, contents: [] };
+
+    return getLanguageServerHover(request);
+  },
+);
+
+ipcMain.handle(
+  "lsp:definition",
+  async (
+    _event,
+    request: LanguageServerDefinitionRequest,
+  ): Promise<LanguageServerDefinitionResult> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+      return { ok: true, locations: [] };
+    }
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return { ok: true, locations: [] };
+
+    return getLanguageServerDefinitions(request);
+  },
+);
+
+ipcMain.handle(
+  "lsp:references",
+  async (
+    _event,
+    request: LanguageServerReferencesRequest,
+  ): Promise<LanguageServerReferencesResult> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+      return { ok: true, locations: [] };
+    }
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return { ok: true, locations: [] };
+
+    return getLanguageServerReferences(request);
+  },
+);
+
+ipcMain.handle(
+  "lsp:rename",
+  async (
+    _event,
+    request: LanguageServerRenameRequest,
+  ): Promise<LanguageServerRenameResult> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+      return { ok: true, edits: {} };
+    }
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return { ok: true, edits: {} };
+
+    return renameLanguageServerSymbol(request);
+  },
+);
+
+ipcMain.handle(
+  "lsp:format",
+  async (
+    _event,
+    request: LanguageServerFormatRequest,
+  ): Promise<LanguageServerFormatResult> => {
+    if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+      return { ok: true, edits: [] };
+    }
+
+    const settings = readSettingsForFolder(request.folderPath);
+    if (!settings.lsp.enabled) return { ok: true, edits: [] };
+
+    return formatLanguageServerDocument(request);
   },
 );
 

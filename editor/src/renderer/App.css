@@ -204,6 +204,14 @@
   color: #f5fbff;
 }
 
+.axon-go-function-token {
+  color: var(--axon-syntax-function) !important;
+}
+
+.axon-go-method-token {
+  color: var(--axon-syntax-method) !important;
+}
+
 .axon-git-line--added {
   background: rgba(126, 231, 135, 0.055);
 }

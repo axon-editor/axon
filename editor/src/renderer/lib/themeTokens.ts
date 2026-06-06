@@ -1,47 +1,18 @@
-import {
-  THEME_LABELS,
-  type AxonSettings,
-  type ThemeColorToken,
-} from "../../shared/settings";
 import { type CSSProperties } from "react";
+import {
+  resolveThemeTokens,
+  type ThemeTokenMap,
+} from "./themes";
 
-export type ResolvedThemeTokens = Record<ThemeColorToken, string>;
+export type ResolvedThemeTokens = ThemeTokenMap;
 
-const FALLBACK_THEME_TOKENS: ResolvedThemeTokens = {
-  background: "#0e1018",
-  "status_bar.background": "#0a0c12",
-  "title_bar.background": "#0a0c12",
-  "toolbar.background": "#0a0c12",
-  "sidebar.background": "#0a0c12",
-  "sidebar.border": "#222838",
-  "tab.active_background": "#151923",
-  "panel.background": "#0a0c12",
-  "panel.border": "#222838",
-  "panel.overlay_hover": "#151923",
-  "editor.foreground": "#c8d0e0",
-  "editor.background": "#0e1018",
-  "editor.gutter.background": "#0e1018",
-  "terminal.background": "#0e1018",
-  "terminal.foreground": "#c8d0e0",
-};
-
-export function resolveThemeTokens(settings: AxonSettings): ResolvedThemeTokens {
-  const themeLabel = THEME_LABELS[settings.editor.themeId];
-  const overrides =
-    settings.theme_overrides[themeLabel] ??
-    settings.theme_overrides[settings.editor.themeId] ??
-    {};
-
-  return {
-    ...FALLBACK_THEME_TOKENS,
-    ...overrides,
-  };
-}
+export { resolveThemeTokens };
 
 export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
   // These variables are the bridge between axon.json and the React chrome.
-  // Keeping the names close to the settings tokens makes it obvious which JSON
-  // key controls each visible surface when the settings UI is rebuilt further.
+  // They are resolved from the active built-in theme first, then user override
+  // values are layered on top. That keeps defaults clean while still making
+  // theme_overrides affect every visible Axon surface immediately.
   return {
     "--axon-background": tokens.background,
     "--axon-status-bar-background": tokens["status_bar.background"],
@@ -58,5 +29,7 @@ export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
     "--axon-editor-gutter-background": tokens["editor.gutter.background"],
     "--axon-terminal-background": tokens["terminal.background"],
     "--axon-terminal-foreground": tokens["terminal.foreground"],
+    "--axon-syntax-function": tokens["syntax.function"],
+    "--axon-syntax-method": tokens["syntax.method"],
   } as CSSProperties;
 }

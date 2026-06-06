@@ -6,12 +6,14 @@ import { editorFontStack } from "../lib/fonts";
 import { readFile } from "../lib/api";
 import { detectLanguage, getModel } from "../lib/monacoModels";
 import { getMonacoThemeId, registerAxonTheme } from "../lib/soraTheme";
+import { type ResolvedThemeTokens } from "../lib/themeTokens";
 import Tooltip from "./Tooltip";
 
 interface Props {
   filePath: string;
   folderPath: string | null;
   editorSettings: EditorSettings;
+  themeTokens: ResolvedThemeTokens;
   onClose: () => void;
 }
 
@@ -19,6 +21,7 @@ export default function DiffModal({
   filePath,
   folderPath,
   editorSettings,
+  themeTokens,
   onClose,
 }: Props) {
   const [baseContent, setBaseContent] = useState("");
@@ -125,14 +128,20 @@ export default function DiffModal({
             language={detectLanguage(filePath)}
             theme={getMonacoThemeId(editorSettings.themeId)}
             beforeMount={(monacoInstance) =>
-              registerAxonTheme(monacoInstance, editorSettings.themeId)
+              registerAxonTheme(
+                monacoInstance,
+                editorSettings.themeId,
+                themeTokens,
+              )
             }
             options={{
               readOnly: true,
               renderSideBySide: true,
               fontSize: editorSettings.fontSize,
               fontFamily: editorFontStack(editorSettings.fontFamily),
+              fontWeight: String(editorSettings.fontWeight),
               lineHeight: editorSettings.lineHeight,
+              letterSpacing: 0,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               originalEditable: false,

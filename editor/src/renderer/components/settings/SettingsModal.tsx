@@ -20,11 +20,13 @@ import SearchSelect from "../SearchSelect";
 import {
   AI_PROVIDER_ITEMS,
   EDITOR_FONT_ITEMS,
+  FONT_PRESET_ITEMS,
   SETTINGS_SECTIONS,
+  SYNTAX_THEME_COLOR_TOKENS,
   THEME_COLOR_LABELS,
-  THEME_COLOR_TOKENS,
   THEME_ITEMS,
   THEME_LABELS,
+  UI_THEME_COLOR_TOKENS,
   UI_FONT_ITEMS,
   type SettingsSectionId,
 } from "./settingsData";
@@ -48,6 +50,7 @@ interface Props {
 const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
   appearance: Palette,
   editor: Type,
+  syntaxColors: Palette,
   theme: Settings2,
   ai: Sparkles,
   fonts: Type,
@@ -109,7 +112,7 @@ export default function SettingsModal({
   const activeThemeName = THEME_LABELS[draft.editor.themeId];
   const invalidThemeTokens = useMemo(
     () =>
-      THEME_COLOR_TOKENS.filter((token) => {
+      [...UI_THEME_COLOR_TOKENS, ...SYNTAX_THEME_COLOR_TOKENS].filter((token) => {
         const value = getThemeColorValue(draft, token);
         return value.trim().length > 0 && !isValidHexColor(value);
       }),
@@ -183,6 +186,78 @@ export default function SettingsModal({
           ...(prev.theme_overrides[activeThemeName] ?? {}),
           [token]: value,
         },
+      },
+    }));
+  };
+
+  const applyFontPreset = (presetId: AxonSettings["editor"]["fontPreset"]) => {
+    const presetValues: Record<
+      AxonSettings["editor"]["fontPreset"],
+      Pick<
+        AxonSettings["editor"],
+        | "fontPreset"
+        | "uiFontFamily"
+        | "fontFamily"
+        | "fontWeight"
+        | "lineHeight"
+        | "fontLigatures"
+      >
+    > = {
+      "axon-default": {
+        fontPreset: "axon-default",
+        uiFontFamily: ".AxonSans",
+        fontFamily: ".AxonMono",
+        fontWeight: 400,
+        lineHeight: 22,
+        fontLigatures: true,
+      },
+      "zed-like": {
+        fontPreset: "zed-like",
+        uiFontFamily: ".ZedSans",
+        fontFamily: ".ZedMono",
+        fontWeight: 400,
+        lineHeight: 22,
+        fontLigatures: true,
+      },
+      "jetbrains-mono": {
+        fontPreset: "jetbrains-mono",
+        uiFontFamily: ".AxonSans",
+        fontFamily: "JetBrains Mono",
+        fontWeight: 400,
+        lineHeight: 23,
+        fontLigatures: true,
+      },
+      "sf-mono": {
+        fontPreset: "sf-mono",
+        uiFontFamily: "SF Pro Text",
+        fontFamily: "SF Mono",
+        fontWeight: 400,
+        lineHeight: 22,
+        fontLigatures: false,
+      },
+      "fira-code": {
+        fontPreset: "fira-code",
+        uiFontFamily: ".AxonSans",
+        fontFamily: "Fira Code",
+        fontWeight: 400,
+        lineHeight: 23,
+        fontLigatures: true,
+      },
+      "geist-mono": {
+        fontPreset: "geist-mono",
+        uiFontFamily: "Inter",
+        fontFamily: "Geist Mono",
+        fontWeight: 400,
+        lineHeight: 22,
+        fontLigatures: false,
+      },
+    };
+
+    setDraft((prev) => ({
+      ...prev,
+      editor: {
+        ...prev.editor,
+        ...presetValues[presetId],
       },
     }));
   };
@@ -284,7 +359,10 @@ export default function SettingsModal({
 
   const save = () => {
     if (invalidThemeTokens.length > 0) {
-      setActiveSection("theme");
+      const hasInvalidSyntaxToken = invalidThemeTokens.some((token) =>
+        token.startsWith("syntax."),
+      );
+      setActiveSection(hasInvalidSyntaxToken ? "syntaxColors" : "theme");
       return;
     }
 
@@ -321,7 +399,8 @@ export default function SettingsModal({
               const Icon = sectionIcons[section.id];
               const active = section.id === activeSection;
               const hasError =
-                section.id === "theme" && invalidThemeTokens.length > 0;
+                (section.id === "theme" || section.id === "syntaxColors") &&
+                invalidThemeTokens.length > 0;
 
               return (
                 <button
@@ -399,6 +478,19 @@ export default function SettingsModal({
                 description="Tune the code editor typography. These values are normalized before saving so invalid JSON edits cannot push the editor outside usable bounds."
               >
                 <SettingsField
+                  label="Font preset"
+                  description="Applies a complete editor/UI font style while keeping letter spacing at 0."
+                >
+                  <SearchSelect
+                    value={draft.editor.fontPreset}
+                    items={FONT_PRESET_ITEMS}
+                    onChange={applyFontPreset}
+                    ariaLabel="Font preset"
+                    placeholder="Search font presets..."
+                  />
+                </SettingsField>
+
+                <SettingsField
                   label="Editor font"
                   description="Default is Axon Mono, with common coding fonts available."
                 >
@@ -431,6 +523,19 @@ export default function SettingsModal({
                     max={40}
                     value={draft.editor.lineHeight}
                     onChange={(value) => updateEditor("lineHeight", value)}
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Font weight"
+                  description="Allowed range 300-800. Letter spacing stays 0 for predictable code layout."
+                >
+                  <SettingsNumberSlider
+                    min={300}
+                    max={800}
+                    step={50}
+                    value={draft.editor.fontWeight}
+                    onChange={(value) => updateEditor("fontWeight", value)}
                   />
                 </SettingsField>
 
@@ -557,12 +662,61 @@ export default function SettingsModal({
               </SettingsSection>
             )}
 
+            {activeSection === "syntaxColors" && (
+              <SettingsSection
+                title="Syntax Colors"
+                description={`Editing ${activeThemeName} syntax overrides. Values accept #RRGGBB or #RRGGBBAA and are saved under theme_overrides in settings JSON.`}
+              >
+                {SYNTAX_THEME_COLOR_TOKENS.map((token) => {
+                  const value = getThemeColorValue(draft, token);
+                  const invalid =
+                    value.trim().length > 0 && !isValidHexColor(value);
+                  const colorValue = isValidHexColor(value)
+                    ? value.slice(0, 7)
+                    : "#000000";
+
+                  return (
+                    <SettingsField
+                      key={token}
+                      label={THEME_COLOR_LABELS[token]}
+                      description={token}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={colorValue}
+                          onChange={(event) =>
+                            updateThemeColor(token, event.target.value)
+                          }
+                          className="h-8 w-10 cursor-pointer rounded border border-[#222838] bg-[#0e1018] p-1"
+                          aria-label={`${THEME_COLOR_LABELS[token]} color`}
+                        />
+                        <SettingsTextInput
+                          value={value}
+                          onChange={(nextValue) =>
+                            updateThemeColor(token, nextValue)
+                          }
+                          placeholder="#000000FF"
+                          monospace
+                        />
+                      </div>
+                      {invalid ? (
+                        <div className="mt-1 text-[11px] text-[#ea6c73]">
+                          Use #RRGGBB or #RRGGBBAA.
+                        </div>
+                      ) : null}
+                    </SettingsField>
+                  );
+                })}
+              </SettingsSection>
+            )}
+
             {activeSection === "theme" && (
               <SettingsSection
-                title="Theme Colors"
-                description={`Editing ${activeThemeName} overrides. Values accept #RRGGBB or #RRGGBBAA and are saved under theme_overrides in settings JSON.`}
+                title="Theme Overrides"
+                description={`Editing ${activeThemeName} UI overrides. Values accept #RRGGBB or #RRGGBBAA and are saved under theme_overrides in settings JSON.`}
               >
-                {THEME_COLOR_TOKENS.map((token) => {
+                {UI_THEME_COLOR_TOKENS.map((token) => {
                   const value = getThemeColorValue(draft, token);
                   const invalid =
                     value.trim().length > 0 && !isValidHexColor(value);
