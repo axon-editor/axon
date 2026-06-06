@@ -8,6 +8,36 @@ Axon is a personal AI-powered code editor built with Electron, React, TypeScript
 Monaco, and a Go backend. It is built for day-to-day coding first: files,
 panes, terminal, Git, search, settings, previews, and language-server support.
 
+## Preview
+
+<p align="center">
+  <img src="docs/media/axon-demo.gif" alt="Axon opening the Axon workspace" width="760" />
+</p>
+
+<p align="center">
+  <a href="docs/media/axon-demo-full.mp4">Watch the full one-minute demo recording</a>
+</p>
+
+<p align="center">
+  <img src="docs/media/axon-screenshot-01.png" alt="Axon workspace screenshot" width="760" />
+</p>
+
+<p align="center">
+  <img src="docs/media/axon-screenshot-02.png" alt="Axon editor screenshot showing the workspace sidebar" width="760" />
+</p>
+
+<p align="center">
+  <img src="docs/media/axon-screenshot-03.png" alt="Axon editor screenshot showing syntax highlighting" width="760" />
+</p>
+
+<p align="center">
+  <img src="docs/media/axon-screenshot-04.png" alt="Axon editor screenshot showing an open file" width="760" />
+</p>
+
+<p align="center">
+  <img src="docs/media/axon-screenshot-05.png" alt="Axon editor screenshot showing the main workspace" width="760" />
+</p>
+
 ## Stack
 
 **Editor**
