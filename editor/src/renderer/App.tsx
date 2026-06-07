@@ -1850,24 +1850,27 @@ function App() {
               style={{
                 background: "var(--axon-toolbar-background)",
                 borderColor: "var(--axon-panel-border)",
+                WebkitAppRegion: "drag",
               }}
             >
               <div className="flex min-w-0 flex-1 overflow-hidden" />
-              <EditorToolbar
-                onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
-                onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
-                onDiff={() => runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW)}
-                onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
-                onSplit={handleSplit}
-                onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
-                onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
-                onExtensions={() => setExtensionsOpen(true)}
-                onAbout={() => setAboutOpen(true)}
-                updateInfo={updateInfo}
-                updateInstallState={updateInstallState}
-                onOpenUpdate={() => setUpdateModalOpen(true)}
-                isZenMode={zenMode}
-              />
+              <div style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+                <EditorToolbar
+                  onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
+                  onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
+                  onDiff={() => runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW)}
+                  onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
+                  onSplit={handleSplit}
+                  onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
+                  onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
+                  onExtensions={() => setExtensionsOpen(true)}
+                  onAbout={() => setAboutOpen(true)}
+                  updateInfo={updateInfo}
+                  updateInstallState={updateInstallState}
+                  onOpenUpdate={() => setUpdateModalOpen(true)}
+                  isZenMode={zenMode}
+                />
+              </div>
             </div>
           )}
 

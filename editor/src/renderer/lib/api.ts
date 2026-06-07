@@ -4,7 +4,7 @@
 // Every method returns the `data` field from the response envelope,
 // or throws an error with the `error` field from the envelope.
 
-const BASE_URL = "http://localhost:7777";
+import { CORE_HTTP_URL } from "./coreBackend";
 
 // AxonResponse mirrors the standard envelope from axon-core
 interface AxonResponse<T = unknown> {
@@ -39,7 +39,7 @@ export interface WorkspaceSearchResult {
 
 // request is the internal helper that handles fetch + envelope unwrapping
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, options);
+  const res = await fetch(`${CORE_HTTP_URL}${path}`, options);
   const json: AxonResponse<T> = await res.json();
 
   if (json.status !== "ok") {

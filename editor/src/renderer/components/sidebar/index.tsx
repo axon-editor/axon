@@ -295,9 +295,9 @@ export default function Sidebar({
   return (
     <>
       <div className="flex h-full">
-        <div className="w-52 `bg-(--axon-sidebar-background) border-r border-(--axon-sidebar-border) flex flex-col overflow-hidden">
+        <div className="flex w-52 flex-col overflow-hidden border-r bg-[var(--axon-sidebar-background)] border-[var(--axon-sidebar-border)]">
           <div
-            className="flex items-center justify-between border-b border-(--axon-sidebar-border px-3 py-2 pl-20 pt-[-15px]"
+            className="flex h-9 items-center justify-between border-b border-[var(--axon-sidebar-border)] px-3 pl-20"
             style={{ WebkitAppRegion: "drag" } as any}
           >
             <button

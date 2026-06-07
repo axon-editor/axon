@@ -27,6 +27,7 @@ import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
 import { editorFontStack } from "../lib/fonts";
 import { type EditorDiagnostic } from "../lib/diagnostics";
 import { type ResolvedThemeTokens } from "../lib/themeTokens";
+import { getCoreWebSocketUrl, waitForCoreBackend } from "../lib/coreBackend";
 import ChromeTab from "./ChromeTab";
 import Tooltip from "./Tooltip";
 import {
@@ -69,7 +70,6 @@ interface TerminalSession {
   cwdSynced: boolean;
 }
 
-const TERMINAL_BACKEND_URL = "ws://localhost:7777/terminal";
 const DEFAULT_TERMINAL_HEIGHT = 280;
 const MIN_TERMINAL_HEIGHT = 180;
 
@@ -201,8 +201,11 @@ function getFolderName(path: string | null) {
 }
 
 function getTerminalBackendUrl(workingDirectory: string | null) {
-  if (!workingDirectory) return TERMINAL_BACKEND_URL;
-  return `${TERMINAL_BACKEND_URL}?cwd=${encodeURIComponent(workingDirectory)}`;
+  const backendUrl = getCoreWebSocketUrl("/terminal");
+  if (workingDirectory) {
+    backendUrl.searchParams.set("cwd", workingDirectory);
+  }
+  return backendUrl.toString();
 }
 
 function quoteShellPath(path: string) {
@@ -263,6 +266,7 @@ export default function Terminal({
   const [height, setHeight] = useState(DEFAULT_TERMINAL_HEIGHT);
   const [zoomed, setZoomed] = useState(false);
   const sessionsRef = useRef<Record<string, TerminalSession>>({});
+  const connectionAbortRef = useRef<Record<string, AbortController>>({});
   const lastCreateNonceRef = useRef(createNonce);
   const suppressAutoCreateRef = useRef(false);
   const previousOpenRef = useRef(open);
@@ -305,6 +309,8 @@ export default function Terminal({
   const disposeSession = useCallback((id: string) => {
     const session = sessionsRef.current[id];
 
+    connectionAbortRef.current[id]?.abort();
+    delete connectionAbortRef.current[id];
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
     if (session?.ws) {
@@ -442,39 +448,57 @@ export default function Terminal({
       term.open(container);
       fitAddon.fit();
 
-      const ws = new WebSocket(
-        getTerminalBackendUrl(session.workingDirectory),
-      );
+      const abortController = new AbortController();
+      connectionAbortRef.current[id] = abortController;
 
       session.term = term;
       session.fitAddon = fitAddon;
-      session.ws = ws;
+      term.write("\x1b[2mconnecting to axon-core...\x1b[0m\r\n");
 
-      ws.onopen = () => {
-        updateTabConnection(id, true);
-        sendResize(id);
-        sendWorkspaceCd(session);
-      };
+      void waitForCoreBackend(abortController.signal).then((ready) => {
+        if (abortController.signal.aborted) return;
+        if (!sessionsRef.current[id]) return;
+        delete connectionAbortRef.current[id];
 
-      ws.onmessage = (event) => term.write(event.data);
+        if (!ready) {
+          updateTabConnection(id, false);
+          term.write(
+            "\r\n\x1b[31mterminal backend is not reachable. Start axon-core or restart Axon, then create a new terminal.\x1b[0m\r\n",
+          );
+          return;
+        }
 
-      ws.onclose = () => {
-        updateTabConnection(id, false);
-        term.write("\r\n\x1b[31mconnection closed\x1b[0m\r\n");
-      };
-
-      ws.onerror = () => {
-        term.write(
-          "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
+        const ws = new WebSocket(
+          getTerminalBackendUrl(session.workingDirectory),
         );
-      };
+        session.ws = ws;
+
+        ws.onopen = () => {
+          updateTabConnection(id, true);
+          sendResize(id);
+          sendWorkspaceCd(session);
+        };
+
+        ws.onmessage = (event) => term.write(event.data);
+
+        ws.onclose = () => {
+          updateTabConnection(id, false);
+          term.write("\r\n\x1b[31mconnection closed\x1b[0m\r\n");
+        };
+
+        ws.onerror = () => {
+          term.write(
+            "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
+          );
+        };
+      });
 
       // xterm's onData stream is the keyboard side of the PTY. Keeping one
       // websocket per tab lets every terminal have its own shell process,
       // which is why a new tab does not overwrite or steal another tab's work.
       session.dataDisposable = term.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
+        if (session.ws?.readyState === WebSocket.OPEN) {
+          session.ws.send(data);
         }
       });
 
