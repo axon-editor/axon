@@ -99,6 +99,9 @@ import {
 import { getUserExtensionsPath } from "./extensions/paths";
 
 const isDev = process.env.NODE_ENV === "development";
+const axonDevServerUrl =
+  process.env.AXON_DEV_SERVER_URL ?? "http://localhost:5173";
+const hasDevSingleInstanceLock = !isDev || app.requestSingleInstanceLock();
 app.setName("Axon");
 configureAutoUpdater();
 const execFileAsync = promisify(execFile);
@@ -124,6 +127,32 @@ let htmlPreviewBaseUrl: string | null = null;
 let htmlPreviewWatcher: FSWatcher | null = null;
 let htmlPreviewReloadTimer: ReturnType<typeof setTimeout> | null = null;
 const htmlPreviewClients = new Set<ServerResponse>();
+
+if (!hasDevSingleInstanceLock) {
+  app.quit();
+}
+
+app.on("second-instance", () => {
+  if (!isDev) return;
+
+  // The development runner can be started more than once while a Vite server
+  // is already alive. Without a single-instance guard, each Electron process
+  // gets its own Dock icon and its own renderer window, which looks like Axon
+  // is spawning copies of itself. The production app still owns normal
+  // multi-window behavior through the File menu; this path only collapses
+  // duplicate dev launches back onto the current main window.
+  const targetWindow =
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : BrowserWindow.getAllWindows().find((window) => !window.isDestroyed());
+
+  if (!targetWindow) return;
+
+  if (targetWindow.isMinimized()) {
+    targetWindow.restore();
+  }
+  targetWindow.focus();
+});
 
 interface GitHubReleasePayload {
   tag_name?: string;
@@ -3732,7 +3761,7 @@ function createWindow(options: { restoreSession?: boolean } = {}) {
   routeExternalNavigation(window);
 
   if (isDev) {
-    window.loadURL("http://localhost:5173");
+    window.loadURL(axonDevServerUrl);
   } else {
     window.loadFile(path.join(__dirname, "../../dist/renderer/index.html"));
   }
@@ -4474,6 +4503,8 @@ ipcMain.handle("fs:unwatch", async () => {
 });
 
 app.whenReady().then(async () => {
+  if (!hasDevSingleInstanceLock) return;
+
   // handle axon://local/absolute/path requests
   // streams the file directly to the renderer
   protocol.handle("axon", (request) => {

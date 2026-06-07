@@ -11,7 +11,7 @@
   },
   "main": "dist/main/index.js",
   "scripts": {
-    "dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "concurrently \"cross-env NODE_ENV=development vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development AXON_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "build:core": "node scripts/build-core.mjs",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
