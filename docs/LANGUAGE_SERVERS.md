@@ -12,10 +12,16 @@ renderer.
 | Language | Server | Status |
 | --- | --- | --- |
 | TypeScript / JavaScript | `typescript-language-server` | Bundled with Axon |
-| Go | `gopls` | Requires local Go toolchain install |
-| Python | `pyright-langserver` | Requires local install |
-| Rust | `rust-analyzer` | Requires local install |
-| C / C++ | `clangd` | Requires local install |
+| Go | `gopls` | Axon managed bundle path |
+| Python | `pyright-langserver` | Bundled with Axon |
+| Rust | `rust-analyzer` | Axon managed bundle path |
+| C / C++ | `clangd` | Axon managed bundle path |
+| Java | `jdtls` | Axon managed bundle path |
+| C# | `csharp-ls` | Axon managed bundle path |
+| Kotlin | `kotlin-language-server` | Axon managed bundle path |
+| Ruby | `solargraph` | Axon managed bundle path |
+| PHP | `intelephense` | Bundled with Axon |
+| Lua | `lua-language-server` | Axon managed bundle path |
 
 ## Current LSP Features
 
@@ -32,38 +38,36 @@ renderer.
 
 These commands are examples. Use the install method that fits the machine.
 
-```bash
-npm install -g pyright
-```
-
-```bash
-go install golang.org/x/tools/gopls@latest
-```
-
-```bash
-rustup component add rust-analyzer
-```
-
-```bash
-# macOS with Homebrew
-brew install llvm
-```
-
 ## Why Some Servers Are Not Bundled
 
-TypeScript is practical to bundle because the language server and compiler are
-npm packages that can ship inside the Electron app.
+TypeScript, Python, PHP, Docker, and Tailwind are practical to bundle because
+their language servers are npm packages that can ship inside the Electron app.
 
-Go, Rust, Python, and C/C++ tooling is more closely tied to the user's local
-toolchain, SDK, virtual environment, or compiler setup. Axon should discover
-those tools and explain what is missing instead of shipping stale toolchains
-inside the app.
+Go, Rust, C/C++, Java, C#, Kotlin, and Lua are downloaded or built into Axon's
+managed language server bundle directory during release builds:
+
+```text
+editor/build/language-servers/<platform>-<arch>/<server>/bin/<executable>
+```
+
+Packaged builds copy that directory into Electron `extraResources` as
+`language-servers/`. That lets Axon ship runtime-backed tools per platform
+without asking every project to install them separately.
+
+Ruby is already wired to the same managed bundle path, but it is not downloaded
+automatically yet because the practical servers are Ruby gems rather than
+standalone platform archives. Fully bundled Ruby support needs a Ruby runtime
+bundle plus the selected gem server.
+
+Bundled Java/Kotlin/C# servers still expect the matching language runtime or
+SDK to be available for real project analysis. C/C++ projects still need build
+metadata such as `compile_commands.json` for best results. That is different
+from asking the user to install the language server itself: Axon ships the
+server payload, while the project toolchain remains the user's normal
+development runtime.
 
 ## Next LSP Work
 
-- Hover.
-- Go to definition.
-- Find references.
-- Rename symbol.
-- Formatting.
-- Code actions.
+- Add a Ruby runtime + gem bundle for managed Ruby support.
+- Add Settings UI actions for installing/updating managed language tools.
+- Show runtime/toolchain requirements beside each bundled server in Settings.

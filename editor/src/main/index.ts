@@ -1169,6 +1169,16 @@ interface LanguageServerDefinition {
   launchArgs: string[];
   workspaceMarkers: string[];
   installHint: string;
+  bundledNodeServer?: {
+    packagePath: string[];
+    scriptPath: string[];
+  };
+  managedBundle?: {
+    directoryName: string;
+    executableNames: string[];
+    args?: string[];
+    launchArgs?: string[];
+  };
   resolveCommand?: (folderPath: string) => {
     command: string;
     args: string[];
@@ -1196,6 +1206,15 @@ interface LanguageServerSession {
     }
   >;
   syncedDocuments: Map<string, { version: number; languageId: string }>;
+}
+
+interface ResolvedLanguageServerCommand {
+  command: string;
+  args: string[];
+  launchCommand: string;
+  launchArgs: string[];
+  env?: NodeJS.ProcessEnv;
+  startable: boolean;
 }
 
 interface LanguageServerStartAttempt {
@@ -1301,7 +1320,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     // keeps the settings UI honest: the workspace may be a C++ project, but
     // Axon only claims the server is startable when the actual executable is
     // available on PATH.
-    installHint: "Install clangd.",
+    installHint: "Bundled with Axon through the managed clangd bundle.",
+    managedBundle: {
+      directoryName: "cpp",
+      executableNames: ["clangd"],
+    },
   },
   {
     id: "go",
@@ -1311,7 +1334,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["version"],
     launchArgs: [],
     workspaceMarkers: ["go.mod", "go.work"],
-    installHint: "Install gopls.",
+    installHint: "Bundled with Axon through the managed gopls bundle.",
+    managedBundle: {
+      directoryName: "go",
+      executableNames: ["gopls"],
+    },
   },
   {
     id: "rust",
@@ -1321,7 +1348,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: [],
     workspaceMarkers: ["Cargo.toml"],
-    installHint: "Install rust-analyzer.",
+    installHint: "Bundled with Axon through the managed rust-analyzer bundle.",
+    managedBundle: {
+      directoryName: "rust",
+      executableNames: ["rust-analyzer"],
+    },
   },
   {
     id: "python",
@@ -1331,7 +1362,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: ["--stdio"],
     workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt"],
-    installHint: "Install pyright.",
+    installHint: "Bundled with Axon through pyright.",
+    bundledNodeServer: {
+      packagePath: ["node_modules", "pyright"],
+      scriptPath: ["langserver.index.js"],
+    },
   },
   {
     id: "java",
@@ -1353,7 +1388,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     // launcher exists; bundling JDT LS correctly also means deciding how to
     // ship or require a Java runtime per platform, so that belongs in the
     // managed language-tool layer rather than a blind npm dependency.
-    installHint: "Install Eclipse JDT LS and expose the jdtls command.",
+    installHint: "Add Eclipse JDT LS to Axon's managed language-server bundle.",
+    managedBundle: {
+      directoryName: "java",
+      executableNames: ["jdtls"],
+    },
   },
   {
     id: "csharp",
@@ -1372,7 +1411,12 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     // with existing .NET SDK installs. The important boundary here is that
     // Axon starts a real LSP process, while .NET SDK/runtime installation stays
     // explicit until Axon has a trusted managed-tool installer.
-    installHint: "Install csharp-ls and the .NET SDK.",
+    installHint: "Add csharp-ls to Axon's managed language-server bundle.",
+    managedBundle: {
+      directoryName: "csharp",
+      executableNames: ["OmniSharp", "omnisharp"],
+      launchArgs: ["--languageserver"],
+    },
   },
   {
     id: "kotlin",
@@ -1387,7 +1431,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "settings.gradle",
       "settings.gradle.kts",
     ],
-    installHint: "Install kotlin-language-server.",
+    installHint: "Add kotlin-language-server to Axon's managed language-server bundle.",
+    managedBundle: {
+      directoryName: "kotlin",
+      executableNames: ["kotlin-language-server"],
+    },
   },
   {
     id: "ruby",
@@ -1397,7 +1445,12 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: ["stdio"],
     workspaceMarkers: ["Gemfile", ".ruby-version", ".solargraph.yml"],
-    installHint: "Install solargraph.",
+    installHint: "Add solargraph to Axon's managed language-server bundle.",
+    managedBundle: {
+      directoryName: "ruby",
+      executableNames: ["solargraph"],
+      launchArgs: ["stdio"],
+    },
   },
   {
     id: "php",
@@ -1407,7 +1460,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: ["--stdio"],
     workspaceMarkers: ["composer.json", "phpunit.xml", "phpunit.xml.dist"],
-    installHint: "Install intelephense.",
+    installHint: "Bundled with Axon through intelephense.",
+    bundledNodeServer: {
+      packagePath: ["node_modules", "intelephense"],
+      scriptPath: ["lib", "intelephense.js"],
+    },
   },
   {
     id: "lua",
@@ -1422,7 +1479,11 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "selene.toml",
       "stylua.toml",
     ],
-    installHint: "Install lua-language-server.",
+    installHint: "Add lua-language-server to Axon's managed language-server bundle.",
+    managedBundle: {
+      directoryName: "lua",
+      executableNames: ["lua-language-server"],
+    },
   },
   {
     id: "docker",
@@ -1584,12 +1645,122 @@ function getLanguageServerSessionKey(
   return `${path.resolve(folderPath)}::${id}`;
 }
 
+function getElectronNodeEnvironment() {
+  return {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: "1",
+  };
+}
+
+function resolveBundledNodeLanguageServer(
+  definition: LanguageServerDefinition,
+): ResolvedLanguageServerCommand | null {
+  if (!definition.bundledNodeServer) return null;
+
+  const serverScript = path.join(
+    app.getAppPath(),
+    ...definition.bundledNodeServer.packagePath,
+    ...definition.bundledNodeServer.scriptPath,
+  );
+  if (!fs.existsSync(serverScript)) return null;
+
+  // npm-backed language servers are the easiest and safest servers for Axon to
+  // bundle because their entry points are normal JavaScript files. Electron can
+  // run those files in Node mode through the already-shipped app executable, so
+  // users do not need a global node/npm install and every packaged Axon build
+  // resolves the same server version.
+  return {
+    command: process.execPath,
+    args: [serverScript, ...definition.args],
+    launchCommand: process.execPath,
+    launchArgs: [serverScript, ...definition.launchArgs],
+    env: getElectronNodeEnvironment(),
+    startable: true,
+  };
+}
+
+function getManagedLanguageServerPlatformKeys() {
+  const architecture = process.arch;
+  const platform = process.platform;
+
+  return [
+    `${platform}-${architecture}`,
+    platform,
+    "common",
+  ];
+}
+
+function getManagedLanguageServerRoots() {
+  // Packaged builds receive managed native/runtime-backed servers through
+  // Electron's extraResources directory. Development builds use the same shape
+  // under editor/build/language-servers so the resolver can be tested locally
+  // before release packaging.
+  return [
+    path.join(process.resourcesPath, "language-servers"),
+    path.join(app.getAppPath(), "build", "language-servers"),
+  ];
+}
+
+function getExecutableNameVariants(executableName: string) {
+  if (process.platform !== "win32") return [executableName];
+  return [
+    executableName,
+    `${executableName}.exe`,
+    `${executableName}.cmd`,
+    `${executableName}.bat`,
+  ];
+}
+
+function resolveManagedLanguageServer(
+  definition: LanguageServerDefinition,
+): ResolvedLanguageServerCommand | null {
+  if (!definition.managedBundle) return null;
+
+  for (const root of getManagedLanguageServerRoots()) {
+    for (const platformKey of getManagedLanguageServerPlatformKeys()) {
+      for (const executableName of definition.managedBundle.executableNames) {
+        for (const executableVariant of getExecutableNameVariants(executableName)) {
+          const executablePath = path.join(
+            root,
+            platformKey,
+            definition.managedBundle.directoryName,
+            "bin",
+            executableVariant,
+          );
+
+          if (!fs.existsSync(executablePath)) continue;
+
+          // Managed bundles are where Axon can ship native or runtime-backed
+          // servers such as JDT LS, csharp-ls, Kotlin LS, Ruby LSP/Solargraph,
+          // and Lua LS without asking each project to install them. The
+          // platform segment prevents macOS/Linux/Windows binaries from being
+          // mixed, while the common segment still supports portable launchers.
+          return {
+            command: executablePath,
+            args: definition.managedBundle.args ?? definition.args,
+            launchCommand: executablePath,
+            launchArgs:
+              definition.managedBundle.launchArgs ?? definition.launchArgs,
+            startable: true,
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 function resolveLanguageServerCommand(
   definition: LanguageServerDefinition,
   folderPath: string,
-) {
+): ResolvedLanguageServerCommand {
+  const customResolved = definition.resolveCommand?.(folderPath);
+  if (customResolved) return customResolved;
+
   return (
-    definition.resolveCommand?.(folderPath) ?? {
+    resolveBundledNodeLanguageServer(definition) ??
+    resolveManagedLanguageServer(definition) ?? {
       command: definition.command,
       args: definition.args,
       launchCommand: definition.command,

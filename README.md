@@ -160,10 +160,16 @@ acts as an LSP client and talks to language servers.
 Currently targeted:
 
 - TypeScript/JavaScript: bundled `typescript-language-server`
-- Go: `gopls`
-- Python: `pyright-langserver`
-- Rust: `rust-analyzer`
-- C/C++: `clangd`
+- Go: managed `gopls` bundle path
+- Python: bundled `pyright-langserver`
+- Rust: managed `rust-analyzer` bundle path
+- C/C++: managed `clangd` bundle path
+- Java: managed `jdtls` bundle path
+- C#: managed OmniSharp/C# bundle path
+- Kotlin: managed `kotlin-language-server` bundle path
+- Ruby: managed `solargraph` bundle path planned for runtime-backed bundles
+- PHP: bundled `intelephense`
+- Lua: managed `lua-language-server` bundle path
 
 More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 

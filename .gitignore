@@ -3,3 +3,5 @@
 .axon/
 NerdFonts/
 Variable Fonts/
+editor/.language-server-downloads/
+editor/build/language-servers/*/

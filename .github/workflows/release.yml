@@ -63,6 +63,9 @@ jobs:
       - name: Install editor dependencies
         run: npm ci
 
+      - name: Bundle managed language servers
+        run: npm run build:language-servers
+
       - name: Build packaged desktop target
         run: ${{ matrix.platform.command }}
 

@@ -12,6 +12,7 @@
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "concurrently \"cross-env NODE_ENV=development vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development AXON_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "build:language-servers": "node scripts/download-language-servers.mjs",
     "build:core": "node scripts/build-core.mjs",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
@@ -50,6 +51,10 @@
       {
         "from": "build/core",
         "to": "core"
+      },
+      {
+        "from": "build/language-servers",
+        "to": "language-servers"
       }
     ],
     "publish": [
@@ -97,7 +102,9 @@
     "chokidar": "^5.0.0",
     "dockerfile-language-server-nodejs": "^0.15.0",
     "electron-updater": "^6.8.3",
+    "intelephense": "^1.18.4",
     "lucide-react": "^1.16.0",
+    "pyright": "^1.1.410",
     "react-file-icon": "^1.6.0",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
