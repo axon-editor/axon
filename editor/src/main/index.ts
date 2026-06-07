@@ -808,6 +808,10 @@ function closeFocusedWindow() {
   targetWindow?.close();
 }
 
+function isExternalHandlerUrl(href: string) {
+  return /^(https?:|mailto:|tel:)/i.test(href);
+}
+
 function shouldBlockBrowserShortcut(input: {
   key: string;
   control: boolean;
@@ -830,6 +834,30 @@ function shouldBlockBrowserShortcut(input: {
   if (commandOrControl && input.shift && key === "i") return true;
 
   return false;
+}
+
+function routeExternalNavigation(window: BrowserWindow) {
+  // Markdown and HTML previews can contain normal anchors, raw HTML anchors,
+  // or target=_blank links. React handles the common Markdown path, but the
+  // main process still has to be the final guard because Chromium can create a
+  // new Electron BrowserWindow before renderer code sees the click. Denying
+  // those navigations keeps Axon as a single editor window while still sending
+  // web, mail, and phone links to the user's configured system app.
+  window.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+    if (isExternalHandlerUrl(targetUrl)) {
+      void shell.openExternal(targetUrl);
+    }
+
+    return { action: "deny" };
+  });
+
+  window.webContents.on("will-navigate", (event, targetUrl) => {
+    if (!targetUrl || targetUrl === window.webContents.getURL()) return;
+    if (!isExternalHandlerUrl(targetUrl)) return;
+
+    event.preventDefault();
+    void shell.openExternal(targetUrl);
+  });
 }
 
 function buildViewMenu(): MenuItemConstructorOptions {
@@ -3701,6 +3729,7 @@ function createWindow(options: { restoreSession?: boolean } = {}) {
     if (!shouldBlockBrowserShortcut(input)) return;
     event.preventDefault();
   });
+  routeExternalNavigation(window);
 
   if (isDev) {
     window.loadURL("http://localhost:5173");
@@ -4059,7 +4088,7 @@ ipcMain.handle("app:openUpdatePage", async (_event, releaseUrl?: string) => {
 });
 
 ipcMain.handle("shell:openExternal", async (_event, href: string) => {
-  if (!/^(https?:|mailto:|tel:)/i.test(href)) {
+  if (!isExternalHandlerUrl(href)) {
     throw new Error("Only external web, mail, and phone links can be opened.");
   }
 

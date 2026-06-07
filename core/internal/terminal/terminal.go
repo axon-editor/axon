@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
@@ -71,8 +72,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cmd := exec.Command(shell)
-	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+	cmd := exec.Command(shell, shellStartupArgs(shell)...)
+	cmd.Env = terminalEnvironment()
 	cmd.Dir = resolveWorkingDirectory(r.URL.Query().Get("cwd"))
 
 	ptmx, err := pty.Start(cmd)
@@ -124,4 +125,88 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func shellStartupArgs(shellPath string) []string {
+	// Axon is launched from a GUI app more often than a login terminal. On macOS
+	// that means the process can miss the user's normal shell startup files,
+	// which is why commands like npm, pnpm, bun, or go may exist in Terminal.app
+	// but not in Axon's integrated terminal. Starting the shell as login +
+	// interactive gives zsh/bash the same chance to load profile files that a
+	// normal developer terminal gets.
+	switch filepath.Base(shellPath) {
+	case "zsh":
+		return []string{"-l", "-i"}
+	case "bash":
+		return []string{"--login", "-i"}
+	default:
+		return nil
+	}
+}
+
+func terminalEnvironment() []string {
+	// I still add a conservative PATH fallback before the shell reads profile
+	// files because packaged desktop apps often inherit a tiny launchd PATH.
+	// Profile files can add nvm/asdf-specific paths afterward, but this baseline
+	// covers common Homebrew, Go, Cargo, Bun, and local-bin installs so basic
+	// commands are not missing before the user's shell customizations run.
+	env := os.Environ()
+	pathValue := os.Getenv("PATH")
+	if pathValue == "" {
+		pathValue = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+	}
+
+	home, _ := os.UserHomeDir()
+	extraPaths := []string{
+		"/opt/homebrew/bin",
+		"/opt/homebrew/sbin",
+		"/usr/local/bin",
+		"/usr/local/sbin",
+		"/usr/bin",
+		"/bin",
+		"/usr/sbin",
+		"/sbin",
+	}
+	if home != "" {
+		extraPaths = append(extraPaths,
+			filepath.Join(home, ".local", "bin"),
+			filepath.Join(home, "bin"),
+			filepath.Join(home, "go", "bin"),
+			filepath.Join(home, ".cargo", "bin"),
+			filepath.Join(home, ".bun", "bin"),
+			filepath.Join(home, ".npm-global", "bin"),
+		)
+	}
+
+	seen := map[string]bool{}
+	parts := []string{}
+	for _, entry := range strings.Split(pathValue, string(os.PathListSeparator)) {
+		if entry == "" || seen[entry] {
+			continue
+		}
+		seen[entry] = true
+		parts = append(parts, entry)
+	}
+	for _, entry := range extraPaths {
+		if entry == "" || seen[entry] {
+			continue
+		}
+		seen[entry] = true
+		parts = append(parts, entry)
+	}
+
+	nextPath := strings.Join(parts, string(os.PathListSeparator))
+	replacedPath := false
+	for index, entry := range env {
+		if strings.HasPrefix(entry, "PATH=") {
+			env[index] = "PATH=" + nextPath
+			replacedPath = true
+			break
+		}
+	}
+	if !replacedPath {
+		env = append(env, "PATH="+nextPath)
+	}
+
+	return append(env, "TERM=xterm-256color")
 }

@@ -68,6 +68,7 @@ export function detectLanguage(path: string): string {
     scss: "scss",
     sass: "scss",
     less: "less",
+    astro: "html",
     html: "html",
     htm: "html",
     yaml: "yaml",
