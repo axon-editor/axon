@@ -1414,7 +1414,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     installHint: "Add csharp-ls to Axon's managed language-server bundle.",
     managedBundle: {
       directoryName: "csharp",
-      executableNames: ["OmniSharp", "omnisharp"],
+      executableNames: ["OmniSharp", "OmniSharp.exe", "omnisharp"],
       launchArgs: ["--languageserver"],
     },
   },

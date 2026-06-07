@@ -76,7 +76,7 @@ const bundles = [
       "win32-x64": /^omnisharp-win-x64-net6\.0\.zip$/,
       "win32-arm64": /^omnisharp-win-arm64-net6\.0\.zip$/,
     },
-    executableNames: ["OmniSharp", "omnisharp"],
+    executableNames: ["OmniSharp", "OmniSharp.exe", "omnisharp"],
     wrapperName: process.platform === "win32" ? "OmniSharp.cmd" : "OmniSharp",
   },
   {
@@ -189,12 +189,19 @@ async function extractArchive(archivePath, destination) {
     return;
   }
 
-  if (archivePath.endsWith(".zip")) {
+  if (archivePath.endsWith(".zip") || archivePath.endsWith(".vsix")) {
     if (process.platform === "win32") {
+      const powershellArchivePath = archivePath.endsWith(".vsix")
+        ? `${archivePath}.zip`
+        : archivePath;
+      if (powershellArchivePath !== archivePath) {
+        await fs.copyFile(archivePath, powershellArchivePath);
+      }
+
       await run("powershell", [
         "-NoProfile",
         "-Command",
-        `Expand-Archive -Path '${archivePath.replace(/'/g, "''")}' -DestinationPath '${destination.replace(/'/g, "''")}' -Force`,
+        `Expand-Archive -LiteralPath '${powershellArchivePath.replace(/'/g, "''")}' -DestinationPath '${destination.replace(/'/g, "''")}' -Force`,
       ]);
       return;
     }

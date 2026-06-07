@@ -18,6 +18,10 @@
 - Documented that GitHub release assets include their matching managed
   language-server bundle, while source checkouts recreate generated binaries
   locally.
+- Fixed Linux release bundling by extracting Open VSX `.vsix` language-server
+  downloads as zip archives.
+- Fixed Windows release bundling by detecting `OmniSharp.exe` in the managed C#
+  language-server archive.
 
 ## v1.1.1
 

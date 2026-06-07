@@ -82,6 +82,7 @@ jobs:
           # same draft release without depending on the workflow branch name.
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}
           draft: true
+          body_path: docs/releases/${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}.md
           # Rebuilding the same patch release is intentional while Axon is
           # still unsigned and personal-use only. The release page should keep
           # the selected tag URL stable, but the installer assets must be
