@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.1.1
+
+- Fixed development startup so Vite stays on port `5173` instead of silently
+  shifting to another port while Electron still loads the old URL.
+- Added a development-only Electron single-instance guard so repeated
+  `npm run dev` launches focus the existing dev app instead of leaving multiple
+  Electron Dock icons.
+- Added NVM Node version discovery to Axon's integrated terminal PATH fallback
+  so `node` and `npm` are available even when the app is launched outside a
+  fully configured shell.
+
 ## v1.1.0
 
 - Added a bundled local extension system path so Axon can ship default
