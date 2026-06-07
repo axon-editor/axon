@@ -149,7 +149,8 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Settings UI and settings JSON
 - Custom themes, theme overrides, and imported fonts
 - Splash screen and custom app icon/name
-- LSP completion for TypeScript/JavaScript, Go, Python, Rust, and C/C++
+- LSP completion for TypeScript/JavaScript, Go, Python, Rust, C/C++, Java, C#,
+  Kotlin, PHP, Lua, Docker, and Tailwind CSS
 - Live LSP diagnostics routed into Problems
 
 ## Language Servers
@@ -167,9 +168,16 @@ Currently targeted:
 - Java: managed `jdtls` bundle path
 - C#: managed OmniSharp/C# bundle path
 - Kotlin: managed `kotlin-language-server` bundle path
-- Ruby: managed `solargraph` bundle path planned for runtime-backed bundles
+- Ruby: managed bundle path planned for runtime-backed bundles
 - PHP: bundled `intelephense`
 - Lua: managed `lua-language-server` bundle path
+
+Release builds download the native managed servers on the GitHub runner for
+that platform, then package them inside the desktop app. A GitHub release asset
+therefore already contains its matching server bundle; the app does not download
+those servers again on the user's machine. Source checkouts keep those generated
+binaries ignored, so local development uses `npm run build:language-servers`
+when a fresh bundle is needed.
 
 More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 

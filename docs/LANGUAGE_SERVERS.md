@@ -17,9 +17,9 @@ renderer.
 | Rust | `rust-analyzer` | Axon managed bundle path |
 | C / C++ | `clangd` | Axon managed bundle path |
 | Java | `jdtls` | Axon managed bundle path |
-| C# | `csharp-ls` | Axon managed bundle path |
+| C# | `OmniSharp` | Axon managed bundle path |
 | Kotlin | `kotlin-language-server` | Axon managed bundle path |
-| Ruby | `solargraph` | Axon managed bundle path |
+| Ruby | Runtime-backed Ruby server | Planned managed bundle path |
 | PHP | `intelephense` | Bundled with Axon |
 | Lua | `lua-language-server` | Axon managed bundle path |
 
@@ -38,10 +38,10 @@ renderer.
 
 These commands are examples. Use the install method that fits the machine.
 
-## Why Some Servers Are Not Bundled
+## How Managed Bundles Ship
 
-TypeScript, Python, PHP, Docker, and Tailwind are practical to bundle because
-their language servers are npm packages that can ship inside the Electron app.
+TypeScript, Python, PHP, Docker, and Tailwind are bundled through npm packages
+that ship inside the Electron app.
 
 Go, Rust, C/C++, Java, C#, Kotlin, and Lua are downloaded or built into Axon's
 managed language server bundle directory during release builds:
@@ -53,6 +53,17 @@ editor/build/language-servers/<platform>-<arch>/<server>/bin/<executable>
 Packaged builds copy that directory into Electron `extraResources` as
 `language-servers/`. That lets Axon ship runtime-backed tools per platform
 without asking every project to install them separately.
+
+The platform segment is based on Node's `process.platform` and `process.arch`.
+For example, an Intel macOS build creates `darwin-x64`, while an Apple Silicon
+build creates `darwin-arm64`. GitHub Actions runs this bundler separately on
+macOS x64, macOS arm64, Windows x64, and Linux x64, so each release asset only
+contains the server bundle that matches that artifact.
+
+Those generated binaries are intentionally ignored in source control. Users who
+download a GitHub release asset already have the matching managed servers inside
+the app. Developers who clone the repo can run `npm run build:language-servers`
+inside `editor/` to recreate the local bundle.
 
 Ruby is already wired to the same managed bundle path, but it is not downloaded
 automatically yet because the practical servers are Ruby gems rather than

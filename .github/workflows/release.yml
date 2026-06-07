@@ -30,7 +30,12 @@ jobs:
             runner: macos-15-intel
             command: npm run dist:mac:x64
           - name: macOS arm64
-            runner: macos-latest
+            # Keep this on the explicit Apple Silicon runner label so the
+            # language-server bundler sees process.arch=arm64. If this job ran
+            # on an Intel runner while electron-builder cross-packaged arm64,
+            # the app could accidentally ship x64 managed server binaries in an
+            # arm64 DMG.
+            runner: macos-15
             command: npm run dist:mac:arm64
           - name: Windows
             runner: windows-latest
