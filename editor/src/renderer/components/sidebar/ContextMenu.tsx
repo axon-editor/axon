@@ -1,6 +1,8 @@
 // Floating context menu for file and folder operations.
-// Renders inline input for create actions since Electron blocks native dialogs.
-// Closes on outside click via document mousedown listener.
+// Creation is started from here, but the actual input is rendered in the
+// sidebar tree. That matches editor behavior users expect: the new entry
+// appears exactly where it will be created, and clicking away can either save
+// a typed name or cancel an empty one.
 import { useEffect, useRef, useState } from "react";
 import {
   Columns2,
@@ -14,12 +16,11 @@ import {
 } from "lucide-react";
 import {
   type FileNode,
-  createFile,
-  createDir,
   deleteEntry,
   renameEntry,
 } from "../../lib/api";
 import { isHtmlFile } from "../../lib/htmlPreviewTabs";
+import { type InlineCreateKind } from "./InlineCreateRow";
 
 interface Props {
   menu: { x: number; y: number; node: FileNode; isRoot?: boolean };
@@ -27,6 +28,7 @@ interface Props {
   onClose: () => void;
   onRefresh: () => void | Promise<void>;
   onOpenPath?: (path: string, isDir: boolean) => void;
+  onBeginCreate?: (parentPath: string, kind: InlineCreateKind) => void;
   onEntryDeleted?: (path: string) => void;
   onEntryRenamed?: (oldPath: string, newPath: string) => void;
   onSplitFile?: (filePath: string) => void;
@@ -40,6 +42,7 @@ export default function ContextMenu({
   onClose,
   onRefresh,
   onOpenPath,
+  onBeginCreate,
   onEntryDeleted,
   onEntryRenamed,
   onSplitFile,
@@ -48,9 +51,7 @@ export default function ContextMenu({
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<
-    "menu" | "file" | "folder" | "rename" | "delete"
-  >("menu");
+  const [mode, setMode] = useState<"menu" | "rename" | "delete">("menu");
   const [inputValue, setInputValue] = useState("");
 
   useEffect(() => {
@@ -62,14 +63,26 @@ export default function ContextMenu({
   }, []);
 
   useEffect(() => {
-    if (mode === "file" || mode === "folder" || mode === "rename") {
+    if (mode === "rename") {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [mode]);
 
+  const getParentPath = (path: string) => {
+    const separator = path.includes("\\") ? "\\" : "/";
+    const parts = path.split(/[\\/]/);
+    parts.pop();
+    return parts.join(separator);
+  };
+
+  const joinPath = (parentPath: string, name: string) => {
+    const separator = parentPath.includes("\\") ? "\\" : "/";
+    return `${parentPath.replace(/[\\/]+$/, "")}${separator}${name}`;
+  };
+
   const basePath = menu.node.is_dir
     ? menu.node.path
-    : menu.node.path.split("/").slice(0, -1).join("/");
+    : getParentPath(menu.node.path);
   const canPreviewHtml = !menu.node.is_dir && isHtmlFile(menu.node.path);
 
   const trimmedName = inputValue.trim();
@@ -84,18 +97,6 @@ export default function ContextMenu({
   const beginRename = () => {
     setInputValue(menu.node.name);
     setMode("rename");
-  };
-
-  const handleConfirmCreate = async () => {
-    const name = trimmedName;
-    if (!name || isDuplicateName) return;
-
-    const createdPath = `${basePath}/${name}`;
-    if (mode === "file") await createFile(createdPath);
-    if (mode === "folder") await createDir(createdPath);
-    await onRefresh();
-    onOpenPath?.(createdPath, mode === "folder");
-    onClose();
   };
 
   const handleConfirmRename = async () => {
@@ -119,7 +120,6 @@ export default function ContextMenu({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       if (mode === "rename") void handleConfirmRename();
-      else void handleConfirmCreate();
     }
     if (e.key === "Escape") onClose();
   };
@@ -133,14 +133,20 @@ export default function ContextMenu({
       {mode === "menu" && (
         <div className="axon-context-menu__panel">
           <button
-            onClick={() => setMode("file")}
+            onClick={() => {
+              onBeginCreate?.(basePath, "file");
+              onClose();
+            }}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
           >
             <FilePlus size={13} className="text-[#80c8e0]" />
             new file
           </button>
           <button
-            onClick={() => setMode("folder")}
+            onClick={() => {
+              onBeginCreate?.(basePath, "folder");
+              onClose();
+            }}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
           >
             <FolderPlus size={13} className="text-[#80c8e0]" />
@@ -203,14 +209,10 @@ export default function ContextMenu({
         </div>
       )}
 
-      {(mode === "file" || mode === "folder" || mode === "rename") && (
+      {mode === "rename" && (
         <div className="axon-context-menu__panel px-3 py-3 flex flex-col gap-2.5">
           <span className="text-[11px] uppercase tracking-normal text-[#586478]">
-            {mode === "rename"
-              ? "new name"
-              : mode === "file"
-                ? "file name"
-                : "folder name"}
+            new name
           </span>
           <input
             ref={inputRef}
@@ -223,11 +225,7 @@ export default function ContextMenu({
                 : "border-[#222838] focus:border-[#80c8e0]"
             }`}
             placeholder={
-              mode === "rename"
-                ? menu.node.name
-                : mode === "file"
-                  ? "index.go"
-                  : "pkg"
+              menu.node.name
             }
           />
           {isDuplicateName && (
@@ -243,15 +241,11 @@ export default function ContextMenu({
               cancel
             </button>
             <button
-              onClick={() =>
-                mode === "rename"
-                  ? void handleConfirmRename()
-                  : void handleConfirmCreate()
-              }
+              onClick={() => void handleConfirmRename()}
               disabled={!trimmedName || isDuplicateName}
               className="h-7 px-3 rounded bg-[#80c8e0] text-[11px] font-medium text-[#0e1018] hover:bg-[#9dd4e8] cursor-pointer disabled:cursor-default disabled:opacity-50 transition-colors"
             >
-              {mode === "rename" ? "rename" : "create"}
+              rename
             </button>
           </div>
         </div>

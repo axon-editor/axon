@@ -39,6 +39,8 @@ interface Props {
   updateInstallState: UpdateInstallState;
   onOpenUpdate: () => void;
   isZenMode: boolean;
+  hasWorkspace: boolean;
+  hasActiveFile: boolean;
 }
 
 type DropdownType = "new" | "split" | "app" | null;
@@ -57,6 +59,8 @@ export default function EditorToolbar({
   updateInstallState,
   onOpenUpdate,
   isZenMode,
+  hasWorkspace,
+  hasActiveFile,
 }: Props) {
   const [dropdown, setDropdown] = useState<DropdownType>(null);
   const newRef = useRef<HTMLDivElement>(null);
@@ -65,14 +69,12 @@ export default function EditorToolbar({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (
-        newRef.current &&
-        !newRef.current.contains(e.target as Node) &&
-        splitRef.current &&
-        !splitRef.current.contains(e.target as Node) &&
-        appRef.current &&
-        !appRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node;
+      const isInsideToolbarPopover = [newRef, splitRef, appRef].some((ref) =>
+        ref.current?.contains(target),
+      );
+
+      if (!isInsideToolbarPopover) {
         setDropdown(null);
       }
     };
@@ -125,129 +127,137 @@ export default function EditorToolbar({
         <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
       ) : null}
 
-      {/* new action button */}
-      <div ref={newRef} className="relative">
-        <Tooltip label="New..." side="bottom">
-          <button
-            onClick={() => toggle("new")}
-            aria-label="New..."
-            className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
-            ${dropdown === "new" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
-          >
-            <Plus size={14} />
-          </button>
-        </Tooltip>
+      {hasWorkspace && (
+        <>
+          {/* new action button */}
+          <div ref={newRef} className="relative">
+            <Tooltip label="New..." side="bottom">
+              <button
+                onClick={() => toggle("new")}
+                aria-label="New..."
+                className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+                ${dropdown === "new" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+              >
+                <Plus size={14} />
+              </button>
+            </Tooltip>
 
-        {dropdown === "new" && (
-          <div className="axon-popover absolute right-0 top-8 z-50 w-48 rounded-lg border border-[#222838] bg-[#14161e] py-1 shadow-2xl">
-            <button
-              onClick={() => {
-                onNewFile();
-                setDropdown(null);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
-            >
-              <FileText size={13} className="shrink-0" />
-              new file
-            </button>
-            <button
-              onClick={() => {
-                onOpenFile();
-                setDropdown(null);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
-            >
-              <FolderOpen size={13} className="shrink-0" />
-              open file
-            </button>
-            <div className="my-1 border-t border-[#222838]" />
-            <button
-              onClick={() => {
-                onNewTerminal();
-                setDropdown(null);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
-            >
-              <Terminal size={13} className="shrink-0" />
-              new terminal
-            </button>
+            {dropdown === "new" && (
+              <div className="axon-popover absolute right-0 top-8 z-50 w-48 rounded-lg border border-[#222838] bg-[#14161e] py-1 shadow-2xl">
+                <button
+                  onClick={() => {
+                    onNewFile();
+                    setDropdown(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                >
+                  <FileText size={13} className="shrink-0" />
+                  new file
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenFile();
+                    setDropdown(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                >
+                  <FolderOpen size={13} className="shrink-0" />
+                  open file
+                </button>
+                <div className="my-1 border-t border-[#222838]" />
+                <button
+                  onClick={() => {
+                    onNewTerminal();
+                    setDropdown(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                >
+                  <Terminal size={13} className="shrink-0" />
+                  new terminal
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+          <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+        </>
+      )}
 
-      <div ref={splitRef} className="relative">
-        <Tooltip label="Split editor" side="bottom">
-          <button
-            onClick={() => toggle("split")}
-            aria-label="Split editor"
-            className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
-            ${dropdown === "split" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
-          >
-            <Columns2 size={14} />
-          </button>
-        </Tooltip>
+      {hasActiveFile && (
+        <>
+          <div ref={splitRef} className="relative">
+            <Tooltip label="Split editor" side="bottom">
+              <button
+                onClick={() => toggle("split")}
+                aria-label="Split editor"
+                className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
+                ${dropdown === "split" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+              >
+                <Columns2 size={14} />
+              </button>
+            </Tooltip>
 
-        {dropdown === "split" && (
-          <div className="axon-popover absolute right-0 top-8 z-50 w-48 rounded-lg border border-[#222838] bg-[#14161e] py-1 shadow-2xl">
-            <button
-              onClick={() => {
-                onSplit("right");
-                setDropdown(null);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
-            >
-              <AlignEndVertical size={13} className="shrink-0" />
-              split right
-            </button>
-            <button
-              onClick={() => {
-                onSplit("left");
-                setDropdown(null);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
-            >
-              <AlignStartVertical size={13} className="shrink-0" />
-              split left
-            </button>
-            <button
-              onClick={() => {
-                onSplit("up");
-                setDropdown(null);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
-            >
-              <AlignStartHorizontal size={13} className="shrink-0" />
-              split up
-            </button>
-            <button
-              onClick={() => {
-                onSplit("down");
-                setDropdown(null);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
-            >
-              <AlignEndHorizontal size={13} className="shrink-0" />
-              split down
-            </button>
+            {dropdown === "split" && (
+              <div className="axon-popover absolute right-0 top-8 z-50 w-48 rounded-lg border border-[#222838] bg-[#14161e] py-1 shadow-2xl">
+                <button
+                  onClick={() => {
+                    onSplit("right");
+                    setDropdown(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                >
+                  <AlignEndVertical size={13} className="shrink-0" />
+                  split right
+                </button>
+                <button
+                  onClick={() => {
+                    onSplit("left");
+                    setDropdown(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                >
+                  <AlignStartVertical size={13} className="shrink-0" />
+                  split left
+                </button>
+                <button
+                  onClick={() => {
+                    onSplit("up");
+                    setDropdown(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                >
+                  <AlignStartHorizontal size={13} className="shrink-0" />
+                  split up
+                </button>
+                <button
+                  onClick={() => {
+                    onSplit("down");
+                    setDropdown(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                >
+                  <AlignEndHorizontal size={13} className="shrink-0" />
+                  split down
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+          <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
 
-      <Tooltip label="Compare active file" side="bottom">
-        <button
-          onClick={onDiff}
-          aria-label="Compare active file"
-          className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
-        >
-          <GitCompare size={14} />
-        </button>
-      </Tooltip>
+          <Tooltip label="Compare active file" side="bottom">
+            <button
+              onClick={onDiff}
+              aria-label="Compare active file"
+              className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
+            >
+              <GitCompare size={14} />
+            </button>
+          </Tooltip>
 
-      <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+          <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+        </>
+      )}
 
       <Tooltip label={isZenMode ? "Exit zen mode" : "Zen mode"} side="bottom">
         <button

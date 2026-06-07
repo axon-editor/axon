@@ -14,6 +14,7 @@ import {
 } from "../../lib/dragData";
 import { getFileIcon, getFolderIcon } from "../../lib/fileIcons";
 import { type GitTreeDecoration } from ".";
+import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
 
 interface Props {
   node: FileNode;
@@ -24,6 +25,9 @@ interface Props {
   revealPath?: string | null;
   gitDecorations?: Map<string, GitTreeDecoration>;
   ignoredPaths?: Set<string>;
+  inlineCreate?: InlineCreateTarget | null;
+  onInlineCreateCancel?: () => void;
+  onInlineCreateCreated?: (path: string, isDir: boolean) => void | Promise<void>;
   depth?: number;
 }
 
@@ -83,6 +87,9 @@ export default function FileTreeNode({
   revealPath,
   gitDecorations,
   ignoredPaths,
+  inlineCreate,
+  onInlineCreateCancel,
+  onInlineCreateCreated,
   depth = 0,
 }: Props) {
   // Folder nodes should start collapsed unless the user expands them or a
@@ -134,6 +141,12 @@ export default function FileTreeNode({
       setExpanded(true);
     }
   }, [node.is_dir, node.path, revealPath]);
+
+  useEffect(() => {
+    if (node.is_dir && inlineCreate?.parentPath === node.path) {
+      setExpanded(true);
+    }
+  }, [inlineCreate?.parentPath, node.is_dir, node.path]);
 
   useEffect(() => {
     if (!node.is_dir || !expanded || children !== undefined) return;
@@ -297,6 +310,15 @@ export default function FileTreeNode({
           )}
         </div>
 
+        {expanded && inlineCreate?.parentPath === node.path && (
+          <InlineCreateRow
+            target={inlineCreate}
+            depth={depth + 1}
+            onCancel={onInlineCreateCancel ?? (() => undefined)}
+            onCreated={onInlineCreateCreated ?? (() => undefined)}
+          />
+        )}
+
         {expanded &&
           renderedChildren.map((child) => (
             <FileTreeNode
@@ -309,6 +331,9 @@ export default function FileTreeNode({
               revealPath={revealPath}
               gitDecorations={gitDecorations}
               ignoredPaths={ignoredPaths}
+              inlineCreate={inlineCreate}
+              onInlineCreateCancel={onInlineCreateCancel}
+              onInlineCreateCreated={onInlineCreateCreated}
               depth={depth + 1}
             />
           ))}

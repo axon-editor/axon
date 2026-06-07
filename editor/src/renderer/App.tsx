@@ -335,6 +335,8 @@ function App() {
     useState<EditorNavigationTarget | null>(null);
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(208);
+  const platform = window.axon.platform;
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashLeaving, setSplashLeaving] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
@@ -345,7 +347,6 @@ function App() {
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
-  const folderName = folderPath ? folderPath.split("/").pop() ?? null : null;
   const extensionThemes = useMemo(
     () =>
       extensionState?.extensions.flatMap((extension) =>
@@ -833,18 +834,22 @@ function App() {
   }, [appendOutput]);
 
   const handleOpenFolder = async () => {
-    const path = await window.axon.openFolder();
-    if (!path) return;
-    setLoading(true);
     try {
+      const path = await window.axon.openFolder();
+      if (!path) return;
+      setLoading(true);
+      appendOutput("workspace", `Opening ${path}`);
       const fileTree = await getTree(path);
       addRecentFolder(path);
-      appendOutput("workspace", `Opening ${path}`);
       await handleFolderChange(path, fileTree);
       appendOutput("workspace", `Opened ${path}`, "success");
     } catch (err) {
       console.error("failed to load tree:", err);
-      appendOutput("workspace", "Failed to open folder.", "error");
+      const message =
+        err instanceof Error
+          ? `Failed to open folder: ${err.message}`
+          : "Failed to open folder.";
+      appendOutput("workspace", message, "error");
     } finally {
       setLoading(false);
     }
@@ -915,6 +920,7 @@ function App() {
       folderPath,
       layout,
       sidebarCollapsed,
+      sidebarWidth,
       terminalOpen,
       bottomPanelOpen,
       bottomPanelTab,
@@ -926,6 +932,7 @@ function App() {
     layout,
     sessionReady,
     sidebarCollapsed,
+    sidebarWidth,
     terminalOpen,
   ]);
 
@@ -948,6 +955,7 @@ function App() {
     // fresh folder switch, the absent session naturally resets panels and panes.
     setTerminalOpen(restoredSession?.terminalOpen === true);
     setSidebarCollapsed(restoredSession?.sidebarCollapsed === true);
+    setSidebarWidth(restoredSession?.sidebarWidth ?? 208);
     setBottomPanelOpen(restoredSession?.bottomPanelOpen === true);
     setBottomPanelTab(restoredSession?.bottomPanelTab ?? "problems");
     setTerminalCreateWorkingDirectory(null);
@@ -1823,6 +1831,8 @@ function App() {
             onRefresh={handleRefresh}
             loading={loading}
             collapsed={sidebarCollapsed}
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
             onSplitFile={(filePath) => handleSplit("right", filePath)}
             onOpenInTerminal={handleOpenPathInTerminal}
             onOpenHtmlPreview={handleOpenHtmlPreview}
@@ -1840,6 +1850,7 @@ function App() {
             folderPickerOpen={folderPickerOpen}
             onOpenFolderPicker={() => setFolderPickerOpen(true)}
             onCloseFolderPicker={() => setFolderPickerOpen(false)}
+            platform={platform}
           />
         )}
 
@@ -1854,7 +1865,9 @@ function App() {
               }}
             >
               <div className="flex min-w-0 flex-1 overflow-hidden" />
-              <div style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+              <div
+                style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+              >
                 <EditorToolbar
                   onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
                   onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
@@ -1869,8 +1882,13 @@ function App() {
                   updateInstallState={updateInstallState}
                   onOpenUpdate={() => setUpdateModalOpen(true)}
                   isZenMode={zenMode}
+                  hasWorkspace={!!folderPath}
+                  hasActiveFile={!!activePane?.activeFile}
                 />
               </div>
+              {platform === "win32" ? (
+                <div className="w-[138px] shrink-0" aria-hidden="true" />
+              ) : null}
             </div>
           )}
 
@@ -1955,9 +1973,9 @@ function App() {
       {!zenMode && (
         <StatusBar
           activeFile={activePane?.activeFile ?? null}
+          hasWorkspace={!!folderPath}
           language={language}
           cursor={cursorInfo}
-          folderName={folderName}
           sidebarCollapsed={sidebarCollapsed}
           terminalOpen={terminalOpen}
           bottomPanelOpen={bottomPanelOpen}
@@ -1967,7 +1985,6 @@ function App() {
           gitChangeCount={gitChangeCount}
           themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
-          onOpenFolderPicker={() => setFolderPickerOpen(true)}
           onOpenWorkspaceSearch={() =>
             runCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH)
           }

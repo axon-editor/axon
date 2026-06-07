@@ -17,9 +17,9 @@ import { type ResolvedThemeTokens } from "../lib/themeTokens";
 
 interface Props {
   activeFile: string | null;
+  hasWorkspace: boolean;
   language: string;
   cursor: { line: number; col: number };
-  folderName: string | null;
   sidebarCollapsed: boolean;
   terminalOpen: boolean;
   bottomPanelOpen: boolean;
@@ -29,7 +29,6 @@ interface Props {
   gitChangeCount: number;
   themeTokens: ResolvedThemeTokens;
   onToggleSidebar: () => void;
-  onOpenFolderPicker: () => void;
   onOpenWorkspaceSearch: () => void;
   onToggleTerminal: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
@@ -38,9 +37,9 @@ interface Props {
 
 export default function StatusBar({
   activeFile,
+  hasWorkspace,
   language,
   cursor,
-  folderName,
   sidebarCollapsed,
   terminalOpen,
   bottomPanelOpen,
@@ -50,7 +49,6 @@ export default function StatusBar({
   gitChangeCount,
   themeTokens,
   onToggleSidebar,
-  onOpenFolderPicker,
   onOpenWorkspaceSearch,
   onToggleTerminal,
   onOpenBottomPanel,
@@ -76,27 +74,17 @@ export default function StatusBar({
           </button>
         </Tooltip>
 
-        <Tooltip label={folderName ?? "open folder"} side="top" delayMs={3000}>
-          <button
-            type="button"
-            onClick={onOpenFolderPicker}
-            aria-label="Select folder"
-            className="flex h-5 max-w-40 cursor-pointer items-center rounded px-2 text-[11px] font-medium text-[#9aa4b8] transition-colors hover:bg-[#11151c] hover:text-white"
-            style={{ WebkitAppRegion: "no-drag" } as any}
-          >
-            <span className="truncate">{folderName ?? "open folder"}</span>
-          </button>
-        </Tooltip>
-
-        <Tooltip label="Search workspace" side="top">
-          <button
-            onClick={onOpenWorkspaceSearch}
-            aria-label="Search workspace"
-            className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#80c8e0]"
-          >
-            <Search size={12} />
-          </button>
-        </Tooltip>
+        {hasWorkspace && (
+          <Tooltip label="Search workspace" side="top">
+            <button
+              onClick={onOpenWorkspaceSearch}
+              aria-label="Search workspace"
+              className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#80c8e0]"
+            >
+              <Search size={12} />
+            </button>
+          </Tooltip>
+        )}
 
         {gitBranch ? (
           <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
@@ -136,41 +124,45 @@ export default function StatusBar({
           </>
         )}
 
-        <Tooltip label="Problems" side="top">
-          <button
-            onClick={() => onOpenBottomPanel("problems")}
-            aria-label="Problems"
-            className={`flex items-center gap-1 rounded px-2 h-5 transition-colors cursor-pointer
-            ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
-          >
-            <AlertCircle size={12} />
-            {problemCount}
-          </button>
-        </Tooltip>
+        {hasWorkspace && (
+          <>
+            <Tooltip label="Problems" side="top">
+              <button
+                onClick={() => onOpenBottomPanel("problems")}
+                aria-label="Problems"
+                className={`flex items-center gap-1 rounded px-2 h-5 transition-colors cursor-pointer
+                ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+              >
+                <AlertCircle size={12} />
+                {problemCount}
+              </button>
+            </Tooltip>
 
-        <Tooltip label="Output" side="top">
-          <button
-            onClick={() => onOpenBottomPanel("output")}
-            aria-label="Output"
-            className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer
-            ${bottomPanelOpen && bottomPanelTab === "output" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
-          >
-            <ListChecks size={13} />
-          </button>
-        </Tooltip>
+            <Tooltip label="Output" side="top">
+              <button
+                onClick={() => onOpenBottomPanel("output")}
+                aria-label="Output"
+                className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer
+                ${bottomPanelOpen && bottomPanelTab === "output" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+              >
+                <ListChecks size={13} />
+              </button>
+            </Tooltip>
 
-        <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+            <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 
-        <Tooltip label="Toggle terminal (Cmd+J)" side="top">
-          <button
-            onClick={onToggleTerminal}
-            aria-label="Toggle terminal"
-            className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer ml-1
-            ${terminalOpen ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
-          >
-            <TerminalSquare size={13} />
-          </button>
-        </Tooltip>
+            <Tooltip label="Toggle terminal (Cmd+J)" side="top">
+              <button
+                onClick={onToggleTerminal}
+                aria-label="Toggle terminal"
+                className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer ml-1
+                ${terminalOpen ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+              >
+                <TerminalSquare size={13} />
+              </button>
+            </Tooltip>
+          </>
+        )}
       </div>
     </div>
   );

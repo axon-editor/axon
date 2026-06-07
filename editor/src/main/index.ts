@@ -107,8 +107,12 @@ configureAutoUpdater();
 const execFileAsync = promisify(execFile);
 
 const isMac = process.platform === "darwin";
+const isWindows = process.platform === "win32";
 let mainWindow: BrowserWindow | null = null;
 let bundledCoreProcess: ChildProcess | null = null;
+let bundledCoreWatchdog: ReturnType<typeof setInterval> | null = null;
+let bundledCoreHealthFailures = 0;
+let bundledCoreRestarting = false;
 let isQuitting = false;
 const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 const activeLanguageServers = new Map<string, LanguageServerSession>();
@@ -448,6 +452,42 @@ function stopBundledAxonCore() {
   if (!bundledCoreProcess || bundledCoreProcess.killed) return;
   bundledCoreProcess.kill();
   bundledCoreProcess = null;
+}
+
+function startBundledCoreWatchdog() {
+  if (isDev || bundledCoreWatchdog) return;
+
+  bundledCoreWatchdog = setInterval(() => {
+    if (isQuitting || bundledCoreRestarting) return;
+
+    void waitForAxonCore(1200).then(async (healthy) => {
+      if (isQuitting) return;
+      if (healthy) {
+        bundledCoreHealthFailures = 0;
+        return;
+      }
+
+      bundledCoreHealthFailures += 1;
+      if (bundledCoreHealthFailures < 3) return;
+      bundledCoreHealthFailures = 0;
+      bundledCoreRestarting = true;
+
+      // The bundled Go core owns file APIs and terminal PTYs. If it stops
+      // answering health checks after the app has been open for a long time,
+      // leaving the renderer to retry forever gives users a dead editor. The
+      // packaged app can recover by restarting only its child core process; dev
+      // mode is excluded because concurrently owns that process there.
+      stopBundledAxonCore();
+      await startBundledAxonCore();
+      bundledCoreRestarting = false;
+    });
+  }, 15000);
+}
+
+function stopBundledCoreWatchdog() {
+  if (!bundledCoreWatchdog) return;
+  clearInterval(bundledCoreWatchdog);
+  bundledCoreWatchdog = null;
 }
 
 function sendMenuCommand(command: AxonCommand) {
@@ -3770,14 +3810,26 @@ function parseGitStatus(root: string, statusOutput: string): GitChange[] {
   return statusOutput
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0)
-    .map((line): GitChange => {
+    .map((line): GitChange | null => {
       const indexCode = line[0] ?? " ";
       const worktreeCode = line[1] ?? " ";
       const rawPath = line.slice(3);
-      const [oldPath, nextPath] = rawPath.includes(" -> ")
-        ? rawPath.split(" -> ")
-        : [null, rawPath];
-      const filePath = nextPath ?? rawPath;
+      const isRenameOrCopy = [indexCode, worktreeCode].some(
+        (code) => code === "R" || code === "C",
+      );
+      const renameSeparatorIndex = isRenameOrCopy
+        ? rawPath.lastIndexOf(" -> ")
+        : -1;
+      const oldPath =
+        renameSeparatorIndex >= 0
+          ? rawPath.slice(0, renameSeparatorIndex)
+          : null;
+      const filePath =
+        renameSeparatorIndex >= 0
+          ? rawPath.slice(renameSeparatorIndex + " -> ".length)
+          : rawPath;
+
+      if (!isUsableGitPath(filePath)) return null;
 
       return {
         path: filePath,
@@ -3789,7 +3841,30 @@ function parseGitStatus(root: string, statusOutput: string): GitChange[] {
         unstaged: worktreeCode !== " " || indexCode === "?",
       };
     })
-    .filter((change) => change.path.length > 0);
+    .filter((change): change is GitChange => change !== null);
+}
+
+function isUsableGitPath(filePath: string) {
+  const normalizedPath = filePath.replace(/\\/g, "/").trim();
+  if (!normalizedPath || normalizedPath === "." || normalizedPath === "null") {
+    return false;
+  }
+
+  // Some renderer flows can briefly hold placeholder paths while panes or
+  // source-control selections are being replaced. Passing those values through
+  // to Git produces noisy messages like "Could not access 'src/types/null'",
+  // which looks like a repository problem even though the user did not choose
+  // that path. The main process is the final shell boundary, so it rejects that
+  // placeholder segment before any Git command is spawned.
+  return !normalizedPath.split("/").includes("null");
+}
+
+function normalizeGitRequestPath(root: string, filePath: string) {
+  const relativePath = path.isAbsolute(filePath)
+    ? path.relative(root, filePath)
+    : filePath;
+
+  return isUsableGitPath(relativePath) ? relativePath : null;
 }
 
 function parseGitIgnoredPaths(root: string, ignoredOutput: string): string[] {
@@ -3843,9 +3918,13 @@ async function getGitDiff(
 ): Promise<GitDiffResult> {
   const status = await getGitStatus(folderPath);
   const root = status.root ?? folderPath;
-  const relativePath = path.isAbsolute(filePath)
-    ? path.relative(root, filePath)
-    : filePath;
+  const relativePath = normalizeGitRequestPath(root, filePath);
+  if (!relativePath) {
+    return {
+      path: "",
+      diff: "",
+    };
+  }
 
   const readDiff = async (args: string[]) => {
     try {
@@ -3893,9 +3972,8 @@ async function getGitFileBase(
 ): Promise<string> {
   const status = await getGitStatus(folderPath);
   const root = status.root ?? folderPath;
-  const relativePath = path.isAbsolute(filePath)
-    ? path.relative(root, filePath)
-    : filePath;
+  const relativePath = normalizeGitRequestPath(root, filePath);
+  if (!relativePath) return "";
 
   try {
     const result = await runGit(root, ["show", `HEAD:${relativePath}`]);
@@ -3909,7 +3987,7 @@ async function getGitFileBase(
 }
 
 function getGitRelativePath(root: string, filePath: string) {
-  return path.isAbsolute(filePath) ? path.relative(root, filePath) : filePath;
+  return normalizeGitRequestPath(root, filePath);
 }
 
 async function runGitAction(
@@ -3930,6 +4008,12 @@ async function runGitAction(
   }
 
   const relativePath = getGitRelativePath(status.root, filePath);
+  if (!relativePath) {
+    return {
+      ok: false,
+      message: "No valid Git path was selected.",
+    };
+  }
   const change = status.changes.find(
     (candidate) => candidate.path === relativePath,
   );
@@ -4227,6 +4311,13 @@ function createWindow(options: { restoreSession?: boolean } = {}) {
     minHeight: 600,
     title: "Axon",
     titleBarStyle: "hidden",
+    titleBarOverlay: isWindows
+      ? {
+          color: "#0f1117",
+          symbolColor: "#9aa4b8",
+          height: 36,
+        }
+      : undefined,
     backgroundColor: "#0f0f0f",
     icon: axonIconPath,
     webPreferences: {
@@ -5021,6 +5112,7 @@ app.whenReady().then(async () => {
 
   buildApplicationMenu();
   await startBundledAxonCore();
+  startBundledCoreWatchdog();
   createWindow({ restoreSession: true });
 });
 
@@ -5105,6 +5197,7 @@ app.on("before-quit", async () => {
   isQuitting = true;
   stopActiveTasks();
   stopAllLanguageServers();
+  stopBundledCoreWatchdog();
   stopBundledAxonCore();
   await closeActiveWatcher();
   await closeFolderWatcher();

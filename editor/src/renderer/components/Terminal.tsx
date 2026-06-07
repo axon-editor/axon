@@ -64,10 +64,14 @@ interface TerminalSession {
   term: XTerm | null;
   fitAddon: FitAddon | null;
   ws: WebSocket | null;
+  reconnectTimer: number | null;
   resizeObserver: ResizeObserver | null;
   dataDisposable: { dispose: () => void } | null;
   workingDirectory: string | null;
   cwdSynced: boolean;
+  receivedBytes: number;
+  disposed: boolean;
+  terminating: boolean;
 }
 
 const DEFAULT_TERMINAL_HEIGHT = 280;
@@ -200,8 +204,14 @@ function getFolderName(path: string | null) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? "terminal";
 }
 
-function getTerminalBackendUrl(workingDirectory: string | null) {
+function getTerminalBackendUrl(
+  workingDirectory: string | null,
+  sessionId: string,
+  replayFrom = 0,
+) {
   const backendUrl = getCoreWebSocketUrl("/terminal");
+  backendUrl.searchParams.set("sessionId", sessionId);
+  backendUrl.searchParams.set("replayFrom", String(replayFrom));
   if (workingDirectory) {
     backendUrl.searchParams.set("cwd", workingDirectory);
   }
@@ -215,6 +225,7 @@ function quoteShellPath(path: string) {
 function sendWorkspaceCd(session: TerminalSession) {
   if (!session.workingDirectory || !session.ws) return;
   if (session.ws.readyState !== WebSocket.OPEN) return;
+  if (session.cwdSynced) return;
 
   // The backend receives cwd in the websocket URL, but this renderer fallback
   // covers a running dev backend that has not been restarted yet. Chaining
@@ -222,6 +233,38 @@ function sendWorkspaceCd(session: TerminalSession) {
   // so the terminal opens on a clean prompt in the workspace folder.
   session.ws.send(`cd -- ${quoteShellPath(session.workingDirectory)} && clear\r`);
   session.cwdSynced = true;
+}
+
+function sendTerminate(ws: WebSocket) {
+  if (ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: "terminate" }));
+}
+
+function getOutputByteLength(data: unknown) {
+  if (typeof data === "string") {
+    return new TextEncoder().encode(data).length;
+  }
+  if (data instanceof ArrayBuffer) return data.byteLength;
+  if (data instanceof Blob) return data.size;
+  return 0;
+}
+
+function terminateDetachedSession(
+  workingDirectory: string | null,
+  sessionId: string,
+) {
+  const ws = new WebSocket(getTerminalBackendUrl(workingDirectory, sessionId));
+  const closeTimer = window.setTimeout(() => ws.close(), 1500);
+
+  ws.onopen = () => {
+    sendTerminate(ws);
+    window.clearTimeout(closeTimer);
+    ws.close();
+  };
+  ws.onerror = () => {
+    window.clearTimeout(closeTimer);
+    ws.close();
+  };
 }
 
 function getTerminalOptions(
@@ -306,19 +349,32 @@ export default function Terminal({
     window.requestAnimationFrame(() => sendResize(activeTabId));
   }, [activeTabId, sendResize]);
 
-  const disposeSession = useCallback((id: string) => {
+  const disposeSession = useCallback((id: string, terminate = true) => {
     const session = sessionsRef.current[id];
 
     connectionAbortRef.current[id]?.abort();
     delete connectionAbortRef.current[id];
+    if (session?.reconnectTimer) {
+      window.clearTimeout(session.reconnectTimer);
+      session.reconnectTimer = null;
+    }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
+    if (session) {
+      session.disposed = true;
+      session.terminating = terminate;
+    }
     if (session?.ws) {
+      if (terminate) {
+        sendTerminate(session.ws);
+      }
       session.ws.onopen = null;
       session.ws.onmessage = null;
       session.ws.onclose = null;
       session.ws.onerror = null;
       session.ws.close();
+    } else if (session && terminate) {
+      terminateDetachedSession(session.workingDirectory, id);
     }
     session?.term?.dispose();
     delete sessionsRef.current[id];
@@ -349,10 +405,14 @@ export default function Terminal({
       term: null,
       fitAddon: null,
       ws: null,
+  reconnectTimer: null,
       resizeObserver: null,
       dataDisposable: null,
       workingDirectory: sessionWorkingDirectory,
       cwdSynced: false,
+      receivedBytes: 0,
+      disposed: false,
+      terminating: false,
     };
   }, [workingDirectory]);
 
@@ -426,6 +486,82 @@ export default function Terminal({
     [height, zoomed],
   );
 
+  const connectSession = useCallback(
+    (id: string) => {
+      const session = sessionsRef.current[id];
+      if (!session?.term || session.disposed) return;
+
+      connectionAbortRef.current[id]?.abort();
+      const abortController = new AbortController();
+      connectionAbortRef.current[id] = abortController;
+
+      void waitForCoreBackend(abortController.signal).then((ready) => {
+        const currentSession = sessionsRef.current[id];
+        if (abortController.signal.aborted || !currentSession?.term) return;
+        if (currentSession.disposed) return;
+        delete connectionAbortRef.current[id];
+
+        if (!ready) {
+          updateTabConnection(id, false);
+          currentSession.term.write(
+            "\r\n\x1b[31mterminal backend is not reachable. Axon will retry shortly.\x1b[0m\r\n",
+          );
+          currentSession.reconnectTimer = window.setTimeout(
+            () => connectSession(id),
+            1500,
+          );
+          return;
+        }
+
+        const ws = new WebSocket(
+          getTerminalBackendUrl(
+            currentSession.workingDirectory,
+            id,
+            currentSession.receivedBytes,
+          ),
+        );
+        currentSession.ws = ws;
+
+        ws.onopen = () => {
+          updateTabConnection(id, true);
+          sendResize(id);
+          sendWorkspaceCd(currentSession);
+        };
+
+        ws.onmessage = (event) => {
+          currentSession.receivedBytes += getOutputByteLength(event.data);
+          currentSession.term?.write(event.data);
+        };
+
+        ws.onclose = () => {
+          const latestSession = sessionsRef.current[id];
+          if (!latestSession || latestSession.disposed || latestSession.terminating) {
+            return;
+          }
+
+          latestSession.ws = null;
+          updateTabConnection(id, false);
+          latestSession.term?.write(
+            "\r\n\x1b[33mterminal detached; reconnecting...\x1b[0m\r\n",
+          );
+          latestSession.reconnectTimer = window.setTimeout(
+            () => connectSession(id),
+            1000,
+          );
+        };
+
+        ws.onerror = () => {
+          const latestSession = sessionsRef.current[id];
+          if (!latestSession || latestSession.disposed) return;
+          latestSession.term?.write(
+            "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
+          );
+        };
+      });
+    },
+    [sendResize, updateTabConnection],
+  );
+
   const attachContainer = useCallback(
     (id: string, container: HTMLDivElement | null) => {
       const session = sessionsRef.current[id];
@@ -448,50 +584,10 @@ export default function Terminal({
       term.open(container);
       fitAddon.fit();
 
-      const abortController = new AbortController();
-      connectionAbortRef.current[id] = abortController;
-
       session.term = term;
       session.fitAddon = fitAddon;
       term.write("\x1b[2mconnecting to axon-core...\x1b[0m\r\n");
-
-      void waitForCoreBackend(abortController.signal).then((ready) => {
-        if (abortController.signal.aborted) return;
-        if (!sessionsRef.current[id]) return;
-        delete connectionAbortRef.current[id];
-
-        if (!ready) {
-          updateTabConnection(id, false);
-          term.write(
-            "\r\n\x1b[31mterminal backend is not reachable. Start axon-core or restart Axon, then create a new terminal.\x1b[0m\r\n",
-          );
-          return;
-        }
-
-        const ws = new WebSocket(
-          getTerminalBackendUrl(session.workingDirectory),
-        );
-        session.ws = ws;
-
-        ws.onopen = () => {
-          updateTabConnection(id, true);
-          sendResize(id);
-          sendWorkspaceCd(session);
-        };
-
-        ws.onmessage = (event) => term.write(event.data);
-
-        ws.onclose = () => {
-          updateTabConnection(id, false);
-          term.write("\r\n\x1b[31mconnection closed\x1b[0m\r\n");
-        };
-
-        ws.onerror = () => {
-          term.write(
-            "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
-          );
-        };
-      });
+      connectSession(id);
 
       // xterm's onData stream is the keyboard side of the PTY. Keeping one
       // websocket per tab lets every terminal have its own shell process,
@@ -508,7 +604,7 @@ export default function Terminal({
       session.resizeObserver = new ResizeObserver(() => sendResize(id));
       session.resizeObserver.observe(container);
     },
-    [sendResize, terminalOptions, updateTabConnection],
+    [connectSession, sendResize, terminalOptions],
   );
 
   useEffect(() => {

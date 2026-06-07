@@ -9,6 +9,7 @@ export interface WorkspaceSession {
   folderPath: string | null;
   layout: Layout;
   sidebarCollapsed: boolean;
+  sidebarWidth: number;
   terminalOpen: boolean;
   bottomPanelOpen: boolean;
   bottomPanelTab: BottomPanelTab;
@@ -42,6 +43,10 @@ export function loadWorkspaceSession(): WorkspaceSession | null {
         ? (parsed.layout as unknown as Layout)
         : createInitialLayout(),
       sidebarCollapsed: parsed.sidebarCollapsed === true,
+      sidebarWidth:
+        typeof parsed.sidebarWidth === "number"
+          ? Math.min(360, Math.max(176, parsed.sidebarWidth))
+          : 208,
       terminalOpen: parsed.terminalOpen === true,
       bottomPanelOpen: parsed.bottomPanelOpen === true,
       bottomPanelTab:
