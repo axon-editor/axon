@@ -168,7 +168,6 @@ Currently targeted:
 - Java: managed `jdtls` bundle path
 - C#: managed OmniSharp/C# bundle path
 - Kotlin: managed `kotlin-language-server` bundle path
-- Ruby: managed bundle path planned for runtime-backed bundles
 - PHP: bundled `intelephense`
 - Lua: managed `lua-language-server` bundle path
 

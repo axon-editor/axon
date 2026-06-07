@@ -19,7 +19,6 @@ renderer.
 | Java | `jdtls` | Axon managed bundle path |
 | C# | `OmniSharp` | Axon managed bundle path |
 | Kotlin | `kotlin-language-server` | Axon managed bundle path |
-| Ruby | Runtime-backed Ruby server | Planned managed bundle path |
 | PHP | `intelephense` | Bundled with Axon |
 | Lua | `lua-language-server` | Axon managed bundle path |
 
@@ -65,11 +64,6 @@ download a GitHub release asset already have the matching managed servers inside
 the app. Developers who clone the repo can run `npm run build:language-servers`
 inside `editor/` to recreate the local bundle.
 
-Ruby is already wired to the same managed bundle path, but it is not downloaded
-automatically yet because the practical servers are Ruby gems rather than
-standalone platform archives. Fully bundled Ruby support needs a Ruby runtime
-bundle plus the selected gem server.
-
 Bundled Java/Kotlin/C# servers still expect the matching language runtime or
 SDK to be available for real project analysis. C/C++ projects still need build
 metadata such as `compile_commands.json` for best results. That is different
@@ -79,6 +73,5 @@ development runtime.
 
 ## Next LSP Work
 
-- Add a Ruby runtime + gem bundle for managed Ruby support.
 - Add Settings UI actions for installing/updating managed language tools.
 - Show runtime/toolchain requirements beside each bundled server in Settings.

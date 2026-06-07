@@ -7,7 +7,6 @@ export const LANGUAGE_SERVER_IDS = [
   "java",
   "csharp",
   "kotlin",
-  "ruby",
   "php",
   "lua",
   "docker",

@@ -1438,21 +1438,6 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     },
   },
   {
-    id: "ruby",
-    label: "Ruby",
-    languages: ["Ruby"],
-    command: "solargraph",
-    args: ["--version"],
-    launchArgs: ["stdio"],
-    workspaceMarkers: ["Gemfile", ".ruby-version", ".solargraph.yml"],
-    installHint: "Add solargraph to Axon's managed language-server bundle.",
-    managedBundle: {
-      directoryName: "ruby",
-      executableNames: ["solargraph"],
-      launchArgs: ["stdio"],
-    },
-  },
-  {
     id: "php",
     label: "PHP",
     languages: ["PHP"],
@@ -1731,8 +1716,8 @@ function resolveManagedLanguageServer(
           if (!fs.existsSync(executablePath)) continue;
 
           // Managed bundles are where Axon can ship native or runtime-backed
-          // servers such as JDT LS, csharp-ls, Kotlin LS, Ruby LSP/Solargraph,
-          // and Lua LS without asking each project to install them. The
+          // servers such as JDT LS, OmniSharp, Kotlin LS, and Lua LS without
+          // asking each project to install them. The
           // platform segment prevents macOS/Linux/Windows binaries from being
           // mixed, while the common segment still supports portable launchers.
           return {
@@ -2484,7 +2469,6 @@ function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   if (normalizedLanguageId === "kotlin") {
     return "kotlin" satisfies LanguageServerId;
   }
-  if (normalizedLanguageId === "ruby") return "ruby" satisfies LanguageServerId;
   if (normalizedLanguageId === "php") return "php" satisfies LanguageServerId;
   if (normalizedLanguageId === "lua") return "lua" satisfies LanguageServerId;
   if (normalizedLanguageId === "cpp" || normalizedLanguageId === "c") {

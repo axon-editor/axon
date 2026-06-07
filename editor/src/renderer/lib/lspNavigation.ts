@@ -11,7 +11,6 @@ const lspNavigationLanguages = [
   "java",
   "csharp",
   "kotlin",
-  "ruby",
   "php",
   "lua",
   "cpp",

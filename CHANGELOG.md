@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.1.2
+
+- Added broader active LSP routing for Go, Rust, Python, C/C++, Java, C#,
+  Kotlin, PHP, Lua, Docker, Tailwind CSS, and TypeScript/JavaScript.
+- Added managed language-server bundling for Go `gopls`, Rust
+  `rust-analyzer`, C/C++ `clangd`, Java `jdtls`, C# OmniSharp, Kotlin
+  `kotlin-language-server`, and Lua `lua-language-server`.
+- Added bundled npm-backed language servers for Python `pyright`, PHP
+  `intelephense`, Docker, Tailwind CSS, and TypeScript/JavaScript.
+- Updated release packaging so GitHub Actions builds platform-specific managed
+  server bundles before Electron packages each desktop artifact.
+- Pinned macOS release runners so Intel builds get `darwin-x64` server bundles
+  and Apple Silicon builds get `darwin-arm64` server bundles.
+- Expanded file and folder icon mappings for image, photo, screenshot, SVG,
+  video, and broad media asset paths.
+- Documented that GitHub release assets include their matching managed
+  language-server bundle, while source checkouts recreate generated binaries
+  locally.
+
 ## v1.1.1
 
 - Fixed development startup so Vite stays on port `5173` instead of silently
