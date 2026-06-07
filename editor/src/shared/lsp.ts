@@ -4,6 +4,12 @@ export const LANGUAGE_SERVER_IDS = [
   "go",
   "rust",
   "python",
+  "java",
+  "csharp",
+  "kotlin",
+  "ruby",
+  "php",
+  "lua",
   "docker",
   "tailwind",
 ] as const;

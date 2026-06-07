@@ -1334,6 +1334,97 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     installHint: "Install pyright.",
   },
   {
+    id: "java",
+    label: "Java",
+    languages: ["Java"],
+    command: "jdtls",
+    args: ["--version"],
+    launchArgs: [],
+    workspaceMarkers: [
+      "pom.xml",
+      "build.gradle",
+      "build.gradle.kts",
+      "settings.gradle",
+      "settings.gradle.kts",
+      ".project",
+    ],
+    // Java support is routed through Eclipse JDT LS because it is the standard
+    // LSP server most editors build on. Axon only marks it available when the
+    // launcher exists; bundling JDT LS correctly also means deciding how to
+    // ship or require a Java runtime per platform, so that belongs in the
+    // managed language-tool layer rather than a blind npm dependency.
+    installHint: "Install Eclipse JDT LS and expose the jdtls command.",
+  },
+  {
+    id: "csharp",
+    label: "C#",
+    languages: ["C#"],
+    command: "csharp-ls",
+    args: ["--version"],
+    launchArgs: [],
+    workspaceMarkers: [
+      "*.sln",
+      "*.csproj",
+      "global.json",
+      "Directory.Build.props",
+    ],
+    // csharp-ls is a small LSP wrapper around Roslyn behavior and works well
+    // with existing .NET SDK installs. The important boundary here is that
+    // Axon starts a real LSP process, while .NET SDK/runtime installation stays
+    // explicit until Axon has a trusted managed-tool installer.
+    installHint: "Install csharp-ls and the .NET SDK.",
+  },
+  {
+    id: "kotlin",
+    label: "Kotlin",
+    languages: ["Kotlin"],
+    command: "kotlin-language-server",
+    args: ["--version"],
+    launchArgs: [],
+    workspaceMarkers: [
+      "build.gradle",
+      "build.gradle.kts",
+      "settings.gradle",
+      "settings.gradle.kts",
+    ],
+    installHint: "Install kotlin-language-server.",
+  },
+  {
+    id: "ruby",
+    label: "Ruby",
+    languages: ["Ruby"],
+    command: "solargraph",
+    args: ["--version"],
+    launchArgs: ["stdio"],
+    workspaceMarkers: ["Gemfile", ".ruby-version", ".solargraph.yml"],
+    installHint: "Install solargraph.",
+  },
+  {
+    id: "php",
+    label: "PHP",
+    languages: ["PHP"],
+    command: "intelephense",
+    args: ["--version"],
+    launchArgs: ["--stdio"],
+    workspaceMarkers: ["composer.json", "phpunit.xml", "phpunit.xml.dist"],
+    installHint: "Install intelephense.",
+  },
+  {
+    id: "lua",
+    label: "Lua",
+    languages: ["Lua"],
+    command: "lua-language-server",
+    args: ["--version"],
+    launchArgs: [],
+    workspaceMarkers: [
+      ".luarc.json",
+      ".luarc.jsonc",
+      "selene.toml",
+      "stylua.toml",
+    ],
+    installHint: "Install lua-language-server.",
+  },
+  {
     id: "docker",
     label: "Docker",
     languages: ["Dockerfile", "Docker Compose"],
@@ -1464,7 +1555,26 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
 ];
 
 function hasWorkspaceMarker(folderPath: string, markers: string[]) {
-  return markers.some((marker) => fs.existsSync(path.join(folderPath, marker)));
+  return markers.some((marker) => {
+    if (!marker.includes("*")) {
+      return fs.existsSync(path.join(folderPath, marker));
+    }
+
+    // Some project markers are intentionally glob-shaped because their real
+    // names are user-defined: C# projects use App.csproj/Solution.sln instead
+    // of a fixed filename. I only support a simple "*.<ext>" marker here so
+    // relevance checks stay cheap and predictable during settings refresh.
+    const extension = marker.startsWith("*.") ? marker.slice(1) : "";
+    if (!extension) return false;
+
+    try {
+      return fs
+        .readdirSync(folderPath, { withFileTypes: true })
+        .some((entry) => entry.isFile() && entry.name.endsWith(extension));
+    } catch {
+      return false;
+    }
+  });
 }
 
 function getLanguageServerSessionKey(
@@ -2196,6 +2306,16 @@ function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   if (normalizedLanguageId === "go") return "go" satisfies LanguageServerId;
   if (normalizedLanguageId === "rust") return "rust" satisfies LanguageServerId;
   if (normalizedLanguageId === "python") return "python" satisfies LanguageServerId;
+  if (normalizedLanguageId === "java") return "java" satisfies LanguageServerId;
+  if (normalizedLanguageId === "csharp") {
+    return "csharp" satisfies LanguageServerId;
+  }
+  if (normalizedLanguageId === "kotlin") {
+    return "kotlin" satisfies LanguageServerId;
+  }
+  if (normalizedLanguageId === "ruby") return "ruby" satisfies LanguageServerId;
+  if (normalizedLanguageId === "php") return "php" satisfies LanguageServerId;
+  if (normalizedLanguageId === "lua") return "lua" satisfies LanguageServerId;
   if (normalizedLanguageId === "cpp" || normalizedLanguageId === "c") {
     return "cpp" satisfies LanguageServerId;
   }
