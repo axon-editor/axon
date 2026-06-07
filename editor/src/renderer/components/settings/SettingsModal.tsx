@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Braces,
+  FolderOpen,
   Palette,
   Settings2,
   Sparkles,
@@ -47,6 +48,7 @@ interface Props {
   onClose: () => void;
   onPreview: (settings: AxonSettings) => void;
   onSave: (settings: AxonSettings) => void;
+  onViewLogs: () => void;
 }
 
 const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
@@ -74,6 +76,22 @@ function getThemeColorValue(
   );
 }
 
+function getLanguageServerStatusLabel(server: LanguageServerStatus) {
+  if (server.status === "failed") return "failed";
+  if (server.status === "running") return "running";
+  if (server.bundled && server.status === "available") return "bundled";
+  if (server.status === "available") return "available";
+  return "missing";
+}
+
+function getLanguageServerStatusClass(server: LanguageServerStatus) {
+  if (server.status === "failed") return "bg-[#341b20] text-[#ff8b92]";
+  if (server.status === "running") return "bg-[#142a36] text-[#80c8e0]";
+  if (server.bundled) return "bg-[#15321f] text-[#90c8a0]";
+  if (server.status === "available") return "bg-[#1c2636] text-[#9fb7e8]";
+  return "bg-[#2a1517] text-[#ff7b72]";
+}
+
 export default function SettingsModal({
   folderPath,
   extensionState,
@@ -81,6 +99,7 @@ export default function SettingsModal({
   onClose,
   onPreview,
   onSave,
+  onViewLogs,
 }: Props) {
   const initialSettingsRef = useRef(settings);
   const [draft, setDraft] = useState(settings);
@@ -92,7 +111,7 @@ export default function SettingsModal({
   >([]);
   const [loadingLanguageServers, setLoadingLanguageServers] = useState(false);
   const [languageServerAction, setLanguageServerAction] = useState<
-    "start" | "stop" | null
+    "start" | "stop" | "restart" | null
   >(null);
   const [languageServerMessage, setLanguageServerMessage] = useState<
     string | null
@@ -344,6 +363,47 @@ export default function SettingsModal({
     }
   };
 
+  const selectPythonVirtualEnv = async () => {
+    setLanguageServerMessage(null);
+
+    try {
+      const selected = await window.axon.selectPythonVirtualEnv();
+      if (!selected) return;
+
+      setDraft((prev) => ({
+        ...prev,
+        lsp: {
+          ...prev.lsp,
+          pythonVirtualEnvPath: selected.virtualEnvPath,
+          pythonInterpreterPath: selected.interpreterPath,
+        },
+      }));
+      setLanguageServerMessage(
+        "Python virtual environment selected. Restart Python language server to reload imports.",
+      );
+    } catch (err) {
+      setLanguageServerMessage(
+        err instanceof Error
+          ? err.message
+          : "Failed to select Python virtual environment.",
+      );
+    }
+  };
+
+  const clearPythonVirtualEnv = () => {
+    setDraft((prev) => ({
+      ...prev,
+      lsp: {
+        ...prev.lsp,
+        pythonVirtualEnvPath: "",
+        pythonInterpreterPath: "",
+      },
+    }));
+    setLanguageServerMessage(
+      "Python virtual environment cleared. Restart Python language server to use default resolution.",
+    );
+  };
+
   const removeFont = (family: string) => {
     setDraft((prev) => {
       const nextSettings = {
@@ -384,16 +444,26 @@ export default function SettingsModal({
     }
   };
 
-  const runLanguageServerAction = async (action: "start" | "stop") => {
+  const runLanguageServerAction = async (
+    action: "start" | "stop" | "restart",
+  ) => {
     if (!folderPath) return;
 
     setLanguageServerAction(action);
     setLanguageServerMessage(null);
     try {
+      if (action === "restart") {
+        onSave(normalizeSettings(draft));
+      }
+
       const result =
         action === "start"
           ? await window.axon.startLanguageServers(folderPath)
-          : await window.axon.stopLanguageServers(folderPath);
+          : action === "stop"
+            ? await window.axon.stopLanguageServers(folderPath)
+            : await window.axon
+                .stopLanguageServers(folderPath)
+                .then(() => window.axon.startLanguageServers(folderPath));
       setLanguageServers(result.servers);
       setLanguageServerMessage(result.message);
     } catch (err) {
@@ -403,6 +473,8 @@ export default function SettingsModal({
         message ||
           (action === "start"
             ? "Failed to start language servers."
+            : action === "restart"
+              ? "Failed to restart language servers."
             : "Failed to stop language servers."),
       );
     } finally {
@@ -834,6 +906,50 @@ export default function SettingsModal({
                   />
                 </SettingsField>
 
+                <SettingsField
+                  label="Python virtual environment"
+                  description="Select the project venv so Pyright resolves imports installed there, like Django REST Framework."
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void selectPythonVirtualEnv()}
+                        disabled={!folderPath}
+                        className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#273044] bg-[#11151d] px-3 text-[12px] text-[#dce4f0] transition-colors hover:border-[#3b4660] hover:bg-[#171c27] disabled:cursor-not-allowed disabled:border-[#1c2230] disabled:text-[#465166]"
+                      >
+                        <FolderOpen size={14} />
+                        Select venv
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearPythonVirtualEnv}
+                        disabled={
+                          !draft.lsp.pythonVirtualEnvPath &&
+                          !draft.lsp.pythonInterpreterPath
+                        }
+                        className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#8f9bb1] transition-colors hover:bg-[#171c27] hover:text-white disabled:cursor-not-allowed disabled:text-[#3d4658]"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <SettingsTextInput
+                      value={draft.lsp.pythonVirtualEnvPath}
+                      onChange={(value) => updateLsp("pythonVirtualEnvPath", value)}
+                      placeholder=".venv path"
+                      monospace
+                    />
+                    <SettingsTextInput
+                      value={draft.lsp.pythonInterpreterPath}
+                      onChange={(value) =>
+                        updateLsp("pythonInterpreterPath", value)
+                      }
+                      placeholder="Python interpreter path"
+                      monospace
+                    />
+                  </div>
+                </SettingsField>
+
                 <div className="rounded-md border border-[#222838] bg-[#0b0d13]">
                   <div className="flex items-center justify-between border-b border-[#222838] px-3 py-2">
                     <div className="text-[12px] font-medium text-[#dce4f0]">
@@ -864,11 +980,32 @@ export default function SettingsModal({
                       </button>
                       <button
                         type="button"
+                        onClick={() => void runLanguageServerAction("restart")}
+                        disabled={
+                          !folderPath ||
+                          !draft.lsp.enabled ||
+                          languageServerAction !== null
+                        }
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                      >
+                        {languageServerAction === "restart"
+                          ? "Restarting..."
+                          : "Restart"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => void refreshLanguageServers()}
                         disabled={!folderPath || loadingLanguageServers}
                         className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
                       >
                         {loadingLanguageServers ? "Checking..." : "Refresh"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onViewLogs}
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                      >
+                        View logs
                       </button>
                     </div>
                   </div>
@@ -900,19 +1037,9 @@ export default function SettingsModal({
                                 {server.label}
                               </span>
                               <span
-                                className={`rounded px-1.5 py-0.5 text-[10px] ${
-                                  server.running
-                                    ? "bg-[#142a36] text-[#80c8e0]"
-                                    : server.available
-                                    ? "bg-[#15321f] text-[#90c8a0]"
-                                    : "bg-[#2a1517] text-[#ff7b72]"
-                                }`}
+                                className={`rounded px-1.5 py-0.5 text-[10px] ${getLanguageServerStatusClass(server)}`}
                               >
-                                {server.running
-                                  ? "running"
-                                  : server.available
-                                    ? "available"
-                                    : "missing"}
+                                {getLanguageServerStatusLabel(server)}
                               </span>
                               {server.relevant ? (
                                 <span className="rounded bg-[#142a36] px-1.5 py-0.5 text-[10px] text-[#80c8e0]">
@@ -923,9 +1050,24 @@ export default function SettingsModal({
                             <div className="mt-1 text-[11px] leading-4 text-[#647086]">
                               {server.detail}
                             </div>
+                            {server.lastError ? (
+                              <div className="mt-1 text-[11px] leading-4 text-[#ff8b92]">
+                                {server.lastError}
+                              </div>
+                            ) : null}
+                            {server.runtimeRequirement ? (
+                              <div className="mt-1 text-[11px] leading-4 text-[#8f9bb1]">
+                                {server.runtimeRequirement}
+                              </div>
+                            ) : null}
                             <div className="mt-1 truncate font-mono text-[10px] text-[#3f485a]">
                               {server.command}
                             </div>
+                            {server.runtimeHint ? (
+                              <div className="mt-1 truncate font-mono text-[10px] text-[#60708c]">
+                                {server.runtimeHint}
+                              </div>
+                            ) : null}
                           </div>
                           <div className="max-w-[220px] text-right text-[10px] leading-4 text-[#586478]">
                             {server.available

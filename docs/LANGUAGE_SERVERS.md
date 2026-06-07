@@ -25,17 +25,38 @@ renderer.
 ## Current LSP Features
 
 - Server detection in Settings.
+- Clear server status in Settings: bundled, running, missing, or failed.
 - Server lifecycle start/stop.
+- Server restart from Settings after runtime or virtual environment changes.
+- LSP logs visible from Settings through the Output panel.
 - Active-file server startup.
 - Completion requests.
 - Rich completion items: snippets, text edits, commit characters, and
   additional edits.
 - Instant local-symbol fallback so the popup appears quickly.
+- Instant Python built-in fallback so common names like `print` appear while
+  Pyright is still starting.
 - Live diagnostics from `textDocument/publishDiagnostics`.
+- Python virtual environment selection for import resolution.
+- Runtime requirement messages for servers that still need project tooling such
+  as a Python venv, JDK, or .NET runtime.
 
-## Install Commands
+## Python Virtual Environments
 
-These commands are examples. Use the install method that fits the machine.
+Python projects often keep framework packages such as Django, DRF, FastAPI, or
+Flask inside a project virtual environment. Pyright cannot resolve those imports
+from the global Python runtime unless Axon tells it which interpreter belongs to
+the project.
+
+Use `Settings -> Language Servers -> Python virtual environment` and select the
+folder that contains the environment, such as `.venv` or `venv`. Axon detects
+the interpreter inside that folder, saves both the environment path and the
+resolved interpreter path, then sends those settings to Pyright during startup.
+
+After changing the environment, use the Language Servers `Restart` action. That
+restarts Pyright with the new interpreter settings, which is safer than trying
+to reuse an already-started server that analyzed the workspace with stale
+runtime paths.
 
 ## How Managed Bundles Ship
 

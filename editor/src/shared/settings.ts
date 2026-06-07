@@ -137,6 +137,8 @@ export interface AxonSettings {
 
 export interface LspSettings {
   enabled: boolean;
+  pythonVirtualEnvPath: string;
+  pythonInterpreterPath: string;
 }
 
 export interface AiSettings {
@@ -167,6 +169,8 @@ export const DEFAULT_SETTINGS: AxonSettings = {
   },
   lsp: {
     enabled: true,
+    pythonVirtualEnvPath: "",
+    pythonInterpreterPath: "",
   },
   theme_overrides: {},
   customFonts: [],
@@ -333,6 +337,14 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof lsp.enabled === "boolean"
           ? lsp.enabled
           : DEFAULT_SETTINGS.lsp.enabled,
+      pythonVirtualEnvPath:
+        typeof lsp.pythonVirtualEnvPath === "string"
+          ? lsp.pythonVirtualEnvPath.trim()
+          : DEFAULT_SETTINGS.lsp.pythonVirtualEnvPath,
+      pythonInterpreterPath:
+        typeof lsp.pythonInterpreterPath === "string"
+          ? lsp.pythonInterpreterPath.trim()
+          : DEFAULT_SETTINGS.lsp.pythonInterpreterPath,
     },
     theme_overrides: normalizeThemeOverrides(root.theme_overrides),
     customFonts: normalizeCustomFonts(root.customFonts),

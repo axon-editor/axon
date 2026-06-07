@@ -107,6 +107,41 @@ const dockerfileSnippets = [
   detail: "Dockerfile instruction",
 }));
 
+const pythonBuiltinSuggestions = [
+  "print",
+  "len",
+  "range",
+  "enumerate",
+  "zip",
+  "map",
+  "filter",
+  "list",
+  "dict",
+  "set",
+  "tuple",
+  "str",
+  "int",
+  "float",
+  "bool",
+  "type",
+  "isinstance",
+  "super",
+  "open",
+  "sorted",
+  "sum",
+  "min",
+  "max",
+  "any",
+  "all",
+  "class",
+  "def",
+  "return",
+  "import",
+  "from",
+  "async",
+  "await",
+];
+
 const tailwindUtilitySuggestions = [
   "flex",
   "grid",
@@ -416,6 +451,42 @@ function registerDockerfileSnippets(monacoInstance: typeof monaco) {
   });
 }
 
+function registerPythonBuiltins(monacoInstance: typeof monaco) {
+  monacoInstance.languages.registerCompletionItemProvider("python", {
+    triggerCharacters: ["p", "l", "r", "i", "f", "d", "c"],
+    provideCompletionItems: (model, position) => {
+      const range = getWordReplaceRange(model, position);
+      const word = model.getWordUntilPosition(position).word.toLowerCase();
+
+      // Pyright provides the real project-aware list once the server is warm.
+      // This small built-in layer keeps Python usable immediately after opening
+      // a file, so core names like `print` and `range` do not disappear while
+      // the external server is still indexing the workspace.
+      return {
+        suggestions: pythonBuiltinSuggestions
+          .filter((label) => !word || label.startsWith(word))
+          .map((label, index) => ({
+            label,
+            kind:
+              label === "class" ||
+              label === "def" ||
+              label === "return" ||
+              label === "import" ||
+              label === "from" ||
+              label === "async" ||
+              label === "await"
+                ? monacoInstance.languages.CompletionItemKind.Keyword
+                : monacoInstance.languages.CompletionItemKind.Function,
+            insertText: label,
+            detail: "Python built-in",
+            sortText: `0${String(index).padStart(3, "0")}`,
+            range,
+          })),
+      };
+    },
+  });
+}
+
 function registerTailwindUtilityProvider(monacoInstance: typeof monaco) {
   for (const languageId of tailwindUtilityLanguages) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
@@ -453,7 +524,7 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
   for (const languageId of lspCompletionLanguages) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
       triggerCharacters: [".", ":", "/", "\"", "'", "<", "@", "#", "("],
-      provideCompletionItems: async (model, position, _context, token) => {
+      provideCompletionItems: async (model, position, context, token) => {
         const folderPath = window.axonCompletionWorkspacePath;
         const filePath = model.uri.fsPath;
         if (!folderPath || !isFileInsideWorkspace(filePath, folderPath)) {
@@ -467,6 +538,11 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
           content: model.getValue(),
           line: position.lineNumber,
           column: position.column,
+          triggerCharacter:
+            context.triggerKind ===
+              monacoInstance.languages.CompletionTriggerKind.TriggerCharacter
+              ? context.triggerCharacter
+              : undefined,
         });
         if (token.isCancellationRequested || !result.ok) {
           return { suggestions: [] };
@@ -527,6 +603,7 @@ export function configureLspCompletions(monacoInstance: typeof monaco = monaco) 
   registerLocalSymbolProvider(monacoInstance);
   registerWebTagSnippets(monacoInstance);
   registerDockerfileSnippets(monacoInstance);
+  registerPythonBuiltins(monacoInstance);
   registerTailwindUtilityProvider(monacoInstance);
   registerExternalLspProvider(monacoInstance);
 }

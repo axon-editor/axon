@@ -112,6 +112,11 @@ let bundledCoreProcess: ChildProcess | null = null;
 let isQuitting = false;
 const activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
 const activeLanguageServers = new Map<string, LanguageServerSession>();
+const activeLanguageServerFailures = new Map<
+  string,
+  { message: string; timestamp: number }
+>();
+const stoppingLanguageServerKeys = new Set<string>();
 const windowSessionRestore = new Map<number, boolean>();
 const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
 const axonReleaseApiUrl =
@@ -1169,6 +1174,7 @@ interface LanguageServerDefinition {
   launchArgs: string[];
   workspaceMarkers: string[];
   installHint: string;
+  runtimeRequirement?: string;
   bundledNodeServer?: {
     packagePath: string[];
     scriptPath: string[];
@@ -1363,6 +1369,8 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     launchArgs: ["--stdio"],
     workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt"],
     installHint: "Bundled with Axon through pyright.",
+    runtimeRequirement:
+      "Select the project virtual environment when imports live outside the system Python.",
     bundledNodeServer: {
       packagePath: ["node_modules", "pyright"],
       scriptPath: ["langserver.index.js"],
@@ -1388,7 +1396,9 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     // launcher exists; bundling JDT LS correctly also means deciding how to
     // ship or require a Java runtime per platform, so that belongs in the
     // managed language-tool layer rather than a blind npm dependency.
-    installHint: "Add Eclipse JDT LS to Axon's managed language-server bundle.",
+    installHint: "Bundled with Axon through the managed Eclipse JDT LS bundle.",
+    runtimeRequirement:
+      "Requires a JDK on the machine so JDT LS can analyze Java projects.",
     managedBundle: {
       directoryName: "java",
       executableNames: ["jdtls"],
@@ -1411,7 +1421,9 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     // with existing .NET SDK installs. The important boundary here is that
     // Axon starts a real LSP process, while .NET SDK/runtime installation stays
     // explicit until Axon has a trusted managed-tool installer.
-    installHint: "Add csharp-ls to Axon's managed language-server bundle.",
+    installHint: "Bundled with Axon through the managed OmniSharp bundle.",
+    runtimeRequirement:
+      "Requires the .NET SDK/runtime for project restore and Roslyn analysis.",
     managedBundle: {
       directoryName: "csharp",
       executableNames: ["OmniSharp", "OmniSharp.exe", "omnisharp"],
@@ -1431,7 +1443,9 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "settings.gradle",
       "settings.gradle.kts",
     ],
-    installHint: "Add kotlin-language-server to Axon's managed language-server bundle.",
+    installHint: "Bundled with Axon through the managed Kotlin language-server bundle.",
+    runtimeRequirement:
+      "Requires a JDK because Kotlin project analysis runs on the JVM.",
     managedBundle: {
       directoryName: "kotlin",
       executableNames: ["kotlin-language-server"],
@@ -1464,7 +1478,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "selene.toml",
       "stylua.toml",
     ],
-    installHint: "Add lua-language-server to Axon's managed language-server bundle.",
+    installHint: "Bundled with Axon through the managed Lua language-server bundle.",
     managedBundle: {
       directoryName: "lua",
       executableNames: ["lua-language-server"],
@@ -1483,7 +1497,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "docker-compose.yml",
       "docker-compose.yaml",
     ],
-    installHint: "Install dockerfile-language-server-nodejs.",
+    installHint: "Bundled with Axon through dockerfile-language-server-nodejs.",
     resolveCommand: (folderPath) => {
       const workspaceServer = path.join(
         folderPath,
@@ -1548,7 +1562,7 @@ const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "postcss.config.js",
       "package.json",
     ],
-    installHint: "Install @tailwindcss/language-server.",
+    installHint: "Bundled with Axon through @tailwindcss/language-server.",
     resolveCommand: (folderPath) => {
       const workspaceServer = path.join(
         folderPath,
@@ -1635,6 +1649,92 @@ function getElectronNodeEnvironment() {
     ...process.env,
     ELECTRON_RUN_AS_NODE: "1",
   };
+}
+
+function getPythonInterpreterFromVirtualEnv(virtualEnvPath: string) {
+  if (!virtualEnvPath) return "";
+
+  const candidates =
+    process.platform === "win32"
+      ? [
+          path.join(virtualEnvPath, "Scripts", "python.exe"),
+          path.join(virtualEnvPath, "Scripts", "python"),
+        ]
+      : [
+          path.join(virtualEnvPath, "bin", "python3"),
+          path.join(virtualEnvPath, "bin", "python"),
+        ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? "";
+}
+
+function getPythonLanguageServerSettings(folderPath: string) {
+  const settings = readSettingsForFolder(folderPath);
+  const pythonPath =
+    settings.lsp.pythonInterpreterPath ||
+    getPythonInterpreterFromVirtualEnv(settings.lsp.pythonVirtualEnvPath);
+  if (!pythonPath) return null;
+
+  const virtualEnvPath = settings.lsp.pythonVirtualEnvPath;
+  const virtualEnvName = virtualEnvPath ? path.basename(virtualEnvPath) : "";
+  const parentVirtualEnvPath = virtualEnvPath ? path.dirname(virtualEnvPath) : "";
+
+  // Pyright accepts the same settings shape used by Python editor extensions:
+  // python.pythonPath points at the interpreter, while python.venvPath and
+  // python.venv let it understand the environment as a named venv. Sending
+  // both keeps imports like Django/DRF resolvable even when the workspace does
+  // not have a pyrightconfig.json yet.
+  return {
+    python: {
+      pythonPath,
+      venvPath: parentVirtualEnvPath,
+      venv: virtualEnvName,
+      analysis: {
+        autoSearchPaths: true,
+        useLibraryCodeForTypes: true,
+        diagnosticMode: "workspace",
+      },
+    },
+  };
+}
+
+function getLanguageServerInitializationOptions(session: LanguageServerSession) {
+  if (session.id !== "python") return undefined;
+  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  if (!pythonSettings) return undefined;
+
+  return {
+    settings: pythonSettings,
+  };
+}
+
+function notifyLanguageServerConfiguration(session: LanguageServerSession) {
+  if (session.id !== "python") return;
+  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  if (!pythonSettings) return;
+
+  notifyLanguageServer(session, "workspace/didChangeConfiguration", {
+    settings: pythonSettings,
+  });
+}
+
+function emitLanguageServerLog(
+  session: Pick<LanguageServerSession, "id" | "folderPath">,
+  level: "info" | "error",
+  message: string,
+) {
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) return;
+
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (window.isDestroyed()) continue;
+    window.webContents.send("lsp:log", {
+      folderPath: session.folderPath,
+      serverId: session.id,
+      level,
+      message: trimmedMessage.slice(-2000),
+    });
+  }
 }
 
 function resolveBundledNodeLanguageServer(
@@ -2077,6 +2177,7 @@ function initializeLanguageServer(session: LanguageServerSession) {
     {
       processId: process.pid,
       rootUri: url.pathToFileURL(session.folderPath).toString(),
+      initializationOptions: getLanguageServerInitializationOptions(session),
       workspaceFolders: [
         {
           uri: url.pathToFileURL(session.folderPath).toString(),
@@ -2147,16 +2248,21 @@ function initializeLanguageServer(session: LanguageServerSession) {
   )
     .then(() => {
       notifyLanguageServer(session, "initialized", {});
+      notifyLanguageServerConfiguration(session);
       session.initialized = true;
+      emitLanguageServerLog(session, "info", `${session.id} initialized.`);
     })
     .catch((err) => {
       session.stderr = `${session.stderr}\n${err.message}`.slice(-4000);
+      emitLanguageServerLog(session, "error", err.message);
     });
 }
 
 function stopLanguageServerSession(key: string) {
   const session = activeLanguageServers.get(key);
   if (!session) return;
+  stoppingLanguageServerKeys.add(key);
+  activeLanguageServerFailures.delete(key);
 
   try {
     writeLanguageServerMessage(session, {
@@ -2243,34 +2349,72 @@ function waitForLanguageServerSpawn(
 async function getLanguageServerStatus(
   folderPath: string,
 ): Promise<LanguageServerStatus[]> {
+  const settings = readSettingsForFolder(folderPath);
+
   return Promise.all(
     LANGUAGE_SERVER_DEFINITIONS.map(async (definition) => {
       const resolved = resolveLanguageServerCommand(definition, folderPath);
       const relevant = hasWorkspaceMarker(folderPath, definition.workspaceMarkers);
       const available = await canRunCommand(resolved.command, resolved.args);
-      const running = activeLanguageServers.has(
-        getLanguageServerSessionKey(folderPath, definition.id),
+      const sessionKey = getLanguageServerSessionKey(folderPath, definition.id);
+      const running = activeLanguageServers.has(sessionKey);
+      const lastFailure = activeLanguageServerFailures.get(sessionKey);
+      const failed = Boolean(lastFailure && !running);
+      const pythonInterpreter =
+        definition.id === "python"
+          ? settings.lsp.pythonInterpreterPath ||
+            getPythonInterpreterFromVirtualEnv(settings.lsp.pythonVirtualEnvPath)
+          : "";
+      const status = running
+        ? "running"
+        : failed
+          ? "failed"
+          : available
+            ? "available"
+            : "missing";
+      const bundled = Boolean(
+        definition.bundledNodeServer ||
+          definition.managedBundle ||
+          ["typescript", "docker", "tailwind"].includes(definition.id),
       );
 
       return {
         id: definition.id,
         label: definition.label,
         languages: definition.languages,
+        status,
         available,
         relevant,
         running,
         startable: resolved.startable,
+        bundled,
         command: resolved.command,
-        detail: running
-          ? "Running for this workspace"
-          : available
-          ? relevant
-            ? "Ready for this workspace"
-            : "Installed but no matching workspace markers found"
-          : relevant
-            ? "Relevant, but language server is not installed"
-            : "Not installed",
+        detail: failed
+          ? "Failed to start. Open LSP logs for details."
+          : running
+            ? bundled
+              ? "Running from Axon's bundled server"
+              : "Running from the system server"
+            : available
+              ? relevant
+                ? bundled
+                  ? "Bundled and ready for this workspace"
+                  : "Installed and ready for this workspace"
+                : bundled
+                  ? "Bundled, but no matching workspace markers found"
+                  : "Installed, but no matching workspace markers found"
+              : relevant
+                ? "Relevant, but the language server is not available"
+                : "Not available",
         installHint: definition.installHint,
+        runtimeRequirement: definition.runtimeRequirement,
+        lastError: lastFailure?.message,
+        runtimeHint:
+          definition.id === "python"
+            ? pythonInterpreter
+              ? `Interpreter: ${pythonInterpreter}`
+              : "No Python virtual environment selected"
+            : undefined,
       };
     }),
   );
@@ -2292,6 +2436,10 @@ async function startLanguageServerDefinition(
 
   const available = await canRunCommand(resolved.command, resolved.args);
   if (!available) {
+    activeLanguageServerFailures.set(key, {
+      message: definition.installHint,
+      timestamp: Date.now(),
+    });
     return {
       label: definition.label,
       ok: false,
@@ -2299,6 +2447,10 @@ async function startLanguageServerDefinition(
     };
   }
   if (!resolved.startable) {
+    activeLanguageServerFailures.set(key, {
+      message: definition.installHint,
+      timestamp: Date.now(),
+    });
     return {
       label: definition.label,
       ok: false,
@@ -2328,21 +2480,36 @@ async function startLanguageServerDefinition(
 
     await waitForLanguageServerSpawn(child, definition.label);
     activeLanguageServers.set(key, session);
+    activeLanguageServerFailures.delete(key);
 
     child.stdout.on("data", (chunk: Buffer) => {
       readLanguageServerMessages(session, chunk);
     });
     child.stderr.on("data", (chunk) => {
-      session.stderr = `${session.stderr}${chunk.toString()}`.slice(-4000);
+      const message = chunk.toString();
+      session.stderr = `${session.stderr}${message}`.slice(-4000);
+      emitLanguageServerLog(session, "error", message);
     });
     child.on("exit", () => {
+      if (stoppingLanguageServerKeys.has(key)) {
+        stoppingLanguageServerKeys.delete(key);
+      } else {
+        activeLanguageServerFailures.set(key, {
+          message: `${definition.label} language server exited.`,
+          timestamp: Date.now(),
+        });
+      }
       rejectLanguageServerPendingRequests(
         session,
         new Error(`${definition.label} language server exited.`),
       );
       activeLanguageServers.delete(key);
     });
-    child.on("error", () => {
+    child.on("error", (err) => {
+      activeLanguageServerFailures.set(key, {
+        message: err.message || `${definition.label} language server failed.`,
+        timestamp: Date.now(),
+      });
       rejectLanguageServerPendingRequests(
         session,
         new Error(`${definition.label} language server failed.`),
@@ -2358,6 +2525,10 @@ async function startLanguageServerDefinition(
     };
   } catch (err) {
     activeLanguageServers.delete(key);
+    activeLanguageServerFailures.set(key, {
+      message: err instanceof Error ? err.message : `${definition.label} failed.`,
+      timestamp: Date.now(),
+    });
     return {
       label: definition.label,
       ok: false,
@@ -2575,6 +2746,29 @@ function getReadyLanguageServerSession(
   }
 
   return { ok: true as const, message: "", session };
+}
+
+function waitForLanguageServerInitialization(
+  session: LanguageServerSession,
+  timeoutMs = 2500,
+) {
+  if (session.initialized) return Promise.resolve(true);
+
+  return new Promise<boolean>((resolve) => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      if (session.initialized) {
+        clearInterval(timer);
+        resolve(true);
+        return;
+      }
+
+      if (Date.now() - startedAt >= timeoutMs) {
+        clearInterval(timer);
+        resolve(false);
+      }
+    }, 50);
+  });
 }
 
 function normalizeCompletionDocumentation(documentation: unknown) {
@@ -2861,9 +3055,16 @@ async function getLanguageServerCompletions(
     return { ok: true, items: [] };
   }
 
-  const session = activeLanguageServers.get(
+  let session = activeLanguageServers.get(
     getLanguageServerSessionKey(request.folderPath, serverId),
   );
+  if (!session) {
+    await startLanguageServerForLanguage(request.folderPath, request.languageId);
+    session = activeLanguageServers.get(
+      getLanguageServerSessionKey(request.folderPath, serverId),
+    );
+  }
+
   if (!session) {
     return {
       ok: false,
@@ -2872,6 +3073,11 @@ async function getLanguageServerCompletions(
     };
   }
   if (!session.initialized) {
+    const initialized = await waitForLanguageServerInitialization(session);
+    if (initialized) {
+      return getLanguageServerCompletions(request);
+    }
+
     return {
       ok: false,
       message: `${serverId} language server is still starting.`,
@@ -4154,6 +4360,30 @@ ipcMain.handle("dialog:importFont", async () => {
   }
 
   return importCustomFontFile(result.filePaths[0]);
+});
+
+ipcMain.handle("dialog:selectPythonVirtualEnv", async () => {
+  const result = await dialog.showOpenDialog({
+    title: "Select Python virtual environment",
+    properties: ["openDirectory"],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  const virtualEnvPath = result.filePaths[0];
+  const interpreterPath = getPythonInterpreterFromVirtualEnv(virtualEnvPath);
+  if (!interpreterPath) {
+    throw new Error(
+      "The selected folder does not look like a Python virtual environment.",
+    );
+  }
+
+  return {
+    virtualEnvPath,
+    interpreterPath,
+  };
 });
 
 ipcMain.handle("settings:get", async (_event, folderPath?: string | null) => {

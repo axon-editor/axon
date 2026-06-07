@@ -139,6 +139,10 @@ declare global {
       platform: string;
       openFolder: () => Promise<string | null>;
       importFont: () => Promise<CustomFont | null>;
+      selectPythonVirtualEnv: () => Promise<{
+        virtualEnvPath: string;
+        interpreterPath: string;
+      } | null>;
       getSettings: (folderPath?: string | null) => Promise<AxonSettings>;
       updateSettings: (
         settings: AxonSettings,
@@ -193,6 +197,14 @@ declare global {
           folderPath: string;
           filePath: string;
           diagnostics: EditorDiagnostic[];
+        }) => void,
+      ) => () => void;
+      onLanguageServerLog: (
+        callback: (event: {
+          folderPath: string;
+          serverId: string;
+          level: "info" | "error";
+          message: string;
         }) => void,
       ) => () => void;
       listWorkspaceTasks: (folderPath: string) => Promise<WorkspaceTask[]>;
@@ -722,6 +734,20 @@ function App() {
       }));
     });
   }, [folderPath, settings.lsp.enabled]);
+
+  useEffect(() => {
+    if (!folderPath || !settings.lsp.enabled) return;
+
+    // Language servers fail for normal project reasons: a runtime can be
+    // missing, Pyright can reject a virtualenv path, or a server can still be
+    // warming up while Monaco asks for completion. Surfacing main-process LSP
+    // logs in the Output panel keeps those failures visible without forcing the
+    // user to open DevTools just to understand why autocomplete is quiet.
+    return window.axon.onLanguageServerLog((event) => {
+      if (event.folderPath !== folderPath) return;
+      appendOutput("lsp", `[${event.serverId}] ${event.message}`, event.level);
+    });
+  }, [appendOutput, folderPath, settings.lsp.enabled]);
 
   useEffect(() => {
     const handleFileSaved = (event: Event) => {
@@ -2004,6 +2030,12 @@ function App() {
           onClose={() => setSettingsOpen(false)}
           onPreview={handleSettingsPreview}
           onSave={handleSettingsSave}
+          onViewLogs={() => {
+            setSettingsOpen(false);
+            setBottomPanelTab("output");
+            setBottomPanelOpen(true);
+            setTerminalOpen(false);
+          }}
         />
       )}
 

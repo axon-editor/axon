@@ -19,13 +19,18 @@ export interface LanguageServerStatus {
   id: LanguageServerId;
   label: string;
   languages: string[];
+  status: "running" | "available" | "missing" | "failed";
   available: boolean;
   relevant: boolean;
   running: boolean;
   startable: boolean;
+  bundled: boolean;
   command: string;
   detail: string;
   installHint: string;
+  runtimeHint?: string;
+  runtimeRequirement?: string;
+  lastError?: string;
 }
 
 export interface LanguageServerLifecycleResult {

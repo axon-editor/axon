@@ -60,6 +60,10 @@ contextBridge.exposeInMainWorld("axon", {
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   importFont: (): Promise<CustomFont | null> =>
     ipcRenderer.invoke("dialog:importFont"),
+  selectPythonVirtualEnv: (): Promise<{
+    virtualEnvPath: string;
+    interpreterPath: string;
+  } | null> => ipcRenderer.invoke("dialog:selectPythonVirtualEnv"),
   getSettings: (folderPath?: string | null) =>
     ipcRenderer.invoke("settings:get", folderPath),
   updateSettings: (settings: AxonSettings, folderPath?: string | null) =>
@@ -136,6 +140,26 @@ contextBridge.exposeInMainWorld("axon", {
     ) => callback(payload);
     ipcRenderer.on("lsp:diagnostics", listener);
     return () => ipcRenderer.removeListener("lsp:diagnostics", listener);
+  },
+  onLanguageServerLog: (
+    callback: (event: {
+      folderPath: string;
+      serverId: string;
+      level: "info" | "error";
+      message: string;
+    }) => void,
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: {
+        folderPath: string;
+        serverId: string;
+        level: "info" | "error";
+        message: string;
+      },
+    ) => callback(payload);
+    ipcRenderer.on("lsp:log", listener);
+    return () => ipcRenderer.removeListener("lsp:log", listener);
   },
   getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke("git:status", folderPath),

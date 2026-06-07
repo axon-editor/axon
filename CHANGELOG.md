@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.1.3
+
+- Added Python virtual environment selection in Settings so Pyright can resolve
+  project imports from `.venv`, `venv`, or another selected environment.
+- Added Python interpreter detection from the selected virtual environment and
+  sent the resolved interpreter settings to Pyright during initialization and
+  configuration refresh.
+- Added a Language Servers restart action so Python import settings can be
+  reloaded without restarting the whole editor.
+- Added immediate Python built-in completions for common names such as `print`
+  while the external language server is still starting.
+- Improved first-request LSP completion behavior by auto-starting the matching
+  server and waiting briefly for initialization before returning an empty
+  result.
+- Added LSP server logs to the Output panel so missing runtimes, bad virtualenv
+  paths, and server startup errors are visible inside Axon.
+- Added clearer Language Server Settings statuses for bundled, running,
+  missing, and failed-start servers.
+- Added runtime requirement messages for servers that still depend on a project
+  runtime such as Python virtualenvs, JDK, or .NET.
+- Documented how Python virtual environment selection works and when to restart
+  the language server.
+
 ## v1.1.2
 
 - Added broader active LSP routing for Go, Rust, Python, C/C++, Java, C#,
