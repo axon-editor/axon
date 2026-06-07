@@ -12,6 +12,7 @@ const outputRoot = path.join(editorRoot, "build", "language-servers");
 const downloadRoot = path.join(editorRoot, ".language-server-downloads");
 
 const currentPlatformKey = `${process.platform}-${process.arch}`;
+const githubToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 
 const bundles = [
   {
@@ -135,11 +136,17 @@ function run(command, args, options = {}) {
 
 async function fetchJson(url) {
   const isGitHubApi = url.startsWith("https://api.github.com/");
+  const headers = {
+    Accept: isGitHubApi ? "application/vnd.github+json" : "application/json",
+    "User-Agent": "Axon-Language-Server-Bundler",
+  };
+
+  if (isGitHubApi && githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`;
+  }
+
   const response = await fetch(url, {
-    headers: {
-      Accept: isGitHubApi ? "application/vnd.github+json" : "application/json",
-      "User-Agent": "Axon-Language-Server-Bundler",
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -150,10 +157,16 @@ async function fetchJson(url) {
 }
 
 async function downloadFile(url, destination) {
+  const headers = {
+    "User-Agent": "Axon-Language-Server-Bundler",
+  };
+
+  if (url.startsWith("https://github.com/") && githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`;
+  }
+
   const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Axon-Language-Server-Bundler",
-    },
+    headers,
   });
 
   if (!response.ok || !response.body) {

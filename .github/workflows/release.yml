@@ -70,6 +70,8 @@ jobs:
 
       - name: Bundle managed language servers
         run: npm run build:language-servers
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Build packaged desktop target
         run: ${{ matrix.platform.command }}
