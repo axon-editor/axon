@@ -59,7 +59,9 @@ import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import {
   type GitActionResult,
   type GitCommitResult,
+  type GitCommitDiffResult,
   type GitDiffResult,
+  type GitHistoryResult,
   type GitStatusResult,
 } from "../shared/git";
 import {
@@ -220,6 +222,15 @@ declare global {
         untracked?: boolean,
       ) => Promise<GitDiffResult>;
       getGitFileBase: (folderPath: string, filePath: string) => Promise<string>;
+      getGitHistory: (
+        folderPath: string,
+        filePath?: string | null,
+      ) => Promise<GitHistoryResult>;
+      getGitCommitDiff: (
+        folderPath: string,
+        hash: string,
+        filePath?: string | null,
+      ) => Promise<GitCommitDiffResult>;
       runGitAction: (
         folderPath: string,
         filePath: string,

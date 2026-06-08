@@ -40,3 +40,36 @@ export interface GitCommitResult {
   ok: boolean;
   message: string;
 }
+
+export interface GitHistoryCommit {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  authorEmail: string;
+  authorAvatarUrl: string;
+  date: string;
+  relativeDate: string;
+  body: string;
+  files: GitHistoryFile[];
+}
+
+export interface GitHistoryFile {
+  path: string;
+  absolutePath: string;
+  oldPath: string | null;
+  status: GitFileState;
+}
+
+export interface GitHistoryResult {
+  isRepository: boolean;
+  root: string | null;
+  branch: string | null;
+  commits: GitHistoryCommit[];
+}
+
+export interface GitCommitDiffResult {
+  hash: string;
+  path: string | null;
+  diff: string;
+}

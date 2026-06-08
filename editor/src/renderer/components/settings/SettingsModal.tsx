@@ -379,7 +379,7 @@ export default function SettingsModal({
         },
       }));
       setLanguageServerMessage(
-        "Python virtual environment selected. Restart Python language server to reload imports.",
+        "Python virtual environment selected. Pyright will use it for external packages after you save settings.",
       );
     } catch (err) {
       setLanguageServerMessage(
@@ -400,7 +400,7 @@ export default function SettingsModal({
       },
     }));
     setLanguageServerMessage(
-      "Python virtual environment cleared. Restart Python language server to use default resolution.",
+      "Python virtual environment cleared. Python still works with Pyright's default interpreter resolution.",
     );
   };
 
@@ -893,11 +893,11 @@ export default function SettingsModal({
             {activeSection === "languageServers" && (
               <SettingsSection
                 title="Language Servers"
-                description="This is the service foundation for real project intelligence. Axon detects available servers now; the next LSP slice can start long-running clients from this same contract."
+                description="Axon starts real language servers for project-aware completion, diagnostics, hover, references, rename, and formatting."
               >
                 <SettingsField
                   label="LSP services"
-                  description="Disabling this will let future LSP clients stay off even when servers are installed."
+                  description="Disabling this turns off external language intelligence while keeping Monaco's basic editor features."
                 >
                   <SettingsToggle
                     checked={draft.lsp.enabled}
@@ -908,7 +908,7 @@ export default function SettingsModal({
 
                 <SettingsField
                   label="Python virtual environment"
-                  description="Select the project venv so Pyright resolves imports installed there, like Django REST Framework."
+                  description="Optional. Python works without this, but select a project venv/interpreter when external packages like Django REST Framework need to resolve."
                 >
                   <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">

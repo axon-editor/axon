@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  ArrowLeft,
   Check,
   Copy,
   FileDiff,
   FileText,
   GitBranch,
+  GitCommitHorizontal,
+  History,
   Minus,
   Plus,
   RefreshCw,
@@ -13,6 +16,10 @@ import {
 } from "lucide-react";
 import {
   type GitChange,
+  type GitCommitDiffResult,
+  type GitHistoryFile,
+  type GitHistoryCommit,
+  type GitHistoryResult,
   type GitDiffResult,
   type GitFileState,
   type GitStatusResult,
@@ -43,6 +50,17 @@ const stateLabels: Record<GitFileState, string> = {
   unknown: "?",
 };
 
+const stateNames: Record<GitFileState, string> = {
+  modified: "Modified",
+  added: "Added",
+  deleted: "Deleted",
+  renamed: "Renamed",
+  copied: "Copied",
+  untracked: "Untracked",
+  ignored: "Ignored",
+  unknown: "Changed",
+};
+
 function changeLabel(change: GitChange) {
   if (change.indexState !== "unknown" && change.indexState !== "ignored") {
     return stateLabels[change.indexState];
@@ -52,6 +70,18 @@ function changeLabel(change: GitChange) {
 
 function getFileName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+}
+
+function formatCommitDate(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function SourceControlModal({
@@ -72,6 +102,16 @@ export default function SourceControlModal({
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
   const [committing, setCommitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"changes" | "history">("changes");
+  const [history, setHistory] = useState<GitHistoryResult | null>(null);
+  const [selectedCommit, setSelectedCommit] = useState<GitHistoryCommit | null>(
+    null,
+  );
+  const [selectedHistoryFile, setSelectedHistoryFile] =
+    useState<GitHistoryFile | null>(null);
+  const [commitDiff, setCommitDiff] = useState<GitCommitDiffResult | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingCommitDiff, setLoadingCommitDiff] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const stagedChanges = useMemo(
@@ -300,10 +340,73 @@ export default function SourceControlModal({
     }
   };
 
+  const loadHistory = async () => {
+    if (!folderPath) return;
+
+    setLoadingHistory(true);
+    try {
+      const nextHistory = await window.axon.getGitHistory(
+        folderPath,
+        selectedChange?.absolutePath ?? null,
+      );
+      setHistory(nextHistory);
+      setSelectedCommit((currentCommit) => {
+        if (!currentCommit) return null;
+        return (
+          nextHistory.commits.find(
+            (commit) => commit.hash === currentCommit.hash,
+          ) ?? null
+        );
+      });
+    } catch (err) {
+      console.error("failed to load git history:", err);
+      setHistory({
+        isRepository: false,
+        root: null,
+        branch: null,
+        commits: [],
+      });
+      onOutput("Failed to load Git history.", "error");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const copyCommitDiff = async () => {
+    if (!selectedCommit || !commitDiff) return;
+
+    try {
+      await window.axon.copyText(
+        [
+          "Axon Git Commit Context",
+          `Commit: ${selectedCommit.hash}`,
+          `Author: ${selectedCommit.authorName} <${selectedCommit.authorEmail}>`,
+          `Date: ${selectedCommit.date}`,
+          `Subject: ${selectedCommit.subject}`,
+          selectedHistoryFile ? `File: ${selectedHistoryFile.path}` : "",
+          "",
+          "```diff",
+          commitDiff.diff.trim() || "No diff available.",
+          "```",
+        ].join("\n"),
+      );
+      markCopied("commit");
+      onOutput(`Copied commit context for ${selectedCommit.shortHash}.`, "success");
+    } catch (err) {
+      console.error("failed to copy commit diff:", err);
+      onOutput("Failed to copy commit context.", "error");
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
     void loadStatus();
   }, [open, folderPath]);
+
+  useEffect(() => {
+    if (!open || activeTab !== "history") return;
+    void loadHistory();
+  }, [activeTab, folderPath, open, selectedChange?.absolutePath]);
 
   useEffect(() => {
     if (!open) return;
@@ -341,6 +444,39 @@ export default function SourceControlModal({
       .finally(() => setLoadingDiff(false));
   }, [folderPath, selectedChange]);
 
+  useEffect(() => {
+    setSelectedHistoryFile((currentFile) => {
+      if (!selectedCommit) return null;
+      if (!currentFile) return null;
+      return selectedCommit.files.find((file) => file.path === currentFile.path) ?? null;
+    });
+  }, [selectedCommit]);
+
+  useEffect(() => {
+    if (!folderPath || !selectedCommit || !selectedHistoryFile) {
+      setCommitDiff(null);
+      return;
+    }
+
+    setLoadingCommitDiff(true);
+    window.axon
+      .getGitCommitDiff(
+        folderPath,
+        selectedCommit.hash,
+        selectedHistoryFile?.path ?? null,
+      )
+      .then(setCommitDiff)
+      .catch((err) => {
+        console.error("failed to load git commit diff:", err);
+        setCommitDiff({
+          hash: selectedCommit.hash,
+          path: selectedHistoryFile?.path ?? null,
+          diff: "Failed to load commit diff.",
+        });
+      })
+      .finally(() => setLoadingCommitDiff(false));
+  }, [folderPath, selectedCommit, selectedHistoryFile]);
+
   if (!open) return null;
 
   return (
@@ -353,7 +489,7 @@ export default function SourceControlModal({
     >
       <div
         ref={panelRef}
-        className="absolute bottom-8 left-1/2 top-20 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
+        className="absolute bottom-6 left-1/2 top-14 flex w-[min(1440px,calc(100vw-1.5rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
       >
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#222838] bg-[#141824] px-4">
           <span className="text-[11px] font-medium uppercase tracking-wide text-[#9aa4b8]">
@@ -370,7 +506,7 @@ export default function SourceControlModal({
           </Tooltip>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-cols-[380px_minmax(0,1fr)] overflow-hidden">
           <div className="flex min-h-0 flex-col border-r border-[#222838]">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -426,32 +562,65 @@ export default function SourceControlModal({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain py-2">
-            {!folderPath && (
+            <div className="grid h-9 shrink-0 grid-cols-2 border-b border-[#222838] bg-[#0d1018] p-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("changes")}
+                className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-md text-[11px] transition-colors ${
+                  activeTab === "changes"
+                    ? "bg-[#1e2430] text-white"
+                    : "text-[#647086] hover:bg-[#151923] hover:text-[#c8d0e0]"
+                }`}
+              >
+                <FileDiff size={12} />
+                Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("history")}
+                className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-md text-[11px] transition-colors ${
+                  activeTab === "history"
+                    ? "bg-[#1e2430] text-white"
+                    : "text-[#647086] hover:bg-[#151923] hover:text-[#c8d0e0]"
+                }`}
+              >
+                <History size={12} />
+                History
+              </button>
+            </div>
+
+            <div
+              className={`min-h-0 flex-1 overscroll-contain ${
+                activeTab === "history"
+                  ? "overflow-hidden"
+                  : "overflow-y-scroll py-2"
+              }`}
+            >
+            {activeTab === "changes" && !folderPath && (
               <div className="px-3 py-2 text-[12px] text-[#586478]">
                 Open a folder to inspect Git changes.
               </div>
             )}
 
-            {folderPath && loadingStatus && (
+            {activeTab === "changes" && folderPath && loadingStatus && (
               <div className="px-3 py-2 text-[12px] text-[#586478]">
                 loading git status...
               </div>
             )}
 
-            {folderPath && status && !status.isRepository && (
+            {activeTab === "changes" && folderPath && status && !status.isRepository && (
               <div className="px-3 py-2 text-[12px] text-[#586478]">
                 This workspace is not a Git repository.
               </div>
             )}
 
-            {status?.isRepository && status.changes.length === 0 && (
+            {activeTab === "changes" && status?.isRepository && status.changes.length === 0 && (
               <div className="px-3 py-2 text-[12px] text-[#586478]">
                 No changed files.
               </div>
             )}
 
-            {stagedChanges.length > 0 && (
+            {activeTab === "changes" && stagedChanges.length > 0 && (
               <ChangeGroup
                 title="staged"
                 changes={stagedChanges}
@@ -464,7 +633,7 @@ export default function SourceControlModal({
               />
             )}
 
-            {unstagedChanges.length > 0 && (
+            {activeTab === "changes" && unstagedChanges.length > 0 && (
               <ChangeGroup
                 title="changes"
                 changes={unstagedChanges}
@@ -476,8 +645,22 @@ export default function SourceControlModal({
                 runningAction={runningAction}
               />
             )}
+
+            {activeTab === "history" && (
+              <HistorySidebar
+                folderPath={folderPath}
+                history={history}
+                loadingHistory={loadingHistory}
+                selectedCommit={selectedCommit}
+                selectedHistoryFile={selectedHistoryFile}
+                onSelectCommit={setSelectedCommit}
+                onBack={() => setSelectedCommit(null)}
+                onSelectFile={setSelectedHistoryFile}
+              />
+            )}
             </div>
 
+            {activeTab === "changes" ? (
             <div className="shrink-0 border-t border-[#222838] p-3">
               <textarea
                 value={commitMessage}
@@ -509,29 +692,62 @@ export default function SourceControlModal({
                 </button>
               </div>
             </div>
+            ) : (
+              <div className="shrink-0 border-t border-[#222838] px-3 py-2 text-[10px] leading-4 text-[#586478]">
+                {selectedChange
+                  ? `Showing history for ${selectedChange.path}.`
+                  : "Showing workspace history. Select a changed file to scope history to that file."}
+              </div>
+            )}
           </div>
 
           <div className="flex min-w-0 min-h-0 flex-col">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
             <div className="min-w-0">
               <div className="truncate text-[12px] font-medium text-[#c8d0e0]">
-                {selectedChange
-                  ? getFileName(selectedChange.path)
-                  : "No file selected"}
+                {activeTab === "history"
+                  ? selectedCommit?.subject || "No commit selected"
+                  : selectedChange
+                    ? getFileName(selectedChange.path)
+                    : "No file selected"}
               </div>
               <div className="truncate text-[10px] text-[#586478]">
-                {selectedChange?.path ?? "Select a changed file to preview its diff"}
+                {activeTab === "history"
+                  ? selectedCommit
+                    ? `${selectedCommit.shortHash} · ${selectedCommit.authorName} · ${formatCommitDate(selectedCommit.date)}`
+                    : "Select a commit to preview its diff"
+                  : selectedChange?.path ?? "Select a changed file to preview its diff"}
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Tooltip label="Copy selected diff context" side="bottom">
+              <Tooltip
+                label={
+                  activeTab === "history"
+                    ? "Copy commit diff context"
+                    : "Copy selected diff context"
+                }
+                side="bottom"
+              >
                 <button
-                  onClick={() => void copySelectedDiff()}
-                  disabled={!selectedChange || !diff}
-                  aria-label="Copy selected diff context"
+                  onClick={() =>
+                    activeTab === "history"
+                      ? void copyCommitDiff()
+                      : void copySelectedDiff()
+                  }
+                  disabled={
+                    activeTab === "history"
+                      ? !selectedCommit || !commitDiff
+                      : !selectedChange || !diff
+                  }
+                  aria-label={
+                    activeTab === "history"
+                      ? "Copy commit diff context"
+                      : "Copy selected diff context"
+                  }
                   className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
                 >
-                  {copiedAction === "selected" ? (
+                  {copiedAction ===
+                  (activeTab === "history" ? "commit" : "selected") ? (
                     <Check size={13} />
                   ) : (
                     <Copy size={13} />
@@ -541,9 +757,11 @@ export default function SourceControlModal({
               <Tooltip label="Open file" side="bottom">
                 <button
                   onClick={() =>
-                    selectedChange && onOpenFile(selectedChange.absolutePath)
+                    activeTab === "changes" &&
+                    selectedChange &&
+                    onOpenFile(selectedChange.absolutePath)
                   }
-                  disabled={!selectedChange}
+                  disabled={activeTab === "history" || !selectedChange}
                   aria-label="Open file"
                   className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
                 >
@@ -562,28 +780,295 @@ export default function SourceControlModal({
             </div>
             </div>
 
+            {activeTab === "history" && selectedCommit ? (
+              <div className="shrink-0 border-b border-[#222838] bg-[#0c0f17] px-4 py-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="truncate text-[13px] font-medium text-[#dce4f0]">
+                      {selectedCommit.subject}
+                    </div>
+                    {selectedCommit.body.trim() ? (
+                      <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#8f9bb1]">
+                        {selectedCommit.body.trim()}
+                      </div>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#647086]">
+                      <span>{selectedCommit.shortHash}</span>
+                      <span>{selectedCommit.authorName}</span>
+                      {selectedCommit.authorEmail ? (
+                        <span>{selectedCommit.authorEmail}</span>
+                      ) : null}
+                      <span>{formatCommitDate(selectedCommit.date)}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 rounded-md border border-[#222838] bg-[#11141d] px-2 py-1 text-[10px] text-[#8f9bb1]">
+                    {selectedCommit.files.length} file
+                    {selectedCommit.files.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {activeTab === "history" ? (
+              <div className="min-h-0 flex-1 overflow-scroll overscroll-contain bg-[#080a10]">
+                  {loadingCommitDiff && (
+                    <div className="px-4 py-3 text-[12px] text-[#586478]">
+                      loading commit diff...
+                    </div>
+                  )}
+                  {!loadingCommitDiff && !selectedCommit && (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
+                      Select a commit to view history context.
+                    </div>
+                  )}
+                  {!loadingCommitDiff && selectedCommit && (
+                    <pre className="min-h-full whitespace-pre-wrap px-4 py-3 font-mono text-[11px] leading-5 text-[#9aa4b8]">
+                      {commitDiff?.diff.trim() ||
+                        (selectedHistoryFile
+                          ? `No diff available for ${stateNames[selectedHistoryFile.status].toLowerCase()} file ${selectedHistoryFile.path}.`
+                          : "Select a changed file to view its commit diff.")}
+                    </pre>
+                  )}
+              </div>
+            ) : (
             <div className="min-h-0 flex-1 overflow-scroll overscroll-contain bg-[#080a10]">
-            {loadingDiff && (
+            {activeTab === "changes" && loadingDiff && (
               <div className="px-4 py-3 text-[12px] text-[#586478]">
                 loading diff...
               </div>
             )}
-            {!loadingDiff && !selectedChange && (
+            {activeTab === "changes" && !loadingDiff && !selectedChange && (
               <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
                 Select a changed file to view diff context.
               </div>
             )}
-            {!loadingDiff && selectedChange && (
+            {activeTab === "changes" && !loadingDiff && selectedChange && (
               <pre className="min-h-full whitespace-pre-wrap px-4 py-3 font-mono text-[11px] leading-5 text-[#9aa4b8]">
                 {diff?.diff.trim() ||
                   "No diff available yet. Save the file first if the change is only in the editor buffer."}
               </pre>
             )}
             </div>
+            )}
         </div>
       </div>
       </div>
     </div>
+  );
+}
+
+function HistorySidebar({
+  folderPath,
+  history,
+  loadingHistory,
+  selectedCommit,
+  selectedHistoryFile,
+  onSelectCommit,
+  onBack,
+  onSelectFile,
+}: {
+  folderPath: string | null;
+  history: GitHistoryResult | null;
+  loadingHistory: boolean;
+  selectedCommit: GitHistoryCommit | null;
+  selectedHistoryFile: GitHistoryFile | null;
+  onSelectCommit: (commit: GitHistoryCommit) => void;
+  onBack: () => void;
+  onSelectFile: (file: GitHistoryFile) => void;
+}) {
+  const isCommitOpen = selectedCommit !== null;
+
+  return (
+    <div className="relative min-h-full overflow-hidden">
+      <div
+        className={`absolute inset-0 overflow-y-auto py-2 transition-transform duration-300 ease-out ${
+          isCommitOpen ? "-translate-x-full" : "translate-x-0"
+        }`}
+      >
+        {!folderPath && (
+          <div className="px-3 py-2 text-[12px] text-[#586478]">
+            Open a folder to inspect Git history.
+          </div>
+        )}
+
+        {folderPath && loadingHistory && (
+          <div className="space-y-2 px-3 py-2">
+            {[0, 1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-14 animate-pulse rounded-md bg-[#151923]"
+              />
+            ))}
+          </div>
+        )}
+
+        {folderPath && history && !history.isRepository && (
+          <div className="px-3 py-2 text-[12px] text-[#586478]">
+            This workspace is not a Git repository.
+          </div>
+        )}
+
+        {history?.isRepository &&
+          history.commits.length === 0 &&
+          !loadingHistory && (
+            <div className="px-3 py-2 text-[12px] text-[#586478]">
+              No commit history found.
+            </div>
+          )}
+
+        {history?.commits.map((commit) => (
+          <button
+            key={commit.hash}
+            type="button"
+            onClick={() => onSelectCommit(commit)}
+            className="grid w-full cursor-pointer grid-cols-[34px_1fr] gap-2 px-3 py-2 text-left text-[#9aa4b8] transition-colors hover:bg-[#14161e] hover:text-white"
+          >
+            <AuthorAvatar commit={commit} />
+            <span className="min-w-0">
+              <span className="block truncate text-[12px] text-[#dce4f0]">
+                {commit.subject}
+              </span>
+              <span className="mt-0.5 block truncate text-[10px] text-[#586478]">
+                {commit.authorName} ·{" "}
+                {commit.relativeDate || formatCommitDate(commit.date)}
+              </span>
+              <span className="mt-1 flex items-center gap-2 text-[10px] text-[#465166]">
+                <span className="font-mono">{commit.shortHash}</span>
+                <span>
+                  {commit.files.length} file
+                  {commit.files.length === 1 ? "" : "s"}
+                </span>
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div
+        className={`absolute inset-0 flex min-h-0 flex-col bg-[#0b0d13] transition-transform duration-300 ease-out ${
+          isCommitOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {selectedCommit ? (
+          <>
+            <div className="shrink-0 border-b border-[#222838] px-3 py-3">
+              <button
+                type="button"
+                onClick={onBack}
+                className="mb-3 flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-[11px] text-[#8f9bb1] transition-colors hover:bg-[#151923] hover:text-white"
+              >
+                <ArrowLeft size={13} />
+                History
+              </button>
+
+              <div className="flex items-start gap-3">
+                <AuthorAvatar commit={selectedCommit} large />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium leading-5 text-[#dce4f0]">
+                    {selectedCommit.subject}
+                  </div>
+                  {selectedCommit.body.trim() ? (
+                    <div className="mt-1 max-h-20 overflow-y-auto text-[11px] leading-4 text-[#8f9bb1]">
+                      {selectedCommit.body.trim()}
+                    </div>
+                  ) : null}
+                  <div className="mt-2 space-y-1 text-[10px] text-[#647086]">
+                    <div className="truncate">{selectedCommit.authorName}</div>
+                    {selectedCommit.authorEmail ? (
+                      <div className="truncate">{selectedCommit.authorEmail}</div>
+                    ) : null}
+                    <div className="font-mono">{selectedCommit.shortHash}</div>
+                    <div>{formatCommitDate(selectedCommit.date)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex h-9 shrink-0 items-center justify-between border-b border-[#222838] px-3">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-[#647086]">
+                changed files
+              </span>
+              <span className="text-[10px] text-[#465166]">
+                {selectedCommit.files.length}
+              </span>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto py-2">
+              {selectedCommit.files.length === 0 ? (
+                <div className="px-3 py-2 text-[12px] text-[#586478]">
+                  No changed file list available for this commit.
+                </div>
+              ) : (
+                selectedCommit.files.map((file) => {
+                  const selected = selectedHistoryFile?.path === file.path;
+                  return (
+                    <button
+                      key={`${selectedCommit.hash}:${file.path}`}
+                      type="button"
+                      onClick={() => onSelectFile(file)}
+                      className={`grid w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-2 px-3 py-2 text-left transition-colors ${
+                        selected
+                          ? "bg-[#1e2430] text-white"
+                          : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"
+                      }`}
+                    >
+                      <span className="rounded bg-[#151923] px-1.5 py-0.5 text-center text-[10px] text-[#80c8e0]">
+                        {stateLabels[file.status]}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[12px]">
+                          {getFileName(file.path)}
+                        </span>
+                        <span className="block truncate text-[10px] text-[#586478]">
+                          {file.oldPath
+                            ? `${file.oldPath} -> ${file.path}`
+                            : file.path}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AuthorAvatar({
+  commit,
+  large,
+}: {
+  commit: GitHistoryCommit;
+  large?: boolean;
+}) {
+  const initials =
+    commit.authorName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?";
+  const sizeClass = large ? "h-11 w-11 text-[13px]" : "h-8 w-8 text-[11px]";
+
+  if (commit.authorAvatarUrl) {
+    return (
+      <img
+        src={commit.authorAvatarUrl}
+        alt={commit.authorName}
+        className={`${sizeClass} shrink-0 rounded-full border border-[#222838] bg-[#151923] object-cover`}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-[#222838] bg-[#151923] font-medium text-[#80c8e0]`}
+    >
+      {initials}
+    </span>
   );
 }
 

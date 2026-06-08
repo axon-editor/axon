@@ -10,7 +10,9 @@ import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
   type GitActionResult,
   type GitCommitResult,
+  type GitCommitDiffResult,
   type GitDiffResult,
+  type GitHistoryResult,
   type GitStatusResult,
 } from "../shared/git";
 import {
@@ -179,6 +181,17 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("git:diff", folderPath, filePath, staged, untracked),
   getGitFileBase: (folderPath: string, filePath: string): Promise<string> =>
     ipcRenderer.invoke("git:baseFile", folderPath, filePath),
+  getGitHistory: (
+    folderPath: string,
+    filePath?: string | null,
+  ): Promise<GitHistoryResult> =>
+    ipcRenderer.invoke("git:history", folderPath, filePath),
+  getGitCommitDiff: (
+    folderPath: string,
+    hash: string,
+    filePath?: string | null,
+  ): Promise<GitCommitDiffResult> =>
+    ipcRenderer.invoke("git:commitDiff", folderPath, hash, filePath),
   runGitAction: (
     folderPath: string,
     filePath: string,

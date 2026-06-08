@@ -25,6 +25,7 @@ import http, {
   type ServerResponse,
   type Server,
 } from "http";
+import crypto from "crypto";
 import { promisify } from "util";
 import { autoUpdater } from "electron-updater";
 import {
@@ -37,10 +38,14 @@ import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
   type GitCommitResult,
+  type GitCommitDiffResult,
   type GitActionResult,
   type GitChange,
   type GitDiffResult,
   type GitFileState,
+  type GitHistoryFile,
+  type GitHistoryCommit,
+  type GitHistoryResult,
   type GitStatusResult,
 } from "../shared/git";
 import {
@@ -2454,7 +2459,7 @@ async function getLanguageServerStatus(
           definition.id === "python"
             ? pythonInterpreter
               ? `Interpreter: ${pythonInterpreter}`
-              : "No Python virtual environment selected"
+              : "Using Pyright's default Python resolution"
             : undefined,
       };
     }),
@@ -3859,6 +3864,42 @@ function parseGitIgnoredPaths(root: string, ignoredOutput: string): string[] {
     .map((ignoredPath) => path.resolve(root, ignoredPath.replace(/\/$/, "")));
 }
 
+function parseGitHistoryFile(root: string, line: string): GitHistoryFile | null {
+  const parts = line.split("\t").map((part) => part.trim());
+  const statusCode = parts[0] ?? "";
+  if (!statusCode) return null;
+
+  const rawStatus = statusCode[0] ?? "";
+  const status = toGitFileState(rawStatus);
+  const isRenameOrCopy = rawStatus === "R" || rawStatus === "C";
+  const oldPath = isRenameOrCopy ? parts[1] ?? null : null;
+  const filePath = isRenameOrCopy ? parts[2] ?? "" : parts[1] ?? "";
+  if (!isUsableGitPath(filePath)) return null;
+
+  return {
+    path: filePath,
+    absolutePath: path.resolve(root, filePath),
+    oldPath: oldPath && isUsableGitPath(oldPath) ? oldPath : null,
+    status,
+  };
+}
+
+function getGitAuthorAvatarUrl(authorEmail: string) {
+  const normalizedEmail = authorEmail.trim().toLowerCase();
+  if (!normalizedEmail) return "";
+
+  // Git itself only stores the author email, not a profile image. I derive the
+  // avatar URL in the main process so the renderer receives a normal image
+  // source while this Git-specific detail stays beside the history parser. The
+  // default=identicon fallback keeps the UI visual even when the author has no
+  // public Gravatar.
+  const emailHash = crypto
+    .createHash("md5")
+    .update(normalizedEmail)
+    .digest("hex");
+  return `https://www.gravatar.com/avatar/${emailHash}?s=96&d=identicon`;
+}
+
 async function getGitStatus(folderPath: string): Promise<GitStatusResult> {
   try {
     const rootResult = await runGit(folderPath, ["rev-parse", "--show-toplevel"]);
@@ -3967,6 +4008,148 @@ async function getGitFileBase(
     // lets the diff editor still show the whole current file as an addition
     // instead of failing the compare flow.
     return "";
+  }
+}
+
+function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
+  const commitSeparator = "\x1e";
+  const fieldSeparator = "\x1f";
+
+  return output
+    .split(commitSeparator)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry): GitHistoryCommit | null => {
+      const [metaBlock, filesBlock = ""] = entry.split(/\r?\n\r?\n/, 2);
+      const [hash, shortHash, authorName, authorEmail, date, relativeDate, subject, body] =
+        metaBlock.split(fieldSeparator);
+      if (!hash || !shortHash) return null;
+
+      const files = filesBlock
+        .split(/\r?\n/)
+        .map((filePath) => parseGitHistoryFile(root, filePath))
+        .filter((file): file is GitHistoryFile => file !== null);
+
+      return {
+        hash,
+        shortHash,
+        subject: subject || "(no subject)",
+        authorName: authorName || "Unknown",
+        authorEmail: authorEmail || "",
+        authorAvatarUrl: getGitAuthorAvatarUrl(authorEmail || ""),
+        date: date || "",
+        relativeDate: relativeDate || "",
+        body: body || "",
+        files,
+      };
+    })
+    .filter((commit): commit is GitHistoryCommit => commit !== null);
+}
+
+async function getGitHistory(
+  folderPath: string,
+  filePath?: string | null,
+): Promise<GitHistoryResult> {
+  const status = await getGitStatus(folderPath);
+  if (!status.isRepository || !status.root) {
+    return {
+      isRepository: false,
+      root: null,
+      branch: null,
+      commits: [],
+    };
+  }
+
+  const args = [
+    "log",
+    "--date=iso-strict",
+    "--max-count=80",
+    "--name-status",
+    "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%ar%x1f%s%x1f%b",
+  ];
+  const relativePath = filePath
+    ? normalizeGitRequestPath(status.root, filePath)
+    : null;
+  if (filePath && !relativePath) {
+    return {
+      isRepository: true,
+      root: status.root,
+      branch: status.branch,
+      commits: [],
+    };
+  }
+  if (relativePath) {
+    args.push("--", relativePath);
+  }
+
+  try {
+    // History is read-only, but it still stays in the main process because it
+    // depends on the user's Git binary and repository path. Keeping that shell
+    // boundary centralized means the renderer can ask for "history for this
+    // workspace/file" without learning how to assemble Git arguments safely.
+    const result = await runGit(status.root, args);
+    return {
+      isRepository: true,
+      root: status.root,
+      branch: status.branch,
+      commits: parseGitHistory(status.root, result.stdout),
+    };
+  } catch {
+    return {
+      isRepository: true,
+      root: status.root,
+      branch: status.branch,
+      commits: [],
+    };
+  }
+}
+
+async function getGitCommitDiff(
+  folderPath: string,
+  hash: string,
+  filePath?: string | null,
+): Promise<GitCommitDiffResult> {
+  const status = await getGitStatus(folderPath);
+  if (!status.isRepository || !status.root || !/^[0-9a-f]{7,40}$/i.test(hash)) {
+    return {
+      hash,
+      path: null,
+      diff: "",
+    };
+  }
+
+  try {
+    const relativePath = filePath
+      ? normalizeGitRequestPath(status.root, filePath)
+      : null;
+    const args = [
+      "show",
+      "--format=fuller",
+      "--stat",
+      "--patch",
+      "--find-renames",
+      hash,
+    ];
+    if (relativePath) {
+      args.push("--", relativePath);
+    }
+
+    // The selected commit owns a list of changed files, but the user usually
+    // wants the diff for one file at a time. Filtering here keeps the preview
+    // readable and matches editor history views where a commit can be selected
+    // first, then one changed path inside that commit can be inspected.
+    const result = await runGit(status.root, args);
+    return {
+      hash,
+      path: relativePath,
+      diff: result.stdout || result.stderr,
+    };
+  } catch (err) {
+    return {
+      hash,
+      path: filePath ?? null,
+      diff: `${(err as { stdout?: string }).stdout ?? ""}${(err as { stderr?: string }).stderr ?? ""}`.trim(),
+    };
   }
 }
 
@@ -4472,7 +4655,26 @@ ipcMain.handle("settings:get", async (_event, folderPath?: string | null) => {
 ipcMain.handle(
   "settings:update",
   async (_event, settings: AxonSettings, folderPath?: string | null) => {
-    return writeSettingsToDisk(settings, getSettingsPath(folderPath));
+    const normalizedSettings = writeSettingsToDisk(
+      settings,
+      getSettingsPath(folderPath),
+    );
+
+    // Python interpreter settings are read by Pyright after initialization,
+    // not only before spawn. When the user selects or clears a virtual
+    // environment from Settings, I push the new config into any running Python
+    // session so imports can update without forcing a full app restart.
+    for (const session of activeLanguageServers.values()) {
+      if (
+        session.id === "python" &&
+        (!folderPath ||
+          path.resolve(session.folderPath) === path.resolve(folderPath))
+      ) {
+        notifyLanguageServerConfiguration(session);
+      }
+    }
+
+    return normalizedSettings;
   },
 );
 
@@ -5010,6 +5212,46 @@ ipcMain.handle(
   async (_event, folderPath: string, filePath: string) => {
     if (!folderPath || !filePath || !fs.existsSync(folderPath)) return "";
     return getGitFileBase(folderPath, filePath);
+  },
+);
+
+ipcMain.handle(
+  "git:history",
+  async (
+    _event,
+    folderPath: string,
+    filePath?: string | null,
+  ): Promise<GitHistoryResult> => {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return {
+        isRepository: false,
+        root: null,
+        branch: null,
+        commits: [],
+      };
+    }
+
+    return getGitHistory(folderPath, filePath);
+  },
+);
+
+ipcMain.handle(
+  "git:commitDiff",
+  async (
+    _event,
+    folderPath: string,
+    hash: string,
+    filePath?: string | null,
+  ): Promise<GitCommitDiffResult> => {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return {
+        hash,
+        path: null,
+        diff: "",
+      };
+    }
+
+    return getGitCommitDiff(folderPath, hash, filePath);
   },
 );
 
