@@ -121,6 +121,7 @@ const activeLanguageServerFailures = new Map<
   { message: string; timestamp: number }
 >();
 const stoppingLanguageServerKeys = new Set<string>();
+const warmingLanguageServerKeys = new Set<string>();
 const windowSessionRestore = new Map<number, boolean>();
 const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
 const axonReleaseApiUrl =
@@ -2788,29 +2789,6 @@ function getReadyLanguageServerSession(
   return { ok: true as const, message: "", session };
 }
 
-function waitForLanguageServerInitialization(
-  session: LanguageServerSession,
-  timeoutMs = 2500,
-) {
-  if (session.initialized) return Promise.resolve(true);
-
-  return new Promise<boolean>((resolve) => {
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      if (session.initialized) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-
-      if (Date.now() - startedAt >= timeoutMs) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, 50);
-  });
-}
-
 function normalizeCompletionDocumentation(documentation: unknown) {
   if (typeof documentation === "string") return documentation;
   if (
@@ -3099,30 +3077,36 @@ async function getLanguageServerCompletions(
     getLanguageServerSessionKey(request.folderPath, serverId),
   );
   if (!session) {
-    await startLanguageServerForLanguage(request.folderPath, request.languageId);
-    session = activeLanguageServers.get(
-      getLanguageServerSessionKey(request.folderPath, serverId),
+    const definition = LANGUAGE_SERVER_DEFINITIONS.find(
+      (candidate) => candidate.id === serverId,
     );
-  }
+    if (!definition) return { ok: true, items: [] };
 
-  if (!session) {
-    return {
-      ok: false,
-      message: `${serverId} language server is not running.`,
-      items: [],
-    };
-  }
-  if (!session.initialized) {
-    const initialized = await waitForLanguageServerInitialization(session);
-    if (initialized) {
-      return getLanguageServerCompletions(request);
+    const resolved = resolveLanguageServerCommand(definition, request.folderPath);
+    const available = await canRunCommand(resolved.command, resolved.args);
+    if (!available || !resolved.startable) {
+      return { ok: true, items: [] };
     }
 
-    return {
-      ok: false,
-      message: `${serverId} language server is still starting.`,
-      items: [],
-    };
+    const sessionKey = getLanguageServerSessionKey(request.folderPath, serverId);
+    if (!warmingLanguageServerKeys.has(sessionKey)) {
+      warmingLanguageServerKeys.add(sessionKey);
+      // Monaco completion requests should be fast. If a server is cold, Axon
+      // starts it in the background and lets the current completion request end
+      // with no external results. Without this boundary, typing in a language
+      // whose server is missing or still booting makes the suggest widget show
+      // a useless loading state for seconds, which feels worse than simply
+      // waiting for the next trigger once the server is ready.
+      void startLanguageServerDefinition(request.folderPath, definition).finally(
+        () => warmingLanguageServerKeys.delete(sessionKey),
+      );
+    }
+
+    return { ok: true, items: [] };
+  }
+
+  if (!session.initialized) {
+    return { ok: true, items: [] };
   }
 
   try {

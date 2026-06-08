@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -382,9 +381,6 @@ func terminalEnvironment() []string {
 	}
 	if home != "" {
 		extraPaths = append(extraPaths,
-			discoverNvmNodeBins(home)...,
-		)
-		extraPaths = append(extraPaths,
 			filepath.Join(home, ".local", "bin"),
 			filepath.Join(home, "bin"),
 			filepath.Join(home, "go", "bin"),
@@ -412,99 +408,19 @@ func terminalEnvironment() []string {
 	}
 
 	nextPath := strings.Join(parts, string(os.PathListSeparator))
-	replacedPath := false
-	for index, entry := range env {
-		if strings.HasPrefix(entry, "PATH=") {
-			env[index] = "PATH=" + nextPath
-			replacedPath = true
-			break
-		}
-	}
-	if !replacedPath {
-		env = append(env, "PATH="+nextPath)
-	}
+	env = upsertEnvironmentValue(env, "PATH", nextPath)
 
 	return append(env, "TERM=xterm-256color")
 }
 
-func discoverNvmNodeBins(home string) []string {
-	// NVM does not install a stable ~/.nvm/bin directory. It keeps each Node
-	// version under ~/.nvm/versions/node/<version>/bin and relies on shell
-	// startup scripts to choose one. Axon can be launched by Electron instead
-	// of an already-configured terminal, so a missing NVM stanza in .zshrc would
-	// otherwise make npm disappear even though Node is installed on disk.
-	//
-	// I add every discovered version bin in newest-first version order. That
-	// gives the latest installed Node the first chance to resolve npm/node while
-	// still leaving older versions available if a user invokes them by absolute
-	// path or changes PATH later from the shell profile.
-	nvmVersionsPath := filepath.Join(home, ".nvm", "versions", "node")
-	entries, err := os.ReadDir(nvmVersionsPath)
-	if err != nil {
-		return nil
-	}
-	sort.SliceStable(entries, func(leftIndex, rightIndex int) bool {
-		return compareNodeVersionNames(entries[leftIndex].Name(), entries[rightIndex].Name()) > 0
-	})
-
-	paths := []string{}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		binPath := filepath.Join(nvmVersionsPath, entry.Name(), "bin")
-		if info, err := os.Stat(binPath); err == nil && info.IsDir() {
-			paths = append(paths, binPath)
+func upsertEnvironmentValue(env []string, key string, value string) []string {
+	prefix := key + "="
+	for index, entry := range env {
+		if strings.HasPrefix(entry, prefix) {
+			env[index] = prefix + value
+			return env
 		}
 	}
 
-	return paths
-}
-
-func compareNodeVersionNames(left string, right string) int {
-	leftParts := parseNodeVersionName(left)
-	rightParts := parseNodeVersionName(right)
-	length := len(leftParts)
-	if len(rightParts) > length {
-		length = len(rightParts)
-	}
-
-	for index := 0; index < length; index += 1 {
-		leftValue := 0
-		rightValue := 0
-		if index < len(leftParts) {
-			leftValue = leftParts[index]
-		}
-		if index < len(rightParts) {
-			rightValue = rightParts[index]
-		}
-		if leftValue > rightValue {
-			return 1
-		}
-		if leftValue < rightValue {
-			return -1
-		}
-	}
-
-	return 0
-}
-
-func parseNodeVersionName(versionName string) []int {
-	cleanName := strings.TrimPrefix(versionName, "v")
-	parts := strings.Split(cleanName, ".")
-	numbers := make([]int, 0, len(parts))
-
-	for _, part := range parts {
-		value := 0
-		for _, char := range part {
-			if char < '0' || char > '9' {
-				break
-			}
-			value = value*10 + int(char-'0')
-		}
-		numbers = append(numbers, value)
-	}
-
-	return numbers
+	return append(env, prefix+value)
 }

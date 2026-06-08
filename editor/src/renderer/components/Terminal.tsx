@@ -223,15 +223,22 @@ function quoteShellPath(path: string) {
 }
 
 function sendWorkspaceCd(session: TerminalSession) {
-  if (!session.workingDirectory || !session.ws) return;
+  if (!session.ws) return;
   if (session.ws.readyState !== WebSocket.OPEN) return;
   if (session.cwdSynced) return;
 
-  // The backend receives cwd in the websocket URL, but this renderer fallback
-  // covers a running dev backend that has not been restarted yet. Chaining
-  // clear after cd removes the echoed startup command and first wrong prompt,
-  // so the terminal opens on a clean prompt in the workspace folder.
-  session.ws.send(`cd -- ${quoteShellPath(session.workingDirectory)} && clear\r`);
+  const commands: string[] = [];
+  if (session.workingDirectory) {
+    commands.push(`cd -- ${quoteShellPath(session.workingDirectory)}`);
+  }
+
+  // Axon should not inject command-specific shell setup here. The backend
+  // starts the user's real login interactive shell so aliases, functions,
+  // version managers, and installed commands come from the user's own shell
+  // files. This renderer only keeps the prompt visually clean after choosing
+  // the workspace directory.
+  commands.push("clear");
+  session.ws.send(`${commands.join("; ")}\r`);
   session.cwdSynced = true;
 }
 
@@ -405,7 +412,7 @@ export default function Terminal({
       term: null,
       fitAddon: null,
       ws: null,
-  reconnectTimer: null,
+      reconnectTimer: null,
       resizeObserver: null,
       dataDisposable: null,
       workingDirectory: sessionWorkingDirectory,
@@ -541,9 +548,12 @@ export default function Terminal({
 
           latestSession.ws = null;
           updateTabConnection(id, false);
-          latestSession.term?.write(
-            "\r\n\x1b[33mterminal detached; reconnecting...\x1b[0m\r\n",
-          );
+          // The shell process is owned by axon-core, not by the visible React
+          // tab. A websocket close usually means the renderer view detached or
+          // the backend connection blinked, so writing a reconnect banner into
+          // the PTY buffer pollutes the user's real terminal history. VS Code
+          // and Zed keep this reattach path silent; Axon should do the same and
+          // only surface hard backend failures that require user action.
           latestSession.reconnectTimer = window.setTimeout(
             () => connectSession(id),
             1000,
@@ -577,7 +587,14 @@ export default function Terminal({
         scrollback: 4000,
       });
       const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon();
+      const webLinksAddon = new WebLinksAddon((_event, uri) => {
+        // xterm's default web-link behavior uses browser navigation semantics,
+        // which is wrong inside Electron because it can create an app window or
+        // navigate the renderer. Routing through Axon's shell IPC keeps the
+        // terminal like VS Code/Zed: URLs open in the user's default browser,
+        // while the terminal buffer stays exactly where it was.
+        void window.axon.openExternalLink(uri);
+      });
 
       term.loadAddon(fitAddon);
       term.loadAddon(webLinksAddon);
@@ -588,6 +605,21 @@ export default function Terminal({
       session.fitAddon = fitAddon;
       term.write("\x1b[2mconnecting to axon-core...\x1b[0m\r\n");
       connectSession(id);
+      term.attachCustomKeyEventHandler((event) => {
+        if (event.type !== "keydown") return true;
+
+        const key = event.key.toLowerCase();
+        const isClearShortcut =
+          key === "k" && (event.metaKey || event.ctrlKey) && !event.shiftKey;
+        if (!isClearShortcut) return true;
+
+        // Shells normally receive Ctrl+L for clear-screen, but macOS editor
+        // users expect Cmd+K in integrated terminals. xterm can clear its
+        // scrollback locally without sending a fake command to the shell, so
+        // the prompt/process state stays untouched.
+        term.clear();
+        return false;
+      });
 
       // xterm's onData stream is the keyboard side of the PTY. Keeping one
       // websocket per tab lets every terminal have its own shell process,
