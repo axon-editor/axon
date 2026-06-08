@@ -88,13 +88,12 @@ func resolveWorkingDirectory(requested string) string {
 }
 
 func createShellCommand(cwd string) *exec.Cmd {
-	// prefer zsh on darwin, fall back to SHELL env, then bash
-	shell := "/bin/zsh"
-	if _, err := os.Stat(shell); os.IsNotExist(err) {
-		shell = os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/bash"
-		}
+	shell := os.Getenv("SHELL")
+	if shell == "" || !filepath.IsAbs(shell) {
+		shell = "/bin/zsh"
+	}
+	if _, err := os.Stat(shell); err != nil {
+		shell = "/bin/bash"
 	}
 
 	cmd := exec.Command(shell, shellStartupArgs(shell)...)
