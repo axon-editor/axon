@@ -1,0 +1,511 @@
+import { app, BrowserWindow } from "electron";
+import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
+import fs from "fs";
+import path from "path";
+import url from "url";
+import { type EditorDiagnostic } from "../../shared/diagnostics";
+import { type LanguageServerDocumentSyncRequest, type LanguageServerId } from "../../shared/lsp";
+import { readSettingsForFolder } from "../settings/io";
+import { LANGUAGE_SERVER_DEFINITIONS, type LanguageServerDefinition, type ResolvedLanguageServerCommand, type LanguageServerStartAttempt } from "./definitions";
+
+export interface LanguageServerSession {
+  id: LanguageServerId;
+  folderPath: string;
+  process: ChildProcessWithoutNullStreams;
+  requestId: number;
+  initialized: boolean;
+  stderr: string;
+  stdoutBuffer: Buffer;
+  pendingRequests: Map<
+    number,
+    {
+      resolve: (value: unknown) => void;
+      reject: (reason: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >;
+  syncedDocuments: Map<string, { version: number; languageId: string }>;
+}
+
+export interface LspSessionDependencies {
+  sendToRenderer: (channel: string, payload?: unknown) => void;
+}
+
+export function hasWorkspaceMarker(folderPath: string, markers: string[]) {
+  return markers.some((marker) => {
+    if (!marker.includes("*")) {
+      return fs.existsSync(path.join(folderPath, marker));
+    }
+
+    // Some project markers are intentionally glob-shaped because their real
+    // names are user-defined: C# projects use App.csproj/Solution.sln instead
+    // of a fixed filename. I only support a simple "*.<ext>" marker here so
+    // relevance checks stay cheap and predictable during settings refresh.
+    const extension = marker.startsWith("*.") ? marker.slice(1) : "";
+    if (!extension) return false;
+
+    try {
+      return fs
+        .readdirSync(folderPath, { withFileTypes: true })
+        .some((entry) => entry.isFile() && entry.name.endsWith(extension));
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function getLanguageServerSessionKey(
+  folderPath: string,
+  id: LanguageServerId,
+) {
+  return `${path.resolve(folderPath)}::${id}`;
+}
+
+export function getElectronNodeEnvironment() {
+  return {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: "1",
+  };
+}
+
+export function getPythonInterpreterFromVirtualEnv(virtualEnvPath: string) {
+  if (!virtualEnvPath) return "";
+
+  const candidates =
+    process.platform === "win32"
+      ? [
+          path.join(virtualEnvPath, "Scripts", "python.exe"),
+          path.join(virtualEnvPath, "Scripts", "python"),
+        ]
+      : [
+          path.join(virtualEnvPath, "bin", "python3"),
+          path.join(virtualEnvPath, "bin", "python"),
+        ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? "";
+}
+
+export function getPythonLanguageServerSettings(folderPath: string) {
+  const settings = readSettingsForFolder(folderPath);
+  const pythonPath =
+    settings.lsp.pythonInterpreterPath ||
+    getPythonInterpreterFromVirtualEnv(settings.lsp.pythonVirtualEnvPath);
+  if (!pythonPath) return null;
+
+  const virtualEnvPath = settings.lsp.pythonVirtualEnvPath;
+  const virtualEnvName = virtualEnvPath ? path.basename(virtualEnvPath) : "";
+  const parentVirtualEnvPath = virtualEnvPath ? path.dirname(virtualEnvPath) : "";
+
+  // Pyright accepts the same settings shape used by Python editor extensions:
+  // python.pythonPath points at the interpreter, while python.venvPath and
+  // python.venv let it understand the environment as a named venv. Sending
+  // both keeps imports like Django/DRF resolvable even when the workspace does
+  // not have a pyrightconfig.json yet.
+  return {
+    python: {
+      pythonPath,
+      venvPath: parentVirtualEnvPath,
+      venv: virtualEnvName,
+      analysis: {
+        autoSearchPaths: true,
+        useLibraryCodeForTypes: true,
+        diagnosticMode: "workspace",
+      },
+    },
+  };
+}
+
+export function getLanguageServerInitializationOptions(
+  session: LanguageServerSession,
+) {
+  if (session.id !== "python") return undefined;
+  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  if (!pythonSettings) return undefined;
+
+  return {
+    settings: pythonSettings,
+  };
+}
+
+export function notifyLanguageServer(
+  session: LanguageServerSession,
+  method: string,
+  params: unknown,
+) {
+  writeLanguageServerMessage(session, {
+    jsonrpc: "2.0",
+    method,
+    params,
+  });
+}
+
+export function notifyLanguageServerConfiguration(
+  session: LanguageServerSession,
+  notifyLanguageServer: (
+    session: LanguageServerSession,
+    method: string,
+    params: unknown,
+  ) => void,
+) {
+  if (session.id !== "python") return;
+  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  if (!pythonSettings) return;
+
+  notifyLanguageServer(session, "workspace/didChangeConfiguration", {
+    settings: pythonSettings,
+  });
+}
+
+export function emitLanguageServerLog(
+  session: Pick<LanguageServerSession, "id" | "folderPath">,
+  level: "info" | "error",
+  message: string,
+) {
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) return;
+
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (window.isDestroyed()) continue;
+    window.webContents.send("lsp:log", {
+      folderPath: session.folderPath,
+      serverId: session.id,
+      level,
+      message: trimmedMessage.slice(-2000),
+    });
+  }
+}
+
+export function resolveBundledNodeLanguageServer(
+  definition: LanguageServerDefinition,
+): ResolvedLanguageServerCommand | null {
+  if (!definition.bundledNodeServer) return null;
+
+  const serverScript = path.join(
+    app.getAppPath(),
+    ...definition.bundledNodeServer.packagePath,
+    ...definition.bundledNodeServer.scriptPath,
+  );
+  if (!fs.existsSync(serverScript)) return null;
+
+  // npm-backed language servers are the easiest and safest servers for Axon to
+  // bundle because their entry points are normal JavaScript files. Electron can
+  // run those files in Node mode through the already-shipped app executable, so
+  // users do not need a global node/npm install and every packaged Axon build
+  // resolves the same server version.
+  return {
+    command: process.execPath,
+    args: [serverScript, ...definition.args],
+    launchCommand: process.execPath,
+    launchArgs: [serverScript, ...definition.launchArgs],
+    env: getElectronNodeEnvironment(),
+    startable: true,
+  };
+}
+
+export function getManagedLanguageServerPlatformKeys() {
+  const architecture = process.arch;
+  const platform = process.platform;
+
+  return [`${platform}-${architecture}`, platform, "common"];
+}
+
+export function getManagedLanguageServerRoots() {
+  // Packaged builds receive managed native/runtime-backed servers through
+  // Electron's extraResources directory. Development builds use the same shape
+  // under editor/build/language-servers so the resolver can be tested locally
+  // before release packaging.
+  return [
+    path.join(process.resourcesPath, "language-servers"),
+    path.join(app.getAppPath(), "build", "language-servers"),
+  ];
+}
+
+export function getExecutableNameVariants(executableName: string) {
+  if (process.platform !== "win32") return [executableName];
+  return [
+    executableName,
+    `${executableName}.exe`,
+    `${executableName}.cmd`,
+    `${executableName}.bat`,
+  ];
+}
+
+export function resolveManagedLanguageServer(
+  definition: LanguageServerDefinition,
+): ResolvedLanguageServerCommand | null {
+  if (!definition.managedBundle) return null;
+
+  for (const root of getManagedLanguageServerRoots()) {
+    for (const platformKey of getManagedLanguageServerPlatformKeys()) {
+      for (const executableName of definition.managedBundle.executableNames) {
+        for (const executableVariant of getExecutableNameVariants(executableName)) {
+          const executablePath = path.join(
+            root,
+            platformKey,
+            definition.managedBundle.directoryName,
+            "bin",
+            executableVariant,
+          );
+
+          if (!fs.existsSync(executablePath)) continue;
+
+          // Managed bundles are where Axon can ship native or runtime-backed
+          // servers such as JDT LS, OmniSharp, Kotlin LS, and Lua LS without
+          // asking each project to install them. The
+          // platform segment prevents macOS/Linux/Windows binaries from being
+          // mixed, while the common segment still supports portable launchers.
+          return {
+            command: executablePath,
+            args: definition.managedBundle.args ?? definition.args,
+            launchCommand: executablePath,
+            launchArgs:
+              definition.managedBundle.launchArgs ?? definition.launchArgs,
+            startable: true,
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+export function resolveLanguageServerCommand(
+  definition: LanguageServerDefinition,
+  folderPath: string,
+): ResolvedLanguageServerCommand {
+  const customResolved = definition.resolveCommand?.(folderPath);
+  if (customResolved) return customResolved;
+
+  return (
+    resolveBundledNodeLanguageServer(definition) ??
+    resolveManagedLanguageServer(definition) ?? {
+      command: definition.command,
+      args: definition.args,
+      launchCommand: definition.command,
+      launchArgs: definition.launchArgs,
+      env: process.env,
+      startable: true,
+    }
+  );
+}
+
+export function getExecutableSearchDirectories() {
+  // Electron apps launched from the dock or app bundle do not always inherit
+  // the same PATH the user sees in their shell. That is why Axon looks in a
+  // small set of common install locations before declaring a language server
+  // missing. The goal is not to guess blindly; it is to cover the common
+  // Homebrew, Xcode, rustup, pyenv, and Go bin paths that developers already
+  // use when they install editor tooling locally.
+  const dirs = new Set<string>();
+  const home = process.env.HOME ?? "";
+
+  for (const entry of (process.env.PATH ?? "").split(path.delimiter)) {
+    if (entry.trim()) dirs.add(entry.trim());
+  }
+
+  if (home) {
+    dirs.add(path.join(home, ".local", "bin"));
+    dirs.add(path.join(home, ".cargo", "bin"));
+    dirs.add(path.join(home, "go", "bin"));
+  }
+
+  if (process.platform === "darwin") {
+    [
+      "/opt/homebrew/bin",
+      "/opt/homebrew/sbin",
+      "/usr/local/bin",
+      "/usr/local/sbin",
+      "/Library/Developer/CommandLineTools/usr/bin",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+      "/usr/bin",
+      "/bin",
+    ].forEach((dir) => dirs.add(dir));
+  } else if (process.platform === "linux") {
+    ["/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin"].forEach((dir) =>
+      dirs.add(dir),
+    );
+  } else if (process.platform === "win32") {
+    [
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs"),
+      process.env.ProgramFiles,
+      process.env["ProgramFiles(x86)"],
+    ].forEach((dir) => {
+      if (dir) dirs.add(dir);
+    });
+  }
+
+  return Array.from(dirs);
+}
+
+export function resolveCommandPath(command: string) {
+  if (path.isAbsolute(command) && fs.existsSync(command)) return command;
+
+  const commandVariants =
+    process.platform === "win32"
+      ? [command, `${command}.exe`, `${command}.cmd`, `${command}.bat`]
+      : [command];
+
+  for (const dir of getExecutableSearchDirectories()) {
+    for (const candidate of commandVariants) {
+      const resolved = path.join(dir, candidate);
+      if (fs.existsSync(resolved)) {
+        return resolved;
+      }
+    }
+  }
+
+  return command;
+}
+
+export async function canRunCommand(command: string, _args: string[]) {
+  const resolvedCommand = resolveCommandPath(command);
+  // Settings refresh should be a read-only check. The previous implementation
+  // executed `--version` for every language server, but the bundled TypeScript
+  // server is launched through Electron's own binary in Node mode. Probing that
+  // binary from a settings refresh can briefly create a native Electron window
+  // before the process exits, which makes the LSP buttons look like they reload
+  // Axon. Existence is enough here; the real start path still owns process
+  // spawn errors and reports them as lifecycle messages.
+  return path.isAbsolute(resolvedCommand) && fs.existsSync(resolvedCommand);
+}
+
+export function writeLanguageServerMessage(
+  session: LanguageServerSession,
+  payload: unknown,
+) {
+  const body = JSON.stringify(payload);
+  if (session.process.stdin.destroyed || !session.process.stdin.writable) {
+    throw new Error(`${session.id} language server stdin is not writable.`);
+  }
+  session.process.stdin.write(
+    `Content-Length: ${Buffer.byteLength(body, "utf-8")}\r\n\r\n${body}`,
+  );
+}
+
+export function rejectLanguageServerPendingRequests(
+  session: LanguageServerSession,
+  reason: Error,
+) {
+  for (const pending of session.pendingRequests.values()) {
+    clearTimeout(pending.timeout);
+    pending.reject(reason);
+  }
+  session.pendingRequests.clear();
+}
+
+export function stopLanguageServerSession(
+  key: string,
+  activeLanguageServers: Map<string, LanguageServerSession>,
+  stoppingLanguageServerKeys: Set<string>,
+  deleteSessionFailure: (sessionKey: string) => void,
+) {
+  const session = activeLanguageServers.get(key);
+  if (!session) return;
+  stoppingLanguageServerKeys.add(key);
+  deleteSessionFailure(key);
+
+  try {
+    writeLanguageServerMessage(session, {
+      jsonrpc: "2.0",
+      id: session.requestId + 1,
+      method: "shutdown",
+      params: null,
+    });
+    writeLanguageServerMessage(session, {
+      jsonrpc: "2.0",
+      method: "exit",
+      params: {},
+    });
+  } catch {
+    // The process may already be exiting. The cleanup below still removes the
+    // stale session and kills anything that did not accept the graceful exit.
+  }
+
+  rejectLanguageServerPendingRequests(
+    session,
+    new Error(`${session.id} language server stopped.`),
+  );
+  session.process.kill();
+  activeLanguageServers.delete(key);
+}
+
+export function waitForLanguageServerSpawn(
+  child: ChildProcessWithoutNullStreams,
+  label: string,
+) {
+  return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, 350);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      child.off("spawn", handleSpawn);
+      child.off("error", handleError);
+      child.off("exit", handleExit);
+    };
+
+    const handleSpawn = () => {
+      cleanup();
+      resolve();
+    };
+
+    const handleError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+
+    const handleExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      cleanup();
+      reject(
+        new Error(
+          `${label} exited before initialization${code !== null ? ` with code ${code}` : ""}${signal ? ` (${signal})` : ""}.`,
+        ),
+      );
+    };
+
+    child.once("spawn", handleSpawn);
+    child.once("error", handleError);
+    child.once("exit", handleExit);
+  });
+}
+
+export function readLanguageServerMessages(
+  session: LanguageServerSession,
+  chunk: Buffer,
+  handleLanguageServerPayload: (session: LanguageServerSession, payload: unknown) => void,
+) {
+  session.stdoutBuffer = Buffer.concat([session.stdoutBuffer, chunk]);
+
+  while (session.stdoutBuffer.length > 0) {
+    const headerEnd = session.stdoutBuffer.indexOf("\r\n\r\n");
+    if (headerEnd < 0) return;
+
+    const header = session.stdoutBuffer.slice(0, headerEnd).toString("utf-8");
+    const lengthMatch = /Content-Length:\s*(\d+)/i.exec(header);
+    if (!lengthMatch) {
+      session.stdoutBuffer = Buffer.alloc(0);
+      return;
+    }
+
+    const bodyLength = Number(lengthMatch[1]);
+    const bodyStart = headerEnd + 4;
+    const bodyEnd = bodyStart + bodyLength;
+    if (session.stdoutBuffer.length < bodyEnd) return;
+
+    const body = session.stdoutBuffer.slice(bodyStart, bodyEnd).toString("utf-8");
+    session.stdoutBuffer = session.stdoutBuffer.slice(bodyEnd);
+
+    try {
+      handleLanguageServerPayload(session, JSON.parse(body));
+    } catch {
+      // Language servers occasionally emit telemetry/log messages. A malformed
+      // payload should not poison the whole session; the next framed message can
+      // still satisfy an editor request.
+    }
+  }
+}
+
+// ... additional LSP session helpers continue in the next slice.

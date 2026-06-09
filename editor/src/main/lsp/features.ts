@@ -1,0 +1,1585 @@
+import fs from "fs";
+import path from "path";
+import url from "url";
+import { app, BrowserWindow } from "electron";
+import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
+import { type EditorDiagnostic } from "../../shared/diagnostics";
+import {
+  type LanguageServerCodeAction,
+  type LanguageServerCodeActionRequest,
+  type LanguageServerCodeActionResult,
+  type LanguageServerCompletionItem,
+  type LanguageServerCompletionRequest,
+  type LanguageServerCompletionResult,
+  type LanguageServerDefinitionRequest,
+  type LanguageServerDefinitionResult,
+  type LanguageServerDocumentSyncRequest,
+  type LanguageServerFormatRequest,
+  type LanguageServerFormatResult,
+  type LanguageServerHoverRequest,
+  type LanguageServerHoverResult,
+  type LanguageServerLifecycleResult,
+  type LanguageServerReferencesRequest,
+  type LanguageServerReferencesResult,
+  type LanguageServerRenameRequest,
+  type LanguageServerRenameResult,
+  type LanguageServerSignature,
+  type LanguageServerSignatureHelpRequest,
+  type LanguageServerSignatureHelpResult,
+  type LanguageServerStartForFileRequest,
+  type LanguageServerStatus,
+  type LanguageServerTextEdit,
+  type LanguageServerLocation,
+} from "../../shared/lsp";
+import { readSettingsForFolder } from "../settings/io";
+import { LANGUAGE_SERVER_DEFINITIONS, type LanguageServerDefinition, type LanguageServerStartAttempt, type ResolvedLanguageServerCommand } from "./definitions";
+import {
+  emitLanguageServerLog,
+  getLanguageServerInitializationOptions,
+  getLanguageServerSessionKey,
+  getPythonInterpreterFromVirtualEnv,
+  hasWorkspaceMarker,
+  notifyLanguageServerConfiguration,
+  resolveLanguageServerCommand,
+  resolveCommandPath,
+  type LanguageServerSession,
+  type LspSessionDependencies,
+  canRunCommand,
+  writeLanguageServerMessage,
+  rejectLanguageServerPendingRequests,
+  waitForLanguageServerSpawn,
+  readLanguageServerMessages,
+} from "./session";
+
+const activeLanguageServers = new Map<string, LanguageServerSession>();
+const activeLanguageServerFailures = new Map<
+  string,
+  { message: string; timestamp: number }
+>();
+const stoppingLanguageServerKeys = new Set<string>();
+const warmingLanguageServerKeys = new Set<string>();
+
+export function getActiveLanguageServerSessions() {
+  return activeLanguageServers.values();
+}
+
+export interface LspFeatureDependencies extends LspSessionDependencies {
+  getActiveSessions: () => Iterable<LanguageServerSession>;
+  getSessionByKey: (key: string) => LanguageServerSession | undefined;
+  getActiveSessionCountForFolder: (folderPath: string) => number;
+  getLanguageServerSessionByLanguage: (
+    folderPath: string,
+    languageId: string,
+  ) => LanguageServerSession | null;
+  setActiveSession: (key: string, session: LanguageServerSession) => void;
+  deleteActiveSession: (key: string) => void;
+  setSessionFailure: (key: string, message: string) => void;
+  deleteSessionFailure: (key: string) => void;
+  getSessionFailure: (
+    key: string,
+  ) => { message: string; timestamp: number } | undefined;
+  hasSession: (key: string) => boolean;
+  stopAllSessionsForFolder: (folderPath: string) => void;
+  stopAllSessions: () => void;
+  isSessionStopping: (key: string) => boolean;
+  addSessionStoppingKey: (key: string) => void;
+  removeSessionStoppingKey: (key: string) => void;
+  isSessionWarming: (key: string) => boolean;
+  addSessionWarmingKey: (key: string) => void;
+  removeSessionWarmingKey: (key: string) => void;
+}
+
+function normalizeCompletionDocumentation(documentation: unknown) {
+  if (typeof documentation === "string") return documentation;
+  if (
+    documentation &&
+    typeof documentation === "object" &&
+    "value" in documentation &&
+    typeof documentation.value === "string"
+  ) {
+    return documentation.value;
+  }
+
+  return undefined;
+}
+
+function normalizeLanguageServerTextPosition(position: unknown) {
+  if (!position || typeof position !== "object") return undefined;
+  const rawPosition = position as { line?: unknown; character?: unknown };
+  if (
+    typeof rawPosition.line !== "number" ||
+    typeof rawPosition.character !== "number"
+  ) {
+    return undefined;
+  }
+
+  return {
+    line: Math.max(0, rawPosition.line),
+    character: Math.max(0, rawPosition.character),
+  };
+}
+
+function normalizeLanguageServerTextEdit(edit: unknown) {
+  if (!edit || typeof edit !== "object") return undefined;
+  const rawEdit = edit as {
+    range?: unknown;
+    newText?: unknown;
+  };
+  if (typeof rawEdit.newText !== "string") return undefined;
+  if (!rawEdit.range || typeof rawEdit.range !== "object") return undefined;
+
+  const rawRange = rawEdit.range as { start?: unknown; end?: unknown };
+  const start = normalizeLanguageServerTextPosition(rawRange.start);
+  const end = normalizeLanguageServerTextPosition(rawRange.end);
+  if (!start || !end) return undefined;
+
+  return {
+    range: { start, end },
+    newText: rawEdit.newText,
+  };
+}
+
+function normalizeLanguageServerTextEdits(edits: unknown) {
+  if (!Array.isArray(edits)) return undefined;
+  const normalizedEdits = edits
+    .map(normalizeLanguageServerTextEdit)
+    .filter((edit): edit is NonNullable<typeof edit> => edit !== undefined);
+
+  return normalizedEdits.length > 0 ? normalizedEdits : undefined;
+}
+
+function normalizeLanguageServerTextRange(range: unknown) {
+  if (!range || typeof range !== "object") return undefined;
+  const rawRange = range as { start?: unknown; end?: unknown };
+  const start = normalizeLanguageServerTextPosition(rawRange.start);
+  const end = normalizeLanguageServerTextPosition(rawRange.end);
+  if (!start || !end) return undefined;
+
+  return { start, end };
+}
+
+function normalizeLanguageServerLocation(location: unknown) {
+  if (!location || typeof location !== "object") return undefined;
+  const rawLocation = location as {
+    uri?: unknown;
+    targetUri?: unknown;
+    range?: unknown;
+    targetSelectionRange?: unknown;
+  };
+  const rawUri = rawLocation.uri ?? rawLocation.targetUri;
+  if (typeof rawUri !== "string") return undefined;
+
+  let filePath = "";
+  try {
+    filePath = url.fileURLToPath(rawUri);
+  } catch {
+    return undefined;
+  }
+
+  const range = normalizeLanguageServerTextRange(
+    rawLocation.range ?? rawLocation.targetSelectionRange,
+  );
+  if (!range) return undefined;
+
+  return { filePath, range } satisfies LanguageServerLocation;
+}
+
+function normalizeLanguageServerLocations(result: unknown) {
+  const rawLocations = Array.isArray(result) ? result : result ? [result] : [];
+  return rawLocations
+    .map(normalizeLanguageServerLocation)
+    .filter(
+      (location): location is LanguageServerLocation =>
+        location !== undefined,
+    );
+}
+
+function normalizeHoverContents(contents: unknown): string[] {
+  const values = Array.isArray(contents) ? contents : [contents];
+  return values
+    .map((value) => {
+      if (typeof value === "string") return value;
+      if (
+        value &&
+        typeof value === "object" &&
+        "value" in value &&
+        typeof value.value === "string"
+      ) {
+        return value.value;
+      }
+      return "";
+    })
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function normalizeWorkspaceEdit(result: unknown) {
+  if (!result || typeof result !== "object") return {};
+  const rawEdit = result as {
+    changes?: unknown;
+    documentChanges?: unknown;
+  };
+  const editsByFile: Record<string, LanguageServerTextEdit[]> = {};
+
+  if (rawEdit.changes && typeof rawEdit.changes === "object") {
+    for (const [uri, edits] of Object.entries(rawEdit.changes)) {
+      if (!Array.isArray(edits)) continue;
+
+      let filePath = "";
+      try {
+        filePath = url.fileURLToPath(uri);
+      } catch {
+        continue;
+      }
+
+      const normalizedEdits = edits
+        .map(normalizeLanguageServerTextEdit)
+        .filter(
+          (edit): edit is LanguageServerTextEdit => edit !== undefined,
+        );
+      if (normalizedEdits.length > 0) editsByFile[filePath] = normalizedEdits;
+    }
+  }
+
+  if (Array.isArray(rawEdit.documentChanges)) {
+    for (const change of rawEdit.documentChanges) {
+      if (!change || typeof change !== "object") continue;
+      const rawChange = change as {
+        textDocument?: { uri?: unknown };
+        edits?: unknown;
+      };
+      if (
+        typeof rawChange.textDocument?.uri !== "string" ||
+        !Array.isArray(rawChange.edits)
+      ) {
+        continue;
+      }
+
+      let filePath = "";
+      try {
+        filePath = url.fileURLToPath(rawChange.textDocument.uri);
+      } catch {
+        continue;
+      }
+
+      const normalizedEdits = rawChange.edits
+        .map(normalizeLanguageServerTextEdit)
+        .filter(
+          (edit): edit is LanguageServerTextEdit => edit !== undefined,
+        );
+      if (normalizedEdits.length > 0) {
+        editsByFile[filePath] = [
+          ...(editsByFile[filePath] ?? []),
+          ...normalizedEdits,
+        ];
+      }
+    }
+  }
+
+  return editsByFile;
+}
+
+function normalizeLanguageServerCompletionItems(
+  result: unknown,
+): LanguageServerCompletionItem[] {
+  const rawItems = Array.isArray(result)
+    ? result
+    : result && typeof result === "object" && "items" in result && Array.isArray(result.items)
+      ? result.items
+      : [];
+
+  return rawItems
+    .map((item): LanguageServerCompletionItem | null => {
+      if (!item || typeof item !== "object" || !("label" in item)) return null;
+      const completionItem = item as {
+        label?: unknown;
+        kind?: unknown;
+        detail?: unknown;
+        documentation?: unknown;
+        insertText?: unknown;
+        insertTextFormat?: unknown;
+        filterText?: unknown;
+        sortText?: unknown;
+        commitCharacters?: unknown;
+        preselect?: unknown;
+        textEdit?: unknown;
+        additionalTextEdits?: unknown;
+      };
+      if (typeof completionItem.label !== "string") return null;
+
+      // LSP completion items contain more than a visible label. Servers use
+      // textEdit to replace the exact typed range, insertTextFormat to mark
+      // snippets, commitCharacters to accept on keys like "." or "(", and
+      // additionalTextEdits for things like auto-imports. Axon keeps this
+      // payload narrow and validated before it crosses IPC so the renderer can
+      // feel like a real editor without receiving arbitrary server objects.
+      const textEdit = normalizeLanguageServerTextEdit(
+        completionItem.textEdit,
+      );
+      const additionalTextEdits = normalizeLanguageServerTextEdits(
+        completionItem.additionalTextEdits,
+      );
+
+      return {
+        label: completionItem.label,
+        kind:
+          typeof completionItem.kind === "number"
+            ? completionItem.kind
+            : undefined,
+        detail:
+          typeof completionItem.detail === "string"
+            ? completionItem.detail
+            : undefined,
+        documentation: normalizeCompletionDocumentation(
+          completionItem.documentation,
+        ),
+        insertText:
+          typeof completionItem.insertText === "string"
+            ? completionItem.insertText
+            : undefined,
+        insertTextFormat:
+          typeof completionItem.insertTextFormat === "number"
+            ? completionItem.insertTextFormat
+            : undefined,
+        filterText:
+          typeof completionItem.filterText === "string"
+            ? completionItem.filterText
+            : undefined,
+        sortText:
+          typeof completionItem.sortText === "string"
+            ? completionItem.sortText
+            : undefined,
+        commitCharacters: Array.isArray(completionItem.commitCharacters)
+          ? completionItem.commitCharacters.filter(
+              (character): character is string => typeof character === "string",
+            )
+          : undefined,
+        preselect:
+          typeof completionItem.preselect === "boolean"
+            ? completionItem.preselect
+            : undefined,
+        textEdit,
+        additionalTextEdits,
+      };
+    })
+    .filter((item): item is LanguageServerCompletionItem => item !== null)
+    .slice(0, 200);
+}
+
+export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
+  const normalizedLanguageId = languageId.toLowerCase();
+  if (normalizedLanguageId === "typescript" || normalizedLanguageId === "javascript") {
+    return "typescript" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "go") return "go" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "rust") return "rust" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "python") return "python" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "java") return "java" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "csharp") {
+    return "csharp" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "kotlin") {
+    return "kotlin" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "php") return "php" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "lua") return "lua" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "cpp" || normalizedLanguageId === "c") {
+    return "cpp" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "dockerfile") {
+    return "docker" satisfies LanguageServerDefinition["id"];
+  }
+  if (
+    normalizedLanguageId === "html" ||
+    normalizedLanguageId === "css" ||
+    normalizedLanguageId === "scss" ||
+    normalizedLanguageId === "less"
+  ) {
+    return "tailwind" satisfies LanguageServerDefinition["id"];
+  }
+
+  return null;
+}
+
+function syncLanguageServerDocument(
+  session: LanguageServerSession,
+  request: LanguageServerDocumentSyncRequest,
+) {
+  const uri = url.pathToFileURL(request.filePath).toString();
+  const existingDocument = session.syncedDocuments.get(uri);
+  const languageId = request.languageId === "cpp" ? "cpp" : request.languageId;
+
+  if (!existingDocument) {
+    // Completion only makes sense if the server has the latest in-memory text.
+    // Axon editors can be dirty, so reading from disk here would make the LSP
+    // complete against stale content. Full-text didOpen/didChange is heavier
+    // than incremental ranges, but it is deterministic and works across the
+    // first server set while the client layer is still small.
+    notifyLanguageServer(session, "textDocument/didOpen", {
+      textDocument: {
+        uri,
+        languageId,
+        version: 1,
+        text: request.content,
+      },
+    });
+    session.syncedDocuments.set(uri, { version: 1, languageId });
+    return uri;
+  }
+
+  const nextVersion = existingDocument.version + 1;
+  notifyLanguageServer(session, "textDocument/didChange", {
+    textDocument: {
+      uri,
+      version: nextVersion,
+    },
+    contentChanges: [{ text: request.content }],
+  });
+  session.syncedDocuments.set(uri, {
+    version: nextVersion,
+    languageId: existingDocument.languageId,
+  });
+  return uri;
+}
+
+export async function syncDocumentWithLanguageServer(
+  request: LanguageServerDocumentSyncRequest,
+) {
+  const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
+  if (!serverId) return;
+
+  const session = activeLanguageServers.get(
+    getLanguageServerSessionKey(request.folderPath, serverId),
+  );
+  if (!session?.initialized) return;
+
+  syncLanguageServerDocument(session, request);
+}
+
+function notifyLanguageServer(
+  session: LanguageServerSession,
+  method: string,
+  params: unknown,
+) {
+  writeLanguageServerMessage(session, {
+    jsonrpc: "2.0",
+    method,
+    params,
+  });
+}
+
+function handleLanguageServerPayload(
+  session: LanguageServerSession,
+  payload: unknown,
+) {
+  if (!payload || typeof payload !== "object") return;
+
+  const message = payload as {
+    id?: unknown;
+    method?: unknown;
+    params?: unknown;
+    result?: unknown;
+    error?: { message?: string };
+  };
+  if (message.method === "textDocument/publishDiagnostics") {
+    publishLanguageServerDiagnostics(session, message.params);
+    return;
+  }
+
+  if (typeof message.id !== "number") return;
+
+  const pending = session.pendingRequests.get(message.id);
+  if (!pending) return;
+
+  clearTimeout(pending.timeout);
+  session.pendingRequests.delete(message.id);
+
+  if (message.error) {
+    pending.reject(
+      new Error(message.error.message ?? `${session.id} request failed.`),
+    );
+    return;
+  }
+
+  pending.resolve(message.result);
+}
+
+function publishLanguageServerDiagnostics(
+  session: LanguageServerSession,
+  params: unknown,
+) {
+  if (!params || typeof params !== "object") return;
+  const diagnosticParams = params as {
+    uri?: unknown;
+    diagnostics?: unknown;
+  };
+  if (
+    typeof diagnosticParams.uri !== "string" ||
+    !Array.isArray(diagnosticParams.diagnostics)
+  ) {
+    return;
+  }
+
+  let filePath = "";
+  try {
+    filePath = url.fileURLToPath(diagnosticParams.uri);
+  } catch {
+    return;
+  }
+
+  const diagnostics = diagnosticParams.diagnostics
+    .map((diagnostic): EditorDiagnostic | null => {
+      if (!diagnostic || typeof diagnostic !== "object") return null;
+      const rawDiagnostic = diagnostic as {
+        message?: unknown;
+        severity?: unknown;
+        source?: unknown;
+        range?: {
+          start?: { line?: unknown; character?: unknown };
+        };
+      };
+      if (typeof rawDiagnostic.message !== "string") return null;
+
+      const line =
+        typeof rawDiagnostic.range?.start?.line === "number"
+          ? rawDiagnostic.range.start.line + 1
+          : 1;
+      const column =
+        typeof rawDiagnostic.range?.start?.character === "number"
+          ? rawDiagnostic.range.start.character + 1
+          : 1;
+      const severity = normalizeLanguageServerDiagnosticSeverity(
+        rawDiagnostic.severity,
+      );
+      const source =
+        typeof rawDiagnostic.source === "string"
+          ? rawDiagnostic.source
+          : `lsp:${session.id}`;
+
+      return {
+        id: `${source}:${filePath}:${line}:${column}:${severity}:${rawDiagnostic.message}`,
+        path: filePath,
+        message: rawDiagnostic.message,
+        line,
+        column,
+        severity,
+        source,
+      };
+    })
+    .filter((diagnostic): diagnostic is EditorDiagnostic => diagnostic !== null);
+
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+      window.webContents.send("lsp:diagnostics", {
+        folderPath: session.folderPath,
+        filePath,
+        diagnostics,
+      });
+    }
+  }
+}
+
+function normalizeLanguageServerDiagnosticSeverity(
+  severity: unknown,
+): EditorDiagnostic["severity"] {
+  switch (severity) {
+    case 1:
+      return "error";
+    case 2:
+      return "warning";
+    case 3:
+      return "info";
+    default:
+      return "hint";
+  }
+}
+
+function getReadyLanguageServerSession(
+  request: LanguageServerDocumentSyncRequest,
+) {
+  const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
+  if (!serverId) {
+    return {
+      ok: false as const,
+      message: `No language server is configured for ${request.languageId}.`,
+      session: null,
+    };
+  }
+
+  const session = activeLanguageServers.get(
+    getLanguageServerSessionKey(request.folderPath, serverId),
+  );
+  if (!session) {
+    return {
+      ok: false as const,
+      message: `${serverId} language server is not running.`,
+      session: null,
+    };
+  }
+  if (!session.initialized) {
+    return {
+      ok: false as const,
+      message: `${serverId} language server is still starting.`,
+      session: null,
+    };
+  }
+
+  return { ok: true as const, message: "", session };
+}
+
+function requestLanguageServer(
+  session: LanguageServerSession,
+  method: string,
+  params: unknown,
+  timeoutMs = 4500,
+) {
+  session.requestId += 1;
+  const id = session.requestId;
+
+  return new Promise<unknown>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      session.pendingRequests.delete(id);
+      reject(new Error(`${session.id} ${method} timed out.`));
+    }, timeoutMs);
+
+    session.pendingRequests.set(id, { resolve, reject, timeout });
+
+    try {
+      writeLanguageServerMessage(session, {
+        jsonrpc: "2.0",
+        id,
+        method,
+        params,
+      });
+    } catch (err) {
+      clearTimeout(timeout);
+      session.pendingRequests.delete(id);
+      reject(err instanceof Error ? err : new Error(`${method} failed.`));
+    }
+  });
+}
+
+function initializeLanguageServer(session: LanguageServerSession) {
+  // This is a minimal LSP handshake, not the full client. The important part
+  // for this slice is proving Axon can own the server process and negotiate a
+  // workspace root from the main process. Diagnostics, document sync, and
+  // definition requests can now build on this session instead of inventing a
+  // separate process lifecycle later.
+  void requestLanguageServer(
+    session,
+    "initialize",
+    {
+      processId: process.pid,
+      rootUri: url.pathToFileURL(session.folderPath).toString(),
+      initializationOptions: getLanguageServerInitializationOptions(session),
+      workspaceFolders: [
+        {
+          uri: url.pathToFileURL(session.folderPath).toString(),
+          name: path.basename(session.folderPath),
+        },
+      ],
+      capabilities: {
+        textDocument: {
+          synchronization: {
+            didSave: true,
+            dynamicRegistration: false,
+          },
+          completion: {
+            completionItem: {
+              documentationFormat: ["markdown", "plaintext"],
+              snippetSupport: true,
+            },
+            contextSupport: true,
+            dynamicRegistration: false,
+          },
+          hover: {
+            contentFormat: ["markdown", "plaintext"],
+            dynamicRegistration: false,
+          },
+          definition: {
+            dynamicRegistration: false,
+          },
+          references: {
+            dynamicRegistration: false,
+          },
+          rename: {
+            dynamicRegistration: false,
+            prepareSupport: true,
+          },
+          formatting: {
+            dynamicRegistration: false,
+          },
+          signatureHelp: {
+            dynamicRegistration: false,
+            signatureInformation: {
+              documentationFormat: ["markdown", "plaintext"],
+              parameterInformation: {
+                labelOffsetSupport: true,
+              },
+            },
+          },
+          codeAction: {
+            dynamicRegistration: false,
+            codeActionLiteralSupport: {
+              codeActionKind: {
+                valueSet: [
+                  "",
+                  "quickfix",
+                  "refactor",
+                  "refactor.extract",
+                  "refactor.inline",
+                  "refactor.rewrite",
+                  "source",
+                  "source.organizeImports",
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    7000,
+  )
+    .then(() => {
+      notifyLanguageServer(session, "initialized", {});
+      notifyLanguageServerConfiguration(session, notifyLanguageServer);
+      session.initialized = true;
+      emitLanguageServerLog(session, "info", `${session.id} initialized.`);
+    })
+    .catch((err) => {
+      session.stderr = `${session.stderr}\n${err.message}`.slice(-4000);
+      emitLanguageServerLog(session, "error", err.message);
+    });
+}
+
+function startLanguageServerDefinition(
+  folderPath: string,
+  definition: LanguageServerDefinition,
+): Promise<LanguageServerStartAttempt> {
+  const resolved = resolveLanguageServerCommand(definition, folderPath);
+  const key = getLanguageServerSessionKey(folderPath, definition.id);
+  if (activeLanguageServers.has(key)) {
+    return Promise.resolve({
+      label: definition.label,
+      ok: true,
+      message: `${definition.label} is already running.`,
+    });
+  }
+
+  return canRunCommand(resolved.command, resolved.args).then((available) => {
+    if (!available) {
+      activeLanguageServerFailures.set(key, {
+        message: definition.installHint,
+        timestamp: Date.now(),
+      });
+      return {
+        label: definition.label,
+        ok: false,
+        message: `${definition.label}: ${definition.installHint}`,
+      };
+    }
+    if (!resolved.startable) {
+      activeLanguageServerFailures.set(key, {
+        message: definition.installHint,
+        timestamp: Date.now(),
+      });
+      return {
+        label: definition.label,
+        ok: false,
+        message: `${definition.label}: ${definition.installHint}`,
+      };
+    }
+
+    const launchCommand = resolveCommandPath(resolved.launchCommand);
+
+    try {
+      const child = spawn(launchCommand, resolved.launchArgs, {
+        cwd: folderPath,
+        env: resolved.env,
+        stdio: "pipe",
+      });
+      const session: LanguageServerSession = {
+        id: definition.id,
+        folderPath,
+        process: child,
+        requestId: 0,
+        initialized: false,
+        stderr: "",
+        stdoutBuffer: Buffer.alloc(0),
+        pendingRequests: new Map(),
+        syncedDocuments: new Map(),
+      };
+
+      void waitForLanguageServerSpawn(child, definition.label).then(() => {
+        activeLanguageServers.set(key, session);
+        activeLanguageServerFailures.delete(key);
+
+        child.stdout.on("data", (chunk: Buffer) => {
+          readLanguageServerMessages(
+            session,
+            chunk,
+            handleLanguageServerPayload,
+          );
+        });
+        child.stderr.on("data", (chunk) => {
+          const message = chunk.toString();
+          session.stderr = `${session.stderr}${message}`.slice(-4000);
+          emitLanguageServerLog(session, "error", message);
+        });
+        child.on("exit", () => {
+          if (stoppingLanguageServerKeys.has(key)) {
+            stoppingLanguageServerKeys.delete(key);
+          } else {
+            activeLanguageServerFailures.set(key, {
+              message: `${definition.label} language server exited.`,
+              timestamp: Date.now(),
+            });
+          }
+          rejectLanguageServerPendingRequests(
+            session,
+            new Error(`${definition.label} language server exited.`),
+          );
+          activeLanguageServers.delete(key);
+        });
+        child.on("error", (err) => {
+          activeLanguageServerFailures.set(key, {
+            message:
+              err.message || `${definition.label} language server failed.`,
+            timestamp: Date.now(),
+          });
+          rejectLanguageServerPendingRequests(
+            session,
+            new Error(`${definition.label} language server failed.`),
+          );
+          activeLanguageServers.delete(key);
+        });
+
+        initializeLanguageServer(session);
+      });
+
+      return {
+        label: definition.label,
+        ok: true,
+        message: `${definition.label} started.`,
+      };
+    } catch (err) {
+      activeLanguageServers.delete(key);
+      activeLanguageServerFailures.set(key, {
+        message:
+          err instanceof Error ? err.message : `${definition.label} failed.`,
+        timestamp: Date.now(),
+      });
+      return {
+        label: definition.label,
+        ok: false,
+        message: `${definition.label}: ${(err as Error).message}`,
+      };
+    }
+  });
+}
+
+export async function startRelevantLanguageServers(
+  folderPath: string,
+): Promise<LanguageServerLifecycleResult> {
+  const statuses = await getLanguageServerStatus(folderPath);
+  const startableServers = statuses.filter(
+    (server) =>
+      server.relevant && server.available && server.startable && !server.running,
+  );
+  const attempts: LanguageServerStartAttempt[] = [];
+
+  for (const status of startableServers) {
+    const definition = LANGUAGE_SERVER_DEFINITIONS.find(
+      (candidate) => candidate.id === status.id,
+    );
+    if (!definition) continue;
+    attempts.push(await startLanguageServerDefinition(folderPath, definition));
+  }
+
+  const nextStatuses = await getLanguageServerStatus(folderPath);
+  const failedAttempts = attempts.filter((attempt) => !attempt.ok);
+  const startedCount = attempts.filter((attempt) => attempt.ok).length;
+  return {
+    ok: failedAttempts.length === 0,
+    message:
+      startableServers.length === 0
+        ? "No relevant language servers needed to start."
+        : failedAttempts.length > 0
+          ? `Started ${startedCount}. Failed: ${failedAttempts.map((attempt) => attempt.message).join("; ")}`
+          : `Started ${startedCount} language server${startedCount === 1 ? "" : "s"}.`,
+    servers: nextStatuses,
+  };
+}
+
+export async function startLanguageServerForLanguage(
+  folderPath: string,
+  languageId: string,
+): Promise<LanguageServerLifecycleResult> {
+  const serverId = resolveLanguageServerIdForMonacoLanguage(languageId);
+  if (!serverId) {
+    return {
+      ok: true,
+      message: `No external language server is configured for ${languageId}.`,
+      servers: await getLanguageServerStatus(folderPath),
+    };
+  }
+
+  const definition = LANGUAGE_SERVER_DEFINITIONS.find(
+    (candidate) => candidate.id === serverId,
+  );
+  if (!definition) {
+    return {
+      ok: false,
+      message: `No language server definition found for ${languageId}.`,
+      servers: await getLanguageServerStatus(folderPath),
+    };
+  }
+
+  // Marker-based startup is useful when a workspace opens, but completions are
+  // driven by the active document. Starting the server for the file language
+  // means a lone .py, .rs, .go, or .cpp file can still attach to its server
+  // instead of waiting for a project marker that may not exist yet.
+  const attempt = await startLanguageServerDefinition(folderPath, definition);
+  return {
+    ok: attempt.ok,
+    message: attempt.message,
+    servers: await getLanguageServerStatus(folderPath),
+  };
+}
+
+export async function stopRelevantLanguageServers(
+  folderPath: string,
+): Promise<LanguageServerLifecycleResult> {
+  const beforeCount = Array.from(activeLanguageServers.values()).filter(
+    (session) => path.resolve(session.folderPath) === path.resolve(folderPath),
+  ).length;
+
+  for (const [key, session] of activeLanguageServers.entries()) {
+    if (path.resolve(session.folderPath) === path.resolve(folderPath)) {
+      stoppingLanguageServerKeys.add(key);
+      activeLanguageServerFailures.delete(key);
+      try {
+        writeLanguageServerMessage(session, {
+          jsonrpc: "2.0",
+          id: session.requestId + 1,
+          method: "shutdown",
+          params: null,
+        });
+        writeLanguageServerMessage(session, {
+          jsonrpc: "2.0",
+          method: "exit",
+          params: {},
+        });
+      } catch {
+        // The process may already be exiting. The cleanup below still removes the
+        // stale session and kills anything that did not accept the graceful exit.
+      }
+
+      rejectLanguageServerPendingRequests(
+        session,
+        new Error(`${session.id} language server stopped.`),
+      );
+      session.process.kill();
+      activeLanguageServers.delete(key);
+    }
+  }
+
+  return {
+    ok: true,
+    message:
+      beforeCount === 0
+        ? "No language servers were running for this workspace."
+        : `Stopped ${beforeCount} language server${beforeCount === 1 ? "" : "s"}.`,
+    servers: await getLanguageServerStatus(folderPath),
+  };
+}
+
+export async function stopAllLanguageServers(): Promise<LanguageServerLifecycleResult> {
+  const beforeCount = activeLanguageServers.size;
+
+  for (const [key, session] of activeLanguageServers.entries()) {
+    stoppingLanguageServerKeys.add(key);
+    activeLanguageServerFailures.delete(key);
+    try {
+      writeLanguageServerMessage(session, {
+        jsonrpc: "2.0",
+        id: session.requestId + 1,
+        method: "shutdown",
+        params: null,
+      });
+      writeLanguageServerMessage(session, {
+        jsonrpc: "2.0",
+        method: "exit",
+        params: {},
+      });
+    } catch {
+      // The process may already be exiting. The cleanup below still removes the
+      // stale session and kills anything that did not accept the graceful exit.
+    }
+
+    rejectLanguageServerPendingRequests(
+      session,
+      new Error(`${session.id} language server stopped.`),
+    );
+    session.process.kill();
+    activeLanguageServers.delete(key);
+  }
+
+  return {
+    ok: true,
+    message:
+      beforeCount === 0
+        ? "No language servers were running for this workspace."
+        : `Stopped ${beforeCount} language server${beforeCount === 1 ? "" : "s"}.`,
+    servers: [],
+  };
+}
+
+export function getLanguageServerStatus(
+  folderPath: string,
+): Promise<LanguageServerStatus[]> {
+  const settings = readSettingsForFolder(folderPath);
+
+  return Promise.all(
+    LANGUAGE_SERVER_DEFINITIONS.map(async (definition) => {
+      const resolved = resolveLanguageServerCommand(definition, folderPath);
+      const relevant = hasWorkspaceMarker(folderPath, definition.workspaceMarkers);
+      const available = await canRunCommand(resolved.command, resolved.args);
+      const sessionKey = getLanguageServerSessionKey(folderPath, definition.id);
+      const running = activeLanguageServers.has(sessionKey);
+      const lastFailure = activeLanguageServerFailures.get(sessionKey);
+      const failed = Boolean(lastFailure && !running);
+      const pythonInterpreter =
+        definition.id === "python"
+          ? settings.lsp.pythonInterpreterPath ||
+            getPythonInterpreterFromVirtualEnv(settings.lsp.pythonVirtualEnvPath)
+          : "";
+      const status = running
+        ? "running"
+        : failed
+          ? "failed"
+          : available
+            ? "available"
+            : "missing";
+      const bundled = Boolean(
+        definition.bundledNodeServer ||
+          definition.managedBundle ||
+          ["typescript", "docker", "tailwind"].includes(definition.id),
+      );
+
+      return {
+        id: definition.id,
+        label: definition.label,
+        languages: definition.languages,
+        status,
+        available,
+        relevant,
+        running,
+        startable: resolved.startable,
+        bundled,
+        command: resolved.command,
+        detail: failed
+          ? "Failed to start. Open LSP logs for details."
+          : running
+            ? bundled
+              ? "Running from Axon's bundled server"
+              : "Running from the system server"
+            : available
+              ? relevant
+                ? bundled
+                  ? "Bundled and ready for this workspace"
+                  : "Installed and ready for this workspace"
+                : bundled
+                  ? "Bundled, but no matching workspace markers found"
+                  : "Installed, but no matching workspace markers found"
+              : relevant
+                ? "Relevant, but the language server is not available"
+                : "Not available",
+        installHint: definition.installHint,
+        runtimeRequirement: definition.runtimeRequirement,
+        lastError: lastFailure?.message,
+        runtimeHint:
+          definition.id === "python"
+            ? pythonInterpreter
+              ? `Interpreter: ${pythonInterpreter}`
+              : "Using Pyright's default Python resolution"
+            : undefined,
+      };
+    }),
+  );
+}
+
+export async function getLanguageServerCompletions(
+  request: LanguageServerCompletionRequest,
+): Promise<LanguageServerCompletionResult> {
+  const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
+  if (!serverId) {
+    return { ok: true, items: [] };
+  }
+
+  let session = activeLanguageServers.get(
+    getLanguageServerSessionKey(request.folderPath, serverId),
+  );
+  if (!session) {
+    const definition = LANGUAGE_SERVER_DEFINITIONS.find(
+      (candidate) => candidate.id === serverId,
+    );
+    if (!definition) return { ok: true, items: [] };
+
+    const resolved = resolveLanguageServerCommand(definition, request.folderPath);
+    const available = await canRunCommand(resolved.command, resolved.args);
+    if (!available || !resolved.startable) {
+      return { ok: true, items: [] };
+    }
+
+    const sessionKey = getLanguageServerSessionKey(request.folderPath, serverId);
+    if (!warmingLanguageServerKeys.has(sessionKey)) {
+      warmingLanguageServerKeys.add(sessionKey);
+      // Monaco completion requests should be fast. If a server is cold, Axon
+      // starts it in the background and lets the current completion request end
+      // with no external results. Without this boundary, typing in a language
+      // whose server is missing or still booting makes the suggest widget show
+      // a useless loading state for seconds, which feels worse than simply
+      // waiting for the next trigger once the server is ready.
+      void startLanguageServerDefinition(request.folderPath, definition).finally(
+        () => warmingLanguageServerKeys.delete(sessionKey),
+      );
+    }
+
+    return { ok: true, items: [] };
+  }
+
+  if (!session.initialized) {
+    return { ok: true, items: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(session, request);
+    const completionResult = await requestLanguageServer(
+      session,
+      "textDocument/completion",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+        context: {
+          triggerKind: request.triggerCharacter ? 2 : 1,
+          triggerCharacter: request.triggerCharacter,
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      items: normalizeLanguageServerCompletionItems(completionResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server completion failed.",
+      items: [],
+    };
+  }
+}
+
+export async function getLanguageServerHover(
+  request: LanguageServerHoverRequest,
+): Promise<LanguageServerHoverResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, contents: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const hoverResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/hover",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+      },
+    );
+    const rawHover =
+      hoverResult && typeof hoverResult === "object"
+        ? (hoverResult as { contents?: unknown; range?: unknown })
+        : null;
+
+    return {
+      ok: true,
+      contents: normalizeHoverContents(rawHover?.contents),
+      range: normalizeLanguageServerTextRange(rawHover?.range),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server hover failed.",
+      contents: [],
+    };
+  }
+}
+
+export async function getLanguageServerDefinitions(
+  request: LanguageServerDefinitionRequest,
+): Promise<LanguageServerDefinitionResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, locations: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const definitionResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/definition",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      locations: normalizeLanguageServerLocations(definitionResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server definition failed.",
+      locations: [],
+    };
+  }
+}
+
+export async function getLanguageServerReferences(
+  request: LanguageServerReferencesRequest,
+): Promise<LanguageServerReferencesResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, locations: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const referencesResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/references",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+        context: {
+          includeDeclaration: request.includeDeclaration ?? true,
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      locations: normalizeLanguageServerLocations(referencesResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server references failed.",
+      locations: [],
+    };
+  }
+}
+
+export async function renameLanguageServerSymbol(
+  request: LanguageServerRenameRequest,
+): Promise<LanguageServerRenameResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, edits: {} };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const renameResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/rename",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+        newName: request.newName,
+      },
+    );
+
+    return {
+      ok: true,
+      edits: normalizeWorkspaceEdit(renameResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server rename failed.",
+      edits: {},
+    };
+  }
+}
+
+export async function formatLanguageServerDocument(
+  request: LanguageServerFormatRequest,
+): Promise<LanguageServerFormatResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, edits: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const formatResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/formatting",
+      {
+        textDocument: { uri },
+        options: {
+          tabSize: request.tabSize,
+          insertSpaces: request.insertSpaces,
+          trimTrailingWhitespace: true,
+          insertFinalNewline: true,
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      edits: normalizeLanguageServerTextEdits(formatResult) ?? [],
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server format failed.",
+      edits: [],
+    };
+  }
+}
+
+function normalizeSignatureDocumentation(documentation: unknown) {
+  if (typeof documentation === "string") return documentation;
+  if (
+    documentation &&
+    typeof documentation === "object" &&
+    "value" in documentation &&
+    typeof documentation.value === "string"
+  ) {
+    return documentation.value;
+  }
+
+  return undefined;
+}
+
+function normalizeSignatureParameter(parameter: unknown) {
+  if (!parameter || typeof parameter !== "object") return undefined;
+  const rawParameter = parameter as {
+    label?: unknown;
+    documentation?: unknown;
+  };
+  const label = Array.isArray(rawParameter.label)
+    ? rawParameter.label.join(":")
+    : rawParameter.label;
+  if (typeof label !== "string") return undefined;
+
+  return {
+    label,
+    documentation: normalizeSignatureDocumentation(rawParameter.documentation),
+  };
+}
+
+function normalizeLanguageServerSignatures(result: unknown) {
+  if (!result || typeof result !== "object") {
+    return {
+      signatures: [],
+      activeSignature: undefined,
+      activeParameter: undefined,
+    };
+  }
+
+  const rawResult = result as {
+    signatures?: unknown;
+    activeSignature?: unknown;
+    activeParameter?: unknown;
+  };
+  const signatures = Array.isArray(rawResult.signatures)
+    ? rawResult.signatures
+        .map((signature): LanguageServerSignature | null => {
+          if (!signature || typeof signature !== "object") return null;
+          const rawSignature = signature as {
+            label?: unknown;
+            documentation?: unknown;
+            parameters?: unknown;
+            activeParameter?: unknown;
+          };
+          if (typeof rawSignature.label !== "string") return null;
+
+          return {
+            label: rawSignature.label,
+            documentation: normalizeSignatureDocumentation(
+              rawSignature.documentation,
+            ),
+            parameters: Array.isArray(rawSignature.parameters)
+              ? rawSignature.parameters
+                  .map(normalizeSignatureParameter)
+                  .filter(
+                    (
+                      parameter,
+                    ): parameter is NonNullable<typeof parameter> =>
+                      parameter !== undefined,
+                  )
+              : [],
+            activeParameter:
+              typeof rawSignature.activeParameter === "number"
+                ? rawSignature.activeParameter
+                : undefined,
+          };
+        })
+        .filter(
+          (signature): signature is LanguageServerSignature =>
+            signature !== null,
+        )
+    : [];
+
+  return {
+    signatures,
+    activeSignature:
+      typeof rawResult.activeSignature === "number"
+        ? rawResult.activeSignature
+        : undefined,
+    activeParameter:
+      typeof rawResult.activeParameter === "number"
+        ? rawResult.activeParameter
+        : undefined,
+  };
+}
+
+export async function getLanguageServerSignatureHelp(
+  request: LanguageServerSignatureHelpRequest,
+): Promise<LanguageServerSignatureHelpResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, signatures: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const signatureResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/signatureHelp",
+      {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, request.line - 1),
+          character: Math.max(0, request.column - 1),
+        },
+        context: {
+          triggerKind: request.triggerCharacter ? 2 : 1,
+          triggerCharacter: request.triggerCharacter,
+          isRetrigger: false,
+        },
+      },
+    );
+    return {
+      ok: true,
+      ...normalizeLanguageServerSignatures(signatureResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server signature help failed.",
+      signatures: [],
+    };
+  }
+}
+
+function normalizeLanguageServerCodeActions(result: unknown) {
+  const rawActions = Array.isArray(result) ? result : [];
+  return rawActions
+    .map((action): LanguageServerCodeAction | null => {
+      if (!action || typeof action !== "object") return null;
+      const rawAction = action as {
+        title?: unknown;
+        kind?: unknown;
+        edit?: unknown;
+      };
+      if (typeof rawAction.title !== "string") return null;
+
+      return {
+        title: rawAction.title,
+        kind: typeof rawAction.kind === "string" ? rawAction.kind : undefined,
+        edits: normalizeWorkspaceEdit(rawAction.edit),
+      };
+    })
+    .filter((action): action is LanguageServerCodeAction => action !== null);
+}
+
+export async function getLanguageServerCodeActions(
+  request: LanguageServerCodeActionRequest,
+): Promise<LanguageServerCodeActionResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, actions: [] };
+  }
+
+  try {
+    const uri = syncLanguageServerDocument(ready.session, request);
+    const codeActionResult = await requestLanguageServer(
+      ready.session,
+      "textDocument/codeAction",
+      {
+        textDocument: { uri },
+        range: request.range,
+        context: {
+          // Axon currently streams diagnostics straight to the renderer instead
+          // of caching the raw LSP diagnostic objects in the main process.
+          // Sending an empty context still lets servers expose refactors and
+          // source actions. Quick-fix diagnostics can be added later by keeping
+          // a per-session diagnostic cache beside publishDiagnostics.
+          diagnostics: [],
+          only: undefined,
+        },
+      },
+    );
+
+    return {
+      ok: true,
+      actions: normalizeLanguageServerCodeActions(codeActionResult),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Language server code action failed.",
+      actions: [],
+    };
+  }
+}
