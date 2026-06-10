@@ -8,10 +8,10 @@ import HtmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import TsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import App from "./App";
 import "./index.css";
-import { registerAxonTheme } from "./lib/soraTheme";
-import { configureMonacoDiagnostics } from "./lib/monacoDiagnostics";
-import { configureLspCompletions } from "./lib/lspCompletions";
-import { configureLspNavigation } from "./lib/lspNavigation";
+import { registerAxonTheme } from "./shared/lib/soraTheme";
+import { configureMonacoDiagnostics } from "./features/lsp/lib/monacoDiagnostics";
+import { configureLspCompletions } from "./features/lsp/lib/lspCompletions";
+import { configureLspNavigation } from "./features/lsp/lib/lspNavigation";
 
 loader.config({ monaco });
 

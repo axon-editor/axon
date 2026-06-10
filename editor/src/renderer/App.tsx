@@ -1,40 +1,41 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import Sidebar, { addRecentFolder } from "./components/sidebar/index";
-import EditorPane from "./components/EditorPane/index";
-import StatusBar from "./components/StatusBar";
-import Terminal from "./components/Terminal";
+import Sidebar, { addRecentFolder } from "./features/sidebar";
+import EditorPane from "./features/editor/EditorPane";
+import StatusBar from "./shared/components/StatusBar";
+import Terminal from "./features/terminal/Terminal";
 import CommandPalette, {
   type CommandPaletteCommand,
-} from "./components/CommandPalette";
-import WorkspaceSearchModal from "./components/WorkspaceSearchModal";
+} from "./features/search/CommandPalette";
+import WorkspaceSearchModal from "./features/search/WorkspaceSearchModal";
 import {
   type BottomPanelTab,
   type OutputEntry,
   type OutputEntryLevel,
-} from "./components/BottomPanel";
-import DiffModal from "./components/DiffModal";
-import EditorToolbar from "./components/EditorToolbar";
-import SettingsModal from "./components/settings";
-import ExtensionsModal from "./components/extensions";
-import SplashScreen from "./components/SplashScreen";
-import AboutModal, { type AppInfo } from "./components/AboutModal";
-import SourceControlModal from "./components/SourceControlModal";
-import TaskRunnerModal from "./components/TaskRunnerModal";
-import FileOutlineModal from "./components/FileOutlineModal";
-import UpdateModal from "./components/UpdateModal";
-import Tooltip from "./components/Tooltip";
-import WorkspaceLoadingOverlay from "./components/WorkspaceLoadingOverlay";
+} from "./features/terminal/BottomPanel";
+import DiffModal from "./features/git/DiffModal";
+import EditorToolbar from "./features/editor/EditorToolbar";
+import SettingsModal from "./features/settings";
+import ExtensionsModal from "./features/extensions";
+import SplashScreen from "./shared/components/SplashScreen";
+import AboutModal, { type AppInfo } from "./shared/components/AboutModal";
+import SourceControlModal from "./features/git/SourceControlModal";
+import TaskRunnerModal from "./features/tasks/TaskRunnerModal";
+import FileOutlineModal from "./features/search/FileOutlineModal";
+import UpdateModal from "./features/updates/UpdateModal";
+import GitHistoryEditor from "./features/git/GitHistoryEditor";
+import { useSpotify } from "./features/spotify/lib/useSpotify";
+import WorkspaceLoadingOverlay from "./shared/components/WorkspaceLoadingOverlay";
 import {
   getTree,
   createFile,
   writeFile,
   type FileNode,
   type WorkspaceSearchResult,
-} from "./lib/api";
+} from "./shared/lib/api";
 import {
   onEditorDiagnosticsChanged,
   type EditorDiagnostic,
-} from "./lib/diagnostics";
+} from "./features/diagnostics/lib/diagnostics";
 import {
   createInitialLayout,
   splitPane,
@@ -47,8 +48,8 @@ import {
   moveTabBetweenPanes,
   removePathFromLayout,
   replacePathInLayout,
-} from "./lib/layoutManager";
-import { type Layout, type SplitDirection } from "./lib/types";
+} from "./features/editor/lib/layoutManager";
+import { type Layout, type SplitDirection } from "./features/editor/lib/types";
 import {
   DEFAULT_SETTINGS,
   normalizeSettings,
@@ -61,6 +62,8 @@ import {
   type GitCommitResult,
   type GitCommitDiffResult,
   type GitDiffResult,
+  type GitHistoryCommit,
+  type GitHistoryFile,
   type GitHistoryResult,
   type GitStatusResult,
 } from "../shared/git";
@@ -105,22 +108,24 @@ import {
   type ExtensionActionResult,
   type ExtensionState,
 } from "../shared/extensions";
-import { createThemeCssVariables, resolveThemeTokens } from "./lib/themeTokens";
-import { registerAxonTheme } from "./lib/soraTheme";
-import { type EditorNavigationTarget } from "./lib/navigation";
-import { fontStack } from "./lib/fonts";
-import { createBundledFontFaces } from "./lib/bundledFonts";
-import { createHtmlPreviewTabPath, isHtmlFile } from "./lib/htmlPreviewTabs";
+import { createThemeCssVariables, resolveThemeTokens } from "./shared/lib/themeTokens";
+import { registerAxonTheme } from "./shared/lib/soraTheme";
+import { type EditorNavigationTarget } from "./features/editor/lib/navigation";
+import { fontStack } from "./shared/lib/fonts";
+import { createBundledFontFaces } from "./shared/lib/bundledFonts";
+import { createHtmlPreviewTabPath, isHtmlFile } from "./features/preview/lib/htmlPreviewTabs";
 import {
   loadWorkspaceSession,
   sanitizeRestoredLayout,
   saveWorkspaceSession,
   type WorkspaceSession,
-} from "./lib/workspaceSession";
-import { detectLanguage, getModel } from "./lib/monacoModels";
-import { collectFileSymbols, type FileSymbol } from "./lib/fileSymbols";
+} from "./shared/lib/workspaceSession";
+import { detectLanguage, getModel } from "./features/editor/lib/monacoModels";
+import { collectFileSymbols, type FileSymbol } from "./features/sidebar/files/lib/fileSymbols";
 import "./App.css";
 import * as monaco from "monaco-editor";
+import SpotifyPanel from "./features/spotify/SpotifyPanel";
+import SpotifyFloatingPlayer from "./features/spotify/SpotifyFloatingPlayer";
 
 function formatOutputTime(date = new Date()) {
   return date.toLocaleTimeString([], {
@@ -154,7 +159,9 @@ declare global {
         folderPath?: string | null,
         settings?: AxonSettings,
       ) => Promise<string>;
-      getProjectDiagnostics: (folderPath: string) => Promise<EditorDiagnostic[]>;
+      getProjectDiagnostics: (
+        folderPath: string,
+      ) => Promise<EditorDiagnostic[]>;
       getLanguageServerStatus: (
         folderPath: string,
       ) => Promise<LanguageServerStatus[]>;
@@ -292,6 +299,51 @@ declare global {
         callback: (event: HtmlPreviewConsoleEvent) => void,
       ) => () => void;
       onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
+      spotify: {
+        auth: () => Promise<import("../shared/spotify").SpotifyAuthResult>;
+        disconnect: () => Promise<
+          import("../shared/spotify").SpotifyActionResult
+        >;
+        getStatus: () => Promise<
+          import("../shared/spotify").SpotifyStatusResult
+        >;
+        getPlaylists: () => Promise<
+          import("../shared/spotify").SpotifyPlaylistsResult
+        >;
+        getPlaylistTracks: (
+          playlistId: string,
+          offset: number,
+        ) => Promise<{
+          ok: boolean;
+          items: unknown[];
+          total: number;
+          next: string | null;
+        }>;
+        getPlaybackState: () => Promise<
+          import("../shared/spotify").SpotifyPlaybackResult
+        >;
+        play: (
+          request: import("../shared/spotify").SpotifyPlayTrackRequest,
+        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
+        pause: () => Promise<import("../shared/spotify").SpotifyActionResult>;
+        next: () => Promise<import("../shared/spotify").SpotifyActionResult>;
+        previous: () => Promise<
+          import("../shared/spotify").SpotifyActionResult
+        >;
+        seek: (
+          positionMs: number,
+        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
+        setVolume: (
+          v: number,
+        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
+        setShuffle: (
+          state: boolean,
+        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
+        setRepeat: (
+          state: "off" | "track" | "context",
+        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
+        onConnected: (callback: () => void) => () => void;
+      };
     };
   }
 }
@@ -347,6 +399,14 @@ function App() {
   const [zenMode, setZenMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(208);
+  const [sidebarView, setSidebarView] = useState<
+    "files" | "history" | "spotify"
+  >("files");
+  const [gitHistoryEditor, setGitHistoryEditor] = useState<{
+    commit: GitHistoryCommit;
+    file: GitHistoryFile;
+    diff: GitCommitDiffResult;
+  } | null>(null);
   const platform = window.axon.platform;
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashLeaving, setSplashLeaving] = useState(false);
@@ -356,6 +416,11 @@ function App() {
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
   const autoStartedLspWorkspaceRef = useRef<string | null>(null);
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
+  const [spotifyOpen, setSpotifyOpen] = useState(false);
+  const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
+
+  const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
+  const [spotifyState, spotifyActions] = useSpotify(sidebarSpotifyVisible);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
   const extensionThemes = useMemo(
@@ -375,12 +440,27 @@ function App() {
   );
 
   useEffect(() => {
+    // When the OAuth callback lands, the main process fires spotify:connected.
+    // Re-check status so the panel transitions from auth gate to player.
+    return window.axon.spotify.onConnected(() => {
+      // SpotifyPanel re-checks status internally via useSpotify, so just
+      // toggling visibility is enough, the hook's useEffect will re-run.
+      setSpotifyOpen(true);
+    });
+  }, []);
+
+  useEffect(() => {
     // Theme selection has to be applied at the app level, not only when an
     // editor widget mounts. Settings preview can change the active theme while
     // no editor has remounted, and Monaco keeps a global theme registry. This
     // effect keeps Monaco's active theme synchronized with Axon's resolved UI
     // tokens on every settings change.
-    registerAxonTheme(monaco, settings.editor.themeId, themeTokens, extensionThemes);
+    registerAxonTheme(
+      monaco,
+      settings.editor.themeId,
+      themeTokens,
+      extensionThemes,
+    );
   }, [extensionThemes, settings.editor.themeId, themeTokens]);
 
   useEffect(() => {
@@ -514,12 +594,7 @@ function App() {
           "error",
         );
       });
-  }, [
-    activePane?.activeFile,
-    appendOutput,
-    folderPath,
-    settings.lsp.enabled,
-  ]);
+  }, [activePane?.activeFile, appendOutput, folderPath, settings.lsp.enabled]);
 
   const handleOpenUpdatePage = useCallback(() => {
     void window.axon.openUpdatePage(updateInfo?.releaseUrl);
@@ -527,20 +602,12 @@ function App() {
 
   const handleDownloadUpdate = useCallback(async () => {
     const result = await window.axon.downloadUpdate();
-    appendOutput(
-      "update",
-      result.message,
-      result.ok ? "success" : "error",
-    );
+    appendOutput("update", result.message, result.ok ? "success" : "error");
   }, [appendOutput]);
 
   const handleInstallUpdate = useCallback(async () => {
     const result = await window.axon.installUpdate();
-    appendOutput(
-      "update",
-      result.message,
-      result.ok ? "success" : "error",
-    );
+    appendOutput("update", result.message, result.ok ? "success" : "error");
   }, [appendOutput]);
 
   const refreshGitStatus = useCallback(
@@ -580,9 +647,8 @@ function App() {
 
     appendOutput("diagnostics", `Checking ${folderPath}`);
     try {
-      const nextDiagnostics = await window.axon.getProjectDiagnostics(
-        folderPath,
-      );
+      const nextDiagnostics =
+        await window.axon.getProjectDiagnostics(folderPath);
       setProjectDiagnostics(nextDiagnostics);
       appendOutput(
         "diagnostics",
@@ -673,7 +739,10 @@ function App() {
         // case I keep the UI on the idle state instead of turning a stale
         // bootstrap mismatch into a noisy console error that does not help the
         // user.
-        if (err instanceof Error && err.message.includes("No handler registered")) {
+        if (
+          err instanceof Error &&
+          err.message.includes("No handler registered")
+        ) {
           setUpdateInstallState({ phase: "idle" });
           return;
         }
@@ -685,7 +754,10 @@ function App() {
 
   useEffect(() => {
     if (!updateInfo?.updateAvailable) return;
-    if (updateInstallState.phase !== "idle" && updateInstallState.phase !== "not-available") {
+    if (
+      updateInstallState.phase !== "idle" &&
+      updateInstallState.phase !== "not-available"
+    ) {
       return;
     }
     if (updateAutoDownloadVersionRef.current === updateInfo.latestVersion) {
@@ -694,7 +766,12 @@ function App() {
 
     updateAutoDownloadVersionRef.current = updateInfo.latestVersion;
     void handleDownloadUpdate();
-  }, [handleDownloadUpdate, updateInfo?.latestVersion, updateInfo?.updateAvailable, updateInstallState.phase]);
+  }, [
+    handleDownloadUpdate,
+    updateInfo?.latestVersion,
+    updateInfo?.updateAvailable,
+    updateInstallState.phase,
+  ]);
 
   useEffect(() => {
     const styleId = "axon-custom-fonts";
@@ -721,10 +798,9 @@ function App() {
       })
       .join("\n");
 
-    styleElement.textContent = [
-      createBundledFontFaces(),
-      customFontFaces,
-    ].filter(Boolean).join("\n");
+    styleElement.textContent = [createBundledFontFaces(), customFontFaces]
+      .filter(Boolean)
+      .join("\n");
   }, [settings.customFonts]);
 
   useEffect(() => {
@@ -983,9 +1059,12 @@ function App() {
     await window.axon.unwatchFolder();
     await window.axon.watchFolder(path);
     appendOutput("workspace", "Watching workspace changes.");
-    void window.axon.getGitStatus(path).then(setGitStatus).catch(() => {
-      setGitStatus(null);
-    });
+    void window.axon
+      .getGitStatus(path)
+      .then(setGitStatus)
+      .catch(() => {
+        setGitStatus(null);
+      });
     void window.axon
       .getProjectDiagnostics(path)
       .then((nextDiagnostics) => {
@@ -1010,6 +1089,7 @@ function App() {
     try {
       const fileTree = await getTree(folderPath);
       setTree(fileTree);
+      await refreshGitStatus({ silent: true });
       appendOutput("workspace", "Refreshed file tree.");
     } catch (err) {
       console.error("failed to refresh tree:", err);
@@ -1102,8 +1182,10 @@ function App() {
     setSettings(normalizedSettings);
 
     try {
-      const savedSettings =
-        await window.axon.updateSettings(normalizedSettings, null);
+      const savedSettings = await window.axon.updateSettings(
+        normalizedSettings,
+        null,
+      );
       setSettings(normalizeSettings(savedSettings));
       appendOutput("settings", "Saved settings.", "success");
     } catch (err) {
@@ -1122,10 +1204,7 @@ function App() {
 
   const handleOpenSettingsJson = async () => {
     try {
-      const settingsPath = await window.axon.ensureSettingsFile(
-        null,
-        settings,
-      );
+      const settingsPath = await window.axon.ensureSettingsFile(null, settings);
       setSettingsJsonPath(settingsPath);
       handleFileSelect(settingsPath);
       appendOutput("settings", `Opened ${settingsPath}`);
@@ -1279,6 +1358,11 @@ function App() {
     void requestCloseTab(layout.activePaneId, activeFile);
   };
 
+  const handleUpdateSettings = useCallback(async (next: AxonSettings) => {
+    const normalized = await window.axon.updateSettings(next, null);
+    setSettings(normalized);
+  }, []);
+
   const runEditorAction = useCallback(
     (action: "definition" | "references" | "rename" | "format") => {
       const activeFile = activePane?.activeFile;
@@ -1390,6 +1474,11 @@ function App() {
           setSourceControlOpen(true);
           void refreshGitStatus();
           break;
+        case AXON_COMMANDS.OPEN_GIT_HISTORY:
+          setSidebarCollapsed(false);
+          setSidebarView("history");
+          void refreshGitStatus({ silent: true });
+          break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           setBottomPanelOpen(false);
           setTerminalOpen((prev) => !prev);
@@ -1445,8 +1534,7 @@ function App() {
               title: command.title,
               group: command.category ?? "Extensions",
               subtitle:
-                command.description ??
-                `${extension.name} command contribution`,
+                command.description ?? `${extension.name} command contribution`,
               keywords: [extension.name, extension.publisher, command.id],
             }))
           : [],
@@ -1623,6 +1711,16 @@ function App() {
           ? `${gitChangeCount} changed file${gitChangeCount === 1 ? "" : "s"}`
           : "Open a folder first",
         keywords: ["git", "changes", "diff", "source"],
+        disabled: !folderPath,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_GIT_HISTORY,
+        title: "Git History",
+        group: "Git",
+        subtitle: folderPath
+          ? "Show commit history in the sidebar"
+          : "Open a folder first",
+        keywords: ["git", "history", "commit", "log"],
         disabled: !folderPath,
       },
       {
@@ -1844,6 +1942,11 @@ function App() {
             collapsed={sidebarCollapsed}
             width={sidebarWidth}
             onWidthChange={setSidebarWidth}
+            view={sidebarView}
+            onViewChange={setSidebarView}
+            onOpenGitHistoryFile={(commit, file, diff) => {
+              setGitHistoryEditor({ commit, file, diff });
+            }}
             onSplitFile={(filePath) => handleSplit("right", filePath)}
             onOpenInTerminal={handleOpenPathInTerminal}
             onOpenHtmlPreview={handleOpenHtmlPreview}
@@ -1862,6 +1965,27 @@ function App() {
             onOpenFolderPicker={() => setFolderPickerOpen(true)}
             onCloseFolderPicker={() => setFolderPickerOpen(false)}
             platform={platform}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+            spotifyState={spotifyState}
+            spotifyActions={spotifyActions}
+            playerOpen={spotifyPlayerOpen}
+            onTogglePlayer={() => setSpotifyPlayerOpen((p) => !p)}
+          />
+        )}
+
+        {spotifyPlayerOpen && spotifyState.status?.connected && (
+          <SpotifyFloatingPlayer
+            playback={spotifyState.playback}
+            onPlay={spotifyActions.play}
+            onPause={spotifyActions.pause}
+            onNext={spotifyActions.next}
+            onPrevious={spotifyActions.previous}
+            onSeek={spotifyActions.seek}
+            onSetVolume={spotifyActions.setVolume}
+            onSetShuffle={spotifyActions.setShuffle}
+            onSetRepeat={spotifyActions.setRepeat}
+            onClose={() => setSpotifyPlayerOpen(false)}
           />
         )}
 
@@ -1881,7 +2005,9 @@ function App() {
               >
                 <EditorToolbar
                   onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
-                  onOpenFile={() => runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)}
+                  onOpenFile={() =>
+                    runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)
+                  }
                   onDiff={() => runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW)}
                   onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
                   onSplit={handleSplit}
@@ -1903,7 +2029,14 @@ function App() {
             </div>
           )}
 
-          {settingsHydrated ? (
+          {gitHistoryEditor ? (
+            <GitHistoryEditor
+              commit={gitHistoryEditor.commit}
+              file={gitHistoryEditor.file}
+              diff={gitHistoryEditor.diff}
+              onClose={() => setGitHistoryEditor(null)}
+            />
+          ) : settingsHydrated ? (
             <EditorPane
               layout={layout}
               folderPath={folderPath}
@@ -1913,9 +2046,7 @@ function App() {
               onSelectFile={(paneId, f) =>
                 setLayout((prev) => openFileInPane(prev, paneId, f))
               }
-              onCloseTab={(paneId, f) =>
-                void requestCloseTab(paneId, f)
-              }
+              onCloseTab={(paneId, f) => void requestCloseTab(paneId, f)}
               onReorderTabs={(paneId, tabs) =>
                 setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
               }
@@ -2010,6 +2141,8 @@ function App() {
           onOpenSourceControl={() =>
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
+          view={sidebarView}
+          onViewChange={setSidebarView}
         />
       )}
 
