@@ -69,6 +69,7 @@ export default function SpotifyFloatingPlayer({
   const [seekHover, setSeekHover] = useState(false);
   const [volHover, setVolHover] = useState(false);
   const [localProgress, setLocalProgress] = useState(0);
+  const [artFailed, setArtFailed] = useState(false);
 
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef(Date.now());
@@ -79,6 +80,7 @@ export default function SpotifyFloatingPlayer({
   useEffect(() => {
     if (!playback) return;
     setLocalProgress(playback.progress_ms);
+    setArtFailed(false);
     lastTickRef.current = Date.now();
   }, [playback?.progress_ms, playback?.item?.id]);
 
@@ -186,12 +188,13 @@ export default function SpotifyFloatingPlayer({
           }}
           onPointerDown={onDragStart}
         >
-          {art ? (
+          {art && !artFailed ? (
             <img
               src={art}
               alt={track?.album.name ?? ""}
               className="w-full h-full object-cover"
               draggable={false}
+              onError={() => setArtFailed(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">

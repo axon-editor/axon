@@ -4,6 +4,7 @@
 import {
   AlertCircle,
   FileCode,
+  Files,
   GitBranch,
   ListChecks,
   Music4,
@@ -90,6 +91,40 @@ export default function StatusBar({
             </button>
           </Tooltip>
         )}
+
+        <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+
+        <Tooltip label="Files" side="top">
+          <button
+            type="button"
+            onClick={() => onViewChange("files")}
+            aria-label="Show files"
+            className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+              view === "files"
+                ? "bg-[#151923] text-white"
+                : "text-[#647086] hover:bg-[#11151c] hover:text-[#c8d0e0]"
+            }`}
+          >
+            <Files size={13} />
+          </button>
+        </Tooltip>
+
+        <Tooltip label="Git History" side="top">
+          <button
+            type="button"
+            onClick={() => onViewChange("history")}
+            aria-label="Show Git history"
+            className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+              view === "history"
+                ? "bg-[#151923] text-[#80c8e0]"
+                : "text-[#647086] hover:bg-[#11151c] hover:text-[#80c8e0]"
+            }`}
+          >
+            <GitBranch size={13} />
+          </button>
+        </Tooltip>
+
+        <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 
         <Tooltip label="Spotify" side="top">
           <button

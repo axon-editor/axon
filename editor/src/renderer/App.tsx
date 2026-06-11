@@ -1943,7 +1943,6 @@ function App() {
             width={sidebarWidth}
             onWidthChange={setSidebarWidth}
             view={sidebarView}
-            onViewChange={setSidebarView}
             onOpenGitHistoryFile={(commit, file, diff) => {
               setGitHistoryEditor({ commit, file, diff });
             }}
@@ -2143,7 +2142,10 @@ function App() {
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
           view={sidebarView}
-          onViewChange={setSidebarView}
+          onViewChange={(nextView) => {
+            setSidebarView(nextView);
+            setSidebarCollapsed(false);
+          }}
         />
       )}
 

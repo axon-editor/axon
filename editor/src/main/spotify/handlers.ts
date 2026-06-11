@@ -34,6 +34,7 @@ import type {
   SpotifyStatusResult,
 } from "../../shared/spotify";
 import { readSettingsFromDisk } from "../settings/io";
+import { getUserSettingsPath } from "../settings/paths";
 
 // Called from index.ts after the app is ready and the client ID is set.
 export function registerSpotifyHandlers(): void {
@@ -46,7 +47,7 @@ export function registerSpotifyHandlers(): void {
     // before settings:update had a chance to call setClientId.
     let clientId = getClientId();
     if (!clientId) {
-      const settings = readSettingsFromDisk("");
+      const settings = readSettingsFromDisk(getUserSettingsPath());
       clientId = settings?.spotify?.clientId ?? "";
       if (clientId) setClientId(clientId);
     }
@@ -57,6 +58,9 @@ export function registerSpotifyHandlers(): void {
     );
 
     try {
+      if (!clientId) {
+        return { ok: false, message: "Spotify client ID is not configured." };
+      }
       await startAuthFlow(clientId);
       return { ok: true, message: "Spotify auth started in browser." };
     } catch (err) {

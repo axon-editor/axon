@@ -3,11 +3,41 @@
 // floating player and this panel share one polling loop and one source of truth.
 // No useSpotify call here, App owns it.
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SpotifyAuth from "./SpotifyAuth";
 import SpotifyPlaylists from "./SpotifyPlaylists";
 import type { SpotifyActions, SpotifyState } from "./lib/useSpotify";
 import type { AxonSettings } from "../../../shared/settings";
+
+function NowPlayingArtwork({
+  src,
+  alt,
+}: {
+  src?: string;
+  alt: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-cover"
+        draggable={false}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center">
+      <svg width={12} height={12} viewBox="0 0 24 24" fill="#333">
+        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+      </svg>
+    </div>
+  );
+}
 
 interface Props {
   visible: boolean;
@@ -40,8 +70,9 @@ export default function SpotifyPanel({
   const handleSaveClientId = useCallback(
     async (clientId: string) => {
       await onUpdateSettings({ ...settings, spotify: { clientId } });
+      await actions.refreshStatus();
     },
-    [settings, onUpdateSettings],
+    [actions.refreshStatus, settings, onUpdateSettings],
   );
 
   if (state.statusLoading) {
@@ -92,20 +123,10 @@ export default function SpotifyPanel({
           className="rounded shrink-0 overflow-hidden"
           style={{ width: 28, height: 28, background: "#111" }}
         >
-          {track?.album.images[0] ? (
-            <img
-              src={track.album.images[0].url}
-              alt={track.album.name}
-              className="w-full h-full object-cover"
-              draggable={false}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="#333">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-          )}
+          <NowPlayingArtwork
+            src={track?.album.images[0]?.url}
+            alt={track?.album.name ?? "Spotify artwork"}
+          />
         </div>
 
         <div className="flex-1 min-w-0">

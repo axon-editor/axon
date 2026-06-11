@@ -13,6 +13,44 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+function MusicFallbackIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#333">
+      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+    </svg>
+  );
+}
+
+function SpotifyArtwork({
+  src,
+  alt,
+  size = 14,
+}: {
+  src?: string;
+  alt: string;
+  size?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-cover"
+        draggable={false}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center">
+      <MusicFallbackIcon size={size} />
+    </div>
+  );
+}
+
 interface Props {
   playlists: SpotifyPlaylist[];
   tracks: SpotifyTrack[];
@@ -165,20 +203,10 @@ export default function SpotifyPlaylists({
                 className="rounded shrink-0 overflow-hidden"
                 style={{ width: 30, height: 30, background: "#111", flexShrink: 0 }}
               >
-                {playlist.images[0] ? (
-                  <img
-                    src={playlist.images[0].url}
-                    alt={playlist.name}
-                    className="w-full h-full object-cover"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="#333">
-                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-                    </svg>
-                  </div>
-                )}
+                <SpotifyArtwork
+                  src={playlist.images[0]?.url}
+                  alt={playlist.name}
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-white" style={{ fontSize: 11, fontWeight: 500 }}>

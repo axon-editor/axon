@@ -8,14 +8,13 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Files, FolderTree, GitBranch, Plus } from "lucide-react";
+import { FolderTree, Plus } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../shared/lib/api";
 import FileTree from "./files/FileTree";
 import ContextMenu from "./files/ContextMenu";
 import FolderPicker from "./files/FolderPicker";
 import { type InlineCreateKind, type InlineCreateTarget } from "./files/InlineCreateRow";
 import GitHistoryView from "./history/GitHistoryView";
-import Tooltip from "../../shared/components/Tooltip";
 import {
   type GitChange,
   type GitCommitDiffResult,
@@ -108,7 +107,6 @@ interface Props {
   onOpenInTerminal?: (path: string) => void;
   onOpenHtmlPreview?: (filePath: string) => void;
   view: "files" | "history" | "spotify";
-  onViewChange: (view: "files" | "history" | "spotify") => void;
   onOpenGitHistoryFile: (
     commit: GitHistoryCommit,
     file: GitHistoryFile,
@@ -321,7 +319,6 @@ export default function Sidebar({
   onOpenInTerminal,
   onOpenHtmlPreview,
   view,
-  onViewChange,
   onOpenGitHistoryFile,
   onEntryDeleted,
   onEntryMoved,
@@ -599,36 +596,6 @@ export default function Sidebar({
                 onInlineCreateCreated={handleInlineCreateCreated}
               />
             )}
-          </div>
-          <div className="flex h-9 shrink-0 items-center gap-1 border-t border-[var(--axon-sidebar-border)] bg-[#090c12] px-2">
-            <Tooltip label="Files" side="top">
-              <button
-                type="button"
-                onClick={() => onViewChange("files")}
-                aria-label="Show files"
-                className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
-                  view === "files"
-                    ? "bg-[#151923] text-white"
-                    : "text-[#647086] hover:bg-[#11151c] hover:text-[#c8d0e0]"
-                }`}
-              >
-                <Files size={13} />
-              </button>
-            </Tooltip>
-            <Tooltip label="Git History" side="top">
-              <button
-                type="button"
-                onClick={() => onViewChange("history")}
-                aria-label="Show Git history"
-                className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
-                  view === "history"
-                    ? "bg-[#151923] text-white"
-                    : "text-[#647086] hover:bg-[#11151c] hover:text-[#c8d0e0]"
-                }`}
-              >
-                <GitBranch size={13} />
-              </button>
-            </Tooltip>
           </div>
           <div
             onPointerDown={handleResizeStart}

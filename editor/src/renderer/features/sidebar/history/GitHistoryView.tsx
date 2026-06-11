@@ -42,6 +42,7 @@ function AuthorAvatar({
   commit: GitHistoryCommit;
   large?: boolean;
 }) {
+  const [failed, setFailed] = useState(false);
   const initials =
     commit.authorName
       .split(/\s+/)
@@ -51,11 +52,12 @@ function AuthorAvatar({
       .join("") || "?";
   const sizeClass = large ? "h-11 w-11 text-[13px]" : "h-8 w-8 text-[11px]";
 
-  if (commit.authorAvatarUrl) {
+  if (commit.authorAvatarUrl && !failed) {
     return (
       <img
         src={commit.authorAvatarUrl}
         alt={commit.authorName}
+        onError={() => setFailed(true)}
         className={`${sizeClass} shrink-0 rounded-full border border-[#222838] bg-[#151923] object-cover`}
       />
     );
