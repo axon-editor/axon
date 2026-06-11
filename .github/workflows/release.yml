@@ -75,6 +75,8 @@ jobs:
 
       - name: Build packaged desktop target
         run: ${{ matrix.platform.command }}
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

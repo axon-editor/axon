@@ -133,6 +133,9 @@ export interface AxonSettings {
   lsp: LspSettings;
   theme_overrides: ThemeOverrides;
   customFonts: CustomFont[];
+  spotify: {
+    clientId: string;
+  };
 }
 
 export interface LspSettings {
@@ -174,6 +177,9 @@ export const DEFAULT_SETTINGS: AxonSettings = {
   },
   theme_overrides: {},
   customFonts: [],
+  spotify: {
+    clientId: "",
+  },
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,19 +192,22 @@ function isThemeId(value: unknown): value is ThemeId {
 
 function isAiProviderId(value: unknown): value is AiProviderId {
   return (
-    typeof value === "string" &&
-    AI_PROVIDER_IDS.includes(value as AiProviderId)
+    typeof value === "string" && AI_PROVIDER_IDS.includes(value as AiProviderId)
   );
 }
 
 function isFontPresetId(value: unknown): value is FontPresetId {
   return (
-    typeof value === "string" &&
-    FONT_PRESET_IDS.includes(value as FontPresetId)
+    typeof value === "string" && FONT_PRESET_IDS.includes(value as FontPresetId)
   );
 }
 
-function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+function clampNumber(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+) {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
 }
@@ -348,5 +357,14 @@ export function normalizeSettings(value: unknown): AxonSettings {
     },
     theme_overrides: normalizeThemeOverrides(root.theme_overrides),
     customFonts: normalizeCustomFonts(root.customFonts),
+    spotify: {
+      clientId:
+        typeof (isRecord(root.spotify) ? root.spotify.clientId : "") ===
+        "string"
+          ? (
+              (isRecord(root.spotify) ? root.spotify.clientId : "") as string
+            ).trim()
+          : DEFAULT_SETTINGS.spotify.clientId,
+    },
   };
 }

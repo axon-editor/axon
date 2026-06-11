@@ -23,4 +23,9 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "dist/renderer"),
     emptyOutDir: true,
   },
+  define: {
+    "process.env.SPOTIFY_CLIENT_ID": JSON.stringify(
+      process.env.SPOTIFY_CLIENT_ID ?? "",
+    ),
+  },
 });

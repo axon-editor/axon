@@ -11,6 +11,17 @@ export const LANGUAGE_SERVER_IDS = [
   "lua",
   "docker",
   "tailwind",
+  "html",
+  "css",
+  "json",
+  "yaml",
+  "bash",
+  "svelte",
+  "vue",
+  "astro",
+  "graphql",
+  "mdx",
+  "prisma",
 ] as const;
 
 export type LanguageServerId = (typeof LANGUAGE_SERVER_IDS)[number];

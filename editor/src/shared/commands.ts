@@ -12,6 +12,7 @@ export const AXON_COMMANDS = {
   CLEAR_OUTPUT: "clear-output",
   OPEN_DIFF_VIEW: "open-diff-view",
   OPEN_SOURCE_CONTROL: "open-source-control",
+  OPEN_GIT_HISTORY: "open-git-history",
   OPEN_TASK_RUNNER: "open-task-runner",
   OPEN_FILE_OUTLINE: "open-file-outline",
   GO_TO_DEFINITION: "go-to-definition",

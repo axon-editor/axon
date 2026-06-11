@@ -56,6 +56,14 @@ import {
   type ExtensionActionResult,
   type ExtensionState,
 } from "../shared/extensions";
+import type {
+  SpotifyActionResult,
+  SpotifyAuthResult,
+  SpotifyPlaybackResult,
+  SpotifyPlaylistsResult,
+  SpotifyPlayTrackRequest,
+  SpotifyStatusResult,
+} from "../shared/spotify";
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
@@ -211,7 +219,12 @@ contextBridge.exposeInMainWorld("axon", {
     enabled: boolean,
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
-    ipcRenderer.invoke("extensions:setEnabled", extensionId, enabled, folderPath),
+    ipcRenderer.invoke(
+      "extensions:setEnabled",
+      extensionId,
+      enabled,
+      folderPath,
+    ),
   reloadExtensions: (
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
@@ -305,7 +318,9 @@ contextBridge.exposeInMainWorld("axon", {
     return () => ipcRenderer.removeListener("htmlPreview:changed", handler);
   },
 
-  onHtmlPreviewConsole: (callback: (event: HtmlPreviewConsoleEvent) => void) => {
+  onHtmlPreviewConsole: (
+    callback: (event: HtmlPreviewConsoleEvent) => void,
+  ) => {
     const handler = (_: unknown, event: HtmlPreviewConsoleEvent) =>
       callback(event);
     ipcRenderer.on("htmlPreview:console", handler);
@@ -316,5 +331,50 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = (_: unknown, command: AxonCommand) => callback(command);
     ipcRenderer.on("menu:command", handler);
     return () => ipcRenderer.removeListener("menu:command", handler);
+  },
+
+  spotify: {
+    auth: (): Promise<SpotifyAuthResult> => ipcRenderer.invoke("spotify:auth"),
+    disconnect: (): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:disconnect"),
+    getStatus: (): Promise<SpotifyStatusResult> =>
+      ipcRenderer.invoke("spotify:status"),
+    getPlaylists: (): Promise<SpotifyPlaylistsResult> =>
+      ipcRenderer.invoke("spotify:playlists"),
+    getPlaylistTracks: (
+      playlistId: string,
+      offset: number,
+    ): Promise<{
+      ok: boolean;
+      items: unknown[];
+      total: number;
+      next: string | null;
+    }> => ipcRenderer.invoke("spotify:playlistTracks", playlistId, offset),
+    getPlaybackState: (): Promise<SpotifyPlaybackResult> =>
+      ipcRenderer.invoke("spotify:playbackState"),
+    play: (request: SpotifyPlayTrackRequest): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:play", request),
+    pause: (): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:pause"),
+    next: (): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:next"),
+    previous: (): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:previous"),
+    seek: (positionMs: number): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:seek", positionMs),
+    setVolume: (volumePercent: number): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:setVolume", volumePercent),
+    setShuffle: (state: boolean): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:setShuffle", state),
+    setRepeat: (
+      state: "off" | "track" | "context",
+    ): Promise<SpotifyActionResult> =>
+      ipcRenderer.invoke("spotify:setRepeat", state),
+    onConnected: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on("spotify:connected", handler);
+      // Return cleanup so React useEffect can remove the listener on unmount.
+      return () => ipcRenderer.removeListener("spotify:connected", handler);
+    },
   },
 });

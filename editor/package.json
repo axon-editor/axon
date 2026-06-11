@@ -34,7 +34,10 @@
       "output": "release"
     },
     "asarUnpack": [
-      "node_modules/@tailwindcss/language-server/bin/*.node"
+      "node_modules/@tailwindcss/language-server/bin/*.node",
+      "node_modules/vscode-langservers-extracted/**/*.node",
+      "node_modules/svelte-language-server/**/*.node",
+      "node_modules/@vue/language-server/**/*.node"
     ],
     "files": [
       "dist/main/**/*",
@@ -89,19 +92,25 @@
     }
   },
   "dependencies": {
+    "@astrojs/language-server": "^2.16.10",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@mdx-js/language-server": "^0.6.3",
     "@monaco-editor/react": "^4.7.0",
+    "@prisma/language-server": "^31.11.0",
     "@tailwindcss/language-server": "^0.14.29",
     "@tailwindcss/vite": "^4.3.0",
     "@vscode/codicons": "^0.0.45",
+    "@vue/language-server": "^3.3.4",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
+    "bash-language-server": "^5.6.0",
     "chokidar": "^5.0.0",
     "dockerfile-language-server-nodejs": "^0.15.0",
     "electron-updater": "^6.8.3",
+    "graphql-language-service-server": "^2.14.10",
     "intelephense": "^1.18.4",
     "lucide-react": "^1.16.0",
     "pyright": "^1.1.410",
@@ -109,9 +118,12 @@
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "svelte-language-server": "^0.18.2",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "typescript-language-server": "^5.3.0"
+    "typescript-language-server": "^5.3.0",
+    "vscode-langservers-extracted": "^4.10.0",
+    "yaml-language-server": "^1.23.0"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
