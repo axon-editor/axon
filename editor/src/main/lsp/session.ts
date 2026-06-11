@@ -121,6 +121,42 @@ export function getPythonLanguageServerSettings(folderPath: string) {
 export function getLanguageServerInitializationOptions(
   session: LanguageServerSession,
 ) {
+  if (session.id === "typescript") {
+    const workspaceTsserver = path.join(
+      session.folderPath,
+      "node_modules",
+      "typescript",
+      "lib",
+      "tsserver.js",
+    );
+    const bundledTsserver = path.join(
+      app.getAppPath(),
+      "node_modules",
+      "typescript",
+      "lib",
+      "tsserver.js",
+    );
+    const tsserverPath = fs.existsSync(workspaceTsserver)
+      ? workspaceTsserver
+      : fs.existsSync(bundledTsserver)
+        ? bundledTsserver
+        : "";
+
+    if (!tsserverPath) return undefined;
+
+    // TypeScript projects are often sensitive to the exact TypeScript SDK
+    // version installed in the workspace. Passing tsserver.path mirrors how
+    // mature editors point the language server at the project SDK, so local
+    // declaration files, path aliases, generated types, and framework plugins
+    // are resolved from the same dependency tree the project uses at runtime.
+    return {
+      tsserver: {
+        path: tsserverPath,
+        fallbackPath: bundledTsserver || undefined,
+      },
+    };
+  }
+
   if (session.id !== "python") return undefined;
   const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
   if (!pythonSettings) return undefined;

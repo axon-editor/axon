@@ -30,6 +30,9 @@ interface Props {
   visible: boolean;
   onDirtyChange: (path: string, dirty: boolean) => void;
   onOpenFile?: (path: string) => void;
+  onOpenNavigationTarget?: (
+    target: Omit<EditorNavigationTarget, "id">,
+  ) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
@@ -66,6 +69,7 @@ export default function SingleEditor({
   visible,
   onDirtyChange,
   onOpenFile,
+  onOpenNavigationTarget,
   onCursorChange,
   onLanguageChange,
   editorSettings,
@@ -93,6 +97,7 @@ export default function SingleEditor({
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const goSyntaxDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
@@ -439,6 +444,8 @@ export default function SingleEditor({
       gitDecorationsRef.current = null;
       goSyntaxDecorationsRef.current?.clear();
       goSyntaxDecorationsRef.current = null;
+      editorOpenerRef.current?.dispose();
+      editorOpenerRef.current = null;
       cleanup();
       window.axon.unwatchFile();
       if (suggestTimerRef.current) {
@@ -499,6 +506,48 @@ export default function SingleEditor({
     if (model && !model.isDisposed()) {
       editor.setModel(model);
     }
+
+    editorOpenerRef.current?.dispose();
+    editorOpenerRef.current = monaco.editor.registerEditorOpener({
+      openCodeEditor: (source, resource, selectionOrPosition) => {
+        if (source !== editor || resource.scheme !== "file") return false;
+
+        const targetPath = resource.fsPath;
+        const line =
+          selectionOrPosition && "startLineNumber" in selectionOrPosition
+            ? selectionOrPosition.startLineNumber
+            : selectionOrPosition && "lineNumber" in selectionOrPosition
+              ? selectionOrPosition.lineNumber
+              : 1;
+        const column =
+          selectionOrPosition && "startColumn" in selectionOrPosition
+            ? selectionOrPosition.startColumn
+            : selectionOrPosition && "column" in selectionOrPosition
+              ? selectionOrPosition.column
+              : 1;
+        const length =
+          selectionOrPosition && "endColumn" in selectionOrPosition
+            ? Math.max(1, selectionOrPosition.endColumn - column)
+            : 1;
+
+        // Monaco knows how to ask for "open this definition resource", but it
+        // does not know Axon's tab and pane model. This opener is the bridge:
+        // external LSP definitions become normal Axon navigation targets, so
+        // Cmd-click/F12 can jump into another file, open the tab if needed, and
+        // still reveal the exact range after the model finishes loading.
+        if (onOpenNavigationTarget) {
+          onOpenNavigationTarget({
+            path: targetPath,
+            line,
+            column,
+            length,
+          });
+        } else {
+          onOpenFile?.(targetPath);
+        }
+        return true;
+      },
+    });
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
       handleSave(),

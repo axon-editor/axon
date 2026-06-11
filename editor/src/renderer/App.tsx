@@ -2063,6 +2063,7 @@ function App() {
               }
               onOpenTabInTerminal={handleOpenTabInTerminal}
               onOpenFile={handleFileSelect}
+              onOpenNavigationTarget={handleOpenNavigationTarget}
               editorSettings={settings.editor}
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
