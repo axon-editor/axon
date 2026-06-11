@@ -48,7 +48,12 @@ type terminalClient struct {
 	mu sync.Mutex
 }
 
-const maxScrollbackBytes = 1 << 20
+const (
+	maxScrollbackBytes = 1 << 20
+	websocketPongWait  = 70 * time.Second
+	websocketPingEvery = 25 * time.Second
+	websocketWriteWait = 5 * time.Second
+)
 
 var terminalSessions = struct {
 	sync.Mutex
@@ -194,7 +199,40 @@ func (session *terminalSession) removeClient(client *terminalClient) {
 func (client *terminalClient) write(data []byte) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	return client.ws.WriteMessage(websocket.TextMessage, data)
+	_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
+	return client.ws.WriteMessage(websocket.BinaryMessage, data)
+}
+
+func (client *terminalClient) startKeepAlive() func() {
+	done := make(chan struct{})
+	ticker := time.NewTicker(websocketPingEvery)
+
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				client.mu.Lock()
+				_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
+				err := client.ws.WriteControl(
+					websocket.PingMessage,
+					nil,
+					time.Now().Add(websocketWriteWait),
+				)
+				client.mu.Unlock()
+				if err != nil {
+					_ = client.ws.Close()
+					return
+				}
+			}
+		}
+	}()
+
+	return func() {
+		close(done)
+	}
 }
 
 func (session *terminalSession) broadcast(data []byte) {
@@ -285,6 +323,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer ws.Close()
+	_ = ws.SetReadDeadline(time.Now().Add(websocketPongWait))
+	ws.SetPongHandler(func(string) error {
+		return ws.SetReadDeadline(time.Now().Add(websocketPongWait))
+	})
 
 	session, err := getOrCreateSession(
 		r.URL.Query().Get("sessionId"),
@@ -302,6 +344,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if client == nil {
 		return
 	}
+	stopKeepAlive := client.startKeepAlive()
+	defer stopKeepAlive()
 	if len(scrollback) > 0 {
 		if err := client.write(scrollback); err != nil {
 			session.removeClient(client)

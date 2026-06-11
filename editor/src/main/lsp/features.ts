@@ -58,6 +58,9 @@ const activeLanguageServerFailures = new Map<
 >();
 const stoppingLanguageServerKeys = new Set<string>();
 const warmingLanguageServerKeys = new Set<string>();
+const LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS = 120_000;
+const LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS = 2_000;
+const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
 
 export function getActiveLanguageServerSessions() {
   return activeLanguageServers.values();
@@ -659,7 +662,19 @@ function requestLanguageServer(
   });
 }
 
+function disposeLanguageServerSession(session: LanguageServerSession) {
+  session.disposed = true;
+  if (session.initializeRetryTimer) {
+    clearTimeout(session.initializeRetryTimer);
+    session.initializeRetryTimer = null;
+  }
+}
+
 function initializeLanguageServer(session: LanguageServerSession) {
+  if (session.disposed || session.process.killed || session.process.exitCode !== null) {
+    return;
+  }
+
   // This is a minimal LSP handshake, not the full client. The important part
   // for this slice is proving Axon can own the server process and negotiate a
   // workspace root from the main process. Diagnostics, document sync, and
@@ -738,17 +753,37 @@ function initializeLanguageServer(session: LanguageServerSession) {
         },
       },
     },
-    7000,
+    LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS,
   )
     .then(() => {
+      if (session.disposed) return;
       notifyLanguageServer(session, "initialized", {});
       notifyLanguageServerConfiguration(session, notifyLanguageServer);
       session.initialized = true;
+      session.initializeRetryCount = 0;
       emitLanguageServerLog(session, "info", `${session.id} initialized.`);
     })
     .catch((err) => {
+      if (session.disposed || session.process.killed || session.process.exitCode !== null) {
+        return;
+      }
+
       session.stderr = `${session.stderr}\n${err.message}`.slice(-4000);
       emitLanguageServerLog(session, "error", err.message);
+
+      if (session.initializeRetryCount >= LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES) {
+        return;
+      }
+
+      session.initializeRetryCount += 1;
+      // Some managed servers do real project indexing before answering
+      // initialize. Retrying after a timeout lets the same process recover when
+      // it was merely slow, while the disposed/process checks above prevent
+      // stale retries after a manual stop or crash.
+      session.initializeRetryTimer = setTimeout(() => {
+        session.initializeRetryTimer = null;
+        initializeLanguageServer(session);
+      }, LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS);
     });
 }
 
@@ -804,6 +839,9 @@ function startLanguageServerDefinition(
         process: child,
         requestId: 0,
         initialized: false,
+        disposed: false,
+        initializeRetryCount: 0,
+        initializeRetryTimer: null,
         stderr: "",
         stdoutBuffer: Buffer.alloc(0),
         pendingRequests: new Map(),
@@ -827,6 +865,7 @@ function startLanguageServerDefinition(
           emitLanguageServerLog(session, "error", message);
         });
         child.on("exit", () => {
+          disposeLanguageServerSession(session);
           if (stoppingLanguageServerKeys.has(key)) {
             stoppingLanguageServerKeys.delete(key);
           } else {
@@ -842,6 +881,7 @@ function startLanguageServerDefinition(
           activeLanguageServers.delete(key);
         });
         child.on("error", (err) => {
+          disposeLanguageServerSession(session);
           activeLanguageServerFailures.set(key, {
             message:
               err.message || `${definition.label} language server failed.`,
@@ -958,6 +998,7 @@ export async function stopRelevantLanguageServers(
     if (path.resolve(session.folderPath) === path.resolve(folderPath)) {
       stoppingLanguageServerKeys.add(key);
       activeLanguageServerFailures.delete(key);
+      disposeLanguageServerSession(session);
       try {
         writeLanguageServerMessage(session, {
           jsonrpc: "2.0",
@@ -1000,6 +1041,7 @@ export async function stopAllLanguageServers(): Promise<LanguageServerLifecycleR
   for (const [key, session] of activeLanguageServers.entries()) {
     stoppingLanguageServerKeys.add(key);
     activeLanguageServerFailures.delete(key);
+    disposeLanguageServerSession(session);
     try {
       writeLanguageServerMessage(session, {
         jsonrpc: "2.0",

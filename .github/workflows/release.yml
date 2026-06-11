@@ -73,6 +73,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      - name: Verify managed language server bundles
+        run: node scripts/verify-language-servers.mjs
+
       - name: Build packaged desktop target
         run: ${{ matrix.platform.command }}
         env:

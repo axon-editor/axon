@@ -14,6 +14,9 @@ export interface LanguageServerSession {
   process: ChildProcessWithoutNullStreams;
   requestId: number;
   initialized: boolean;
+  disposed: boolean;
+  initializeRetryCount: number;
+  initializeRetryTimer: ReturnType<typeof setTimeout> | null;
   stderr: string;
   stdoutBuffer: Buffer;
   pendingRequests: Map<

@@ -256,11 +256,17 @@ function getOutputByteLength(data: unknown) {
   return 0;
 }
 
+function writeTerminalOutput(session: TerminalSession, data: string | ArrayBuffer) {
+  session.receivedBytes += getOutputByteLength(data);
+  session.term?.write(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+}
+
 function terminateDetachedSession(
   workingDirectory: string | null,
   sessionId: string,
 ) {
   const ws = new WebSocket(getTerminalBackendUrl(workingDirectory, sessionId));
+  ws.binaryType = "arraybuffer";
   const closeTimer = window.setTimeout(() => ws.close(), 1500);
 
   ws.onopen = () => {
@@ -527,6 +533,7 @@ export default function Terminal({
             currentSession.receivedBytes,
           ),
         );
+        ws.binaryType = "arraybuffer";
         currentSession.ws = ws;
 
         ws.onopen = () => {
@@ -536,8 +543,16 @@ export default function Terminal({
         };
 
         ws.onmessage = (event) => {
-          currentSession.receivedBytes += getOutputByteLength(event.data);
-          currentSession.term?.write(event.data);
+          if (event.data instanceof Blob) {
+            void event.data.arrayBuffer().then((buffer) => {
+              const latestSession = sessionsRef.current[id];
+              if (!latestSession || latestSession.disposed) return;
+              writeTerminalOutput(latestSession, buffer);
+            });
+            return;
+          }
+
+          writeTerminalOutput(currentSession, event.data);
         };
 
         ws.onclose = () => {
