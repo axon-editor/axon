@@ -8,6 +8,7 @@ interface UpdateManagerDependencies {
   releasePageUrl: string;
   isDev: boolean;
   isMac: boolean;
+  isWindows: boolean;
   execFileAsync: (file: string, args: string[]) => Promise<unknown>;
   resolveMacAppBundlePath: () => string | null;
 }
@@ -81,6 +82,27 @@ export class UpdateManager {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.logger = null;
+
+    if (this.deps.isWindows) {
+      // Axon is still distributed as an unsigned personal build on Windows.
+      // SmartScreen can still warn during first install because that trust
+      // decision belongs to Windows, but electron-updater also has its own
+      // NSIS signature check before it applies a downloaded update. If we let
+      // that check run without a real code-signing certificate, the app can
+      // download an update successfully and then refuse to install it with an
+      // invalid-signature error. This temporary bypass keeps in-app updates
+      // usable for personal unsigned builds; when Axon gets a real Windows
+      // signing certificate, this should be removed and the publisher name
+      // should come from the certificate.
+      (
+        autoUpdater as typeof autoUpdater & {
+          verifyUpdateCodeSignature?: (
+            publisherNames: string[],
+            path: string,
+          ) => Promise<string | null>;
+        }
+      ).verifyUpdateCodeSignature = async () => null;
+    }
 
     autoUpdater.on("checking-for-update", () => {
       this.publish({ phase: "checking" });

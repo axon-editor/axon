@@ -127,6 +127,7 @@ const updateManager = new UpdateManager({
   releasePageUrl: axonReleasePageUrl,
   isDev,
   isMac,
+  isWindows,
   execFileAsync,
   resolveMacAppBundlePath,
 });

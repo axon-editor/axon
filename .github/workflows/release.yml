@@ -104,8 +104,4 @@ jobs:
             editor/release/*.AppImage
             editor/release/*.deb
             editor/release/*.blockmap
-            # electron-updater reads these metadata files to decide which
-            # platform asset to download. Without them, the release page still
-            # looks complete to a human, but in-app updates cannot resolve the
-            # correct installer.
             editor/release/*.yml

@@ -105,6 +105,7 @@
       "target": [
         "nsis"
       ],
+      "verifyUpdateCodeSignature": false,
       "icon": "build/axon.png"
     },
     "linux": {
