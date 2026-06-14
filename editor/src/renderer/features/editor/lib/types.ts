@@ -7,6 +7,7 @@ export interface Pane {
   openTabs: string[];
   activeFile: string | null;
   dirtyFiles: Record<string, boolean>;
+  pinnedTabs: string[];
 }
 
 export type SplitDirection = "right" | "left" | "up" | "down";

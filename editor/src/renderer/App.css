@@ -228,6 +228,26 @@
   color: #f5fbff;
 }
 
+.axon-find-match {
+  background: rgba(242, 204, 96, 0.12);
+  border-radius: 3px;
+}
+
+.axon-find-match--active {
+  background: rgba(128, 200, 224, 0.16);
+  outline: 1px solid rgba(128, 200, 224, 0.55);
+}
+
+.axon-find-match-inline {
+  background: rgba(242, 204, 96, 0.28);
+  border-radius: 3px;
+}
+
+.axon-find-match-inline--active {
+  background: rgba(128, 200, 224, 0.42);
+  color: #f7fbff;
+}
+
 .axon-go-function-token {
   color: var(--axon-syntax-function) !important;
 }

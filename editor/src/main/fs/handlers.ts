@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import { type FileWatcherManager } from "./watcher";
+import { importExternalEntries } from "./importEntries";
 
 export function registerFileWatcherHandlers(fileWatcherManager: FileWatcherManager) {
   // File watchers feed external editor changes back into the active pane so
@@ -21,4 +22,11 @@ export function registerFileWatcherHandlers(fileWatcherManager: FileWatcherManag
   ipcMain.handle("fs:unwatchFolder", async () => {
     await fileWatcherManager.unwatchFolder();
   });
+
+  ipcMain.handle(
+    "fs:importEntries",
+    async (_event, sourcePaths: string[], targetDir: string) => {
+      return importExternalEntries(sourcePaths, targetDir);
+    },
+  );
 }

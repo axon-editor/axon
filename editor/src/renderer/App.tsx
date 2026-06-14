@@ -48,6 +48,7 @@ import {
   moveTabBetweenPanes,
   removePathFromLayout,
   replacePathInLayout,
+  setPinnedInPane,
 } from "./features/editor/lib/layoutManager";
 import { type Layout, type SplitDirection } from "./features/editor/lib/types";
 import {
@@ -238,6 +239,7 @@ declare global {
         folderPath: string,
         hash: string,
         filePath?: string | null,
+        oldPath?: string | null,
       ) => Promise<GitCommitDiffResult>;
       runGitAction: (
         folderPath: string,
@@ -277,6 +279,13 @@ declare global {
         folderPath?: string | null,
       ) => Promise<HtmlPreviewActionResult>;
       copyText: (text: string) => Promise<void>;
+      getDroppedFilePaths: (files: File[]) => string[];
+      importExternalEntries: (
+        sourcePaths: string[],
+        targetDir: string,
+      ) => Promise<
+        Array<{ sourcePath: string; targetPath: string; isDir: boolean }>
+      >;
       watchFile: (path: string) => Promise<void>;
       unwatchFile: () => Promise<void>;
       watchFolder: (path: string) => Promise<void>;
@@ -510,6 +519,17 @@ function App() {
     return collectFileSymbols(model.getValue());
   }, [activePane?.activeFile, layout]);
   const gitChangeCount = gitStatus?.changes.length ?? 0;
+  const deletedFiles = useMemo(() => {
+    return new Set(
+      (gitStatus?.changes ?? [])
+        .filter(
+          (change) =>
+            change.worktreeState === "deleted" ||
+            change.indexState === "deleted",
+        )
+        .map((change) => change.absolutePath),
+    );
+  }, [gitStatus?.changes]);
 
   const appendOutput = useCallback(
     (source: string, message: string, level: OutputEntryLevel = "info") => {
@@ -886,10 +906,8 @@ function App() {
     const cleanup = window.axon.onFolderChanged(() => {
       if (!folderPath) return;
       getTree(folderPath).then(setTree).catch(console.error);
-      window.setTimeout(() => {
-        void refreshProjectDiagnostics();
-        void refreshGitStatus({ silent: true });
-      }, 600);
+      void refreshProjectDiagnostics();
+      void refreshGitStatus({ silent: true });
     });
     return cleanup;
   }, [folderPath, refreshGitStatus, refreshProjectDiagnostics]);
@@ -2043,6 +2061,8 @@ function App() {
               commit={gitHistoryEditor.commit}
               file={gitHistoryEditor.file}
               diff={gitHistoryEditor.diff}
+              editorSettings={settings.editor}
+              themeTokens={themeTokens}
               onClose={() => setGitHistoryEditor(null)}
             />
           ) : settingsHydrated ? (
@@ -2056,6 +2076,9 @@ function App() {
                 setLayout((prev) => openFileInPane(prev, paneId, f))
               }
               onCloseTab={(paneId, f) => void requestCloseTab(paneId, f)}
+              onPinTab={(paneId, f, pinned) =>
+                setLayout((prev) => setPinnedInPane(prev, paneId, f, pinned))
+              }
               onReorderTabs={(paneId, tabs) =>
                 setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
               }
@@ -2077,6 +2100,7 @@ function App() {
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitStatus?.changes ?? []}
+              deletedFiles={deletedFiles}
               handleOpenFolder={handleOpenFolder}
               handleNewFile={handleNewFile}
               handleFolderChange={handleFolderChange}
@@ -2274,6 +2298,8 @@ function App() {
           setDiffOpen(true);
         }}
         onGitStatusChanged={() => void refreshGitStatus({ silent: true })}
+        editorSettings={settings.editor}
+        themeTokens={themeTokens}
         onOutput={(message, level = "info") =>
           appendOutput("git", message, level)
         }

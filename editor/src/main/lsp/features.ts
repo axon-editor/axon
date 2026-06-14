@@ -573,11 +573,16 @@ function publishLanguageServerDiagnostics(
 
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
-      window.webContents.send("lsp:diagnostics", {
-        folderPath: session.folderPath,
-        filePath,
-        diagnostics,
-      });
+      try {
+        window.webContents.send("lsp:diagnostics", {
+          folderPath: session.folderPath,
+          filePath,
+          diagnostics,
+        });
+      } catch {
+        // Diagnostics can arrive while the app is closing. Dropping one late
+        // publish is safe; letting it crash the main process is not.
+      }
     }
   }
 }
@@ -848,43 +853,71 @@ function startLanguageServerDefinition(
         syncedDocuments: new Map(),
       };
 
-      void waitForLanguageServerSpawn(child, definition.label).then(() => {
-        activeLanguageServers.set(key, session);
-        activeLanguageServerFailures.delete(key);
+      child.stdout.on("data", (chunk: Buffer) => {
+        readLanguageServerMessages(
+          session,
+          chunk,
+          handleLanguageServerPayload,
+        );
+      });
+      child.stderr.on("data", (chunk) => {
+        const message = chunk.toString();
+        session.stderr = `${session.stderr}${message}`.slice(-4000);
+        emitLanguageServerLog(session, "error", message);
+      });
 
-        child.stdout.on("data", (chunk: Buffer) => {
-          readLanguageServerMessages(
-            session,
-            chunk,
-            handleLanguageServerPayload,
-          );
-        });
-        child.stderr.on("data", (chunk) => {
-          const message = chunk.toString();
-          session.stderr = `${session.stderr}${message}`.slice(-4000);
-          emitLanguageServerLog(session, "error", message);
-        });
-        child.on("exit", () => {
-          disposeLanguageServerSession(session);
-          if (stoppingLanguageServerKeys.has(key)) {
-            stoppingLanguageServerKeys.delete(key);
-          } else {
+      void waitForLanguageServerSpawn(child, definition.label)
+        .then(() => {
+          activeLanguageServers.set(key, session);
+          activeLanguageServerFailures.delete(key);
+          child.on("exit", () => {
+            disposeLanguageServerSession(session);
+            if (stoppingLanguageServerKeys.has(key)) {
+              stoppingLanguageServerKeys.delete(key);
+            } else {
+              activeLanguageServerFailures.set(key, {
+                message: [
+                  `${definition.label} language server exited.`,
+                  session.stderr.trim(),
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+                timestamp: Date.now(),
+              });
+            }
+            rejectLanguageServerPendingRequests(
+              session,
+              new Error(`${definition.label} language server exited.`),
+            );
+            activeLanguageServers.delete(key);
+          });
+          child.on("error", (err) => {
+            disposeLanguageServerSession(session);
             activeLanguageServerFailures.set(key, {
-              message: `${definition.label} language server exited.`,
+              message:
+                err.message || `${definition.label} language server failed.`,
               timestamp: Date.now(),
             });
-          }
-          rejectLanguageServerPendingRequests(
-            session,
-            new Error(`${definition.label} language server exited.`),
-          );
-          activeLanguageServers.delete(key);
-        });
-        child.on("error", (err) => {
+            rejectLanguageServerPendingRequests(
+              session,
+              new Error(`${definition.label} language server failed.`),
+            );
+            activeLanguageServers.delete(key);
+          });
+
+          initializeLanguageServer(session);
+        })
+        .catch((err) => {
           disposeLanguageServerSession(session);
           activeLanguageServerFailures.set(key, {
-            message:
-              err.message || `${definition.label} language server failed.`,
+            message: [
+              err instanceof Error
+                ? err.message
+                : `${definition.label} failed to start.`,
+              session.stderr.trim(),
+            ]
+              .filter(Boolean)
+              .join("\n"),
             timestamp: Date.now(),
           });
           rejectLanguageServerPendingRequests(
@@ -893,9 +926,6 @@ function startLanguageServerDefinition(
           );
           activeLanguageServers.delete(key);
         });
-
-        initializeLanguageServer(session);
-      });
 
       return {
         label: definition.label,

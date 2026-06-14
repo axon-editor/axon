@@ -611,7 +611,12 @@ export default function Terminal({
         ...terminalOptions,
         cursorBlink: true,
         cursorStyle: "block",
-        scrollback: 4000,
+        // Long-running AI sessions can produce far more output than a normal
+        // shell command. A small scrollback makes xterm discard earlier lines,
+        // which looks like the terminal randomly removed text while I am still
+        // reading or responding. Keeping a large scrollback makes Axon's
+        // terminal behave closer to Zed/VS Code for chatty TUI tools.
+        scrollback: 50000,
       });
       const fitAddon = new FitAddon();
       const webLinksAddon = new WebLinksAddon((event, uri) => {
@@ -642,12 +647,14 @@ export default function Terminal({
         if (event.type !== "keydown") return true;
 
         if (event.key === "Enter" && event.shiftKey) {
-          // zsh/bash treat Ctrl+V + Enter as a quoted newline. Mapping
-          // Shift+Enter to that sequence gives Axon the editor-style multiline
-          // terminal input users expect without teaching the renderer about
-          // individual shell parsers.
+          // Terminal UIs such as Codex can distinguish Shift+Enter when the
+          // terminal sends the CSI-u key sequence. Sending Ctrl+V+Enter helped
+          // plain shells insert a literal newline, but full-screen terminal apps
+          // still saw it as a normal Enter. This mirrors the richer keyboard
+          // protocol modern editors use so multiline prompts work inside tools,
+          // not only at the shell prompt.
           if (session.ws?.readyState === WebSocket.OPEN) {
-            session.ws.send("\x16\r");
+            session.ws.send("\x1b[13;2u");
           }
           return false;
         }
@@ -820,7 +827,7 @@ export default function Terminal({
                 }}
               />
             ))}
-            <Tooltip label="New terminal tab" side="top">
+            <Tooltip label="New terminal tab (plus)" side="top">
               <button
                 onClick={() => {
                   onActivePanelTabChange("terminal");
@@ -887,7 +894,7 @@ export default function Terminal({
             </Tooltip>
           )}
           <Tooltip
-            label={zoomed ? "Restore terminal" : "Zoom terminal"}
+            label={zoomed ? "Restore terminal (panel)" : "Zoom terminal (panel)"}
             side="top"
           >
             <button
@@ -898,7 +905,7 @@ export default function Terminal({
               {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
           </Tooltip>
-          <Tooltip label="Hide terminal" side="top">
+          <Tooltip label="Hide terminal (Cmd+J)" side="top">
             <button
               onClick={handleHide}
               aria-label="Hide terminal"

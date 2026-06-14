@@ -17,7 +17,10 @@ import {
   type GitFileState,
   type GitStatusResult,
 } from "../../../shared/git";
+import { type EditorSettings } from "../../../shared/settings";
+import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import Tooltip from "../../shared/components/Tooltip";
+import GitDiffEditorView from "./GitDiffEditorView";
 
 interface Props {
   folderPath: string | null;
@@ -26,6 +29,8 @@ interface Props {
   onOpenFile: (path: string) => void;
   onOpenDiff: (path: string) => void;
   onGitStatusChanged: () => void;
+  editorSettings: EditorSettings;
+  themeTokens: ResolvedThemeTokens;
   onOutput: (
     message: string,
     level?: "info" | "success" | "warning" | "error",
@@ -42,6 +47,35 @@ const stateLabels: Record<GitFileState, string> = {
   ignored: "I",
   unknown: "?",
 };
+
+function SourceControlSkeleton() {
+  return (
+    <div className="space-y-3 px-3 py-2">
+      {[0, 1, 2, 3, 4].map((item) => (
+        <div key={item} className="grid grid-cols-[24px_1fr] gap-2">
+          <div className="h-5 animate-pulse rounded bg-[#151923]" />
+          <div className="min-w-0 space-y-1.5">
+            <div className="h-3 w-3/4 animate-pulse rounded bg-[#151923]" />
+            <div className="h-2.5 w-full animate-pulse rounded bg-[#111722]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DiffSkeleton() {
+  return (
+    <div className="space-y-2 px-4 py-3">
+      {[0, 1, 2, 3, 4, 5].map((item) => (
+        <div key={item} className="grid grid-cols-[1fr_1fr] gap-3">
+          <div className="h-4 animate-pulse rounded bg-[#111722]" />
+          <div className="h-4 animate-pulse rounded bg-[#111722]" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function changeLabel(change: GitChange) {
   if (change.indexState !== "unknown" && change.indexState !== "ignored") {
@@ -61,6 +95,8 @@ export default function SourceControlModal({
   onOpenFile,
   onOpenDiff,
   onGitStatusChanged,
+  editorSettings,
+  themeTokens,
   onOutput,
 }: Props) {
   const [status, setStatus] = useState<GitStatusResult | null>(null);
@@ -434,9 +470,7 @@ export default function SourceControlModal({
               )}
 
               {folderPath && loadingStatus && (
-                <div className="px-3 py-2 text-[12px] text-[#586478]">
-                  loading git status...
-                </div>
+                <SourceControlSkeleton />
               )}
 
               {folderPath && status && !status.isRepository && (
@@ -566,11 +600,9 @@ export default function SourceControlModal({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-scroll overscroll-contain bg-[#080a10]">
+            <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-[#080a10]">
               {loadingDiff && (
-                <div className="px-4 py-3 text-[12px] text-[#586478]">
-                  loading diff...
-                </div>
+                <DiffSkeleton />
               )}
               {!loadingDiff && !selectedChange && (
                 <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
@@ -578,10 +610,22 @@ export default function SourceControlModal({
                 </div>
               )}
               {!loadingDiff && selectedChange && (
-                <pre className="min-h-full whitespace-pre-wrap px-4 py-3 font-mono text-[11px] leading-5 text-[#9aa4b8]">
-                  {diff?.diff.trim() ||
-                    "No diff available yet. Save the file first if the change is only in the editor buffer."}
-                </pre>
+                diff?.diff.trim() ||
+                diff?.baseContent ||
+                diff?.currentContent ? (
+                  <GitDiffEditorView
+                    filePath={selectedChange.path}
+                    original={diff?.baseContent ?? ""}
+                    modified={diff?.currentContent ?? ""}
+                    editorSettings={editorSettings}
+                    themeTokens={themeTokens}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
+                    No diff available yet. Save the file first if the change is
+                    only in the editor buffer.
+                  </div>
+                )
               )}
             </div>
           </div>

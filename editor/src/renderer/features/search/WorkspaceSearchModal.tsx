@@ -18,9 +18,13 @@ interface Props {
   onResultSelect: (result: WorkspaceSearchResult, query: string) => void;
 }
 
-function readSearchHistory() {
+function getSearchHistoryKey(rootPath: string | null) {
+  return `${SEARCH_HISTORY_KEY}:${rootPath ?? "no-workspace"}`;
+}
+
+function readSearchHistory(rootPath: string | null) {
   try {
-    const value = window.localStorage.getItem(SEARCH_HISTORY_KEY);
+    const value = window.sessionStorage.getItem(getSearchHistoryKey(rootPath));
     const parsed = value ? JSON.parse(value) : [];
     return Array.isArray(parsed)
       ? parsed.filter((item): item is string => typeof item === "string").slice(0, 8)
@@ -30,8 +34,11 @@ function readSearchHistory() {
   }
 }
 
-function writeSearchHistory(items: string[]) {
-  window.localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, 8)));
+function writeSearchHistory(rootPath: string | null, items: string[]) {
+  window.sessionStorage.setItem(
+    getSearchHistoryKey(rootPath),
+    JSON.stringify(items.slice(0, 8)),
+  );
 }
 
 function relativePath(rootPath: string | null, path: string) {
@@ -108,7 +115,9 @@ export default function WorkspaceSearchModal({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
-  const [history, setHistory] = useState<string[]>(() => readSearchHistory());
+  const [history, setHistory] = useState<string[]>(() =>
+    readSearchHistory(rootPath),
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const cacheRef = useRef(new Map<string, WorkspaceSearchResult[]>());
@@ -120,8 +129,9 @@ export default function WorkspaceSearchModal({
     setQuery("");
     setResults([]);
     setSelectedIndex(0);
+    setHistory(readSearchHistory(rootPath));
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [open]);
+  }, [open, rootPath]);
 
   useEffect(() => {
     if (!open || !rootPath || query.trim().length < 2) {
@@ -186,7 +196,7 @@ export default function WorkspaceSearchModal({
       ...history.filter((item) => item !== query.trim()),
     ].filter(Boolean);
     setHistory(nextHistory);
-    writeSearchHistory(nextHistory);
+    writeSearchHistory(rootPath, nextHistory);
     onResultSelect(result, query);
     onClose();
   };
@@ -264,7 +274,7 @@ export default function WorkspaceSearchModal({
   if (!open) return null;
 
   return (
-    <CommandModal onClose={onClose}>
+    <CommandModal onClose={onClose} width="w-[min(860px,calc(100vw-2rem))]">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-[#222838]">
         <Search size={14} className="text-[#586478] shrink-0" />
         <input

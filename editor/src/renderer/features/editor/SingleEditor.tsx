@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { Columns2, FileWarning, FileText, Eye } from "lucide-react";
+import { ChevronDown, ChevronUp, Columns2, Eye, FileText, FileWarning, Search, X } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { editorFontStack } from "../../shared/lib/fonts";
 import { type GitChange } from "../../../shared/git";
@@ -83,6 +83,10 @@ export default function SingleEditor({
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("editor");
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [findIndex, setFindIndex] = useState(0);
+  const [findMatchCount, setFindMatchCount] = useState(0);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suggestTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
@@ -97,12 +101,93 @@ export default function SingleEditor({
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const goSyntaxDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const findDecorationsRef =
+    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const findInputRef = useRef<HTMLInputElement | null>(null);
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
+  );
+
+  const updateFindDecorations = useCallback(
+    (query: string, nextIndex = findIndex) => {
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!editor || !model || !query.trim()) {
+        findDecorationsRef.current?.clear();
+        setFindMatchCount(0);
+        setFindIndex(0);
+        return;
+      }
+
+      const matches = model.findMatches(
+        query,
+        true,
+        false,
+        false,
+        null,
+        true,
+      );
+      setFindMatchCount(matches.length);
+      if (matches.length === 0) {
+        findDecorationsRef.current?.clear();
+        setFindIndex(0);
+        return;
+      }
+
+      const clampedIndex = Math.max(0, Math.min(nextIndex, matches.length - 1));
+      setFindIndex(clampedIndex);
+      findDecorationsRef.current ??= editor.createDecorationsCollection();
+      findDecorationsRef.current.set(
+        matches.map((match, index) => ({
+          range: match.range,
+          options: {
+            className:
+              index === clampedIndex
+                ? "axon-find-match axon-find-match--active"
+                : "axon-find-match",
+            inlineClassName:
+              index === clampedIndex
+                ? "axon-find-match-inline axon-find-match-inline--active"
+                : "axon-find-match-inline",
+          },
+        })),
+      );
+      editor.setSelection(matches[clampedIndex].range);
+      editor.revealRangeInCenter(
+        matches[clampedIndex].range,
+        monaco.editor.ScrollType.Smooth,
+      );
+    },
+    [findIndex],
+  );
+
+  const openFind = useCallback(() => {
+    setPreviewMode("editor");
+    setFindOpen(true);
+    window.setTimeout(() => {
+      findInputRef.current?.focus();
+      findInputRef.current?.select();
+    }, 0);
+  }, []);
+
+  const closeFind = useCallback(() => {
+    setFindOpen(false);
+    findDecorationsRef.current?.clear();
+    editorRef.current?.focus();
+  }, []);
+
+  const moveFindSelection = useCallback(
+    (direction: 1 | -1) => {
+      if (findMatchCount === 0) return;
+      setFindIndex(
+        (index) => (index + direction + findMatchCount) % findMatchCount,
+      );
+    },
+    [findMatchCount],
   );
 
   const syncDocumentWithLanguageServer = useCallback(
@@ -360,6 +445,15 @@ export default function SingleEditor({
   ]);
 
   useEffect(() => {
+    if (!findOpen) {
+      findDecorationsRef.current?.clear();
+      return;
+    }
+
+    updateFindDecorations(findQuery, findIndex);
+  }, [findIndex, findOpen, findQuery, liveContent, updateFindDecorations]);
+
+  useEffect(() => {
     const handleEditorAction = (event: Event) => {
       const actionEvent = event as CustomEvent<{
         path?: string;
@@ -552,6 +646,9 @@ export default function SingleEditor({
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
       handleSave(),
     );
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () =>
+      openFind(),
+    );
 
     editor.onDidChangeModelContent((event) => {
       const current = editor.getValue();
@@ -639,6 +736,58 @@ export default function SingleEditor({
       {saving && (
         <div className="absolute top-2 right-4 text-[11px] text-[#586478] z-10">
           saving...
+        </div>
+      )}
+      {findOpen && (
+        <div className="absolute right-4 top-3 z-20 flex h-8 items-center gap-1 rounded-md border border-[#2a3346] bg-[#10141d] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
+          <Search size={13} className="text-[#586478]" />
+          <input
+            ref={findInputRef}
+            value={findQuery}
+            onChange={(event) => {
+              setFindQuery(event.target.value);
+              setFindIndex(0);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") closeFind();
+              if (event.key === "Enter") {
+                event.preventDefault();
+                moveFindSelection(event.shiftKey ? -1 : 1);
+              }
+            }}
+            placeholder="find..."
+            className="h-6 w-44 bg-transparent text-[12px] text-[#dce4f0] outline-none placeholder:text-[#465166]"
+          />
+          <span className="min-w-11 text-right text-[10px] text-[#586478]">
+            {findQuery ? `${findMatchCount ? findIndex + 1 : 0}/${findMatchCount}` : "0/0"}
+          </span>
+          <Tooltip label="Previous match (Shift+Enter)" side="bottom">
+            <button
+              type="button"
+              onClick={() => moveFindSelection(-1)}
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
+            >
+              <ChevronUp size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Next match (Enter)" side="bottom">
+            <button
+              type="button"
+              onClick={() => moveFindSelection(1)}
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
+            >
+              <ChevronDown size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Close find (Esc)" side="bottom">
+            <button
+              type="button"
+              onClick={closeFind}
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
+            >
+              <X size={13} />
+            </button>
+          </Tooltip>
         </div>
       )}
       <Editor

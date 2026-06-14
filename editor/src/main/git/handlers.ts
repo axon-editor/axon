@@ -80,6 +80,7 @@ export function registerGitHandlers() {
       folderPath: string,
       hash: string,
       filePath?: string | null,
+      oldPath?: string | null,
     ): Promise<GitCommitDiffResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
@@ -89,7 +90,7 @@ export function registerGitHandlers() {
         };
       }
 
-      return getGitCommitDiff(folderPath, hash, filePath);
+      return getGitCommitDiff(folderPath, hash, filePath, oldPath);
     },
   );
 

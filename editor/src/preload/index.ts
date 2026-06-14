@@ -3,7 +3,7 @@
 // defined here. fs.onFileChanged uses ipcRenderer.on so the main process
 // can push file change events to the renderer without polling.
 
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { type AxonSettings, type CustomFont } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
@@ -199,8 +199,9 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath: string,
     hash: string,
     filePath?: string | null,
+    oldPath?: string | null,
   ): Promise<GitCommitDiffResult> =>
-    ipcRenderer.invoke("git:commitDiff", folderPath, hash, filePath),
+    ipcRenderer.invoke("git:commitDiff", folderPath, hash, filePath, oldPath),
   runGitAction: (
     folderPath: string,
     filePath: string,
@@ -263,6 +264,15 @@ contextBridge.exposeInMainWorld("axon", {
   ): Promise<HtmlPreviewActionResult> =>
     ipcRenderer.invoke("htmlPreview:openExternal", filePath, folderPath),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
+  getDroppedFilePaths: (files: File[]): string[] =>
+    files
+      .map((file) => webUtils.getPathForFile(file))
+      .filter((path) => path.length > 0),
+  importExternalEntries: (
+    sourcePaths: string[],
+    targetDir: string,
+  ): Promise<Array<{ sourcePath: string; targetPath: string; isDir: boolean }>> =>
+    ipcRenderer.invoke("fs:importEntries", sourcePaths, targetDir),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
   watchFolder: (path: string) => ipcRenderer.invoke("fs:watchFolder", path),

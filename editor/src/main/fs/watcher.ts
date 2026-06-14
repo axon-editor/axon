@@ -123,7 +123,13 @@ export class FileWatcherManager {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         this.deps.sendToRenderer("fs:folderChanged");
-      }, 300);
+        // New untracked files and deleted files do not always mutate the small
+        // set of .git paths we watch quickly enough for the sidebar colors to
+        // feel live. I refresh Git status from the normal folder watcher too so
+        // the tree and Git decorations move together after creates, imports,
+        // edits, and deletes.
+        this.deps.sendToRenderer("git:changed");
+      }, 120);
     };
 
     this.folderWatcher.on("add", notify);
@@ -143,7 +149,7 @@ export class FileWatcherManager {
         if (gitDebounceTimer) clearTimeout(gitDebounceTimer);
         gitDebounceTimer = setTimeout(() => {
           this.deps.sendToRenderer("git:changed");
-        }, 250);
+        }, 120);
       };
 
       this.gitWatcher.on("add", notifyGit);

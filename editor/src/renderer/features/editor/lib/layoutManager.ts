@@ -22,6 +22,7 @@ export function createPane(activeFile?: string): Pane {
     openTabs: activeFile ? [activeFile] : [],
     activeFile: activeFile ?? null,
     dirtyFiles: {},
+    pinnedTabs: [],
   };
 }
 
@@ -90,7 +91,7 @@ export function closePane(layout: Layout, paneId: string): Layout {
       ...layout,
       panes: layout.panes.map((p) =>
         p.id === paneId
-          ? { ...p, openTabs: [], activeFile: null, dirtyFiles: {} }
+          ? { ...p, openTabs: [], activeFile: null, dirtyFiles: {}, pinnedTabs: [] }
           : p,
       ),
     };
@@ -170,6 +171,7 @@ export function closeTabInPane(
         openTabs: newTabs,
         activeFile: newActiveFile,
         dirtyFiles: newDirty,
+        pinnedTabs: (p.pinnedTabs ?? []).filter((tab) => tab !== filePath),
       };
     }),
   };
@@ -184,7 +186,15 @@ export function reorderTabsInPane(
   return {
     ...layout,
     panes: layout.panes.map((p) =>
-      p.id === paneId ? { ...p, openTabs: newTabs } : p,
+      p.id === paneId
+        ? {
+            ...p,
+            openTabs: newTabs,
+            pinnedTabs: (p.pinnedTabs ?? []).filter((tab) =>
+              newTabs.includes(tab),
+            ),
+          }
+        : p,
     ),
   };
 }
@@ -287,6 +297,9 @@ export function removePathFromLayout(layout: Layout, removedPath: string): Layou
             ? pane.activeFile
             : (openTabs.at(-1) ?? null),
         dirtyFiles,
+        pinnedTabs: (pane.pinnedTabs ?? []).filter(
+          (tab) => !isSamePathOrChild(getComparableTabPath(tab), removedPath),
+        ),
       };
     }),
   };
@@ -323,6 +336,40 @@ export function replacePathInLayout(
         openTabs,
         activeFile,
         dirtyFiles,
+        pinnedTabs: Array.from(
+          new Set(
+            (pane.pinnedTabs ?? []).map((tab) =>
+              replacePathPrefix(tab, oldPath, newPath),
+            ),
+          ),
+        ).filter((tab) => openTabs.includes(tab)),
+      };
+    }),
+  };
+}
+
+export function setPinnedInPane(
+  layout: Layout,
+  paneId: string,
+  filePath: string,
+  pinned: boolean,
+): Layout {
+  return {
+    ...layout,
+    panes: layout.panes.map((pane) => {
+      if (pane.id !== paneId) return pane;
+      const currentPinnedTabs = pane.pinnedTabs ?? [];
+      const pinnedTabs = pinned
+        ? Array.from(new Set([...currentPinnedTabs, filePath]))
+        : currentPinnedTabs.filter((tab) => tab !== filePath);
+      const unpinnedTabs = pane.openTabs.filter(
+        (tab) => !pinnedTabs.includes(tab),
+      );
+
+      return {
+        ...pane,
+        pinnedTabs,
+        openTabs: [...pinnedTabs, ...unpinnedTabs],
       };
     }),
   };

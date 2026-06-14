@@ -127,6 +127,12 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "CMakeLists.txt",
       "meson.build",
       "Makefile",
+      "*.c",
+      "*.cc",
+      "*.cpp",
+      "*.cxx",
+      "*.h",
+      "*.hpp",
     ],
     installHint: "Bundled with Axon through the managed clangd bundle.",
     managedBundle: {
@@ -169,7 +175,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     command: "pyright-langserver",
     args: ["--version"],
     launchArgs: ["--stdio"],
-    workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt"],
+    workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt", "*.py"],
     installHint: "Bundled with Axon through pyright.",
     runtimeRequirement:
       "Select the project virtual environment when imports live outside the system Python.",

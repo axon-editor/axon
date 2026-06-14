@@ -50,10 +50,17 @@ export function registerSpotifyOpenUrlHandler({
       if (!exchanged) return;
 
       const window = BrowserWindow.getAllWindows().find((candidate) => {
-        return !candidate.isDestroyed();
+        return !candidate.isDestroyed() && !candidate.webContents.isDestroyed();
       });
-      if (window) window.webContents.send("spotify:connected");
-      else sendToRenderer("spotify:connected");
+      if (window) {
+        try {
+          window.webContents.send("spotify:connected");
+        } catch {
+          sendToRenderer("spotify:connected");
+        }
+      } else {
+        sendToRenderer("spotify:connected");
+      }
     } catch (err) {
       console.error("[spotify] open-url token exchange failed:", err);
     }

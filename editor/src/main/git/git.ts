@@ -33,6 +33,32 @@ async function runGit(
   };
 }
 
+async function readGitBlob(
+  root: string,
+  ref: string,
+  relativePath: string | null,
+) {
+  if (!relativePath) return "";
+
+  try {
+    const gitObject = ref === ":" ? `:${relativePath}` : `${ref}:${relativePath}`;
+    const result = await runGit(root, ["show", gitObject]);
+    return result.stdout;
+  } catch {
+    return "";
+  }
+}
+
+async function readWorkingTreeFile(root: string, relativePath: string | null) {
+  if (!relativePath) return "";
+
+  try {
+    return await fs.promises.readFile(path.resolve(root, relativePath), "utf-8");
+  } catch {
+    return "";
+  }
+}
+
 function toGitFileState(status: string): GitFileState {
   switch (status) {
     case "M":
@@ -147,16 +173,23 @@ function getGitAuthorAvatarUrl(authorEmail: string) {
   const normalizedEmail = authorEmail.trim().toLowerCase();
   if (!normalizedEmail) return "";
 
-  // Git itself only stores the author email, not a profile image. I derive the
-  // avatar URL in the main process so the renderer receives a normal image
-  // source while this Git-specific detail stays beside the history parser. The
-  // default=identicon fallback keeps the UI visual even when the author has no
-  // public Gravatar.
+  const githubNoreplyMatch = normalizedEmail.match(
+    /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/,
+  );
+  if (githubNoreplyMatch?.[1]) {
+    return `https://github.com/${githubNoreplyMatch[1]}.png?size=96`;
+  }
+
+  // Git itself only stores the author email, not a profile image. I derive a
+  // public avatar URL in the main process so every renderer window receives a
+  // normal image source. I use d=404 instead of an identicon because Axon's Git
+  // history should show a real account image when one exists, then let the UI
+  // fall back to initials when there is no public avatar.
   const emailHash = crypto
     .createHash("md5")
     .update(normalizedEmail)
     .digest("hex");
-  return `https://www.gravatar.com/avatar/${emailHash}?s=96&d=identicon`;
+  return `https://www.gravatar.com/avatar/${emailHash}?s=96&d=404`;
 }
 
 function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
@@ -286,9 +319,18 @@ export async function getGitDiff(
   for (const args of diffRequests) {
     const diff = await readDiff(args);
     if (diff.trim().length > 0) {
+      const baseContent = await readGitBlob(root, "HEAD", relativePath);
+      const currentContent = untracked
+        ? await readWorkingTreeFile(root, relativePath)
+        : staged
+          ? await readGitBlob(root, ":", relativePath)
+          : await readWorkingTreeFile(root, relativePath);
+
       return {
         path: relativePath,
         diff,
+        baseContent,
+        currentContent,
       };
     }
   }
@@ -296,6 +338,8 @@ export async function getGitDiff(
   return {
     path: relativePath,
     diff: "",
+    baseContent: await readGitBlob(root, "HEAD", relativePath),
+    currentContent: await readWorkingTreeFile(root, relativePath),
   };
 }
 
@@ -336,7 +380,6 @@ export async function getGitHistory(
   const args = [
     "log",
     "--date=iso-strict",
-    "--max-count=80",
     "--name-status",
     "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%ar%x1f%s%x1f%b",
   ];
@@ -381,6 +424,7 @@ export async function getGitCommitDiff(
   folderPath: string,
   hash: string,
   filePath?: string | null,
+  oldPath?: string | null,
 ): Promise<GitCommitDiffResult> {
   const status = await getGitStatus(folderPath);
   if (!status.isRepository || !status.root || !/^[0-9a-f]{7,40}$/i.test(hash)) {
@@ -394,6 +438,9 @@ export async function getGitCommitDiff(
   try {
     const relativePath = filePath
       ? normalizeGitRequestPath(status.root, filePath)
+      : null;
+    const relativeOldPath = oldPath
+      ? normalizeGitRequestPath(status.root, oldPath)
       : null;
     const args = [
       "show",
@@ -412,10 +459,18 @@ export async function getGitCommitDiff(
     // readable and matches editor history views where a commit can be selected
     // first, then one changed path inside that commit can be inspected.
     const result = await runGit(status.root, args);
+    const baseContent = await readGitBlob(
+      status.root,
+      `${hash}^`,
+      relativeOldPath ?? relativePath,
+    );
+    const currentContent = await readGitBlob(status.root, hash, relativePath);
     return {
       hash,
       path: relativePath,
       diff: result.stdout || result.stderr,
+      baseContent,
+      currentContent,
     };
   } catch (err) {
     return {

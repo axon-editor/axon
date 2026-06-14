@@ -31,6 +31,7 @@ interface Props {
   onActivate: () => void;
   onSelectFile: (filePath: string) => void;
   onCloseTab: (filePath: string) => void;
+  onPinTab: (filePath: string, pinned: boolean) => void;
   onCloseEmptyPane?: () => void;
   onOpenTabInTerminal?: (filePath: string) => void;
   onOpenFile?: (filePath: string) => void;
@@ -44,6 +45,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
+  deletedFiles?: Set<string>;
   onOpenFolder: () => void;
   onNewFile: () => void;
   onSelectRecentFolder: (path: string) => void;
@@ -56,6 +58,7 @@ export default function PaneInstance({
   onActivate,
   onSelectFile,
   onCloseTab,
+  onPinTab,
   onCloseEmptyPane,
   onOpenTabInTerminal,
   onOpenFile,
@@ -67,6 +70,7 @@ export default function PaneInstance({
   themeTokens,
   navigationTarget,
   gitChanges,
+  deletedFiles,
   onOpenFolder,
   onNewFile,
   onSelectRecentFolder,
@@ -164,10 +168,13 @@ export default function PaneInstance({
         openTabs={pane.openTabs}
         activeFile={pane.activeFile}
         dirtyFiles={pane.dirtyFiles}
+        deletedFiles={deletedFiles}
         onSelect={onSelectFile}
         onClose={onCloseTab}
+        onPinTab={onPinTab}
         onOpenInTerminal={onOpenTabInTerminal}
         paneId={pane.id}
+        pinnedTabs={pane.pinnedTabs ?? []}
       />
 
       <div className="flex-1 overflow-hidden relative">

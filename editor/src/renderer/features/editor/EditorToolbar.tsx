@@ -130,7 +130,7 @@ export default function EditorToolbar({
       {hasWorkspace && (
         <>
           <div ref={newRef} className="relative">
-            <Tooltip label="New..." side="bottom">
+            <Tooltip label="New... (toolbar menu)" side="bottom">
               <button
                 onClick={() => toggle("new")}
                 aria-label="New..."
@@ -185,7 +185,7 @@ export default function EditorToolbar({
       {hasActiveFile && (
         <>
           <div ref={splitRef} className="relative">
-            <Tooltip label="Split editor" side="bottom">
+            <Tooltip label="Split editor (pane menu)" side="bottom">
               <button
                 onClick={() => toggle("split")}
                 aria-label="Split editor"
@@ -244,7 +244,7 @@ export default function EditorToolbar({
 
           <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
 
-          <Tooltip label="Compare active file" side="bottom">
+          <Tooltip label="Compare active file (Git diff)" side="bottom">
             <button
               onClick={onDiff}
               aria-label="Compare active file"
@@ -258,7 +258,10 @@ export default function EditorToolbar({
         </>
       )}
 
-      <Tooltip label={isZenMode ? "Exit zen mode" : "Zen mode"} side="bottom">
+      <Tooltip
+        label={isZenMode ? "Exit zen mode (Cmd+K Z)" : "Zen mode (Cmd+K Z)"}
+        side="bottom"
+      >
         <button
           onClick={onZenMode}
           aria-label={isZenMode ? "Exit zen mode" : "Zen mode"}
@@ -270,7 +273,7 @@ export default function EditorToolbar({
       </Tooltip>
 
       <div ref={appRef} className="relative">
-        <Tooltip label="Axon menu" side="bottom">
+        <Tooltip label="Axon menu (settings and extensions)" side="bottom">
           <button
             onClick={() => toggle("app")}
             aria-label="Axon menu"

@@ -17,6 +17,7 @@ import { type GitTreeDecoration } from "..";
 import InlineCreateRow, {
   type InlineCreateTarget,
 } from "./InlineCreateRow";
+import { type ImportedExternalEntry } from "./FileTree";
 
 interface Props {
   node: FileNode;
@@ -24,6 +25,10 @@ interface Props {
   onFileSelect: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onMove: (sourcePath: string, targetDirPath: string) => void;
+  onImportExternalEntries: (
+    sourcePaths: string[],
+    targetDirPath: string,
+  ) => Promise<ImportedExternalEntry[]>;
   revealPath?: string | null;
   gitDecorations?: Map<string, GitTreeDecoration>;
   ignoredPaths?: Set<string>;
@@ -98,12 +103,21 @@ function isIgnoredTreePath(path: string, ignoredPaths?: Set<string>) {
   return false;
 }
 
+function getExternalDropPaths(dataTransfer: DataTransfer) {
+  return window.axon.getDroppedFilePaths(Array.from(dataTransfer.files));
+}
+
+function hasExternalFileDrag(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.types).includes("Files");
+}
+
 export default function FileTreeNode({
   node,
   activeFile,
   onFileSelect,
   onContextMenu,
   onMove,
+  onImportExternalEntries,
   revealPath,
   gitDecorations,
   ignoredPaths,
@@ -239,7 +253,8 @@ export default function FileTreeNode({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect =
+      hasExternalFileDrag(e.dataTransfer) ? "copy" : "move";
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -249,14 +264,67 @@ export default function FileTreeNode({
     setDragOver(false);
     clearTimers();
 
-    const sourcePath = e.dataTransfer.getData("text/plain");
-    if (!sourcePath || sourcePath === node.path) return;
-
     const targetDir = node.is_dir
       ? node.path
       : node.path.split("/").slice(0, -1).join("/");
+    const externalPaths = getExternalDropPaths(e.dataTransfer);
+    if (externalPaths.length > 0) {
+      void handleExternalImportDrop(externalPaths, targetDir);
+      return;
+    }
+
+    const sourcePath = e.dataTransfer.getData("text/plain");
+    if (!sourcePath || sourcePath === node.path) return;
 
     onMove(sourcePath, targetDir);
+  };
+
+  const insertImportedChildren = (importedEntries: ImportedExternalEntry[]) => {
+    if (!node.is_dir) return;
+
+    const directChildren = importedEntries.filter(
+      (entry) =>
+        normalizeTreePath(getParentPath(entry.targetPath)) ===
+        normalizeTreePath(node.path),
+    );
+    if (directChildren.length === 0) return;
+
+    setChildren((currentChildren) => {
+      const existingChildren = currentChildren ?? [];
+      const nextChildren = [...existingChildren];
+      for (const entry of directChildren) {
+        if (
+          nextChildren.some(
+            (child) =>
+              normalizeTreePath(child.path) ===
+              normalizeTreePath(entry.targetPath),
+          )
+        ) {
+          continue;
+        }
+
+        nextChildren.push({
+          name: getPathBasename(entry.targetPath),
+          path: entry.targetPath,
+          is_dir: entry.isDir,
+          children: entry.isDir ? [] : undefined,
+        });
+      }
+
+      return sortTreeChildren(nextChildren);
+    });
+    setExpanded(true);
+  };
+
+  const handleExternalImportDrop = async (
+    externalPaths: string[],
+    targetDir: string,
+  ) => {
+    const importedEntries = await onImportExternalEntries(
+      externalPaths,
+      targetDir,
+    );
+    insertImportedChildren(importedEntries);
   };
 
   const handleInlineCreateCreated = async (
@@ -383,6 +451,7 @@ export default function FileTreeNode({
               onFileSelect={onFileSelect}
               onContextMenu={onContextMenu}
               onMove={onMove}
+              onImportExternalEntries={onImportExternalEntries}
               revealPath={revealPath}
               gitDecorations={gitDecorations}
               ignoredPaths={ignoredPaths}

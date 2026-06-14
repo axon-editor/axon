@@ -1,8 +1,15 @@
+import { useState } from "react";
 import { type FileNode } from "../../../shared/lib/api";
 import { publicAsset } from "../../../shared/lib/assets";
 import { type GitTreeDecoration } from "..";
 import FileTreeNode from "./FileTreeNode";
 import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
+
+export interface ImportedExternalEntry {
+  sourcePath: string;
+  targetPath: string;
+  isDir: boolean;
+}
 
 interface FileTreeProps {
   tree: FileNode | null;
@@ -13,11 +20,24 @@ interface FileTreeProps {
   ignoredPaths: Set<string>;
   inlineCreate: InlineCreateTarget | null;
   onOpenFolderPicker: () => void;
+  onOpenDroppedWorkspace: (path: string) => void | Promise<void>;
   onFileSelect: (path: string) => void;
   onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
   onMove: (sourcePath: string, targetDirPath: string) => void;
+  onImportExternalEntries: (
+    sourcePaths: string[],
+    targetDirPath: string,
+  ) => Promise<ImportedExternalEntry[]>;
   onInlineCreateCancel: () => void;
   onInlineCreateCreated: (path: string, isDir: boolean) => void | Promise<void>;
+}
+
+function getExternalDropPaths(dataTransfer: DataTransfer) {
+  return window.axon.getDroppedFilePaths(Array.from(dataTransfer.files));
+}
+
+function hasExternalFileDrag(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.types).includes("Files");
 }
 
 export default function FileTree({
@@ -29,14 +49,49 @@ export default function FileTree({
   ignoredPaths,
   inlineCreate,
   onOpenFolderPicker,
+  onOpenDroppedWorkspace,
   onFileSelect,
   onContextMenu,
   onMove,
+  onImportExternalEntries,
   onInlineCreateCancel,
   onInlineCreateCreated,
 }: FileTreeProps) {
+  const [emptyDragOver, setEmptyDragOver] = useState(false);
   const showEmptySidebar =
     !loading && (!tree || ((tree.children?.length ?? 0) === 0 && !inlineCreate));
+
+  const handleEmptyDragOver = (event: React.DragEvent) => {
+    if (!hasExternalFileDrag(event.dataTransfer)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+    setEmptyDragOver(true);
+  };
+
+  const handleEmptyDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const externalPaths = getExternalDropPaths(event.dataTransfer);
+    if (externalPaths.length === 0) {
+      setEmptyDragOver(false);
+      return;
+    }
+
+    setEmptyDragOver(false);
+
+    if (!tree) {
+      void onOpenDroppedWorkspace(externalPaths[0]);
+      return;
+    }
+
+    // An empty workspace still has a real root directory, so dropping onto the
+    // empty state should import into that root instead of forcing the user to
+    // find a folder row that does not exist yet.
+    void onImportExternalEntries(externalPaths, tree.path);
+  };
 
   if (loading) {
     return (
@@ -46,7 +101,15 @@ export default function FileTree({
 
   if (showEmptySidebar) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+      <div
+        onDragEnter={handleEmptyDragOver}
+        onDragOver={handleEmptyDragOver}
+        onDragLeave={() => setEmptyDragOver(false)}
+        onDrop={handleEmptyDrop}
+        className={`flex h-full flex-col items-center justify-center px-4 text-center transition-colors ${
+          emptyDragOver ? "bg-[#111a28]" : ""
+        }`}
+      >
         <img
           src={publicAsset("axon.png")}
           alt="Axon"
@@ -54,18 +117,22 @@ export default function FileTree({
           draggable={false}
         />
         <div className="text-[12px] font-medium text-[#c8d0e0]">
-          no folder open
+          {tree ? "empty workspace" : "no folder open"}
         </div>
         <div className="mt-1 max-w-[160px] text-[11px] leading-4 text-[#586478]">
-          use the folder button above to open a workspace.
+          {tree
+            ? "drop files here or create something new."
+            : "drop a folder here or use the folder button above."}
         </div>
-        <button
-          type="button"
-          onClick={onOpenFolderPicker}
-          className="mt-4 flex h-7 cursor-pointer items-center rounded border border-[#222838] px-3 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:bg-[#11151c] hover:text-white"
-        >
-          open folder
-        </button>
+        {!tree && (
+          <button
+            type="button"
+            onClick={onOpenFolderPicker}
+            className="mt-4 flex h-7 cursor-pointer items-center rounded border border-[#222838] px-3 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:bg-[#11151c] hover:text-white"
+          >
+            open folder
+          </button>
+        )}
       </div>
     );
   }
@@ -91,6 +158,7 @@ export default function FileTree({
           onFileSelect={onFileSelect}
           onContextMenu={onContextMenu}
           onMove={onMove}
+          onImportExternalEntries={onImportExternalEntries}
           revealPath={revealPath}
           gitDecorations={gitDecorations}
           ignoredPaths={ignoredPaths}

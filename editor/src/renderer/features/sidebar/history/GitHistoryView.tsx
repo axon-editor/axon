@@ -137,6 +137,7 @@ export default function GitHistoryView({
         folderPath,
         commit.hash,
         file.path,
+        file.oldPath,
       );
       onOpenCommitFile(commit, file, diff);
     } finally {
@@ -162,10 +163,14 @@ export default function GitHistoryView({
         {folderPath && loadingHistory && (
           <div className="space-y-2 px-3 py-2">
             {[0, 1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="h-14 animate-pulse rounded-md bg-[#151923]"
-              />
+              <div key={item} className="flex gap-2 rounded-md px-1 py-1.5">
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-[#151923]" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-3 w-4/5 animate-pulse rounded bg-[#151923]" />
+                  <div className="h-2.5 w-2/3 animate-pulse rounded bg-[#111722]" />
+                  <div className="h-2.5 w-1/3 animate-pulse rounded bg-[#111722]" />
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -286,7 +291,7 @@ export default function GitHistoryView({
                         </span>
                         <span className="block truncate text-[10px] text-[#586478]">
                           {loading
-                            ? "loading diff..."
+                            ? "opening diff..."
                             : file.oldPath
                               ? `${file.oldPath} -> ${file.path}`
                               : file.path}

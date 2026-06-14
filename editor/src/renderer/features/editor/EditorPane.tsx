@@ -33,6 +33,7 @@ interface Props {
   onActivatePane: (paneId: string) => void;
   onSelectFile: (paneId: string, filePath: string) => void;
   onCloseTab: (paneId: string, filePath: string) => void;
+  onPinTab: (paneId: string, filePath: string, pinned: boolean) => void;
   onOpenTabInTerminal?: (filePath: string) => void;
   onOpenFile?: (filePath: string) => void;
   onOpenNavigationTarget?: (
@@ -52,6 +53,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
+  deletedFiles?: Set<string>;
   handleOpenFolder: () => void;
   handleNewFile: () => void;
   handleFolderChange: (path: string, fileTree: FileNode) => void;
@@ -94,6 +96,7 @@ export default function EditorPane({
   onActivatePane,
   onSelectFile,
   onCloseTab,
+  onPinTab,
   onOpenTabInTerminal,
   onOpenFile,
   onOpenNavigationTarget,
@@ -107,6 +110,7 @@ export default function EditorPane({
   themeTokens,
   navigationTarget,
   gitChanges,
+  deletedFiles,
   handleOpenFolder,
   handleNewFile,
   handleFolderChange,
@@ -222,6 +226,7 @@ export default function EditorPane({
               onActivate={() => onActivatePane(pane.id)}
               onSelectFile={(f) => onSelectFile(pane.id, f)}
               onCloseTab={(f) => onCloseTab(pane.id, f)}
+              onPinTab={(f, pinned) => onPinTab(pane.id, f, pinned)}
               onCloseEmptyPane={
                 layout.panes.length > 1 ? () => onClosePane(pane.id) : undefined
               }
@@ -235,6 +240,7 @@ export default function EditorPane({
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitChanges}
+              deletedFiles={deletedFiles}
               onOpenFolder={handleOpenFolder}
               onNewFile={handleNewFile}
               onSelectRecentFolder={async (path) => {

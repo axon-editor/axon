@@ -6,11 +6,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { FolderTree, Plus } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../shared/lib/api";
-import FileTree from "./files/FileTree";
+import FileTree, { type ImportedExternalEntry } from "./files/FileTree";
 import ContextMenu from "./files/ContextMenu";
 import FolderPicker from "./files/FolderPicker";
 import { type InlineCreateKind, type InlineCreateTarget } from "./files/InlineCreateRow";
@@ -236,6 +237,14 @@ function getPathBasename(path: string | null) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? "open folder";
 }
 
+function getExternalDropPaths(dataTransfer: DataTransfer) {
+  return window.axon.getDroppedFilePaths(Array.from(dataTransfer.files));
+}
+
+function hasExternalFileDrag(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.types).includes("Files");
+}
+
 function createFileNodeFromPath(path: string, isDir: boolean): FileNode {
   return {
     name: getPathBasename(path),
@@ -390,23 +399,61 @@ export default function Sidebar({
     });
   };
 
-  const handleRootDragOver = (e: React.DragEvent) => {
+  const handleRootDragOver = (e: ReactDragEvent) => {
     if (!tree) return;
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect =
+      hasExternalFileDrag(e.dataTransfer) ? "copy" : "move";
     setRootDragOver(true);
   };
 
-  const handleRootDrop = (e: React.DragEvent) => {
+  const handleRootDrop = (e: ReactDragEvent) => {
     if (!tree) return;
     e.preventDefault();
     e.stopPropagation();
     setRootDragOver(false);
 
+    const externalPaths = getExternalDropPaths(e.dataTransfer);
+    if (externalPaths.length > 0) {
+      void handleImportExternalEntries(externalPaths, tree.path);
+      return;
+    }
+
     const sourcePath = e.dataTransfer.getData("text/plain");
     if (!sourcePath || sourcePath === tree.path) return;
     void handleMove(sourcePath, tree.path);
+  };
+
+  const handleImportExternalEntries = async (
+    sourcePaths: string[],
+    targetDir: string,
+  ): Promise<ImportedExternalEntry[]> => {
+    try {
+      const importedEntries = await window.axon.importExternalEntries(
+        sourcePaths,
+        targetDir,
+      );
+      const firstImportedEntry = importedEntries[0];
+      if (firstImportedEntry) {
+        setRevealPath(firstImportedEntry.targetPath);
+        setTree((currentTree) =>
+          importedEntries.reduce(
+            (nextTree, entry) =>
+              appendCreatedChild(nextTree, entry.targetPath, entry.isDir),
+            currentTree,
+          ),
+        );
+      }
+      await onRefresh();
+      if (firstImportedEntry && !firstImportedEntry.isDir) {
+        onFileSelect(firstImportedEntry.targetPath);
+      }
+      return importedEntries;
+    } catch (err) {
+      console.error("external drop import failed:", err);
+      return [];
+    }
   };
 
   const handleResizeStart = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -493,6 +540,20 @@ export default function Sidebar({
     }
   };
 
+  const handleOpenDroppedWorkspace = async (path: string) => {
+    try {
+      // The no-workspace empty state is a workspace picker surface. I resolve
+      // the dropped path through the same tree endpoint used by normal folder
+      // selection so files are rejected naturally and only real folders become
+      // the active workspace.
+      const fileTree = await getTree(path);
+      addRecentFolder(path);
+      await onFolderChange(path, fileTree);
+    } catch (err) {
+      console.error("failed to open dropped workspace:", err);
+    }
+  };
+
   if (collapsed) return null;
 
   const hasMacTrafficLights = platform === "darwin";
@@ -524,6 +585,7 @@ export default function Sidebar({
           {tree && (
             <div
               onContextMenu={openRootContextMenu}
+              onDragEnter={handleRootDragOver}
               onDragOver={handleRootDragOver}
               onDragLeave={() => setRootDragOver(false)}
               onDrop={handleRootDrop}
@@ -559,6 +621,12 @@ export default function Sidebar({
                 : "overflow-y-auto py-1"
             }`}
             onContextMenu={handleRootContextMenu}
+            onDragEnter={view === "files" ? handleRootDragOver : undefined}
+            onDragOver={view === "files" ? handleRootDragOver : undefined}
+            onDragLeave={
+              view === "files" ? () => setRootDragOver(false) : undefined
+            }
+            onDrop={view === "files" ? handleRootDrop : undefined}
           >
             {view === "history" && (
               <GitHistoryView
@@ -587,9 +655,11 @@ export default function Sidebar({
                 ignoredPaths={ignoredPaths}
                 inlineCreate={inlineCreate}
                 onOpenFolderPicker={onOpenFolderPicker}
+                onOpenDroppedWorkspace={handleOpenDroppedWorkspace}
                 onFileSelect={onFileSelect}
                 onContextMenu={handleContextMenu}
                 onMove={handleMove}
+                onImportExternalEntries={handleImportExternalEntries}
                 onInlineCreateCancel={() => setInlineCreate(null)}
                 onInlineCreateCreated={handleInlineCreateCreated}
               />

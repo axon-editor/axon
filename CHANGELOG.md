@@ -1,5 +1,73 @@
 # Changelog
 
+## v1.1.8
+
+- Increased integrated terminal scrollback so long AI and TUI sessions keep
+  much more output instead of dropping older text.
+- Added pinned editor tabs, including context menu pin/unpin actions and
+  restore-safe layout normalization for older saved sessions.
+- Added a custom in-editor Find surface for `Cmd+F` / `Ctrl+F` with next,
+  previous, Escape close, and highlighted matches.
+- Added external Finder/Explorer drag and drop into the sidebar, including
+  workspace root imports, folder imports, and no-workspace folder selection.
+- Made Git status refresh faster after filesystem changes so sidebar colors
+  update more quickly for created, modified, and deleted files.
+- Fetched full Git history and rendered Source Control/Git History diffs with
+  Monaco's diff editor using old/new file contents.
+- Added better Git author avatar resolution and skeleton loading states for Git
+  panels.
+- Marked open tabs whose files were deleted from disk with a red strikethrough
+  state.
+- Hardened IPC shutdown guards and language-server failure reporting.
+
+## v1.1.7
+
+- Preserved terminal scroll position while switching terminal tabs.
+- Fixed prompt wrapping and reconnect noise in the integrated terminal.
+- Routed confirmed terminal links through the default browser handler.
+- Fixed New Window after the main-process architecture split.
+- Adjusted unsigned Windows update behavior for Axon's personal builds.
+- Moved Spotify toward Axon's built-in managed client flow and removed the
+  manual user-facing client ID input.
+- Added Spotify device discovery, selected-device playback, and playlist
+  infinite scrolling.
+- Added the first Axon Agent right-sidebar surface with a status-bar toggle
+  controlled by AI settings.
+- Fixed packaged language-server resolution for npm-backed bundled servers.
+
+## v1.1.6
+
+- Split the large main and renderer files into feature-oriented folders while
+  preserving existing behavior.
+- Improved terminal shell startup, environment loading, keepalive handling, and
+  binary PTY output transport.
+- Added managed language-server verification to release builds.
+- Improved TypeScript SDK resolution and cross-file definition navigation.
+- Added the full Git History sidebar flow with commit details and editor diff
+  views.
+- Moved Files, Git History, and Spotify switches into the status bar with
+  separators.
+- Added Spotify sidebar and floating player state, artwork, and settings
+  persistence.
+- Added release packaging checks so managed language-server bundles are present
+  before desktop artifacts are built.
+
+## v1.1.5
+
+- Kept terminal sessions alive across renderer WebSocket reconnects.
+- Added a packaged core watchdog so the bundled backend can restart if it stops
+  responding.
+- Preserved native Windows window controls while shifting Axon toolbar controls
+  away from them.
+- Fixed Windows workspace labels so the titlebar shows the folder name instead
+  of the full path.
+- Prevented invalid placeholder paths from reaching Source Control Git
+  commands.
+- Added inline sidebar creation for files and folders with duplicate-name
+  feedback.
+- Added a fixed workspace-root create/drop strip and sidebar drag resizing.
+- Hid workspace/file-specific actions until a folder or file is active.
+
 ## v1.1.4
 
 - Added a shared renderer backend URL helper so file APIs and terminal

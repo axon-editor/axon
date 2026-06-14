@@ -29,6 +29,8 @@ export interface GitStatusResult {
 export interface GitDiffResult {
   path: string;
   diff: string;
+  baseContent?: string;
+  currentContent?: string;
 }
 
 export interface GitActionResult {
@@ -72,4 +74,6 @@ export interface GitCommitDiffResult {
   hash: string;
   path: string | null;
   diff: string;
+  baseContent?: string;
+  currentContent?: string;
 }

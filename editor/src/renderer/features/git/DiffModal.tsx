@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { DiffEditor } from "@monaco-editor/react";
 import { X } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
-import { editorFontStack } from "../../shared/lib/fonts";
 import { readFile } from "../../shared/lib/api";
-import { detectLanguage, getModel } from "../editor/lib/monacoModels";
-import { getMonacoThemeId, registerAxonTheme } from "../../shared/lib/soraTheme";
+import { getModel } from "../editor/lib/monacoModels";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import Tooltip from "../../shared/components/Tooltip";
+import GitDiffEditorView from "./GitDiffEditorView";
 
 interface Props {
   filePath: string;
@@ -121,31 +119,12 @@ export default function DiffModal({
         )}
 
         {!loading && !error && (
-          <DiffEditor
-            height="100%"
+          <GitDiffEditorView
+            filePath={filePath}
             original={baseContent}
             modified={currentContent}
-            language={detectLanguage(filePath)}
-            theme={getMonacoThemeId(editorSettings.themeId)}
-            beforeMount={(monacoInstance) =>
-              registerAxonTheme(
-                monacoInstance,
-                editorSettings.themeId,
-                themeTokens,
-              )
-            }
-            options={{
-              readOnly: true,
-              renderSideBySide: true,
-              fontSize: editorSettings.fontSize,
-              fontFamily: editorFontStack(editorSettings.fontFamily),
-              fontWeight: String(editorSettings.fontWeight),
-              lineHeight: editorSettings.lineHeight,
-              letterSpacing: 0,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              originalEditable: false,
-            }}
+            editorSettings={editorSettings}
+            themeTokens={themeTokens}
           />
         )}
       </div>

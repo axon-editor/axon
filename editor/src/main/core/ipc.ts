@@ -19,7 +19,15 @@ export function createMainProcessIpc(
     // send must pass through this guard instead of calling webContents directly.
     if (!targetWindow || targetWindow.isDestroyed()) return;
     if (targetWindow.webContents.isDestroyed()) return;
-    targetWindow.webContents.send(channel, payload);
+
+    try {
+      targetWindow.webContents.send(channel, payload);
+    } catch {
+      // Electron can destroy the native WebContents between the guard above and
+      // the actual send call during quit/reload/update. Treat that race as a
+      // no-op because these events are only renderer notifications; crashing the
+      // main process on shutdown is worse than dropping a late file/LSP event.
+    }
   }
 
   function sendMenuCommand(command: AxonCommand) {

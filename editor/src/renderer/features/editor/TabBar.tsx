@@ -10,7 +10,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Copy, PanelRightClose, Terminal as TerminalIcon, X } from "lucide-react";
+import { Copy, PanelRightClose, Pin, PinOff, Terminal as TerminalIcon, X } from "lucide-react";
 import ChromeTab from "./ChromeTab";
 import {
   getTabDisplayName,
@@ -41,8 +41,11 @@ interface Props {
   openTabs: string[];
   activeFile: string | null;
   dirtyFiles: Record<string, boolean>;
+  deletedFiles?: Set<string>;
+  pinnedTabs?: string[];
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  onPinTab: (path: string, pinned: boolean) => void;
   onOpenInTerminal?: (path: string) => void;
   paneId: string;
 }
@@ -58,6 +61,8 @@ function SortableTab({
   paneId,
   isActive,
   isDirty,
+  isDeleted,
+  isPinned,
   onSelect,
   onClose,
   onContextMenu,
@@ -66,6 +71,8 @@ function SortableTab({
   paneId: string;
   isActive: boolean;
   isDirty: boolean;
+  isDeleted: boolean;
+  isPinned: boolean;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
   onContextMenu: (path: string, rect: DOMRect) => void;
@@ -105,6 +112,8 @@ function SortableTab({
       label={name}
       active={isActive}
       dirty={isDirty}
+      deleted={isDeleted}
+      pinned={isPinned}
       tooltipLabel={
         isHtmlPreviewTabPath(path) ? `HTML preview: ${realPath}` : realPath
       }
@@ -132,17 +141,22 @@ function ContextMenu({
   openTabs,
   onClose,
   onCloseMenu,
+  pinnedTabs,
+  onPinTab,
   onOpenInTerminal,
 }: {
   menu: ContextMenuState;
   openTabs: string[];
   onClose: (path: string) => void;
   onCloseMenu: () => void;
+  pinnedTabs: string[];
+  onPinTab: (path: string, pinned: boolean) => void;
   onOpenInTerminal?: (path: string) => void;
 }) {
   const tabIndex = openTabs.indexOf(menu.path);
   const canCloseRight = tabIndex >= 0 && tabIndex < openTabs.length - 1;
   const canCloseOthers = openTabs.length > 1;
+  const isPinned = pinnedTabs.includes(menu.path);
   const realPath = getTabFilePath(menu.path);
 
   const runAction = (action: () => void) => {
@@ -170,12 +184,21 @@ function ContextMenu({
       </button>
       <button
         type="button"
+        className={menuItemClass}
+        onClick={() => runAction(() => onPinTab(menu.path, !isPinned))}
+      >
+        {isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+        <span>{isPinned ? "Unpin tab" : "Pin tab"}</span>
+      </button>
+      <button
+        type="button"
         disabled={!canCloseOthers}
         className={menuItemClass}
         onClick={() =>
           runAction(() =>
             openTabs
               .filter((path) => path !== menu.path)
+              .filter((path) => !pinnedTabs.includes(path))
               .forEach((path) => onClose(path)),
           )
         }
@@ -189,7 +212,10 @@ function ContextMenu({
         className={menuItemClass}
         onClick={() =>
           runAction(() =>
-            openTabs.slice(tabIndex + 1).forEach((path) => onClose(path)),
+            openTabs
+              .slice(tabIndex + 1)
+              .filter((path) => !pinnedTabs.includes(path))
+              .forEach((path) => onClose(path)),
           )
         }
       >
@@ -227,8 +253,11 @@ export default function TabBar({
   openTabs,
   activeFile,
   dirtyFiles,
+  deletedFiles,
+  pinnedTabs = [],
   onSelect,
   onClose,
+  onPinTab,
   onOpenInTerminal,
   paneId,
 }: Props) {
@@ -271,6 +300,8 @@ export default function TabBar({
             paneId={paneId}
             isActive={path === activeFile}
             isDirty={!!dirtyFiles[path]}
+            isDeleted={deletedFiles?.has(path) ?? false}
+            isPinned={pinnedTabs.includes(path)}
             onSelect={onSelect}
             onClose={onClose}
             onContextMenu={(filePath, rect) =>
@@ -288,6 +319,8 @@ export default function TabBar({
             openTabs={openTabs}
             onClose={onClose}
             onCloseMenu={() => setContextMenu(null)}
+            pinnedTabs={pinnedTabs}
+            onPinTab={onPinTab}
             onOpenInTerminal={onOpenInTerminal}
           />
         ) : null}

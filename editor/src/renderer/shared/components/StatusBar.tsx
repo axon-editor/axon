@@ -76,7 +76,7 @@ export default function StatusBar({
       }}
     >
       <div className="flex min-w-0 items-center gap-1 shrink-0">
-        <Tooltip label="Toggle sidebar" side="top">
+        <Tooltip label="Toggle sidebar (Cmd+B)" side="top">
           <button
             onClick={onToggleSidebar}
             aria-label="Toggle sidebar"
@@ -88,7 +88,7 @@ export default function StatusBar({
         </Tooltip>
 
         {hasWorkspace && (
-          <Tooltip label="Search workspace" side="top">
+          <Tooltip label="Search workspace (Cmd+Shift+F)" side="top">
             <button
               onClick={onOpenWorkspaceSearch}
               aria-label="Search workspace"
@@ -101,7 +101,7 @@ export default function StatusBar({
 
         <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 
-        <Tooltip label="Files" side="top">
+        <Tooltip label="Files (Status bar)" side="top">
           <button
             type="button"
             onClick={() => onViewChange("files")}
@@ -116,7 +116,7 @@ export default function StatusBar({
           </button>
         </Tooltip>
 
-        <Tooltip label="Git History" side="top">
+        <Tooltip label="Git History (Status bar)" side="top">
           <button
             type="button"
             onClick={() => onViewChange("history")}
@@ -153,7 +153,7 @@ export default function StatusBar({
         ) : null}
 
         {gitBranch && (
-          <Tooltip label="Source control" side="top">
+          <Tooltip label="Source control (Cmd+Shift+G)" side="top">
             <button
               onClick={onOpenSourceControl}
               aria-label="Source control"
@@ -188,7 +188,7 @@ export default function StatusBar({
 
         {hasWorkspace && (
           <>
-            <Tooltip label="Problems" side="top">
+            <Tooltip label="Problems (Cmd+Shift+M)" side="top">
               <button
                 onClick={() => onOpenBottomPanel("problems")}
                 aria-label="Problems"
@@ -200,7 +200,7 @@ export default function StatusBar({
               </button>
             </Tooltip>
 
-            <Tooltip label="Output" side="top">
+            <Tooltip label="Output (Status bar)" side="top">
               <button
                 onClick={() => onOpenBottomPanel("output")}
                 aria-label="Output"
@@ -227,7 +227,7 @@ export default function StatusBar({
             {aiEnabled && (
               <>
                 <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
-                <Tooltip label="Toggle Axon Agent" side="top">
+                <Tooltip label="Toggle Axon Agent (Status bar)" side="top">
                   <button
                     onClick={onToggleAgentSidebar}
                     aria-label="Toggle Axon Agent"

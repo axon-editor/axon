@@ -35,6 +35,65 @@ export interface LspSessionDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
 }
 
+const WORKSPACE_MARKER_SEARCH_DEPTH = 4;
+const WORKSPACE_MARKER_IGNORED_DIRECTORIES = new Set([
+  ".git",
+  ".gocache",
+  ".next",
+  ".nuxt",
+  ".svelte-kit",
+  ".turbo",
+  "build",
+  "coverage",
+  "dist",
+  "node_modules",
+  "target",
+  "vendor",
+  "__pycache__",
+]);
+
+function directoryHasFileWithExtension(
+  folderPath: string,
+  extension: string,
+  depth = 0,
+): boolean {
+  if (depth > WORKSPACE_MARKER_SEARCH_DEPTH) return false;
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(folderPath, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+
+  for (const entry of entries) {
+    if (entry.isFile() && entry.name.endsWith(extension)) return true;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (WORKSPACE_MARKER_IGNORED_DIRECTORIES.has(entry.name)) continue;
+    if (entry.name.startsWith(".") && entry.name !== ".github") continue;
+
+    // The Settings LSP panel is refreshed often, so this scan intentionally
+    // stays shallow and skips generated dependency folders. That gives Axon the
+    // useful editor behavior I expect, such as showing Python when a .py
+    // file lives under src/, without turning every settings refresh into a full
+    // workspace search across node_modules, build outputs, or caches.
+    if (
+      directoryHasFileWithExtension(
+        path.join(folderPath, entry.name),
+        extension,
+        depth + 1,
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function hasWorkspaceMarker(folderPath: string, markers: string[]) {
   return markers.some((marker) => {
     if (!marker.includes("*")) {
@@ -48,13 +107,7 @@ export function hasWorkspaceMarker(folderPath: string, markers: string[]) {
     const extension = marker.startsWith("*.") ? marker.slice(1) : "";
     if (!extension) return false;
 
-    try {
-      return fs
-        .readdirSync(folderPath, { withFileTypes: true })
-        .some((entry) => entry.isFile() && entry.name.endsWith(extension));
-    } catch {
-      return false;
-    }
+    return directoryHasFileWithExtension(folderPath, extension);
   });
 }
 
@@ -205,12 +258,19 @@ export function emitLanguageServerLog(
 
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.isDestroyed()) continue;
-    window.webContents.send("lsp:log", {
-      folderPath: session.folderPath,
-      serverId: session.id,
-      level,
-      message: trimmedMessage.slice(-2000),
-    });
+    if (window.webContents.isDestroyed()) continue;
+    try {
+      window.webContents.send("lsp:log", {
+        folderPath: session.folderPath,
+        serverId: session.id,
+        level,
+        message: trimmedMessage.slice(-2000),
+      });
+    } catch {
+      // LSP stderr often arrives while Axon is quitting or restarting after an
+      // update. The log is useful when a renderer exists, but it should never
+      // be able to resurrect the "Object has been destroyed" shutdown crash.
+    }
   }
 }
 

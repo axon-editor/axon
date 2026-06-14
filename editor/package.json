@@ -1,6 +1,6 @@
 {
   "name": "axon",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "private": true,
   "productName": "Axon",
   "description": "A personal AI-powered code editor built with Electron, React, TypeScript, and Go.",

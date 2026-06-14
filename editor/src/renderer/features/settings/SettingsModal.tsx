@@ -500,6 +500,10 @@ export default function SettingsModal({
     onClose();
   };
 
+  const visibleLanguageServers = languageServers.filter((server) => {
+    return server.relevant || server.running || server.status === "failed";
+  });
+
   const close = () => {
     // Because the modal previews settings live, closing without saving needs
     // to behave like Cancel in other editors: the visible app returns to the
@@ -1020,13 +1024,13 @@ export default function SettingsModal({
                     <div className="px-3 py-4 text-[12px] text-[#586478]">
                       Open a workspace folder to detect language servers.
                     </div>
-                  ) : languageServers.length === 0 && !loadingLanguageServers ? (
+                  ) : visibleLanguageServers.length === 0 && !loadingLanguageServers ? (
                     <div className="px-3 py-4 text-[12px] text-[#586478]">
-                      No language server status available yet.
+                      No language servers detected for this workspace yet.
                     </div>
                   ) : (
                     <div className="divide-y divide-[#222838]">
-                      {languageServers.map((server) => (
+                      {visibleLanguageServers.map((server) => (
                         <div
                           key={server.id}
                           className="grid grid-cols-[1fr_auto] gap-3 px-3 py-3"

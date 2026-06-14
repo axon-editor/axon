@@ -85,11 +85,19 @@ export function sanitizeRestoredLayout(
         ? pane.activeFile
         : (openTabs.at(-1) ?? null);
 
+    const pinnedTabs = Array.isArray(pane.pinnedTabs)
+      ? pane.pinnedTabs.filter((tab) => openTabs.includes(tab))
+      : [];
+
     return {
       id: typeof pane.id === "string" ? pane.id : fallback.panes[0].id,
       openTabs,
       activeFile,
       dirtyFiles: {},
+      // Older saved sessions were written before pinned tabs existed. I
+      // normalize the shape here instead of forcing users to clear storage,
+      // because restore should be boring even after Axon's layout model grows.
+      pinnedTabs,
     };
   });
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FilePlus, FolderPlus } from "lucide-react";
 import { createDir, createFile } from "../../../shared/lib/api";
+import { getFileIcon, getFolderIcon } from "./lib/fileIcons";
 
 export type InlineCreateKind = "file" | "folder";
 
@@ -79,9 +79,9 @@ export default function InlineCreateRow({
       <span className="flex h-4 w-3 shrink-0 items-center justify-center text-[#364050]" />
       <span className="flex shrink-0 items-center text-[#80c8e0]">
         {target.kind === "folder" ? (
-          <FolderPlus size={13} />
+          getFolderIcon(trimmedName || "new-folder", false, 14)
         ) : (
-          <FilePlus size={13} />
+          getFileIcon(trimmedName || "new-file.ts", 14)
         )}
       </span>
       <input

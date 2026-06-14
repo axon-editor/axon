@@ -3,7 +3,7 @@
 // sidebar tree. That matches editor behavior users expect: the new entry
 // appears exactly where it will be created, and clicking away can either save
 // a typed name or cancel an empty one.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Columns2,
   Copy,
@@ -53,6 +53,7 @@ export default function ContextMenu({
   const inputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"menu" | "rename" | "delete">("menu");
   const [inputValue, setInputValue] = useState("");
+  const [position, setPosition] = useState({ x: menu.x, y: menu.y });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -61,6 +62,23 @@ export default function ContextMenu({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    if (!panel) return;
+
+    const rect = panel.getBoundingClientRect();
+    const padding = 8;
+    const nextX = Math.min(
+      Math.max(menu.x, padding),
+      window.innerWidth - rect.width - padding,
+    );
+    const nextY = Math.min(
+      Math.max(menu.y, padding),
+      window.innerHeight - rect.height - padding,
+    );
+    setPosition({ x: nextX, y: nextY });
+  }, [menu.x, menu.y, mode]);
 
   useEffect(() => {
     if (mode === "rename") {
@@ -93,6 +111,10 @@ export default function ContextMenu({
         name === trimmedName &&
         (mode !== "rename" || trimmedName !== menu.node.name),
     );
+  const itemClassName =
+    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-[#c8d0e0] transition-all duration-150 hover:bg-[#1a2030] hover:text-white";
+  const destructiveItemClassName =
+    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-red-400 transition-all duration-150 hover:bg-[#241820] hover:text-red-300";
 
   const beginRename = () => {
     setInputValue(menu.node.name);
@@ -127,17 +149,17 @@ export default function ContextMenu({
   return (
     <div
       ref={ref}
-      className="axon-context-menu fixed z-50 min-w-52 overflow-hidden rounded-md border border-[#293144] bg-[#0f121a] py-1 shadow-[0_18px_54px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.03]"
-      style={{ top: menu.y, left: menu.x }}
+      className="axon-context-menu fixed z-50 min-w-56 origin-top-left overflow-hidden rounded-lg border border-[#30384b] bg-[#0d1018]/95 p-1.5 opacity-100 shadow-[0_18px_54px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.04] backdrop-blur-md animate-[axonContextIn_120ms_ease-out]"
+      style={{ top: position.y, left: position.x }}
     >
       {mode === "menu" && (
-        <div className="axon-context-menu__panel">
+        <div className="axon-context-menu__panel space-y-0.5">
           <button
             onClick={() => {
               onBeginCreate?.(basePath, "file");
               onClose();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+            className={itemClassName}
           >
             <FilePlus size={13} className="text-[#80c8e0]" />
             new file
@@ -147,7 +169,7 @@ export default function ContextMenu({
               onBeginCreate?.(basePath, "folder");
               onClose();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+            className={itemClassName}
           >
             <FolderPlus size={13} className="text-[#80c8e0]" />
             new folder
@@ -159,7 +181,7 @@ export default function ContextMenu({
                 onOpenInTerminal(basePath);
                 onClose();
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+              className={itemClassName}
             >
               <TerminalIcon size={13} className="text-[#9aa4b8]" />
               open in terminal
@@ -171,7 +193,7 @@ export default function ContextMenu({
                 onOpenHtmlPreview(menu.node.path);
                 onClose();
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+              className={itemClassName}
             >
               <MonitorPlay size={13} className="text-[#9aa4b8]" />
               preview html
@@ -182,7 +204,7 @@ export default function ContextMenu({
               void window.axon.copyText(menu.node.path);
               onClose();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+            className={itemClassName}
           >
             <Copy size={13} className="text-[#9aa4b8]" />
             copy path
@@ -190,17 +212,32 @@ export default function ContextMenu({
           {!menu.isRoot && (
             <button
               onClick={beginRename}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
+              className={itemClassName}
             >
               <Pencil size={13} className="text-[#9aa4b8]" />
               rename
             </button>
           )}
+          {onSplitFile && !menu.node.is_dir && (
+            <>
+              <div className="my-1 border-t border-[#222838]" />
+              <button
+                onClick={() => {
+                  onSplitFile(menu.node.path);
+                  onClose();
+                }}
+                className={itemClassName}
+              >
+                <Columns2 size={13} className="text-[#9aa4b8]" />
+                split right
+              </button>
+            </>
+          )}
           <div className="my-1 border-t border-[#222838]" />
           {!menu.isRoot && (
             <button
               onClick={() => setMode("delete")}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-400 hover:bg-[#241820] hover:text-red-300 transition-all duration-150 cursor-pointer"
+              className={destructiveItemClassName}
             >
               <Trash2 size={13} />
               delete
@@ -273,21 +310,6 @@ export default function ContextMenu({
         </div>
       )}
 
-      {onSplitFile && !menu.node.is_dir && (
-        <>
-          <div className="my-1 border-t border-[#222838]" />
-          <button
-            onClick={() => {
-              onSplitFile(menu.node.path);
-              onClose();
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#c8d0e0] hover:bg-[#1a2030] hover:text-white transition-all duration-150 cursor-pointer"
-          >
-            <Columns2 size={13} className="text-[#9aa4b8]" />
-            split right
-          </button>
-        </>
-      )}
     </div>
   );
 }
