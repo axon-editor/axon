@@ -10,33 +10,75 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 
 ## Preview
 
-<p align="center">
-  <img src="docs/media/axon-demo.gif" alt="Axon opening the Axon workspace" width="760" />
-</p>
+**Quick look**
 
 <p align="center">
-  <a href="docs/media/axon-demo-full.mp4">Watch the full one-minute demo recording</a>
+  <img src="docs/media/axon-demo-preview.gif" alt="Axon editor demo preview" width="760" />
 </p>
 
-<p align="center">
-  <img src="docs/media/axon-screenshot-01.png" alt="Axon workspace screenshot" width="760" />
-</p>
+**Full demo**
 
 <p align="center">
-  <img src="docs/media/axon-screenshot-02.png" alt="Axon editor screenshot showing the workspace sidebar" width="760" />
+  <video src="docs/media/axon-demo-full.mp4" controls width="760">
+    Axon demo recording.
+  </video>
 </p>
 
-<p align="center">
-  <img src="docs/media/axon-screenshot-03.png" alt="Axon editor screenshot showing syntax highlighting" width="760" />
-</p>
+**Screenshots**
 
-<p align="center">
-  <img src="docs/media/axon-screenshot-04.png" alt="Axon editor screenshot showing an open file" width="760" />
-</p>
-
-<p align="center">
-  <img src="docs/media/axon-screenshot-05.png" alt="Axon editor screenshot showing the main workspace" width="760" />
-</p>
+<table>
+  <tr>
+    <td colspan="3" align="center"><strong>Workspace and Navigation</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-01.png" alt="Axon empty workspace" width="260" /><br />
+      <sub>Empty workspace</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-04.png" alt="Axon file tree and tabs" width="260" /><br />
+      <sub>File tree and tabs</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-05.png" alt="Axon command palette" width="260" /><br />
+      <sub>Command palette</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>Git and Review</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-02.png" alt="Axon source control panel" width="260" /><br />
+      <sub>Source control</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-03.png" alt="Axon side-by-side diff" width="260" /><br />
+      <sub>Side-by-side diff</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-06.png" alt="Axon language server settings" width="260" /><br />
+      <sub>Language servers</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>Customization and Tools</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-07.png" alt="Axon appearance settings" width="260" /><br />
+      <sub>Appearance settings</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-08.png" alt="Axon Spotify player" width="260" /><br />
+      <sub>Spotify player</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-09.png" alt="Axon terminal panel" width="260" /><br />
+      <sub>Terminal panel</sub>
+    </td>
+  </tr>
+</table>
 
 ## Stack
 

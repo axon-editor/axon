@@ -88,6 +88,12 @@ function resolveMarkdownAsset(
   return `axon://local${encodeLocalPath(absolutePath)}${suffix}`;
 }
 
+function isVideoAsset(src: string | undefined) {
+  if (!src) return false;
+  const { pathname } = splitLocalReference(src);
+  return /\.(mp4|webm|mov|m4v|ogv)$/i.test(pathname);
+}
+
 function resolveMarkdownLinkPath(
   href: string | undefined,
   filePath: string,
@@ -356,22 +362,74 @@ export default function MarkdownPreview({
               );
             },
             img: ({ src, alt, width, height, ...props }: any) => {
-              const imageStyle = getStyleObject(props.style);
+              const mediaStyle = getStyleObject(props.style);
+              const resolvedSrc = resolveMarkdownAsset(
+                src,
+                filePath,
+                folderPath,
+              );
+
+              if (isVideoAsset(src)) {
+                return (
+                  <video
+                    src={resolvedSrc}
+                    controls
+                    width={width}
+                    height={height}
+                    style={{
+                      maxWidth: "100%",
+                      ...mediaStyle,
+                    }}
+                    className="my-4 inline-block rounded-md border border-[#222838] bg-black align-middle"
+                  />
+                );
+              }
 
               return (
                 <img
-                  src={resolveMarkdownAsset(src, filePath, folderPath)}
+                  src={resolvedSrc}
                   alt={alt ?? ""}
                   width={width}
                   height={height}
                   style={{
                     maxWidth: "100%",
-                    ...imageStyle,
+                    ...mediaStyle,
                   }}
                   className="my-4 inline-block align-middle"
                 />
               );
             },
+            video: ({ src, children, controls, width, height, ...props }: any) => {
+              const videoStyle = getStyleObject(props.style);
+              const resolvedSrc = resolveMarkdownAsset(
+                src,
+                filePath,
+                folderPath,
+              );
+
+              return (
+                <video
+                  src={resolvedSrc}
+                  controls={controls ?? true}
+                  width={width}
+                  height={height}
+                  style={{
+                    maxWidth: "100%",
+                    ...videoStyle,
+                  }}
+                  className="my-4 inline-block rounded-md border border-[#222838] bg-black align-middle"
+                  {...props}
+                >
+                  {children}
+                </video>
+              );
+            },
+            source: ({ src, ...props }: any) => (
+              <source
+                src={resolveMarkdownAsset(src, filePath, folderPath)}
+                {...props}
+              />
+            ),
             ul: ({ children }) => (
               <ul className="my-4 list-disc space-y-1 pl-6">{children}</ul>
             ),
