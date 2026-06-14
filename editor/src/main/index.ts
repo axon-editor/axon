@@ -223,13 +223,16 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
   );
 
   mainWindow = createdWindow.window;
-  windowSessionRestore.set(
-    createdWindow.window.webContents.id,
-    createdWindow.restoreSession,
-  );
+  const createdWebContentsId = createdWindow.window.webContents.id;
+  windowSessionRestore.set(createdWebContentsId, createdWindow.restoreSession);
 
   createdWindow.window.on("closed", () => {
-    windowSessionRestore.delete(createdWindow.window.webContents.id);
+    // I capture the webContents id before registering this handler because
+    // Electron destroys the BrowserWindow and its webContents before `closed`
+    // listeners finish. Reading `window.webContents.id` here can throw
+    // "Object has been destroyed" during native quit, which turns a normal app
+    // shutdown into a scary main-process crash dialog.
+    windowSessionRestore.delete(createdWebContentsId);
     if (mainWindow === createdWindow.window) {
       mainWindow =
         BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??
