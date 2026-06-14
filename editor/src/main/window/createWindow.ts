@@ -17,6 +17,7 @@ interface WindowDependencies {
     shift: boolean;
   }) => boolean;
   sendMenuCommand: (command: AxonCommand) => void;
+  createNewWindow: () => void;
 }
 
 function isExternalHandlerUrl(href: string) {
@@ -98,7 +99,11 @@ export function createWindow(deps: WindowDependencies, options: { restoreSession
 
   return {
     window,
-    menu: buildApplicationMenu(deps.sendMenuCommand, deps.isMac),
+    menu: buildApplicationMenu(
+      deps.sendMenuCommand,
+      deps.isMac,
+      deps.createNewWindow,
+    ),
     restoreSession,
   };
 }

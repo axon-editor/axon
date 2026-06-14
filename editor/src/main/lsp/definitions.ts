@@ -1,7 +1,7 @@
-import { app } from "electron";
 import fs from "fs";
 import path from "path";
 import { type LanguageServerId } from "../../shared/lsp";
+import { resolveBundledAppFilePath } from "./paths";
 
 export interface LanguageServerDefinition {
   id: LanguageServerId;
@@ -67,8 +67,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
         folderPath,
         "node_modules/typescript/lib/tsserver.js",
       );
-      const bundledServer = path.join(
-        app.getAppPath(),
+      const bundledServer = resolveBundledAppFilePath(
         "node_modules/typescript-language-server/lib/cli.mjs",
       );
       const runBundledServerWithElectronNode = {
@@ -297,8 +296,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
         folderPath,
         "node_modules/.bin/docker-langserver",
       );
-      const bundledServer = path.join(
-        app.getAppPath(),
+      const bundledServer = resolveBundledAppFilePath(
         "node_modules/dockerfile-language-server-nodejs/bin/docker-langserver",
       );
       const runBundledServerWithElectronNode = {
@@ -357,8 +355,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
         folderPath,
         "node_modules/.bin/tailwindcss-language-server",
       );
-      const bundledServer = path.join(
-        app.getAppPath(),
+      const bundledServer = resolveBundledAppFilePath(
         "node_modules/@tailwindcss/language-server/bin/tailwindcss-language-server",
       );
       const runBundledServerWithElectronNode = {

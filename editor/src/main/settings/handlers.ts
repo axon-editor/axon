@@ -6,6 +6,7 @@ import { readSettingsForFolder, writeSettingsToDisk } from "./io";
 import { importCustomFontFile } from "../fonts/fonts";
 import { getSettingsPath } from "./paths";
 import { setClientId } from "../spotify/api";
+import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
 
 interface SettingsHandlersDependencies {
   getActiveLanguageServers: () => Iterable<{
@@ -108,9 +109,10 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
           deps.notifyPythonConfigurationForFolder(session.folderPath);
         }
       }
-      // Inside the existing settings:update handler, after saving:
-      const updatedClientId = normalizedSettings.spotify?.clientId ?? "";
-      setClientId(updatedClientId);
+      if (!AXON_SPOTIFY_CLIENT_ID) {
+        const updatedClientId = normalizedSettings.spotify?.clientId ?? "";
+        setClientId(updatedClientId);
+      }
 
       return normalizedSettings;
     },

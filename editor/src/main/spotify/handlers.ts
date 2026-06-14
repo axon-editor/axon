@@ -11,6 +11,7 @@ import {
 } from "./auth";
 import {
   getClientId,
+  getDevices,
   getMe,
   getPlaybackState,
   getPlaylistTracks,
@@ -28,6 +29,7 @@ import {
 import type {
   SpotifyActionResult,
   SpotifyAuthResult,
+  SpotifyDevicesResult,
   SpotifyPlaybackResult,
   SpotifyPlaylistsResult,
   SpotifyPlayTrackRequest,
@@ -35,6 +37,7 @@ import type {
 } from "../../shared/spotify";
 import { readSettingsFromDisk } from "../settings/io";
 import { getUserSettingsPath } from "../settings/paths";
+import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
 
 // Called from index.ts after the app is ready and the client ID is set.
 export function registerSpotifyHandlers(): void {
@@ -46,6 +49,10 @@ export function registerSpotifyHandlers(): void {
     // This covers the case where the user saved the client ID in this session
     // before settings:update had a chance to call setClientId.
     let clientId = getClientId();
+    if (!clientId && AXON_SPOTIFY_CLIENT_ID) {
+      clientId = AXON_SPOTIFY_CLIENT_ID;
+      setClientId(clientId);
+    }
     if (!clientId) {
       const settings = readSettingsFromDisk(getUserSettingsPath());
       clientId = settings?.spotify?.clientId ?? "";
@@ -105,16 +112,27 @@ export function registerSpotifyHandlers(): void {
   ipcMain.handle("spotify:status", async (): Promise<SpotifyStatusResult> => {
     const tokens = loadTokens();
     if (!tokens) {
-      return { connected: false, displayName: null, avatarUrl: null };
+      return {
+        connected: false,
+        configured: Boolean(getClientId()),
+        displayName: null,
+        avatarUrl: null,
+      };
     }
 
     const me = await getMe();
     if (!me) {
-      return { connected: false, displayName: null, avatarUrl: null };
+      return {
+        connected: false,
+        configured: Boolean(getClientId()),
+        displayName: null,
+        avatarUrl: null,
+      };
     }
 
     return {
       connected: true,
+      configured: true,
       displayName: me.display_name,
       avatarUrl: me.images[0]?.url ?? null,
     };
@@ -188,6 +206,20 @@ export function registerSpotifyHandlers(): void {
     },
   );
 
+  ipcMain.handle("spotify:devices", async (): Promise<SpotifyDevicesResult> => {
+    try {
+      const devices = await getDevices();
+      return { ok: true, devices };
+    } catch (err) {
+      return {
+        ok: false,
+        devices: [],
+        message:
+          err instanceof Error ? err.message : "Failed to load Spotify devices.",
+      };
+    }
+  });
+
   ipcMain.handle(
     "spotify:play",
     async (
@@ -195,7 +227,11 @@ export function registerSpotifyHandlers(): void {
       request: SpotifyPlayTrackRequest,
     ): Promise<SpotifyActionResult> => {
       try {
-        const ok = await play(request.trackUri, request.contextUri);
+        const ok = await play(
+          request.trackUri,
+          request.contextUri,
+          request.deviceId,
+        );
         return {
           ok,
           message: ok

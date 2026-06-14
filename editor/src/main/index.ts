@@ -39,6 +39,7 @@ import { createMainProcessIpc } from "./core/ipc";
 import { createBundledCoreController } from "./core/process";
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { setClientId } from "./spotify/api";
+import { AXON_SPOTIFY_CLIENT_ID } from "./generated/buildConfig";
 import {
   handleSpotifyProtocolRequest,
   handleSpotifySecondInstanceArg,
@@ -203,6 +204,42 @@ function getHtmlPreviewServer() {
   return htmlPreviewServer;
 }
 
+function createManagedWindow(options: { restoreSession?: boolean } = {}) {
+  const createdWindow = createWindow(
+    {
+      axonDevServerUrl,
+      isDev,
+      isMac,
+      isWindows,
+      getAxonIconPath: () => getAxonIconPath(isDev),
+      shouldBlockBrowserShortcut,
+      sendMenuCommand,
+      createNewWindow: () => {
+        createManagedWindow({ restoreSession: false });
+      },
+    },
+    options,
+  );
+
+  mainWindow = createdWindow.window;
+  windowSessionRestore.set(
+    createdWindow.window.webContents.id,
+    createdWindow.restoreSession,
+  );
+
+  createdWindow.window.on("closed", () => {
+    windowSessionRestore.delete(createdWindow.window.webContents.id);
+    if (mainWindow === createdWindow.window) {
+      mainWindow =
+        BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??
+        null;
+    }
+  });
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(createdWindow.menu));
+  return createdWindow;
+}
+
 function shouldBlockBrowserShortcut(input: {
   key: string;
   control: boolean;
@@ -262,34 +299,15 @@ app.whenReady().then(async () => {
 
   await bundledCore.startBundledAxonCore();
   bundledCore.startBundledCoreWatchdog();
-  const initialWindow = createWindow(
-    {
-      axonDevServerUrl,
-      isDev,
-      isMac,
-      isWindows,
-      getAxonIconPath: () => getAxonIconPath(isDev),
-      shouldBlockBrowserShortcut,
-      sendMenuCommand,
-    },
-    { restoreSession: true },
-  );
-  mainWindow = initialWindow.window;
-  windowSessionRestore.set(
-    initialWindow.window.webContents.id,
-    initialWindow.restoreSession,
-  );
-  Menu.setApplicationMenu(Menu.buildFromTemplate(initialWindow.menu));
+  createManagedWindow({ restoreSession: true });
 
-  // Read the Spotify client ID from Axon's settings file on disk.
-  // This is the only place it lives, not in the binary, not in env vars.
-  // The main process settings reader already runs before this point.
+  // Prefer Axon's bundled Spotify app client_id. It is public PKCE metadata,
+  // not a client secret, and lets users connect without creating their own
+  // Spotify developer app. Local development can still fall back to settings
+  // when the build-time value is intentionally empty.
   const appSettings = readSettingsFromDisk("");
-  const spotifyClientId = appSettings?.spotify?.clientId ?? "";
-  console.log(
-    "[spotify] clientId at startup:",
-    JSON.stringify(spotifyClientId),
-  );
+  const spotifyClientId =
+    AXON_SPOTIFY_CLIENT_ID || appSettings?.spotify?.clientId || "";
   if (spotifyClientId) setClientId(spotifyClientId);
   registerSpotifyHandlers();
 });
@@ -305,24 +323,7 @@ app.on("activate", () => {
     // closed. That should open a blank session, not silently restore the last
     // workspace or reopen during a quit/update teardown. Session restore stays
     // reserved for the normal cold app launch path above.
-    const reopenedWindow = createWindow(
-      {
-        axonDevServerUrl,
-        isDev,
-        isMac,
-        isWindows,
-        getAxonIconPath: () => getAxonIconPath(isDev),
-        shouldBlockBrowserShortcut,
-        sendMenuCommand,
-      },
-      { restoreSession: false },
-    );
-    mainWindow = reopenedWindow.window;
-    windowSessionRestore.set(
-      reopenedWindow.window.webContents.id,
-      reopenedWindow.restoreSession,
-    );
-    Menu.setApplicationMenu(Menu.buildFromTemplate(reopenedWindow.menu));
+    createManagedWindow({ restoreSession: false });
   }
 });
 

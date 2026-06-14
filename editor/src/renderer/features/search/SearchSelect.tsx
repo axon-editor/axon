@@ -41,7 +41,7 @@ export default function SearchSelect<T extends string>({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const selectedItem = items.find((item) => item.value === value) ?? items[0];
+  const selectedItem = items.find((item) => item.value === value);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredItems = useMemo(() => {
     if (!normalizedQuery) return items;

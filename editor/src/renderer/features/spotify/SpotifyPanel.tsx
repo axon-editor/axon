@@ -3,11 +3,11 @@
 // floating player and this panel share one polling loop and one source of truth.
 // No useSpotify call here, App owns it.
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import SpotifyAuth from "./SpotifyAuth";
+import SpotifyDeviceSelector from "./SpotifyDeviceSelector";
 import SpotifyPlaylists from "./SpotifyPlaylists";
 import type { SpotifyActions, SpotifyState } from "./lib/useSpotify";
-import type { AxonSettings } from "../../../shared/settings";
 
 function NowPlayingArtwork({
   src,
@@ -41,8 +41,6 @@ function NowPlayingArtwork({
 
 interface Props {
   visible: boolean;
-  settings: AxonSettings;
-  onUpdateSettings: (settings: AxonSettings) => Promise<void>;
   playerOpen: boolean;
   onTogglePlayer: () => void;
   spotifyState: SpotifyState;
@@ -51,29 +49,17 @@ interface Props {
 
 export default function SpotifyPanel({
   visible,
-  settings,
-  onUpdateSettings,
   playerOpen,
   onTogglePlayer,
   spotifyState: state,
   spotifyActions: actions,
 }: Props) {
-  const hasClientId = Boolean(settings.spotify?.clientId?.trim());
-
   // When OAuth callback fires, re-check status so panel transitions to browser.
   useEffect(() => {
     return window.axon.spotify.onConnected(() => {
       void actions.refreshStatus();
     });
   }, [actions.refreshStatus]);
-
-  const handleSaveClientId = useCallback(
-    async (clientId: string) => {
-      await onUpdateSettings({ ...settings, spotify: { clientId } });
-      await actions.refreshStatus();
-    },
-    [actions.refreshStatus, settings, onUpdateSettings],
-  );
 
   if (state.statusLoading) {
     return (
@@ -83,11 +69,10 @@ export default function SpotifyPanel({
     );
   }
 
-  if (!hasClientId || !state.status?.connected) {
+  if (!state.status?.configured || !state.status?.connected) {
     return (
       <SpotifyAuth
-        hasClientId={hasClientId}
-        onSaveClientId={handleSaveClientId}
+        configured={state.status?.configured ?? false}
         onConnect={actions.connect}
         error={state.error}
       />
@@ -99,14 +84,25 @@ export default function SpotifyPanel({
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
+      <SpotifyDeviceSelector
+        devices={state.devices}
+        selectedDeviceId={state.selectedDeviceId}
+        loading={state.loadingDevices}
+        onSelectDevice={actions.selectDevice}
+        onRefreshDevices={actions.refreshDevices}
+      />
       <div className="flex-1 overflow-hidden flex flex-col">
         <SpotifyPlaylists
           playlists={state.playlists}
           tracks={state.activePlaylistTracks}
           activePlaylistId={state.activePlaylistId}
+          totalTracks={state.activePlaylistTotal}
+          hasMoreTracks={state.activePlaylistNextOffset !== null}
           loadingTracks={state.loadingTracks}
+          loadingMoreTracks={state.loadingMoreTracks}
           currentTrackId={track?.id ?? null}
           onLoadPlaylist={actions.loadPlaylistTracks}
+          onLoadMoreTracks={actions.loadMorePlaylistTracks}
           onBack={actions.clearPlaylistTracks}
           onPlay={actions.play}
         />

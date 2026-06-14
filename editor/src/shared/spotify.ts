@@ -59,6 +59,22 @@ export interface SpotifyPlaybackState {
   context: { uri: string; type: string } | null;
 }
 
+export interface SpotifyDevice {
+  id: string | null;
+  is_active: boolean;
+  is_private_session: boolean;
+  is_restricted: boolean;
+  name: string;
+  type: string;
+  volume_percent: number | null;
+}
+
+export interface SpotifyDevicesResult {
+  ok: boolean;
+  devices: SpotifyDevice[];
+  message?: string;
+}
+
 export interface SpotifyPlaylistTracksResult {
   items: SpotifyTrack[];
   total: number;
@@ -72,6 +88,7 @@ export interface SpotifyAuthResult {
 
 export interface SpotifyStatusResult {
   connected: boolean;
+  configured: boolean;
   displayName: string | null;
   avatarUrl: string | null;
 }
@@ -94,6 +111,7 @@ export interface SpotifyActionResult {
 }
 
 export interface SpotifyPlayTrackRequest {
-  trackUri: string;
+  trackUri?: string;
   contextUri?: string;
+  deviceId?: string | null;
 }

@@ -7,6 +7,7 @@ import { type EditorDiagnostic } from "../../shared/diagnostics";
 import { type LanguageServerDocumentSyncRequest, type LanguageServerId } from "../../shared/lsp";
 import { readSettingsForFolder } from "../settings/io";
 import { LANGUAGE_SERVER_DEFINITIONS, type LanguageServerDefinition, type ResolvedLanguageServerCommand, type LanguageServerStartAttempt } from "./definitions";
+import { getBundledAppFilePath, resolveBundledAppFilePath } from "./paths";
 
 export interface LanguageServerSession {
   id: LanguageServerId;
@@ -129,8 +130,7 @@ export function getLanguageServerInitializationOptions(
       "lib",
       "tsserver.js",
     );
-    const bundledTsserver = path.join(
-      app.getAppPath(),
+    const bundledTsserver = resolveBundledAppFilePath(
       "node_modules",
       "typescript",
       "lib",
@@ -219,11 +219,11 @@ export function resolveBundledNodeLanguageServer(
 ): ResolvedLanguageServerCommand | null {
   if (!definition.bundledNodeServer) return null;
 
-  const serverScript = path.join(
-    app.getAppPath(),
+  const scriptSegments = [
     ...definition.bundledNodeServer.packagePath,
     ...definition.bundledNodeServer.scriptPath,
-  );
+  ];
+  const serverScript = getBundledAppFilePath(...scriptSegments);
   if (!fs.existsSync(serverScript)) return null;
 
   // npm-backed language servers are the easiest and safest servers for Axon to
@@ -231,6 +231,11 @@ export function resolveBundledNodeLanguageServer(
   // run those files in Node mode through the already-shipped app executable, so
   // users do not need a global node/npm install and every packaged Axon build
   // resolves the same server version.
+  //
+  // In packaged builds, unpacked resolution matters for Pyright. Pyright loads
+  // sibling webpack chunks and type stub files at runtime; keeping it outside
+  // app.asar avoids worker/module resolution differences between dev Electron
+  // and the signed/unsigned app bundle.
   return {
     command: process.execPath,
     args: [serverScript, ...definition.args],

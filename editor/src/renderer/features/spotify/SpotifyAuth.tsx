@@ -1,44 +1,19 @@
 // First-run screen inside the sidebar Spotify view.
-// Two-step: no client ID → text input to paste it → save → connect button.
-// If auth fails with "not configured", the input reappears automatically.
-
-import { useState } from "react";
+// Axon owns the Spotify OAuth application, so normal users should only see a
+// connect button. If Spotify is not configured yet, the copy still reads like
+// an Axon feature surface instead of leaking build details into the UI.
 
 interface Props {
-  hasClientId: boolean;
-  onSaveClientId: (id: string) => Promise<void>;
+  configured: boolean;
   onConnect: () => Promise<void>;
   error: string | null;
 }
 
 export default function SpotifyAuth({
-  hasClientId,
-  onSaveClientId,
+  configured,
   onConnect,
   error,
 }: Props) {
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Show the setup input if no client ID is saved, or if the last error
-  // indicates the client ID is missing or invalid, lets the user correct it
-  // without needing to clear settings manually.
-  const showSetup =
-    !hasClientId ||
-    (error != null && error.toLowerCase().includes("not configured"));
-
-  const handleSave = async () => {
-    const trimmed = draft.trim();
-    if (!trimmed) return;
-    setSaving(true);
-    try {
-      await onSaveClientId(trimmed);
-      setDraft("");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-4 px-4 py-5">
       <div className="flex items-center gap-2.5">
@@ -58,40 +33,11 @@ export default function SpotifyAuth({
         </div>
       </div>
 
-      {showSetup ? (
+      {!configured ? (
         <>
           <div style={{ fontSize: 11, color: "#586478", lineHeight: 1.6 }}>
-            Paste your Spotify app client ID. Get one at{" "}
-            <button
-              className="cursor-pointer hover:underline"
-              style={{
-                color: "#1db954",
-                background: "none",
-                border: "none",
-                padding: 0,
-                fontSize: "inherit",
-              }}
-              onClick={() =>
-                void window.axon.openExternalLink(
-                  "https://developer.spotify.com/dashboard",
-                )
-              }
-            >
-              developer.spotify.com
-            </button>
-            . Add{" "}
-            <code
-              className="rounded px-1"
-              style={{
-                fontSize: 10,
-                background: "#111",
-                color: "#80c8e0",
-                border: "1px solid #222",
-              }}
-            >
-              axon://spotify-callback
-            </code>{" "}
-            as a redirect URI.
+            Listen to your favorite songs while you build. Spotify for Axon is
+            almost ready in this workspace.
           </div>
 
           {error && (
@@ -108,41 +54,8 @@ export default function SpotifyAuth({
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
-            <input
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void handleSave();
-              }}
-              placeholder="Paste client ID here"
-              className="w-full rounded px-3 outline-none"
-              style={{
-                height: 32,
-                fontSize: 11,
-                background: "#0d0f14",
-                border: "1px solid #222838",
-                color: "#c8d0e0",
-                fontFamily: "monospace",
-              }}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <button
-              className="w-full flex items-center justify-center rounded font-semibold transition-opacity cursor-pointer hover:opacity-90 active:opacity-70"
-              style={{
-                height: 30,
-                fontSize: 11,
-                background: draft.trim() ? "#1db954" : "#1a2a1a",
-                color: draft.trim() ? "#000" : "#3a4a3a",
-                border: "none",
-              }}
-              disabled={!draft.trim() || saving}
-              onClick={() => void handleSave()}
-            >
-              {saving ? "Saving..." : "Save Client ID"}
-            </button>
+          <div className="rounded border border-[#222838] bg-[#0d0f14] px-3 py-2 text-[10px] leading-5 text-[#3a4050]">
+            Connect Spotify to keep your favorite songs close while you build.
           </div>
         </>
       ) : (
@@ -178,19 +91,6 @@ export default function SpotifyAuth({
             onClick={() => void onConnect()}
           >
             Connect with Spotify
-          </button>
-
-          <button
-            className="text-center cursor-pointer hover:underline"
-            style={{
-              fontSize: 10,
-              color: "#333",
-              background: "none",
-              border: "none",
-            }}
-            onClick={() => void onSaveClientId("")}
-          >
-            Change client ID
           </button>
 
           <div

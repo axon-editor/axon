@@ -126,6 +126,7 @@ import "./App.css";
 import * as monaco from "monaco-editor";
 import SpotifyPanel from "./features/spotify/SpotifyPanel";
 import SpotifyFloatingPlayer from "./features/spotify/SpotifyFloatingPlayer";
+import AxonAgentSidebar from "./features/agent/AxonAgentSidebar";
 
 function formatOutputTime(date = new Date()) {
   return date.toLocaleTimeString([], {
@@ -322,6 +323,9 @@ declare global {
         getPlaybackState: () => Promise<
           import("../shared/spotify").SpotifyPlaybackResult
         >;
+        getDevices: () => Promise<
+          import("../shared/spotify").SpotifyDevicesResult
+        >;
         play: (
           request: import("../shared/spotify").SpotifyPlayTrackRequest,
         ) => Promise<import("../shared/spotify").SpotifyActionResult>;
@@ -418,6 +422,7 @@ function App() {
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyOpen, setSpotifyOpen] = useState(false);
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
+  const [agentSidebarOpen, setAgentSidebarOpen] = useState(true);
 
   const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
   const [spotifyState, spotifyActions] = useSpotify(sidebarSpotifyVisible);
@@ -1984,6 +1989,11 @@ function App() {
             onSetVolume={spotifyActions.setVolume}
             onSetShuffle={spotifyActions.setShuffle}
             onSetRepeat={spotifyActions.setRepeat}
+            devices={spotifyState.devices}
+            selectedDeviceId={spotifyState.selectedDeviceId}
+            loadingDevices={spotifyState.loadingDevices}
+            onSelectDevice={spotifyActions.selectDevice}
+            onRefreshDevices={spotifyActions.refreshDevices}
             onClose={() => setSpotifyPlayerOpen(false)}
           />
         )}
@@ -2110,6 +2120,10 @@ function App() {
             onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
           />
         </div>
+
+        {!zenMode && settings.ai.enabled && agentSidebarOpen && (
+          <AxonAgentSidebar onClose={() => setAgentSidebarOpen(false)} />
+        )}
       </div>
 
       {!zenMode && (
@@ -2120,6 +2134,8 @@ function App() {
           cursor={cursorInfo}
           sidebarCollapsed={sidebarCollapsed}
           terminalOpen={terminalOpen}
+          aiEnabled={settings.ai.enabled}
+          agentSidebarOpen={agentSidebarOpen}
           bottomPanelOpen={bottomPanelOpen}
           bottomPanelTab={bottomPanelTab}
           problemCount={diagnostics.length}
@@ -2131,6 +2147,7 @@ function App() {
             runCommand(AXON_COMMANDS.OPEN_WORKSPACE_SEARCH)
           }
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
+          onToggleAgentSidebar={() => setAgentSidebarOpen((open) => !open)}
           onOpenBottomPanel={(tab) =>
             runCommand(
               tab === "problems"

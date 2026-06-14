@@ -13,10 +13,12 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type {
+  SpotifyDevice,
   SpotifyPlaybackState,
   SpotifyPlayTrackRequest,
 } from "../../../shared/spotify";
 import { X } from "lucide-react";
+import SpotifyDeviceSelector from "./SpotifyDeviceSelector";
 
 const POSITION_KEY = "axon:spotifyPlayerPos";
 const DEFAULT_POS = { x: 24, y: 80 };
@@ -49,6 +51,11 @@ interface Props {
   onSetVolume: (v: number) => Promise<void>;
   onSetShuffle: (s: boolean) => Promise<void>;
   onSetRepeat: (s: "off" | "track" | "context") => Promise<void>;
+  devices: SpotifyDevice[];
+  selectedDeviceId: string | null;
+  loadingDevices: boolean;
+  onSelectDevice: (deviceId: string | null) => void;
+  onRefreshDevices: () => Promise<void>;
   onClose: () => void;
 }
 
@@ -62,6 +69,11 @@ export default function SpotifyFloatingPlayer({
   onSetVolume,
   onSetShuffle,
   onSetRepeat,
+  devices,
+  selectedDeviceId,
+  loadingDevices,
+  onSelectDevice,
+  onRefreshDevices,
   onClose,
 }: Props) {
   const [pos, setPos] = useState(loadPos);
@@ -247,6 +259,15 @@ export default function SpotifyFloatingPlayer({
         </div>
 
         <div className="flex flex-col gap-3 px-3 py-3">
+          <SpotifyDeviceSelector
+            devices={devices}
+            selectedDeviceId={selectedDeviceId}
+            loading={loadingDevices}
+            compact
+            onSelectDevice={onSelectDevice}
+            onRefreshDevices={onRefreshDevices}
+          />
+
           <div>
             <div
               className="text-white font-semibold truncate"

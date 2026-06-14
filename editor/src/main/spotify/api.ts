@@ -11,6 +11,7 @@ import {
 } from "./auth";
 import type {
   SpotifyPlaybackState,
+  SpotifyDevice,
   SpotifyPlaylist,
   SpotifyPlaylistTracksResult,
   SpotifyTrack,
@@ -109,6 +110,14 @@ export async function getPlaybackState(): Promise<SpotifyPlaybackState | null> {
   }
 }
 
+export async function getDevices(): Promise<SpotifyDevice[]> {
+  const res = await spotifyFetch("/me/player/devices");
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as { devices: SpotifyDevice[] };
+  return data.devices;
+}
+
 export async function getUserPlaylists(): Promise<SpotifyPlaylist[]> {
   const playlists: SpotifyPlaylist[] = [];
   let url: string | null = "/me/playlists?limit=50";
@@ -160,6 +169,7 @@ export async function getPlaylistTracks(
 export async function play(
   trackUri?: string,
   contextUri?: string,
+  deviceId?: string | null,
 ): Promise<boolean> {
   const body: Record<string, unknown> = {};
   if (contextUri) {
@@ -171,7 +181,10 @@ export async function play(
     body.uris = [trackUri];
   }
 
-  const res = await spotifyFetch("/me/player/play", {
+  const deviceQuery = deviceId
+    ? `?device_id=${encodeURIComponent(deviceId)}`
+    : "";
+  const res = await spotifyFetch(`/me/player/play${deviceQuery}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });

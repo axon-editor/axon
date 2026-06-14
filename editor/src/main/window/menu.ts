@@ -43,6 +43,7 @@ function buildViewMenu(sendMenuCommand: (command: AxonCommand) => void): MenuIte
 export function buildApplicationMenu(
   sendMenuCommand: (command: AxonCommand) => void,
   isMac: boolean,
+  createNewWindow: () => void,
 ) {
   const axonAppMenu: MenuItemConstructorOptions = {
     label: "Axon",
@@ -85,9 +86,7 @@ export function buildApplicationMenu(
         {
           label: "New Window",
           accelerator: "CmdOrCtrl+Shift+N",
-          click: () => {
-            BrowserWindow.getAllWindows();
-          },
+          click: createNewWindow,
         },
         {
           label: "Open Folder...",

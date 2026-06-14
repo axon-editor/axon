@@ -67,9 +67,11 @@ interface TerminalSession {
   reconnectTimer: number | null;
   resizeObserver: ResizeObserver | null;
   dataDisposable: { dispose: () => void } | null;
+  scrollDisposable: { dispose: () => void } | null;
   workingDirectory: string | null;
   cwdSynced: boolean;
   receivedBytes: number;
+  scrollLine: number;
   disposed: boolean;
   terminating: boolean;
 }
@@ -261,6 +263,12 @@ function writeTerminalOutput(session: TerminalSession, data: string | ArrayBuffe
   session.term?.write(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
 }
 
+function isVisibleTerminalContainer(container: HTMLDivElement | null) {
+  if (!container) return false;
+  const rect = container.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
 function terminateDetachedSession(
   workingDirectory: string | null,
   sessionId: string,
@@ -341,6 +349,7 @@ export default function Terminal({
   const sendResize = useCallback((id: string) => {
     const session = sessionsRef.current[id];
     if (!session?.fitAddon || !session.ws) return;
+    if (!isVisibleTerminalContainer(session.container)) return;
 
     session.fitAddon.fit();
     const dims = session.fitAddon.proposeDimensions();
@@ -373,6 +382,7 @@ export default function Terminal({
     }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
+    session?.scrollDisposable?.dispose();
     if (session) {
       session.disposed = true;
       session.terminating = terminate;
@@ -421,9 +431,11 @@ export default function Terminal({
       reconnectTimer: null,
       resizeObserver: null,
       dataDisposable: null,
+      scrollDisposable: null,
       workingDirectory: sessionWorkingDirectory,
       cwdSynced: false,
       receivedBytes: 0,
+      scrollLine: 0,
       disposed: false,
       terminating: false,
     };
@@ -602,13 +614,17 @@ export default function Terminal({
         scrollback: 4000,
       });
       const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon((_event, uri) => {
+      const webLinksAddon = new WebLinksAddon((event, uri) => {
         // xterm's default web-link behavior uses browser navigation semantics,
         // which is wrong inside Electron because it can create an app window or
         // navigate the renderer. Routing through Axon's shell IPC keeps the
         // terminal like VS Code/Zed: URLs open in the user's default browser,
         // while the terminal buffer stays exactly where it was.
-        void window.axon.openExternalLink(uri);
+        event.preventDefault();
+        event.stopPropagation();
+        void window.axon.openExternalLink(uri).catch((err) => {
+          console.error("failed to open terminal link:", err);
+        });
       });
 
       term.loadAddon(fitAddon);
@@ -618,10 +634,23 @@ export default function Terminal({
 
       session.term = term;
       session.fitAddon = fitAddon;
-      term.write("\x1b[2mconnecting to axon-core...\x1b[0m\r\n");
+      session.scrollDisposable = term.onScroll((line) => {
+        session.scrollLine = line;
+      });
       connectSession(id);
       term.attachCustomKeyEventHandler((event) => {
         if (event.type !== "keydown") return true;
+
+        if (event.key === "Enter" && event.shiftKey) {
+          // zsh/bash treat Ctrl+V + Enter as a quoted newline. Mapping
+          // Shift+Enter to that sequence gives Axon the editor-style multiline
+          // terminal input users expect without teaching the renderer about
+          // individual shell parsers.
+          if (session.ws?.readyState === WebSocket.OPEN) {
+            session.ws.send("\x16\r");
+          }
+          return false;
+        }
 
         const key = event.key.toLowerCase();
         const isClearShortcut =
@@ -705,6 +734,17 @@ export default function Terminal({
   }, [activeTabId, height, resizeActiveTerminal, terminalVisible, zoomed]);
 
   useEffect(() => {
+    if (!terminalVisible || !activeTabId) return;
+    const session = sessionsRef.current[activeTabId];
+    if (!session?.term) return;
+
+    window.requestAnimationFrame(() => {
+      sendResize(activeTabId);
+      session.term?.scrollToLine(session.scrollLine);
+    });
+  }, [activeTabId, sendResize, terminalVisible]);
+
+  useEffect(() => {
     for (const id of Object.keys(sessionsRef.current)) {
       const session = sessionsRef.current[id];
       if (!session.term) continue;
@@ -714,9 +754,11 @@ export default function Terminal({
       session.term.options.fontWeight = terminalOptions.fontWeight;
       session.term.options.fontSize = terminalOptions.fontSize;
       session.term.options.lineHeight = terminalOptions.lineHeight;
-      sendResize(id);
+      if (id === activeTabId && terminalVisible) {
+        sendResize(id);
+      }
     }
-  }, [sendResize, terminalOptions]);
+  }, [activeTabId, sendResize, terminalOptions, terminalVisible]);
 
   useEffect(() => {
     return () => {

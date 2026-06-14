@@ -1,7 +1,7 @@
 // Playlist browser, sidebar-native, full height scroll.
 // Lists playlists, click to see tracks, back to return.
 
-import { useState } from "react";
+import { useCallback, useState, type UIEvent } from "react";
 import type {
   SpotifyPlaylist,
   SpotifyPlayTrackRequest,
@@ -55,9 +55,13 @@ interface Props {
   playlists: SpotifyPlaylist[];
   tracks: SpotifyTrack[];
   activePlaylistId: string | null;
+  totalTracks: number;
+  hasMoreTracks: boolean;
   loadingTracks: boolean;
+  loadingMoreTracks: boolean;
   currentTrackId: string | null;
   onLoadPlaylist: (playlistId: string) => Promise<void>;
+  onLoadMoreTracks: () => Promise<void>;
   onBack: () => void;
   onPlay: (request: SpotifyPlayTrackRequest) => Promise<void>;
 }
@@ -66,14 +70,31 @@ export default function SpotifyPlaylists({
   playlists,
   tracks,
   activePlaylistId,
+  totalTracks,
+  hasMoreTracks,
   loadingTracks,
+  loadingMoreTracks,
   currentTrackId,
   onLoadPlaylist,
+  onLoadMoreTracks,
   onBack,
   onPlay,
 }: Props) {
   const [hoveredTrack, setHoveredTrack] = useState<string | null>(null);
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null;
+  const handleTracksScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      if (!hasMoreTracks || loadingTracks || loadingMoreTracks) return;
+
+      const target = event.currentTarget;
+      const distanceFromBottom =
+        target.scrollHeight - target.scrollTop - target.clientHeight;
+      if (distanceFromBottom > 160) return;
+
+      void onLoadMoreTracks();
+    },
+    [hasMoreTracks, loadingMoreTracks, loadingTracks, onLoadMoreTracks],
+  );
 
   if (activePlaylistId && activePlaylist) {
     return (
@@ -96,12 +117,18 @@ export default function SpotifyPlaylists({
               {activePlaylist.name}
             </div>
             <div style={{ fontSize: 9, color: "#555" }}>
-              {activePlaylist.tracks.total} tracks
+              {tracks.length || loadingTracks
+                ? `${tracks.length}/${totalTracks || activePlaylist.tracks.total} tracks`
+                : `${activePlaylist.tracks.total} tracks`}
             </div>
           </div>
         </div>
 
-        <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
+        <div
+          className="overflow-y-auto flex-1"
+          style={{ scrollbarWidth: "none" }}
+          onScroll={handleTracksScroll}
+        >
           {loadingTracks ? (
             <div className="px-3 py-3 text-[11px] text-[#3a4050]">
               Loading tracks...
@@ -111,64 +138,79 @@ export default function SpotifyPlaylists({
               No tracks found
             </div>
           ) : (
-            tracks.map((track, index) => {
-              const isActive = track.id === currentTrackId;
-              const isHovered = hoveredTrack === track.id;
+            <>
+              {tracks.map((track, index) => {
+                const isActive = track.id === currentTrackId;
+                const isHovered = hoveredTrack === track.id;
 
-              return (
-                <button
-                  key={track.id}
-                  className="w-full flex items-center gap-2.5 px-3 text-left cursor-pointer transition-colors"
-                  style={{
-                    height: 40,
-                    background: isHovered ? "rgba(255,255,255,0.03)" : "transparent",
-                    border: "none",
-                  }}
-                  onMouseEnter={() => setHoveredTrack(track.id)}
-                  onMouseLeave={() => setHoveredTrack(null)}
-                  onClick={() =>
-                    void onPlay({ trackUri: track.uri, contextUri: activePlaylist.uri })
-                  }
-                >
-                  <div
-                    className="flex items-center justify-center shrink-0"
-                    style={{ width: 14, fontSize: 9 }}
+                return (
+                  <button
+                    key={`${track.id}-${index}`}
+                    className="w-full flex items-center gap-2.5 px-3 text-left cursor-pointer transition-colors"
+                    style={{
+                      height: 40,
+                      background: isHovered
+                        ? "rgba(255,255,255,0.03)"
+                        : "transparent",
+                      border: "none",
+                    }}
+                    onMouseEnter={() => setHoveredTrack(track.id)}
+                    onMouseLeave={() => setHoveredTrack(null)}
+                    onClick={() =>
+                      void onPlay({
+                        trackUri: track.uri,
+                        contextUri: activePlaylist.uri,
+                      })
+                    }
                   >
-                    {isActive ? (
-                      <div
-                        className="rounded-full"
-                        style={{
-                          width: 5,
-                          height: 5,
-                          background: "#1db954",
-                          boxShadow: "0 0 5px #1db954",
-                        }}
-                      />
-                    ) : (
-                      <span style={{ color: "#333" }}>{index + 1}</span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
                     <div
-                      className="truncate"
-                      style={{
-                        fontSize: 11,
-                        color: isActive ? "#1db954" : "#c8d0e0",
-                        fontWeight: isActive ? 600 : 400,
-                      }}
+                      className="flex items-center justify-center shrink-0"
+                      style={{ width: 14, fontSize: 9 }}
                     >
-                      {track.name}
+                      {isActive ? (
+                        <div
+                          className="rounded-full"
+                          style={{
+                            width: 5,
+                            height: 5,
+                            background: "#1db954",
+                            boxShadow: "0 0 5px #1db954",
+                          }}
+                        />
+                      ) : (
+                        <span style={{ color: "#333" }}>{index + 1}</span>
+                      )}
                     </div>
-                    <div className="truncate" style={{ fontSize: 9, color: "#3a4050" }}>
-                      {track.artists.map((a) => a.name).join(", ")}
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className="truncate"
+                        style={{
+                          fontSize: 11,
+                          color: isActive ? "#1db954" : "#c8d0e0",
+                          fontWeight: isActive ? 600 : 400,
+                        }}
+                      >
+                        {track.name}
+                      </div>
+                      <div
+                        className="truncate"
+                        style={{ fontSize: 9, color: "#3a4050" }}
+                      >
+                        {track.artists.map((a) => a.name).join(", ")}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ fontSize: 9, color: "#333", flexShrink: 0 }}>
-                    {formatMs(track.duration_ms)}
-                  </div>
-                </button>
-              );
-            })
+                    <div style={{ fontSize: 9, color: "#333", flexShrink: 0 }}>
+                      {formatMs(track.duration_ms)}
+                    </div>
+                  </button>
+                );
+              })}
+              {loadingMoreTracks && (
+                <div className="px-3 py-3 text-[10px] text-[#3a4050]">
+                  Loading more tracks...
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

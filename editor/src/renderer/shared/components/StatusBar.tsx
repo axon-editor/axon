@@ -10,6 +10,7 @@ import {
   Music4,
   PanelLeft,
   Search,
+  Sparkles,
   TerminalSquare,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
@@ -24,6 +25,8 @@ interface Props {
   cursor: { line: number; col: number };
   sidebarCollapsed: boolean;
   terminalOpen: boolean;
+  aiEnabled: boolean;
+  agentSidebarOpen: boolean;
   bottomPanelOpen: boolean;
   bottomPanelTab: BottomPanelTab;
   problemCount: number;
@@ -33,6 +36,7 @@ interface Props {
   onToggleSidebar: () => void;
   onOpenWorkspaceSearch: () => void;
   onToggleTerminal: () => void;
+  onToggleAgentSidebar: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
   onOpenSourceControl: () => void;
   onViewChange: (view: view) => void;
@@ -46,6 +50,8 @@ export default function StatusBar({
   cursor,
   sidebarCollapsed,
   terminalOpen,
+  aiEnabled,
+  agentSidebarOpen,
   bottomPanelOpen,
   bottomPanelTab,
   problemCount,
@@ -55,6 +61,7 @@ export default function StatusBar({
   onToggleSidebar,
   onOpenWorkspaceSearch,
   onToggleTerminal,
+  onToggleAgentSidebar,
   onOpenBottomPanel,
   onOpenSourceControl,
   onViewChange,
@@ -216,6 +223,22 @@ export default function StatusBar({
                 <TerminalSquare size={13} />
               </button>
             </Tooltip>
+
+            {aiEnabled && (
+              <>
+                <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+                <Tooltip label="Toggle Axon Agent" side="top">
+                  <button
+                    onClick={onToggleAgentSidebar}
+                    aria-label="Toggle Axon Agent"
+                    className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors
+                    ${agentSidebarOpen ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+                  >
+                    <Sparkles size={13} />
+                  </button>
+                </Tooltip>
+              </>
+            )}
           </>
         )}
       </div>

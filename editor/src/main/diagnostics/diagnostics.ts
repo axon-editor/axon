@@ -1,9 +1,9 @@
-import { app } from "electron";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import { type EditorDiagnostic } from "../../shared/diagnostics";
+import { resolveBundledAppFilePath } from "../lsp/paths";
 
 const execFileAsync = promisify(execFile);
 
@@ -90,8 +90,7 @@ export async function runProjectDiagnostics(
       folderPath,
       "node_modules/typescript/lib/tsc.js",
     );
-    const bundledTsc = path.join(
-      app.getAppPath(),
+    const bundledTsc = resolveBundledAppFilePath(
       "node_modules/typescript/lib/tsc.js",
     );
     const tscPath = fs.existsSync(workspaceTsc) ? workspaceTsc : bundledTsc;

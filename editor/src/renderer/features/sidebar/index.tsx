@@ -570,8 +570,6 @@ export default function Sidebar({
             {view === "spotify" && (
               <SpotifyPanel
                 visible={view === "spotify"}
-                settings={settings}
-                onUpdateSettings={onUpdateSettings}
                 playerOpen={playerOpen}
                 onTogglePlayer={onTogglePlayer}
                 spotifyState={spotifyState}

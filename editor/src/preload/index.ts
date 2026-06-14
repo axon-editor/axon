@@ -59,6 +59,7 @@ import {
 import type {
   SpotifyActionResult,
   SpotifyAuthResult,
+  SpotifyDevicesResult,
   SpotifyPlaybackResult,
   SpotifyPlaylistsResult,
   SpotifyPlayTrackRequest,
@@ -352,6 +353,8 @@ contextBridge.exposeInMainWorld("axon", {
     }> => ipcRenderer.invoke("spotify:playlistTracks", playlistId, offset),
     getPlaybackState: (): Promise<SpotifyPlaybackResult> =>
       ipcRenderer.invoke("spotify:playbackState"),
+    getDevices: (): Promise<SpotifyDevicesResult> =>
+      ipcRenderer.invoke("spotify:devices"),
     play: (request: SpotifyPlayTrackRequest): Promise<SpotifyActionResult> =>
       ipcRenderer.invoke("spotify:play", request),
     pause: (): Promise<SpotifyActionResult> =>
