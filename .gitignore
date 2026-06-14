@@ -6,5 +6,6 @@ Variable Fonts/
 editor/.language-server-downloads/
 editor/build/language-servers/*/
 architectureNotes.md
+editor/src/main/generated/buildConfig.ts
 
 .env
