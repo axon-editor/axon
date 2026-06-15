@@ -90,6 +90,9 @@ async function readJson(filePath) {
 }
 
 function resolvePackageLockDependency(packages, dependencyName, fromPackagePath) {
+  const localCandidate = `${fromPackagePath}/node_modules/${dependencyName}`;
+  if (packages[localCandidate]) return localCandidate;
+
   const parts = fromPackagePath.split("/");
 
   for (;;) {
@@ -145,19 +148,31 @@ async function verifyNodeBackedLanguageServerPackaging() {
     packageLock,
   ).map((packageLockPath) => `${packageLockPath}/**/*`);
   const files = new Set(packageJson.build?.files ?? []);
+  const asarUnpack = new Set(packageJson.build?.asarUnpack ?? []);
   const missingFiles = requiredPatterns.filter((pattern) => !files.has(pattern));
+  const allNodeModulesAreUnpacked =
+    asarUnpack.has("node_modules/**/*") || asarUnpack.has("node_modules/**");
+  const missingUnpack = requiredPatterns.filter(
+    (pattern) => !allNodeModulesAreUnpacked && !asarUnpack.has(pattern),
+  );
 
   // Node-backed language servers are pure JavaScript entry points, so they can
-  // run from app.asar and resolve their dependencies there. The important
-  // release invariant is that the complete package-lock dependency closure is
-  // present in build.files; unpacking the whole closure would make Axon's app
-  // bundle unnecessarily large without fixing module resolution.
-  if (missingFiles.length > 0) {
+  // run through Electron's Node mode, but packaged Electron cannot reliably
+  // drive stdio language-server scripts directly from app.asar. The complete
+  // dependency closure must be present, and the included node_modules tree must
+  // be unpacked so one server cannot be split between app.asar and real files.
+  // YAML exposed this first because it loads nested dependencies from its own
+  // package directory, but the same rule protects Pyright, HTML/CSS/JSON,
+  // Tailwind, and the rest of the Node-backed servers.
+  if (missingFiles.length > 0 || missingUnpack.length > 0) {
     throw new Error(
       [
         "npm language-server packaging is incomplete.",
         missingFiles.length
           ? `Missing from build.files: ${missingFiles.slice(0, 20).join(", ")}`
+          : "",
+        missingUnpack.length
+          ? `Missing from build.asarUnpack: ${missingUnpack.slice(0, 20).join(", ")}`
           : "",
       ]
         .filter(Boolean)
