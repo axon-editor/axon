@@ -11,7 +11,8 @@
   },
   "main": "dist/main/index.js",
   "scripts": {
-    "dev": "concurrently -k -n core,renderer,electron \"cross-env AXON_CORE_PORT=17777 go -C ../core run cmd/axon/main.go\" \"cross-env NODE_ENV=development VITE_AXON_CORE_URL=http://127.0.0.1:17777 vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:17777/health http://127.0.0.1:5173 && cross-env NODE_ENV=development AXON_CORE_PORT=17777 AXON_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "dev": "npm run check:language-servers && concurrently -k -n core,renderer,electron \"cross-env AXON_CORE_PORT=17777 go -C ../core run cmd/axon/main.go\" \"cross-env NODE_ENV=development VITE_AXON_CORE_URL=http://127.0.0.1:17777 vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:17777/health http://127.0.0.1:5173 && cross-env NODE_ENV=development AXON_CORE_PORT=17777 AXON_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "check:language-servers": "node scripts/check-language-servers.mjs",
     "build:language-servers": "node scripts/download-language-servers.mjs",
     "build:core": "node scripts/build-core.mjs",
     "build:main": "node scripts/write-build-config.mjs && tsc -p tsconfig.main.json",

@@ -37,6 +37,7 @@ import {
   emitLanguageServerLog,
   getLanguageServerInitializationOptions,
   getLanguageServerSessionKey,
+  getPythonLanguageServerSettings,
   getPythonInterpreterFromVirtualEnv,
   hasWorkspaceMarker,
   notifyLanguageServerConfiguration,
@@ -61,6 +62,8 @@ const warmingLanguageServerKeys = new Set<string>();
 const LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS = 120_000;
 const LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS = 2_000;
 const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
+const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 2_500;
+const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
 
 export function getActiveLanguageServerSessions() {
   return activeLanguageServers.values();
@@ -494,6 +497,16 @@ function handleLanguageServerPayload(
     return;
   }
 
+  if (message.method && typeof message.id === "number") {
+    handleLanguageServerRequest(
+      session,
+      message.id,
+      message.method,
+      message.params,
+    );
+    return;
+  }
+
   if (typeof message.id !== "number") return;
 
   const pending = session.pendingRequests.get(message.id);
@@ -510,6 +523,101 @@ function handleLanguageServerPayload(
   }
 
   pending.resolve(message.result);
+}
+
+function writeLanguageServerResponse(
+  session: LanguageServerSession,
+  id: number,
+  result: unknown,
+) {
+  writeLanguageServerMessage(session, {
+    jsonrpc: "2.0",
+    id,
+    result,
+  });
+}
+
+function getConfigurationValueForSection(
+  session: LanguageServerSession,
+  section: string,
+) {
+  if (session.id !== "python") return null;
+
+  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  if (!pythonSettings) return null;
+
+  if (!section) return pythonSettings;
+  if (section === "python") return pythonSettings.python;
+  if (section === "python.analysis") return pythonSettings.python.analysis;
+  if (section === "pyright") return {};
+
+  return null;
+}
+
+function getLanguageServerConfigurationResponse(
+  session: LanguageServerSession,
+  params: unknown,
+) {
+  const request = params as {
+    items?: Array<{
+      section?: unknown;
+    }>;
+  };
+  const items = Array.isArray(request?.items) ? request.items : [];
+
+  return items.map((item) =>
+    getConfigurationValueForSection(
+      session,
+      typeof item.section === "string" ? item.section : "",
+    ),
+  );
+}
+
+function handleLanguageServerRequest(
+  session: LanguageServerSession,
+  id: number,
+  method: unknown,
+  params: unknown,
+) {
+  if (method === "workspace/configuration") {
+    // Pyright pulls configuration from the editor after initialization. This is
+    // the part that makes a selected virtual environment reliable: the server
+    // can ask for the active python/python.analysis settings whenever it
+    // rebuilds import resolution instead of depending on one pushed
+    // notification during startup.
+    writeLanguageServerResponse(
+      session,
+      id,
+      getLanguageServerConfigurationResponse(session, params),
+    );
+    return;
+  }
+
+  if (method === "workspace/workspaceFolders") {
+    writeLanguageServerResponse(session, id, [
+      {
+        uri: url.pathToFileURL(session.folderPath).toString(),
+        name: path.basename(session.folderPath),
+      },
+    ]);
+    return;
+  }
+
+  if (
+    method === "window/workDoneProgress/create" ||
+    method === "client/registerCapability" ||
+    method === "client/unregisterCapability"
+  ) {
+    writeLanguageServerResponse(session, id, null);
+    return;
+  }
+
+  emitLanguageServerLog(
+    session,
+    "info",
+    `Unhandled language server request: ${String(method)}`,
+  );
+  writeLanguageServerResponse(session, id, null);
 }
 
 function publishLanguageServerDiagnostics(
@@ -761,6 +869,10 @@ function initializeLanguageServer(session: LanguageServerSession) {
             },
           },
         },
+        workspace: {
+          configuration: true,
+          workspaceFolders: true,
+        },
       },
     },
     LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS,
@@ -950,6 +1062,32 @@ function startLanguageServerDefinition(
         message: `${definition.label}: ${(err as Error).message}`,
       };
     }
+  });
+}
+
+function waitForReadyLanguageServerSession(
+  key: string,
+  timeoutMs = LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS,
+): Promise<LanguageServerSession | undefined> {
+  const startedAt = Date.now();
+
+  return new Promise((resolve) => {
+    const poll = () => {
+      const session = activeLanguageServers.get(key);
+      if (session?.initialized && !session.disposed) {
+        resolve(session);
+        return;
+      }
+
+      if (Date.now() - startedAt >= timeoutMs) {
+        resolve(undefined);
+        return;
+      }
+
+      setTimeout(poll, LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS);
+    };
+
+    poll();
   });
 }
 
@@ -1212,18 +1350,18 @@ export async function getLanguageServerCompletions(
     const sessionKey = getLanguageServerSessionKey(request.folderPath, serverId);
     if (!warmingLanguageServerKeys.has(sessionKey)) {
       warmingLanguageServerKeys.add(sessionKey);
-      // Monaco completion requests should be fast. If a server is cold, Axon
-      // starts it in the background and lets the current completion request end
-      // with no external results. Without this boundary, typing in a language
-      // whose server is missing or still booting makes the suggest widget show
-      // a useless loading state for seconds, which feels worse than simply
-      // waiting for the next trigger once the server is ready.
       void startLanguageServerDefinition(request.folderPath, definition).finally(
         () => warmingLanguageServerKeys.delete(sessionKey),
       );
     }
 
-    return { ok: true, items: [] };
+    // The first completion request is often the user's proof that a language
+    // server is alive. Returning immediately while the server is still warming
+    // up makes Go/Rust/Python feel broken in packaged builds even when the
+    // bundled server starts correctly milliseconds later, so I wait briefly for
+    // initialization and then use the same request path as a warm session.
+    session = await waitForReadyLanguageServerSession(sessionKey);
+    if (!session) return { ok: true, items: [] };
   }
 
   if (!session.initialized) {

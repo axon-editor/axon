@@ -73,6 +73,7 @@ interface TerminalSession {
   receivedBytes: number;
   outputQueue: TerminalOutputChunk[];
   outputWriting: boolean;
+  queuedBytes: number;
   scrollLine: number;
   disposed: boolean;
   terminating: boolean;
@@ -269,6 +270,7 @@ function drainTerminalOutput(session: TerminalSession) {
   if (session.outputWriting) return;
   const chunk = session.outputQueue.shift();
   if (!chunk || !session.term || session.disposed) return;
+  session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength);
 
   session.outputWriting = true;
   session.term.write(chunk.data, () => {
@@ -284,11 +286,17 @@ function drainTerminalOutput(session: TerminalSession) {
 }
 
 function writeTerminalOutput(session: TerminalSession, data: string | ArrayBuffer) {
-  session.outputQueue.push({
+  const chunk = {
     data: data instanceof ArrayBuffer ? new Uint8Array(data) : data,
     byteLength: getOutputByteLength(data),
-  });
+  };
+  session.outputQueue.push(chunk);
+  session.queuedBytes += chunk.byteLength;
   drainTerminalOutput(session);
+}
+
+function hasPendingTerminalOutput(session: TerminalSession) {
+  return session.outputWriting || session.queuedBytes > 0;
 }
 
 function isVisibleTerminalContainer(container: HTMLDivElement | null) {
@@ -465,6 +473,7 @@ export default function Terminal({
       receivedBytes: 0,
       outputQueue: [],
       outputWriting: false,
+      queuedBytes: 0,
       scrollLine: 0,
       disposed: false,
       terminating: false,
@@ -585,16 +594,21 @@ export default function Terminal({
         };
 
         ws.onmessage = (event) => {
+          const latestSession = sessionsRef.current[id];
+          if (!latestSession || latestSession.disposed) return;
+          if (latestSession.ws !== ws) return;
+
           if (event.data instanceof Blob) {
             void event.data.arrayBuffer().then((buffer) => {
-              const latestSession = sessionsRef.current[id];
-              if (!latestSession || latestSession.disposed) return;
-              writeTerminalOutput(latestSession, buffer);
+              const currentSession = sessionsRef.current[id];
+              if (!currentSession || currentSession.disposed) return;
+              if (currentSession.ws !== ws) return;
+              writeTerminalOutput(currentSession, buffer);
             });
             return;
           }
 
-          writeTerminalOutput(currentSession, event.data);
+          writeTerminalOutput(latestSession, event.data);
         };
 
         ws.onclose = () => {
@@ -611,15 +625,40 @@ export default function Terminal({
           // the PTY buffer pollutes the user's real terminal history. VS Code
           // and Zed keep this reattach path silent; Axon should do the same and
           // only surface hard backend failures that require user action.
+          const reconnectWhenOutputIsSettled = () => {
+            const settledSession = sessionsRef.current[id];
+            if (
+              !settledSession ||
+              settledSession.disposed ||
+              settledSession.terminating
+            ) {
+              return;
+            }
+
+            if (hasPendingTerminalOutput(settledSession)) {
+              settledSession.reconnectTimer = window.setTimeout(
+                reconnectWhenOutputIsSettled,
+                80,
+              );
+              return;
+            }
+
+            settledSession.reconnectTimer = window.setTimeout(
+              () => connectSession(id),
+              250,
+            );
+          };
+
           latestSession.reconnectTimer = window.setTimeout(
-            () => connectSession(id),
-            1000,
+            reconnectWhenOutputIsSettled,
+            80,
           );
         };
 
         ws.onerror = () => {
           const latestSession = sessionsRef.current[id];
           if (!latestSession || latestSession.disposed) return;
+          if (latestSession.ws !== ws) return;
           latestSession.term?.write(
             "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
           );
@@ -641,6 +680,7 @@ export default function Terminal({
         ...terminalOptions,
         cursorBlink: true,
         cursorStyle: "block",
+        bracketedPasteMode: true,
         // Long-running AI sessions can produce far more output than a normal
         // shell command. A small scrollback makes xterm discard earlier lines,
         // which looks like the terminal randomly removed text while I am still

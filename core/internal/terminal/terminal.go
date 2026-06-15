@@ -49,7 +49,7 @@ type terminalClient struct {
 }
 
 const (
-	maxScrollbackBytes = 16 << 20
+	maxScrollbackBytes = 96 << 20
 	websocketPongWait  = 70 * time.Second
 	websocketPingEvery = 25 * time.Second
 	websocketWriteWait = 30 * time.Second
