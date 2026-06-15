@@ -62,7 +62,7 @@ const warmingLanguageServerKeys = new Set<string>();
 const LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS = 120_000;
 const LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS = 2_000;
 const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
-const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 2_500;
+const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 8_000;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
 
 export function getActiveLanguageServerSessions() {
@@ -1365,7 +1365,17 @@ export async function getLanguageServerCompletions(
   }
 
   if (!session.initialized) {
-    return { ok: true, items: [] };
+    const sessionKey = getLanguageServerSessionKey(
+      request.folderPath,
+      serverId,
+    );
+    // The app may auto-start a server as soon as a file opens. In that case a
+    // completion request can arrive while the session exists but is still
+    // initializing, which used to return an empty popup and make Go look like
+    // it had no LSP. Waiting here covers both cold-start paths: no session yet,
+    // and already-started-but-not-ready.
+    session = await waitForReadyLanguageServerSession(sessionKey);
+    if (!session) return { ok: true, items: [] };
   }
 
   try {

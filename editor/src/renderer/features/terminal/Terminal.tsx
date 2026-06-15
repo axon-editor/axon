@@ -67,6 +67,7 @@ interface TerminalSession {
   reconnectTimer: number | null;
   resizeObserver: ResizeObserver | null;
   dataDisposable: { dispose: () => void } | null;
+  multilineDisposable: { dispose: () => void } | null;
   scrollDisposable: { dispose: () => void } | null;
   workingDirectory: string | null;
   cwdSynced: boolean;
@@ -418,6 +419,7 @@ export default function Terminal({
     }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
+    session?.multilineDisposable?.dispose();
     session?.scrollDisposable?.dispose();
     if (session) {
       session.disposed = true;
@@ -467,6 +469,7 @@ export default function Terminal({
       reconnectTimer: null,
       resizeObserver: null,
       dataDisposable: null,
+      multilineDisposable: null,
       scrollDisposable: null,
       workingDirectory: sessionWorkingDirectory,
       cwdSynced: false,
@@ -713,20 +716,40 @@ export default function Terminal({
         session.scrollLine = line;
       });
       connectSession(id);
+      const handleMultilineKeydown = (event: KeyboardEvent) => {
+        const isEnter =
+          event.key === "Enter" ||
+          event.key === "NumpadEnter" ||
+          event.code === "Enter" ||
+          event.code === "NumpadEnter";
+        if (!isEnter || !event.shiftKey) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        term.paste("\n");
+      };
+      container.addEventListener("keydown", handleMultilineKeydown, true);
+      session.multilineDisposable = {
+        dispose: () =>
+          container.removeEventListener("keydown", handleMultilineKeydown, true),
+      };
       term.attachCustomKeyEventHandler((event) => {
         if (event.type !== "keydown") return true;
 
-        if (event.key === "Enter" && event.shiftKey) {
-          // I send Shift+Enter as a tiny bracketed paste containing only a
-          // newline because terminal apps already treat pasted multiline text
-          // as editor input instead of a submit key. A CSI-u key sequence is
-          // cleaner in theory, but it only works when the process inside the
-          // PTY opts into that keyboard protocol. Bracketed paste gives shells,
-          // Codex-style prompts, and other TUIs the same practical behavior
-          // users expect from VS Code and Zed: add a line, do not execute yet.
-          if (session.ws?.readyState === WebSocket.OPEN) {
-            session.ws.send("\x1b[200~\n\x1b[201~");
-          }
+        const isEnter =
+          event.key === "Enter" ||
+          event.key === "NumpadEnter" ||
+          event.code === "Enter" ||
+          event.code === "NumpadEnter";
+        if (isEnter && event.shiftKey) {
+          // xterm's paste pipeline is safer than manually writing escape
+          // sequences because it normalizes newlines for the PTY and only wraps
+          // the text in bracketed-paste markers when the shell or TUI has
+          // enabled that mode. The capture listener above catches the browser
+          // event early, and this custom handler keeps the same behavior if
+          // xterm processes the key first in a different platform path.
+          term.paste("\n");
           return false;
         }
 
