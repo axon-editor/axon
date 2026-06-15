@@ -190,6 +190,52 @@ export default function SingleEditor({
     [findMatchCount],
   );
 
+  const jumpToDefinition = useCallback(async () => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    const position = editor?.getPosition();
+    if (!editor || !model || !position || !folderPath) return false;
+
+    const languageId = model.getLanguageId();
+    if (languageId === "plaintext") return false;
+
+    try {
+      const request = {
+        folderPath,
+        filePath,
+        languageId,
+        content: model.getValue(),
+        line: position.lineNumber,
+        column: position.column,
+      };
+
+      await window.axon.syncLanguageServerDocument(request);
+      const result = await window.axon.getLanguageServerDefinitions(request);
+      const firstLocation = result.ok ? result.locations[0] : null;
+      if (!firstLocation) return false;
+
+      // The command palette and keyboard shortcut should jump like an editor,
+      // not require the user to open Monaco's peek widget and click the target
+      // manually. I ask the LSP directly, then hand the resolved file/range to
+      // Axon's tab navigation so unopened target files are mounted before the
+      // reveal happens.
+      onOpenNavigationTarget?.({
+        path: firstLocation.filePath,
+        line: firstLocation.range.start.line + 1,
+        column: firstLocation.range.start.character + 1,
+        length: Math.max(
+          1,
+          firstLocation.range.end.character -
+            firstLocation.range.start.character,
+        ),
+      });
+      return true;
+    } catch (err) {
+      console.error("failed to jump to definition:", err);
+      return false;
+    }
+  }, [filePath, folderPath, onOpenNavigationTarget]);
+
   const syncDocumentWithLanguageServer = useCallback(
     (content: string) => {
       if (!folderPath) return;
@@ -464,17 +510,24 @@ export default function SingleEditor({
       const editor = editorRef.current;
       if (!editor) return;
 
-      // Monaco owns the final UI for these language actions: definition peeks,
-      // reference search, rename inputs, and formatter edits. Axon's job is to
-      // register LSP providers behind Monaco and keep the app shell command
-      // layer small, so the palette and menu never need to know server details.
-      const actionIdByRequest: Record<EditorActionRequest, string> = {
-        definition: "editor.action.revealDefinition",
+      const action = actionEvent.detail.action ?? "definition";
+      if (action === "definition") {
+        void jumpToDefinition().then((jumped) => {
+          if (!jumped) {
+            void editor.getAction("editor.action.revealDefinition")?.run();
+          }
+        });
+        return;
+      }
+
+      // Monaco owns the final UI for reference search, rename inputs, and
+      // formatter edits. Definition is handled above because Monaco may stop at
+      // a peek popup before Axon's tab model has loaded the target file.
+      const actionIdByRequest: Record<Exclude<EditorActionRequest, "definition">, string> = {
         references: "editor.action.referenceSearch.trigger",
         rename: "editor.action.rename",
         format: "editor.action.formatDocument",
       };
-      const action = actionEvent.detail.action ?? "definition";
       const actionId = actionIdByRequest[action];
 
       void editor.getAction(actionId)?.run();
@@ -483,7 +536,7 @@ export default function SingleEditor({
     window.addEventListener("axon:editorAction", handleEditorAction);
     return () =>
       window.removeEventListener("axon:editorAction", handleEditorAction);
-  }, [filePath, visible]);
+  }, [filePath, jumpToDefinition, visible]);
 
   useEffect(() => {
     let cancelled = false;
@@ -604,7 +657,7 @@ export default function SingleEditor({
     editorOpenerRef.current?.dispose();
     editorOpenerRef.current = monaco.editor.registerEditorOpener({
       openCodeEditor: (source, resource, selectionOrPosition) => {
-        if (source !== editor || resource.scheme !== "file") return false;
+        if (resource.scheme !== "file") return false;
 
         const targetPath = resource.fsPath;
         const line =
@@ -625,10 +678,11 @@ export default function SingleEditor({
             : 1;
 
         // Monaco knows how to ask for "open this definition resource", but it
-        // does not know Axon's tab and pane model. This opener is the bridge:
-        // external LSP definitions become normal Axon navigation targets, so
-        // Cmd-click/F12 can jump into another file, open the tab if needed, and
-        // still reveal the exact range after the model finishes loading.
+        // does not know Axon's tab and pane model. I do not require `source` to
+        // be this exact editor because peek/definition widgets can forward the
+        // open request from a Monaco-owned surface. If I reject that first
+        // request, the user has to click the definition popup manually before
+        // Axon has a warmed model, which makes jump-to-definition feel broken.
         if (onOpenNavigationTarget) {
           onOpenNavigationTarget({
             path: targetPath,

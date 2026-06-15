@@ -5,6 +5,8 @@ const configuredMonacos = new WeakSet<typeof monaco>();
 const lspCompletionLanguages = [
   "typescript",
   "javascript",
+  "typescriptreact",
+  "javascriptreact",
   "go",
   "rust",
   "python",

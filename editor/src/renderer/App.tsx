@@ -1171,6 +1171,20 @@ function App() {
     [],
   );
 
+  useEffect(() => {
+    const handleNavigateToFile = (event: Event) => {
+      const navigationEvent = event as CustomEvent<
+        Omit<EditorNavigationTarget, "id">
+      >;
+      if (!navigationEvent.detail?.path) return;
+      handleOpenNavigationTarget(navigationEvent.detail);
+    };
+
+    window.addEventListener("axon:navigateToFile", handleNavigateToFile);
+    return () =>
+      window.removeEventListener("axon:navigateToFile", handleNavigateToFile);
+  }, [handleOpenNavigationTarget]);
+
   const handleWorkspaceSearchResult = (
     result: WorkspaceSearchResult,
     query: string,

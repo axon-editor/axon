@@ -371,7 +371,12 @@ function normalizeLanguageServerCompletionItems(
 
 export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   const normalizedLanguageId = languageId.toLowerCase();
-  if (normalizedLanguageId === "typescript" || normalizedLanguageId === "javascript") {
+  if (
+    normalizedLanguageId === "typescript" ||
+    normalizedLanguageId === "javascript" ||
+    normalizedLanguageId === "typescriptreact" ||
+    normalizedLanguageId === "javascriptreact"
+  ) {
     return "typescript" satisfies LanguageServerDefinition["id"];
   }
   if (normalizedLanguageId === "go") return "go" satisfies LanguageServerDefinition["id"];

@@ -5,6 +5,8 @@ const configuredMonacos = new WeakSet<typeof monaco>();
 const lspNavigationLanguages = [
   "typescript",
   "javascript",
+  "typescriptreact",
+  "javascriptreact",
   "go",
   "rust",
   "python",
@@ -70,6 +72,28 @@ function toMonacoLocation(location: {
   };
 }
 
+function dispatchAxonNavigation(location: {
+  filePath: string;
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+}) {
+  window.dispatchEvent(
+    new CustomEvent("axon:navigateToFile", {
+      detail: {
+        path: location.filePath,
+        line: location.range.start.line + 1,
+        column: location.range.start.character + 1,
+        length: Math.max(
+          1,
+          location.range.end.character - location.range.start.character,
+        ),
+      },
+    }),
+  );
+}
+
 function registerHoverProvider(monacoInstance: typeof monaco, languageId: string) {
   monacoInstance.languages.registerHoverProvider(languageId, {
     provideHover: async (model, position, token) => {
@@ -113,7 +137,16 @@ function registerDefinitionProvider(
       });
       if (token.isCancellationRequested || !result.ok) return [];
 
-      return result.locations.map(toMonacoLocation);
+      const firstLocation = result.locations[0];
+      if (!firstLocation) return [];
+
+      // Monaco's default definition flow can stop at a peek popup, especially
+      // when the target file has not been opened in Axon's pane model yet. I
+      // route the first target through Axon's navigation event so Cmd-click and
+      // F12 mount the target tab immediately instead of requiring a second click
+      // inside Monaco's temporary result widget.
+      dispatchAxonNavigation(firstLocation);
+      return [];
     },
   });
 }

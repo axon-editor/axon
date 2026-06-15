@@ -75,11 +75,11 @@ function directoryHasFileWithExtension(
     if (WORKSPACE_MARKER_IGNORED_DIRECTORIES.has(entry.name)) continue;
     if (entry.name.startsWith(".") && entry.name !== ".github") continue;
 
-    // The Settings LSP panel is refreshed often, so this scan intentionally
-    // stays shallow and skips generated dependency folders. That gives Axon the
-    // useful editor behavior I expect, such as showing Python when a .py
-    // file lives under src/, without turning every settings refresh into a full
-    // workspace search across node_modules, build outputs, or caches.
+    // The Settings LSP panel is refreshed often, so I keep this scan shallow
+    // and skip generated dependency folders. That still catches real project
+    // signals such as a .py file under src/, without turning every settings
+    // refresh into a full workspace search across node_modules, build outputs,
+    // or caches.
     if (
       directoryHasFileWithExtension(
         path.join(folderPath, entry.name),

@@ -147,7 +147,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     command: "gopls",
     args: ["version"],
     launchArgs: [],
-    workspaceMarkers: ["go.mod", "go.work"],
+    workspaceMarkers: ["go.mod", "go.work", "*.go"],
     installHint: "Bundled with Axon through the managed gopls bundle.",
     managedBundle: {
       directoryName: "go",

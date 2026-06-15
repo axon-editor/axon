@@ -500,9 +500,9 @@ export default function SettingsModal({
     onClose();
   };
 
-  const visibleLanguageServers = languageServers.filter((server) => {
-    return server.relevant || server.running || server.status === "failed";
-  });
+  const hasPythonWorkspace = languageServers.some(
+    (server) => server.id === "python" && server.relevant,
+  );
 
   const close = () => {
     // Because the modal previews settings live, closing without saving needs
@@ -910,49 +910,53 @@ export default function SettingsModal({
                   />
                 </SettingsField>
 
-                <SettingsField
-                  label="Python virtual environment"
-                  description="Optional. Python works without this, but select a project venv/interpreter when external packages like Django REST Framework need to resolve."
-                >
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void selectPythonVirtualEnv()}
-                        disabled={!folderPath}
-                        className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#273044] bg-[#11151d] px-3 text-[12px] text-[#dce4f0] transition-colors hover:border-[#3b4660] hover:bg-[#171c27] disabled:cursor-not-allowed disabled:border-[#1c2230] disabled:text-[#465166]"
-                      >
-                        <FolderOpen size={14} />
-                        Select venv
-                      </button>
-                      <button
-                        type="button"
-                        onClick={clearPythonVirtualEnv}
-                        disabled={
-                          !draft.lsp.pythonVirtualEnvPath &&
-                          !draft.lsp.pythonInterpreterPath
+                {hasPythonWorkspace ? (
+                  <SettingsField
+                    label="Python virtual environment"
+                    description="Optional. Python works without this, but select a project venv/interpreter when external packages like Django REST Framework need to resolve."
+                  >
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void selectPythonVirtualEnv()}
+                          disabled={!folderPath}
+                          className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#273044] bg-[#11151d] px-3 text-[12px] text-[#dce4f0] transition-colors hover:border-[#3b4660] hover:bg-[#171c27] disabled:cursor-not-allowed disabled:border-[#1c2230] disabled:text-[#465166]"
+                        >
+                          <FolderOpen size={14} />
+                          Select venv
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearPythonVirtualEnv}
+                          disabled={
+                            !draft.lsp.pythonVirtualEnvPath &&
+                            !draft.lsp.pythonInterpreterPath
+                          }
+                          className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#8f9bb1] transition-colors hover:bg-[#171c27] hover:text-white disabled:cursor-not-allowed disabled:text-[#3d4658]"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <SettingsTextInput
+                        value={draft.lsp.pythonVirtualEnvPath}
+                        onChange={(value) =>
+                          updateLsp("pythonVirtualEnvPath", value)
                         }
-                        className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#8f9bb1] transition-colors hover:bg-[#171c27] hover:text-white disabled:cursor-not-allowed disabled:text-[#3d4658]"
-                      >
-                        Clear
-                      </button>
+                        placeholder=".venv path"
+                        monospace
+                      />
+                      <SettingsTextInput
+                        value={draft.lsp.pythonInterpreterPath}
+                        onChange={(value) =>
+                          updateLsp("pythonInterpreterPath", value)
+                        }
+                        placeholder="Python interpreter path"
+                        monospace
+                      />
                     </div>
-                    <SettingsTextInput
-                      value={draft.lsp.pythonVirtualEnvPath}
-                      onChange={(value) => updateLsp("pythonVirtualEnvPath", value)}
-                      placeholder=".venv path"
-                      monospace
-                    />
-                    <SettingsTextInput
-                      value={draft.lsp.pythonInterpreterPath}
-                      onChange={(value) =>
-                        updateLsp("pythonInterpreterPath", value)
-                      }
-                      placeholder="Python interpreter path"
-                      monospace
-                    />
-                  </div>
-                </SettingsField>
+                  </SettingsField>
+                ) : null}
 
                 <div className="rounded-md border border-[#222838] bg-[#0b0d13]">
                   <div className="flex items-center justify-between border-b border-[#222838] px-3 py-2">
@@ -1024,13 +1028,13 @@ export default function SettingsModal({
                     <div className="px-3 py-4 text-[12px] text-[#586478]">
                       Open a workspace folder to detect language servers.
                     </div>
-                  ) : visibleLanguageServers.length === 0 && !loadingLanguageServers ? (
+                  ) : languageServers.length === 0 && !loadingLanguageServers ? (
                     <div className="px-3 py-4 text-[12px] text-[#586478]">
-                      No language servers detected for this workspace yet.
+                      No language server status is available yet.
                     </div>
                   ) : (
                     <div className="divide-y divide-[#222838]">
-                      {visibleLanguageServers.map((server) => (
+                      {languageServers.map((server) => (
                         <div
                           key={server.id}
                           className="grid grid-cols-[1fr_auto] gap-3 px-3 py-3"
