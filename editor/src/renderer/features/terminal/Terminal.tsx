@@ -71,9 +71,16 @@ interface TerminalSession {
   workingDirectory: string | null;
   cwdSynced: boolean;
   receivedBytes: number;
+  outputQueue: TerminalOutputChunk[];
+  outputWriting: boolean;
   scrollLine: number;
   disposed: boolean;
   terminating: boolean;
+}
+
+interface TerminalOutputChunk {
+  data: string | Uint8Array;
+  byteLength: number;
 }
 
 const DEFAULT_TERMINAL_HEIGHT = 280;
@@ -258,9 +265,30 @@ function getOutputByteLength(data: unknown) {
   return 0;
 }
 
+function drainTerminalOutput(session: TerminalSession) {
+  if (session.outputWriting) return;
+  const chunk = session.outputQueue.shift();
+  if (!chunk || !session.term || session.disposed) return;
+
+  session.outputWriting = true;
+  session.term.write(chunk.data, () => {
+    // I only advance the replay cursor after xterm confirms the bytes have
+    // reached its parser. When Axon is streaming a lot of output, a websocket
+    // reconnect can happen while writes are still queued in the browser. If I
+    // count those bytes too early, the reconnect asks core to skip output the
+    // user never actually saw, which looks like the terminal randomly ate text.
+    session.receivedBytes += chunk.byteLength;
+    session.outputWriting = false;
+    drainTerminalOutput(session);
+  });
+}
+
 function writeTerminalOutput(session: TerminalSession, data: string | ArrayBuffer) {
-  session.receivedBytes += getOutputByteLength(data);
-  session.term?.write(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+  session.outputQueue.push({
+    data: data instanceof ArrayBuffer ? new Uint8Array(data) : data,
+    byteLength: getOutputByteLength(data),
+  });
+  drainTerminalOutput(session);
 }
 
 function isVisibleTerminalContainer(container: HTMLDivElement | null) {
@@ -435,6 +463,8 @@ export default function Terminal({
       workingDirectory: sessionWorkingDirectory,
       cwdSynced: false,
       receivedBytes: 0,
+      outputQueue: [],
+      outputWriting: false,
       scrollLine: 0,
       disposed: false,
       terminating: false,
@@ -647,14 +677,15 @@ export default function Terminal({
         if (event.type !== "keydown") return true;
 
         if (event.key === "Enter" && event.shiftKey) {
-          // Terminal UIs such as Codex can distinguish Shift+Enter when the
-          // terminal sends the CSI-u key sequence. Sending Ctrl+V+Enter helped
-          // plain shells insert a literal newline, but full-screen terminal apps
-          // still saw it as a normal Enter. This mirrors the richer keyboard
-          // protocol modern editors use so multiline prompts work inside tools,
-          // not only at the shell prompt.
+          // I send Shift+Enter as a tiny bracketed paste containing only a
+          // newline because terminal apps already treat pasted multiline text
+          // as editor input instead of a submit key. A CSI-u key sequence is
+          // cleaner in theory, but it only works when the process inside the
+          // PTY opts into that keyboard protocol. Bracketed paste gives shells,
+          // Codex-style prompts, and other TUIs the same practical behavior
+          // users expect from VS Code and Zed: add a line, do not execute yet.
           if (session.ws?.readyState === WebSocket.OPEN) {
-            session.ws.send("\x1b[13;2u");
+            session.ws.send("\x1b[200~\n\x1b[201~");
           }
           return false;
         }

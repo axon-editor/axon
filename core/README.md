@@ -1,35 +1,54 @@
 # Axon Core
 
-Go backend for Axon. It owns the local HTTP API, file system operations,
-workspace search, terminal PTY bridge, and server-side pieces that the Electron
-app talks to through HTTP or WebSocket.
+Axon Core is the local Go backend used by the Axon desktop app. It owns the
+parts that should not live in the renderer: workspace file operations, fast
+search, terminal PTY sessions, and local HTTP/WebSocket APIs.
 
-## What It Does
+Packaged Axon builds include the core binary and start it automatically, so end
+users do not need Go installed just to open folders, search, or use the
+terminal.
 
-- Serves the local API on port `7777`
-- Reads, writes, and scans project files
-- Skips generated folders, media files, archives, and binary content during
-  workspace search
-- Bridges terminal sessions to a shell process through WebSocket
-- Hosts the backend surface for future AI and LSP work
+## Responsibilities
+
+- Serve the local API used by the Electron renderer.
+- Read, write, rename, delete, and scan workspace files.
+- Run workspace search while skipping generated folders, media files, archives,
+  and binary content.
+- Bridge terminal tabs to real shell processes through a WebSocket-backed PTY.
+- Keep terminal sessions alive across panel hides, renderer reconnects, and tab
+  switches until the user explicitly closes the terminal.
+- Provide the backend surface future AI features can build on without giving the
+  renderer broad file-system or shell access.
 
 ## Layout
 
 ```text
 core/
-├── cmd/axon/        # executable entry point
+├── cmd/axon/          # executable entry point
 └── internal/
-    ├── server/      # HTTP server and routes
-    ├── fs/          # file system helpers
-    └── terminal/    # PTY and websocket bridge
+    ├── ai/            # placeholder for future local AI/backend flows
+    ├── fs/            # workspace file, folder, drag/drop, and search helpers
+    ├── server/        # HTTP server, route registration, and CORS handling
+    └── terminal/      # PTY lifecycle, terminal replay, resize, and websocket bridge
 ```
 
-## Run
+## Run Locally
 
 ```bash
 cd core
 go run cmd/axon/main.go
 ```
+
+By default the server listens on port `7777`. The Electron dev app usually runs
+core on another port so it does not collide with a manually started backend:
+
+```bash
+AXON_CORE_PORT=17777 go run cmd/axon/main.go
+```
+
+The renderer selects the matching URL through its core API configuration. If the
+desktop app cannot connect, folder operations and terminals will fail even if
+the UI itself is running.
 
 ## Test
 
@@ -37,11 +56,20 @@ go run cmd/axon/main.go
 go test ./...
 ```
 
-## Notes
+## Terminal Behavior
 
-- The frontend expects this server to be running locally.
-- Packaged Axon builds include this core binary and start it automatically.
-- Terminal sessions are project-scoped and use the current workspace folder when available.
-- Workspace search is intentionally conservative: it should find source text
-  quickly without showing binary/media previews.
-- `internal/ai/ai.go` is still a placeholder and should not be treated as production code yet.
+Each terminal tab maps to a persistent core session. The WebSocket is only the
+view transport; the shell process belongs to the session map in core. That
+separation is important because hiding the terminal panel, switching tabs, or
+briefly reconnecting the renderer should not kill a running command.
+
+The terminal starts in the selected workspace folder when one is available. In
+local development, if core is launched from `core/`, the fallback walks up to the
+repo root so the shell opens in the project instead of the backend subfolder.
+
+## Search Behavior
+
+Workspace search is intentionally conservative. It should stay fast and useful
+for source code by ignoring dependency folders, build outputs, caches, archives,
+media, and binary files. Search preview should only show text content that Axon
+can safely render.

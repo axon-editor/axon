@@ -49,10 +49,10 @@ type terminalClient struct {
 }
 
 const (
-	maxScrollbackBytes = 1 << 20
+	maxScrollbackBytes = 16 << 20
 	websocketPongWait  = 70 * time.Second
 	websocketPingEvery = 25 * time.Second
-	websocketWriteWait = 5 * time.Second
+	websocketWriteWait = 30 * time.Second
 )
 
 var terminalSessions = struct {
@@ -244,6 +244,10 @@ func (session *terminalSession) broadcast(data []byte) {
 	session.scrollback = append(session.scrollback, data...)
 	session.totalBytes += int64(len(data))
 	if len(session.scrollback) > maxScrollbackBytes {
+		// I keep a byte replay window in core so the renderer can reconnect
+		// without killing the shell. The window has to be large enough for
+		// chatty tools because trimming while the browser is still catching up
+		// means the next reconnect cannot recover missing output.
 		trimmedBytes := len(session.scrollback) - maxScrollbackBytes
 		session.scrollback = session.scrollback[trimmedBytes:]
 		session.baseOffset += int64(trimmedBytes)
