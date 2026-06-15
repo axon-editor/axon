@@ -161,6 +161,7 @@ export function getPythonLanguageServerSettings(folderPath: string) {
   return {
     python: {
       pythonPath,
+      defaultInterpreterPath: pythonPath,
       venvPath: parentVirtualEnvPath,
       venv: virtualEnvName,
       analysis: {

@@ -14,6 +14,7 @@ interface SettingsHandlersDependencies {
     folderPath: string;
   }>;
   notifyPythonConfigurationForFolder: (folderPath: string) => void;
+  startPythonLanguageServerForFolder: (folderPath: string) => Promise<void>;
 }
 
 export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
@@ -108,6 +109,9 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
         ) {
           deps.notifyPythonConfigurationForFolder(session.folderPath);
         }
+      }
+      if (folderPath) {
+        void deps.startPythonLanguageServerForFolder(folderPath);
       }
       if (!AXON_SPOTIFY_CLIENT_ID) {
         const updatedClientId = normalizedSettings.spotify?.clientId ?? "";

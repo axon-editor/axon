@@ -548,6 +548,12 @@ function getConfigurationValueForSection(
 
   if (!section) return pythonSettings;
   if (section === "python") return pythonSettings.python;
+  if (section === "python.pythonPath") return pythonSettings.python.pythonPath;
+  if (section === "python.defaultInterpreterPath") {
+    return pythonSettings.python.defaultInterpreterPath;
+  }
+  if (section === "python.venvPath") return pythonSettings.python.venvPath;
+  if (section === "python.venv") return pythonSettings.python.venv;
   if (section === "python.analysis") return pythonSettings.python.analysis;
   if (section === "pyright") return {};
 

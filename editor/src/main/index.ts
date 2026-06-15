@@ -12,6 +12,7 @@ import { promisify } from "util";
 import { registerLspHandlers } from "./lsp/handlers";
 import {
   getActiveLanguageServerSessions,
+  startLanguageServerForLanguage,
   stopAllLanguageServers,
 } from "./lsp/features";
 import {
@@ -151,6 +152,9 @@ registerSettingsHandlers({
     );
     if (session)
       notifyLanguageServerConfiguration(session, notifyLanguageServer);
+  },
+  startPythonLanguageServerForFolder: async (folderPath) => {
+    await startLanguageServerForLanguage(folderPath, "python");
   },
 });
 registerFileWatcherHandlers(fileWatcherManager);

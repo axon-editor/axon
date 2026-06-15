@@ -557,6 +557,13 @@ export default function Terminal({
     (id: string) => {
       const session = sessionsRef.current[id];
       if (!session?.term || session.disposed) return;
+      if (
+        session.ws &&
+        (session.ws.readyState === WebSocket.OPEN ||
+          session.ws.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
 
       connectionAbortRef.current[id]?.abort();
       const abortController = new AbortController();
@@ -591,9 +598,12 @@ export default function Terminal({
         currentSession.ws = ws;
 
         ws.onopen = () => {
+          const latestSession = sessionsRef.current[id];
+          if (!latestSession || latestSession.disposed) return;
+          if (latestSession.ws !== ws) return;
           updateTabConnection(id, true);
           sendResize(id);
-          sendWorkspaceCd(currentSession);
+          sendWorkspaceCd(latestSession);
         };
 
         ws.onmessage = (event) => {
@@ -619,6 +629,7 @@ export default function Terminal({
           if (!latestSession || latestSession.disposed || latestSession.terminating) {
             return;
           }
+          if (latestSession.ws !== ws) return;
 
           latestSession.ws = null;
           updateTabConnection(id, false);
