@@ -608,9 +608,22 @@ function App() {
       .startLanguageServerForLanguage({ folderPath, languageId })
       .then((result) => {
         if (result.message.startsWith("No external language server")) return;
+        // I release the start key when the main process reports a failed
+        // start because some managed servers can exit once during cold-start
+        // workspace scanning and then succeed on the next attempt. Keeping the
+        // failed key locked would make the renderer believe it already asked
+        // for this workspace/language pair, leaving completions dead until the
+        // user restarts Axon.
+        if (!result.ok) {
+          activeLanguageServerStartRef.current.delete(startKey);
+        }
         appendOutput("lsp", result.message, result.ok ? "success" : "error");
       })
       .catch((err) => {
+        // IPC errors are also transient from the renderer's point of view. If I
+        // keep the key locked here, one failed bridge call permanently blocks
+        // the next active-file change from starting the language server again.
+        activeLanguageServerStartRef.current.delete(startKey);
         appendOutput(
           "lsp",
           err instanceof Error

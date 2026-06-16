@@ -121,7 +121,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     languages: ["C", "C++"],
     command: "clangd",
     args: ["--version"],
-    launchArgs: ["--background-index", "--stdio"],
+    launchArgs: ["--background-index"],
     workspaceMarkers: [
       "compile_commands.json",
       "CMakeLists.txt",
