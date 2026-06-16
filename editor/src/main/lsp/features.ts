@@ -911,14 +911,17 @@ function initializeLanguageServer(session: LanguageServerSession) {
     LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS,
   )
     .then(() => {
+      console.log("[LSP SPAWN OK]", session.id);
       if (session.disposed) return;
       notifyLanguageServer(session, "initialized", {});
       notifyLanguageServerConfiguration(session, notifyLanguageServer);
+      console.log("[LSP INIT OK]", session.id);
       session.initialized = true;
       session.initializeRetryCount = 0;
       emitLanguageServerLog(session, "info", `${session.id} initialized.`);
     })
     .catch((err) => {
+      console.error("[LSP INIT FAIL]", session.id, err.message, session.stderr);
       if (session.disposed || session.process.killed || session.process.exitCode !== null) {
         return;
       }
@@ -1058,6 +1061,7 @@ function startLanguageServerDefinition(
           initializeLanguageServer(session);
         })
         .catch((err) => {
+          console.error("[LSP FATAL]", definition.label, err.message, session.stderr);
           disposeLanguageServerSession(session);
           activeLanguageServerFailures.set(key, {
             message: [
