@@ -65,6 +65,33 @@ const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 8_000;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
 
+function getManagedLanguageServerSpawnEnvironment(
+  env: NodeJS.ProcessEnv | undefined,
+) {
+  // macOS gives apps launched from Dock/Finder a much smaller environment than
+  // apps launched from a shell. Native LSP binaries still need HOME for cache
+  // directories, TMPDIR for workspace/temp files, and PATH so they can find
+  // toolchain helpers when the user has installed them. I add only these
+  // process basics here so managed bundles keep using Axon's shipped binaries
+  // without pretending Go/Rust/.NET/JDK paths exist when the machine does not
+  // actually have them.
+  return {
+    ...env,
+    HOME: env?.HOME ?? app.getPath("home"),
+    PATH:
+      env?.PATH ??
+      [
+        "/opt/homebrew/bin",
+        "/opt/homebrew/sbin",
+        "/usr/local/bin",
+        "/usr/local/sbin",
+        "/usr/bin",
+        "/bin",
+      ].join(path.delimiter),
+    TMPDIR: env?.TMPDIR ?? app.getPath("temp"),
+  };
+}
+
 export function getActiveLanguageServerSessions() {
   return activeLanguageServers.values();
 }
@@ -958,7 +985,7 @@ function startLanguageServerDefinition(
     try {
       const child = spawn(launchCommand, resolved.launchArgs, {
         cwd: folderPath,
-        env: resolved.env,
+        env: getManagedLanguageServerSpawnEnvironment(resolved.env),
         stdio: "pipe",
       });
       const session: LanguageServerSession = {

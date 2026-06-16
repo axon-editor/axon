@@ -359,12 +359,20 @@ export function resolveManagedLanguageServer(
           // asking each project to install them. The
           // platform segment prevents macOS/Linux/Windows binaries from being
           // mixed, while the common segment still supports portable launchers.
+          //
+          // I keep the parent process environment on managed servers because
+          // Dock/Finder launches on macOS can give Electron a much smaller
+          // environment than Terminal launches. The spawn site still adds
+          // explicit HOME/PATH/TMPDIR fallbacks, but preserving process.env here
+          // prevents native LSPs from losing any useful runtime variables Axon
+          // already received.
           return {
             command: executablePath,
             args: definition.managedBundle.args ?? definition.args,
             launchCommand: executablePath,
             launchArgs:
               definition.managedBundle.launchArgs ?? definition.launchArgs,
+            env: process.env,
             startable: true,
           };
         }
