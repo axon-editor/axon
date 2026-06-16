@@ -71,10 +71,10 @@ contextBridge.exposeInMainWorld("axon", {
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   importFont: (): Promise<CustomFont | null> =>
     ipcRenderer.invoke("dialog:importFont"),
-  selectPythonVirtualEnv: (): Promise<{
+  selectPythonVirtualEnv: (folderPath?: string | null): Promise<{
     virtualEnvPath: string;
     interpreterPath: string;
-  } | null> => ipcRenderer.invoke("dialog:selectPythonVirtualEnv"),
+  } | null> => ipcRenderer.invoke("dialog:selectPythonVirtualEnv", folderPath),
   getSettings: (folderPath?: string | null) =>
     ipcRenderer.invoke("settings:get", folderPath),
   updateSettings: (settings: AxonSettings, folderPath?: string | null) =>

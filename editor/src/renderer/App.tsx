@@ -148,7 +148,7 @@ declare global {
       platform: string;
       openFolder: () => Promise<string | null>;
       importFont: () => Promise<CustomFont | null>;
-      selectPythonVirtualEnv: () => Promise<{
+      selectPythonVirtualEnv: (folderPath?: string | null) => Promise<{
         virtualEnvPath: string;
         interpreterPath: string;
       } | null>;

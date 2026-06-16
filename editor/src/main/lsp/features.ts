@@ -2,7 +2,11 @@ import fs from "fs";
 import path from "path";
 import url from "url";
 import { app, BrowserWindow } from "electron";
-import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
+import {
+  execFile,
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from "child_process";
 import { type EditorDiagnostic } from "../../shared/diagnostics";
 import {
   type LanguageServerCodeAction,
@@ -31,7 +35,6 @@ import {
   type LanguageServerTextEdit,
   type LanguageServerLocation,
 } from "../../shared/lsp";
-import { readSettingsForFolder } from "../settings/io";
 import {
   LANGUAGE_SERVER_DEFINITIONS,
   type LanguageServerDefinition,
@@ -43,7 +46,6 @@ import {
   getLanguageServerInitializationOptions,
   getLanguageServerSessionKey,
   getPythonLanguageServerSettings,
-  getPythonInterpreterFromVirtualEnv,
   hasWorkspaceMarker,
   notifyLanguageServerConfiguration,
   resolveLanguageServerCommand,
@@ -69,31 +71,107 @@ const LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS = 2_000;
 const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 8_000;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
+let loginShellEnvironmentPromise: Promise<NodeJS.ProcessEnv> | null = null;
 
-function getManagedLanguageServerSpawnEnvironment(
+function parseEnvironmentOutput(output: string) {
+  const parsed: NodeJS.ProcessEnv = {};
+
+  for (const line of output.split(/\r?\n/)) {
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex <= 0) continue;
+    const key = line.slice(0, separatorIndex);
+    const value = line.slice(separatorIndex + 1);
+    if (!key) continue;
+    parsed[key] = value;
+  }
+
+  return parsed;
+}
+
+function mergePathValues(...values: Array<string | undefined>) {
+  const entries = new Set<string>();
+
+  for (const value of values) {
+    if (!value) continue;
+    for (const entry of value.split(path.delimiter)) {
+      const trimmed = entry.trim();
+      if (trimmed) entries.add(trimmed);
+    }
+  }
+
+  return Array.from(entries).join(path.delimiter);
+}
+
+function getLoginShellEnvironment(): Promise<NodeJS.ProcessEnv> {
+  if (process.platform !== "darwin") {
+    return Promise.resolve({} satisfies NodeJS.ProcessEnv);
+  }
+
+  if (loginShellEnvironmentPromise) return loginShellEnvironmentPromise;
+
+  loginShellEnvironmentPromise = new Promise((resolve) => {
+    const shell = process.env.SHELL || "/bin/zsh";
+    execFile(
+      shell,
+      ["-ilc", "/usr/bin/env"],
+      {
+        env: {
+          ...process.env,
+          HOME: process.env.HOME ?? app.getPath("home"),
+          TMPDIR: process.env.TMPDIR ?? app.getPath("temp"),
+        },
+        maxBuffer: 256 * 1024,
+        timeout: 3_000,
+      },
+      (err, stdout) => {
+        if (err) {
+          resolve({});
+          return;
+        }
+
+        resolve(parseEnvironmentOutput(stdout));
+      },
+    );
+  });
+
+  return loginShellEnvironmentPromise;
+}
+
+async function getManagedLanguageServerSpawnEnvironment(
   env: NodeJS.ProcessEnv | undefined,
 ) {
+  const loginShellEnvironment = await getLoginShellEnvironment();
+  const fallbackPath = [
+    "/opt/homebrew/bin",
+    "/opt/homebrew/sbin",
+    "/usr/local/bin",
+    "/usr/local/sbin",
+    "/usr/bin",
+    "/bin",
+  ].join(path.delimiter);
+
   // macOS gives apps launched from Dock/Finder a much smaller environment than
   // apps launched from a shell. Native LSP binaries still need HOME for cache
   // directories, TMPDIR for workspace/temp files, and PATH so they can find
-  // toolchain helpers when the user has installed them. I add only these
-  // process basics here so managed bundles keep using Axon's shipped binaries
-  // without pretending Go/Rust/.NET/JDK paths exist when the machine does not
-  // actually have them.
+  // toolchain helpers when the user has installed them.
+  //
+  // I read the login shell once because a packaged app opened from Finder or
+  // the Dock does not inherit the developer PATH that makes `go env`, `go list`,
+  // rustup, pyenv, and similar helpers visible. gopls itself is bundled, but it
+  // still shells out to the Go toolchain while analyzing real projects. Without
+  // this merge, gopls can initialize successfully and then return no useful
+  // completions because the child process cannot see the same Go installation
+  // that works when Axon is launched from Terminal.
   return {
+    ...loginShellEnvironment,
     ...env,
-    HOME: env?.HOME ?? app.getPath("home"),
-    PATH:
-      env?.PATH ??
-      [
-        "/opt/homebrew/bin",
-        "/opt/homebrew/sbin",
-        "/usr/local/bin",
-        "/usr/local/sbin",
-        "/usr/bin",
-        "/bin",
-      ].join(path.delimiter),
-    TMPDIR: env?.TMPDIR ?? app.getPath("temp"),
+    HOME: env?.HOME ?? loginShellEnvironment.HOME ?? app.getPath("home"),
+    PATH: mergePathValues(
+      loginShellEnvironment.PATH,
+      env?.PATH,
+      fallbackPath,
+    ),
+    TMPDIR: env?.TMPDIR ?? loginShellEnvironment.TMPDIR ?? app.getPath("temp"),
   };
 }
 
@@ -586,7 +664,16 @@ function getConfigurationValueForSection(
   session: LanguageServerSession,
   section: string,
 ) {
-  if (session.id !== "python") return null;
+  if (session.id !== "python") {
+    // Most bundled servers ask for workspace/configuration after initialize.
+    // Returning null is technically allowed by the protocol, but some servers
+    // treat it as "the editor has no configuration provider" instead of "use
+    // defaults". I return an empty object for the server's own section so gopls,
+    // clangd, YAML, Docker, and the other bundled servers get the same boring
+    // default configuration shape they receive from mature editors.
+    if (!section || section === session.id || section === "gopls") return {};
+    return null;
+  }
 
   const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
   if (!pythonSettings) return null;
@@ -989,7 +1076,7 @@ function startLanguageServerDefinition(
     });
   }
 
-  return canRunCommand(resolved.command, resolved.args).then((available) => {
+  return canRunCommand(resolved.command, resolved.args).then(async (available) => {
     if (!available) {
       activeLanguageServerFailures.set(key, {
         message: definition.installHint,
@@ -1016,9 +1103,11 @@ function startLanguageServerDefinition(
     const launchCommand = resolveCommandPath(resolved.launchCommand);
 
     try {
+      const spawnEnvironment =
+        await getManagedLanguageServerSpawnEnvironment(resolved.env);
       const child = spawn(launchCommand, resolved.launchArgs, {
         cwd: folderPath,
-        env: getManagedLanguageServerSpawnEnvironment(resolved.env),
+        env: spawnEnvironment,
         stdio: "pipe",
       });
       const session: LanguageServerSession = {
@@ -1334,8 +1423,6 @@ export async function stopAllLanguageServers(): Promise<LanguageServerLifecycleR
 export function getLanguageServerStatus(
   folderPath: string,
 ): Promise<LanguageServerStatus[]> {
-  const settings = readSettingsForFolder(folderPath);
-
   return Promise.all(
     LANGUAGE_SERVER_DEFINITIONS.map(async (definition) => {
       const resolved = resolveLanguageServerCommand(definition, folderPath);
@@ -1350,10 +1437,8 @@ export function getLanguageServerStatus(
       const failed = Boolean(lastFailure && !running);
       const pythonInterpreter =
         definition.id === "python"
-          ? settings.lsp.pythonInterpreterPath ||
-            getPythonInterpreterFromVirtualEnv(
-              settings.lsp.pythonVirtualEnvPath,
-            )
+          ? getPythonLanguageServerSettings(folderPath)?.python
+              .defaultInterpreterPath
           : "";
       const status = running
         ? "running"

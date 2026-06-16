@@ -7,6 +7,7 @@ import { importCustomFontFile } from "../fonts/fonts";
 import { getSettingsPath } from "./paths";
 import { setClientId } from "../spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
+import { detectPythonVirtualEnvForWorkspace } from "../lsp/session";
 
 interface SettingsHandlersDependencies {
   getActiveLanguageServers: () => Iterable<{
@@ -48,47 +49,95 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     return importCustomFontFile(result.filePaths[0]) as CustomFont;
   });
 
-  ipcMain.handle("dialog:selectPythonVirtualEnv", async () => {
-    const result = await dialog.showOpenDialog({
-      title: "Select Python virtual environment",
-      properties: ["openDirectory"],
-    });
+  ipcMain.handle(
+    "dialog:selectPythonVirtualEnv",
+    async (_event, folderPath?: string | null) => {
+      const defaultPath =
+        folderPath && fs.existsSync(folderPath) ? folderPath : undefined;
+      const result = await dialog.showOpenDialog({
+        title: "Select Python virtual environment",
+        defaultPath,
+        properties: ["openDirectory"],
+      });
 
-    if (result.canceled || result.filePaths.length === 0) {
-      return null;
-    }
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
 
-    const virtualEnvPath = result.filePaths[0];
-    const candidates =
-      process.platform === "win32"
-        ? [
-            path.join(virtualEnvPath, "Scripts", "python.exe"),
-            path.join(virtualEnvPath, "Scripts", "python"),
-          ]
-        : [
-            path.join(virtualEnvPath, "bin", "python3"),
-            path.join(virtualEnvPath, "bin", "python"),
-          ];
+      const virtualEnvPath = result.filePaths[0];
+      const candidates =
+        process.platform === "win32"
+          ? [
+              path.join(virtualEnvPath, "Scripts", "python.exe"),
+              path.join(virtualEnvPath, "Scripts", "python"),
+            ]
+          : [
+              path.join(virtualEnvPath, "bin", "python3"),
+              path.join(virtualEnvPath, "bin", "python"),
+            ];
 
-    const interpreterPath = candidates.find((candidate) =>
-      fs.existsSync(candidate),
-    );
-    if (!interpreterPath) {
-      throw new Error(
-        "The selected folder does not look like a Python virtual environment.",
+      const interpreterPath = candidates.find((candidate) =>
+        fs.existsSync(candidate),
       );
-    }
+      if (!interpreterPath) {
+        throw new Error(
+          "The selected folder does not look like a Python virtual environment.",
+        );
+      }
 
-    return {
-      virtualEnvPath,
-      interpreterPath,
-    };
-  });
+      return {
+        virtualEnvPath,
+        interpreterPath,
+      };
+    },
+  );
 
   ipcMain.handle("settings:get", async (_event, folderPath?: string | null) => {
     const settings = readSettingsForFolder(folderPath);
-    if (!folderPath || fs.existsSync(getSettingsPath(folderPath))) {
-      writeSettingsToDisk(settings, getSettingsPath(folderPath));
+    const settingsPath = getSettingsPath(folderPath);
+    const hasWorkspaceSettings =
+      Boolean(folderPath) && fs.existsSync(settingsPath);
+    if (
+      folderPath &&
+      (!hasWorkspaceSettings ||
+        (!settings.lsp.pythonVirtualEnvPath &&
+          !settings.lsp.pythonInterpreterPath))
+    ) {
+      const detected = detectPythonVirtualEnvForWorkspace(folderPath);
+      if (detected.virtualEnvPath && detected.interpreterPath) {
+        // I return the detected environment in the in-memory settings shape so
+        // Settings and Pyright agree immediately, but I do not write it to
+        // axon.json until the user saves. That keeps auto-detection helpful
+        // without silently changing a workspace file just because Settings was
+        // opened.
+        return {
+          ...settings,
+          lsp: {
+            ...settings.lsp,
+            pythonVirtualEnvPath: detected.virtualEnvPath,
+            pythonInterpreterPath: detected.interpreterPath,
+          },
+        };
+      }
+
+      if (!hasWorkspaceSettings) {
+        // User settings are global, but Python interpreters are usually tied
+        // to one project. If a previous workspace saved a venv globally, I
+        // clear that value for a new workspace unless this workspace has its
+        // own axon.json. Otherwise switching folders can make Pyright point at
+        // the wrong project's packages and the picker looks broken.
+        return {
+          ...settings,
+          lsp: {
+            ...settings.lsp,
+            pythonVirtualEnvPath: "",
+            pythonInterpreterPath: "",
+          },
+        };
+      }
+    }
+    if (!folderPath || hasWorkspaceSettings) {
+      writeSettingsToDisk(settings, settingsPath);
     }
     return settings;
   });

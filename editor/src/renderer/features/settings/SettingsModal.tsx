@@ -367,7 +367,7 @@ export default function SettingsModal({
     setLanguageServerMessage(null);
 
     try {
-      const selected = await window.axon.selectPythonVirtualEnv();
+      const selected = await window.axon.selectPythonVirtualEnv(folderPath);
       if (!selected) return;
 
       setDraft((prev) => ({
