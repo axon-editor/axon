@@ -6,6 +6,9 @@ export interface EditorDiagnostic {
   message: string;
   line: number;
   column: number;
+  endLine?: number;
+  endColumn?: number;
+  code?: string | number;
   severity: DiagnosticSeverity;
   source: string | null;
 }

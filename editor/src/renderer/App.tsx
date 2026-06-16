@@ -33,7 +33,9 @@ import {
   type WorkspaceSearchResult,
 } from "./shared/lib/api";
 import {
+  clearLanguageServerDiagnosticsFromMonaco,
   onEditorDiagnosticsChanged,
+  syncLanguageServerDiagnosticsToMonaco,
   type EditorDiagnostic,
 } from "./features/diagnostics/lib/diagnostics";
 import {
@@ -453,6 +455,31 @@ function App() {
     [themeTokens],
   );
 
+  const diagnostics = useMemo(() => {
+    const mergedDiagnostics = [
+      ...projectDiagnostics,
+      ...monacoDiagnostics,
+      ...Object.values(lspDiagnosticsByFile).flat(),
+    ];
+    const seenDiagnostics = new Set<string>();
+
+    return mergedDiagnostics.filter((diagnostic) => {
+      const key = [
+        diagnostic.path,
+        diagnostic.line,
+        diagnostic.column,
+        diagnostic.endLine ?? diagnostic.line,
+        diagnostic.endColumn ?? diagnostic.column,
+        diagnostic.severity,
+        diagnostic.message,
+      ].join("\u0000");
+
+      if (seenDiagnostics.has(key)) return false;
+      seenDiagnostics.add(key);
+      return true;
+    });
+  }, [lspDiagnosticsByFile, monacoDiagnostics, projectDiagnostics]);
+
   useEffect(() => {
     // When the OAuth callback lands, the main process fires spotify:connected.
     // Re-check status so the panel transitions from auth gate to player.
@@ -503,14 +530,6 @@ function App() {
     `;
   }, [themeTokens]);
 
-  const diagnostics = useMemo(
-    () => [
-      ...projectDiagnostics,
-      ...monacoDiagnostics,
-      ...Object.values(lspDiagnosticsByFile).flat(),
-    ],
-    [lspDiagnosticsByFile, monacoDiagnostics, projectDiagnostics],
-  );
   const activeFileSymbols = useMemo<FileSymbol[]>(() => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return [];
@@ -847,6 +866,7 @@ function App() {
 
   useEffect(() => {
     setLspDiagnosticsByFile({});
+    clearLanguageServerDiagnosticsFromMonaco();
     if (!folderPath || !settings.lsp.enabled) return;
 
     // LSP diagnostics arrive asynchronously from whichever server owns the
@@ -860,6 +880,10 @@ function App() {
       }));
     });
   }, [folderPath, settings.lsp.enabled]);
+
+  useEffect(() => {
+    syncLanguageServerDiagnosticsToMonaco(lspDiagnosticsByFile);
+  }, [lspDiagnosticsByFile]);
 
   useEffect(() => {
     if (!folderPath || !settings.lsp.enabled) return;
@@ -1327,19 +1351,6 @@ function App() {
     }
   };
 
-  const handleSaveActiveFile = () => {
-    const activeFile = activePane?.activeFile;
-    if (!activeFile) return;
-
-    // The native menu lives in Electron's main process, while the actual save
-    // logic belongs to the mounted editor for the active file. This event keeps
-    // the behavior aligned with Cmd+S inside Monaco without moving editor model
-    // ownership up into App.
-    window.dispatchEvent(
-      new CustomEvent("axon:saveFile", { detail: { path: activeFile } }),
-    );
-  };
-
   const saveFileFromModel = useCallback(
     async (filePath: string) => {
       const model = getModel(filePath);
@@ -1364,6 +1375,23 @@ function App() {
     },
     [appendOutput],
   );
+
+  const handleSaveActiveFile = useCallback(() => {
+    const activeFile = activePane?.activeFile;
+    if (!activeFile) return;
+
+    // Save has to work from the native menu, the global keyboard listener, and
+    // Monaco itself. Dispatching an event to a mounted SingleEditor is fragile
+    // because the active file can be in a pane whose listener is not the
+    // current focus target. The shared Monaco model is the source of truth for
+    // dirty buffers, so writing it directly here makes Cmd/Ctrl+S behave like
+    // a real editor command no matter where focus currently is.
+    void saveFileFromModel(activeFile).then((saved) => {
+      if (!saved) {
+        appendOutput("file", "Could not find editor buffer to save.", "error");
+      }
+    });
+  }, [activePane?.activeFile, appendOutput, saveFileFromModel]);
 
   const requestCloseTab = useCallback(
     async (paneId: string, filePath: string) => {
@@ -1564,6 +1592,7 @@ function App() {
       appendOutput,
       clearOutputEntries,
       folderPath,
+      handleSaveActiveFile,
       layout.activePaneId,
       refreshProjectDiagnostics,
       refreshGitStatus,
@@ -1883,6 +1912,14 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "p") {
         e.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE);
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "s"
+      ) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.SAVE);
       }
       if (
         (e.metaKey || e.ctrlKey) &&

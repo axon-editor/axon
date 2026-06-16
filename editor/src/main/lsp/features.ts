@@ -788,8 +788,10 @@ function publishLanguageServerDiagnostics(
         message?: unknown;
         severity?: unknown;
         source?: unknown;
+        code?: unknown;
         range?: {
           start?: { line?: unknown; character?: unknown };
+          end?: { line?: unknown; character?: unknown };
         };
       };
       if (typeof rawDiagnostic.message !== "string") return null;
@@ -802,6 +804,14 @@ function publishLanguageServerDiagnostics(
         typeof rawDiagnostic.range?.start?.character === "number"
           ? rawDiagnostic.range.start.character + 1
           : 1;
+      const endLine =
+        typeof rawDiagnostic.range?.end?.line === "number"
+          ? rawDiagnostic.range.end.line + 1
+          : line;
+      const endColumn =
+        typeof rawDiagnostic.range?.end?.character === "number"
+          ? rawDiagnostic.range.end.character + 1
+          : column + 1;
       const severity = normalizeLanguageServerDiagnosticSeverity(
         rawDiagnostic.severity,
       );
@@ -816,6 +826,13 @@ function publishLanguageServerDiagnostics(
         message: rawDiagnostic.message,
         line,
         column,
+        endLine: Math.max(line, endLine),
+        endColumn: Math.max(column + 1, endColumn),
+        code:
+          typeof rawDiagnostic.code === "string" ||
+          typeof rawDiagnostic.code === "number"
+            ? rawDiagnostic.code
+            : undefined,
         severity,
         source,
       };
@@ -960,6 +977,18 @@ function initializeLanguageServer(session: LanguageServerSession) {
           synchronization: {
             didSave: true,
             dynamicRegistration: false,
+          },
+          publishDiagnostics: {
+            // typescript-language-server explicitly checks this capability
+            // before it forwards tsserver semantic/syntax diagnostics to the
+            // editor. Without it, completions and hover can work while real
+            // type errors such as ts2322 never appear, which makes Axon look
+            // healthy until the user expects VS Code/Zed-style squiggles.
+            relatedInformation: true,
+            versionSupport: true,
+            tagSupport: {
+              valueSet: [1, 2],
+            },
           },
           completion: {
             completionItem: {

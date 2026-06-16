@@ -641,6 +641,26 @@ export default function SingleEditor({
     return () => window.removeEventListener("axon:saveFile", handleMenuSave);
   }, [handleSave]);
 
+  useEffect(() => {
+    const handleExternalSave = (event: Event) => {
+      const saveEvent = event as CustomEvent<{ path?: string }>;
+      if (saveEvent.detail?.path !== filePathRef.current) return;
+
+      // App-level save writes the shared Monaco model directly so Cmd/Ctrl+S
+      // still works when focus is outside this editor widget. This mounted
+      // editor still owns the dirty comparison baseline, so I refresh it here
+      // after any successful external save. Without this, a file could look
+      // clean immediately after saving and then become dirty again on the next
+      // edit because the editor was still comparing against the old disk text.
+      diskContentRef.current = editorRef.current?.getValue() ?? "";
+      onDirtyChange(filePathRef.current, false);
+    };
+
+    window.addEventListener("axon:fileSaved", handleExternalSave);
+    return () =>
+      window.removeEventListener("axon:fileSaved", handleExternalSave);
+  }, [onDirtyChange]);
+
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
     setEditorReadyNonce((nonce) => nonce + 1);
