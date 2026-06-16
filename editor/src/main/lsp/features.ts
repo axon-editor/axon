@@ -32,7 +32,12 @@ import {
   type LanguageServerLocation,
 } from "../../shared/lsp";
 import { readSettingsForFolder } from "../settings/io";
-import { LANGUAGE_SERVER_DEFINITIONS, type LanguageServerDefinition, type LanguageServerStartAttempt, type ResolvedLanguageServerCommand } from "./definitions";
+import {
+  LANGUAGE_SERVER_DEFINITIONS,
+  type LanguageServerDefinition,
+  type LanguageServerStartAttempt,
+  type ResolvedLanguageServerCommand,
+} from "./definitions";
 import {
   emitLanguageServerLog,
   getLanguageServerInitializationOptions,
@@ -222,8 +227,7 @@ function normalizeLanguageServerLocations(result: unknown) {
   return rawLocations
     .map(normalizeLanguageServerLocation)
     .filter(
-      (location): location is LanguageServerLocation =>
-        location !== undefined,
+      (location): location is LanguageServerLocation => location !== undefined,
     );
 }
 
@@ -267,9 +271,7 @@ function normalizeWorkspaceEdit(result: unknown) {
 
       const normalizedEdits = edits
         .map(normalizeLanguageServerTextEdit)
-        .filter(
-          (edit): edit is LanguageServerTextEdit => edit !== undefined,
-        );
+        .filter((edit): edit is LanguageServerTextEdit => edit !== undefined);
       if (normalizedEdits.length > 0) editsByFile[filePath] = normalizedEdits;
     }
   }
@@ -297,9 +299,7 @@ function normalizeWorkspaceEdit(result: unknown) {
 
       const normalizedEdits = rawChange.edits
         .map(normalizeLanguageServerTextEdit)
-        .filter(
-          (edit): edit is LanguageServerTextEdit => edit !== undefined,
-        );
+        .filter((edit): edit is LanguageServerTextEdit => edit !== undefined);
       if (normalizedEdits.length > 0) {
         editsByFile[filePath] = [
           ...(editsByFile[filePath] ?? []),
@@ -317,7 +317,10 @@ function normalizeLanguageServerCompletionItems(
 ): LanguageServerCompletionItem[] {
   const rawItems = Array.isArray(result)
     ? result
-    : result && typeof result === "object" && "items" in result && Array.isArray(result.items)
+    : result &&
+        typeof result === "object" &&
+        "items" in result &&
+        Array.isArray(result.items)
       ? result.items
       : [];
 
@@ -346,9 +349,7 @@ function normalizeLanguageServerCompletionItems(
       // additionalTextEdits for things like auto-imports. Axon keeps this
       // payload narrow and validated before it crosses IPC so the renderer can
       // feel like a real editor without receiving arbitrary server objects.
-      const textEdit = normalizeLanguageServerTextEdit(
-        completionItem.textEdit,
-      );
+      const textEdit = normalizeLanguageServerTextEdit(completionItem.textEdit);
       const additionalTextEdits = normalizeLanguageServerTextEdits(
         completionItem.additionalTextEdits,
       );
@@ -409,31 +410,48 @@ export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   ) {
     return "typescript" satisfies LanguageServerDefinition["id"];
   }
-  if (normalizedLanguageId === "go") return "go" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "rust") return "rust" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "python") return "python" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "java") return "java" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "go")
+    return "go" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "rust")
+    return "rust" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "python")
+    return "python" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "java")
+    return "java" satisfies LanguageServerDefinition["id"];
   if (normalizedLanguageId === "csharp") {
     return "csharp" satisfies LanguageServerDefinition["id"];
   }
   if (normalizedLanguageId === "kotlin") {
     return "kotlin" satisfies LanguageServerDefinition["id"];
   }
-  if (normalizedLanguageId === "php") return "php" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "lua") return "lua" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "php")
+    return "php" satisfies LanguageServerDefinition["id"];
+  if (normalizedLanguageId === "lua")
+    return "lua" satisfies LanguageServerDefinition["id"];
   if (normalizedLanguageId === "cpp" || normalizedLanguageId === "c") {
     return "cpp" satisfies LanguageServerDefinition["id"];
   }
   if (normalizedLanguageId === "dockerfile") {
     return "docker" satisfies LanguageServerDefinition["id"];
   }
+  if (normalizedLanguageId === "html") {
+    return "html" satisfies LanguageServerDefinition["id"];
+  }
   if (
-    normalizedLanguageId === "html" ||
     normalizedLanguageId === "css" ||
     normalizedLanguageId === "scss" ||
     normalizedLanguageId === "less"
   ) {
-    return "tailwind" satisfies LanguageServerDefinition["id"];
+    return "css" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "json" || normalizedLanguageId === "jsonc") {
+    return "json" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "yaml") {
+    return "yaml" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "shell") {
+    return "bash" satisfies LanguageServerDefinition["id"];
   }
 
   return null;
@@ -715,7 +733,9 @@ function publishLanguageServerDiagnostics(
         source,
       };
     })
-    .filter((diagnostic): diagnostic is EditorDiagnostic => diagnostic !== null);
+    .filter(
+      (diagnostic): diagnostic is EditorDiagnostic => diagnostic !== null,
+    );
 
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
@@ -822,7 +842,11 @@ function disposeLanguageServerSession(session: LanguageServerSession) {
 }
 
 function initializeLanguageServer(session: LanguageServerSession) {
-  if (session.disposed || session.process.killed || session.process.exitCode !== null) {
+  if (
+    session.disposed ||
+    session.process.killed ||
+    session.process.exitCode !== null
+  ) {
     return;
   }
 
@@ -922,14 +946,20 @@ function initializeLanguageServer(session: LanguageServerSession) {
     })
     .catch((err) => {
       console.error("[LSP INIT FAIL]", session.id, err.message, session.stderr);
-      if (session.disposed || session.process.killed || session.process.exitCode !== null) {
+      if (
+        session.disposed ||
+        session.process.killed ||
+        session.process.exitCode !== null
+      ) {
         return;
       }
 
       session.stderr = `${session.stderr}\n${err.message}`.slice(-4000);
       emitLanguageServerLog(session, "error", err.message);
 
-      if (session.initializeRetryCount >= LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES) {
+      if (
+        session.initializeRetryCount >= LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES
+      ) {
         return;
       }
 
@@ -1007,11 +1037,7 @@ function startLanguageServerDefinition(
       };
 
       child.stdout.on("data", (chunk: Buffer) => {
-        readLanguageServerMessages(
-          session,
-          chunk,
-          handleLanguageServerPayload,
-        );
+        readLanguageServerMessages(session, chunk, handleLanguageServerPayload);
       });
       child.stderr.on("data", (chunk) => {
         const message = chunk.toString();
@@ -1019,7 +1045,11 @@ function startLanguageServerDefinition(
         emitLanguageServerLog(session, "error", message);
       });
 
-      void waitForLanguageServerSpawn(child, definition.label)
+      // waitForLanguageServerSpawn resolves when the process emits 'spawn'.
+      // Returning this promise means the caller learns whether the initial
+      // spawn succeeded or failed -- which is what the App.tsx retry gate
+      // depends on to release the startKey on failure.
+      return waitForLanguageServerSpawn(child, definition.label)
         .then(() => {
           activeLanguageServers.set(key, session);
           activeLanguageServerFailures.delete(key);
@@ -1059,9 +1089,14 @@ function startLanguageServerDefinition(
           });
 
           initializeLanguageServer(session);
+
+          return {
+            label: definition.label,
+            ok: true,
+            message: `${definition.label} started.`,
+          };
         })
         .catch((err) => {
-          console.error("[LSP FATAL]", definition.label, err.message, session.stderr);
           disposeLanguageServerSession(session);
           activeLanguageServerFailures.set(key, {
             message: [
@@ -1079,13 +1114,19 @@ function startLanguageServerDefinition(
             new Error(`${definition.label} language server failed.`),
           );
           activeLanguageServers.delete(key);
-        });
 
-      return {
-        label: definition.label,
-        ok: true,
-        message: `${definition.label} started.`,
-      };
+          // Returning ok:false here is what makes the App.tsx retry gate work.
+          // Without this, the renderer always sees ok:true and never releases
+          // the startKey, which permanently blocks the retry on the next file open.
+          return {
+            label: definition.label,
+            ok: false,
+            message:
+              err instanceof Error
+                ? err.message
+                : `${definition.label} failed to start.`,
+          };
+        });
     } catch (err) {
       activeLanguageServers.delete(key);
       activeLanguageServerFailures.set(key, {
@@ -1134,7 +1175,10 @@ export async function startRelevantLanguageServers(
   const statuses = await getLanguageServerStatus(folderPath);
   const startableServers = statuses.filter(
     (server) =>
-      server.relevant && server.available && server.startable && !server.running,
+      server.relevant &&
+      server.available &&
+      server.startable &&
+      !server.running,
   );
   const attempts: LanguageServerStartAttempt[] = [];
 
@@ -1295,7 +1339,10 @@ export function getLanguageServerStatus(
   return Promise.all(
     LANGUAGE_SERVER_DEFINITIONS.map(async (definition) => {
       const resolved = resolveLanguageServerCommand(definition, folderPath);
-      const relevant = hasWorkspaceMarker(folderPath, definition.workspaceMarkers);
+      const relevant = hasWorkspaceMarker(
+        folderPath,
+        definition.workspaceMarkers,
+      );
       const available = await canRunCommand(resolved.command, resolved.args);
       const sessionKey = getLanguageServerSessionKey(folderPath, definition.id);
       const running = activeLanguageServers.has(sessionKey);
@@ -1304,7 +1351,9 @@ export function getLanguageServerStatus(
       const pythonInterpreter =
         definition.id === "python"
           ? settings.lsp.pythonInterpreterPath ||
-            getPythonInterpreterFromVirtualEnv(settings.lsp.pythonVirtualEnvPath)
+            getPythonInterpreterFromVirtualEnv(
+              settings.lsp.pythonVirtualEnvPath,
+            )
           : "";
       const status = running
         ? "running"
@@ -1378,18 +1427,25 @@ export async function getLanguageServerCompletions(
     );
     if (!definition) return { ok: true, items: [] };
 
-    const resolved = resolveLanguageServerCommand(definition, request.folderPath);
+    const resolved = resolveLanguageServerCommand(
+      definition,
+      request.folderPath,
+    );
     const available = await canRunCommand(resolved.command, resolved.args);
     if (!available || !resolved.startable) {
       return { ok: true, items: [] };
     }
 
-    const sessionKey = getLanguageServerSessionKey(request.folderPath, serverId);
+    const sessionKey = getLanguageServerSessionKey(
+      request.folderPath,
+      serverId,
+    );
     if (!warmingLanguageServerKeys.has(sessionKey)) {
       warmingLanguageServerKeys.add(sessionKey);
-      void startLanguageServerDefinition(request.folderPath, definition).finally(
-        () => warmingLanguageServerKeys.delete(sessionKey),
-      );
+      void startLanguageServerDefinition(
+        request.folderPath,
+        definition,
+      ).finally(() => warmingLanguageServerKeys.delete(sessionKey));
     }
 
     // The first completion request is often the user's proof that a language
@@ -1710,9 +1766,7 @@ function normalizeLanguageServerSignatures(result: unknown) {
               ? rawSignature.parameters
                   .map(normalizeSignatureParameter)
                   .filter(
-                    (
-                      parameter,
-                    ): parameter is NonNullable<typeof parameter> =>
+                    (parameter): parameter is NonNullable<typeof parameter> =>
                       parameter !== undefined,
                   )
               : [],
@@ -1840,7 +1894,9 @@ export async function getLanguageServerCodeActions(
     return {
       ok: false,
       message:
-        err instanceof Error ? err.message : "Language server code action failed.",
+        err instanceof Error
+          ? err.message
+          : "Language server code action failed.",
       actions: [],
     };
   }

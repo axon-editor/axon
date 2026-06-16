@@ -20,6 +20,11 @@ const lspNavigationLanguages = [
   "dockerfile",
   "html",
   "css",
+  "scss",
+  "less",
+  "json",
+  "yaml",
+  "shell",
 ];
 
 function isFileInsideWorkspace(filePath: string, folderPath: string) {

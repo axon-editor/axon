@@ -12,6 +12,36 @@ export function detectLanguage(path: string): string {
   const fileName = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   const ext = path.split(".").pop()?.toLowerCase();
 
+  // Basename-sensitive files need to be handled before extension lookup
+  // because files like Dockerfile, .env.local, and .gitignore either have no
+  // useful extension or use a dot-prefix that would otherwise be mistaken for
+  // a normal extension. Mapping them here keeps syntax highlighting, snippets,
+  // and LSP startup tied to the file's real role instead of falling back to
+  // plaintext.
+  if (
+    fileName === ".env" ||
+    fileName === ".envrc" ||
+    fileName.startsWith(".env.")
+  ) {
+    return "shell";
+  }
+
+  if (
+    fileName === "dockerfile" ||
+    fileName.startsWith("dockerfile.") ||
+    fileName === ".dockerignore"
+  ) {
+    return "dockerfile";
+  }
+
+  if (
+    fileName === ".gitignore" ||
+    fileName === ".ignore" ||
+    fileName.endsWith("ignore")
+  ) {
+    return "gitignore";
+  }
+
   if (
     fileName === "tsconfig.json" ||
     fileName === "jsconfig.json" ||

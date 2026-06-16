@@ -271,16 +271,15 @@ function drainTerminalOutput(session: TerminalSession) {
   if (session.outputWriting) return;
   const chunk = session.outputQueue.shift();
   if (!chunk || !session.term || session.disposed) return;
-  session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength);
+  // Don't decrement queuedBytes here -- xterm hasn't processed it yet.
+  // Decrementing early makes hasPendingTerminalOutput return false while
+  // bytes are still inside xterm's internal write queue, which causes
+  // reconnects to replay from the wrong offset and drop or duplicate output.
 
   session.outputWriting = true;
   session.term.write(chunk.data, () => {
-    // I only advance the replay cursor after xterm confirms the bytes have
-    // reached its parser. When Axon is streaming a lot of output, a websocket
-    // reconnect can happen while writes are still queued in the browser. If I
-    // count those bytes too early, the reconnect asks core to skip output the
-    // user never actually saw, which looks like the terminal randomly ate text.
     session.receivedBytes += chunk.byteLength;
+    session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength); 
     session.outputWriting = false;
     drainTerminalOutput(session);
   });

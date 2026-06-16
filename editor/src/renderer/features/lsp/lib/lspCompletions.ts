@@ -19,6 +19,11 @@ const lspCompletionLanguages = [
   "dockerfile",
   "html",
   "css",
+  "scss",
+  "less",
+  "json",
+  "yaml",
+  "shell",
 ];
 
 const webTagLanguages = [
@@ -53,6 +58,8 @@ const localSymbolLanguages = [
   "javascriptreact",
   "typescriptreact",
   "json",
+  "yaml",
+  "shell",
   "dockerfile",
 ];
 
