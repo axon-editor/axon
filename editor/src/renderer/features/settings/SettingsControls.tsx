@@ -10,7 +10,7 @@ export function SettingsField({
   children: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[180px_1fr] items-center gap-4">
+    <div className="grid grid-cols-1 gap-3 rounded-lg border border-[#1d2432] bg-[#0b0f17] p-4 transition-colors hover:border-[#2a3346] md:grid-cols-[210px_1fr] md:items-center">
       <div className="min-w-0">
         <div className="text-[12px] font-medium text-[#c8d0e0]">{label}</div>
         {description ? (
@@ -40,7 +40,7 @@ export function SettingsTextInput({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
-      className={`h-8 w-full rounded border border-[#222838] bg-[#0e1018] px-2 text-[12px] text-[#c8d0e0] outline-none transition-colors placeholder:text-[#3f485a] focus:border-[#80c8e0] ${
+      className={`h-9 w-full rounded-md border border-[#222838] bg-[#070a10] px-3 text-[12px] text-[#c8d0e0] outline-none transition-colors placeholder:text-[#3f485a] focus:border-[#80c8e0] ${
         monospace ? "font-mono" : ""
       }`}
     />
@@ -66,7 +66,7 @@ export function SettingsToggle({
         if (!disabled) onChange(!checked);
       }}
       aria-pressed={checked}
-      className="flex w-fit cursor-pointer items-center gap-2 rounded px-1 py-1 text-[12px] text-[#c8d0e0] transition-colors hover:bg-[#151923] disabled:cursor-not-allowed disabled:text-[#586478] disabled:hover:bg-transparent"
+      className="flex w-fit cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[12px] text-[#c8d0e0] transition-colors hover:bg-[#151923] disabled:cursor-not-allowed disabled:text-[#586478] disabled:hover:bg-transparent"
     >
       <span
         className={`flex h-5 w-9 items-center rounded-full border p-0.5 transition-colors ${
@@ -119,7 +119,7 @@ export function SettingsNumberSlider({
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="h-8 w-16 rounded border border-[#222838] bg-[#0e1018] px-2 text-[12px] text-[#c8d0e0] outline-none transition-colors focus:border-[#80c8e0]"
+        className="h-9 w-20 rounded-md border border-[#222838] bg-[#070a10] px-2 text-[12px] text-[#c8d0e0] outline-none transition-colors focus:border-[#80c8e0]"
       />
     </div>
   );
@@ -136,9 +136,9 @@ export function SettingsSection({
 }) {
   return (
     <section className="space-y-5">
-      <div>
-        <h2 className="text-[15px] font-semibold text-white">{title}</h2>
-        <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[#647086]">
+      <div className="rounded-xl border border-[#1d2432] bg-[#0b0f17] px-5 py-4">
+        <h2 className="text-[16px] font-semibold text-white">{title}</h2>
+        <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#7f8aa3]">
           {description}
         </p>
       </div>

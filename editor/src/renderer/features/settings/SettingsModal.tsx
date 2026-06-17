@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Braces,
+  Check,
+  Circle,
   FolderOpen,
   Image,
   Keyboard,
   Palette,
+  RotateCcw,
+  Save,
+  Search,
   Settings2,
   Sparkles,
   Trash2,
@@ -111,6 +116,7 @@ export default function SettingsModal({
   const [draft, setDraft] = useState(settings);
   const [activeSection, setActiveSection] =
     useState<SettingsSectionId>("appearance");
+  const [sectionQuery, setSectionQuery] = useState("");
   const [fontImportError, setFontImportError] = useState<string | null>(null);
   const [backgroundImageError, setBackgroundImageError] = useState<
     string | null
@@ -170,6 +176,26 @@ export default function SettingsModal({
       }),
     [draft, extensionState],
   );
+  const activeSectionMeta =
+    SETTINGS_SECTIONS.find((section) => section.id === activeSection) ??
+    SETTINGS_SECTIONS[0];
+  const ActiveSectionIcon = sectionIcons[activeSectionMeta.id];
+  const normalizedInitialSettings = useMemo(
+    () => normalizeSettings(initialSettingsRef.current),
+    [],
+  );
+  const normalizedDraft = normalizeSettings(draft);
+  const dirty =
+    JSON.stringify(normalizedDraft) !== JSON.stringify(normalizedInitialSettings);
+  const filteredSections = useMemo(() => {
+    const normalizedQuery = sectionQuery.trim().toLowerCase();
+    if (!normalizedQuery) return SETTINGS_SECTIONS;
+    return SETTINGS_SECTIONS.filter((section) =>
+      `${section.label} ${section.description}`
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [sectionQuery]);
 
   useEffect(() => {
     if (invalidThemeTokens.length > 0) return;
@@ -537,22 +563,77 @@ export default function SettingsModal({
   };
 
   return (
-    <CommandModal title="settings" onClose={close} width="w-[920px]">
-      <div className="grid h-[min(680px,calc(100vh-11.5rem))] grid-cols-[240px_1fr] overflow-hidden">
-        <aside className="flex min-h-0 flex-col border-r border-[#222838] bg-[#0b0d13]">
-          <div className="border-b border-[#222838] px-4 py-3">
-            <div className="flex items-center gap-2 text-[12px] font-medium text-[#dce4f0]">
-              <Braces size={14} className="text-[#80c8e0]" />
-              settings.json
+    <CommandModal
+      onClose={close}
+      width="w-[min(1080px,calc(100vw-2rem))]"
+      bodyClassName="min-h-0 overflow-hidden"
+    >
+      <div className="flex h-[min(760px,calc(100vh-7.5rem))] min-h-0 flex-col overflow-hidden bg-[#0a0d13]">
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#1d2432] bg-[#0f1320] px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#243044] bg-[#151b29] text-[#80c8e0]">
+              <Settings2 size={18} />
             </div>
-            <div className="mt-1 text-[11px] leading-4 text-[#586478]">
-              UI changes save to Axon's app settings. Project settings stay
-              manual unless you create them yourself.
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="truncate text-[15px] font-semibold text-white">
+                  Settings
+                </h2>
+                {dirty ? (
+                  <span className="flex items-center gap-1 rounded-full border border-[#3a2d1e] bg-[#1d170f] px-2 py-0.5 text-[10px] text-[#ffcc7a]">
+                    <Circle size={7} fill="currentColor" />
+                    unsaved
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 rounded-full border border-[#1e3328] bg-[#0f1b15] px-2 py-0.5 text-[10px] text-[#8fe3a2]">
+                    <Check size={10} />
+                    saved
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 truncate text-[11px] text-[#647086]">
+                Tune Axon without leaving your workspace.
+              </p>
             </div>
           </div>
 
-          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-            {SETTINGS_SECTIONS.map((section) => {
+          <div className="hidden min-w-0 items-center gap-2 text-[10px] text-[#647086] md:flex">
+            <span className="rounded-md border border-[#222838] bg-[#0a0d13] px-2 py-1">
+              {folderPath ? "workspace scope" : "user scope"}
+            </span>
+            <span className="rounded-md border border-[#222838] bg-[#0a0d13] px-2 py-1">
+              live preview
+            </span>
+          </div>
+        </header>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[280px_1fr] overflow-hidden">
+          <aside className="flex min-h-0 flex-col border-r border-[#1d2432] bg-[#080b11]">
+            <div className="shrink-0 space-y-3 border-b border-[#1d2432] p-4">
+              <div className="flex items-center gap-2 rounded-lg border border-[#1d2432] bg-[#05070c] px-3 py-2">
+                <Search size={13} className="shrink-0 text-[#586478]" />
+                <input
+                  value={sectionQuery}
+                  onChange={(event) => setSectionQuery(event.target.value)}
+                  placeholder="Search settings..."
+                  className="min-w-0 flex-1 bg-transparent text-[12px] text-[#dce4f0] outline-none placeholder:text-[#465166]"
+                />
+              </div>
+
+              <div className="rounded-lg border border-[#1d2432] bg-[#0d111a] p-3">
+                <div className="flex items-center gap-2 text-[12px] font-medium text-[#dce4f0]">
+                  <Braces size={14} className="text-[#80c8e0]" />
+                  settings.json
+                </div>
+                <div className="mt-1 text-[11px] leading-4 text-[#647086]">
+                  UI changes preview instantly, then save into Axon's settings
+                  store.
+                </div>
+              </div>
+            </div>
+
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
+            {filteredSections.map((section) => {
               const Icon = sectionIcons[section.id];
               const active = section.id === activeSection;
               const hasError =
@@ -564,23 +645,33 @@ export default function SettingsModal({
                   key={section.id}
                   type="button"
                   onClick={() => setActiveSection(section.id)}
-                  className={`flex w-full cursor-pointer items-start gap-2 rounded-md px-3 py-2 text-left transition-colors ${
+                  className={`group flex w-full cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${
                     active
-                      ? "bg-[#1e2430] text-white"
-                      : "text-[#9aa4b8] hover:bg-[#151923] hover:text-white"
+                      ? "border-[#2f5f73] bg-[#132635] text-white shadow-[inset_3px_0_0_#80c8e0]"
+                      : "border-transparent text-[#9aa4b8] hover:border-[#1d2432] hover:bg-[#111722] hover:text-white"
                   }`}
                 >
-                  <Icon
-                    size={14}
-                    className={`mt-0.5 shrink-0 ${
-                      hasError ? "text-[#ea6c73]" : "text-[#80c8e0]"
+                  <span
+                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
+                      active
+                        ? "border-[#2f5f73] bg-[#183345]"
+                        : "border-[#1d2432] bg-[#0b0f17] group-hover:border-[#2a3346]"
                     }`}
-                  />
-                  <span className="min-w-0">
+                  >
+                    <Icon
+                      size={14}
+                      className={hasError ? "text-[#ea6c73]" : "text-[#80c8e0]"}
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1">
                     <span className="block text-[12px] font-medium">
                       {section.label}
                     </span>
-                    <span className="mt-0.5 block text-[10px] leading-4 text-[#586478]">
+                    <span
+                      className={`mt-0.5 block text-[10px] leading-4 ${
+                        active ? "text-[#9fb7c9]" : "text-[#586478]"
+                      }`}
+                    >
                       {hasError
                         ? `${invalidThemeTokens.length} invalid color value${invalidThemeTokens.length === 1 ? "" : "s"}`
                         : section.description}
@@ -589,12 +680,44 @@ export default function SettingsModal({
                 </button>
               );
             })}
+            {filteredSections.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-[#1d2432] px-3 py-6 text-center text-[11px] text-[#586478]">
+                No settings sections match that search.
+              </div>
+            ) : null}
           </nav>
         </aside>
 
         <div className="flex min-h-0 flex-col bg-[#0e1018]">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#1d2432] bg-[#0b0f17] px-6 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#243044] bg-[#151b29] text-[#80c8e0]">
+                <ActiveSectionIcon size={16} />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-[14px] font-semibold text-white">
+                  {activeSectionMeta.label}
+                </div>
+                <div className="truncate text-[11px] text-[#647086]">
+                  {activeSectionMeta.description}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(initialSettingsRef.current);
+                onPreview(initialSettingsRef.current);
+              }}
+              disabled={!dirty}
+              className="hidden h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#3f485a] disabled:hover:bg-transparent md:flex"
+            >
+              <RotateCcw size={13} />
+              Reset
+            </button>
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <div className="mb-4 rounded-md border border-[#222838] bg-[#0a0d13] px-3 py-2 text-[11px] leading-5 text-[#7f8aa3]">
+            <div className="mb-4 rounded-lg border border-[#1d2432] bg-[#0b0f17] px-4 py-3 text-[11px] leading-5 text-[#7f8aa3]">
               {folderPath ? (
                 <>
                   Workspace settings inherit from your user settings, then{" "}
@@ -1464,28 +1587,47 @@ export default function SettingsModal({
             )}
           </div>
 
-          <div className="flex h-12 shrink-0 items-center justify-between border-t border-[#222838] px-4">
-            <div className="text-[11px] text-[#586478]">
+          <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-t border-[#1d2432] bg-[#0b0f17] px-5 py-3">
+            <div className="min-w-0 text-[11px] text-[#647086]">
               {invalidThemeTokens.length > 0
                 ? "Fix invalid theme colors before saving."
-                : "Settings are normalized before they are written."}
+                : dirty
+                  ? "Review and save to keep these settings."
+                  : "Settings are normalized before they are written."}
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
+                onClick={() => {
+                  setDraft(initialSettingsRef.current);
+                  onPreview(initialSettingsRef.current);
+                }}
+                disabled={!dirty}
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#3f485a] disabled:hover:bg-transparent md:hidden"
+              >
+                <RotateCcw size={13} />
+                Reset
+              </button>
+              <button
+                type="button"
                 onClick={close}
-                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#1e2430] hover:text-white"
+                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={save}
-                className="h-8 cursor-pointer rounded-md border border-[#2a3346] bg-[#1e2430] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:border-[#222838] disabled:text-[#586478]"
+                disabled={invalidThemeTokens.length > 0 || !dirty}
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2f5f73] bg-[#142a36] px-3 text-[12px] text-[#dff7ff] transition-colors hover:bg-[#183345] hover:text-white disabled:cursor-not-allowed disabled:border-[#222838] disabled:bg-[#111722] disabled:text-[#586478]"
               >
+                <Save size={13} />
                 Save
               </button>
             </div>
           </div>
         </div>
+      </div>
       </div>
     </CommandModal>
   );
