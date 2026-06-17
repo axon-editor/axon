@@ -3,6 +3,7 @@ import {
   Braces,
   FolderOpen,
   Image,
+  Keyboard,
   Palette,
   Settings2,
   Sparkles,
@@ -26,6 +27,7 @@ import {
   EDITOR_BACKGROUND_IMAGE_FIT_ITEMS,
   EDITOR_FONT_ITEMS,
   FONT_PRESET_ITEMS,
+  MULTI_CURSOR_MODIFIER_ITEMS,
   SETTINGS_SECTIONS,
   SYNTAX_THEME_COLOR_TOKENS,
   THEME_COLOR_LABELS,
@@ -56,6 +58,7 @@ interface Props {
 const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
   appearance: Palette,
   editor: Type,
+  ergonomics: Keyboard,
   background: Image,
   syntaxColors: Palette,
   theme: Settings2,
@@ -591,6 +594,18 @@ export default function SettingsModal({
 
         <div className="flex min-h-0 flex-col bg-[#0e1018]">
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div className="mb-4 rounded-md border border-[#222838] bg-[#0a0d13] px-3 py-2 text-[11px] leading-5 text-[#7f8aa3]">
+              {folderPath ? (
+                <>
+                  Workspace settings inherit from your user settings, then{" "}
+                  <span className="font-mono text-[#c8d0e0]">axon.json</span>{" "}
+                  in this workspace can override them for this project.
+                </>
+              ) : (
+                "No workspace is open, so changes apply to your user settings only."
+              )}
+            </div>
+
             {activeSection === "appearance" && (
               <SettingsSection
                 title="Appearance"
@@ -703,6 +718,142 @@ export default function SettingsModal({
                       updateEditor("fontLigatures", checked)
                     }
                     label={draft.editor.fontLigatures ? "Enabled" : "Disabled"}
+                  />
+                </SettingsField>
+              </SettingsSection>
+            )}
+
+            {activeSection === "ergonomics" && (
+              <SettingsSection
+                title="Ergonomics"
+                description="Control the editor behaviors that affect daily writing, navigation, and reading. Changes apply immediately so you can feel the difference without restarting Axon."
+              >
+                <SettingsField
+                  label="Format on save"
+                  description="Runs the active language server formatter before writing the file. Saving still succeeds if a formatter is unavailable."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.formatOnSave}
+                    onChange={(checked) =>
+                      updateEditor("formatOnSave", checked)
+                    }
+                    label={draft.editor.formatOnSave ? "Enabled" : "Disabled"}
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Snippets"
+                  description="Shows Axon and language-server snippets in the completion popup."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.snippetsEnabled}
+                    onChange={(checked) =>
+                      updateEditor("snippetsEnabled", checked)
+                    }
+                    label={
+                      draft.editor.snippetsEnabled ? "Enabled" : "Disabled"
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Emmet"
+                  description="Expands common HTML and JSX abbreviations such as .card, button.primary, and section.hero."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.emmetEnabled}
+                    onChange={(checked) => updateEditor("emmetEnabled", checked)}
+                    label={draft.editor.emmetEnabled ? "Enabled" : "Disabled"}
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Multi-cursor modifier"
+                  description="Choose the modifier used for adding cursors with mouse clicks."
+                >
+                  <SearchSelect
+                    value={draft.editor.multiCursorModifier}
+                    items={MULTI_CURSOR_MODIFIER_ITEMS}
+                    onChange={(modifier) =>
+                      updateEditor("multiCursorModifier", modifier)
+                    }
+                    ariaLabel="Multi-cursor modifier"
+                    placeholder="Select modifier..."
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Breadcrumbs"
+                  description="Shows the current file path and nearest symbol above the editor."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.breadcrumbsEnabled}
+                    onChange={(checked) =>
+                      updateEditor("breadcrumbsEnabled", checked)
+                    }
+                    label={
+                      draft.editor.breadcrumbsEnabled ? "Enabled" : "Disabled"
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Sticky scroll"
+                  description="Keeps the current scope visible at the top while scrolling through long files."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.stickyScrollEnabled}
+                    onChange={(checked) =>
+                      updateEditor("stickyScrollEnabled", checked)
+                    }
+                    label={
+                      draft.editor.stickyScrollEnabled ? "Enabled" : "Disabled"
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Code folding"
+                  description="Enables fold controls and folding keyboard commands."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.codeFoldingEnabled}
+                    onChange={(checked) =>
+                      updateEditor("codeFoldingEnabled", checked)
+                    }
+                    label={
+                      draft.editor.codeFoldingEnabled ? "Enabled" : "Disabled"
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Minimap"
+                  description="Shows a compact file map on the right side of the editor."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.minimapEnabled}
+                    onChange={(checked) =>
+                      updateEditor("minimapEnabled", checked)
+                    }
+                    label={draft.editor.minimapEnabled ? "Enabled" : "Disabled"}
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Scrollbar markers"
+                  description="Shows diagnostics, search matches, and decorations in the overview ruler."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.scrollbarMarkersEnabled}
+                    onChange={(checked) =>
+                      updateEditor("scrollbarMarkersEnabled", checked)
+                    }
+                    label={
+                      draft.editor.scrollbarMarkersEnabled
+                        ? "Enabled"
+                        : "Disabled"
+                    }
                   />
                 </SettingsField>
               </SettingsSection>

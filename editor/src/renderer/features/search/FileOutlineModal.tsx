@@ -14,7 +14,7 @@ interface Props {
 function symbolIcon(kind: FileSymbol["kind"]) {
   if (kind === "function" || kind === "method") return FunctionSquare;
   if (kind === "class" || kind === "struct") return Box;
-  if (kind === "interface" || kind === "type") return Braces;
+  if (kind === "interface" || kind === "type" || kind === "enum" || kind === "namespace") return Braces;
   return CircleDot;
 }
 

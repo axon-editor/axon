@@ -101,6 +101,8 @@ const webTagSnippets = [
   },
 ];
 
+const emmetVoidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
+
 const dockerfileSnippets = [
   ["FROM", "FROM ${1:node:22-alpine}"],
   ["WORKDIR", "WORKDIR ${1:/app}"],
@@ -270,6 +272,14 @@ function getLinePrefix(model: monaco.editor.ITextModel, position: monaco.Positio
   return model.getLineContent(position.lineNumber).slice(0, position.column - 1);
 }
 
+function snippetsEnabled() {
+  return window.axonEditorSettings?.editor.snippetsEnabled !== false;
+}
+
+function emmetEnabled() {
+  return window.axonEditorSettings?.editor.emmetEnabled !== false;
+}
+
 function isClassLikeCompletionContext(linePrefix: string) {
   return /\b(class|className)\s*=\s*["'`][^"'`]*$/i.test(linePrefix) ||
     /@apply\s+[^;{}]*$/i.test(linePrefix);
@@ -406,6 +416,7 @@ function registerWebTagSnippets(monacoInstance: typeof monaco) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
       triggerCharacters: ["<", "d", "s", "m", "b", "i", "f"],
       provideCompletionItems: (model, position) => {
+        if (!snippetsEnabled()) return { suggestions: [] };
         if (!isTagSnippetCompletionContext(model, position)) {
           return { suggestions: [] };
         }
@@ -435,10 +446,100 @@ function registerWebTagSnippets(monacoInstance: typeof monaco) {
   }
 }
 
+function parseEmmetAbbreviation(rawWord: string) {
+  const match = /^(?<tag>[A-Za-z][\w-]*)?(?<modifiers>(?:[.#][A-Za-z_][\w-]*)+)$/.exec(rawWord);
+  if (!match?.groups) return null;
+
+  const tag = match.groups.tag || "div";
+  const classes: string[] = [];
+  let id = "";
+  const modifierPattern = /([.#])([A-Za-z_][\w-]*)/g;
+  let modifierMatch: RegExpExecArray | null;
+  while ((modifierMatch = modifierPattern.exec(match.groups.modifiers))) {
+    if (modifierMatch[1] === "#") {
+      id = modifierMatch[2];
+    } else {
+      classes.push(modifierMatch[2]);
+    }
+  }
+
+  return { tag, id, classes };
+}
+
+function buildEmmetSnippet(
+  abbreviation: ReturnType<typeof parseEmmetAbbreviation>,
+  languageId: string,
+) {
+  if (!abbreviation) return "";
+  const classAttribute =
+    languageId === "javascriptreact" || languageId === "typescriptreact"
+      ? "className"
+      : "class";
+  const attributes = [
+    abbreviation.id ? `id="${abbreviation.id}"` : "",
+    abbreviation.classes.length > 0
+      ? `${classAttribute}="${abbreviation.classes.join(" ")}"`
+      : "",
+  ].filter(Boolean);
+  const attributeText = attributes.length > 0 ? ` ${attributes.join(" ")}` : "";
+
+  if (emmetVoidTags.has(abbreviation.tag.toLowerCase())) {
+    return `<${abbreviation.tag}${attributeText} />`;
+  }
+
+  return `<${abbreviation.tag}${attributeText}>$0</${abbreviation.tag}>`;
+}
+
+function registerEmmetAbbreviationProvider(monacoInstance: typeof monaco) {
+  for (const languageId of webTagLanguages) {
+    monacoInstance.languages.registerCompletionItemProvider(languageId, {
+      triggerCharacters: [".", "#"],
+      provideCompletionItems: (model, position) => {
+        if (!emmetEnabled()) return { suggestions: [] };
+        if (!isTagSnippetCompletionContext(model, position)) {
+          return { suggestions: [] };
+        }
+
+        const linePrefix = getLinePrefix(model, position);
+        const match = /([A-Za-z][\w-]*)?(?:[.#][A-Za-z_][\w-]*)+$/.exec(linePrefix);
+        if (!match) return { suggestions: [] };
+
+        const abbreviation = parseEmmetAbbreviation(match[0]);
+        const insertText = buildEmmetSnippet(abbreviation, languageId);
+        if (!abbreviation || !insertText) return { suggestions: [] };
+
+        return {
+          suggestions: [
+            {
+              label: match[0],
+              kind: monacoInstance.languages.CompletionItemKind.Snippet,
+              insertText,
+              insertTextRules:
+                monacoInstance.languages.CompletionItemInsertTextRule
+                  .InsertAsSnippet,
+              detail: "Emmet abbreviation",
+              documentation:
+                "Expands a compact HTML or JSX abbreviation into a real element.",
+              range: new monaco.Range(
+                position.lineNumber,
+                position.column - match[0].length,
+                position.lineNumber,
+                position.column,
+              ),
+              sortText: "0000",
+            },
+          ],
+        };
+      },
+    });
+  }
+}
+
 function registerDockerfileSnippets(monacoInstance: typeof monaco) {
   monacoInstance.languages.registerCompletionItemProvider("dockerfile", {
     triggerCharacters: ["F", "W", "C", "R", "E", "A"],
     provideCompletionItems: (model, position) => {
+      if (!snippetsEnabled()) return { suggestions: [] };
       const range = getWordReplaceRange(model, position);
       const word = model.getWordUntilPosition(position).word.toUpperCase();
       return {
@@ -559,7 +660,11 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
 
         const range = getWordReplaceRange(model, position);
         return {
-          suggestions: result.items.map((item) => {
+          suggestions: result.items
+            .filter(
+              (item) => snippetsEnabled() || item.insertTextFormat !== 2,
+            )
+            .map((item) => {
             const textEditRange = toMonacoRange(item.textEdit?.range);
             const insertText = item.textEdit?.newText ?? item.insertText ?? item.label;
 
@@ -611,6 +716,7 @@ export function configureLspCompletions(monacoInstance: typeof monaco = monaco) 
   // snippets keep common tags like `div` available before a server warms up.
   registerLocalSymbolProvider(monacoInstance);
   registerWebTagSnippets(monacoInstance);
+  registerEmmetAbbreviationProvider(monacoInstance);
   registerDockerfileSnippets(monacoInstance);
   registerPythonBuiltins(monacoInstance);
   registerTailwindUtilityProvider(monacoInstance);

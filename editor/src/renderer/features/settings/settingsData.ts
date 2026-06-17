@@ -3,6 +3,7 @@ import {
   BUILT_IN_THEME_IDS,
   EDITOR_FONT_FAMILIES,
   EDITOR_BACKGROUND_IMAGE_FITS,
+  EDITOR_MULTI_CURSOR_MODIFIERS,
   FONT_PRESET_IDS,
   THEME_COLOR_TOKENS,
   THEME_LABELS,
@@ -11,6 +12,7 @@ import {
   type BuiltInThemeId,
   type EditorFontFamily,
   type EditorBackgroundImageFit,
+  type EditorMultiCursorModifier,
   type FontPresetId,
   type ThemeColorToken,
   type UiFontFamily,
@@ -20,6 +22,7 @@ import { type SearchSelectItem } from "../search/SearchSelect";
 export type SettingsSectionId =
   | "appearance"
   | "editor"
+  | "ergonomics"
   | "background"
   | "syntaxColors"
   | "fonts"
@@ -41,6 +44,11 @@ export const SETTINGS_SECTIONS: Array<{
     id: "editor",
     label: "Editor",
     description: "Text, spacing, and ligatures",
+  },
+  {
+    id: "ergonomics",
+    label: "Ergonomics",
+    description: "Navigation, snippets, and folding",
   },
   {
     id: "background",
@@ -126,6 +134,17 @@ export const EDITOR_BACKGROUND_IMAGE_FIT_ITEMS: SearchSelectItem<EditorBackgroun
   EDITOR_BACKGROUND_IMAGE_FITS.map((fit) => ({
     value: fit,
     label: EDITOR_BACKGROUND_IMAGE_FIT_LABELS[fit],
+  }));
+
+const MULTI_CURSOR_MODIFIER_LABELS: Record<EditorMultiCursorModifier, string> = {
+  alt: "Alt / Option",
+  ctrlCmd: "Ctrl / Command",
+};
+
+export const MULTI_CURSOR_MODIFIER_ITEMS: SearchSelectItem<EditorMultiCursorModifier>[] =
+  EDITOR_MULTI_CURSOR_MODIFIERS.map((modifier) => ({
+    value: modifier,
+    label: MULTI_CURSOR_MODIFIER_LABELS[modifier],
   }));
 
 const AI_PROVIDER_LABELS: Record<AiProviderId, string> = {

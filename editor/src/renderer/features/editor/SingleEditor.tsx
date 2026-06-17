@@ -2,16 +2,27 @@
 // Uses shared Monaco models via monacoModels.ts so multiple panes
 // showing the same file share one model and edits reflect instantly
 // across all panes without saving.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { ChevronDown, ChevronUp, Columns2, Eye, FileText, FileWarning, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Columns2,
+  Eye,
+  FileText,
+  FileWarning,
+  Search,
+  X,
+} from "lucide-react";
 import {
   type EditorBackgroundImageFit,
   type EditorSettings,
 } from "../../../shared/settings";
 import { editorFontStack } from "../../shared/lib/fonts";
 import { type GitChange } from "../../../shared/git";
+import { type LanguageServerTextEdit } from "../../../shared/lsp";
 import { readFile, writeFile } from "../../shared/lib/api";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { getMonacoThemeId, registerAxonTheme } from "../../shared/lib/soraTheme";
@@ -26,6 +37,7 @@ import {
   getModel,
   detectLanguage,
 } from "./lib/monacoModels";
+import { collectFileSymbols } from "../sidebar/files/lib/fileSymbols";
 
 interface Props {
   filePath: string;
@@ -110,6 +122,19 @@ function getBackgroundImageStyle(fit: EditorBackgroundImageFit) {
   }
 }
 
+function toMonacoEdit(edit: LanguageServerTextEdit) {
+  return {
+    range: new monaco.Range(
+      edit.range.start.line + 1,
+      edit.range.start.character + 1,
+      edit.range.end.line + 1,
+      edit.range.end.character + 1,
+    ),
+    text: edit.newText,
+    forceMoveMarkers: true,
+  };
+}
+
 export default function SingleEditor({
   filePath,
   folderPath,
@@ -134,6 +159,7 @@ export default function SingleEditor({
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
   const [findMatchCount, setFindMatchCount] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suggestTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
@@ -670,9 +696,45 @@ export default function SingleEditor({
   const handleSave = useCallback(async () => {
     const path = filePathRef.current;
     if (!path || saving) return;
-    const currentContent = editorRef.current?.getValue() ?? "";
+    const editor = editorRef.current;
     setSaving(true);
     try {
+      const languageId = detectLanguage(path);
+      if (
+        editorSettings.formatOnSave &&
+        folderPath &&
+        editor &&
+        languageId !== "plaintext"
+      ) {
+        try {
+          const model = editor.getModel();
+          const modelOptions = model?.getOptions();
+          const result = await window.axon.formatLanguageServerDocument({
+            folderPath,
+            filePath: path,
+            languageId,
+            content: editor.getValue(),
+            tabSize: modelOptions?.tabSize ?? 2,
+            insertSpaces: modelOptions?.insertSpaces ?? true,
+          });
+
+          if (result.ok && result.edits.length > 0) {
+            // I format the Monaco model before writing to disk so every split
+            // attached to this shared model updates immediately. Writing a
+            // formatted string directly would save the file but leave the
+            // visible editor stale until another refresh happens.
+            model?.pushEditOperations(
+              [],
+              result.edits.map(toMonacoEdit),
+              () => null,
+            );
+          }
+        } catch (err) {
+          console.error("format on save failed:", err);
+        }
+      }
+
+      const currentContent = editor?.getValue() ?? "";
       await writeFile(path, currentContent);
       diskContentRef.current = currentContent;
       onDirtyChange(path, false);
@@ -684,7 +746,7 @@ export default function SingleEditor({
     } finally {
       setSaving(false);
     }
-  }, [onDirtyChange, saving]);
+  }, [editorSettings.formatOnSave, folderPath, onDirtyChange, saving]);
 
   useEffect(() => {
     const handleMenuSave = (event: Event) => {
@@ -820,6 +882,10 @@ export default function SingleEditor({
     });
 
     editor.onDidChangeCursorPosition((e) => {
+      setCursorPosition({
+        line: e.position.lineNumber,
+        column: e.position.column,
+      });
       if (visible) {
         onCursorChange(e.position.lineNumber, e.position.column);
       }
@@ -828,6 +894,18 @@ export default function SingleEditor({
     onLanguageChange(detectLanguage(filePath));
     refreshGoSyntaxDecorations();
   };
+
+  const breadcrumbSegments = useMemo(
+    () => normalizePath(filePath).split("/").filter(Boolean).slice(-4),
+    [filePath],
+  );
+  const breadcrumbSymbols = useMemo(
+    () => collectFileSymbols(liveContent),
+    [liveContent],
+  );
+  const activeBreadcrumbSymbol = [...breadcrumbSymbols]
+    .reverse()
+    .find((symbol) => symbol.line <= cursorPosition.line);
 
   if (loading) {
     return (
@@ -863,7 +941,7 @@ export default function SingleEditor({
 
   const editorNode = (
     <div
-      className={`h-full relative flex-1 min-w-0 overflow-hidden ${
+      className={`relative flex h-full min-h-0 flex-1 flex-col overflow-hidden ${
         shouldUseTransparentEditorSurface
           ? "axon-editor-transparent-surface"
           : ""
@@ -894,8 +972,46 @@ export default function SingleEditor({
           saving...
         </div>
       )}
+      {editorSettings.breadcrumbsEnabled && (
+        <div className="relative z-10 flex h-7 min-w-0 shrink-0 items-center gap-1 border-b border-[#1d2432] bg-[rgba(10,12,18,0.72)] px-3 text-[11px] text-[#7f8aa3]">
+          {breadcrumbSegments.map((segment, index) => (
+            <span
+              key={`${segment}:${index}`}
+              className="flex min-w-0 items-center gap-1"
+            >
+              {index > 0 && (
+                <ChevronRight size={12} className="shrink-0 text-[#3d4658]" />
+              )}
+              <span
+                className={
+                  index === breadcrumbSegments.length - 1
+                    ? "max-w-[180px] truncate text-[#c8d0e0]"
+                    : "max-w-[140px] truncate"
+                }
+              >
+                {segment}
+              </span>
+            </span>
+          ))}
+          {activeBreadcrumbSymbol && (
+            <>
+              <ChevronRight size={12} className="shrink-0 text-[#3d4658]" />
+              <span className="min-w-0 truncate text-[#80c8e0]">
+                {activeBreadcrumbSymbol.name}
+              </span>
+              <span className="shrink-0 rounded bg-[#151b27] px-1.5 py-0.5 text-[10px] text-[#586478]">
+                {activeBreadcrumbSymbol.kind}
+              </span>
+            </>
+          )}
+        </div>
+      )}
       {findOpen && (
-        <div className="absolute right-4 top-3 z-20 flex h-8 items-center gap-1 rounded-md border border-[#2a3346] bg-[#10141d] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
+        <div
+          className={`absolute right-4 z-20 flex h-8 items-center gap-1 rounded-md border border-[#2a3346] bg-[#10141d] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] ${
+            editorSettings.breadcrumbsEnabled ? "top-10" : "top-3"
+          }`}
+        >
           <Search size={13} className="text-[#586478]" />
           <input
             ref={findInputRef}
@@ -946,7 +1062,8 @@ export default function SingleEditor({
           </Tooltip>
         </div>
       )}
-      <Editor
+      <div className="relative z-10 h-full min-h-0 w-full flex-1 overflow-hidden">
+        <Editor
         height="100%"
         theme={getMonacoThemeId(editorSettings.themeId)}
         beforeMount={(monacoInstance) =>
@@ -969,10 +1086,34 @@ export default function SingleEditor({
           letterSpacing: 0,
           fontLigatures: editorSettings.fontLigatures,
           "semanticHighlighting.enabled": false,
-          minimap: { enabled: false },
+          minimap: { enabled: editorSettings.minimapEnabled },
           scrollBeyondLastLine: false,
           lineNumbers: "on",
           glyphMargin: true,
+          folding: editorSettings.codeFoldingEnabled,
+          showFoldingControls: editorSettings.codeFoldingEnabled
+            ? "mouseover"
+            : "never",
+          stickyScroll: { enabled: editorSettings.stickyScrollEnabled },
+          overviewRulerLanes: editorSettings.scrollbarMarkersEnabled ? 3 : 0,
+          hideCursorInOverviewRuler: !editorSettings.scrollbarMarkersEnabled,
+          multiCursorModifier:
+            editorSettings.multiCursorModifier === "ctrlCmd"
+              ? "ctrlCmd"
+              : "alt",
+          multiCursorPaste: "spread",
+          multiCursorMergeOverlapping: true,
+          bracketPairColorization: { enabled: true },
+          guides: {
+            bracketPairs: true,
+            indentation: true,
+            highlightActiveIndentation: true,
+          },
+          scrollbar: {
+            vertical: "auto",
+            horizontal: "auto",
+            useShadows: false,
+          },
           quickSuggestions: {
             other: true,
             comments: false,
@@ -981,18 +1122,19 @@ export default function SingleEditor({
           quickSuggestionsDelay: 0,
           suggestOnTriggerCharacters: true,
           acceptSuggestionOnCommitCharacter: true,
-          snippetSuggestions: "top",
+          snippetSuggestions: editorSettings.snippetsEnabled ? "top" : "none",
           suggest: {
-            showSnippets: true,
+            showSnippets: editorSettings.snippetsEnabled,
             snippetsPreventQuickSuggestions: false,
           },
-          tabCompletion: "on",
+          tabCompletion: editorSettings.snippetsEnabled ? "on" : "off",
           renderLineHighlight: "line",
           padding: { top: 16 },
           cursorBlinking: "expand",
           smoothScrolling: true,
         }}
-      />
+        />
+      </div>
     </div>
   );
 

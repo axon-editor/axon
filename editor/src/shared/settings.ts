@@ -72,6 +72,10 @@ export const EDITOR_BACKGROUND_IMAGE_FITS = [
 export type EditorBackgroundImageFit =
   (typeof EDITOR_BACKGROUND_IMAGE_FITS)[number];
 
+export const EDITOR_MULTI_CURSOR_MODIFIERS = ["alt", "ctrlCmd"] as const;
+export type EditorMultiCursorModifier =
+  (typeof EDITOR_MULTI_CURSOR_MODIFIERS)[number];
+
 export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "axon-dark": "Axon Dark",
   sora: "Sora",
@@ -142,6 +146,15 @@ export interface EditorSettings {
   backgroundImageOpacity: number;
   backgroundImageBlur: number;
   backgroundImageFit: EditorBackgroundImageFit;
+  breadcrumbsEnabled: boolean;
+  codeFoldingEnabled: boolean;
+  emmetEnabled: boolean;
+  formatOnSave: boolean;
+  minimapEnabled: boolean;
+  multiCursorModifier: EditorMultiCursorModifier;
+  scrollbarMarkersEnabled: boolean;
+  snippetsEnabled: boolean;
+  stickyScrollEnabled: boolean;
 }
 
 export interface AxonSettings {
@@ -186,6 +199,15 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     backgroundImageOpacity: 0.14,
     backgroundImageBlur: 0,
     backgroundImageFit: "cover",
+    breadcrumbsEnabled: true,
+    codeFoldingEnabled: true,
+    emmetEnabled: true,
+    formatOnSave: false,
+    minimapEnabled: false,
+    multiCursorModifier: "alt",
+    scrollbarMarkersEnabled: true,
+    snippetsEnabled: true,
+    stickyScrollEnabled: true,
   },
   ai: {
     enabled: false,
@@ -233,6 +255,17 @@ function isEditorBackgroundImageFit(
     typeof value === "string" &&
     EDITOR_BACKGROUND_IMAGE_FITS.includes(
       value as EditorBackgroundImageFit,
+    )
+  );
+}
+
+function isEditorMultiCursorModifier(
+  value: unknown,
+): value is EditorMultiCursorModifier {
+  return (
+    typeof value === "string" &&
+    EDITOR_MULTI_CURSOR_MODIFIERS.includes(
+      value as EditorMultiCursorModifier,
     )
   );
 }
@@ -397,6 +430,43 @@ export function normalizeSettings(value: unknown): AxonSettings {
       )
         ? editor.backgroundImageFit
         : DEFAULT_SETTINGS.editor.backgroundImageFit,
+      breadcrumbsEnabled:
+        typeof editor.breadcrumbsEnabled === "boolean"
+          ? editor.breadcrumbsEnabled
+          : DEFAULT_SETTINGS.editor.breadcrumbsEnabled,
+      codeFoldingEnabled:
+        typeof editor.codeFoldingEnabled === "boolean"
+          ? editor.codeFoldingEnabled
+          : DEFAULT_SETTINGS.editor.codeFoldingEnabled,
+      emmetEnabled:
+        typeof editor.emmetEnabled === "boolean"
+          ? editor.emmetEnabled
+          : DEFAULT_SETTINGS.editor.emmetEnabled,
+      formatOnSave:
+        typeof editor.formatOnSave === "boolean"
+          ? editor.formatOnSave
+          : DEFAULT_SETTINGS.editor.formatOnSave,
+      minimapEnabled:
+        typeof editor.minimapEnabled === "boolean"
+          ? editor.minimapEnabled
+          : DEFAULT_SETTINGS.editor.minimapEnabled,
+      multiCursorModifier: isEditorMultiCursorModifier(
+        editor.multiCursorModifier,
+      )
+        ? editor.multiCursorModifier
+        : DEFAULT_SETTINGS.editor.multiCursorModifier,
+      scrollbarMarkersEnabled:
+        typeof editor.scrollbarMarkersEnabled === "boolean"
+          ? editor.scrollbarMarkersEnabled
+          : DEFAULT_SETTINGS.editor.scrollbarMarkersEnabled,
+      snippetsEnabled:
+        typeof editor.snippetsEnabled === "boolean"
+          ? editor.snippetsEnabled
+          : DEFAULT_SETTINGS.editor.snippetsEnabled,
+      stickyScrollEnabled:
+        typeof editor.stickyScrollEnabled === "boolean"
+          ? editor.stickyScrollEnabled
+          : DEFAULT_SETTINGS.editor.stickyScrollEnabled,
     },
     ai: {
       enabled:
