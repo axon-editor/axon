@@ -875,9 +875,10 @@ function normalizeLanguageServerDiagnosticSeverity(
   }
 }
 
-function getReadyLanguageServerSession(
-  request: LanguageServerDocumentSyncRequest,
-) {
+function getReadyLanguageServerSession(request: {
+  folderPath: string;
+  languageId: string;
+}) {
   const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
   if (!serverId) {
     return {
