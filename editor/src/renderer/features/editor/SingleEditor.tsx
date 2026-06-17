@@ -162,6 +162,8 @@ export default function SingleEditor({
   const editorBackgroundImageStyle = getBackgroundImageStyle(
     editorSettings.backgroundImageFit,
   );
+  const shouldUseTransparentEditorSurface =
+    editorSettings.appTransparency || Boolean(editorBackgroundImageUrl);
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
   );
@@ -862,7 +864,9 @@ export default function SingleEditor({
   const editorNode = (
     <div
       className={`h-full relative flex-1 min-w-0 overflow-hidden ${
-        editorBackgroundImageUrl ? "axon-editor-has-background-image" : ""
+        shouldUseTransparentEditorSurface
+          ? "axon-editor-transparent-surface"
+          : ""
       }`}
       style={{
         background: "var(--axon-editor-background)",
@@ -875,6 +879,12 @@ export default function SingleEditor({
           style={{
             backgroundImage: `url("${editorBackgroundImageUrl}")`,
             opacity: editorSettings.backgroundImageOpacity,
+            filter:
+              editorSettings.backgroundImageBlur > 0
+                ? `blur(${editorSettings.backgroundImageBlur}px)`
+                : undefined,
+            transform:
+              editorSettings.backgroundImageBlur > 0 ? "scale(1.04)" : undefined,
             ...editorBackgroundImageStyle,
           }}
         />

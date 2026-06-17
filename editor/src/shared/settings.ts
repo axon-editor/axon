@@ -137,8 +137,10 @@ export interface EditorSettings {
   fontLigatures: boolean;
   appTransparency: boolean;
   appBackgroundOpacity: number;
+  appBackgroundBlur: number;
   backgroundImagePath: string;
   backgroundImageOpacity: number;
+  backgroundImageBlur: number;
   backgroundImageFit: EditorBackgroundImageFit;
 }
 
@@ -179,8 +181,10 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     fontLigatures: true,
     appTransparency: false,
     appBackgroundOpacity: 0.88,
+    appBackgroundBlur: 0,
     backgroundImagePath: "",
     backgroundImageOpacity: 0.14,
+    backgroundImageBlur: 0,
     backgroundImageFit: "cover",
   },
   ai: {
@@ -366,6 +370,12 @@ export function normalizeSettings(value: unknown): AxonSettings {
         0.2,
         1,
       ),
+      appBackgroundBlur: clampNumber(
+        editor.appBackgroundBlur,
+        DEFAULT_SETTINGS.editor.appBackgroundBlur,
+        0,
+        40,
+      ),
       backgroundImagePath:
         typeof editor.backgroundImagePath === "string"
           ? editor.backgroundImagePath.trim()
@@ -375,6 +385,12 @@ export function normalizeSettings(value: unknown): AxonSettings {
         DEFAULT_SETTINGS.editor.backgroundImageOpacity,
         0,
         1,
+      ),
+      backgroundImageBlur: clampNumber(
+        editor.backgroundImageBlur,
+        DEFAULT_SETTINGS.editor.backgroundImageBlur,
+        0,
+        40,
       ),
       backgroundImageFit: isEditorBackgroundImageFit(
         editor.backgroundImageFit,

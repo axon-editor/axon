@@ -573,15 +573,15 @@
   }
 }
 
-.axon-editor-has-background-image .monaco-editor,
-.axon-editor-has-background-image .monaco-editor-background,
-.axon-editor-has-background-image .monaco-editor .margin,
-.axon-editor-has-background-image .monaco-editor .inputarea.ime-input {
+.axon-editor-transparent-surface .monaco-editor,
+.axon-editor-transparent-surface .monaco-editor-background,
+.axon-editor-transparent-surface .monaco-editor .margin,
+.axon-editor-transparent-surface .monaco-editor .inputarea.ime-input {
   background: transparent !important;
 }
 
-.axon-editor-has-background-image .monaco-editor .view-overlays,
-.axon-editor-has-background-image .monaco-editor .view-lines,
-.axon-editor-has-background-image .monaco-editor .margin-view-overlays {
+.axon-editor-transparent-surface .monaco-editor .view-overlays,
+.axon-editor-transparent-surface .monaco-editor .view-lines,
+.axon-editor-transparent-surface .monaco-editor .margin-view-overlays {
   background: transparent !important;
 }

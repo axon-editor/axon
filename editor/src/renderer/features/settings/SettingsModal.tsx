@@ -744,6 +744,21 @@ export default function SettingsModal({
                 </SettingsField>
 
                 <SettingsField
+                  label="App blur"
+                  description="Allowed range 0-40px. This blurs what shows behind Axon's transparent app shell."
+                >
+                  <SettingsNumberSlider
+                    min={0}
+                    max={40}
+                    step={1}
+                    value={draft.editor.appBackgroundBlur}
+                    onChange={(value) =>
+                      updateEditor("appBackgroundBlur", value)
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
                   label="Editor image"
                   description="Choose a local image to render behind the editor buffer."
                 >
@@ -793,6 +808,21 @@ export default function SettingsModal({
                     value={draft.editor.backgroundImageOpacity}
                     onChange={(value) =>
                       updateEditor("backgroundImageOpacity", value)
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Image blur"
+                  description="Allowed range 0-40px. Blur only affects the background image layer, not the editor text."
+                >
+                  <SettingsNumberSlider
+                    min={0}
+                    max={40}
+                    step={1}
+                    value={draft.editor.backgroundImageBlur}
+                    onChange={(value) =>
+                      updateEditor("backgroundImageBlur", value)
                     }
                   />
                 </SettingsField>
