@@ -29,6 +29,10 @@ export interface ExtensionContributions {
   languages?: ExtensionLanguageContribution[];
   snippets?: ExtensionSnippetContribution[];
   icons?: ExtensionIconContribution[];
+  views?: ExtensionViewContribution[];
+  taskProviders?: ExtensionTaskProviderContribution[];
+  debuggerProviders?: ExtensionDebuggerProviderContribution[];
+  languagePacks?: ExtensionLanguagePackContribution[];
 }
 
 export interface ExtensionCommandContribution {
@@ -59,6 +63,33 @@ export interface ExtensionSnippetContribution {
 }
 
 export interface ExtensionIconContribution {
+  path: string;
+}
+
+export interface ExtensionViewContribution {
+  id: string;
+  title: string;
+  location?: "sidebar" | "panel" | "modal";
+  when?: string;
+}
+
+export interface ExtensionTaskProviderContribution {
+  type: string;
+  label?: string;
+  description?: string;
+  activationEvent?: string;
+}
+
+export interface ExtensionDebuggerProviderContribution {
+  type: string;
+  label: string;
+  languages?: string[];
+  configurationAttributes?: Record<string, unknown>;
+}
+
+export interface ExtensionLanguagePackContribution {
+  locale: string;
+  label: string;
   path: string;
 }
 
@@ -104,12 +135,22 @@ export interface ExtensionInfo {
   contributes: Required<ExtensionContributions>;
   themes: ResolvedExtensionTheme[];
   errors: string[];
+  active: boolean;
+  activationReason: string;
+  hostKind: "declarative" | "isolated-process";
+  lifecycle: "active" | "inactive" | "disabled" | "error";
 }
 
 export interface ExtensionState {
   extensions: ExtensionInfo[];
   userExtensionsPath: string;
   workspaceExtensionsPath: string | null;
+  hostStatus: {
+    mode: "declarative";
+    safeMode: boolean;
+    message: string;
+  };
+  availableActivationEvents: string[];
 }
 
 export interface ExtensionActionResult {

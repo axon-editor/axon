@@ -28,6 +28,10 @@ function emptyContributions(): Required<ExtensionContributions> {
     languages: [],
     snippets: [],
     icons: [],
+    views: [],
+    taskProviders: [],
+    debuggerProviders: [],
+    languagePacks: [],
   };
 }
 
@@ -66,6 +70,16 @@ function normalizeContributions(
     languages: Array.isArray(contributes?.languages) ? contributes.languages : [],
     snippets: Array.isArray(contributes?.snippets) ? contributes.snippets : [],
     icons: Array.isArray(contributes?.icons) ? contributes.icons : [],
+    views: Array.isArray(contributes?.views) ? contributes.views : [],
+    taskProviders: Array.isArray(contributes?.taskProviders)
+      ? contributes.taskProviders
+      : [],
+    debuggerProviders: Array.isArray(contributes?.debuggerProviders)
+      ? contributes.debuggerProviders
+      : [],
+    languagePacks: Array.isArray(contributes?.languagePacks)
+      ? contributes.languagePacks
+      : [],
   };
 }
 
@@ -163,6 +177,15 @@ function loadExtensionFromPath(
     contributes,
     themes,
     errors,
+    active: enabled && errors.length === 0,
+    activationReason:
+      enabled && (manifest.activationEvents?.length ?? 0) > 0
+        ? manifest.activationEvents?.[0] ?? "onStartup"
+        : enabled
+          ? "declarative"
+          : "disabled",
+    hostKind: "declarative",
+    lifecycle: !enabled ? "disabled" : errors.length > 0 ? "error" : "active",
   };
 }
 
@@ -183,6 +206,10 @@ function createInternalExtension(): ExtensionInfo {
     contributes: emptyContributions(),
     themes: [],
     errors: [],
+    active: true,
+    activationReason: "onStartup",
+    hostKind: "declarative",
+    lifecycle: "active",
   };
 }
 
@@ -212,6 +239,21 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
     ].filter((extension): extension is ExtensionInfo => extension !== null),
     userExtensionsPath,
     workspaceExtensionsPath,
+    hostStatus: {
+      mode: "declarative",
+      safeMode: true,
+      message:
+        "Extensions are loaded as declarative manifests. Axon has not enabled arbitrary extension code execution in the renderer.",
+    },
+    availableActivationEvents: [
+      "onStartup",
+      "onCommand",
+      "onLanguage",
+      "onWorkspaceContains",
+      "onView",
+      "onTaskType",
+      "onDebugType",
+    ],
   };
 }
 

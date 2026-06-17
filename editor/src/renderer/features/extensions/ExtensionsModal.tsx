@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Blocks,
   CheckCircle2,
+  Cpu,
   FolderOpen,
   RefreshCw,
   ShieldCheck,
@@ -107,6 +108,32 @@ export default function ExtensionsModal({
                 <Blocks size={15} className="text-[#80c8e0]" />
                 Local extension host
               </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
+                <span className="rounded bg-[#152019] px-2 py-1 text-[#8fe3a2]">
+                  {extensionState?.hostStatus.safeMode !== false
+                    ? "safe declarative mode"
+                    : "extension code enabled"}
+                </span>
+                <span className="rounded bg-[#151923] px-2 py-1 text-[#8f98aa]">
+                  host: {extensionState?.hostStatus.mode ?? "loading"}
+                </span>
+              </div>
+              <div className="mt-2 max-w-2xl text-[11px] leading-5 text-[#7f8aa3]">
+                {extensionState?.hostStatus.message ??
+                  "Axon is loading extension metadata."}
+              </div>
+              {extensionState?.availableActivationEvents.length ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {extensionState.availableActivationEvents.map((eventName) => (
+                    <span
+                      key={eventName}
+                      className="rounded bg-[#101723] px-2 py-1 text-[10px] text-[#647086]"
+                    >
+                      {eventName}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div className="mt-2 space-y-1 font-mono text-[10px] text-[#647086]">
                 <div className="truncate">
                   workspace:{" "}
@@ -176,6 +203,10 @@ export default function ExtensionsModal({
                 ["languages", extension.contributes.languages.length],
                 ["snippets", extension.contributes.snippets.length],
                 ["icons", extension.contributes.icons.length],
+                ["views", extension.contributes.views.length],
+                ["tasks", extension.contributes.taskProviders.length],
+                ["debuggers", extension.contributes.debuggerProviders.length],
+                ["language packs", extension.contributes.languagePacks.length],
               ].filter(([, count]) => Number(count) > 0);
 
               return (
@@ -201,15 +232,35 @@ export default function ExtensionsModal({
                             protected
                           </span>
                         ) : null}
+                        <span
+                          className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] ${
+                            extension.lifecycle === "active"
+                              ? "bg-[#152019] text-[#8fe3a2]"
+                              : extension.lifecycle === "error"
+                                ? "bg-[#341b20] text-[#ff8b92]"
+                                : "bg-[#151923] text-[#647086]"
+                          }`}
+                        >
+                          <Cpu size={10} />
+                          {extension.lifecycle}
+                        </span>
                       </div>
                       <div className="mt-1 text-[11px] text-[#647086]">
                         {extension.publisher} / {extension.id}
                       </div>
                       {extension.description ? (
                         <div className="mt-2 max-w-2xl text-[12px] leading-5 text-[#9aa4b8]">
-                          {extension.description}
+                      {extension.description}
                         </div>
                       ) : null}
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-[#647086]">
+                        <span className="rounded bg-[#151923] px-2 py-1">
+                          host: {extension.hostKind}
+                        </span>
+                        <span className="rounded bg-[#151923] px-2 py-1">
+                          activation: {extension.activationReason}
+                        </span>
+                      </div>
                     </div>
                     <SettingsToggle
                       checked={extension.enabled}
