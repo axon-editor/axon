@@ -83,6 +83,9 @@ export function createWindow(deps: WindowDependencies, options: { restoreSession
     // would only blend against Electron's opaque black window background and
     // the "transparent app" preference would look broken.
     transparent: true,
+    vibrancy: deps.isMac ? "under-window" : undefined,
+    visualEffectState: deps.isMac ? "active" : undefined,
+    backgroundMaterial: deps.isWindows ? "mica" : undefined,
     backgroundColor: "#00000000",
     icon: axonIconPath,
     webPreferences: {

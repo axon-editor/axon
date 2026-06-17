@@ -77,6 +77,28 @@ function toMonacoLocation(location: {
   };
 }
 
+function dispatchAxonNavigation(location: {
+  filePath: string;
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+}) {
+  window.dispatchEvent(
+    new CustomEvent("axon:navigateToFile", {
+      detail: {
+        path: location.filePath,
+        line: location.range.start.line + 1,
+        column: location.range.start.character + 1,
+        length: Math.max(
+          1,
+          location.range.end.character - location.range.start.character,
+        ),
+      },
+    }),
+  );
+}
+
 function registerHoverProvider(monacoInstance: typeof monaco, languageId: string) {
   monacoInstance.languages.registerHoverProvider(languageId, {
     provideHover: async (model, position, token) => {
@@ -120,12 +142,16 @@ function registerDefinitionProvider(
       });
       if (token.isCancellationRequested || !result.ok) return [];
 
-      // The provider should return locations, not mutate Axon's pane state by
-      // itself. Explicit commands still use SingleEditor's direct LSP jump, but
-      // normal Monaco definition flows need this provider to stay passive so
-      // peek/command interactions do not feel like they jumped before the user
-      // intentionally chose a target.
-      return result.locations.map(toMonacoLocation);
+      const firstLocation = result.locations[0];
+      if (!firstLocation) return [];
+
+      // Axon's pane model should behave like a direct editor jump here. Monaco
+      // can otherwise stop at its peek widget, which makes a normal command or
+      // Cmd-click feel like it needs a second confirmation. Routing the first
+      // LSP target through Axon's navigation event mounts unopened files and
+      // reveals the symbol immediately.
+      dispatchAxonNavigation(firstLocation);
+      return [];
     },
   });
 }

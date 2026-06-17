@@ -10,17 +10,20 @@ export function configureMonacoDiagnostics(
   if (configuredMonacos.has(monacoInstance)) return;
   configuredMonacos.add(monacoInstance);
 
-  // Axon does not have project language servers wired yet, so Monaco's
-  // standalone TypeScript worker cannot see the full workspace the way mature
-  // VS Code can. Semantic diagnostics become noisy here because imports,
-  // tsconfig path aliases, and framework types are missing from the worker.
-  // Keeping syntax validation on still catches broken code without showing
-  // false project-level errors.
+  // Axon now uses project language servers for TypeScript and JavaScript, so
+  // Monaco's standalone worker should not produce editor diagnostics for those
+  // languages at all. The standalone worker cannot fully reproduce tsconfig
+  // project references, generated types, path aliases, framework plugins, or
+  // the same module graph the LSP sees, so it can show errors in Axon that do
+  // not exist in Zed/VS Code. LSP remains the source of truth for Problems,
+  // squiggles, hover, and quick fixes.
   monacoInstance.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    noSyntaxValidation: true,
     noSemanticValidation: true,
     noSuggestionDiagnostics: true,
   });
   monacoInstance.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+    noSyntaxValidation: true,
     noSemanticValidation: true,
     noSuggestionDiagnostics: true,
   });
