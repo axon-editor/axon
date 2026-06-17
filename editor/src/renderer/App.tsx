@@ -145,6 +145,21 @@ function escapeCssString(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function colorWithAlpha(color: string, alpha: number) {
+  const normalizedColor = color.trim();
+  const match = normalizedColor.match(
+    /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i,
+  );
+  if (!match) return color;
+
+  const [, red, green, blue, existingAlpha] = match;
+  const baseAlpha = existingAlpha
+    ? Number.parseInt(existingAlpha, 16) / 255
+    : 1;
+  const finalAlpha = Math.max(0, Math.min(1, alpha * baseAlpha));
+  return `rgba(${Number.parseInt(red, 16)}, ${Number.parseInt(green, 16)}, ${Number.parseInt(blue, 16)}, ${finalAlpha})`;
+}
+
 declare global {
   interface Window {
     axonCompletionWorkspacePath?: string | null;
@@ -152,6 +167,7 @@ declare global {
       platform: string;
       openFolder: () => Promise<string | null>;
       importFont: () => Promise<CustomFont | null>;
+      selectEditorBackgroundImage: () => Promise<string | null>;
       selectPythonVirtualEnv: (folderPath?: string | null) => Promise<{
         virtualEnvPath: string;
         interpreterPath: string;
@@ -459,6 +475,49 @@ function App() {
     () => createThemeCssVariables(themeTokens),
     [themeTokens],
   );
+  const appThemeCssVariables = useMemo(() => {
+    if (!settings.editor.appTransparency) return themeCssVariables;
+
+    const opacity = settings.editor.appBackgroundOpacity;
+
+    // Electron's transparent BrowserWindow gives Axon a real transparent
+    // native canvas, but the renderer still decides which surfaces participate
+    // in that transparency. I only soften large background surfaces here so
+    // text, icons, syntax tokens, and controls stay fully opaque and readable.
+    return {
+      ...themeCssVariables,
+      "--axon-background": colorWithAlpha(themeTokens.background, opacity),
+      "--axon-title-bar-background": colorWithAlpha(
+        themeTokens["title_bar.background"],
+        opacity,
+      ),
+      "--axon-toolbar-background": colorWithAlpha(
+        themeTokens["toolbar.background"],
+        opacity,
+      ),
+      "--axon-sidebar-background": colorWithAlpha(
+        themeTokens["sidebar.background"],
+        opacity,
+      ),
+      "--axon-panel-background": colorWithAlpha(
+        themeTokens["panel.background"],
+        opacity,
+      ),
+      "--axon-status-bar-background": colorWithAlpha(
+        themeTokens["status_bar.background"],
+        opacity,
+      ),
+      "--axon-editor-background": colorWithAlpha(
+        themeTokens["editor.background"],
+        opacity,
+      ),
+    } as typeof themeCssVariables;
+  }, [
+    settings.editor.appBackgroundOpacity,
+    settings.editor.appTransparency,
+    themeCssVariables,
+    themeTokens,
+  ]);
 
   const diagnostics = useMemo(() => {
     const mergedDiagnostics = [
@@ -2118,7 +2177,7 @@ function App() {
     <div
       className="flex flex-col h-screen w-screen overflow-hidden relative"
       style={{
-        ...themeCssVariables,
+        ...appThemeCssVariables,
         background: "var(--axon-background)",
         fontFamily: fontStack(
           settings.editor.uiFontFamily,

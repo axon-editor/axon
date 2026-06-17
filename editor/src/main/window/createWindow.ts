@@ -77,7 +77,13 @@ export function createWindow(deps: WindowDependencies, options: { restoreSession
           height: 36,
         }
       : undefined,
-    backgroundColor: "#0f0f0f",
+    // The renderer still paints normal opaque theme surfaces by default, but
+    // creating the native window as transparent gives Axon's background opacity
+    // setting a real transparent canvas to reveal. Without this, CSS rgba()
+    // would only blend against Electron's opaque black window background and
+    // the "transparent app" preference would look broken.
+    transparent: true,
+    backgroundColor: "#00000000",
     icon: axonIconPath,
     webPreferences: {
       preload: path.join(__dirname, "../../preload/index.js"),

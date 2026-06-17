@@ -49,6 +49,34 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     return importCustomFontFile(result.filePaths[0]) as CustomFont;
   });
 
+  ipcMain.handle("dialog:selectEditorBackgroundImage", async () => {
+    const result = await dialog.showOpenDialog({
+      title: "Select editor background image",
+      properties: ["openFile"],
+      filters: [
+        {
+          name: "Images",
+          extensions: [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "gif",
+            "bmp",
+            "avif",
+            "svg",
+          ],
+        },
+      ],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return result.filePaths[0];
+  });
+
   ipcMain.handle(
     "dialog:selectPythonVirtualEnv",
     async (_event, folderPath?: string | null) => {

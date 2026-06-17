@@ -2,6 +2,7 @@ import {
   AI_PROVIDER_IDS,
   BUILT_IN_THEME_IDS,
   EDITOR_FONT_FAMILIES,
+  EDITOR_BACKGROUND_IMAGE_FITS,
   FONT_PRESET_IDS,
   THEME_COLOR_TOKENS,
   THEME_LABELS,
@@ -9,6 +10,7 @@ import {
   type AiProviderId,
   type BuiltInThemeId,
   type EditorFontFamily,
+  type EditorBackgroundImageFit,
   type FontPresetId,
   type ThemeColorToken,
   type UiFontFamily,
@@ -18,6 +20,7 @@ import { type SearchSelectItem } from "../search/SearchSelect";
 export type SettingsSectionId =
   | "appearance"
   | "editor"
+  | "background"
   | "syntaxColors"
   | "fonts"
   | "languageServers"
@@ -38,6 +41,11 @@ export const SETTINGS_SECTIONS: Array<{
     id: "editor",
     label: "Editor",
     description: "Text, spacing, and ligatures",
+  },
+  {
+    id: "background",
+    label: "Background",
+    description: "Opacity and editor image",
   },
   {
     id: "syntaxColors",
@@ -101,6 +109,23 @@ export const FONT_PRESET_ITEMS: SearchSelectItem<FontPresetId>[] =
   FONT_PRESET_IDS.map((presetId) => ({
     value: presetId,
     label: FONT_PRESET_LABELS[presetId],
+  }));
+
+const EDITOR_BACKGROUND_IMAGE_FIT_LABELS: Record<
+  EditorBackgroundImageFit,
+  string
+> = {
+  cover: "Cover",
+  contain: "Contain",
+  fill: "Fill",
+  center: "Center",
+  tile: "Tile",
+};
+
+export const EDITOR_BACKGROUND_IMAGE_FIT_ITEMS: SearchSelectItem<EditorBackgroundImageFit>[] =
+  EDITOR_BACKGROUND_IMAGE_FITS.map((fit) => ({
+    value: fit,
+    label: EDITOR_BACKGROUND_IMAGE_FIT_LABELS[fit],
   }));
 
 const AI_PROVIDER_LABELS: Record<AiProviderId, string> = {

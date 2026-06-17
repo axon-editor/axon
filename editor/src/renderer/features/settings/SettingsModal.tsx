@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Braces,
   FolderOpen,
+  Image,
   Palette,
   Settings2,
   Sparkles,
@@ -22,6 +23,7 @@ import CommandModal from "../../shared/components/CommandModal";
 import SearchSelect from "../search/SearchSelect";
 import {
   AI_PROVIDER_ITEMS,
+  EDITOR_BACKGROUND_IMAGE_FIT_ITEMS,
   EDITOR_FONT_ITEMS,
   FONT_PRESET_ITEMS,
   SETTINGS_SECTIONS,
@@ -54,6 +56,7 @@ interface Props {
 const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
   appearance: Palette,
   editor: Type,
+  background: Image,
   syntaxColors: Palette,
   theme: Settings2,
   ai: Sparkles,
@@ -106,6 +109,9 @@ export default function SettingsModal({
   const [activeSection, setActiveSection] =
     useState<SettingsSectionId>("appearance");
   const [fontImportError, setFontImportError] = useState<string | null>(null);
+  const [backgroundImageError, setBackgroundImageError] = useState<
+    string | null
+  >(null);
   const [languageServers, setLanguageServers] = useState<
     LanguageServerStatus[]
   >([]);
@@ -360,6 +366,20 @@ export default function SettingsModal({
     } catch (err) {
       console.error("failed to import font:", err);
       setFontImportError("Could not import that font file.");
+    }
+  };
+
+  const selectEditorBackgroundImage = async () => {
+    setBackgroundImageError(null);
+
+    try {
+      const imagePath = await window.axon.selectEditorBackgroundImage();
+      if (!imagePath) return;
+      updateEditor("backgroundImagePath", imagePath);
+      setActiveSection("background");
+    } catch (err) {
+      console.error("failed to select editor background image:", err);
+      setBackgroundImageError("Could not use that image as the editor background.");
     }
   };
 
@@ -683,6 +703,112 @@ export default function SettingsModal({
                       updateEditor("fontLigatures", checked)
                     }
                     label={draft.editor.fontLigatures ? "Enabled" : "Disabled"}
+                  />
+                </SettingsField>
+              </SettingsSection>
+            )}
+
+            {activeSection === "background" && (
+              <SettingsSection
+                title="Background"
+                description="Control the app shell transparency and add a local image behind the code editor. The image path is saved in settings JSON and loaded through Axon's local file protocol."
+              >
+                <SettingsField
+                  label="App transparency"
+                  description="Lets the themed shell blend with the transparent native window instead of always painting an opaque app background."
+                >
+                  <SettingsToggle
+                    checked={draft.editor.appTransparency}
+                    onChange={(checked) =>
+                      updateEditor("appTransparency", checked)
+                    }
+                    label={
+                      draft.editor.appTransparency ? "Enabled" : "Disabled"
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="App opacity"
+                  description="Allowed range 0.2-1. Text remains fully opaque; only the app background color changes."
+                >
+                  <SettingsNumberSlider
+                    min={0.2}
+                    max={1}
+                    step={0.01}
+                    value={draft.editor.appBackgroundOpacity}
+                    onChange={(value) =>
+                      updateEditor("appBackgroundOpacity", value)
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Editor image"
+                  description="Choose a local image to render behind the editor buffer."
+                >
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void selectEditorBackgroundImage()}
+                        className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2a3346] bg-[#1e2430] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+                      >
+                        <FolderOpen size={13} />
+                        Choose image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateEditor("backgroundImagePath", "")}
+                        disabled={!draft.editor.backgroundImagePath}
+                        className="h-8 cursor-pointer rounded-md px-2 text-[12px] text-[#586478] transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72] disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <SettingsTextInput
+                      value={draft.editor.backgroundImagePath}
+                      onChange={(value) =>
+                        updateEditor("backgroundImagePath", value)
+                      }
+                      placeholder="/absolute/path/to/background.png"
+                      monospace
+                    />
+                    {backgroundImageError ? (
+                      <div className="text-[11px] text-[#ea6c73]">
+                        {backgroundImageError}
+                      </div>
+                    ) : null}
+                  </div>
+                </SettingsField>
+
+                <SettingsField
+                  label="Image opacity"
+                  description="Allowed range 0-1. Keep this low so code stays readable."
+                >
+                  <SettingsNumberSlider
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={draft.editor.backgroundImageOpacity}
+                    onChange={(value) =>
+                      updateEditor("backgroundImageOpacity", value)
+                    }
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Image fit"
+                  description="Controls how the image fills the editor surface."
+                >
+                  <SearchSelect
+                    value={draft.editor.backgroundImageFit}
+                    items={EDITOR_BACKGROUND_IMAGE_FIT_ITEMS}
+                    onChange={(fit) =>
+                      updateEditor("backgroundImageFit", fit)
+                    }
+                    ariaLabel="Editor background image fit"
+                    placeholder="Search image fit..."
                   />
                 </SettingsField>
               </SettingsSection>

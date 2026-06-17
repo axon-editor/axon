@@ -6,7 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { ChevronDown, ChevronUp, Columns2, Eye, FileText, FileWarning, Search, X } from "lucide-react";
-import { type EditorSettings } from "../../../shared/settings";
+import {
+  type EditorBackgroundImageFit,
+  type EditorSettings,
+} from "../../../shared/settings";
 import { editorFontStack } from "../../shared/lib/fonts";
 import { type GitChange } from "../../../shared/git";
 import { readFile, writeFile } from "../../shared/lib/api";
@@ -63,6 +66,50 @@ const goCallExclusions = new Set([
 type PreviewMode = "editor" | "preview" | "split";
 type EditorActionRequest = "definition" | "references" | "rename" | "format";
 
+function encodeLocalPath(path: string) {
+  return path
+    .split(/([/\\])/)
+    .map((part) =>
+      part === "/" || part === "\\" ? "/" : encodeURIComponent(part),
+    )
+    .join("");
+}
+
+function getBackgroundImageStyle(fit: EditorBackgroundImageFit) {
+  switch (fit) {
+    case "contain":
+      return {
+        backgroundSize: "contain",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+      };
+    case "fill":
+      return {
+        backgroundSize: "100% 100%",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+      };
+    case "center":
+      return {
+        backgroundSize: "auto",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+      };
+    case "tile":
+      return {
+        backgroundSize: "auto",
+        backgroundRepeat: "repeat",
+        backgroundPosition: "top left",
+      };
+    default:
+      return {
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+      };
+  }
+}
+
 export default function SingleEditor({
   filePath,
   folderPath,
@@ -108,6 +155,13 @@ export default function SingleEditor({
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
+  const editorBackgroundImagePath = editorSettings.backgroundImagePath.trim();
+  const editorBackgroundImageUrl = editorBackgroundImagePath
+    ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
+    : "";
+  const editorBackgroundImageStyle = getBackgroundImageStyle(
+    editorSettings.backgroundImageFit,
+  );
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
   );
@@ -806,7 +860,25 @@ export default function SingleEditor({
   }
 
   const editorNode = (
-    <div className="h-full relative flex-1 min-w-0">
+    <div
+      className={`h-full relative flex-1 min-w-0 overflow-hidden ${
+        editorBackgroundImageUrl ? "axon-editor-has-background-image" : ""
+      }`}
+      style={{
+        background: "var(--axon-editor-background)",
+      }}
+    >
+      {editorBackgroundImageUrl ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: `url("${editorBackgroundImageUrl}")`,
+            opacity: editorSettings.backgroundImageOpacity,
+            ...editorBackgroundImageStyle,
+          }}
+        />
+      ) : null}
       {saving && (
         <div className="absolute top-2 right-4 text-[11px] text-[#586478] z-10">
           saving...

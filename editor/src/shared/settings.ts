@@ -61,6 +61,16 @@ export const FONT_PRESET_IDS = [
 ] as const;
 
 export type FontPresetId = (typeof FONT_PRESET_IDS)[number];
+export const EDITOR_BACKGROUND_IMAGE_FITS = [
+  "cover",
+  "contain",
+  "fill",
+  "center",
+  "tile",
+] as const;
+
+export type EditorBackgroundImageFit =
+  (typeof EDITOR_BACKGROUND_IMAGE_FITS)[number];
 
 export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "axon-dark": "Axon Dark",
@@ -125,6 +135,11 @@ export interface EditorSettings {
   lineHeight: number;
   fontWeight: number;
   fontLigatures: boolean;
+  appTransparency: boolean;
+  appBackgroundOpacity: number;
+  backgroundImagePath: string;
+  backgroundImageOpacity: number;
+  backgroundImageFit: EditorBackgroundImageFit;
 }
 
 export interface AxonSettings {
@@ -162,6 +177,11 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     lineHeight: 22,
     fontWeight: 400,
     fontLigatures: true,
+    appTransparency: false,
+    appBackgroundOpacity: 0.88,
+    backgroundImagePath: "",
+    backgroundImageOpacity: 0.14,
+    backgroundImageFit: "cover",
   },
   ai: {
     enabled: false,
@@ -199,6 +219,17 @@ function isAiProviderId(value: unknown): value is AiProviderId {
 function isFontPresetId(value: unknown): value is FontPresetId {
   return (
     typeof value === "string" && FONT_PRESET_IDS.includes(value as FontPresetId)
+  );
+}
+
+function isEditorBackgroundImageFit(
+  value: unknown,
+): value is EditorBackgroundImageFit {
+  return (
+    typeof value === "string" &&
+    EDITOR_BACKGROUND_IMAGE_FITS.includes(
+      value as EditorBackgroundImageFit,
+    )
   );
 }
 
@@ -325,6 +356,31 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.fontLigatures === "boolean"
           ? editor.fontLigatures
           : DEFAULT_SETTINGS.editor.fontLigatures,
+      appTransparency:
+        typeof editor.appTransparency === "boolean"
+          ? editor.appTransparency
+          : DEFAULT_SETTINGS.editor.appTransparency,
+      appBackgroundOpacity: clampNumber(
+        editor.appBackgroundOpacity,
+        DEFAULT_SETTINGS.editor.appBackgroundOpacity,
+        0.2,
+        1,
+      ),
+      backgroundImagePath:
+        typeof editor.backgroundImagePath === "string"
+          ? editor.backgroundImagePath.trim()
+          : DEFAULT_SETTINGS.editor.backgroundImagePath,
+      backgroundImageOpacity: clampNumber(
+        editor.backgroundImageOpacity,
+        DEFAULT_SETTINGS.editor.backgroundImageOpacity,
+        0,
+        1,
+      ),
+      backgroundImageFit: isEditorBackgroundImageFit(
+        editor.backgroundImageFit,
+      )
+        ? editor.backgroundImageFit
+        : DEFAULT_SETTINGS.editor.backgroundImageFit,
     },
     ai: {
       enabled:
