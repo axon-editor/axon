@@ -77,28 +77,6 @@ function toMonacoLocation(location: {
   };
 }
 
-function dispatchAxonNavigation(location: {
-  filePath: string;
-  range: {
-    start: { line: number; character: number };
-    end: { line: number; character: number };
-  };
-}) {
-  window.dispatchEvent(
-    new CustomEvent("axon:navigateToFile", {
-      detail: {
-        path: location.filePath,
-        line: location.range.start.line + 1,
-        column: location.range.start.character + 1,
-        length: Math.max(
-          1,
-          location.range.end.character - location.range.start.character,
-        ),
-      },
-    }),
-  );
-}
-
 function registerHoverProvider(monacoInstance: typeof monaco, languageId: string) {
   monacoInstance.languages.registerHoverProvider(languageId, {
     provideHover: async (model, position, token) => {
@@ -142,16 +120,12 @@ function registerDefinitionProvider(
       });
       if (token.isCancellationRequested || !result.ok) return [];
 
-      const firstLocation = result.locations[0];
-      if (!firstLocation) return [];
-
-      // Monaco's default definition flow can stop at a peek popup, especially
-      // when the target file has not been opened in Axon's pane model yet. I
-      // route the first target through Axon's navigation event so Cmd-click and
-      // F12 mount the target tab immediately instead of requiring a second click
-      // inside Monaco's temporary result widget.
-      dispatchAxonNavigation(firstLocation);
-      return [];
+      // The provider should return locations, not mutate Axon's pane state by
+      // itself. Explicit commands still use SingleEditor's direct LSP jump, but
+      // normal Monaco definition flows need this provider to stay passive so
+      // peek/command interactions do not feel like they jumped before the user
+      // intentionally chose a target.
+      return result.locations.map(toMonacoLocation);
     },
   });
 }
@@ -297,6 +271,45 @@ function registerCodeActionProvider(
       const base = toLspRequestBase(model, languageId);
       if (!base) return { actions: [], dispose: () => undefined };
 
+      const diagnostics = monacoInstance.editor
+        .getModelMarkers({ resource: model.uri })
+        .filter((marker) => {
+          const markerRange = new monaco.Range(
+            marker.startLineNumber,
+            marker.startColumn,
+            marker.endLineNumber,
+            marker.endColumn,
+          );
+          return markerRange.intersectRanges(range) !== null;
+        })
+        .map((marker) => ({
+          range: {
+            start: {
+              line: marker.startLineNumber - 1,
+              character: marker.startColumn - 1,
+            },
+            end: {
+              line: marker.endLineNumber - 1,
+              character: marker.endColumn - 1,
+            },
+          },
+          severity:
+            marker.severity === monacoInstance.MarkerSeverity.Error
+              ? 1
+              : marker.severity === monacoInstance.MarkerSeverity.Warning
+                ? 2
+                : marker.severity === monacoInstance.MarkerSeverity.Info
+                  ? 3
+                  : 4,
+          code:
+            typeof marker.code === "string" ||
+            typeof marker.code === "number"
+              ? marker.code
+              : undefined,
+          source: marker.source ?? undefined,
+          message: marker.message,
+        }));
+
       const result = await window.axon.getLanguageServerCodeActions({
         ...base,
         range: {
@@ -309,6 +322,7 @@ function registerCodeActionProvider(
             character: range.endColumn - 1,
           },
         },
+        diagnostics,
       });
       if (token.isCancellationRequested || !result.ok) {
         return { actions: [], dispose: () => undefined };
@@ -334,6 +348,20 @@ function registerCodeActionProvider(
             })),
           ),
         },
+        command: action.command
+          ? {
+              id: "axon.lsp.executeCommand",
+              title: action.command.title ?? action.title,
+              arguments: [
+                {
+                  folderPath: base.folderPath,
+                  languageId,
+                  command: action.command.command,
+                  arguments: action.command.arguments,
+                },
+              ],
+            }
+          : undefined,
       }));
 
       return {
@@ -364,4 +392,35 @@ export function configureLspNavigation(
     registerSignatureHelpProvider(monacoInstance, languageId);
     registerCodeActionProvider(monacoInstance, languageId);
   }
+
+  monacoInstance.editor.registerCommand(
+    "axon.lsp.executeCommand",
+    async (_accessor, request) => {
+      if (!request || typeof request !== "object") return;
+      const result = await window.axon.executeLanguageServerCommand(
+        request as Parameters<typeof window.axon.executeLanguageServerCommand>[0],
+      );
+      if (!result.ok) return;
+
+      for (const [filePath, fileEdits] of Object.entries(result.edits)) {
+        const model = monacoInstance.editor.getModel(monaco.Uri.file(filePath));
+        if (!model || model.isDisposed()) continue;
+
+        // workspace/executeCommand can return a WorkspaceEdit after the server
+        // runs a command such as organize imports. Monaco only applies edits to
+        // loaded models here; unopened-file edits need a later workspace edit
+        // service so Axon can safely patch disk files without surprising the
+        // user with invisible changes.
+        model.pushEditOperations(
+          [],
+          fileEdits.map((edit) => ({
+            range: toMonacoRange(edit.range),
+            text: edit.newText,
+            forceMoveMarkers: true,
+          })),
+          () => null,
+        );
+      }
+    },
+  );
 }

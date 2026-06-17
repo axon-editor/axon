@@ -30,6 +30,8 @@ interface Props {
   bottomPanelOpen: boolean;
   bottomPanelTab: BottomPanelTab;
   problemCount: number;
+  errorCount: number;
+  warningCount: number;
   gitBranch: string | null;
   gitChangeCount: number;
   themeTokens: ResolvedThemeTokens;
@@ -55,6 +57,8 @@ export default function StatusBar({
   bottomPanelOpen,
   bottomPanelTab,
   problemCount,
+  errorCount,
+  warningCount,
   gitBranch,
   gitChangeCount,
   themeTokens,
@@ -188,7 +192,10 @@ export default function StatusBar({
 
         {hasWorkspace && (
           <>
-            <Tooltip label="Problems (Cmd+Shift+M)" side="top">
+            <Tooltip
+              label={`Problems (Cmd+Shift+M) - ${errorCount} errors, ${warningCount} warnings`}
+              side="top"
+            >
               <button
                 onClick={() => onOpenBottomPanel("problems")}
                 aria-label="Problems"
@@ -196,7 +203,18 @@ export default function StatusBar({
                 ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
               >
                 <AlertCircle size={12} />
-                {problemCount}
+                <span className={errorCount > 0 ? "text-[#ea6c73]" : ""}>
+                  {errorCount}
+                </span>
+                <span className="text-[#3f485a]">/</span>
+                <span className={warningCount > 0 ? "text-[#ffcc66]" : ""}>
+                  {warningCount}
+                </span>
+                {problemCount > errorCount + warningCount && (
+                  <span className="text-[#647086]">
+                    +{problemCount - errorCount - warningCount}
+                  </span>
+                )}
               </button>
             </Tooltip>
 

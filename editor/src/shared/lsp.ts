@@ -203,16 +203,45 @@ export interface LanguageServerSignatureHelpResult {
 export interface LanguageServerCodeActionRequest
   extends LanguageServerDocumentSyncRequest {
   range: LanguageServerTextRange;
+  diagnostics?: LanguageServerCodeActionDiagnostic[];
+}
+
+export interface LanguageServerCodeActionDiagnostic {
+  range: LanguageServerTextRange;
+  severity?: number;
+  code?: string | number;
+  source?: string;
+  message: string;
 }
 
 export interface LanguageServerCodeAction {
   title: string;
   kind?: string;
+  command?: LanguageServerCommand;
   edits: Record<string, LanguageServerTextEdit[]>;
+}
+
+export interface LanguageServerCommand {
+  title?: string;
+  command: string;
+  arguments?: unknown[];
 }
 
 export interface LanguageServerCodeActionResult {
   ok: boolean;
   message?: string;
   actions: LanguageServerCodeAction[];
+}
+
+export interface LanguageServerExecuteCommandRequest {
+  folderPath: string;
+  languageId: string;
+  command: string;
+  arguments?: unknown[];
+}
+
+export interface LanguageServerExecuteCommandResult {
+  ok: boolean;
+  message?: string;
+  edits: Record<string, LanguageServerTextEdit[]>;
 }

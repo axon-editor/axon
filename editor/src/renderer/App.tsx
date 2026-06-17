@@ -84,6 +84,8 @@ import {
   type LanguageServerDefinitionRequest,
   type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
+  type LanguageServerExecuteCommandRequest,
+  type LanguageServerExecuteCommandResult,
   type LanguageServerFormatRequest,
   type LanguageServerFormatResult,
   type LanguageServerHoverRequest,
@@ -205,6 +207,9 @@ declare global {
       getLanguageServerCodeActions: (
         request: LanguageServerCodeActionRequest,
       ) => Promise<LanguageServerCodeActionResult>;
+      executeLanguageServerCommand: (
+        request: LanguageServerExecuteCommandRequest,
+      ) => Promise<LanguageServerExecuteCommandResult>;
       onLanguageServerDiagnostics: (
         callback: (event: {
           folderPath: string;
@@ -479,6 +484,19 @@ function App() {
       return true;
     });
   }, [lspDiagnosticsByFile, monacoDiagnostics, projectDiagnostics]);
+
+  const diagnosticCounts = useMemo(
+    () =>
+      diagnostics.reduce(
+        (counts, diagnostic) => {
+          counts.total += 1;
+          counts[diagnostic.severity] += 1;
+          return counts;
+        },
+        { total: 0, error: 0, warning: 0, info: 0, hint: 0 },
+      ),
+    [diagnostics],
+  );
 
   useEffect(() => {
     // When the OAuth callback lands, the main process fires spotify:connected.
@@ -1293,9 +1311,68 @@ function App() {
       path: diagnostic.path,
       line: diagnostic.line,
       column: diagnostic.column,
-      length: 1,
+      length: Math.max(
+        1,
+        (diagnostic.endColumn ?? diagnostic.column + 1) - diagnostic.column,
+      ),
     });
   };
+
+  const navigateDiagnostic = useCallback(
+    (direction: 1 | -1) => {
+      if (diagnostics.length === 0) {
+        setBottomPanelTab("problems");
+        setBottomPanelOpen(true);
+        setTerminalOpen(false);
+        return;
+      }
+
+      const orderedDiagnostics = [...diagnostics].sort((a, b) => {
+        if (a.path !== b.path) return a.path.localeCompare(b.path);
+        if (a.line !== b.line) return a.line - b.line;
+        return a.column - b.column;
+      });
+
+      const activeFile = activePane?.activeFile;
+      const anchor = activeFile
+        ? {
+            path: activeFile,
+            line: cursorInfo.line,
+            column: cursorInfo.col,
+          }
+        : null;
+
+      const compareWithAnchor = (diagnostic: EditorDiagnostic) => {
+        if (!anchor) return direction;
+        if (diagnostic.path !== anchor.path) {
+          return diagnostic.path.localeCompare(anchor.path);
+        }
+        if (diagnostic.line !== anchor.line) {
+          return diagnostic.line - anchor.line;
+        }
+        return diagnostic.column - anchor.column;
+      };
+
+      const nextDiagnostic =
+        direction === 1
+          ? orderedDiagnostics.find(
+              (diagnostic) => compareWithAnchor(diagnostic) > 0,
+            ) ?? orderedDiagnostics[0]
+          : [...orderedDiagnostics]
+              .reverse()
+              .find((diagnostic) => compareWithAnchor(diagnostic) < 0) ??
+            orderedDiagnostics[orderedDiagnostics.length - 1];
+
+      // Problem navigation is intentionally based on the merged diagnostics
+      // store instead of the currently mounted Monaco model. That lets F8 walk
+      // into unopened files from LSP/project diagnostics, which is the behavior
+      // users expect from a real Problems workflow rather than a per-tab marker
+      // shortcut.
+      handleOpenDiagnostic(nextDiagnostic);
+      setBottomPanelTab("problems");
+    },
+    [activePane?.activeFile, cursorInfo.col, cursorInfo.line, diagnostics],
+  );
 
   const handleNewTerminal = () => {
     setTerminalCreateWorkingDirectory(null);
@@ -1357,6 +1434,26 @@ function App() {
       if (!model || model.isDisposed()) return false;
 
       await writeFile(filePath, model.getValue());
+      if (folderPath) {
+        const languageId = detectLanguage(filePath);
+        if (languageId !== "plaintext") {
+          try {
+            await window.axon.syncLanguageServerDocument({
+              folderPath,
+              filePath,
+              languageId,
+              content: model.getValue(),
+            });
+          } catch (err) {
+            // Saving the file must never fail just because the language server
+            // is unavailable. I still try to push the latest saved content into
+            // LSP immediately so diagnostics refresh from the same text that
+            // hit disk, then fall back to the normal server reconnect/output
+            // path if the sync bridge is not ready yet.
+            console.error("failed to sync saved file with language server:", err);
+          }
+        }
+      }
       setLayout((prev) => ({
         ...prev,
         panes: prev.panes.map((pane) => ({
@@ -1371,9 +1468,10 @@ function App() {
         new CustomEvent("axon:fileSaved", { detail: { path: filePath } }),
       );
       appendOutput("file", `Saved ${filePath}`, "success");
+      void refreshProjectDiagnostics();
       return true;
     },
-    [appendOutput],
+    [appendOutput, folderPath, refreshProjectDiagnostics],
   );
 
   const handleSaveActiveFile = useCallback(() => {
@@ -1536,6 +1634,12 @@ function App() {
           setTerminalOpen(false);
           void refreshProjectDiagnostics();
           break;
+        case AXON_COMMANDS.NEXT_PROBLEM:
+          navigateDiagnostic(1);
+          break;
+        case AXON_COMMANDS.PREVIOUS_PROBLEM:
+          navigateDiagnostic(-1);
+          break;
         case AXON_COMMANDS.CLEAR_OUTPUT:
           setBottomPanelTab("output");
           setBottomPanelOpen(true);
@@ -1594,6 +1698,7 @@ function App() {
       folderPath,
       handleSaveActiveFile,
       layout.activePaneId,
+      navigateDiagnostic,
       refreshProjectDiagnostics,
       refreshGitStatus,
       requestCloseTab,
@@ -1740,6 +1845,30 @@ function App() {
           : "Open a folder first",
         keywords: ["diagnostics", "check", "errors", "lint"],
         disabled: !folderPath,
+      },
+      {
+        id: AXON_COMMANDS.NEXT_PROBLEM,
+        title: "Go to Next Problem",
+        group: "Diagnostics",
+        shortcut: "F8",
+        subtitle:
+          diagnostics.length > 0
+            ? "Jump to the next diagnostic in the workspace"
+            : "No problems in this workspace",
+        keywords: ["diagnostics", "errors", "warnings", "next"],
+        disabled: diagnostics.length === 0,
+      },
+      {
+        id: AXON_COMMANDS.PREVIOUS_PROBLEM,
+        title: "Go to Previous Problem",
+        group: "Diagnostics",
+        shortcut: "Shift F8",
+        subtitle:
+          diagnostics.length > 0
+            ? "Jump to the previous diagnostic in the workspace"
+            : "No problems in this workspace",
+        keywords: ["diagnostics", "errors", "warnings", "previous"],
+        disabled: diagnostics.length === 0,
       },
       {
         id: AXON_COMMANDS.OPEN_OUTPUT_PANEL,
@@ -1908,6 +2037,14 @@ function App() {
       if (e.key === "F12" && e.shiftKey) {
         e.preventDefault();
         runCommand(AXON_COMMANDS.FIND_REFERENCES);
+      }
+      if (e.key === "F8" && !e.shiftKey) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.NEXT_PROBLEM);
+      }
+      if (e.key === "F8" && e.shiftKey) {
+        e.preventDefault();
+        runCommand(AXON_COMMANDS.PREVIOUS_PROBLEM);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "p") {
         e.preventDefault();
@@ -2226,7 +2363,9 @@ function App() {
           agentSidebarOpen={agentSidebarOpen}
           bottomPanelOpen={bottomPanelOpen}
           bottomPanelTab={bottomPanelTab}
-          problemCount={diagnostics.length}
+          problemCount={diagnosticCounts.total}
+          errorCount={diagnosticCounts.error}
+          warningCount={diagnosticCounts.warning}
           gitBranch={gitStatus?.branch ?? null}
           gitChangeCount={gitChangeCount}
           themeTokens={themeTokens}

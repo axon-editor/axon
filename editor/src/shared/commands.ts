@@ -9,6 +9,8 @@ export const AXON_COMMANDS = {
   OPEN_PROBLEMS_PANEL: "open-problems-panel",
   OPEN_OUTPUT_PANEL: "open-output-panel",
   REFRESH_DIAGNOSTICS: "refresh-diagnostics",
+  NEXT_PROBLEM: "next-problem",
+  PREVIOUS_PROBLEM: "previous-problem",
   CLEAR_OUTPUT: "clear-output",
   OPEN_DIFF_VIEW: "open-diff-view",
   OPEN_SOURCE_CONTROL: "open-source-control",

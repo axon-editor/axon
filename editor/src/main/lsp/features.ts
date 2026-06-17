@@ -15,9 +15,12 @@ import {
   type LanguageServerCompletionItem,
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
+  type LanguageServerCommand,
   type LanguageServerDefinitionRequest,
   type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
+  type LanguageServerExecuteCommandRequest,
+  type LanguageServerExecuteCommandResult,
   type LanguageServerFormatRequest,
   type LanguageServerFormatResult,
   type LanguageServerHoverRequest,
@@ -1960,16 +1963,36 @@ function normalizeLanguageServerCodeActions(result: unknown) {
         title?: unknown;
         kind?: unknown;
         edit?: unknown;
+        command?: unknown;
       };
       if (typeof rawAction.title !== "string") return null;
 
       return {
         title: rawAction.title,
         kind: typeof rawAction.kind === "string" ? rawAction.kind : undefined,
+        command: normalizeLanguageServerCommand(rawAction.command),
         edits: normalizeWorkspaceEdit(rawAction.edit),
       };
     })
     .filter((action): action is LanguageServerCodeAction => action !== null);
+}
+
+function normalizeLanguageServerCommand(command: unknown): LanguageServerCommand | undefined {
+  if (!command || typeof command !== "object") return undefined;
+  const rawCommand = command as {
+    title?: unknown;
+    command?: unknown;
+    arguments?: unknown;
+  };
+  if (typeof rawCommand.command !== "string") return undefined;
+
+  return {
+    title: typeof rawCommand.title === "string" ? rawCommand.title : undefined,
+    command: rawCommand.command,
+    arguments: Array.isArray(rawCommand.arguments)
+      ? rawCommand.arguments
+      : undefined,
+  };
 }
 
 export async function getLanguageServerCodeActions(
@@ -1989,12 +2012,14 @@ export async function getLanguageServerCodeActions(
         textDocument: { uri },
         range: request.range,
         context: {
-          // Axon currently streams diagnostics straight to the renderer instead
-          // of caching the raw LSP diagnostic objects in the main process.
-          // Sending an empty context still lets servers expose refactors and
-          // source actions. Quick-fix diagnostics can be added later by keeping
-          // a per-session diagnostic cache beside publishDiagnostics.
-          diagnostics: [],
+          // Quick-fix actions depend on the diagnostics that triggered the
+          // lightbulb. Servers such as TypeScript use this context to decide
+          // whether they should offer import fixes, type fixes, organize
+          // imports, or refactors. Axon keeps the user-facing diagnostics in
+          // Monaco/React state, so the renderer sends the markers around the
+          // requested range back here instead of making the main process keep a
+          // second raw diagnostic cache that can drift from the visible editor.
+          diagnostics: request.diagnostics ?? [],
           only: undefined,
         },
       },
@@ -2012,6 +2037,41 @@ export async function getLanguageServerCodeActions(
           ? err.message
           : "Language server code action failed.",
       actions: [],
+    };
+  }
+}
+
+export async function executeLanguageServerCommand(
+  request: LanguageServerExecuteCommandRequest,
+): Promise<LanguageServerExecuteCommandResult> {
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return { ok: false, message: ready.message, edits: {} };
+  }
+
+  try {
+    const result = await requestLanguageServer(
+      ready.session,
+      "workspace/executeCommand",
+      {
+        command: request.command,
+        arguments: request.arguments ?? [],
+      },
+      10000,
+    );
+
+    return {
+      ok: true,
+      edits: normalizeWorkspaceEdit(result),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Language server command failed.",
+      edits: {},
     };
   }
 }

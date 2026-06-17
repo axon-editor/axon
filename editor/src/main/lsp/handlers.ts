@@ -4,6 +4,7 @@ import {
   getLanguageServerCodeActions,
   getLanguageServerCompletions,
   getLanguageServerDefinitions,
+  executeLanguageServerCommand,
   getLanguageServerHover,
   getLanguageServerReferences,
   formatLanguageServerDocument,
@@ -24,6 +25,8 @@ import {
   type LanguageServerDefinitionRequest,
   type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
+  type LanguageServerExecuteCommandRequest,
+  type LanguageServerExecuteCommandResult,
   type LanguageServerFormatRequest,
   type LanguageServerFormatResult,
   type LanguageServerHoverRequest,
@@ -246,6 +249,23 @@ export function registerLspHandlers() {
       if (!settings.lsp.enabled) return { ok: true, actions: [] };
 
       return getLanguageServerCodeActions(request);
+    },
+  );
+
+  ipcMain.handle(
+    "lsp:executeCommand",
+    async (
+      _event,
+      request: LanguageServerExecuteCommandRequest,
+    ): Promise<LanguageServerExecuteCommandResult> => {
+      if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+        return { ok: true, edits: {} };
+      }
+
+      const settings = readSettingsForFolder(request.folderPath);
+      if (!settings.lsp.enabled) return { ok: true, edits: {} };
+
+      return executeLanguageServerCommand(request);
     },
   );
 }

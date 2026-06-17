@@ -1,4 +1,14 @@
-import { AlertCircle, ListChecks, RefreshCw, Trash2, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  AlertCircle,
+  ChevronDown,
+  Circle,
+  ListChecks,
+  RefreshCw,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { type EditorDiagnostic } from "../diagnostics/lib/diagnostics";
 import Tooltip from "../../shared/components/Tooltip";
 
@@ -115,11 +125,34 @@ function getFileName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
 
+function getParentPath(path: string) {
+  const normalizedPath = path.replace(/\\/g, "/");
+  const fileName = getFileName(normalizedPath);
+  return normalizedPath.slice(
+    0,
+    Math.max(0, normalizedPath.length - fileName.length - 1),
+  );
+}
+
 const severityStyles: Record<EditorDiagnostic["severity"], string> = {
   error: "text-[#ea6c73]",
   warning: "text-[#ffcc66]",
   info: "text-[#80c8e0]",
   hint: "text-[#647086]",
+};
+
+const severityLabels: Record<EditorDiagnostic["severity"], string> = {
+  error: "Errors",
+  warning: "Warnings",
+  info: "Info",
+  hint: "Hints",
+};
+
+const severityIcons: Record<EditorDiagnostic["severity"], string> = {
+  error: "bg-[#ea6c73]",
+  warning: "bg-[#ffcc66]",
+  info: "bg-[#80c8e0]",
+  hint: "bg-[#647086]",
 };
 
 const outputLevelStyles: Record<OutputEntryLevel, string> = {
@@ -128,6 +161,187 @@ const outputLevelStyles: Record<OutputEntryLevel, string> = {
   warning: "text-[#ffcc66]",
   error: "text-[#ea6c73]",
 };
+
+function ProblemsContent({
+  diagnostics,
+  onOpenDiagnostic,
+}: {
+  diagnostics: EditorDiagnostic[];
+  onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [activeSeverity, setActiveSeverity] = useState<
+    EditorDiagnostic["severity"] | "all"
+  >("all");
+
+  const counts = useMemo(
+    () =>
+      diagnostics.reduce(
+        (nextCounts, diagnostic) => {
+          nextCounts[diagnostic.severity] += 1;
+          return nextCounts;
+        },
+        { error: 0, warning: 0, info: 0, hint: 0 },
+      ),
+    [diagnostics],
+  );
+
+  const groupedDiagnostics = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const filteredDiagnostics = diagnostics.filter((diagnostic) => {
+      if (
+        activeSeverity !== "all" &&
+        diagnostic.severity !== activeSeverity
+      ) {
+        return false;
+      }
+
+      if (!normalizedQuery) return true;
+      return [
+        diagnostic.path,
+        getFileName(diagnostic.path),
+        diagnostic.message,
+        diagnostic.source ?? "",
+        diagnostic.code === undefined ? "" : String(diagnostic.code),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
+    });
+
+    const groups = new Map<string, EditorDiagnostic[]>();
+    for (const diagnostic of filteredDiagnostics) {
+      const existingDiagnostics = groups.get(diagnostic.path) ?? [];
+      existingDiagnostics.push(diagnostic);
+      groups.set(diagnostic.path, existingDiagnostics);
+    }
+
+    return Array.from(groups.entries()).map(([path, fileDiagnostics]) => ({
+      path,
+      diagnostics: fileDiagnostics,
+    }));
+  }, [activeSeverity, diagnostics, query]);
+
+  if (diagnostics.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
+        No problems in this workspace yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col text-[12px] text-[#9aa4b8]">
+      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--axon-panel-border)] px-3 py-2">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            size={12}
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[#586478]"
+          />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Filter problems"
+            className="h-7 w-full rounded-md border border-[var(--axon-panel-border)] bg-[#090b10] pl-7 pr-2 text-[12px] text-[#c8d0e0] outline-none transition-colors placeholder:text-[#3f485a] focus:border-[#80c8e0]/50"
+          />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          {(["all", "error", "warning", "info", "hint"] as const).map(
+            (severity) => {
+              const active = activeSeverity === severity;
+              const count =
+                severity === "all"
+                  ? diagnostics.length
+                  : counts[severity];
+
+              return (
+                <button
+                  key={severity}
+                  type="button"
+                  onClick={() => setActiveSeverity(severity)}
+                  className={`flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[11px] transition-colors ${
+                    active
+                      ? "bg-[var(--axon-tab-active-background)] text-white"
+                      : "text-[#647086] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#c8d0e0]"
+                  }`}
+                >
+                  {severity !== "all" && (
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${severityIcons[severity]}`}
+                    />
+                  )}
+                  {severity === "all" ? "All" : severityLabels[severity]}
+                  <span className="text-[#586478]">{count}</span>
+                </button>
+              );
+            },
+          )}
+        </div>
+      </div>
+
+      {groupedDiagnostics.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center px-4 text-center text-[12px] text-[#586478]">
+          No problems match this filter.
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto py-1">
+          {groupedDiagnostics.map((group) => (
+            <div
+              key={group.path}
+              className="border-b border-[var(--axon-panel-border)]/50 last:border-b-0"
+            >
+              <div className="flex h-8 items-center gap-2 px-3 text-[#c8d0e0]">
+                <ChevronDown size={13} className="text-[#586478]" />
+                <span className="truncate font-medium">
+                  {getFileName(group.path)}
+                </span>
+                <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 text-[10px] text-[#647086]">
+                  {group.diagnostics.length}
+                </span>
+                <span className="min-w-0 truncate text-[11px] text-[#586478]">
+                  {getParentPath(group.path)}
+                </span>
+              </div>
+
+              {group.diagnostics.map((diagnostic) => (
+                <button
+                  key={diagnostic.id}
+                  onClick={() => onOpenDiagnostic(diagnostic)}
+                  className="grid w-full cursor-pointer grid-cols-[18px_96px_minmax(0,1fr)_90px] items-start gap-2 px-6 py-1.5 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
+                >
+                  <Circle
+                    size={8}
+                    className={`mt-1.5 fill-current ${severityStyles[diagnostic.severity]}`}
+                  />
+                  <span
+                    className={`font-medium capitalize ${severityStyles[diagnostic.severity]}`}
+                  >
+                    {diagnostic.severity}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[#c8d0e0]">
+                      {diagnostic.message}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] text-[#586478]">
+                      Line {diagnostic.line}, column {diagnostic.column}
+                      {diagnostic.code !== undefined && (
+                        <span className="ml-2">Code {diagnostic.code}</span>
+                      )}
+                    </span>
+                  </span>
+                  <span className="truncate text-right text-[11px] text-[#586478]">
+                    {diagnostic.source ?? "lsp"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function BottomPanelContent({
   activeTab,
@@ -142,40 +356,11 @@ export function BottomPanelContent({
 }) {
   return (
     <>
-      {activeTab === "problems" && diagnostics.length === 0 && (
-        <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
-          No problems in this workspace yet.
-        </div>
-      )}
-
-      {activeTab === "problems" && diagnostics.length > 0 && (
-        <div className="h-full overflow-y-auto py-1 text-[12px] text-[#9aa4b8]">
-          {diagnostics.map((diagnostic) => (
-            <button
-              key={diagnostic.id}
-              onClick={() => onOpenDiagnostic(diagnostic)}
-              className="grid w-full cursor-pointer grid-cols-[80px_180px_1fr] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
-            >
-              <span
-                className={`font-medium capitalize ${severityStyles[diagnostic.severity]}`}
-              >
-                {diagnostic.severity}
-              </span>
-              <span className="min-w-0 truncate text-[#c8d0e0]">
-                {getFileName(diagnostic.path)}:{diagnostic.line}:
-                {diagnostic.column}
-              </span>
-              <span className="min-w-0 truncate text-[#9aa4b8]">
-                {diagnostic.message}
-                {diagnostic.source && (
-                  <span className="ml-2 text-[#586478]">
-                    {diagnostic.source}
-                  </span>
-                )}
-              </span>
-            </button>
-          ))}
-        </div>
+      {activeTab === "problems" && (
+        <ProblemsContent
+          diagnostics={diagnostics}
+          onOpenDiagnostic={onOpenDiagnostic}
+        />
       )}
 
       {activeTab === "output" && outputEntries.length === 0 && (

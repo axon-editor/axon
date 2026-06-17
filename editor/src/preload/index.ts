@@ -29,6 +29,8 @@ import {
   type LanguageServerDefinitionRequest,
   type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
+  type LanguageServerExecuteCommandRequest,
+  type LanguageServerExecuteCommandResult,
   type LanguageServerFormatRequest,
   type LanguageServerFormatResult,
   type LanguageServerHoverRequest,
@@ -134,6 +136,10 @@ contextBridge.exposeInMainWorld("axon", {
     request: LanguageServerCodeActionRequest,
   ): Promise<LanguageServerCodeActionResult> =>
     ipcRenderer.invoke("lsp:codeActions", request),
+  executeLanguageServerCommand: (
+    request: LanguageServerExecuteCommandRequest,
+  ): Promise<LanguageServerExecuteCommandResult> =>
+    ipcRenderer.invoke("lsp:executeCommand", request),
   onLanguageServerDiagnostics: (
     callback: (event: {
       folderPath: string;
