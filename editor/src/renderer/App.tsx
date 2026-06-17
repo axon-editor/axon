@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import Sidebar, { addRecentFolder } from "./features/sidebar";
+import Sidebar, {
+  addRecentFolder,
+  getWorkspaceTrustState,
+  setWorkspaceTrusted,
+} from "./features/sidebar";
 import EditorPane from "./features/editor/EditorPane";
 import StatusBar from "./shared/components/StatusBar";
 import Terminal from "./features/terminal/Terminal";
@@ -88,6 +92,7 @@ import {
   type LanguageServerExecuteCommandResult,
   type LanguageServerFormatRequest,
   type LanguageServerFormatResult,
+  type LanguageServerTextEdit,
   type LanguageServerHoverRequest,
   type LanguageServerHoverResult,
   type LanguageServerLifecycleResult,
@@ -160,9 +165,28 @@ function colorWithAlpha(color: string, alpha: number) {
   return `rgba(${Number.parseInt(red, 16)}, ${Number.parseInt(green, 16)}, ${Number.parseInt(blue, 16)}, ${finalAlpha})`;
 }
 
+function getPathBasename(path: string | null) {
+  if (!path) return "workspace";
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? "workspace";
+}
+
+function toMonacoEdit(edit: LanguageServerTextEdit) {
+  return {
+    range: new monaco.Range(
+      edit.range.start.line + 1,
+      edit.range.start.character + 1,
+      edit.range.end.line + 1,
+      edit.range.end.character + 1,
+    ),
+    text: edit.newText,
+    forceMoveMarkers: true,
+  };
+}
+
 declare global {
   interface Window {
     axonCompletionWorkspacePath?: string | null;
+    axonEditorSettings?: AxonSettings;
     axon: {
       platform: string;
       openFolder: () => Promise<string | null>;
@@ -411,6 +435,9 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [workspaceTrustPromptPath, setWorkspaceTrustPromptPath] = useState<
+    string | null
+  >(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateInstallState, setUpdateInstallState] =
     useState<UpdateInstallState>({ phase: "idle" });
@@ -458,6 +485,10 @@ function App() {
 
   const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
   const [spotifyState, spotifyActions] = useSpotify(sidebarSpotifyVisible);
+
+  useEffect(() => {
+    window.axonEditorSettings = settings;
+  }, [settings]);
 
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
   const extensionThemes = useMemo(
@@ -1184,6 +1215,9 @@ function App() {
     setBottomPanelTab(restoredSession?.bottomPanelTab ?? "problems");
     setTerminalCreateWorkingDirectory(null);
     appendOutput("workspace", `Loaded file tree for ${path}`);
+    if (getWorkspaceTrustState(path) === null) {
+      setWorkspaceTrustPromptPath(path);
+    }
 
     try {
       const workspaceSettings = await window.axon.getSettings(path);
@@ -1491,10 +1525,50 @@ function App() {
     async (filePath: string) => {
       const model = getModel(filePath);
       if (!model || model.isDisposed()) return false;
+      const languageId = detectLanguage(filePath);
+
+      if (
+        settings.editor.formatOnSave &&
+        folderPath &&
+        languageId !== "plaintext"
+      ) {
+        try {
+          const modelOptions = model.getOptions();
+          const result = await window.axon.formatLanguageServerDocument({
+            folderPath,
+            filePath,
+            languageId,
+            content: model.getValue(),
+            tabSize: modelOptions.tabSize,
+            insertSpaces: modelOptions.insertSpaces,
+          });
+
+          if (result.ok && result.edits.length > 0) {
+            // Format-on-save works on the shared Monaco model before the disk
+            // write so every split showing this file receives the same edits.
+            // If I formatted a detached string instead, the saved text and the
+            // visible editor could drift until the next model refresh.
+            model.pushEditOperations(
+              [],
+              result.edits.map(toMonacoEdit),
+              () => null,
+            );
+          } else if (!result.ok && result.message) {
+            appendOutput("lsp", result.message, "warning");
+          }
+        } catch (err) {
+          appendOutput(
+            "lsp",
+            err instanceof Error
+              ? err.message
+              : "Format on save failed.",
+            "warning",
+          );
+        }
+      }
 
       await writeFile(filePath, model.getValue());
       if (folderPath) {
-        const languageId = detectLanguage(filePath);
         if (languageId !== "plaintext") {
           try {
             await window.axon.syncLanguageServerDocument({
@@ -1530,7 +1604,7 @@ function App() {
       void refreshProjectDiagnostics();
       return true;
     },
-    [appendOutput, folderPath, refreshProjectDiagnostics],
+    [appendOutput, folderPath, refreshProjectDiagnostics, settings.editor.formatOnSave],
   );
 
   const handleSaveActiveFile = useCallback(() => {
@@ -2576,6 +2650,51 @@ function App() {
           appendOutput("git", message, level)
         }
       />
+
+      {workspaceTrustPromptPath && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-[#253044] bg-[#0e121b] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.48)]">
+            <div className="text-[14px] font-medium text-[#f4f7fb]">
+              Trust this workspace?
+            </div>
+            <div className="mt-2 text-[12px] leading-5 text-[#9aa4b8]">
+              Axon can run project-aware features for{" "}
+              <span className="font-medium text-[#dce4f0]">
+                {getPathBasename(workspaceTrustPromptPath)}
+              </span>
+              , including language servers, tasks, terminals, and extensions.
+              Only trust folders you recognize.
+            </div>
+            <div className="mt-3 truncate rounded-md border border-[#1d2432] bg-[#080b11] px-3 py-2 font-mono text-[10px] text-[#647086]">
+              {workspaceTrustPromptPath}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkspaceTrusted(workspaceTrustPromptPath, false);
+                  setWorkspaceTrustPromptPath(null);
+                  appendOutput("workspace", "Workspace marked untrusted.");
+                }}
+                className="h-8 cursor-pointer rounded-md border border-[#2a3346] px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+              >
+                Don&apos;t trust
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkspaceTrusted(workspaceTrustPromptPath, true);
+                  setWorkspaceTrustPromptPath(null);
+                  appendOutput("workspace", "Workspace trusted.", "success");
+                }}
+                className="h-8 cursor-pointer rounded-md border border-[#80c8e0] bg-[#142a36] px-3 text-[12px] text-[#dff7ff] transition-colors hover:bg-[#183345]"
+              >
+                Trust workspace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && !splashVisible && <WorkspaceLoadingOverlay />}
       {splashVisible && <SplashScreen leaving={splashLeaving} />}

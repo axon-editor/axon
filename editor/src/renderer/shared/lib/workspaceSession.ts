@@ -66,6 +66,10 @@ export function saveWorkspaceSession(session: WorkspaceSession) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
+export function clearWorkspaceSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
 export function sanitizeRestoredLayout(
   layout: Layout | null | undefined,
   tree: FileNode,

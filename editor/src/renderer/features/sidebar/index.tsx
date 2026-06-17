@@ -9,7 +9,7 @@ import {
   type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FolderTree, Plus } from "lucide-react";
+import { FolderTree, Plus, ShieldCheck, ShieldAlert } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../shared/lib/api";
 import FileTree, { type ImportedExternalEntry } from "./files/FileTree";
 import ContextMenu from "./files/ContextMenu";
@@ -26,8 +26,10 @@ import {
 import SpotifyPanel from "../spotify/SpotifyPanel";
 import type { AxonSettings } from "../../../shared/settings";
 import type { SpotifyActions, SpotifyState } from "../spotify/lib/useSpotify";
+import { clearWorkspaceSession } from "../../shared/lib/workspaceSession";
 
 const RECENT_KEY = "axon:recentFolders";
+const WORKSPACE_TRUST_KEY = "axon:workspaceTrust";
 const MAX_RECENT = 10;
 
 interface RecentFolderRecord {
@@ -90,6 +92,51 @@ export function getRecentFolders(): string[] {
   );
   writeRecentFolders(records.slice(0, MAX_RECENT));
   return records.map((record) => record.path);
+}
+
+export function removeRecentFolder(path: string) {
+  writeRecentFolders(parseRecentFolders().filter((record) => record.path !== path));
+}
+
+export function clearRecentFolders() {
+  localStorage.removeItem(RECENT_KEY);
+}
+
+function readWorkspaceTrust(): Record<string, boolean> {
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(WORKSPACE_TRUST_KEY) ?? "{}",
+    ) as unknown;
+    return typeof parsed === "object" && parsed !== null
+      ? Object.fromEntries(
+          Object.entries(parsed).filter(
+            (entry): entry is [string, boolean] =>
+              typeof entry[0] === "string" && typeof entry[1] === "boolean",
+          ),
+        )
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+export function getWorkspaceTrustState(path: string | null): boolean | null {
+  if (!path) return true;
+  const trust = readWorkspaceTrust();
+  return Object.prototype.hasOwnProperty.call(trust, path)
+    ? trust[path]
+    : null;
+}
+
+function isWorkspaceTrusted(path: string | null) {
+  if (!path) return true;
+  return getWorkspaceTrustState(path) !== false;
+}
+
+export function setWorkspaceTrusted(path: string, trusted: boolean) {
+  const trust = readWorkspaceTrust();
+  trust[path] = trusted;
+  localStorage.setItem(WORKSPACE_TRUST_KEY, JSON.stringify(trust));
 }
 
 interface Props {
@@ -351,6 +398,8 @@ export default function Sidebar({
   );
   const [revealPath, setRevealPath] = useState<string | null>(null);
   const [rootDragOver, setRootDragOver] = useState(false);
+  const [trustNonce, setTrustNonce] = useState(0);
+  const [recentNonce, setRecentNonce] = useState(0);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
   const gitDecorations = useMemo(
     () => buildGitDecorationMap(gitChanges),
@@ -360,6 +409,20 @@ export default function Sidebar({
     () => buildIgnoredPathSet(ignoredPathList),
     [ignoredPathList],
   );
+  const trustedWorkspace = useMemo(
+    () => isWorkspaceTrusted(folderPath),
+    [folderPath, trustNonce],
+  );
+  const recentFolders = useMemo(
+    () => getRecentFolders(),
+    [folderPickerOpen, recentNonce],
+  );
+
+  const toggleWorkspaceTrust = () => {
+    if (!folderPath) return;
+    setWorkspaceTrusted(folderPath, !trustedWorkspace);
+    setTrustNonce((nonce) => nonce + 1);
+  };
 
   const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
     e.preventDefault();
@@ -575,11 +638,34 @@ export default function Sidebar({
               type="button"
               onClick={onOpenFolderPicker}
               aria-label="Select folder"
-              className="max-w-[180px] truncate rounded px-2 py-1 text-left text-[11px] font-medium text-[#9aa4b8] transition-colors hover:bg-[#11151c] hover:text-white cursor-pointer"
+              className="min-w-0 max-w-[150px] truncate rounded px-2 py-1 text-left text-[11px] font-medium text-[#9aa4b8] transition-colors hover:bg-[#11151c] hover:text-white cursor-pointer"
               style={{ WebkitAppRegion: "no-drag" } as any}
             >
               {getPathBasename(folderPath)}
             </button>
+            {folderPath ? (
+              <button
+                type="button"
+                onClick={toggleWorkspaceTrust}
+                aria-label={
+                  trustedWorkspace
+                    ? "Mark workspace untrusted"
+                    : "Trust workspace"
+                }
+                className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-colors ${
+                  trustedWorkspace
+                    ? "text-[#8fe3a2] hover:bg-[#152019]"
+                    : "text-[#ffb454] hover:bg-[#2b2113]"
+                }`}
+                style={{ WebkitAppRegion: "no-drag" } as any}
+              >
+                {trustedWorkspace ? (
+                  <ShieldCheck size={13} />
+                ) : (
+                  <ShieldAlert size={13} />
+                )}
+              </button>
+            ) : null}
           </div>
 
           {tree && (
@@ -700,9 +786,21 @@ export default function Sidebar({
       )}
 
       {folderPickerOpen && (
-        <FolderPicker
-          recentFolders={getRecentFolders()}
+          <FolderPicker
+          recentFolders={recentFolders}
           onSelect={handleSelectRecent}
+          onRemoveRecent={(path) => {
+            removeRecentFolder(path);
+            setRecentNonce((nonce) => nonce + 1);
+          }}
+          onClearRecent={() => {
+            clearRecentFolders();
+            setRecentNonce((nonce) => nonce + 1);
+          }}
+          onClearSession={() => {
+            clearWorkspaceSession();
+            onCloseFolderPicker();
+          }}
           onOpenNew={async () => {
             await onOpenFolder();
             onCloseFolderPicker();
