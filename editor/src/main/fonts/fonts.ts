@@ -17,10 +17,66 @@ function getFontFamilyFromPath(filePath: string) {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
+function getFontWeightFromName(name: string) {
+  if (name.includes("ExtraLight")) return 200;
+  if (name.includes("Light")) return 300;
+  if (name.includes("Medium")) return 500;
+  if (name.includes("SemiBold")) return 600;
+  if (name.includes("ExtraBold")) return 800;
+  if (name.includes("Bold")) return 700;
+  return 400;
+}
+
+function getFontStretchFromName(name: string) {
+  if (name.includes("SemiWide")) return "semi-expanded";
+  if (name.includes("Wide")) return "expanded";
+  return undefined;
+}
+
+function getFontMetadataFromPath(filePath: string): CustomFont {
+  const parsed = path.parse(filePath);
+  const name = parsed.name;
+  const monaspaceMatch = name.match(/^Monaspace([A-Za-z]+)NF-/);
+
+  if (!monaspaceMatch) {
+    return {
+      family: getFontFamilyFromPath(filePath),
+      path: filePath,
+      url: toAxonLocalUrl(filePath),
+    };
+  }
+
+  const family = `Monaspace ${monaspaceMatch[1]} NF`;
+  return {
+    family,
+    path: filePath,
+    url: toAxonLocalUrl(filePath),
+    weight: getFontWeightFromName(name),
+    style: name.includes("Italic") ? "italic" : "normal",
+    stretch: getFontStretchFromName(name),
+  };
+}
+
+function isFontFile(filePath: string) {
+  return [".ttf", ".otf", ".woff", ".woff2"].includes(
+    path.extname(filePath).toLowerCase(),
+  );
+}
+
+function collectFontFiles(directoryPath: string): string[] {
+  if (!fs.existsSync(directoryPath)) return [];
+
+  const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const entryPath = path.join(directoryPath, entry.name);
+    if (entry.isDirectory()) return collectFontFiles(entryPath);
+    return entry.isFile() && isFontFile(entryPath) ? [entryPath] : [];
+  });
+}
+
 export function importCustomFontFile(sourcePath: string): CustomFont {
-  const allowedExtensions = new Set([".ttf", ".otf", ".woff", ".woff2"]);
   const extension = path.extname(sourcePath).toLowerCase();
-  if (!allowedExtensions.has(extension)) {
+  if (!isFontFile(sourcePath)) {
     throw new Error("Unsupported font file type.");
   }
 
@@ -44,6 +100,17 @@ export function importCustomFontFile(sourcePath: string): CustomFont {
     path: targetPath,
     url: toAxonLocalUrl(targetPath),
   };
+}
+
+export function listAvailableLocalFonts(): CustomFont[] {
+  const candidateRoots = [
+    path.resolve(app.getAppPath(), "..", "NerdFonts"),
+    path.resolve(process.resourcesPath, "NerdFonts"),
+  ];
+  return candidateRoots
+    .flatMap(collectFontFiles)
+    .sort((a, b) => a.localeCompare(b))
+    .map(getFontMetadataFromPath);
 }
 
 export function getAxonIconPath(isDev: boolean) {

@@ -73,6 +73,8 @@ contextBridge.exposeInMainWorld("axon", {
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   importFont: (): Promise<CustomFont | null> =>
     ipcRenderer.invoke("dialog:importFont"),
+  listAvailableFonts: (): Promise<CustomFont[]> =>
+    ipcRenderer.invoke("fonts:listAvailable"),
   selectEditorBackgroundImage: (): Promise<string | null> =>
     ipcRenderer.invoke("dialog:selectEditorBackgroundImage"),
   selectPythonVirtualEnv: (folderPath?: string | null): Promise<{

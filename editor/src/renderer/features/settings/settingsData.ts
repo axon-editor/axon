@@ -2,6 +2,8 @@ import {
   AI_PROVIDER_IDS,
   BUILT_IN_THEME_IDS,
   EDITOR_FONT_FAMILIES,
+  EDITOR_CURSOR_BLINKING,
+  EDITOR_CURSOR_STYLES,
   EDITOR_BACKGROUND_IMAGE_FITS,
   EDITOR_MULTI_CURSOR_MODIFIERS,
   FONT_PRESET_IDS,
@@ -11,6 +13,8 @@ import {
   type AiProviderId,
   type BuiltInThemeId,
   type EditorFontFamily,
+  type EditorCursorBlinking,
+  type EditorCursorStyle,
   type EditorBackgroundImageFit,
   type EditorMultiCursorModifier,
   type FontPresetId,
@@ -92,12 +96,43 @@ export const UI_FONT_ITEMS: SearchSelectItem<UiFontFamily>[] =
   UI_FONT_FAMILIES.map((fontFamily) => ({
     value: fontFamily,
     label: fontFamily,
+    previewFontFamily: fontFamily,
   }));
 
 export const EDITOR_FONT_ITEMS: SearchSelectItem<EditorFontFamily>[] =
   EDITOR_FONT_FAMILIES.map((fontFamily) => ({
     value: fontFamily,
     label: fontFamily,
+    previewFontFamily: fontFamily,
+  }));
+
+const EDITOR_CURSOR_STYLE_LABELS: Record<EditorCursorStyle, string> = {
+  line: "Line",
+  "line-thin": "Thin line",
+  block: "Block",
+  "block-outline": "Block outline",
+  underline: "Underline",
+  "underline-thin": "Thin underline",
+};
+
+export const EDITOR_CURSOR_STYLE_ITEMS: SearchSelectItem<EditorCursorStyle>[] =
+  EDITOR_CURSOR_STYLES.map((cursorStyle) => ({
+    value: cursorStyle,
+    label: EDITOR_CURSOR_STYLE_LABELS[cursorStyle],
+  }));
+
+const EDITOR_CURSOR_BLINKING_LABELS: Record<EditorCursorBlinking, string> = {
+  blink: "Blink",
+  smooth: "Smooth",
+  phase: "Phase",
+  expand: "Expand",
+  solid: "Solid",
+};
+
+export const EDITOR_CURSOR_BLINKING_ITEMS: SearchSelectItem<EditorCursorBlinking>[] =
+  EDITOR_CURSOR_BLINKING.map((cursorBlinking) => ({
+    value: cursorBlinking,
+    label: EDITOR_CURSOR_BLINKING_LABELS[cursorBlinking],
   }));
 
 const FONT_PRESET_LABELS: Record<FontPresetId, string> = {

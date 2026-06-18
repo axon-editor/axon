@@ -191,6 +191,7 @@ declare global {
       platform: string;
       openFolder: () => Promise<string | null>;
       importFont: () => Promise<CustomFont | null>;
+      listAvailableFonts: () => Promise<CustomFont[]>;
       selectEditorBackgroundImage: () => Promise<string | null>;
       selectPythonVirtualEnv: (folderPath?: string | null) => Promise<{
         virtualEnvPath: string;
@@ -444,6 +445,7 @@ function App() {
   const [settings, setSettings] = useState<AxonSettings>(DEFAULT_SETTINGS);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
+  const [availableFonts, setAvailableFonts] = useState<CustomFont[]>([]);
   const [extensionState, setExtensionState] = useState<ExtensionState | null>(
     null,
   );
@@ -476,12 +478,15 @@ function App() {
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);
   const allowSessionPersistenceRef = useRef(true);
+  const folderRefreshTimerRef = useRef<number | null>(null);
+  const folderRefreshRequestRef = useRef(0);
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
   const autoStartedLspWorkspaceRef = useRef<string | null>(null);
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyOpen, setSpotifyOpen] = useState(false);
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
-  const [agentSidebarOpen, setAgentSidebarOpen] = useState(true);
+  const [agentSidebarOpen, setAgentSidebarOpen] = useState(false);
+  const [workspaceTrustNonce, setWorkspaceTrustNonce] = useState(0);
 
   const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
   const [spotifyState, spotifyActions] = useSpotify(sidebarSpotifyVisible);
@@ -490,7 +495,35 @@ function App() {
     window.axonEditorSettings = settings;
   }, [settings]);
 
+  useEffect(() => {
+    window.axon
+      .listAvailableFonts()
+      .then(setAvailableFonts)
+      .catch((err) => {
+        console.error("failed to list available fonts:", err);
+        setAvailableFonts([]);
+      });
+  }, []);
+
   const activePane = layout.panes.find((p) => p.id === layout.activePaneId);
+  const workspaceTrusted = useMemo(
+    () => getWorkspaceTrustState(folderPath) !== false,
+    [folderPath, workspaceTrustNonce],
+  );
+
+  useEffect(() => {
+    if (workspaceTrusted || !folderPath) return;
+
+    setTerminalOpen(false);
+    setTaskRunnerOpen(false);
+    setExtensionsOpen(false);
+    setAgentSidebarOpen(false);
+    autoStartedLspWorkspaceRef.current = null;
+    activeLanguageServerStartRef.current.clear();
+    void window.axon.stopLanguageServers(folderPath).catch((err) => {
+      console.error("failed to stop language servers for untrusted workspace:", err);
+    });
+  }, [folderPath, workspaceTrusted]);
   const extensionThemes = useMemo(
     () =>
       extensionState?.extensions.flatMap((extension) =>
@@ -530,9 +563,25 @@ function App() {
         themeTokens["sidebar.background"],
         opacity,
       ),
+      "--axon-sidebar-border": colorWithAlpha(
+        themeTokens["sidebar.border"],
+        Math.min(1, opacity + 0.25),
+      ),
+      "--axon-tab-active-background": colorWithAlpha(
+        themeTokens["tab.active_background"],
+        opacity,
+      ),
       "--axon-panel-background": colorWithAlpha(
         themeTokens["panel.background"],
         opacity,
+      ),
+      "--axon-panel-border": colorWithAlpha(
+        themeTokens["panel.border"],
+        Math.min(1, opacity + 0.25),
+      ),
+      "--axon-panel-overlay-hover": colorWithAlpha(
+        themeTokens["panel.overlay_hover"],
+        Math.min(1, opacity + 0.2),
       ),
       "--axon-status-bar-background": colorWithAlpha(
         themeTokens["status_bar.background"],
@@ -540,6 +589,14 @@ function App() {
       ),
       "--axon-editor-background": colorWithAlpha(
         themeTokens["editor.background"],
+        opacity,
+      ),
+      "--axon-editor-gutter-background": colorWithAlpha(
+        themeTokens["editor.gutter.background"],
+        opacity,
+      ),
+      "--axon-terminal-background": colorWithAlpha(
+        themeTokens["terminal.background"],
         opacity,
       ),
     } as typeof themeCssVariables;
@@ -692,8 +749,23 @@ function App() {
     ]);
   }, []);
 
+  const requireTrustedWorkspace = useCallback(
+    (feature: string) => {
+      if (workspaceTrusted) return true;
+
+      appendOutput(
+        "workspace",
+        `${feature} is disabled until this workspace is trusted.`,
+        "warning",
+      );
+      setWorkspaceTrustPromptPath(folderPath);
+      return false;
+    },
+    [appendOutput, folderPath, workspaceTrusted],
+  );
+
   useEffect(() => {
-    if (!folderPath || !settings.lsp.enabled) {
+    if (!folderPath || !settings.lsp.enabled || !workspaceTrusted) {
       autoStartedLspWorkspaceRef.current = null;
       activeLanguageServerStartRef.current.clear();
       return;
@@ -720,10 +792,17 @@ function App() {
           "error",
         );
       });
-  }, [appendOutput, folderPath, settings.lsp.enabled]);
+  }, [appendOutput, folderPath, settings.lsp.enabled, workspaceTrusted]);
 
   useEffect(() => {
-    if (!folderPath || !settings.lsp.enabled || !activePane?.activeFile) return;
+    if (
+      !folderPath ||
+      !settings.lsp.enabled ||
+      !workspaceTrusted ||
+      !activePane?.activeFile
+    ) {
+      return;
+    }
 
     const languageId = detectLanguage(activePane.activeFile);
     const startKey = `${folderPath}::${languageId}`;
@@ -759,7 +838,13 @@ function App() {
           "error",
         );
       });
-  }, [activePane?.activeFile, appendOutput, folderPath, settings.lsp.enabled]);
+  }, [
+    activePane?.activeFile,
+    appendOutput,
+    folderPath,
+    settings.lsp.enabled,
+    workspaceTrusted,
+  ]);
 
   const handleOpenUpdatePage = useCallback(() => {
     void window.axon.openUpdatePage(updateInfo?.releaseUrl);
@@ -955,18 +1040,26 @@ function App() {
     // registry deterministic: changing settings JSON, saving settings, or
     // restarting Axon all rebuild the same @font-face list before UI/editor
     // components ask CSS or Monaco to use those font-family names.
-    const customFontFaces = settings.customFonts
+    const allCustomFonts = [...availableFonts, ...settings.customFonts];
+    const customFontFaces = allCustomFonts
       .map((font) => {
         const family = escapeCssString(font.family);
         const url = escapeCssString(font.url);
-        return `@font-face{font-family:"${family}";src:url("${url}");font-display:swap;}`;
+        const weight = font.weight
+          ? `font-weight:${font.weight};`
+          : "";
+        const style = font.style ? `font-style:${font.style};` : "";
+        const stretch = font.stretch
+          ? `font-stretch:${font.stretch};`
+          : "";
+        return `@font-face{font-family:"${family}";src:url("${url}");${weight}${style}${stretch}font-display:swap;}`;
       })
       .join("\n");
 
     styleElement.textContent = [createBundledFontFaces(), customFontFaces]
       .filter(Boolean)
       .join("\n");
-  }, [settings.customFonts]);
+  }, [availableFonts, settings.customFonts]);
 
   useEffect(() => {
     return onEditorDiagnosticsChanged(setMonacoDiagnostics);
@@ -1020,7 +1113,9 @@ function App() {
         savedPath !== workspaceSettingsPath &&
         savedPath !== settingsJsonPath
       ) {
-        void refreshProjectDiagnostics();
+        if (workspaceTrusted) {
+          void refreshProjectDiagnostics();
+        }
         return;
       }
 
@@ -1034,7 +1129,9 @@ function App() {
         .catch((err) => {
           console.error("failed to reload settings json:", err);
         });
-      void refreshProjectDiagnostics();
+      if (workspaceTrusted) {
+        void refreshProjectDiagnostics();
+      }
       void refreshGitStatus({ silent: true });
     };
 
@@ -1045,17 +1142,41 @@ function App() {
     refreshGitStatus,
     refreshProjectDiagnostics,
     settingsJsonPath,
+    workspaceTrusted,
   ]);
 
   useEffect(() => {
     const cleanup = window.axon.onFolderChanged(() => {
       if (!folderPath) return;
-      getTree(folderPath).then(setTree).catch(console.error);
-      void refreshProjectDiagnostics();
-      void refreshGitStatus({ silent: true });
+      if (folderRefreshTimerRef.current) {
+        window.clearTimeout(folderRefreshTimerRef.current);
+      }
+
+      folderRefreshTimerRef.current = window.setTimeout(() => {
+        const requestId = folderRefreshRequestRef.current + 1;
+        folderRefreshRequestRef.current = requestId;
+
+        getTree(folderPath)
+          .then((nextTree) => {
+            if (folderRefreshRequestRef.current === requestId) {
+              setTree(nextTree);
+            }
+          })
+          .catch(console.error);
+        if (workspaceTrusted) {
+          void refreshProjectDiagnostics();
+        }
+        void refreshGitStatus({ silent: true });
+      }, 60);
     });
-    return cleanup;
-  }, [folderPath, refreshGitStatus, refreshProjectDiagnostics]);
+    return () => {
+      cleanup();
+      if (folderRefreshTimerRef.current) {
+        window.clearTimeout(folderRefreshTimerRef.current);
+        folderRefreshTimerRef.current = null;
+      }
+    };
+  }, [folderPath, refreshGitStatus, refreshProjectDiagnostics, workspaceTrusted]);
 
   useEffect(() => {
     const cleanup = window.axon.onGitChanged(() => {
@@ -1274,6 +1395,8 @@ function App() {
   };
 
   const handleOpenHtmlPreview = (filePath: string) => {
+    if (!requireTrustedWorkspace("HTML preview")) return;
+
     // HTML previews are represented as their own tab identity because a source
     // document and its rendered browser view are different editor surfaces.
     // Reusing the raw file path would make the preview fight with the Monaco
@@ -1468,6 +1591,8 @@ function App() {
   );
 
   const handleNewTerminal = () => {
+    if (!requireTrustedWorkspace("Terminal")) return;
+
     setTerminalCreateWorkingDirectory(null);
     setBottomPanelOpen(false);
     setTerminalOpen(true);
@@ -1476,6 +1601,8 @@ function App() {
   };
 
   const handleOpenTabInTerminal = (filePath: string) => {
+    if (!requireTrustedWorkspace("Terminal")) return;
+
     const separatorIndex = Math.max(
       filePath.lastIndexOf("/"),
       filePath.lastIndexOf("\\"),
@@ -1494,6 +1621,8 @@ function App() {
   };
 
   const handleOpenPathInTerminal = (path: string) => {
+    if (!requireTrustedWorkspace("Terminal")) return;
+
     setTerminalCreateWorkingDirectory(path);
     setBottomPanelOpen(false);
     setTerminalOpen(true);
@@ -1503,6 +1632,7 @@ function App() {
 
   const handleRunWorkspaceTask = async (task: WorkspaceTask) => {
     if (!folderPath) return;
+    if (!requireTrustedWorkspace("Tasks")) return;
 
     // Task output belongs in the Output panel, not in the terminal tabs. The
     // task runner is non-interactive and project-scoped, so opening Output here
@@ -1530,6 +1660,7 @@ function App() {
       if (
         settings.editor.formatOnSave &&
         folderPath &&
+        workspaceTrusted &&
         languageId !== "plaintext"
       ) {
         try {
@@ -1568,7 +1699,7 @@ function App() {
       }
 
       await writeFile(filePath, model.getValue());
-      if (folderPath) {
+      if (folderPath && workspaceTrusted) {
         if (languageId !== "plaintext") {
           try {
             await window.axon.syncLanguageServerDocument({
@@ -1601,10 +1732,18 @@ function App() {
         new CustomEvent("axon:fileSaved", { detail: { path: filePath } }),
       );
       appendOutput("file", `Saved ${filePath}`, "success");
-      void refreshProjectDiagnostics();
+      if (workspaceTrusted) {
+        void refreshProjectDiagnostics();
+      }
       return true;
     },
-    [appendOutput, folderPath, refreshProjectDiagnostics, settings.editor.formatOnSave],
+    [
+      appendOutput,
+      folderPath,
+      refreshProjectDiagnostics,
+      settings.editor.formatOnSave,
+      workspaceTrusted,
+    ],
   );
 
   const handleSaveActiveFile = useCallback(() => {
@@ -1695,6 +1834,8 @@ function App() {
   const runCommand = useCallback(
     (command: AxonCommand) => {
       if (command.startsWith("extension:")) {
+        if (!requireTrustedWorkspace("Extension commands")) return;
+
         const commandId = command.slice("extension:".length);
         appendOutput(
           "extensions",
@@ -1727,21 +1868,26 @@ function App() {
           setWorkspaceSearchOpen((prev) => !prev);
           break;
         case AXON_COMMANDS.OPEN_TASK_RUNNER:
+          if (!requireTrustedWorkspace("Tasks")) break;
           setTaskRunnerOpen(true);
           break;
         case AXON_COMMANDS.OPEN_FILE_OUTLINE:
           setFileOutlineOpen(true);
           break;
         case AXON_COMMANDS.GO_TO_DEFINITION:
+          if (!requireTrustedWorkspace("Language server navigation")) break;
           runEditorAction("definition");
           break;
         case AXON_COMMANDS.FIND_REFERENCES:
+          if (!requireTrustedWorkspace("Language server navigation")) break;
           runEditorAction("references");
           break;
         case AXON_COMMANDS.RENAME_SYMBOL:
+          if (!requireTrustedWorkspace("Language server features")) break;
           runEditorAction("rename");
           break;
         case AXON_COMMANDS.FORMAT_DOCUMENT:
+          if (!requireTrustedWorkspace("Language server features")) break;
           runEditorAction("format");
           break;
         case AXON_COMMANDS.OPEN_HTML_PREVIEW:
@@ -1762,6 +1908,7 @@ function App() {
           appendOutput("panel", "Opened Output panel.");
           break;
         case AXON_COMMANDS.REFRESH_DIAGNOSTICS:
+          if (!requireTrustedWorkspace("Language server diagnostics")) break;
           setBottomPanelTab("problems");
           setBottomPanelOpen(true);
           setTerminalOpen(false);
@@ -1795,6 +1942,7 @@ function App() {
           void refreshGitStatus({ silent: true });
           break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
+          if (!requireTrustedWorkspace("Terminal")) break;
           setBottomPanelOpen(false);
           setTerminalOpen((prev) => !prev);
           appendOutput(
@@ -1806,6 +1954,7 @@ function App() {
           setSettingsOpen(true);
           break;
         case AXON_COMMANDS.OPEN_EXTENSIONS:
+          if (!requireTrustedWorkspace("Extensions")) break;
           setExtensionsOpen(true);
           break;
         case AXON_COMMANDS.OPEN_SETTINGS_JSON:
@@ -1834,6 +1983,7 @@ function App() {
       navigateDiagnostic,
       refreshProjectDiagnostics,
       refreshGitStatus,
+      requireTrustedWorkspace,
       requestCloseTab,
       runEditorAction,
       settings,
@@ -1851,8 +2001,12 @@ function App() {
               title: command.title,
               group: command.category ?? "Extensions",
               subtitle:
-                command.description ?? `${extension.name} command contribution`,
+                !workspaceTrusted
+                  ? "Trust this workspace before running extension commands"
+                  : command.description ??
+                    `${extension.name} command contribution`,
               keywords: [extension.name, extension.publisher, command.id],
+              disabled: !workspaceTrusted,
             }))
           : [],
       ) ?? [];
@@ -1892,11 +2046,13 @@ function App() {
         id: AXON_COMMANDS.OPEN_TASK_RUNNER,
         title: "Run Task",
         group: "Workspace",
-        subtitle: folderPath
+        subtitle: !workspaceTrusted
+          ? "Trust this workspace before running tasks"
+          : folderPath
           ? "Run package, Go, or Cargo workspace tasks"
           : "Open a folder first",
         keywords: ["build", "test", "npm", "go", "cargo"],
-        disabled: !folderPath,
+        disabled: !folderPath || !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.OPEN_FILE_OUTLINE,
@@ -1915,10 +2071,12 @@ function App() {
         group: "Navigation",
         shortcut: "F12",
         subtitle: activePane?.activeFile
-          ? "Jump to the symbol definition Monaco can resolve"
+          ? workspaceTrusted
+            ? "Jump to the symbol definition Monaco can resolve"
+            : "Trust this workspace before using language server navigation"
           : "Select a file first",
         keywords: ["definition", "symbol", "jump"],
-        disabled: !activePane?.activeFile,
+        disabled: !activePane?.activeFile || !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.FIND_REFERENCES,
@@ -1926,30 +2084,36 @@ function App() {
         group: "Navigation",
         shortcut: "Shift F12",
         subtitle: activePane?.activeFile
-          ? "Show usages for the current symbol"
+          ? workspaceTrusted
+            ? "Show usages for the current symbol"
+            : "Trust this workspace before using language server navigation"
           : "Select a file first",
         keywords: ["references", "usages", "symbol"],
-        disabled: !activePane?.activeFile,
+        disabled: !activePane?.activeFile || !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.RENAME_SYMBOL,
         title: "Rename Symbol",
         group: "Navigation",
         subtitle: activePane?.activeFile
-          ? "Rename the current symbol through the active language server"
+          ? workspaceTrusted
+            ? "Rename the current symbol through the active language server"
+            : "Trust this workspace before using language server actions"
           : "Select a file first",
         keywords: ["rename", "symbol", "refactor"],
-        disabled: !activePane?.activeFile,
+        disabled: !activePane?.activeFile || !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.FORMAT_DOCUMENT,
         title: "Format Document",
         group: "Editor",
         subtitle: activePane?.activeFile
-          ? "Format the active file through the active language server"
+          ? workspaceTrusted
+            ? "Format the active file through the active language server"
+            : "Trust this workspace before using language server actions"
           : "Select a file first",
         keywords: ["format", "pretty", "indent"],
-        disabled: !activePane?.activeFile,
+        disabled: !activePane?.activeFile || !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.OPEN_HTML_PREVIEW,
@@ -1957,10 +2121,15 @@ function App() {
         group: "Preview",
         subtitle:
           activePane?.activeFile && isHtmlFile(activePane.activeFile)
-            ? "Open the active HTML file in Axon's preview tab"
+            ? workspaceTrusted
+              ? "Open the active HTML file in Axon's preview tab"
+              : "Trust this workspace before running HTML preview"
             : "Select an HTML file first",
         keywords: ["browser", "live", "preview", "web"],
-        disabled: !activePane?.activeFile || !isHtmlFile(activePane.activeFile),
+        disabled:
+          !activePane?.activeFile ||
+          !isHtmlFile(activePane.activeFile) ||
+          !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
@@ -1974,10 +2143,12 @@ function App() {
         title: "Refresh Diagnostics",
         group: "Diagnostics",
         subtitle: folderPath
-          ? "Run project diagnostics for the current workspace"
+          ? workspaceTrusted
+            ? "Run project diagnostics for the current workspace"
+            : "Trust this workspace before running diagnostics"
           : "Open a folder first",
         keywords: ["diagnostics", "check", "errors", "lint"],
-        disabled: !folderPath,
+        disabled: !folderPath || !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.NEXT_PROBLEM,
@@ -2022,15 +2193,21 @@ function App() {
         title: terminalOpen ? "Hide Terminal" : "Show Terminal",
         group: "Terminal",
         shortcut: "Cmd J",
-        subtitle: "Toggle the terminal panel",
+        subtitle: workspaceTrusted
+          ? "Toggle the terminal panel"
+          : "Trust this workspace before opening a terminal",
         keywords: ["shell", "console"],
+        disabled: !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.NEW_TERMINAL,
         title: "New Terminal",
         group: "Terminal",
-        subtitle: "Create a terminal tab",
+        subtitle: workspaceTrusted
+          ? "Create a terminal tab"
+          : "Trust this workspace before creating a terminal",
         keywords: ["shell", "pty"],
+        disabled: !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.OPEN_DIFF_VIEW,
@@ -2098,8 +2275,11 @@ function App() {
         id: AXON_COMMANDS.OPEN_EXTENSIONS,
         title: "Open Extensions",
         group: "Extensions",
-        subtitle: "Manage local extension packages and contributed themes",
+        subtitle: workspaceTrusted
+          ? "Manage local extension packages and contributed themes"
+          : "Trust this workspace before activating extensions",
         keywords: ["plugins", "themes", "syntax", "packages"],
+        disabled: !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.OPEN_SETTINGS_JSON,
@@ -2148,12 +2328,13 @@ function App() {
     terminalOpen,
     updateInfo?.latestVersion,
     updateInfo?.updateAvailable,
+    workspaceTrusted,
     zenMode,
   ]);
 
   useEffect(() => {
-    window.axonCompletionWorkspacePath = folderPath;
-  }, [folderPath]);
+    window.axonCompletionWorkspacePath = workspaceTrusted ? folderPath : null;
+  }, [folderPath, workspaceTrusted]);
 
   useEffect(() => {
     const cleanup = window.axon.onMenuCommand(runCommand);
@@ -2249,7 +2430,7 @@ function App() {
 
   return (
     <div
-      className="flex flex-col h-screen w-screen overflow-hidden relative"
+      className="axon-app-root flex flex-col h-screen w-screen overflow-hidden relative"
       style={{
         ...appThemeCssVariables,
         background: "var(--axon-background)",
@@ -2337,6 +2518,9 @@ function App() {
             spotifyActions={spotifyActions}
             playerOpen={spotifyPlayerOpen}
             onTogglePlayer={() => setSpotifyPlayerOpen((p) => !p)}
+            onWorkspaceTrustChanged={() =>
+              setWorkspaceTrustNonce((nonce) => nonce + 1)
+            }
           />
         )}
 
@@ -2455,38 +2639,40 @@ function App() {
             </div>
           )}
 
-          <Terminal
-            open={terminalOpen && !zenMode}
-            createNonce={terminalCreateNonce}
-            createWorkingDirectory={terminalCreateWorkingDirectory}
-            editorSettings={settings.editor}
-            themeTokens={themeTokens}
-            workingDirectory={folderPath}
-            activePanelTab={
-              !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
-            }
-            diagnostics={diagnostics}
-            outputEntries={outputEntries}
-            onActivePanelTabChange={(tab) => {
-              if (tab === "terminal") {
-                setBottomPanelOpen(false);
-                setTerminalOpen(true);
-                return;
+          {workspaceTrusted ? (
+            <Terminal
+              open={terminalOpen && !zenMode}
+              createNonce={terminalCreateNonce}
+              createWorkingDirectory={terminalCreateWorkingDirectory}
+              editorSettings={settings.editor}
+              themeTokens={themeTokens}
+              workingDirectory={folderPath}
+              activePanelTab={
+                !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
               }
-              setBottomPanelTab(tab);
-              setBottomPanelOpen(true);
-              setTerminalOpen(false);
-            }}
-            onHide={() => {
-              setTerminalOpen(false);
-              setBottomPanelOpen(false);
-            }}
-            onOpenDiagnostic={handleOpenDiagnostic}
-            onRefreshDiagnostics={() =>
-              runCommand(AXON_COMMANDS.REFRESH_DIAGNOSTICS)
-            }
-            onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
-          />
+              diagnostics={diagnostics}
+              outputEntries={outputEntries}
+              onActivePanelTabChange={(tab) => {
+                if (tab === "terminal") {
+                  setBottomPanelOpen(false);
+                  setTerminalOpen(true);
+                  return;
+                }
+                setBottomPanelTab(tab);
+                setBottomPanelOpen(true);
+                setTerminalOpen(false);
+              }}
+              onHide={() => {
+                setTerminalOpen(false);
+                setBottomPanelOpen(false);
+              }}
+              onOpenDiagnostic={handleOpenDiagnostic}
+              onRefreshDiagnostics={() =>
+                runCommand(AXON_COMMANDS.REFRESH_DIAGNOSTICS)
+              }
+              onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
+            />
+          ) : null}
         </div>
 
         {!zenMode && settings.ai.enabled && agentSidebarOpen && (
@@ -2579,6 +2765,8 @@ function App() {
       {settingsOpen && (
         <SettingsModal
           folderPath={folderPath}
+          workspaceTrusted={workspaceTrusted}
+          availableFonts={availableFonts}
           extensionState={extensionState}
           settings={settings}
           onClose={() => setSettingsOpen(false)}
@@ -2673,6 +2861,7 @@ function App() {
                 type="button"
                 onClick={() => {
                   setWorkspaceTrusted(workspaceTrustPromptPath, false);
+                  setWorkspaceTrustNonce((nonce) => nonce + 1);
                   setWorkspaceTrustPromptPath(null);
                   appendOutput("workspace", "Workspace marked untrusted.");
                 }}
@@ -2684,6 +2873,7 @@ function App() {
                 type="button"
                 onClick={() => {
                   setWorkspaceTrusted(workspaceTrustPromptPath, true);
+                  setWorkspaceTrustNonce((nonce) => nonce + 1);
                   setWorkspaceTrustPromptPath(null);
                   appendOutput("workspace", "Workspace trusted.", "success");
                 }}

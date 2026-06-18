@@ -76,6 +76,25 @@ export const EDITOR_MULTI_CURSOR_MODIFIERS = ["alt", "ctrlCmd"] as const;
 export type EditorMultiCursorModifier =
   (typeof EDITOR_MULTI_CURSOR_MODIFIERS)[number];
 
+export const EDITOR_CURSOR_STYLES = [
+  "line",
+  "line-thin",
+  "block",
+  "block-outline",
+  "underline",
+  "underline-thin",
+] as const;
+export type EditorCursorStyle = (typeof EDITOR_CURSOR_STYLES)[number];
+
+export const EDITOR_CURSOR_BLINKING = [
+  "blink",
+  "smooth",
+  "phase",
+  "expand",
+  "solid",
+] as const;
+export type EditorCursorBlinking = (typeof EDITOR_CURSOR_BLINKING)[number];
+
 export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "axon-dark": "Axon Dark",
   sora: "Sora",
@@ -128,6 +147,9 @@ export interface CustomFont {
   family: string;
   url: string;
   path: string;
+  weight?: number;
+  style?: "normal" | "italic";
+  stretch?: string;
 }
 
 export interface EditorSettings {
@@ -152,6 +174,8 @@ export interface EditorSettings {
   formatOnSave: boolean;
   minimapEnabled: boolean;
   multiCursorModifier: EditorMultiCursorModifier;
+  cursorStyle: EditorCursorStyle;
+  cursorBlinking: EditorCursorBlinking;
   scrollbarMarkersEnabled: boolean;
   snippetsEnabled: boolean;
   stickyScrollEnabled: boolean;
@@ -205,6 +229,8 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     formatOnSave: false,
     minimapEnabled: false,
     multiCursorModifier: "alt",
+    cursorStyle: "line",
+    cursorBlinking: "expand",
     scrollbarMarkersEnabled: true,
     snippetsEnabled: true,
     stickyScrollEnabled: true,
@@ -267,6 +293,22 @@ function isEditorMultiCursorModifier(
     EDITOR_MULTI_CURSOR_MODIFIERS.includes(
       value as EditorMultiCursorModifier,
     )
+  );
+}
+
+function isEditorCursorStyle(value: unknown): value is EditorCursorStyle {
+  return (
+    typeof value === "string" &&
+    EDITOR_CURSOR_STYLES.includes(value as EditorCursorStyle)
+  );
+}
+
+function isEditorCursorBlinking(
+  value: unknown,
+): value is EditorCursorBlinking {
+  return (
+    typeof value === "string" &&
+    EDITOR_CURSOR_BLINKING.includes(value as EditorCursorBlinking)
   );
 }
 
@@ -455,6 +497,12 @@ export function normalizeSettings(value: unknown): AxonSettings {
       )
         ? editor.multiCursorModifier
         : DEFAULT_SETTINGS.editor.multiCursorModifier,
+      cursorStyle: isEditorCursorStyle(editor.cursorStyle)
+        ? editor.cursorStyle
+        : DEFAULT_SETTINGS.editor.cursorStyle,
+      cursorBlinking: isEditorCursorBlinking(editor.cursorBlinking)
+        ? editor.cursorBlinking
+        : DEFAULT_SETTINGS.editor.cursorBlinking,
       scrollbarMarkersEnabled:
         typeof editor.scrollbarMarkersEnabled === "boolean"
           ? editor.scrollbarMarkersEnabled

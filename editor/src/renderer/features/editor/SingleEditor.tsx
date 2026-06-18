@@ -1130,7 +1130,8 @@ export default function SingleEditor({
           tabCompletion: editorSettings.snippetsEnabled ? "on" : "off",
           renderLineHighlight: "line",
           padding: { top: 16 },
-          cursorBlinking: "expand",
+          cursorStyle: editorSettings.cursorStyle,
+          cursorBlinking: editorSettings.cursorBlinking,
           smoothScrolling: true,
         }}
         />

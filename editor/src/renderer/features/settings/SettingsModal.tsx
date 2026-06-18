@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Braces,
-  Check,
-  Circle,
   FolderOpen,
   Image,
   Keyboard,
@@ -30,6 +28,8 @@ import SearchSelect from "../search/SearchSelect";
 import {
   AI_PROVIDER_ITEMS,
   EDITOR_BACKGROUND_IMAGE_FIT_ITEMS,
+  EDITOR_CURSOR_BLINKING_ITEMS,
+  EDITOR_CURSOR_STYLE_ITEMS,
   EDITOR_FONT_ITEMS,
   FONT_PRESET_ITEMS,
   MULTI_CURSOR_MODIFIER_ITEMS,
@@ -52,6 +52,8 @@ import {
 
 interface Props {
   folderPath: string | null;
+  workspaceTrusted: boolean;
+  availableFonts: AxonSettings["customFonts"];
   extensionState: ExtensionState | null;
   settings: AxonSettings;
   onClose: () => void;
@@ -105,6 +107,8 @@ function getLanguageServerStatusClass(server: LanguageServerStatus) {
 
 export default function SettingsModal({
   folderPath,
+  workspaceTrusted,
+  availableFonts,
   extensionState,
   settings,
   onClose,
@@ -133,13 +137,22 @@ export default function SettingsModal({
   >(null);
 
   const customFontItems = useMemo(
-    () =>
-      draft.customFonts.map((font) => ({
+    () => {
+      const fontsByFamily = new Map(
+        [...availableFonts, ...draft.customFonts].map((font) => [
+          font.family,
+          font,
+        ]),
+      );
+
+      return [...fontsByFamily.values()].map((font) => ({
         value: font.family,
         label: font.family,
         description: font.path,
-      })),
-    [draft.customFonts],
+        previewFontFamily: font.family,
+      }));
+    },
+    [availableFonts, draft.customFonts],
   );
   const uiFontItems = useMemo(
     () => [...UI_FONT_ITEMS, ...customFontItems],
@@ -179,7 +192,6 @@ export default function SettingsModal({
   const activeSectionMeta =
     SETTINGS_SECTIONS.find((section) => section.id === activeSection) ??
     SETTINGS_SECTIONS[0];
-  const ActiveSectionIcon = sectionIcons[activeSectionMeta.id];
   const normalizedInitialSettings = useMemo(
     () => normalizeSettings(initialSettingsRef.current),
     [],
@@ -187,6 +199,9 @@ export default function SettingsModal({
   const normalizedDraft = normalizeSettings(draft);
   const dirty =
     JSON.stringify(normalizedDraft) !== JSON.stringify(normalizedInitialSettings);
+  const settingsScopeLabel = folderPath
+    ? folderPath.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? "workspace"
+    : "global";
   const filteredSections = useMemo(() => {
     const normalizedQuery = sectionQuery.trim().toLowerCase();
     if (!normalizedQuery) return SETTINGS_SECTIONS;
@@ -497,6 +512,12 @@ export default function SettingsModal({
     action: "start" | "stop" | "restart",
   ) => {
     if (!folderPath) return;
+    if (!workspaceTrusted) {
+      setLanguageServerMessage(
+        "Language servers are disabled until this workspace is trusted.",
+      );
+      return;
+    }
 
     setLanguageServerAction(action);
     setLanguageServerMessage(null);
@@ -568,71 +589,21 @@ export default function SettingsModal({
       width="w-[min(1080px,calc(100vw-2rem))]"
       bodyClassName="min-h-0 overflow-hidden"
     >
-      <div className="flex h-[min(760px,calc(100vh-7.5rem))] min-h-0 flex-col overflow-hidden bg-[#0a0d13]">
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#1d2432] bg-[#0f1320] px-5 py-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#243044] bg-[#151b29] text-[#80c8e0]">
-              <Settings2 size={18} />
+      <div className="grid h-[min(760px,calc(100vh-7.5rem))] min-h-0 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[#343841] bg-[#101116] shadow-2xl">
+        <aside className="flex min-h-0 flex-col border-r border-[#343841] bg-[#24262c]">
+          <div className="shrink-0 border-b border-[#343841] px-4 py-4">
+            <div className="flex items-center gap-2 rounded-md border border-[#3b3f48] bg-[#111319] px-3 py-2">
+              <Search size={14} className="shrink-0 text-[#7b8089]" />
+              <input
+                value={sectionQuery}
+                onChange={(event) => setSectionQuery(event.target.value)}
+                placeholder="Search settings..."
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-[#d7d9df] outline-none placeholder:text-[#777b84]"
+              />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="truncate text-[15px] font-semibold text-white">
-                  Settings
-                </h2>
-                {dirty ? (
-                  <span className="flex items-center gap-1 rounded-full border border-[#3a2d1e] bg-[#1d170f] px-2 py-0.5 text-[10px] text-[#ffcc7a]">
-                    <Circle size={7} fill="currentColor" />
-                    unsaved
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 rounded-full border border-[#1e3328] bg-[#0f1b15] px-2 py-0.5 text-[10px] text-[#8fe3a2]">
-                    <Check size={10} />
-                    saved
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 truncate text-[11px] text-[#647086]">
-                Tune Axon without leaving your workspace.
-              </p>
-            </div>
-          </div>
-
-          <div className="hidden min-w-0 items-center gap-2 text-[10px] text-[#647086] md:flex">
-            <span className="rounded-md border border-[#222838] bg-[#0a0d13] px-2 py-1">
-              {folderPath ? "workspace scope" : "user scope"}
-            </span>
-            <span className="rounded-md border border-[#222838] bg-[#0a0d13] px-2 py-1">
-              live preview
-            </span>
-          </div>
-        </header>
-
-        <div className="grid min-h-0 flex-1 grid-cols-[280px_1fr] overflow-hidden">
-          <aside className="flex min-h-0 flex-col border-r border-[#1d2432] bg-[#080b11]">
-            <div className="shrink-0 space-y-3 border-b border-[#1d2432] p-4">
-              <div className="flex items-center gap-2 rounded-lg border border-[#1d2432] bg-[#05070c] px-3 py-2">
-                <Search size={13} className="shrink-0 text-[#586478]" />
-                <input
-                  value={sectionQuery}
-                  onChange={(event) => setSectionQuery(event.target.value)}
-                  placeholder="Search settings..."
-                  className="min-w-0 flex-1 bg-transparent text-[12px] text-[#dce4f0] outline-none placeholder:text-[#465166]"
-                />
-              </div>
-
-              <div className="rounded-lg border border-[#1d2432] bg-[#0d111a] p-3">
-                <div className="flex items-center gap-2 text-[12px] font-medium text-[#dce4f0]">
-                  <Braces size={14} className="text-[#80c8e0]" />
-                  settings.json
-                </div>
-                <div className="mt-1 text-[11px] leading-4 text-[#647086]">
-                  UI changes preview instantly, then save into Axon's settings
-                  store.
-                </div>
-              </div>
             </div>
 
-            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
+          <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
             {filteredSections.map((section) => {
               const Icon = sectionIcons[section.id];
               const active = section.id === activeSection;
@@ -645,63 +616,56 @@ export default function SettingsModal({
                   key={section.id}
                   type="button"
                   onClick={() => setActiveSection(section.id)}
-                  className={`group flex w-full cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${
+                  className={`group flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${
                     active
-                      ? "border-[#2f5f73] bg-[#132635] text-white shadow-[inset_3px_0_0_#80c8e0]"
-                      : "border-transparent text-[#9aa4b8] hover:border-[#1d2432] hover:bg-[#111722] hover:text-white"
+                      ? "bg-[#343740] text-[#f2f3f5]"
+                      : "text-[#a0a3aa] hover:bg-[#2d3037] hover:text-[#f2f3f5]"
                   }`}
                 >
-                  <span
-                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
-                      active
-                        ? "border-[#2f5f73] bg-[#183345]"
-                        : "border-[#1d2432] bg-[#0b0f17] group-hover:border-[#2a3346]"
+                  <Icon
+                    size={14}
+                    className={`shrink-0 ${
+                      hasError ? "text-[#ea6c73]" : "text-[#9ca0aa]"
                     }`}
-                  >
-                    <Icon
-                      size={14}
-                      className={hasError ? "text-[#ea6c73]" : "text-[#80c8e0]"}
-                    />
+                  />
+                  <span className="min-w-0 truncate text-[13px] font-medium">
+                    {section.label}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[12px] font-medium">
-                      {section.label}
+                  {hasError ? (
+                    <span className="ml-auto rounded-sm bg-[#4b2026] px-1.5 py-0.5 text-[10px] text-[#ff9ca2]">
+                      {invalidThemeTokens.length}
                     </span>
-                    <span
-                      className={`mt-0.5 block text-[10px] leading-4 ${
-                        active ? "text-[#9fb7c9]" : "text-[#586478]"
-                      }`}
-                    >
-                      {hasError
-                        ? `${invalidThemeTokens.length} invalid color value${invalidThemeTokens.length === 1 ? "" : "s"}`
-                        : section.description}
-                    </span>
-                  </span>
+                  ) : null}
                 </button>
               );
             })}
             {filteredSections.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[#1d2432] px-3 py-6 text-center text-[11px] text-[#586478]">
+              <div className="px-3 py-6 text-center text-[12px] text-[#777b84]">
                 No settings sections match that search.
               </div>
             ) : null}
           </nav>
+
+          <div className="shrink-0 border-t border-[#343841] px-4 py-3 text-[11px] text-[#8a8d94]">
+            {dirty ? "Unsaved changes" : "Settings saved"}
+          </div>
         </aside>
 
-        <div className="flex min-h-0 flex-col bg-[#0e1018]">
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#1d2432] bg-[#0b0f17] px-6 py-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#243044] bg-[#151b29] text-[#80c8e0]">
-                <ActiveSectionIcon size={16} />
+        <div className="flex min-h-0 flex-col bg-[#0d0f14]">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#2b2e36] px-7 py-5">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[12px] text-[#8a8d94]">
+                <span className="rounded bg-[#164163] px-2 py-0.5 text-[#7fc7ff]">
+                  {folderPath ? "Workspace" : "User"}
+                </span>
+                <span className="truncate">{settingsScopeLabel}</span>
               </div>
-              <div className="min-w-0">
-                <div className="truncate text-[14px] font-semibold text-white">
-                  {activeSectionMeta.label}
-                </div>
-                <div className="truncate text-[11px] text-[#647086]">
-                  {activeSectionMeta.description}
-                </div>
-              </div>
+              <h2 className="mt-8 text-[22px] font-semibold text-[#e5e7eb]">
+                {activeSectionMeta.label}
+              </h2>
+              <p className="mt-2 max-w-2xl text-[13px] leading-6 text-[#8f939b]">
+                {activeSectionMeta.description}
+              </p>
             </div>
             <button
               type="button"
@@ -710,23 +674,20 @@ export default function SettingsModal({
                 onPreview(initialSettingsRef.current);
               }}
               disabled={!dirty}
-              className="hidden h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#3f485a] disabled:hover:bg-transparent md:flex"
+              className="hidden h-8 cursor-pointer items-center gap-2 rounded-md border border-[#30333b] bg-[#171920] px-3 text-[12px] text-[#c9cbd1] transition-colors hover:bg-[#20232b] hover:text-white disabled:cursor-not-allowed disabled:text-[#676b74] disabled:hover:bg-[#171920] md:flex"
             >
               <RotateCcw size={13} />
               Reset
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <div className="mb-4 rounded-lg border border-[#1d2432] bg-[#0b0f17] px-4 py-3 text-[11px] leading-5 text-[#7f8aa3]">
-              {folderPath ? (
-                <>
-                  Workspace settings inherit from your user settings, then{" "}
-                  <span className="font-mono text-[#c8d0e0]">axon.json</span>{" "}
-                  in this workspace can override them for this project.
-                </>
-              ) : (
-                "No workspace is open, so changes apply to your user settings only."
-              )}
+          <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+            <div className="mb-2 flex items-center gap-2 text-[12px] text-[#8a8d94]">
+              <Braces size={13} />
+              <span>
+                {folderPath
+                  ? "Workspace settings inherit from user settings and can be overridden by axon.json."
+                  : "No workspace is open, so changes apply to your user settings only."}
+              </span>
             </div>
 
             {activeSection === "appearance" && (
@@ -841,6 +802,36 @@ export default function SettingsModal({
                       updateEditor("fontLigatures", checked)
                     }
                     label={draft.editor.fontLigatures ? "Enabled" : "Disabled"}
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Cursor style"
+                  description="Controls the Monaco insertion cursor shape."
+                >
+                  <SearchSelect
+                    value={draft.editor.cursorStyle}
+                    items={EDITOR_CURSOR_STYLE_ITEMS}
+                    onChange={(cursorStyle) =>
+                      updateEditor("cursorStyle", cursorStyle)
+                    }
+                    ariaLabel="Cursor style"
+                    placeholder="Search cursor styles..."
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Cursor blinking"
+                  description="Controls the cursor animation. Solid disables blinking."
+                >
+                  <SearchSelect
+                    value={draft.editor.cursorBlinking}
+                    items={EDITOR_CURSOR_BLINKING_ITEMS}
+                    onChange={(cursorBlinking) =>
+                      updateEditor("cursorBlinking", cursorBlinking)
+                    }
+                    ariaLabel="Cursor blinking"
+                    placeholder="Search cursor blinking..."
                   />
                 </SettingsField>
               </SettingsSection>
@@ -1400,6 +1391,7 @@ export default function SettingsModal({
                         disabled={
                           !folderPath ||
                           !draft.lsp.enabled ||
+                          !workspaceTrusted ||
                           languageServerAction !== null
                         }
                         className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
@@ -1411,7 +1403,11 @@ export default function SettingsModal({
                       <button
                         type="button"
                         onClick={() => void runLanguageServerAction("stop")}
-                        disabled={!folderPath || languageServerAction !== null}
+                        disabled={
+                          !folderPath ||
+                          !workspaceTrusted ||
+                          languageServerAction !== null
+                        }
                         className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
                       >
                         {languageServerAction === "stop" ? "Stopping..." : "Stop"}
@@ -1422,6 +1418,7 @@ export default function SettingsModal({
                         disabled={
                           !folderPath ||
                           !draft.lsp.enabled ||
+                          !workspaceTrusted ||
                           languageServerAction !== null
                         }
                         className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
@@ -1627,7 +1624,6 @@ export default function SettingsModal({
             </div>
           </div>
         </div>
-      </div>
       </div>
     </CommandModal>
   );

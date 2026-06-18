@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { type AxonSettings, type CustomFont } from "../../shared/settings";
 import { readSettingsForFolder, writeSettingsToDisk } from "./io";
-import { importCustomFontFile } from "../fonts/fonts";
+import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";
 import { getSettingsPath } from "./paths";
 import { setClientId } from "../spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
@@ -47,6 +47,10 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     }
 
     return importCustomFontFile(result.filePaths[0]) as CustomFont;
+  });
+
+  ipcMain.handle("fonts:listAvailable", async () => {
+    return listAvailableLocalFonts();
   });
 
   ipcMain.handle("dialog:selectEditorBackgroundImage", async () => {
