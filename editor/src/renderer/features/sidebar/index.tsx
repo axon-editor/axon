@@ -11,7 +11,10 @@ import {
 } from "react";
 import { FolderTree, Plus, ShieldCheck, ShieldAlert } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../shared/lib/api";
-import FileTree, { type ImportedExternalEntry } from "./files/FileTree";
+import FileTree, {
+  type FileTreeOperation,
+  type ImportedExternalEntry,
+} from "./files/FileTree";
 import ContextMenu from "./files/ContextMenu";
 import FolderPicker from "./files/FolderPicker";
 import { type InlineCreateKind, type InlineCreateTarget } from "./files/InlineCreateRow";
@@ -171,6 +174,7 @@ interface Props {
   platform: string;
   settings: AxonSettings;
   onUpdateSettings: (settings: AxonSettings) => Promise<void>;
+  onWorkspaceTrustChanged?: () => void;
   spotifyState: SpotifyState;
   spotifyActions: SpotifyActions;
   playerOpen: boolean;
@@ -339,6 +343,53 @@ function appendCreatedChild(
   };
 }
 
+function renamePathPrefix(path: string, oldPath: string, newPath: string) {
+  const normalizedPath = normalizeTreePath(path);
+  const normalizedOldPath = normalizeTreePath(oldPath);
+  if (normalizedPath === normalizedOldPath) return newPath;
+  if (!normalizedPath.startsWith(`${normalizedOldPath}/`)) return path;
+  return `${newPath}${path.slice(oldPath.length)}`;
+}
+
+function renameTreePaths(
+  node: FileNode,
+  oldPath: string,
+  newPath: string,
+): FileNode {
+  const renamedPath = renamePathPrefix(node.path, oldPath, newPath);
+  return {
+    ...node,
+    path: renamedPath,
+    name:
+      normalizeTreePath(node.path) === normalizeTreePath(oldPath)
+        ? getPathBasename(newPath)
+        : node.name,
+    children: node.children?.map((child) =>
+      renameTreePaths(child, oldPath, newPath),
+    ),
+  };
+}
+
+function removeTreePath(node: FileNode | null, removedPath: string): FileNode | null {
+  if (!node) return node;
+  const normalizedRemovedPath = normalizeTreePath(removedPath);
+  if (normalizeTreePath(node.path) === normalizedRemovedPath) return null;
+
+  return {
+    ...node,
+    children: node.children
+      ?.filter((child) => {
+        const childPath = normalizeTreePath(child.path);
+        return (
+          childPath !== normalizedRemovedPath &&
+          !childPath.startsWith(`${normalizedRemovedPath}/`)
+        );
+      })
+      .map((child) => removeTreePath(child, removedPath))
+      .filter((child): child is FileNode => child !== null),
+  };
+}
+
 function joinTreePath(parentPath: string, name: string) {
   const separator = parentPath.includes("\\") ? "\\" : "/";
   return `${parentPath.replace(/[\\/]+$/, "")}${separator}${name}`;
@@ -387,6 +438,7 @@ export default function Sidebar({
   platform,
   settings,
   onUpdateSettings,
+  onWorkspaceTrustChanged,
   playerOpen,
   onTogglePlayer,
   spotifyState,
@@ -398,6 +450,9 @@ export default function Sidebar({
   );
   const [revealPath, setRevealPath] = useState<string | null>(null);
   const [rootDragOver, setRootDragOver] = useState(false);
+  const [treeOperation, setTreeOperation] =
+    useState<FileTreeOperation | null>(null);
+  const [revokeTrustConfirmOpen, setRevokeTrustConfirmOpen] = useState(false);
   const [trustNonce, setTrustNonce] = useState(0);
   const [recentNonce, setRecentNonce] = useState(0);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
@@ -420,8 +475,28 @@ export default function Sidebar({
 
   const toggleWorkspaceTrust = () => {
     if (!folderPath) return;
+    if (trustedWorkspace) {
+      setRevokeTrustConfirmOpen(true);
+      return;
+    }
+
     setWorkspaceTrusted(folderPath, !trustedWorkspace);
     setTrustNonce((nonce) => nonce + 1);
+    onWorkspaceTrustChanged?.();
+  };
+
+  const revokeWorkspaceTrust = () => {
+    if (!folderPath) return;
+    setWorkspaceTrusted(folderPath, false);
+    setTrustNonce((nonce) => nonce + 1);
+    setRevokeTrustConfirmOpen(false);
+    onWorkspaceTrustChanged?.();
+  };
+
+  const publishTreeOperation = (
+    operation: Omit<FileTreeOperation, "id">,
+  ) => {
+    setTreeOperation({ ...operation, id: Date.now() });
   };
 
   const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
@@ -436,7 +511,11 @@ export default function Sidebar({
   };
 
   const handleRootContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!tree || e.currentTarget !== e.target) return;
+    const acceptsNestedRootContext =
+      e.currentTarget.dataset.rootContext === "true";
+    if (!tree || (!acceptsNestedRootContext && e.currentTarget !== e.target)) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
@@ -507,6 +586,13 @@ export default function Sidebar({
             currentTree,
           ),
         );
+        for (const entry of importedEntries) {
+          publishTreeOperation({
+            type: "created",
+            path: entry.targetPath,
+            isDir: entry.isDir,
+          });
+        }
       }
       await onRefresh();
       if (firstImportedEntry && !firstImportedEntry.isDir) {
@@ -546,9 +632,17 @@ export default function Sidebar({
     try {
       await moveEntry(sourcePath, targetDir);
       const movedPath = joinTreePath(targetDir, getPathBasename(sourcePath));
+      setTree((currentTree) =>
+        currentTree ? renameTreePaths(currentTree, sourcePath, movedPath) : currentTree,
+      );
+      publishTreeOperation({
+        type: "moved",
+        oldPath: sourcePath,
+        newPath: movedPath,
+      });
       onEntryMoved?.(sourcePath, movedPath);
       setRevealPath(movedPath);
-      await onRefresh();
+      void onRefresh();
     } catch (err) {
       console.error("move failed:", err);
     }
@@ -588,7 +682,8 @@ export default function Sidebar({
     setInlineCreate(null);
     setRevealPath(path);
     setTree((currentTree) => appendCreatedChild(currentTree, path, isDir));
-    await onRefresh();
+    publishTreeOperation({ type: "created", path, isDir });
+    void onRefresh();
     if (!isDir) onFileSelect(path);
   };
 
@@ -740,8 +835,10 @@ export default function Sidebar({
                 gitDecorations={gitDecorations}
                 ignoredPaths={ignoredPaths}
                 inlineCreate={inlineCreate}
+                operation={treeOperation}
                 onOpenFolderPicker={onOpenFolderPicker}
                 onOpenDroppedWorkspace={handleOpenDroppedWorkspace}
+                onRootContextMenu={handleRootContextMenu}
                 onFileSelect={onFileSelect}
                 onContextMenu={handleContextMenu}
                 onMove={handleMove}
@@ -767,7 +864,7 @@ export default function Sidebar({
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
           existingNames={contextMenu.existingNames}
-          onRefresh={onRefresh}
+          onRefresh={() => undefined}
           onOpenPath={(path, isDir) => {
             setRevealPath(path);
             if (isDir) {
@@ -777,8 +874,22 @@ export default function Sidebar({
             onFileSelect(path);
           }}
           onBeginCreate={beginInlineCreate}
-          onEntryDeleted={onEntryDeleted}
-          onEntryRenamed={onEntryRenamed}
+          onEntryDeleted={(path) => {
+            setTree((currentTree) => removeTreePath(currentTree, path));
+            publishTreeOperation({ type: "deleted", path });
+            onEntryDeleted?.(path);
+            void onRefresh();
+          }}
+          onEntryRenamed={(oldPath, newPath) => {
+            setTree((currentTree) =>
+              currentTree
+                ? renameTreePaths(currentTree, oldPath, newPath)
+                : currentTree,
+            );
+            publishTreeOperation({ type: "renamed", oldPath, newPath });
+            onEntryRenamed?.(oldPath, newPath);
+            void onRefresh();
+          }}
           onSplitFile={onSplitFile}
           onOpenInTerminal={onOpenInTerminal}
           onOpenHtmlPreview={onOpenHtmlPreview}
@@ -807,6 +918,47 @@ export default function Sidebar({
           }}
           onClose={onCloseFolderPicker}
         />
+      )}
+
+      {revokeTrustConfirmOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
+          <div className="axon-modal-panel w-full max-w-sm rounded-xl border border-[#343841] bg-[#101116] p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2b2113] text-[#ffb454]">
+                <ShieldAlert size={17} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold text-[#f2f3f5]">
+                  Mark workspace untrusted?
+                </div>
+                <p className="mt-2 text-[12px] leading-5 text-[#9aa0aa]">
+                  Axon will stop project execution features for{" "}
+                  <span className="font-medium text-[#d7d9df]">
+                    {getPathBasename(folderPath)}
+                  </span>
+                  , including terminals, tasks, language servers, HTML preview,
+                  and extension activation.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRevokeTrustConfirmOpen(false)}
+                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#9aa0aa] transition-colors hover:bg-[#24272f] hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={revokeWorkspaceTrust}
+                className="h-8 cursor-pointer rounded-md border border-[#5c3320] bg-[#2b2113] px-3 text-[12px] text-[#ffcf8a] transition-colors hover:border-[#ffb454] hover:text-white"
+              >
+                Mark Untrusted
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

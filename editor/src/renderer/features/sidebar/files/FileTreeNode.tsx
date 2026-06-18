@@ -17,7 +17,10 @@ import { type GitTreeDecoration } from "..";
 import InlineCreateRow, {
   type InlineCreateTarget,
 } from "./InlineCreateRow";
-import { type ImportedExternalEntry } from "./FileTree";
+import {
+  type FileTreeOperation,
+  type ImportedExternalEntry,
+} from "./FileTree";
 
 interface Props {
   node: FileNode;
@@ -33,6 +36,7 @@ interface Props {
   gitDecorations?: Map<string, GitTreeDecoration>;
   ignoredPaths?: Set<string>;
   inlineCreate?: InlineCreateTarget | null;
+  operation?: FileTreeOperation | null;
   onInlineCreateCancel?: () => void;
   onInlineCreateCreated?: (path: string, isDir: boolean) => void | Promise<void>;
   depth?: number;
@@ -86,6 +90,33 @@ function normalizeTreePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
+function renamePathPrefix(path: string, oldPath: string, newPath: string) {
+  const normalizedPath = normalizeTreePath(path);
+  const normalizedOldPath = normalizeTreePath(oldPath);
+  if (normalizedPath === normalizedOldPath) return newPath;
+  if (!normalizedPath.startsWith(`${normalizedOldPath}/`)) return path;
+  return `${newPath}${path.slice(oldPath.length)}`;
+}
+
+function renameTreeNodePath(
+  node: FileNode,
+  oldPath: string,
+  newPath: string,
+): FileNode {
+  const renamedPath = renamePathPrefix(node.path, oldPath, newPath);
+  return {
+    ...node,
+    path: renamedPath,
+    name:
+      normalizeTreePath(node.path) === normalizeTreePath(oldPath)
+        ? getPathBasename(newPath)
+        : node.name,
+    children: node.children?.map((child) =>
+      renameTreeNodePath(child, oldPath, newPath),
+    ),
+  };
+}
+
 function isIgnoredTreePath(path: string, ignoredPaths?: Set<string>) {
   if (!ignoredPaths || ignoredPaths.size === 0) return false;
 
@@ -122,6 +153,7 @@ export default function FileTreeNode({
   gitDecorations,
   ignoredPaths,
   inlineCreate,
+  operation,
   onInlineCreateCancel,
   onInlineCreateCreated,
   depth = 0,
@@ -199,6 +231,61 @@ export default function FileTreeNode({
       cancelled = true;
     };
   }, [children, expanded, node.is_dir, node.path]);
+
+  useEffect(() => {
+    if (!operation || !node.is_dir) return;
+
+    setChildren((currentChildren) => {
+      if (!currentChildren) return currentChildren;
+
+      if (operation.type === "created") {
+        if (
+          normalizeTreePath(getParentPath(operation.path)) !==
+          normalizeTreePath(node.path)
+        ) {
+          return currentChildren;
+        }
+        if (
+          currentChildren.some(
+            (child) =>
+              normalizeTreePath(child.path) === normalizeTreePath(operation.path),
+          )
+        ) {
+          return currentChildren;
+        }
+
+        return sortTreeChildren([
+          ...currentChildren,
+          {
+            name: getPathBasename(operation.path),
+            path: operation.path,
+            is_dir: operation.isDir,
+            children: operation.isDir ? [] : undefined,
+          },
+        ]);
+      }
+
+      if (operation.type === "deleted") {
+        return currentChildren.filter((child) => {
+          const childPath = normalizeTreePath(child.path);
+          const deletedPath = normalizeTreePath(operation.path);
+          return (
+            childPath !== deletedPath && !childPath.startsWith(`${deletedPath}/`)
+          );
+        });
+      }
+
+      if (operation.type === "renamed" || operation.type === "moved") {
+        return sortTreeChildren(
+          currentChildren.map((child) =>
+            renameTreeNodePath(child, operation.oldPath, operation.newPath),
+          ),
+        );
+      }
+
+      return currentChildren;
+    });
+  }, [node.is_dir, node.path, operation]);
 
   const handleDragStart = (e: React.DragEvent) => {
     e.stopPropagation();
@@ -411,7 +498,10 @@ export default function FileTreeNode({
           <span className="relative z-10 flex h-4 w-3 items-center justify-center text-[#364050]">
             {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
           </span>
-          <span className="relative z-10 flex items-center">
+          <span
+            className="relative z-10 flex h-4 w-4 items-center justify-center"
+            style={{ color: entryColor }}
+          >
             {getFolderIcon(node.name, expanded)}
           </span>
           <span className="relative z-10 truncate" style={{ color: entryColor }}>
@@ -456,6 +546,7 @@ export default function FileTreeNode({
               gitDecorations={gitDecorations}
               ignoredPaths={ignoredPaths}
               inlineCreate={inlineCreate}
+              operation={operation}
               onInlineCreateCancel={onInlineCreateCancel}
               onInlineCreateCreated={onInlineCreateCreated}
               depth={depth + 1}
@@ -492,7 +583,10 @@ export default function FileTreeNode({
     >
       <TreeGuides depth={depth} />
       <span className="relative z-10 flex w-3 shrink-0" />
-      <span className="relative z-10 flex items-center">
+      <span
+        className="relative z-10 flex h-4 w-4 items-center justify-center"
+        style={{ color: entryColor }}
+      >
         {getFileIcon(node.name)}
       </span>
       <span className="relative z-10 truncate" style={{ color: entryColor }}>

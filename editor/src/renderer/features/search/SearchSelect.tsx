@@ -15,6 +15,7 @@ export interface SearchSelectItem<T extends string> {
   value: T;
   label: string;
   description?: string;
+  previewFontFamily?: string;
 }
 
 interface Props<T extends string> {
@@ -140,7 +141,16 @@ export default function SearchSelect<T extends string>({
         onClick={() => setOpen((currentOpen) => !currentOpen)}
         className="flex h-8 w-full cursor-pointer items-center justify-between rounded border border-[#222838] bg-[#0e1018] px-2 text-left text-[12px] text-[#c8d0e0] outline-none transition-colors hover:border-[#2a3346] focus:border-[#80c8e0]"
       >
-        <span className="truncate">{selectedItem?.label ?? placeholder}</span>
+        <span
+          className="truncate"
+          style={{
+            fontFamily: selectedItem?.previewFontFamily
+              ? `"${selectedItem.previewFontFamily}", ${selectedItem.previewFontFamily}, sans-serif`
+              : undefined,
+          }}
+        >
+          {selectedItem?.label ?? placeholder}
+        </span>
         <ChevronDown
           size={14}
           className={`ml-2 shrink-0 text-[#586478] transition-transform ${
@@ -190,7 +200,14 @@ export default function SearchSelect<T extends string>({
                         selected ? "text-[#80c8e0]" : "text-transparent"
                       }`}
                     />
-                    <span className="min-w-0 flex-1 truncate">
+                    <span
+                      className="min-w-0 flex-1 truncate"
+                      style={{
+                        fontFamily: item.previewFontFamily
+                          ? `"${item.previewFontFamily}", ${item.previewFontFamily}, sans-serif`
+                          : undefined,
+                      }}
+                    >
                       {item.label}
                     </span>
                   </button>

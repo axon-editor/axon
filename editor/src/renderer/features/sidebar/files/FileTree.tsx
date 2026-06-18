@@ -11,6 +11,12 @@ export interface ImportedExternalEntry {
   isDir: boolean;
 }
 
+export type FileTreeOperation =
+  | { id: number; type: "created"; path: string; isDir: boolean }
+  | { id: number; type: "deleted"; path: string }
+  | { id: number; type: "renamed"; oldPath: string; newPath: string }
+  | { id: number; type: "moved"; oldPath: string; newPath: string };
+
 interface FileTreeProps {
   tree: FileNode | null;
   loading: boolean;
@@ -19,8 +25,10 @@ interface FileTreeProps {
   gitDecorations: Map<string, GitTreeDecoration>;
   ignoredPaths: Set<string>;
   inlineCreate: InlineCreateTarget | null;
+  operation: FileTreeOperation | null;
   onOpenFolderPicker: () => void;
   onOpenDroppedWorkspace: (path: string) => void | Promise<void>;
+  onRootContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
   onFileSelect: (path: string) => void;
   onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
   onMove: (sourcePath: string, targetDirPath: string) => void;
@@ -48,8 +56,10 @@ export default function FileTree({
   gitDecorations,
   ignoredPaths,
   inlineCreate,
+  operation,
   onOpenFolderPicker,
   onOpenDroppedWorkspace,
+  onRootContextMenu,
   onFileSelect,
   onContextMenu,
   onMove,
@@ -102,6 +112,8 @@ export default function FileTree({
   if (showEmptySidebar) {
     return (
       <div
+        data-root-context={tree ? "true" : undefined}
+        onContextMenu={tree ? onRootContextMenu : undefined}
         onDragEnter={handleEmptyDragOver}
         onDragOver={handleEmptyDragOver}
         onDragLeave={() => setEmptyDragOver(false)}
@@ -162,7 +174,8 @@ export default function FileTree({
           revealPath={revealPath}
           gitDecorations={gitDecorations}
           ignoredPaths={ignoredPaths}
-          inlineCreate={inlineCreate}
+              inlineCreate={inlineCreate}
+              operation={operation}
           onInlineCreateCancel={onInlineCreateCancel}
           onInlineCreateCreated={onInlineCreateCreated}
         />

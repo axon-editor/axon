@@ -822,7 +822,7 @@ export default function SettingsModal({
 
                 <SettingsField
                   label="Cursor blinking"
-                  description="Controls the cursor animation. Solid disables blinking."
+                  description="Controls the cursor animation. Blink, smooth, phase, expand, and solid are all supported; solid disables blinking."
                 >
                   <SearchSelect
                     value={draft.editor.cursorBlinking}

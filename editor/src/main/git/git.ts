@@ -104,6 +104,40 @@ function normalizeGitRequestPath(root: string, filePath: string) {
 }
 
 function parseGitStatus(root: string, statusOutput: string): GitChange[] {
+  if (statusOutput.includes("\0")) {
+    const records = statusOutput.split("\0").filter((line) => line.length > 0);
+    const changes: GitChange[] = [];
+
+    for (let index = 0; index < records.length; index += 1) {
+      const line = records[index] ?? "";
+      const indexCode = line[0] ?? " ";
+      const worktreeCode = line[1] ?? " ";
+      const filePath = line.slice(3);
+      const isRenameOrCopy = [indexCode, worktreeCode].some(
+        (code) => code === "R" || code === "C",
+      );
+      const oldPath = isRenameOrCopy ? records[index + 1] ?? null : null;
+
+      if (isRenameOrCopy) {
+        index += 1;
+      }
+
+      if (!isUsableGitPath(filePath)) continue;
+
+      changes.push({
+        path: filePath,
+        absolutePath: path.resolve(root, filePath),
+        oldPath,
+        indexState: toGitFileState(indexCode),
+        worktreeState: toGitFileState(worktreeCode),
+        staged: indexCode !== " " && indexCode !== "?",
+        unstaged: worktreeCode !== " " || indexCode === "?",
+      });
+    }
+
+    return changes;
+  }
+
   return statusOutput
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0)
@@ -248,6 +282,11 @@ export async function getGitStatus(
     const statusResult = await runGit(root, [
       "status",
       "--porcelain=v1",
+      // I use NUL-delimited output here because Git quotes paths with spaces in
+      // normal porcelain output. The sidebar decoration map compares absolute
+      // file-tree paths, so a quoted status path like `"Screenshot 2026.png"`
+      // will never match the real file path and media files look unchanged.
+      "-z",
       "-uall",
     ]);
     const ignoredResult = await runGit(root, [
