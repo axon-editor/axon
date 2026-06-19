@@ -2,11 +2,18 @@ import { type FileNode } from "./api";
 import { createInitialLayout } from "../../features/editor/lib/layoutManager";
 import { type Layout } from "../../features/editor/lib/types";
 import { type BottomPanelTab } from "../../features/terminal/BottomPanel";
+import {
+  createWorkspaceRoot,
+  normalizeWorkspaceRoots,
+  type WorkspaceRoot,
+} from "./workspaceRoots";
 
 const SESSION_KEY = "axon:workspaceSession";
 
 export interface WorkspaceSession {
   folderPath: string | null;
+  roots: WorkspaceRoot[];
+  activeRootId: string | null;
   layout: Layout;
   sidebarCollapsed: boolean;
   sidebarWidth: number;
@@ -37,8 +44,24 @@ export function loadWorkspaceSession(): WorkspaceSession | null {
       return null;
     }
 
+    const folderPath = parsed.folderPath;
+    const roots = normalizeWorkspaceRoots(parsed.roots);
+    const normalizedRoots =
+      roots.length > 0
+        ? roots
+        : typeof folderPath === "string"
+          ? [createWorkspaceRoot(folderPath)]
+          : [];
+    const activeRootId =
+      typeof parsed.activeRootId === "string" &&
+      normalizedRoots.some((root) => root.id === parsed.activeRootId)
+        ? parsed.activeRootId
+        : (normalizedRoots[0]?.id ?? null);
+
     return {
-      folderPath: parsed.folderPath,
+      folderPath,
+      roots: normalizedRoots,
+      activeRootId,
       layout: isRecord(parsed.layout)
         ? (parsed.layout as unknown as Layout)
         : createInitialLayout(),
@@ -58,7 +81,7 @@ export function loadWorkspaceSession(): WorkspaceSession | null {
 }
 
 export function saveWorkspaceSession(session: WorkspaceSession) {
-  if (!session.folderPath) {
+  if (!session.folderPath && session.roots.length === 0) {
     localStorage.removeItem(SESSION_KEY);
     return;
   }

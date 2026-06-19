@@ -1,4 +1,5 @@
 import * as monaco from "monaco-editor";
+import { applyWorkspaceEdits } from "./workspaceEdits";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -427,26 +428,7 @@ export function configureLspNavigation(
         request as Parameters<typeof window.axon.executeLanguageServerCommand>[0],
       );
       if (!result.ok) return;
-
-      for (const [filePath, fileEdits] of Object.entries(result.edits)) {
-        const model = monacoInstance.editor.getModel(monaco.Uri.file(filePath));
-        if (!model || model.isDisposed()) continue;
-
-        // workspace/executeCommand can return a WorkspaceEdit after the server
-        // runs a command such as organize imports. Monaco only applies edits to
-        // loaded models here; unopened-file edits need a later workspace edit
-        // service so Axon can safely patch disk files without surprising the
-        // user with invisible changes.
-        model.pushEditOperations(
-          [],
-          fileEdits.map((edit) => ({
-            range: toMonacoRange(edit.range),
-            text: edit.newText,
-            forceMoveMarkers: true,
-          })),
-          () => null,
-        );
-      }
+      await applyWorkspaceEdits(result.edits, monacoInstance);
     },
   );
 }

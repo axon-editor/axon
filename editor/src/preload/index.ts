@@ -9,10 +9,14 @@ import { type AxonCommand } from "../shared/commands";
 import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
   type GitActionResult,
+  type GitBranchAction,
+  type GitBranchListResult,
   type GitCommitResult,
   type GitCommitDiffResult,
   type GitDiffResult,
   type GitHistoryResult,
+  type GitStashAction,
+  type GitStashListResult,
   type GitStatusResult,
 } from "../shared/git";
 import {
@@ -21,6 +25,12 @@ import {
   type TaskRunResult,
   type WorkspaceTask,
 } from "../shared/tasks";
+import {
+  type TestDiscoveryResult,
+  type TestFinishedEvent,
+  type TestOutputEvent,
+  type TestRunResult,
+} from "../shared/tests";
 import {
   type LanguageServerCodeActionRequest,
   type LanguageServerCodeActionResult,
@@ -191,6 +201,13 @@ contextBridge.exposeInMainWorld("axon", {
     taskId: string,
   ): Promise<TaskRunResult> =>
     ipcRenderer.invoke("tasks:run", folderPath, taskId),
+  discoverTests: (folderPath: string): Promise<TestDiscoveryResult> =>
+    ipcRenderer.invoke("tests:discover", folderPath),
+  runTests: (
+    folderPath: string,
+    providerId: string,
+  ): Promise<TestRunResult> =>
+    ipcRenderer.invoke("tests:run", folderPath, providerId),
   getGitDiff: (
     folderPath: string,
     filePath: string,
@@ -223,6 +240,20 @@ contextBridge.exposeInMainWorld("axon", {
     message: string,
   ): Promise<GitCommitResult> =>
     ipcRenderer.invoke("git:commit", folderPath, message),
+  listGitBranches: (folderPath: string): Promise<GitBranchListResult> =>
+    ipcRenderer.invoke("git:branches", folderPath),
+  runGitBranchAction: (
+    folderPath: string,
+    action: GitBranchAction,
+  ): Promise<GitActionResult> =>
+    ipcRenderer.invoke("git:branchAction", folderPath, action),
+  listGitStashes: (folderPath: string): Promise<GitStashListResult> =>
+    ipcRenderer.invoke("git:stashes", folderPath),
+  runGitStashAction: (
+    folderPath: string,
+    action: GitStashAction,
+  ): Promise<GitActionResult> =>
+    ipcRenderer.invoke("git:stashAction", folderPath, action),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   listExtensions: (folderPath?: string | null): Promise<ExtensionState> =>
     ipcRenderer.invoke("extensions:list", folderPath),
@@ -317,6 +348,16 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = (_: unknown, event: TaskFinishedEvent) => callback(event);
     ipcRenderer.on("task:finished", handler);
     return () => ipcRenderer.removeListener("task:finished", handler);
+  },
+  onTestOutput: (callback: (event: TestOutputEvent) => void) => {
+    const handler = (_: unknown, event: TestOutputEvent) => callback(event);
+    ipcRenderer.on("tests:output", handler);
+    return () => ipcRenderer.removeListener("tests:output", handler);
+  },
+  onTestFinished: (callback: (event: TestFinishedEvent) => void) => {
+    const handler = (_: unknown, event: TestFinishedEvent) => callback(event);
+    ipcRenderer.on("tests:finished", handler);
+    return () => ipcRenderer.removeListener("tests:finished", handler);
   },
 
   // Updater events can happen after the modal closes or before it opens. This

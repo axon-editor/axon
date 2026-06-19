@@ -5,6 +5,9 @@ import { execFile, spawn } from "child_process";
 import { promisify } from "util";
 import {
   type GitActionResult,
+  type GitBranch,
+  type GitBranchAction,
+  type GitBranchListResult,
   type GitChange,
   type GitCommitDiffResult,
   type GitCommitResult,
@@ -13,6 +16,9 @@ import {
   type GitHistoryCommit,
   type GitHistoryFile,
   type GitHistoryResult,
+  type GitStashAction,
+  type GitStashEntry,
+  type GitStashListResult,
   type GitStatusResult,
 } from "../../shared/git";
 
@@ -661,6 +667,230 @@ export async function commitGitChanges(
       ok: false,
       message:
         err instanceof Error ? err.message : "Failed to commit staged changes.",
+    };
+  }
+}
+
+function parseGitBranches(stdout: string): GitBranch[] {
+  return stdout
+    .split(/\r?\n/)
+    .map((line): GitBranch | null => {
+      const trimmed = line.trim();
+      if (!trimmed) return null;
+      const current = trimmed.startsWith("* ");
+      const name = trimmed.replace(/^\*\s*/, "");
+      return {
+        name,
+        current,
+        remote: name.startsWith("remotes/"),
+      };
+    })
+    .filter((branch): branch is GitBranch => branch !== null);
+}
+
+function parseGitStashes(stdout: string): GitStashEntry[] {
+  return stdout
+    .split(/\r?\n/)
+    .map((line): GitStashEntry | null => {
+      const match = line.match(/^stash@\{(\d+)\}: On ([^:]+):\s*(.*)$/);
+      if (!match) return null;
+      const [, index, branch, message] = match;
+      return {
+        index: Number(index),
+        selector: `stash@{${index}}`,
+        branch,
+        message: message || "(no message)",
+      };
+    })
+    .filter((stash): stash is GitStashEntry => stash !== null);
+}
+
+function isSafeGitRefName(name: string) {
+  return (
+    name.trim() === name &&
+    name.length > 0 &&
+    !name.startsWith("-") &&
+    !name.includes("..") &&
+    !/[~^:?*[\\\s]/.test(name)
+  );
+}
+
+async function getGitRepositoryRoot(folderPath: string) {
+  const status = await getGitStatus(folderPath);
+  if (!status.isRepository || !status.root) {
+    return {
+      ok: false,
+      message: "Current workspace is not a Git repository.",
+      root: null,
+      branch: null,
+    };
+  }
+
+  return {
+    ok: true,
+    message: "",
+    root: status.root,
+    branch: status.branch,
+  };
+}
+
+export async function listGitBranches(
+  folderPath: string,
+): Promise<GitBranchListResult> {
+  const repository = await getGitRepositoryRoot(folderPath);
+  if (!repository.ok || !repository.root) {
+    return {
+      ok: false,
+      message: repository.message,
+      current: null,
+      branches: [],
+    };
+  }
+
+  try {
+    const result = await runGit(repository.root, ["branch", "--all"]);
+    return {
+      ok: true,
+      message: "Loaded branches.",
+      current: repository.branch,
+      branches: parseGitBranches(result.stdout),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Failed to list Git branches.",
+      current: repository.branch,
+      branches: [],
+    };
+  }
+}
+
+export async function runGitBranchAction(
+  folderPath: string,
+  action: GitBranchAction,
+): Promise<GitActionResult> {
+  const repository = await getGitRepositoryRoot(folderPath);
+  if (!repository.ok || !repository.root) {
+    return { ok: false, message: repository.message };
+  }
+
+  try {
+    if (action.type === "checkout") {
+      if (!isSafeGitRefName(action.name)) {
+        return { ok: false, message: "Choose a valid branch name." };
+      }
+      await runGit(repository.root, ["checkout", action.name]);
+      return { ok: true, message: `Checked out ${action.name}.` };
+    }
+
+    if (action.type === "create") {
+      if (!isSafeGitRefName(action.name)) {
+        return { ok: false, message: "Choose a valid branch name." };
+      }
+      const args =
+        action.checkout === false
+          ? ["branch", action.name]
+          : ["checkout", "-b", action.name];
+      await runGit(repository.root, args);
+      return { ok: true, message: `Created ${action.name}.` };
+    }
+
+    if (action.type === "delete") {
+      if (!isSafeGitRefName(action.name)) {
+        return { ok: false, message: "Choose a valid branch name." };
+      }
+      await runGit(repository.root, [
+        "branch",
+        action.force ? "-D" : "-d",
+        action.name,
+      ]);
+      return { ok: true, message: `Deleted ${action.name}.` };
+    }
+
+    if (
+      !isSafeGitRefName(action.oldName) ||
+      !isSafeGitRefName(action.newName)
+    ) {
+      return { ok: false, message: "Choose valid branch names." };
+    }
+    await runGit(repository.root, [
+      "branch",
+      "-m",
+      action.oldName,
+      action.newName,
+    ]);
+    return {
+      ok: true,
+      message: `Renamed ${action.oldName} to ${action.newName}.`,
+    };
+  } catch (err) {
+    const message = `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
+    return {
+      ok: false,
+      message: message || "Git branch action failed.",
+    };
+  }
+}
+
+export async function listGitStashes(
+  folderPath: string,
+): Promise<GitStashListResult> {
+  const repository = await getGitRepositoryRoot(folderPath);
+  if (!repository.ok || !repository.root) {
+    return {
+      ok: false,
+      message: repository.message,
+      stashes: [],
+    };
+  }
+
+  try {
+    const result = await runGit(repository.root, ["stash", "list"]);
+    return {
+      ok: true,
+      message: "Loaded stashes.",
+      stashes: parseGitStashes(result.stdout),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error ? err.message : "Failed to list Git stashes.",
+      stashes: [],
+    };
+  }
+}
+
+export async function runGitStashAction(
+  folderPath: string,
+  action: GitStashAction,
+): Promise<GitActionResult> {
+  const repository = await getGitRepositoryRoot(folderPath);
+  if (!repository.ok || !repository.root) {
+    return { ok: false, message: repository.message };
+  }
+
+  try {
+    if (action.type === "create") {
+      const args = ["stash", "push"];
+      if (action.includeUntracked) args.push("--include-untracked");
+      if (action.message?.trim()) args.push("-m", action.message.trim());
+      await runGit(repository.root, args);
+      return { ok: true, message: "Created stash." };
+    }
+
+    if (!/^stash@\{\d+\}$/.test(action.selector)) {
+      return { ok: false, message: "Choose a valid stash entry." };
+    }
+
+    await runGit(repository.root, ["stash", action.type, action.selector]);
+    return { ok: true, message: `${action.type} ${action.selector}.` };
+  } catch (err) {
+    const message = `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
+    return {
+      ok: false,
+      message: message || "Git stash action failed.",
     };
   }
 }

@@ -21,9 +21,10 @@ import EditorToolbar from "./features/editor/EditorToolbar";
 import SettingsModal from "./features/settings";
 import ExtensionsModal from "./features/extensions";
 import SplashScreen from "./shared/components/SplashScreen";
-import AboutModal, { type AppInfo } from "./shared/components/AboutModal";
+import AboutModal from "./shared/components/AboutModal";
 import SourceControlModal from "./features/git/SourceControlModal";
 import TaskRunnerModal from "./features/tasks/TaskRunnerModal";
+import TestExplorerModal from "./features/tests/TestExplorerModal";
 import FileOutlineModal from "./features/search/FileOutlineModal";
 import UpdateModal from "./features/updates/UpdateModal";
 import GitHistoryEditor from "./features/git/GitHistoryEditor";
@@ -43,13 +44,19 @@ import {
   type EditorDiagnostic,
 } from "./features/diagnostics/lib/diagnostics";
 import {
+  capDiagnostics,
+  isDiagnosticInWorkspace,
+  MAX_PROJECT_DIAGNOSTICS,
+  updateLspDiagnosticCache,
+  type LspDiagnosticsByFile,
+} from "./features/diagnostics/lib/diagnosticCache";
+import {
   createInitialLayout,
   splitPane,
   openFileInPane,
   closeTabInPane,
   closePane,
   reorderTabsInPane,
-  setActivePaneFile,
   setDirtyInPane,
   moveTabBetweenPanes,
   removePathFromLayout,
@@ -65,59 +72,17 @@ import {
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
 import {
-  type GitActionResult,
-  type GitCommitResult,
   type GitCommitDiffResult,
-  type GitDiffResult,
   type GitHistoryCommit,
   type GitHistoryFile,
-  type GitHistoryResult,
   type GitStatusResult,
 } from "../shared/git";
+import { type WorkspaceTask } from "../shared/tasks";
 import {
-  type TaskFinishedEvent,
-  type TaskOutputEvent,
-  type TaskRunResult,
-  type WorkspaceTask,
-} from "../shared/tasks";
-import {
-  type LanguageServerCodeActionRequest,
-  type LanguageServerCodeActionResult,
-  type LanguageServerCompletionRequest,
-  type LanguageServerCompletionResult,
-  type LanguageServerDefinitionRequest,
-  type LanguageServerDefinitionResult,
-  type LanguageServerDocumentSyncRequest,
-  type LanguageServerExecuteCommandRequest,
-  type LanguageServerExecuteCommandResult,
-  type LanguageServerFormatRequest,
-  type LanguageServerFormatResult,
   type LanguageServerTextEdit,
-  type LanguageServerHoverRequest,
-  type LanguageServerHoverResult,
-  type LanguageServerLifecycleResult,
-  type LanguageServerReferencesRequest,
-  type LanguageServerReferencesResult,
-  type LanguageServerRenameRequest,
-  type LanguageServerRenameResult,
-  type LanguageServerSignatureHelpRequest,
-  type LanguageServerSignatureHelpResult,
-  type LanguageServerStartForFileRequest,
-  type LanguageServerStatus,
 } from "../shared/lsp";
-import {
-  type UpdateActionResult,
-  type UpdateInfo,
-  type UpdateInstallState,
-} from "../shared/updates";
-import {
-  type HtmlPreviewActionResult,
-  type HtmlPreviewConsoleEvent,
-} from "../shared/htmlPreview";
-import {
-  type ExtensionActionResult,
-  type ExtensionState,
-} from "../shared/extensions";
+import { type UpdateInfo, type UpdateInstallState } from "../shared/updates";
+import { type ExtensionState } from "../shared/extensions";
 import { createThemeCssVariables, resolveThemeTokens } from "./shared/lib/themeTokens";
 import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { type EditorNavigationTarget } from "./features/editor/lib/navigation";
@@ -130,11 +95,15 @@ import {
   saveWorkspaceSession,
   type WorkspaceSession,
 } from "./shared/lib/workspaceSession";
+import {
+  createWorkspaceRoot,
+  upsertWorkspaceRoot,
+  type WorkspaceRoot,
+} from "./shared/lib/workspaceRoots";
 import { detectLanguage, getModel } from "./features/editor/lib/monacoModels";
 import { collectFileSymbols, type FileSymbol } from "./features/sidebar/files/lib/fileSymbols";
 import "./App.css";
 import * as monaco from "monaco-editor";
-import SpotifyPanel from "./features/spotify/SpotifyPanel";
 import SpotifyFloatingPlayer from "./features/spotify/SpotifyFloatingPlayer";
 import AxonAgentSidebar from "./features/agent/AxonAgentSidebar";
 
@@ -183,234 +152,10 @@ function toMonacoEdit(edit: LanguageServerTextEdit) {
   };
 }
 
-declare global {
-  interface Window {
-    axonCompletionWorkspacePath?: string | null;
-    axonEditorSettings?: AxonSettings;
-    axon: {
-      platform: string;
-      openFolder: () => Promise<string | null>;
-      importFont: () => Promise<CustomFont | null>;
-      listAvailableFonts: () => Promise<CustomFont[]>;
-      selectEditorBackgroundImage: () => Promise<string | null>;
-      selectPythonVirtualEnv: (folderPath?: string | null) => Promise<{
-        virtualEnvPath: string;
-        interpreterPath: string;
-      } | null>;
-      getSettings: (folderPath?: string | null) => Promise<AxonSettings>;
-      updateSettings: (
-        settings: AxonSettings,
-        folderPath?: string | null,
-      ) => Promise<AxonSettings>;
-      ensureSettingsFile: (
-        folderPath?: string | null,
-        settings?: AxonSettings,
-      ) => Promise<string>;
-      getProjectDiagnostics: (
-        folderPath: string,
-      ) => Promise<EditorDiagnostic[]>;
-      getLanguageServerStatus: (
-        folderPath: string,
-      ) => Promise<LanguageServerStatus[]>;
-      startLanguageServers: (
-        folderPath: string,
-      ) => Promise<LanguageServerLifecycleResult>;
-      startLanguageServerForLanguage: (
-        request: LanguageServerStartForFileRequest,
-      ) => Promise<LanguageServerLifecycleResult>;
-      stopLanguageServers: (
-        folderPath: string,
-      ) => Promise<LanguageServerLifecycleResult>;
-      getLanguageServerCompletions: (
-        request: LanguageServerCompletionRequest,
-      ) => Promise<LanguageServerCompletionResult>;
-      syncLanguageServerDocument: (
-        request: LanguageServerDocumentSyncRequest,
-      ) => Promise<void>;
-      getLanguageServerHover: (
-        request: LanguageServerHoverRequest,
-      ) => Promise<LanguageServerHoverResult>;
-      getLanguageServerDefinitions: (
-        request: LanguageServerDefinitionRequest,
-      ) => Promise<LanguageServerDefinitionResult>;
-      getLanguageServerReferences: (
-        request: LanguageServerReferencesRequest,
-      ) => Promise<LanguageServerReferencesResult>;
-      renameLanguageServerSymbol: (
-        request: LanguageServerRenameRequest,
-      ) => Promise<LanguageServerRenameResult>;
-      formatLanguageServerDocument: (
-        request: LanguageServerFormatRequest,
-      ) => Promise<LanguageServerFormatResult>;
-      getLanguageServerSignatureHelp: (
-        request: LanguageServerSignatureHelpRequest,
-      ) => Promise<LanguageServerSignatureHelpResult>;
-      getLanguageServerCodeActions: (
-        request: LanguageServerCodeActionRequest,
-      ) => Promise<LanguageServerCodeActionResult>;
-      executeLanguageServerCommand: (
-        request: LanguageServerExecuteCommandRequest,
-      ) => Promise<LanguageServerExecuteCommandResult>;
-      onLanguageServerDiagnostics: (
-        callback: (event: {
-          folderPath: string;
-          filePath: string;
-          diagnostics: EditorDiagnostic[];
-        }) => void,
-      ) => () => void;
-      onLanguageServerLog: (
-        callback: (event: {
-          folderPath: string;
-          serverId: string;
-          level: "info" | "error";
-          message: string;
-        }) => void,
-      ) => () => void;
-      listWorkspaceTasks: (folderPath: string) => Promise<WorkspaceTask[]>;
-      runWorkspaceTask: (
-        folderPath: string,
-        taskId: string,
-      ) => Promise<TaskRunResult>;
-      getGitStatus: (folderPath: string) => Promise<GitStatusResult>;
-      getGitDiff: (
-        folderPath: string,
-        filePath: string,
-        staged?: boolean,
-        untracked?: boolean,
-      ) => Promise<GitDiffResult>;
-      getGitFileBase: (folderPath: string, filePath: string) => Promise<string>;
-      getGitHistory: (
-        folderPath: string,
-        filePath?: string | null,
-      ) => Promise<GitHistoryResult>;
-      getGitCommitDiff: (
-        folderPath: string,
-        hash: string,
-        filePath?: string | null,
-        oldPath?: string | null,
-      ) => Promise<GitCommitDiffResult>;
-      runGitAction: (
-        folderPath: string,
-        filePath: string,
-        action: "stage" | "unstage" | "discard",
-      ) => Promise<GitActionResult>;
-      commitGitChanges: (
-        folderPath: string,
-        message: string,
-      ) => Promise<GitCommitResult>;
-      getAppInfo: () => Promise<AppInfo>;
-      listExtensions: (folderPath?: string | null) => Promise<ExtensionState>;
-      setExtensionEnabled: (
-        extensionId: string,
-        enabled: boolean,
-        folderPath?: string | null,
-      ) => Promise<ExtensionActionResult>;
-      reloadExtensions: (
-        folderPath?: string | null,
-      ) => Promise<ExtensionActionResult>;
-      openExtensionsFolder: (
-        folderPath?: string | null,
-      ) => Promise<ExtensionActionResult>;
-      shouldRestoreSession: () => Promise<boolean>;
-      checkForUpdates: () => Promise<UpdateInfo>;
-      getUpdateInstallState: () => Promise<UpdateInstallState>;
-      downloadUpdate: () => Promise<UpdateActionResult>;
-      installUpdate: () => Promise<UpdateActionResult>;
-      openUpdatePage: (releaseUrl?: string) => Promise<void>;
-      openExternalLink: (href: string) => Promise<void>;
-      getHtmlPreviewTarget: (
-        filePath: string,
-        folderPath?: string | null,
-      ) => Promise<HtmlPreviewActionResult>;
-      openHtmlPreviewInBrowser: (
-        filePath: string,
-        folderPath?: string | null,
-      ) => Promise<HtmlPreviewActionResult>;
-      copyText: (text: string) => Promise<void>;
-      getDroppedFilePaths: (files: File[]) => string[];
-      importExternalEntries: (
-        sourcePaths: string[],
-        targetDir: string,
-      ) => Promise<
-        Array<{ sourcePath: string; targetPath: string; isDir: boolean }>
-      >;
-      watchFile: (path: string) => Promise<void>;
-      unwatchFile: () => Promise<void>;
-      watchFolder: (path: string) => Promise<void>;
-      unwatchFolder: () => Promise<void>;
-      onFileChanged: (
-        callback: (data: { path: string; content: string }) => void,
-      ) => () => void;
-      onFolderChanged: (callback: () => void) => () => void;
-      onGitChanged: (callback: () => void) => () => void;
-      onTaskOutput: (callback: (event: TaskOutputEvent) => void) => () => void;
-      onTaskFinished: (
-        callback: (event: TaskFinishedEvent) => void,
-      ) => () => void;
-      onUpdateState: (
-        callback: (state: UpdateInstallState) => void,
-      ) => () => void;
-      onHtmlPreviewChanged: (
-        callback: (event: { path: string; serverId: string | null }) => void,
-      ) => () => void;
-      onHtmlPreviewConsole: (
-        callback: (event: HtmlPreviewConsoleEvent) => void,
-      ) => () => void;
-      onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
-      spotify: {
-        auth: () => Promise<import("../shared/spotify").SpotifyAuthResult>;
-        disconnect: () => Promise<
-          import("../shared/spotify").SpotifyActionResult
-        >;
-        getStatus: () => Promise<
-          import("../shared/spotify").SpotifyStatusResult
-        >;
-        getPlaylists: () => Promise<
-          import("../shared/spotify").SpotifyPlaylistsResult
-        >;
-        getPlaylistTracks: (
-          playlistId: string,
-          offset: number,
-        ) => Promise<{
-          ok: boolean;
-          items: unknown[];
-          total: number;
-          next: string | null;
-        }>;
-        getPlaybackState: () => Promise<
-          import("../shared/spotify").SpotifyPlaybackResult
-        >;
-        getDevices: () => Promise<
-          import("../shared/spotify").SpotifyDevicesResult
-        >;
-        play: (
-          request: import("../shared/spotify").SpotifyPlayTrackRequest,
-        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
-        pause: () => Promise<import("../shared/spotify").SpotifyActionResult>;
-        next: () => Promise<import("../shared/spotify").SpotifyActionResult>;
-        previous: () => Promise<
-          import("../shared/spotify").SpotifyActionResult
-        >;
-        seek: (
-          positionMs: number,
-        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
-        setVolume: (
-          v: number,
-        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
-        setShuffle: (
-          state: boolean,
-        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
-        setRepeat: (
-          state: "off" | "track" | "context",
-        ) => Promise<import("../shared/spotify").SpotifyActionResult>;
-        onConnected: (callback: () => void) => () => void;
-      };
-    };
-  }
-}
-
 function App() {
   const [folderPath, setFolderPath] = useState<string | null>(null);
+  const [workspaceRoots, setWorkspaceRoots] = useState<WorkspaceRoot[]>([]);
+  const [activeRootId, setActiveRootId] = useState<string | null>(null);
   const [tree, setTree] = useState<FileNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [layout, setLayout] = useState<Layout>(createInitialLayout);
@@ -423,6 +168,7 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
   const [taskRunnerOpen, setTaskRunnerOpen] = useState(false);
+  const [testExplorerOpen, setTestExplorerOpen] = useState(false);
   const [fileOutlineOpen, setFileOutlineOpen] = useState(false);
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
   const [bottomPanelTab, setBottomPanelTab] =
@@ -455,9 +201,8 @@ function App() {
   const [projectDiagnostics, setProjectDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
-  const [lspDiagnosticsByFile, setLspDiagnosticsByFile] = useState<
-    Record<string, EditorDiagnostic[]>
-  >({});
+  const [lspDiagnosticsByFile, setLspDiagnosticsByFile] =
+    useState<LspDiagnosticsByFile>({});
   const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
   const [navigationTarget, setNavigationTarget] =
     useState<EditorNavigationTarget | null>(null);
@@ -483,7 +228,6 @@ function App() {
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
   const autoStartedLspWorkspaceRef = useRef<string | null>(null);
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
-  const [spotifyOpen, setSpotifyOpen] = useState(false);
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
   const [agentSidebarOpen, setAgentSidebarOpen] = useState(false);
   const [workspaceTrustNonce, setWorkspaceTrustNonce] = useState(0);
@@ -510,6 +254,15 @@ function App() {
     () => getWorkspaceTrustState(folderPath) !== false,
     [folderPath, workspaceTrustNonce],
   );
+
+  useEffect(() => {
+    setWorkspaceRoots((currentRoots) =>
+      currentRoots.map((root) => ({
+        ...root,
+        trusted: getWorkspaceTrustState(root.path),
+      })),
+    );
+  }, [workspaceTrustNonce]);
 
   useEffect(() => {
     if (workspaceTrusted || !folderPath) return;
@@ -612,7 +365,7 @@ function App() {
       ...projectDiagnostics,
       ...monacoDiagnostics,
       ...Object.values(lspDiagnosticsByFile).flat(),
-    ];
+    ].filter((diagnostic) => isDiagnosticInWorkspace(diagnostic, folderPath));
     const seenDiagnostics = new Set<string>();
 
     return mergedDiagnostics.filter((diagnostic) => {
@@ -630,7 +383,7 @@ function App() {
       seenDiagnostics.add(key);
       return true;
     });
-  }, [lspDiagnosticsByFile, monacoDiagnostics, projectDiagnostics]);
+  }, [folderPath, lspDiagnosticsByFile, monacoDiagnostics, projectDiagnostics]);
 
   const diagnosticCounts = useMemo(
     () =>
@@ -644,16 +397,6 @@ function App() {
       ),
     [diagnostics],
   );
-
-  useEffect(() => {
-    // When the OAuth callback lands, the main process fires spotify:connected.
-    // Re-check status so the panel transitions from auth gate to player.
-    return window.axon.spotify.onConnected(() => {
-      // SpotifyPanel re-checks status internally via useSpotify, so just
-      // toggling visibility is enough, the hook's useEffect will re-run.
-      setSpotifyOpen(true);
-    });
-  }, []);
 
   useEffect(() => {
     // Theme selection has to be applied at the app level, not only when an
@@ -899,7 +642,9 @@ function App() {
     try {
       const nextDiagnostics =
         await window.axon.getProjectDiagnostics(folderPath);
-      setProjectDiagnostics(nextDiagnostics);
+      setProjectDiagnostics(
+        capDiagnostics(nextDiagnostics, MAX_PROJECT_DIAGNOSTICS),
+      );
       appendOutput(
         "diagnostics",
         nextDiagnostics.length === 0
@@ -1066,6 +811,10 @@ function App() {
   }, []);
 
   useEffect(() => {
+    setProjectDiagnostics([]);
+  }, [folderPath]);
+
+  useEffect(() => {
     setLspDiagnosticsByFile({});
     clearLanguageServerDiagnosticsFromMonaco();
     if (!folderPath || !settings.lsp.enabled) return;
@@ -1075,10 +824,9 @@ function App() {
     // file's diagnostics without wiping problems from another language server.
     return window.axon.onLanguageServerDiagnostics((event) => {
       if (event.folderPath !== folderPath) return;
-      setLspDiagnosticsByFile((current) => ({
-        ...current,
-        [event.filePath]: event.diagnostics,
-      }));
+      setLspDiagnosticsByFile((current) =>
+        updateLspDiagnosticCache(current, event.filePath, event.diagnostics),
+      );
     });
   }, [folderPath, settings.lsp.enabled]);
 
@@ -1231,6 +979,35 @@ function App() {
     }
   };
 
+  const handleSwitchWorkspaceRoot = async (path: string) => {
+    if (path === folderPath) return;
+
+    try {
+      setLoading(true);
+      appendOutput("workspace", `Switching to ${path}`);
+      const fileTree = await getTree(path);
+      addRecentFolder(path);
+      await handleFolderChange(path, fileTree, {
+        folderPath: path,
+        roots: workspaceRoots,
+        activeRootId:
+          workspaceRoots.find((root) => root.path === path)?.id ?? path,
+        layout: createInitialLayout(),
+        sidebarCollapsed,
+        sidebarWidth,
+        terminalOpen,
+        bottomPanelOpen,
+        bottomPanelTab,
+      });
+      appendOutput("workspace", `Switched to ${path}`, "success");
+    } catch (err) {
+      console.error("failed to switch workspace root:", err);
+      appendOutput("workspace", "Failed to switch workspace root.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (restoreStartedRef.current) return;
     restoreStartedRef.current = true;
@@ -1294,6 +1071,8 @@ function App() {
     // without pretending unsaved edits are protected.
     saveWorkspaceSession({
       folderPath,
+      roots: workspaceRoots,
+      activeRootId,
       layout,
       sidebarCollapsed,
       sidebarWidth,
@@ -1304,12 +1083,14 @@ function App() {
   }, [
     bottomPanelOpen,
     bottomPanelTab,
+    activeRootId,
     folderPath,
     layout,
     sessionReady,
     sidebarCollapsed,
     sidebarWidth,
     terminalOpen,
+    workspaceRoots,
   ]);
 
   const handleFolderChange = async (
@@ -1318,6 +1099,19 @@ function App() {
     restoredSession?: WorkspaceSession | null,
   ) => {
     allowSessionPersistenceRef.current = true;
+    const restoredRoots =
+      restoredSession?.roots && restoredSession.roots.length > 0
+        ? restoredSession.roots
+        : [];
+    const nextRoots =
+      restoredRoots.length > 0
+        ? upsertWorkspaceRoot(restoredRoots, path, getWorkspaceTrustState(path))
+        : upsertWorkspaceRoot(workspaceRoots, path, getWorkspaceTrustState(path));
+    const nextActiveRoot =
+      nextRoots.find((root) => root.path === path) ?? createWorkspaceRoot(path);
+
+    setWorkspaceRoots(nextRoots);
+    setActiveRootId(nextActiveRoot.id);
     setFolderPath(path);
     setTree(fileTree);
     setLayout(
@@ -1360,7 +1154,9 @@ function App() {
     void window.axon
       .getProjectDiagnostics(path)
       .then((nextDiagnostics) => {
-        setProjectDiagnostics(nextDiagnostics);
+        setProjectDiagnostics(
+          capDiagnostics(nextDiagnostics, MAX_PROJECT_DIAGNOSTICS),
+        );
         appendOutput(
           "diagnostics",
           nextDiagnostics.length === 0
@@ -1806,11 +1602,6 @@ function App() {
     void requestCloseTab(layout.activePaneId, activeFile);
   };
 
-  const handleUpdateSettings = useCallback(async (next: AxonSettings) => {
-    const normalized = await window.axon.updateSettings(next, null);
-    setSettings(normalized);
-  }, []);
-
   const runEditorAction = useCallback(
     (action: "definition" | "references" | "rename" | "format") => {
       const activeFile = activePane?.activeFile;
@@ -1870,6 +1661,10 @@ function App() {
         case AXON_COMMANDS.OPEN_TASK_RUNNER:
           if (!requireTrustedWorkspace("Tasks")) break;
           setTaskRunnerOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_TEST_EXPLORER:
+          if (!requireTrustedWorkspace("Tests")) break;
+          setTestExplorerOpen(true);
           break;
         case AXON_COMMANDS.OPEN_FILE_OUTLINE:
           setFileOutlineOpen(true);
@@ -2052,6 +1847,18 @@ function App() {
           ? "Run package, Go, or Cargo workspace tasks"
           : "Open a folder first",
         keywords: ["build", "test", "npm", "go", "cargo"],
+        disabled: !folderPath || !workspaceTrusted,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_TEST_EXPLORER,
+        title: "Test Explorer",
+        group: "Workspace",
+        subtitle: !workspaceTrusted
+          ? "Trust this workspace before running tests"
+          : folderPath
+            ? "Discover and run local project tests"
+            : "Open a folder first",
+        keywords: ["test", "vitest", "jest", "pytest", "go", "cargo"],
         disabled: !folderPath || !workspaceTrusted,
       },
       {
@@ -2481,10 +2288,13 @@ function App() {
           <Sidebar
             tree={tree}
             folderPath={folderPath}
+            workspaceRoots={workspaceRoots}
+            activeRootId={activeRootId}
             activeFile={activePane?.activeFile ?? null}
             onFileSelect={handleFileSelect}
             onOpenFolder={handleOpenFolder}
             onFolderChange={handleFolderChange}
+            onSwitchWorkspaceRoot={handleSwitchWorkspaceRoot}
             onRefresh={handleRefresh}
             loading={loading}
             collapsed={sidebarCollapsed}
@@ -2512,8 +2322,6 @@ function App() {
             onOpenFolderPicker={() => setFolderPickerOpen(true)}
             onCloseFolderPicker={() => setFolderPickerOpen(false)}
             platform={platform}
-            settings={settings}
-            onUpdateSettings={handleUpdateSettings}
             spotifyState={spotifyState}
             spotifyActions={spotifyActions}
             playerOpen={spotifyPlayerOpen}
@@ -2552,7 +2360,7 @@ function App() {
                 background: "var(--axon-toolbar-background)",
                 borderColor: "var(--axon-panel-border)",
                 WebkitAppRegion: "drag",
-              }}
+              } as React.CSSProperties}
             >
               <div className="flex min-w-0 flex-1 overflow-hidden" />
               <div
@@ -2743,6 +2551,15 @@ function App() {
         open={taskRunnerOpen}
         onClose={() => setTaskRunnerOpen(false)}
         onRunTask={(task) => void handleRunWorkspaceTask(task)}
+      />
+
+      <TestExplorerModal
+        folderPath={folderPath}
+        open={testExplorerOpen}
+        onClose={() => setTestExplorerOpen(false)}
+        onOutput={(message, level = "info") =>
+          appendOutput("tests", message, level)
+        }
       />
 
       <FileOutlineModal

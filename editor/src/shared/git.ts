@@ -43,6 +43,44 @@ export interface GitCommitResult {
   message: string;
 }
 
+export interface GitBranch {
+  name: string;
+  current: boolean;
+  remote: boolean;
+}
+
+export interface GitBranchListResult {
+  ok: boolean;
+  message: string;
+  current: string | null;
+  branches: GitBranch[];
+}
+
+export type GitBranchAction =
+  | { type: "checkout"; name: string }
+  | { type: "create"; name: string; checkout?: boolean }
+  | { type: "delete"; name: string; force?: boolean }
+  | { type: "rename"; oldName: string; newName: string };
+
+export interface GitStashEntry {
+  index: number;
+  selector: string;
+  branch: string;
+  message: string;
+}
+
+export interface GitStashListResult {
+  ok: boolean;
+  message: string;
+  stashes: GitStashEntry[];
+}
+
+export type GitStashAction =
+  | { type: "create"; message?: string; includeUntracked?: boolean }
+  | { type: "apply"; selector: string }
+  | { type: "pop"; selector: string }
+  | { type: "drop"; selector: string };
+
 export interface GitHistoryCommit {
   hash: string;
   shortHash: string;

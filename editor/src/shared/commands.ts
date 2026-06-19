@@ -16,6 +16,7 @@ export const AXON_COMMANDS = {
   OPEN_SOURCE_CONTROL: "open-source-control",
   OPEN_GIT_HISTORY: "open-git-history",
   OPEN_TASK_RUNNER: "open-task-runner",
+  OPEN_TEST_EXPLORER: "open-test-explorer",
   OPEN_FILE_OUTLINE: "open-file-outline",
   GO_TO_DEFINITION: "go-to-definition",
   FIND_REFERENCES: "find-references",

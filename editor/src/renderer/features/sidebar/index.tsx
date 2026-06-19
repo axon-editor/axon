@@ -3,6 +3,7 @@
 // Folder name header is clickable and opens the FolderPicker modal.
 // Recent folders persisted in localStorage under axon:recentFolders.
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -27,9 +28,9 @@ import {
   type GitFileState,
 } from "../../../shared/git";
 import SpotifyPanel from "../spotify/SpotifyPanel";
-import type { AxonSettings } from "../../../shared/settings";
 import type { SpotifyActions, SpotifyState } from "../spotify/lib/useSpotify";
 import { clearWorkspaceSession } from "../../shared/lib/workspaceSession";
+import { type WorkspaceRoot } from "../../shared/lib/workspaceRoots";
 
 const RECENT_KEY = "axon:recentFolders";
 const WORKSPACE_TRUST_KEY = "axon:workspaceTrust";
@@ -145,10 +146,13 @@ export function setWorkspaceTrusted(path: string, trusted: boolean) {
 interface Props {
   tree: FileNode | null;
   folderPath: string | null;
+  workspaceRoots?: WorkspaceRoot[];
+  activeRootId?: string | null;
   activeFile: string | null;
   onFileSelect: (path: string) => void;
   onOpenFolder: () => void | Promise<void>;
   onFolderChange: (path: string, tree: FileNode) => void | Promise<void>;
+  onSwitchWorkspaceRoot?: (path: string) => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
   loading: boolean;
   collapsed: boolean;
@@ -172,8 +176,6 @@ interface Props {
   onOpenFolderPicker: () => void;
   onCloseFolderPicker: () => void;
   platform: string;
-  settings: AxonSettings;
-  onUpdateSettings: (settings: AxonSettings) => Promise<void>;
   onWorkspaceTrustChanged?: () => void;
   spotifyState: SpotifyState;
   spotifyActions: SpotifyActions;
@@ -195,6 +197,12 @@ export interface GitTreeDecoration {
   tone: GitTreeTone;
   label: string;
 }
+
+type FileTreeOperationInput =
+  | { type: "created"; path: string; isDir: boolean }
+  | { type: "deleted"; path: string }
+  | { type: "renamed"; oldPath: string; newPath: string }
+  | { type: "moved"; oldPath: string; newPath: string };
 
 function normalizeTreePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -411,12 +419,15 @@ function getChildNamesForPath(tree: FileNode | null, parentPath: string) {
 }
 
 export default function Sidebar({
-  tree,
+  tree: treeProp,
   folderPath,
+  workspaceRoots = [],
+  activeRootId = null,
   activeFile,
   onFileSelect,
   onOpenFolder,
   onFolderChange,
+  onSwitchWorkspaceRoot,
   onRefresh,
   loading,
   collapsed,
@@ -436,14 +447,13 @@ export default function Sidebar({
   onOpenFolderPicker,
   onCloseFolderPicker,
   platform,
-  settings,
-  onUpdateSettings,
   onWorkspaceTrustChanged,
   playerOpen,
   onTogglePlayer,
   spotifyState,
   spotifyActions,
 }: Props) {
+  const [tree, setTree] = useState<FileNode | null>(treeProp);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [inlineCreate, setInlineCreate] = useState<InlineCreateTarget | null>(
     null,
@@ -456,6 +466,17 @@ export default function Sidebar({
   const [trustNonce, setTrustNonce] = useState(0);
   const [recentNonce, setRecentNonce] = useState(0);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
+
+  useEffect(() => {
+    // The app shell owns the authoritative workspace tree because file watcher
+    // refreshes arrive there first. The sidebar keeps a local copy only for
+    // optimistic file operations such as create, rename, move, and delete. When
+    // the watcher refreshes the parent tree, I replace the local copy so
+    // external changes, like a new tests/ folder created by another editor,
+    // appear without requiring a full Axon restart.
+    setTree(treeProp);
+  }, [treeProp]);
+
   const gitDecorations = useMemo(
     () => buildGitDecorationMap(gitChanges),
     [gitChanges],
@@ -493,9 +514,7 @@ export default function Sidebar({
     onWorkspaceTrustChanged?.();
   };
 
-  const publishTreeOperation = (
-    operation: Omit<FileTreeOperation, "id">,
-  ) => {
+  const publishTreeOperation = (operation: FileTreeOperationInput) => {
     setTreeOperation({ ...operation, id: Date.now() });
   };
 
@@ -899,7 +918,12 @@ export default function Sidebar({
       {folderPickerOpen && (
           <FolderPicker
           recentFolders={recentFolders}
+          workspaceRoots={workspaceRoots}
+          activeRootId={activeRootId}
           onSelect={handleSelectRecent}
+          onSelectWorkspaceRoot={(path) => {
+            void onSwitchWorkspaceRoot?.(path);
+          }}
           onRemoveRecent={(path) => {
             removeRecentFolder(path);
             setRecentNonce((nonce) => nonce + 1);

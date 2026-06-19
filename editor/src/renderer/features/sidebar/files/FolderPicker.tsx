@@ -5,10 +5,14 @@
 // Closes on outside click or Escape.
 import { Clock, FolderOpen, Trash2, X } from "lucide-react";
 import CommandModal from "../../../shared/components/CommandModal";
+import { type WorkspaceRoot } from "../../../shared/lib/workspaceRoots";
 
 interface Props {
   recentFolders: string[];
+  workspaceRoots?: WorkspaceRoot[];
+  activeRootId?: string | null;
   onSelect: (path: string) => void;
+  onSelectWorkspaceRoot?: (path: string) => void;
   onOpenNew: () => void;
   onRemoveRecent: (path: string) => void;
   onClearRecent: () => void;
@@ -18,7 +22,10 @@ interface Props {
 
 export default function FolderPicker({
   recentFolders,
+  workspaceRoots = [],
+  activeRootId = null,
   onSelect,
+  onSelectWorkspaceRoot,
   onOpenNew,
   onRemoveRecent,
   onClearRecent,
@@ -37,6 +44,47 @@ export default function FolderPicker({
           <FolderOpen size={14} className="shrink-0" />
           <span>browse for folder...</span>
         </button>
+
+        {workspaceRoots.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 px-3 py-2 mt-1">
+              <FolderOpen size={11} className="text-[#364050]" />
+              <span className="text-[10px] text-[#364050] uppercase tracking-widest">
+                workspace roots
+              </span>
+            </div>
+            {workspaceRoots.map((root) => {
+              const parent = root.path.split(/[\\/]/).slice(0, -1).join("/");
+              const active = root.id === activeRootId;
+              return (
+                <button
+                  key={root.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectWorkspaceRoot?.(root.path);
+                    onClose();
+                  }}
+                  className={`flex w-full min-w-0 cursor-pointer items-center gap-3 rounded px-3 py-2 text-left transition-colors ${
+                    active
+                      ? "bg-[#142a36] text-[#dff7ff]"
+                      : "text-[#c8d0e0] hover:bg-[#1e2430]"
+                  }`}
+                >
+                  <FolderOpen
+                    size={14}
+                    className={`shrink-0 ${active ? "text-[#80c8e0]" : "text-[#586478]"}`}
+                  />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-[12px]">{root.name}</span>
+                    <span className="truncate text-[10px] text-[#586478]">
+                      {parent}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </>
+        )}
 
         {recentFolders.length > 0 && (
           <>

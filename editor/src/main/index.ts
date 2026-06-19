@@ -29,6 +29,8 @@ import { getGitWatchPaths } from "./git/git";
 import { registerHtmlPreviewHandlers } from "./htmlPreview/handlers";
 import { registerTaskHandlers } from "./tasks/handlers";
 import { TaskManager } from "./tasks/tasks";
+import { registerTestHandlers } from "./tests/handlers";
+import { TestManager } from "./tests/tests";
 import { HtmlPreviewServer } from "./htmlPreview/server";
 import { createWindow } from "./window/createWindow";
 import { readSettingsForFolder, readSettingsFromDisk } from "./settings/io";
@@ -88,6 +90,9 @@ const bundledCore = createBundledCoreController({
   axonCorePort,
 });
 const taskManager = new TaskManager({
+  sendToRenderer,
+});
+const testManager = new TestManager({
   sendToRenderer,
 });
 const fileWatcherManager = new FileWatcherManager({
@@ -160,6 +165,7 @@ registerSettingsHandlers({
 registerFileWatcherHandlers(fileWatcherManager);
 registerHtmlPreviewHandlers(getHtmlPreviewServer);
 registerTaskHandlers(taskManager);
+registerTestHandlers(testManager);
 
 if (!hasDevSingleInstanceLock) {
   app.quit();
@@ -342,6 +348,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", async () => {
   isQuitting = true;
   taskManager.stopAll();
+  testManager.stopAll();
   stopAllLanguageServers();
   bundledCore.stopBundledCoreWatchdog();
   bundledCore.stopBundledAxonCore();

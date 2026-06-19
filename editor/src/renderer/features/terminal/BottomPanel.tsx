@@ -3,6 +3,7 @@ import {
   AlertCircle,
   ChevronDown,
   Circle,
+  Copy,
   ListChecks,
   RefreshCw,
   Search,
@@ -162,6 +163,29 @@ const outputLevelStyles: Record<OutputEntryLevel, string> = {
   error: "text-[#ea6c73]",
 };
 
+function formatDiagnosticForCopy(diagnostic: EditorDiagnostic) {
+  const source = diagnostic.source ? ` source=${diagnostic.source}` : "";
+  const code =
+    diagnostic.code === undefined ? "" : ` code=${String(diagnostic.code)}`;
+
+  return [
+    `${diagnostic.path}:${diagnostic.line}:${diagnostic.column}`,
+    `[${diagnostic.severity}${source}${code}]`,
+    diagnostic.message,
+  ].join(" ");
+}
+
+function formatDiagnosticsForCopy(diagnostics: EditorDiagnostic[]) {
+  return diagnostics.map(formatDiagnosticForCopy).join("\n");
+}
+
+function copyProblemsText(text: string) {
+  if (!text) return;
+  void navigator.clipboard.writeText(text).catch((err) => {
+    console.error("failed to copy problems:", err);
+  });
+}
+
 function ProblemsContent({
   diagnostics,
   onOpenDiagnostic,
@@ -186,9 +210,9 @@ function ProblemsContent({
     [diagnostics],
   );
 
-  const groupedDiagnostics = useMemo(() => {
+  const filteredDiagnostics = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const filteredDiagnostics = diagnostics.filter((diagnostic) => {
+    return diagnostics.filter((diagnostic) => {
       if (
         activeSeverity !== "all" &&
         diagnostic.severity !== activeSeverity
@@ -208,7 +232,9 @@ function ProblemsContent({
         .toLowerCase()
         .includes(normalizedQuery);
     });
+  }, [activeSeverity, diagnostics, query]);
 
+  const groupedDiagnostics = useMemo(() => {
     const groups = new Map<string, EditorDiagnostic[]>();
     for (const diagnostic of filteredDiagnostics) {
       const existingDiagnostics = groups.get(diagnostic.path) ?? [];
@@ -220,7 +246,7 @@ function ProblemsContent({
       path,
       diagnostics: fileDiagnostics,
     }));
-  }, [activeSeverity, diagnostics, query]);
+  }, [filteredDiagnostics]);
 
   if (diagnostics.length === 0) {
     return (
@@ -245,6 +271,20 @@ function ProblemsContent({
             className="h-7 w-full rounded-md border border-[var(--axon-panel-border)] bg-[#090b10] pl-7 pr-2 text-[12px] text-[#c8d0e0] outline-none transition-colors placeholder:text-[#3f485a] focus:border-[#80c8e0]/50"
           />
         </div>
+
+        <Tooltip label="Copy visible problems" side="top">
+          <button
+            type="button"
+            onClick={() =>
+              copyProblemsText(formatDiagnosticsForCopy(filteredDiagnostics))
+            }
+            disabled={filteredDiagnostics.length === 0}
+            aria-label="Copy visible problems"
+            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#647086] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#c8d0e0] disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#647086]"
+          >
+            <Copy size={13} />
+          </button>
+        </Tooltip>
 
         <div className="flex shrink-0 items-center gap-1">
           {(["all", "error", "warning", "info", "hint"] as const).map(
@@ -305,35 +345,52 @@ function ProblemsContent({
               </div>
 
               {group.diagnostics.map((diagnostic) => (
-                <button
+                <div
                   key={diagnostic.id}
-                  onClick={() => onOpenDiagnostic(diagnostic)}
-                  className="grid w-full cursor-pointer grid-cols-[18px_96px_minmax(0,1fr)_90px] items-start gap-2 px-6 py-1.5 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
+                  className="grid w-full grid-cols-[minmax(0,1fr)_28px] items-start gap-2 px-6 py-1.5 transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
                 >
-                  <Circle
-                    size={8}
-                    className={`mt-1.5 fill-current ${severityStyles[diagnostic.severity]}`}
-                  />
-                  <span
-                    className={`font-medium capitalize ${severityStyles[diagnostic.severity]}`}
+                  <button
+                    type="button"
+                    onClick={() => onOpenDiagnostic(diagnostic)}
+                    className="grid min-w-0 cursor-pointer grid-cols-[18px_96px_minmax(0,1fr)_90px] items-start gap-2 text-left"
                   >
-                    {diagnostic.severity}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[#c8d0e0]">
-                      {diagnostic.message}
+                    <Circle
+                      size={8}
+                      className={`mt-1.5 fill-current ${severityStyles[diagnostic.severity]}`}
+                    />
+                    <span
+                      className={`font-medium capitalize ${severityStyles[diagnostic.severity]}`}
+                    >
+                      {diagnostic.severity}
                     </span>
-                    <span className="mt-0.5 block truncate text-[11px] text-[#586478]">
-                      Line {diagnostic.line}, column {diagnostic.column}
-                      {diagnostic.code !== undefined && (
-                        <span className="ml-2">Code {diagnostic.code}</span>
-                      )}
+                    <span className="min-w-0">
+                      <span className="block truncate text-[#c8d0e0]">
+                        {diagnostic.message}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[11px] text-[#586478]">
+                        Line {diagnostic.line}, column {diagnostic.column}
+                        {diagnostic.code !== undefined && (
+                          <span className="ml-2">Code {diagnostic.code}</span>
+                        )}
+                      </span>
                     </span>
-                  </span>
-                  <span className="truncate text-right text-[11px] text-[#586478]">
-                    {diagnostic.source ?? "lsp"}
-                  </span>
-                </button>
+                    <span className="truncate text-right text-[11px] text-[#586478]">
+                      {diagnostic.source ?? "lsp"}
+                    </span>
+                  </button>
+                  <Tooltip label="Copy problem" side="top">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyProblemsText(formatDiagnosticForCopy(diagnostic))
+                      }
+                      aria-label="Copy problem"
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#c8d0e0]"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </Tooltip>
+                </div>
               ))}
             </div>
           ))}

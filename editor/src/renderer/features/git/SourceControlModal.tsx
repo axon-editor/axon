@@ -21,6 +21,7 @@ import { type EditorSettings } from "../../../shared/settings";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import Tooltip from "../../shared/components/Tooltip";
 import GitDiffEditorView from "./GitDiffEditorView";
+import GitWorkflowPanel from "./GitWorkflowPanel";
 
 interface Props {
   folderPath: string | null;
@@ -461,6 +462,15 @@ export default function SourceControlModal({
                 </Tooltip>
               </div>
             </div>
+
+            <GitWorkflowPanel
+              folderPath={folderPath}
+              onChanged={() => {
+                void loadStatus();
+                onGitStatusChanged();
+              }}
+              onOutput={onOutput}
+            />
 
             <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain py-2">
               {!folderPath && (

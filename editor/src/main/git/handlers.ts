@@ -2,18 +2,26 @@ import fs from "fs";
 import { ipcMain } from "electron";
 import {
   type GitActionResult,
+  type GitBranchAction,
+  type GitBranchListResult,
   type GitCommitDiffResult,
   type GitCommitResult,
   type GitHistoryResult,
+  type GitStashAction,
+  type GitStashListResult,
   type GitStatusResult,
 } from "../../shared/git";
 import {
   commitGitChanges,
+  listGitBranches,
+  listGitStashes,
   getGitCommitDiff,
   getGitDiff,
   getGitFileBase,
   getGitHistory,
   getGitStatus,
+  runGitBranchAction,
+  runGitStashAction,
   runGitAction,
 } from "./git";
 
@@ -128,6 +136,73 @@ export function registerGitHandlers() {
       }
 
       return commitGitChanges(folderPath, message);
+    },
+  );
+
+  ipcMain.handle(
+    "git:branches",
+    async (_event, folderPath: string): Promise<GitBranchListResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before listing branches.",
+          current: null,
+          branches: [],
+        };
+      }
+
+      return listGitBranches(folderPath);
+    },
+  );
+
+  ipcMain.handle(
+    "git:branchAction",
+    async (
+      _event,
+      folderPath: string,
+      action: GitBranchAction,
+    ): Promise<GitActionResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before changing branches.",
+        };
+      }
+
+      return runGitBranchAction(folderPath, action);
+    },
+  );
+
+  ipcMain.handle(
+    "git:stashes",
+    async (_event, folderPath: string): Promise<GitStashListResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before listing stashes.",
+          stashes: [],
+        };
+      }
+
+      return listGitStashes(folderPath);
+    },
+  );
+
+  ipcMain.handle(
+    "git:stashAction",
+    async (
+      _event,
+      folderPath: string,
+      action: GitStashAction,
+    ): Promise<GitActionResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before changing stashes.",
+        };
+      }
+
+      return runGitStashAction(folderPath, action);
     },
   );
 }

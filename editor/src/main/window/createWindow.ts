@@ -77,16 +77,19 @@ export function createWindow(deps: WindowDependencies, options: { restoreSession
           height: 36,
         }
       : undefined,
-    // The renderer still paints normal opaque theme surfaces by default, but
-    // creating the native window as transparent gives Axon's background opacity
-    // setting a real transparent canvas to reveal. Without this, CSS rgba()
-    // would only blend against Electron's opaque black window background and
-    // the "transparent app" preference would look broken.
-    transparent: true,
-    vibrancy: deps.isMac ? "under-window" : undefined,
-    visualEffectState: deps.isMac ? "active" : undefined,
+    // I keep the native window opaque by default because macOS Mission Control
+    // has to live-composite every visible window while it animates the desktop.
+    // A transparent Electron window with vibrancy forces WindowServer and the
+    // GPU process to blend Axon's full editor surface even when the renderer is
+    // mostly painting opaque panels. That is exactly the path that makes the
+    // three-finger "show all apps" gesture feel slow on some Macs.
+    //
+    // The renderer still owns Axon's theme colors, but the native surface should
+    // stay cheap unless we deliberately build a separate performance-gated
+    // transparency mode later.
+    transparent: false,
     backgroundMaterial: deps.isWindows ? "mica" : undefined,
-    backgroundColor: "#00000000",
+    backgroundColor: "#0f1117",
     icon: axonIconPath,
     webPreferences: {
       preload: path.join(__dirname, "../../preload/index.js"),
