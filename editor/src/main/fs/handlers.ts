@@ -18,6 +18,8 @@ const ignoredProjectFileSegments = new Set([
   ".dart_tool",
   ".expo",
   ".gradle",
+  ".go-build",
+  ".gocache",
   ".mypy_cache",
   ".next",
   ".nuxt",

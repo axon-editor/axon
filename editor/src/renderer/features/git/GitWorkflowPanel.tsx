@@ -256,7 +256,9 @@ export default function GitWorkflowPanel({
           ))}
           {(stashes?.stashes ?? []).length === 0 ? (
             <div className="px-2 py-2 text-[11px] text-[#465166]">
-              no stashes
+              {stashes?.ok === false
+                ? stashes.message
+                : "no stashes - refresh after creating one"}
             </div>
           ) : null}
         </div>

@@ -458,7 +458,7 @@ export default function FileTreeNode({
   const gitColor = gitDecoration
     ? gitDecorationColors[gitDecoration.tone]
     : undefined;
-  const entryColor = ignored && !gitDecoration ? "#4b5568" : gitColor;
+  const entryColor = ignored && !gitDecoration ? "#4b5568" : undefined;
 
   if (node.is_dir) {
     const isHighlighted = dragOver || isBlinkOn;
@@ -514,11 +514,17 @@ export default function FileTreeNode({
             </span>
           )}
           {!dragOver && gitDecoration && (
-            <span
-              className="relative z-10 ml-auto mr-2 text-[9px] font-medium shrink-0"
-              style={{ color: gitColor }}
-            >
-              {gitDecoration.label}
+            <span className="relative z-10 ml-auto mr-2 flex shrink-0 items-center gap-1">
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: gitColor }}
+              />
+              <span
+                className="text-[9px] font-medium"
+                style={{ color: gitColor }}
+              >
+                {gitDecoration.label}
+              </span>
             </span>
           )}
         </div>
@@ -593,11 +599,14 @@ export default function FileTreeNode({
         {node.name}
       </span>
       {gitDecoration && (
-        <span
-          className="relative z-10 ml-auto mr-2 text-[9px] font-medium shrink-0"
-          style={{ color: gitColor }}
-        >
-          {gitDecoration.label}
+        <span className="relative z-10 ml-auto mr-2 flex shrink-0 items-center gap-1">
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: gitColor }}
+          />
+          <span className="text-[9px] font-medium" style={{ color: gitColor }}>
+            {gitDecoration.label}
+          </span>
         </span>
       )}
     </div>

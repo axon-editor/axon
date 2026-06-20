@@ -226,10 +226,10 @@ function getGitDecorationForChange(change: GitChange): GitTreeDecoration {
   const label =
     change.worktreeState === "untracked"
       ? "U"
-      : change.indexState === "added"
-        ? "A"
-        : change.worktreeState === "deleted" || change.indexState === "deleted"
-          ? "D"
+      : change.worktreeState === "deleted" || change.indexState === "deleted"
+        ? "D"
+        : change.indexState === "added"
+          ? "A"
           : change.indexState === "renamed"
             ? "R"
             : "M";

@@ -692,14 +692,18 @@ function parseGitStashes(stdout: string): GitStashEntry[] {
   return stdout
     .split(/\r?\n/)
     .map((line): GitStashEntry | null => {
-      const match = line.match(/^stash@\{(\d+)\}: On ([^:]+):\s*(.*)$/);
-      if (!match) return null;
-      const [, index, branch, message] = match;
+      const [selector, subject = ""] = line.split("\0");
+      const selectorMatch = selector?.match(/^stash@\{(\d+)\}$/);
+      if (!selectorMatch) return null;
+      const subjectMatch = subject.match(
+        /^(?:(?:WIP\s+)?on|On)\s+([^:]+):\s*(.*)$/i,
+      );
+      const [, index] = selectorMatch;
       return {
         index: Number(index),
-        selector: `stash@{${index}}`,
-        branch,
-        message: message || "(no message)",
+        selector,
+        branch: subjectMatch?.[1]?.trim() ?? "unknown",
+        message: subjectMatch?.[2]?.trim() || subject || "(no message)",
       };
     })
     .filter((stash): stash is GitStashEntry => stash !== null);
@@ -846,7 +850,11 @@ export async function listGitStashes(
   }
 
   try {
-    const result = await runGit(repository.root, ["stash", "list"]);
+    const result = await runGit(repository.root, [
+      "stash",
+      "list",
+      "--format=%gd%x00%gs",
+    ]);
     return {
       ok: true,
       message: "Loaded stashes.",
