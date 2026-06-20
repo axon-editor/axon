@@ -41,6 +41,36 @@ function toMonacoMarkerSeverity(
   }
 }
 
+function isTypeScriptLikeLanguage(languageId: string) {
+  return (
+    languageId === "typescript" ||
+    languageId === "javascript" ||
+    languageId === "typescriptreact" ||
+    languageId === "javascriptreact"
+  );
+}
+
+function shouldCollectMonacoMarker(marker: monaco.editor.IMarker) {
+  if (marker.resource.scheme !== "file") return false;
+  if (marker.source === "typescript" || marker.source === "javascript") {
+    return false;
+  }
+
+  const model = monaco.editor.getModel(marker.resource);
+  if (!model || model.isDisposed()) return true;
+
+  // TypeScript and JavaScript diagnostics are project-sensitive: path aliases,
+  // generated declarations, framework plugins, project references, and package
+  // manager layouts all change what counts as a real error. Monaco's
+  // standalone TS worker cannot see Axon's full project/LSP graph, so any
+  // marker it creates here is more likely to be a false Problems entry than a
+  // useful source of truth. LSP diagnostics still flow through
+  // lspDiagnosticsByFile in App.tsx, so skipping these Monaco markers removes
+  // the duplicate/false worker errors without hiding real project-aware LSP
+  // errors.
+  return !isTypeScriptLikeLanguage(model.getLanguageId());
+}
+
 function markerOwnerForPath(path: string) {
   return `${lspMarkerOwnerPrefix}${path}`;
 }
@@ -124,7 +154,7 @@ function ensureLanguageServerModelListener() {
 export function collectEditorDiagnostics(): EditorDiagnostic[] {
   return monaco.editor
     .getModelMarkers({})
-    .filter((marker) => marker.resource.scheme === "file")
+    .filter(shouldCollectMonacoMarker)
     .map((marker) => {
       const path = marker.resource.fsPath;
       const line = marker.startLineNumber;

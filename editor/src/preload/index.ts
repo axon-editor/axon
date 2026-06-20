@@ -11,13 +11,18 @@ import {
   type GitActionResult,
   type GitBranchAction,
   type GitBranchListResult,
+  type GitConflictListResult,
+  type GitConflictResolution,
   type GitCommitResult,
   type GitCommitDiffResult,
   type GitDiffResult,
+  type GitGraphResult,
   type GitHistoryResult,
   type GitStashAction,
   type GitStashListResult,
   type GitStatusResult,
+  type GitWorktreeAction,
+  type GitWorktreeListResult,
 } from "../shared/git";
 import {
   type TaskFinishedEvent,
@@ -206,8 +211,9 @@ contextBridge.exposeInMainWorld("axon", {
   runTests: (
     folderPath: string,
     providerId: string,
+    targetId?: string | null,
   ): Promise<TestRunResult> =>
-    ipcRenderer.invoke("tests:run", folderPath, providerId),
+    ipcRenderer.invoke("tests:run", folderPath, providerId, targetId),
   getGitDiff: (
     folderPath: string,
     filePath: string,
@@ -254,6 +260,22 @@ contextBridge.exposeInMainWorld("axon", {
     action: GitStashAction,
   ): Promise<GitActionResult> =>
     ipcRenderer.invoke("git:stashAction", folderPath, action),
+  listGitConflicts: (folderPath: string): Promise<GitConflictListResult> =>
+    ipcRenderer.invoke("git:conflicts", folderPath),
+  resolveGitConflict: (
+    folderPath: string,
+    resolution: GitConflictResolution,
+  ): Promise<GitActionResult> =>
+    ipcRenderer.invoke("git:resolveConflict", folderPath, resolution),
+  listGitWorktrees: (folderPath: string): Promise<GitWorktreeListResult> =>
+    ipcRenderer.invoke("git:worktrees", folderPath),
+  runGitWorktreeAction: (
+    folderPath: string,
+    action: GitWorktreeAction,
+  ): Promise<GitActionResult> =>
+    ipcRenderer.invoke("git:worktreeAction", folderPath, action),
+  getGitGraph: (folderPath: string): Promise<GitGraphResult> =>
+    ipcRenderer.invoke("git:graph", folderPath),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   listExtensions: (folderPath?: string | null): Promise<ExtensionState> =>
     ipcRenderer.invoke("extensions:list", folderPath),

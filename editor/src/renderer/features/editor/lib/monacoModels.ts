@@ -68,12 +68,20 @@ export function detectLanguage(path: string): string {
     go: "go",
     rs: "rust",
     ts: "typescript",
+    // Monaco's bundled TypeScript contribution registers `.tsx` under the
+    // `typescript` language id, not `typescriptreact`. The React/TSX script
+    // kind is inferred from the model URI extension. Returning an unsupported
+    // language id makes the editor feel like plaintext because Monaco cannot
+    // attach its normal TypeScript tokenizer, bracket rules, and worker
+    // behavior.
     tsx: "typescript",
     mts: "typescript",
     cts: "typescript",
     js: "javascript",
     mjs: "javascript",
     cjs: "javascript",
+    // Same rule as TSX: Monaco uses the normal JavaScript language id and the
+    // `.jsx` extension carries the React file kind for the tooling layer.
     jsx: "javascript",
     py: "python",
     pyi: "python",
@@ -128,6 +136,10 @@ export function acquireModel(
   const existing = models.get(filePath);
 
   if (existing && !existing.isDisposed()) {
+    const languageId = detectLanguage(filePath);
+    if (existing.getLanguageId() !== languageId) {
+      monaco.editor.setModelLanguage(existing, languageId);
+    }
     refCounts.set(filePath, (refCounts.get(filePath) ?? 0) + 1);
     return existing;
   }
@@ -138,6 +150,10 @@ export function acquireModel(
   // check if Monaco already has a model for this URI from a previous session
   const existingByUri = monaco.editor.getModel(uri);
   if (existingByUri && !existingByUri.isDisposed()) {
+    const languageId = detectLanguage(filePath);
+    if (existingByUri.getLanguageId() !== languageId) {
+      monaco.editor.setModelLanguage(existingByUri, languageId);
+    }
     models.set(filePath, existingByUri);
     refCounts.set(filePath, (refCounts.get(filePath) ?? 0) + 1);
     return existingByUri;

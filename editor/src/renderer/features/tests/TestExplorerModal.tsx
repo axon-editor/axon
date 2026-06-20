@@ -3,8 +3,11 @@ import { Play, RefreshCw, X } from "lucide-react";
 import {
   type TestDiscoveryResult,
   type TestFinishedEvent,
+  type TestItem,
   type TestOutputEvent,
+  type TestProvider,
 } from "../../../shared/tests";
+import Tooltip from "../../shared/components/Tooltip";
 
 interface Props {
   folderPath: string | null;
@@ -26,6 +29,7 @@ export default function TestExplorerModal({
   const [runningProviderId, setRunningProviderId] = useState<string | null>(null);
   const [output, setOutput] = useState<TestOutputEvent[]>([]);
   const providers = discovery?.providers ?? [];
+  const items = discovery?.items ?? [];
 
   const latestOutput = useMemo(() => output.slice(-120), [output]);
 
@@ -70,13 +74,16 @@ export default function TestExplorerModal({
     };
   }, [onOutput, open]);
 
-  const runProvider = async (providerId: string) => {
+  const runProvider = async (providerId: string, targetId?: string | null) => {
     if (!folderPath) return;
-    setRunningProviderId(providerId);
-    const result = await window.axon.runTests(folderPath, providerId);
+    setRunningProviderId(targetId ?? providerId);
+    const result = await window.axon.runTests(folderPath, providerId, targetId);
     onOutput(result.message, result.ok ? "info" : "error");
     if (!result.ok) setRunningProviderId(null);
   };
+
+  const providerItems = (provider: TestProvider): TestItem[] =>
+    items.filter((item) => item.providerId === provider.id);
 
   if (!open) return null;
 
@@ -88,20 +95,26 @@ export default function TestExplorerModal({
             test explorer
           </span>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => void discover()}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
-            >
-              <RefreshCw size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
-            >
-              <X size={13} />
-            </button>
+            <Tooltip label="Rediscover tests in this workspace" side="bottom">
+              <button
+                type="button"
+                aria-label="Rediscover tests in this workspace"
+                onClick={() => void discover()}
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </Tooltip>
+            <Tooltip label="Close test explorer" side="bottom">
+              <button
+                type="button"
+                aria-label="Close test explorer"
+                onClick={onClose}
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+              >
+                <X size={13} />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -118,23 +131,46 @@ export default function TestExplorerModal({
             ) : (
               <div className="space-y-2">
                 {providers.map((provider) => (
-                  <button
+                  <div
                     key={provider.id}
-                    type="button"
-                    onClick={() => void runProvider(provider.id)}
-                    disabled={runningProviderId !== null}
-                    className="grid w-full cursor-pointer grid-cols-[20px_1fr] gap-2 rounded-md border border-[#1d2432] bg-[#0d1018] px-3 py-2 text-left transition-colors hover:border-[#2d364a] hover:bg-[#121723] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-md border border-[#1d2432] bg-[#0d1018]"
                   >
-                    <Play size={13} className="mt-0.5 text-[#80c8e0]" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-[12px] text-[#dce4f0]">
-                        {provider.label}
+                    <button
+                      type="button"
+                      onClick={() => void runProvider(provider.id)}
+                      disabled={runningProviderId !== null}
+                      className="grid w-full cursor-pointer grid-cols-[20px_1fr] gap-2 px-3 py-2 text-left transition-colors hover:bg-[#121723] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Play size={13} className="mt-0.5 text-[#80c8e0]" />
+                      <span className="min-w-0">
+                        <span className="block truncate text-[12px] text-[#dce4f0]">
+                          {provider.label}
+                        </span>
+                        <span className="block truncate text-[10px] text-[#586478]">
+                          {provider.detail}
+                        </span>
                       </span>
-                      <span className="block truncate text-[10px] text-[#586478]">
-                        {provider.detail}
-                      </span>
-                    </span>
-                  </button>
+                    </button>
+                    {providerItems(provider).map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => void runProvider(provider.id, item.id)}
+                        disabled={runningProviderId !== null}
+                        className="grid w-full cursor-pointer grid-cols-[20px_1fr] gap-2 border-t border-[#151923] px-3 py-1.5 text-left transition-colors hover:bg-[#121723] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span className="ml-1 mt-1 h-1.5 w-1.5 rounded-full bg-[#647086]" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-[11px] text-[#c8d0e0]">
+                            {item.label}
+                          </span>
+                          <span className="block truncate text-[10px] text-[#586478]">
+                            {item.kind}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

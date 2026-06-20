@@ -15,6 +15,7 @@ export function registerTestHandlers(testManager: TestManager) {
           ok: false,
           message: "Open a workspace before discovering tests.",
           providers: [],
+          items: [],
         };
       }
 
@@ -28,6 +29,7 @@ export function registerTestHandlers(testManager: TestManager) {
       _event,
       folderPath: string,
       providerId: string,
+      targetId?: string | null,
     ): Promise<TestRunResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
@@ -35,10 +37,11 @@ export function registerTestHandlers(testManager: TestManager) {
           message: "Open a workspace before running tests.",
           runId: null,
           provider: null,
+          targetId: targetId ?? null,
         };
       }
 
-      return testManager.run(folderPath, providerId);
+      return testManager.run(folderPath, providerId, targetId);
     },
   );
 }

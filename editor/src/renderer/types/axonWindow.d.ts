@@ -8,13 +8,18 @@ import type {
   GitActionResult,
   GitBranchAction,
   GitBranchListResult,
+  GitConflictListResult,
+  GitConflictResolution,
   GitCommitDiffResult,
   GitCommitResult,
   GitDiffResult,
+  GitGraphResult,
   GitHistoryResult,
   GitStashAction,
   GitStashListResult,
   GitStatusResult,
+  GitWorktreeAction,
+  GitWorktreeListResult,
 } from "../../shared/git";
 import type {
   HtmlPreviewActionResult,
@@ -165,6 +170,7 @@ declare global {
       runTests: (
         folderPath: string,
         providerId: string,
+        targetId?: string | null,
       ) => Promise<TestRunResult>;
       getGitStatus: (folderPath: string) => Promise<GitStatusResult>;
       getGitDiff: (
@@ -203,6 +209,17 @@ declare global {
         folderPath: string,
         action: GitStashAction,
       ) => Promise<GitActionResult>;
+      listGitConflicts: (folderPath: string) => Promise<GitConflictListResult>;
+      resolveGitConflict: (
+        folderPath: string,
+        resolution: GitConflictResolution,
+      ) => Promise<GitActionResult>;
+      listGitWorktrees: (folderPath: string) => Promise<GitWorktreeListResult>;
+      runGitWorktreeAction: (
+        folderPath: string,
+        action: GitWorktreeAction,
+      ) => Promise<GitActionResult>;
+      getGitGraph: (folderPath: string) => Promise<GitGraphResult>;
       getAppInfo: () => Promise<AppInfo>;
       listExtensions: (folderPath?: string | null) => Promise<ExtensionState>;
       setExtensionEnabled: (

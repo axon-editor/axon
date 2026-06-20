@@ -6,8 +6,6 @@ const configuredMonacos = new WeakSet<typeof monaco>();
 const lspNavigationLanguages = [
   "typescript",
   "javascript",
-  "typescriptreact",
-  "javascriptreact",
   "go",
   "rust",
   "python",

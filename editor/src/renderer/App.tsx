@@ -25,6 +25,8 @@ import AboutModal from "./shared/components/AboutModal";
 import SourceControlModal from "./features/git/SourceControlModal";
 import TaskRunnerModal from "./features/tasks/TaskRunnerModal";
 import TestExplorerModal from "./features/tests/TestExplorerModal";
+import WorkspaceOverviewModal from "./features/workspace/WorkspaceOverviewModal";
+import LanguageToolsModal from "./features/lsp/LanguageToolsModal";
 import FileOutlineModal from "./features/search/FileOutlineModal";
 import UpdateModal from "./features/updates/UpdateModal";
 import GitHistoryEditor from "./features/git/GitHistoryEditor";
@@ -166,9 +168,11 @@ function App() {
   const [terminalCreateWorkingDirectory, setTerminalCreateWorkingDirectory] =
     useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [workspaceOverviewOpen, setWorkspaceOverviewOpen] = useState(false);
   const [workspaceSearchOpen, setWorkspaceSearchOpen] = useState(false);
   const [taskRunnerOpen, setTaskRunnerOpen] = useState(false);
   const [testExplorerOpen, setTestExplorerOpen] = useState(false);
+  const [languageToolsOpen, setLanguageToolsOpen] = useState(false);
   const [fileOutlineOpen, setFileOutlineOpen] = useState(false);
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
   const [bottomPanelTab, setBottomPanelTab] =
@@ -1655,6 +1659,9 @@ function App() {
         case AXON_COMMANDS.OPEN_COMMAND_PALETTE:
           setPaletteOpen((prev) => !prev);
           break;
+        case AXON_COMMANDS.OPEN_WORKSPACE_OVERVIEW:
+          setWorkspaceOverviewOpen(true);
+          break;
         case AXON_COMMANDS.OPEN_WORKSPACE_SEARCH:
           setWorkspaceSearchOpen((prev) => !prev);
           break;
@@ -1668,6 +1675,9 @@ function App() {
           break;
         case AXON_COMMANDS.OPEN_FILE_OUTLINE:
           setFileOutlineOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_LANGUAGE_TOOLS:
+          setLanguageToolsOpen(true);
           break;
         case AXON_COMMANDS.GO_TO_DEFINITION:
           if (!requireTrustedWorkspace("Language server navigation")) break;
@@ -1838,6 +1848,19 @@ function App() {
         disabled: !folderPath,
       },
       {
+        id: AXON_COMMANDS.OPEN_WORKSPACE_OVERVIEW,
+        title: "Workspace Overview",
+        group: "Workspace",
+        subtitle:
+          workspaceRoots.length > 1
+            ? `${workspaceRoots.length} workspace roots`
+            : folderPath
+              ? "Show root status, problems, tests, and Git"
+              : "Open a folder first",
+        keywords: ["workspace", "roots", "multi-root", "project"],
+        disabled: !folderPath,
+      },
+      {
         id: AXON_COMMANDS.OPEN_TASK_RUNNER,
         title: "Run Task",
         group: "Workspace",
@@ -1870,6 +1893,16 @@ function App() {
           ? `${activeFileSymbols.length} symbols in active file`
           : "Select a file first",
         keywords: ["symbols", "outline", "functions", "classes"],
+        disabled: !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_LANGUAGE_TOOLS,
+        title: "Language Tools",
+        group: "Language",
+        subtitle: activePane?.activeFile
+          ? `LSP actions for ${language}`
+          : "Select a file first",
+        keywords: ["lsp", "code actions", "symbols", "rename", "format"],
         disabled: !activePane?.activeFile,
       },
       {
@@ -2132,9 +2165,11 @@ function App() {
     extensionState,
     folderPath,
     gitChangeCount,
+    language,
     terminalOpen,
     updateInfo?.latestVersion,
     updateInfo?.updateAvailable,
+    workspaceRoots.length,
     workspaceTrusted,
     zenMode,
   ]);
@@ -2170,6 +2205,14 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "p") {
         e.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE);
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "f"
+      ) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("axon:openFind"));
       }
       if (
         (e.metaKey || e.ctrlKey) &&
@@ -2546,6 +2589,21 @@ function App() {
         onResultSelect={handleWorkspaceSearchResult}
       />
 
+      <WorkspaceOverviewModal
+        open={workspaceOverviewOpen}
+        roots={workspaceRoots}
+        activeRootId={activeRootId}
+        diagnostics={diagnostics}
+        onClose={() => setWorkspaceOverviewOpen(false)}
+        onSwitchRoot={(path) => {
+          void handleSwitchWorkspaceRoot(path);
+        }}
+        onOpenTests={() => {
+          setWorkspaceOverviewOpen(false);
+          setTestExplorerOpen(true);
+        }}
+      />
+
       <TaskRunnerModal
         folderPath={folderPath}
         open={taskRunnerOpen}
@@ -2576,6 +2634,23 @@ function App() {
             column: symbol.column,
             length: Math.max(1, symbol.name.length),
           });
+        }}
+      />
+
+      <LanguageToolsModal
+        open={languageToolsOpen}
+        folderPath={folderPath}
+        activeFile={activePane?.activeFile ?? null}
+        language={language}
+        symbols={activeFileSymbols}
+        onClose={() => setLanguageToolsOpen(false)}
+        onGoToDefinition={() => runCommand(AXON_COMMANDS.GO_TO_DEFINITION)}
+        onFindReferences={() => runCommand(AXON_COMMANDS.FIND_REFERENCES)}
+        onRename={() => runCommand(AXON_COMMANDS.RENAME_SYMBOL)}
+        onFormat={() => runCommand(AXON_COMMANDS.FORMAT_DOCUMENT)}
+        onOpenOutline={() => {
+          setLanguageToolsOpen(false);
+          setFileOutlineOpen(true);
         }}
       />
 

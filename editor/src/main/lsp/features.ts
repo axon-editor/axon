@@ -12,7 +12,6 @@ import {
   type LanguageServerCodeAction,
   type LanguageServerCodeActionRequest,
   type LanguageServerCodeActionResult,
-  type LanguageServerCompletionItem,
   type LanguageServerCompletionRequest,
   type LanguageServerCompletionResult,
   type LanguageServerCommand,
@@ -38,6 +37,7 @@ import {
   type LanguageServerTextEdit,
   type LanguageServerLocation,
 } from "../../shared/lsp";
+import { normalizeLanguageServerCompletionItems } from "./completionItems";
 import {
   LANGUAGE_SERVER_DEFINITIONS,
   type LanguageServerDefinition,
@@ -206,20 +206,6 @@ export interface LspFeatureDependencies extends LspSessionDependencies {
   isSessionWarming: (key: string) => boolean;
   addSessionWarmingKey: (key: string) => void;
   removeSessionWarmingKey: (key: string) => void;
-}
-
-function normalizeCompletionDocumentation(documentation: unknown) {
-  if (typeof documentation === "string") return documentation;
-  if (
-    documentation &&
-    typeof documentation === "object" &&
-    "value" in documentation &&
-    typeof documentation.value === "string"
-  ) {
-    return documentation.value;
-  }
-
-  return undefined;
 }
 
 function normalizeLanguageServerTextPosition(position: unknown) {
@@ -391,94 +377,6 @@ function normalizeWorkspaceEdit(result: unknown) {
   }
 
   return editsByFile;
-}
-
-function normalizeLanguageServerCompletionItems(
-  result: unknown,
-): LanguageServerCompletionItem[] {
-  const rawItems = Array.isArray(result)
-    ? result
-    : result &&
-        typeof result === "object" &&
-        "items" in result &&
-        Array.isArray(result.items)
-      ? result.items
-      : [];
-
-  return rawItems
-    .map((item): LanguageServerCompletionItem | null => {
-      if (!item || typeof item !== "object" || !("label" in item)) return null;
-      const completionItem = item as {
-        label?: unknown;
-        kind?: unknown;
-        detail?: unknown;
-        documentation?: unknown;
-        insertText?: unknown;
-        insertTextFormat?: unknown;
-        filterText?: unknown;
-        sortText?: unknown;
-        commitCharacters?: unknown;
-        preselect?: unknown;
-        textEdit?: unknown;
-        additionalTextEdits?: unknown;
-      };
-      if (typeof completionItem.label !== "string") return null;
-
-      // LSP completion items contain more than a visible label. Servers use
-      // textEdit to replace the exact typed range, insertTextFormat to mark
-      // snippets, commitCharacters to accept on keys like "." or "(", and
-      // additionalTextEdits for things like auto-imports. Axon keeps this
-      // payload narrow and validated before it crosses IPC so the renderer can
-      // feel like a real editor without receiving arbitrary server objects.
-      const textEdit = normalizeLanguageServerTextEdit(completionItem.textEdit);
-      const additionalTextEdits = normalizeLanguageServerTextEdits(
-        completionItem.additionalTextEdits,
-      );
-
-      return {
-        label: completionItem.label,
-        kind:
-          typeof completionItem.kind === "number"
-            ? completionItem.kind
-            : undefined,
-        detail:
-          typeof completionItem.detail === "string"
-            ? completionItem.detail
-            : undefined,
-        documentation: normalizeCompletionDocumentation(
-          completionItem.documentation,
-        ),
-        insertText:
-          typeof completionItem.insertText === "string"
-            ? completionItem.insertText
-            : undefined,
-        insertTextFormat:
-          typeof completionItem.insertTextFormat === "number"
-            ? completionItem.insertTextFormat
-            : undefined,
-        filterText:
-          typeof completionItem.filterText === "string"
-            ? completionItem.filterText
-            : undefined,
-        sortText:
-          typeof completionItem.sortText === "string"
-            ? completionItem.sortText
-            : undefined,
-        commitCharacters: Array.isArray(completionItem.commitCharacters)
-          ? completionItem.commitCharacters.filter(
-              (character): character is string => typeof character === "string",
-            )
-          : undefined,
-        preselect:
-          typeof completionItem.preselect === "boolean"
-            ? completionItem.preselect
-            : undefined,
-        textEdit,
-        additionalTextEdits,
-      };
-    })
-    .filter((item): item is LanguageServerCompletionItem => item !== null)
-    .slice(0, 200);
 }
 
 export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {

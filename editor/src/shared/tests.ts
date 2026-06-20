@@ -7,10 +7,20 @@ export interface TestProvider {
   detail: string;
 }
 
+export interface TestItem {
+  id: string;
+  providerId: string;
+  label: string;
+  detail: string;
+  path: string | null;
+  kind: "suite" | "file" | "package" | "script";
+}
+
 export interface TestDiscoveryResult {
   ok: boolean;
   message: string;
   providers: TestProvider[];
+  items: TestItem[];
 }
 
 export interface TestRunResult {
@@ -18,6 +28,7 @@ export interface TestRunResult {
   message: string;
   runId: string | null;
   provider: TestProvider | null;
+  targetId?: string | null;
 }
 
 export interface TestOutputEvent {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
+  Check,
   ChevronDown,
   Circle,
   Copy,
@@ -179,11 +180,15 @@ function formatDiagnosticsForCopy(diagnostics: EditorDiagnostic[]) {
   return diagnostics.map(formatDiagnosticForCopy).join("\n");
 }
 
-function copyProblemsText(text: string) {
-  if (!text) return;
-  void navigator.clipboard.writeText(text).catch((err) => {
+async function copyProblemsText(text: string) {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
     console.error("failed to copy problems:", err);
-  });
+    return false;
+  }
 }
 
 function ProblemsContent({
@@ -197,6 +202,16 @@ function ProblemsContent({
   const [activeSeverity, setActiveSeverity] = useState<
     EditorDiagnostic["severity"] | "all"
   >("all");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyWithFeedback = async (key: string, text: string) => {
+    const copied = await copyProblemsText(text);
+    if (!copied) return;
+    setCopiedKey(key);
+    window.setTimeout(() => {
+      setCopiedKey((currentKey) => (currentKey === key ? null : currentKey));
+    }, 1400);
+  };
 
   const counts = useMemo(
     () =>
@@ -276,13 +291,16 @@ function ProblemsContent({
           <button
             type="button"
             onClick={() =>
-              copyProblemsText(formatDiagnosticsForCopy(filteredDiagnostics))
+              void copyWithFeedback(
+                "visible",
+                formatDiagnosticsForCopy(filteredDiagnostics),
+              )
             }
             disabled={filteredDiagnostics.length === 0}
             aria-label="Copy visible problems"
             className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#647086] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#c8d0e0] disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#647086]"
           >
-            <Copy size={13} />
+            {copiedKey === "visible" ? <Check size={13} /> : <Copy size={13} />}
           </button>
         </Tooltip>
 
@@ -382,12 +400,19 @@ function ProblemsContent({
                     <button
                       type="button"
                       onClick={() =>
-                        copyProblemsText(formatDiagnosticForCopy(diagnostic))
+                        void copyWithFeedback(
+                          diagnostic.id,
+                          formatDiagnosticForCopy(diagnostic),
+                        )
                       }
                       aria-label="Copy problem"
                       className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#c8d0e0]"
                     >
-                      <Copy size={12} />
+                      {copiedKey === diagnostic.id ? (
+                        <Check size={12} />
+                      ) : (
+                        <Copy size={12} />
+                      )}
                     </button>
                   </Tooltip>
                 </div>

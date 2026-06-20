@@ -5,6 +5,9 @@ import {
   type GitStashListResult,
 } from "../../../shared/git";
 import Tooltip from "../../shared/components/Tooltip";
+import GitConflictPanel from "./advanced/GitConflictPanel";
+import GitGraphPanel from "./advanced/GitGraphPanel";
+import GitWorktreePanel from "./advanced/GitWorktreePanel";
 
 interface Props {
   folderPath: string | null;
@@ -136,6 +139,7 @@ export default function GitWorkflowPanel({
         <Tooltip label="Refresh branches and stashes" side="bottom">
           <button
             type="button"
+            aria-label="Refresh branches and stashes"
             onClick={() => void refresh()}
             className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
           >
@@ -152,14 +156,17 @@ export default function GitWorkflowPanel({
             placeholder="new branch"
             className="h-7 min-w-0 flex-1 rounded border border-[#222838] bg-[#0b0e15] px-2 text-[11px] text-[#dce4f0] outline-none placeholder:text-[#364050] focus:border-[#3a455a]"
           />
-          <button
-            type="button"
-            onClick={() => void createBranch()}
-            disabled={!newBranchName.trim() || busyAction === "branch:create"}
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-[#2a3346] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
-          >
-            <Plus size={13} />
-          </button>
+          <Tooltip label="Create branch with the typed name" side="bottom">
+            <button
+              type="button"
+              aria-label="Create branch with the typed name"
+              onClick={() => void createBranch()}
+              disabled={!newBranchName.trim() || busyAction === "branch:create"}
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-[#2a3346] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+            >
+              <Plus size={13} />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="max-h-24 overflow-y-auto rounded border border-[#1b2130]">
@@ -188,14 +195,20 @@ export default function GitWorkflowPanel({
             placeholder="stash message"
             className="h-7 min-w-0 flex-1 rounded border border-[#222838] bg-[#0b0e15] px-2 text-[11px] text-[#dce4f0] outline-none placeholder:text-[#364050] focus:border-[#3a455a]"
           />
-          <button
-            type="button"
-            onClick={() => void createStash()}
-            disabled={busyAction === "stash:create"}
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-[#2a3346] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+          <Tooltip
+            label="Save uncommitted changes to Git stash and hide them from Source Control"
+            side="bottom"
           >
-            <Archive size={13} />
-          </button>
+            <button
+              type="button"
+              aria-label="Save uncommitted changes to Git stash and hide them from Source Control"
+              onClick={() => void createStash()}
+              disabled={busyAction === "stash:create"}
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-[#2a3346] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+            >
+              <Archive size={13} />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="max-h-28 overflow-y-auto rounded border border-[#1b2130]">
@@ -228,14 +241,17 @@ export default function GitWorkflowPanel({
               >
                 pop
               </button>
-              <button
-                type="button"
-                onClick={() => void runStashAction(stash.selector, "drop")}
-                disabled={busyAction !== null}
-                className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#2a1517] hover:text-[#ff7b72] disabled:cursor-not-allowed disabled:text-[#364050]"
-              >
-                <Trash2 size={11} />
-              </button>
+              <Tooltip label={`Delete stash ${stash.selector}`} side="bottom">
+                <button
+                  type="button"
+                  aria-label={`Delete stash ${stash.selector}`}
+                  onClick={() => void runStashAction(stash.selector, "drop")}
+                  disabled={busyAction !== null}
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#2a1517] hover:text-[#ff7b72] disabled:cursor-not-allowed disabled:text-[#364050]"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </Tooltip>
             </div>
           ))}
           {(stashes?.stashes ?? []).length === 0 ? (
@@ -244,6 +260,20 @@ export default function GitWorkflowPanel({
             </div>
           ) : null}
         </div>
+
+        <GitConflictPanel
+          folderPath={folderPath}
+          onChanged={onChanged}
+          onOutput={onOutput}
+        />
+
+        <GitWorktreePanel
+          folderPath={folderPath}
+          onChanged={onChanged}
+          onOutput={onOutput}
+        />
+
+        <GitGraphPanel folderPath={folderPath} />
       </div>
     </div>
   );

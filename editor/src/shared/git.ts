@@ -81,6 +81,62 @@ export type GitStashAction =
   | { type: "pop"; selector: string }
   | { type: "drop"; selector: string };
 
+export interface GitConflictFile {
+  path: string;
+  absolutePath: string;
+  stages: Array<"base" | "ours" | "theirs">;
+}
+
+export interface GitConflictListResult {
+  ok: boolean;
+  message: string;
+  conflicts: GitConflictFile[];
+}
+
+export type GitConflictResolution =
+  | { type: "ours"; path: string }
+  | { type: "theirs"; path: string }
+  | { type: "markResolved"; path: string };
+
+export interface GitWorktree {
+  path: string;
+  branch: string | null;
+  head: string | null;
+  detached: boolean;
+  bare: boolean;
+  current: boolean;
+}
+
+export interface GitWorktreeListResult {
+  ok: boolean;
+  message: string;
+  worktrees: GitWorktree[];
+}
+
+export type GitWorktreeAction =
+  | { type: "add"; path: string; branch?: string; createBranch?: string }
+  | { type: "remove"; path: string; force?: boolean }
+  | { type: "prune" };
+
+export interface GitGraphCommit {
+  hash: string;
+  shortHash: string;
+  parents: string[];
+  refs: string[];
+  subject: string;
+  authorName: string;
+  relativeDate: string;
+  lane: number;
+}
+
+export interface GitGraphResult {
+  ok: boolean;
+  message: string;
+  root: string | null;
+  branch: string | null;
+  commits: GitGraphCommit[];
+}
+
 export interface GitHistoryCommit {
   hash: string;
   shortHash: string;

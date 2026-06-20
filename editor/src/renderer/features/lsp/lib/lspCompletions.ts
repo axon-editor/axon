@@ -5,8 +5,6 @@ const configuredMonacos = new WeakSet<typeof monaco>();
 const lspCompletionLanguages = [
   "typescript",
   "javascript",
-  "typescriptreact",
-  "javascriptreact",
   "go",
   "rust",
   "python",
@@ -26,20 +24,12 @@ const lspCompletionLanguages = [
   "shell",
 ];
 
-const webTagLanguages = [
-  "html",
-  "javascript",
-  "typescript",
-  "javascriptreact",
-  "typescriptreact",
-];
+const webTagLanguages = ["html", "javascript", "typescript"];
 const tailwindUtilityLanguages = [
   "html",
   "css",
   "javascript",
   "typescript",
-  "javascriptreact",
-  "typescriptreact",
 ];
 const localSymbolLanguages = [
   "typescript",
@@ -55,8 +45,6 @@ const localSymbolLanguages = [
   "cpp",
   "html",
   "css",
-  "javascriptreact",
-  "typescriptreact",
   "json",
   "yaml",
   "shell",
@@ -469,12 +457,11 @@ function parseEmmetAbbreviation(rawWord: string) {
 function buildEmmetSnippet(
   abbreviation: ReturnType<typeof parseEmmetAbbreviation>,
   languageId: string,
+  filePath: string,
 ) {
   if (!abbreviation) return "";
-  const classAttribute =
-    languageId === "javascriptreact" || languageId === "typescriptreact"
-      ? "className"
-      : "class";
+  const isReactFile = /\.(jsx|tsx)$/i.test(filePath);
+  const classAttribute = isReactFile ? "className" : "class";
   const attributes = [
     abbreviation.id ? `id="${abbreviation.id}"` : "",
     abbreviation.classes.length > 0
@@ -505,7 +492,11 @@ function registerEmmetAbbreviationProvider(monacoInstance: typeof monaco) {
         if (!match) return { suggestions: [] };
 
         const abbreviation = parseEmmetAbbreviation(match[0]);
-        const insertText = buildEmmetSnippet(abbreviation, languageId);
+        const insertText = buildEmmetSnippet(
+          abbreviation,
+          languageId,
+          model.uri.fsPath,
+        );
         if (!abbreviation || !insertText) return { suggestions: [] };
 
         return {

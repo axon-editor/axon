@@ -4,13 +4,25 @@ import {
   type GitActionResult,
   type GitBranchAction,
   type GitBranchListResult,
+  type GitConflictListResult,
+  type GitConflictResolution,
   type GitCommitDiffResult,
   type GitCommitResult,
+  type GitGraphResult,
   type GitHistoryResult,
   type GitStashAction,
   type GitStashListResult,
   type GitStatusResult,
+  type GitWorktreeAction,
+  type GitWorktreeListResult,
 } from "../../shared/git";
+import {
+  getGitGraph,
+  listGitConflicts,
+  listGitWorktrees,
+  resolveGitConflict,
+  runGitWorktreeAction,
+} from "./advancedGit";
 import {
   commitGitChanges,
   listGitBranches,
@@ -203,6 +215,89 @@ export function registerGitHandlers() {
       }
 
       return runGitStashAction(folderPath, action);
+    },
+  );
+
+  ipcMain.handle(
+    "git:conflicts",
+    async (_event, folderPath: string): Promise<GitConflictListResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before listing conflicts.",
+          conflicts: [],
+        };
+      }
+
+      return listGitConflicts(folderPath);
+    },
+  );
+
+  ipcMain.handle(
+    "git:resolveConflict",
+    async (
+      _event,
+      folderPath: string,
+      resolution: GitConflictResolution,
+    ): Promise<GitActionResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before resolving conflicts.",
+        };
+      }
+
+      return resolveGitConflict(folderPath, resolution);
+    },
+  );
+
+  ipcMain.handle(
+    "git:worktrees",
+    async (_event, folderPath: string): Promise<GitWorktreeListResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before listing worktrees.",
+          worktrees: [],
+        };
+      }
+
+      return listGitWorktrees(folderPath);
+    },
+  );
+
+  ipcMain.handle(
+    "git:worktreeAction",
+    async (
+      _event,
+      folderPath: string,
+      action: GitWorktreeAction,
+    ): Promise<GitActionResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before changing worktrees.",
+        };
+      }
+
+      return runGitWorktreeAction(folderPath, action);
+    },
+  );
+
+  ipcMain.handle(
+    "git:graph",
+    async (_event, folderPath: string): Promise<GitGraphResult> => {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before loading history graph.",
+          root: null,
+          branch: null,
+          commits: [],
+        };
+      }
+
+      return getGitGraph(folderPath);
     },
   );
 }

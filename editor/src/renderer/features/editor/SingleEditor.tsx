@@ -3,33 +3,26 @@
 // showing the same file share one model and edits reflect instantly
 // across all panes without saving.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
+import { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import {
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
   Columns2,
   Eye,
   FileText,
   FileWarning,
-  Search,
-  X,
 } from "lucide-react";
-import {
-  type EditorBackgroundImageFit,
-  type EditorSettings,
-} from "../../../shared/settings";
-import { editorFontStack } from "../../shared/lib/fonts";
+import { type EditorSettings } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import { type LanguageServerTextEdit } from "../../../shared/lsp";
 import { readFile, writeFile } from "../../shared/lib/api";
 import { type EditorNavigationTarget } from "./lib/navigation";
-import { getMonacoThemeId, registerAxonTheme } from "../../shared/lib/soraTheme";
+import { registerAxonTheme } from "../../shared/lib/soraTheme";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { parseGitDiffLineDecorations } from "../git/lib/gitDiffDecorations";
 import Tooltip from "../../shared/components/Tooltip";
 import MarkdownPreview from "../preview/MarkdownPreview";
+import EditorBreadcrumbs from "./EditorBreadcrumbs";
+import MonacoEditorSurface from "./MonacoEditorSurface";
 import {
   updateModel,
   releaseModel,
@@ -85,41 +78,6 @@ function encodeLocalPath(path: string) {
       part === "/" || part === "\\" ? "/" : encodeURIComponent(part),
     )
     .join("");
-}
-
-function getBackgroundImageStyle(fit: EditorBackgroundImageFit) {
-  switch (fit) {
-    case "contain":
-      return {
-        backgroundSize: "contain",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-      };
-    case "fill":
-      return {
-        backgroundSize: "100% 100%",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-      };
-    case "center":
-      return {
-        backgroundSize: "auto",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-      };
-    case "tile":
-      return {
-        backgroundSize: "auto",
-        backgroundRepeat: "repeat",
-        backgroundPosition: "top left",
-      };
-    default:
-      return {
-        backgroundSize: "cover",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-      };
-  }
 }
 
 function toMonacoEdit(edit: LanguageServerTextEdit) {
@@ -185,9 +143,6 @@ export default function SingleEditor({
   const editorBackgroundImageUrl = editorBackgroundImagePath
     ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
     : "";
-  const editorBackgroundImageStyle = getBackgroundImageStyle(
-    editorSettings.backgroundImageFit,
-  );
   const shouldUseTransparentEditorSurface =
     editorSettings.appTransparency || Boolean(editorBackgroundImageUrl);
   const gitChange = gitChanges?.find(
@@ -939,203 +894,43 @@ export default function SingleEditor({
     );
   }
 
+  const breadcrumbNode = editorSettings.breadcrumbsEnabled ? (
+    <EditorBreadcrumbs
+      activeSymbol={activeBreadcrumbSymbol}
+      breadcrumbSegments={breadcrumbSegments}
+      filePath={filePath}
+      open={bufferSymbolsOpen}
+      symbols={breadcrumbSymbols}
+      onJumpToSymbol={jumpToBreadcrumbSymbol}
+      onSelectSymbol={jumpToBufferSymbol}
+      onToggleOpen={() => setBufferSymbolsOpen((open) => !open)}
+      onClose={() => setBufferSymbolsOpen(false)}
+    />
+  ) : null;
+
   const editorNode = (
-    <div
-      className={`relative flex h-full min-h-0 flex-1 flex-col overflow-hidden ${
-        shouldUseTransparentEditorSurface
-          ? "axon-editor-transparent-surface"
-          : ""
-      }`}
-      style={{
-        background: "var(--axon-editor-background)",
-      }}
-    >
-      {editorBackgroundImageUrl ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage: `url("${editorBackgroundImageUrl}")`,
-            opacity: editorSettings.backgroundImageOpacity,
-            filter:
-              editorSettings.backgroundImageBlur > 0
-                ? `blur(${editorSettings.backgroundImageBlur}px)`
-                : undefined,
-            transform:
-              editorSettings.backgroundImageBlur > 0 ? "scale(1.04)" : undefined,
-            ...editorBackgroundImageStyle,
-          }}
-        />
-      ) : null}
-      {saving && (
-        <div className="absolute top-2 right-4 text-[11px] text-[#586478] z-10">
-          saving...
-        </div>
-      )}
-      {editorSettings.breadcrumbsEnabled && (
-        <div className="relative z-10 flex h-7 min-w-0 shrink-0 items-center gap-1 border-b border-[#1d2432] bg-[rgba(10,12,18,0.72)] px-3 text-[11px] text-[#7f8aa3]">
-          {breadcrumbSegments.map((segment, index) => (
-            <span
-              key={`${segment}:${index}`}
-              className="flex min-w-0 items-center gap-1"
-            >
-              {index > 0 && (
-                <ChevronRight size={12} className="shrink-0 text-[#3d4658]" />
-              )}
-              <span
-                className={
-                  index === breadcrumbSegments.length - 1
-                    ? "max-w-[180px] truncate text-[#c8d0e0]"
-                    : "max-w-[140px] truncate"
-                }
-              >
-                {segment}
-              </span>
-            </span>
-          ))}
-          {activeBreadcrumbSymbol && (
-            <>
-              <ChevronRight size={12} className="shrink-0 text-[#3d4658]" />
-              <span className="min-w-0 truncate text-[#80c8e0]">
-                {activeBreadcrumbSymbol.name}
-              </span>
-              <span className="shrink-0 rounded bg-[#151b27] px-1.5 py-0.5 text-[10px] text-[#586478]">
-                {activeBreadcrumbSymbol.kind}
-              </span>
-            </>
-          )}
-        </div>
-      )}
-      {findOpen && (
-        <div
-          className={`absolute right-4 z-20 flex h-8 items-center gap-1 rounded-md border border-[#2a3346] bg-[#10141d] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] ${
-            editorSettings.breadcrumbsEnabled ? "top-10" : "top-3"
-          }`}
-        >
-          <Search size={13} className="text-[#586478]" />
-          <input
-            ref={findInputRef}
-            value={findQuery}
-            onChange={(event) => {
-              setFindQuery(event.target.value);
-              setFindIndex(0);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") closeFind();
-              if (event.key === "Enter") {
-                event.preventDefault();
-                moveFindSelection(event.shiftKey ? -1 : 1);
-              }
-            }}
-            placeholder="find..."
-            className="h-6 w-44 bg-transparent text-[12px] text-[#dce4f0] outline-none placeholder:text-[#465166]"
-          />
-          <span className="min-w-11 text-right text-[10px] text-[#586478]">
-            {findQuery ? `${findMatchCount ? findIndex + 1 : 0}/${findMatchCount}` : "0/0"}
-          </span>
-          <Tooltip label="Previous match (Shift+Enter)" side="bottom">
-            <button
-              type="button"
-              onClick={() => moveFindSelection(-1)}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
-            >
-              <ChevronUp size={13} />
-            </button>
-          </Tooltip>
-          <Tooltip label="Next match (Enter)" side="bottom">
-            <button
-              type="button"
-              onClick={() => moveFindSelection(1)}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
-            >
-              <ChevronDown size={13} />
-            </button>
-          </Tooltip>
-          <Tooltip label="Close find (Esc)" side="bottom">
-            <button
-              type="button"
-              onClick={closeFind}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
-            >
-              <X size={13} />
-            </button>
-          </Tooltip>
-        </div>
-      )}
-      <div className="relative z-10 h-full min-h-0 w-full flex-1 overflow-hidden">
-        <Editor
-        height="100%"
-        theme={getMonacoThemeId(editorSettings.themeId)}
-        beforeMount={(monacoInstance) =>
-          registerAxonTheme(monacoInstance, editorSettings.themeId, themeTokens)
-        }
-        onMount={handleEditorMount}
-        // The same Monaco ITextModel can be attached to multiple editor
-        // widgets when the same file is open in more than one split. The
-        // React wrapper disposes the current model by default when a widget
-        // unmounts, which means closing the right split can destroy the model
-        // still being rendered by the left split. Keeping the model here lets
-        // monacoModels.ts remain the single owner of model disposal through its
-        // pane-aware ref count.
-        keepCurrentModel
-        options={{
-          fontSize: editorSettings.fontSize,
-          fontFamily: editorFontStack(editorSettings.fontFamily),
-          fontWeight: String(editorSettings.fontWeight),
-          lineHeight: editorSettings.lineHeight,
-          letterSpacing: 0,
-          fontLigatures: editorSettings.fontLigatures,
-          "semanticHighlighting.enabled": false,
-          minimap: { enabled: editorSettings.minimapEnabled },
-          scrollBeyondLastLine: false,
-          lineNumbers: "on",
-          glyphMargin: true,
-          folding: editorSettings.codeFoldingEnabled,
-          showFoldingControls: editorSettings.codeFoldingEnabled
-            ? "mouseover"
-            : "never",
-          stickyScroll: { enabled: editorSettings.stickyScrollEnabled },
-          overviewRulerLanes: editorSettings.scrollbarMarkersEnabled ? 3 : 0,
-          hideCursorInOverviewRuler: !editorSettings.scrollbarMarkersEnabled,
-          multiCursorModifier:
-            editorSettings.multiCursorModifier === "ctrlCmd"
-              ? "ctrlCmd"
-              : "alt",
-          multiCursorPaste: "spread",
-          multiCursorMergeOverlapping: true,
-          bracketPairColorization: { enabled: true },
-          guides: {
-            bracketPairs: true,
-            indentation: true,
-            highlightActiveIndentation: true,
-          },
-          scrollbar: {
-            vertical: "auto",
-            horizontal: "auto",
-            useShadows: false,
-          },
-          quickSuggestions: {
-            other: true,
-            comments: false,
-            strings: true,
-          },
-          quickSuggestionsDelay: 0,
-          suggestOnTriggerCharacters: true,
-          acceptSuggestionOnCommitCharacter: true,
-          snippetSuggestions: editorSettings.snippetsEnabled ? "top" : "none",
-          suggest: {
-            showSnippets: editorSettings.snippetsEnabled,
-            snippetsPreventQuickSuggestions: false,
-          },
-          tabCompletion: editorSettings.snippetsEnabled ? "on" : "off",
-          renderLineHighlight: "line",
-          padding: { top: 16 },
-          cursorStyle: editorSettings.cursorStyle,
-          cursorBlinking: editorSettings.cursorBlinking,
-          smoothScrolling: true,
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      {breadcrumbNode}
+      <MonacoEditorSurface
+        editorBackgroundImageFit={editorSettings.backgroundImageFit}
+        editorBackgroundImageUrl={editorBackgroundImageUrl || null}
+        editorSettings={editorSettings}
+        findIndex={findIndex}
+        findInputRef={findInputRef}
+        findMatchCount={findMatchCount}
+        findOpen={findOpen}
+        findQuery={findQuery}
+        saving={saving}
+        shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}
+        themeTokens={themeTokens}
+        onChangeFindQuery={(query) => {
+          setFindQuery(query);
+          setFindIndex(0);
         }}
-        />
-      </div>
+        onCloseFind={closeFind}
+        onMount={handleEditorMount}
+        onMoveFindSelection={moveFindSelection}
+      />
     </div>
   );
 
