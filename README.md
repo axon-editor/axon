@@ -185,14 +185,19 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Markdown preview and HTML preview
 - Image/video preview through Axon protocols
 - Workspace search with jump-to-line and binary/cache exclusions
-- Command palette
-- Source control modal, diffs, Git gutter markers
+- Cmd+P project file search with file-first results and `>` command search
+- Source control modal, diffs, Git gutter markers, branch/stash workflows,
+  conflict helpers, worktree management, and commit graph preview
+- Problems panel with project-aware LSP diagnostics and copy actions
+- Test explorer with provider discovery, target runs, and inline output
 - Integrated terminal with tabs
 - Settings UI and settings JSON
 - Custom themes, theme overrides, and imported fonts
 - Splash screen and custom app icon/name
 - LSP completion for TypeScript/JavaScript, Go, Python, Rust, C/C++, Java, C#,
   Kotlin, PHP, Lua, Docker, and Tailwind CSS
+- Language tools modal for definition, references, rename, formatting, server
+  status, and file symbols
 - Live LSP diagnostics routed into Problems
 
 ## Language Servers
@@ -228,7 +233,6 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-- Hover, go-to-definition, references, rename, and formatting through LSP
 - Workspace replace
 - AI provider service and streaming chat panel
 - AI patch preview/apply workflow

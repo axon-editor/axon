@@ -1,5 +1,66 @@
 # Changelog
 
+## v1.2.1
+
+- Added fuller local Git workflows: branch creation/checkout, stash create/apply
+  /pop/drop, merge conflict listing and resolution helpers, worktree controls,
+  and a compact commit graph.
+- Added multi-root workspace foundations with a workspace overview surface for
+  switching roots and scanning root status.
+- Added advanced language tooling surfaces for definitions, references, rename,
+  formatting, language-server status, file symbols, and TSX-aware editor
+  behavior.
+- Added a Test Explorer with provider discovery, per-target runs, output
+  streaming, and run result feedback.
+- Fixed Cmd+P so it indexes project files directly instead of only searching
+  folders that were already expanded in the lazy sidebar tree.
+- Made Cmd+P file-first by default, with `>` reserved for command search.
+- Broadened project-file indexing exclusions across dependency, build, cache,
+  mobile, native, Python, Rust, Go, Java, .NET, and Zig project folders.
+- Added Go cache exclusions for `.gocache`, `.gochache`, and `.go-build`.
+- Fixed Git stash listing by parsing a stable stash format so `WIP on main`
+  entries show up with apply, pop, and drop actions.
+- Clarified the stash icon tooltip so it explains that stashing saves
+  uncommitted changes and hides them from Source Control.
+- Reduced sidebar Git color intensity by showing Git state as a small dot and
+  label instead of tinting the entire filename row.
+- Made deleted Git state win over added state when files move through
+  create/delete transitions.
+- Kept TSX files on Monaco's supported TypeScript language id while preserving
+  React-aware completion behavior through the `.tsx` file path.
+
+## v1.2.0
+
+- Kept sidebar file operations in sync locally when files or folders are
+  created, renamed, moved, or deleted.
+- Restored root-level context actions when a workspace has content.
+- Improved Git status parsing with NUL-delimited output so paths with spaces
+  and media filenames are read correctly.
+- Kept renamed and moved Git tree decorations aligned with real filesystem
+  paths.
+- Added font-family previews inside search dropdown entries.
+- Replaced the workspace trust revocation browser confirm with a custom Axon
+  modal that explains disabled execution surfaces.
+- Clarified cursor blinking settings, including the `expand` mode.
+
+## v1.1.9
+
+- Stabilized terminal replay and reconnect handling so long-running terminal
+  sessions keep visible output.
+- Kept multiline terminal input on a bracketed-paste path so `Shift+Enter`
+  inserts a newline instead of submitting early.
+- Fixed packaged Node-backed language servers so they launch from
+  `app.asar.unpacked` real filesystem paths.
+- Completed packaged language-server dependency resolution for nested runtime
+  packages and runtime `doc/` folders.
+- Verified packaged Pyright, HTML, CSS, JSON, YAML, Go, Rust, and C++ language
+  servers from release bundles.
+- Improved cold LSP completion behavior while servers are still initializing.
+- Added workspace/configuration responses for Pyright and common server-side
+  LSP requests.
+- Improved Python virtual environment configuration flow so project imports
+  resolve more reliably in packaged Axon.
+
 ## v1.1.8
 
 - Increased integrated terminal scrollback so long AI and TUI sessions keep
