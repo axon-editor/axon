@@ -260,6 +260,9 @@ declare global {
       unwatchFile: () => Promise<void>;
       watchFolder: (path: string) => Promise<void>;
       unwatchFolder: () => Promise<void>;
+      listProjectFiles: (
+        folderPath: string,
+      ) => Promise<Array<{ name: string; path: string; is_dir: false }>>;
       onFileChanged: (
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;

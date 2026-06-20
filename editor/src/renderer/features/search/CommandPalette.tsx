@@ -28,6 +28,7 @@ export interface CommandPaletteCommand {
 
 interface Props {
   tree: FileNode | null;
+  folderPath: string | null;
   open: boolean;
   commands: CommandPaletteCommand[];
   onClose: () => void;
@@ -115,11 +116,29 @@ function commandScore(
   return bestScore - (command.disabled ? 12 : 0);
 }
 
+function normalizeSearchText(value: string) {
+  return value.toLowerCase().replace(/[-_.\\/]+/g, " ");
+}
+
 function fileScore(file: FileNode, query: string): number | null {
   const title = file.path.split("/").pop() ?? file.path;
+  const normalizedQuery = normalizeSearchText(query);
   const titleScore = matchScore(title, query);
+  const normalizedTitleScore = matchScore(
+    normalizeSearchText(title),
+    normalizedQuery,
+  );
   const pathScore = matchScore(file.path, query);
-  const bestScore = Math.max(titleScore ?? -1, pathScore ?? -1);
+  const normalizedPathScore = matchScore(
+    normalizeSearchText(file.path),
+    normalizedQuery,
+  );
+  const bestScore = Math.max(
+    titleScore ?? -1,
+    normalizedTitleScore ?? -1,
+    pathScore !== null ? pathScore - 8 : -1,
+    normalizedPathScore !== null ? normalizedPathScore - 8 : -1,
+  );
 
   return bestScore < 0 ? null : bestScore;
 }
@@ -133,6 +152,7 @@ function commandIcon(commandId: AxonCommand): LucideIcon {
 
 export default function CommandPalette({
   tree,
+  folderPath,
   open,
   commands,
   onClose,
@@ -140,11 +160,40 @@ export default function CommandPalette({
   onCommandSelect,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [projectFiles, setProjectFiles] = useState<FileNode[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const allFiles = useMemo(() => (tree ? flattenTree(tree) : []), [tree]);
+  const treeFiles = useMemo(() => (tree ? flattenTree(tree) : []), [tree]);
+  const allFiles = projectFiles.length > 0 ? projectFiles : treeFiles;
+
+  useEffect(() => {
+    if (!folderPath) {
+      setProjectFiles([]);
+      return;
+    }
+    if (!open) return;
+    let cancelled = false;
+    setLoadingFiles(true);
+
+    void window.axon
+      .listProjectFiles(folderPath)
+      .then((files) => {
+        if (!cancelled) setProjectFiles(files);
+      })
+      .catch((err) => {
+        console.error("failed to index project files:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFiles(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [folderPath, open]);
 
   const filteredItems = useMemo<PaletteItem[]>(() => {
     const rawQuery = query.trim();
@@ -201,7 +250,8 @@ export default function CommandPalette({
         };
       });
 
-    return [...commandItems.slice(0, 12), ...fileItems].slice(0, 32);
+    if (normalizedQuery.length > 0) return fileItems.slice(0, 50);
+    return [...fileItems.slice(0, 20), ...commandItems.slice(0, 8)].slice(0, 32);
   }, [allFiles, commands, query]);
 
   // reset state every time palette opens and focus the input
@@ -279,12 +329,17 @@ export default function CommandPalette({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="search files or commands..."
+          placeholder="Search files by name or path..."
           className="flex-1 bg-transparent text-[13px] text-white placeholder-[#364050] outline-none"
         />
         <span className="text-[10px] text-[#364050] border border-[#222838] rounded px-1.5 py-0.5">
           &gt; commands
         </span>
+        {loadingFiles ? (
+          <span className="text-[10px] text-[#586478] border border-[#222838] rounded px-1.5 py-0.5">
+            indexing files
+          </span>
+        ) : null}
         <span className="text-[10px] text-[#364050] border border-[#222838] rounded px-1.5 py-0.5">
           esc
         </span>
@@ -292,7 +347,11 @@ export default function CommandPalette({
       <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
         {filteredItems.length === 0 && (
           <div className="px-4 py-3 text-[12px] text-[#364050]">
-            no commands or files found
+            {loadingFiles
+              ? "indexing project files..."
+              : query.trim().startsWith(">")
+                ? "no commands found"
+                : "no files found"}
           </div>
         )}
         {filteredItems.map((item, i) => {

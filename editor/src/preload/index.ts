@@ -340,6 +340,10 @@ contextBridge.exposeInMainWorld("axon", {
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
   watchFolder: (path: string) => ipcRenderer.invoke("fs:watchFolder", path),
   unwatchFolder: () => ipcRenderer.invoke("fs:unwatchFolder"),
+  listProjectFiles: (
+    folderPath: string,
+  ): Promise<Array<{ name: string; path: string; is_dir: false }>> =>
+    ipcRenderer.invoke("fs:listProjectFiles", folderPath),
 
   onFileChanged: (
     callback: (data: { path: string; content: string }) => void,

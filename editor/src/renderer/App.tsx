@@ -2575,6 +2575,7 @@ function App() {
 
       <CommandPalette
         tree={tree}
+        folderPath={folderPath}
         open={paletteOpen}
         commands={paletteCommands}
         onClose={() => setPaletteOpen(false)}
