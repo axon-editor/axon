@@ -115,6 +115,11 @@ declare global {
       getProjectDiagnostics: (
         folderPath: string,
       ) => Promise<EditorDiagnostic[]>;
+      exportAgentDiagnostics: (snapshot: {
+        workspace: string;
+        updatedAt: string;
+        diagnostics: EditorDiagnostic[];
+      }) => Promise<{ ok: boolean }>;
       listAiModels: (folderPath?: string | null) => Promise<AiModelInfo[]>;
       getAiProjectContext: (folderPath: string) => Promise<AiProjectContext>;
       getAiRuntimeStatus: (

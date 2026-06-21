@@ -18,9 +18,11 @@ import (
 // full ai.ChatRequest sent to core. Keeping this separate prevents ask and
 // commit from needing to know about every renderer chat field.
 type streamRequestInput struct {
-	Action  string
-	Prompt  string
-	GitDiff string
+	Action      string
+	Prompt      string
+	FolderPath  string
+	Diagnostics []ai.Diagnostic
+	GitDiff     string
 }
 
 // streamEnvelope is the NDJSON envelope emitted by axon-core for each stream
@@ -48,17 +50,22 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		return "", err
 	}
 
-	folderPath, err := os.Getwd()
-	if err != nil {
-		return "", err
+	folderPath := strings.TrimSpace(input.FolderPath)
+	if folderPath == "" {
+		var err error
+		folderPath, err = os.Getwd()
+		if err != nil {
+			return "", err
+		}
 	}
 
 	request := ai.ChatRequest{
-		Action:     input.Action,
-		Prompt:     input.Prompt,
-		FolderPath: &folderPath,
-		GitDiff:    input.GitDiff,
-		Model:      defaultModelID(),
+		Action:      input.Action,
+		Prompt:      input.Prompt,
+		FolderPath:  &folderPath,
+		Diagnostics: input.Diagnostics,
+		GitDiff:     input.GitDiff,
+		Model:       defaultModelID(),
 	}
 
 	// Project context is best-effort here because the useful behavior is still

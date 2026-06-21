@@ -115,6 +115,12 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>
     ipcRenderer.invoke("diagnostics:project", folderPath),
+  exportAgentDiagnostics: (snapshot: {
+    workspace: string;
+    updatedAt: string;
+    diagnostics: EditorDiagnostic[];
+  }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("diagnostics:exportAgent", snapshot),
   listAiModels: (folderPath?: string | null): Promise<AiModelInfo[]> =>
     ipcRenderer.invoke("ai:listModels", folderPath),
   getAiProjectContext: (folderPath: string): Promise<AiProjectContext> =>

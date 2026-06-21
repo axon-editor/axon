@@ -71,21 +71,32 @@ export default function StatusBar({
   onViewChange,
   view,
 }: Props) {
+  const axonAccent =
+    "linear-gradient(90deg, #ff6b5f 0%, #f2c94c 36%, #54d6b5 72%, #80c8e0 100%)";
+  const activeControlClass = "bg-[#151923] text-white";
+  const idleControlClass =
+    "text-[#647086] hover:bg-[#11151c] hover:text-[#d7dde8]";
+
   return (
     <div
-      className="h-7 border-t flex items-center justify-between px-2 text-[11px] text-[#586478] shrink-0 gap-2"
+      className="relative h-8 border-t flex items-center justify-between px-2 text-[11px] text-[#586478] shrink-0 gap-2"
       style={{
-        background: themeTokens["status_bar.background"],
+        background: `linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.08)), ${themeTokens["status_bar.background"]}`,
         borderColor: "var(--axon-panel-border)",
       }}
     >
+      <div
+        aria-hidden="true"
+        className="axon-status-flow-strip absolute left-0 top-0 h-px w-full"
+        style={{ background: axonAccent }}
+      />
       <div className="flex min-w-0 items-center gap-1 shrink-0">
         <Tooltip label="Toggle sidebar (Cmd+B)" side="top">
           <button
             onClick={onToggleSidebar}
             aria-label="Toggle sidebar"
             className={`flex h-5 w-6 items-center justify-center rounded transition-colors cursor-pointer
-            ${sidebarCollapsed ? "text-[#586478] hover:text-[#80c8e0]" : "text-[#80c8e0]"}`}
+            ${sidebarCollapsed ? "text-[#586478] hover:text-[#54d6b5]" : "text-[#54d6b5]"}`}
           >
             <PanelLeft size={13} />
           </button>
@@ -96,7 +107,7 @@ export default function StatusBar({
             <button
               onClick={onOpenWorkspaceSearch}
               aria-label="Search workspace"
-              className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#80c8e0]"
+              className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#54d6b5]"
             >
               <Search size={12} />
             </button>
@@ -111,9 +122,7 @@ export default function StatusBar({
             onClick={() => onViewChange("files")}
             aria-label="Show files"
             className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
-              view === "files"
-                ? "bg-[#151923] text-white"
-                : "text-[#647086] hover:bg-[#11151c] hover:text-[#c8d0e0]"
+              view === "files" ? activeControlClass : idleControlClass
             }`}
           >
             <Files size={13} />
@@ -126,9 +135,7 @@ export default function StatusBar({
             onClick={() => onViewChange("history")}
             aria-label="Show Git history"
             className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
-              view === "history"
-                ? "bg-[#151923] text-[#80c8e0]"
-                : "text-[#647086] hover:bg-[#11151c] hover:text-[#80c8e0]"
+              view === "history" ? activeControlClass : idleControlClass
             }`}
           >
             <GitBranch size={13} />
@@ -161,12 +168,12 @@ export default function StatusBar({
             <button
               onClick={onOpenSourceControl}
               aria-label="Source control"
-              className="flex h-5 cursor-pointer items-center gap-1 rounded px-2 text-[#586478] transition-colors hover:text-[#80c8e0]"
+              className="flex h-5 cursor-pointer items-center gap-1 rounded px-2 text-[#586478] transition-colors hover:text-[#54d6b5]"
             >
               <GitBranch size={12} />
               <span className="max-w-32 truncate">{gitBranch}</span>
               {gitChangeCount > 0 && (
-                <span className="text-[#80c8e0]">{gitChangeCount}</span>
+                <span className="text-[#54d6b5]">{gitChangeCount}</span>
               )}
             </button>
           </Tooltip>
@@ -200,7 +207,7 @@ export default function StatusBar({
                 onClick={() => onOpenBottomPanel("problems")}
                 aria-label="Problems"
                 className={`flex items-center gap-1 rounded px-2 h-5 transition-colors cursor-pointer
-                ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+                ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#54d6b5]" : "text-[#586478] hover:text-[#54d6b5]"}`}
               >
                 <AlertCircle size={12} />
                 <span className={errorCount > 0 ? "text-[#ea6c73]" : ""}>
@@ -223,7 +230,7 @@ export default function StatusBar({
                 onClick={() => onOpenBottomPanel("output")}
                 aria-label="Output"
                 className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer
-                ${bottomPanelOpen && bottomPanelTab === "output" ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+                ${bottomPanelOpen && bottomPanelTab === "output" ? "text-[#54d6b5]" : "text-[#586478] hover:text-[#54d6b5]"}`}
               >
                 <ListChecks size={13} />
               </button>
@@ -236,7 +243,7 @@ export default function StatusBar({
                 onClick={onToggleTerminal}
                 aria-label="Toggle terminal"
                 className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer ml-1
-                ${terminalOpen ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+                ${terminalOpen ? "text-[#54d6b5]" : "text-[#586478] hover:text-[#54d6b5]"}`}
               >
                 <TerminalSquare size={13} />
               </button>
@@ -250,7 +257,7 @@ export default function StatusBar({
                     onClick={onToggleAgentSidebar}
                     aria-label="Toggle Axon Agent"
                     className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors
-                    ${agentSidebarOpen ? "text-[#80c8e0]" : "text-[#586478] hover:text-[#80c8e0]"}`}
+                    ${agentSidebarOpen ? "text-[#54d6b5]" : "text-[#586478] hover:text-[#54d6b5]"}`}
                   >
                     <Sparkles size={13} />
                   </button>

@@ -14,10 +14,29 @@
   tools can read and search project files.
 - Added the first `axon` terminal companion build, with `axon .`,
   `axon ask`, and `axon commit` routed through `axon-core`.
+- Added `axon fix`, which reads exported editor Problems, streams a local fix
+  request, applies edit proposals inside the workspace, and lets watchers/LSP
+  refresh diagnostics.
 - Added the `~/.axon/core.port` contract so the terminal command can find the
   running backend without hardcoded discovery.
+- Added `~/.axon/diagnostics.json` export from the renderer so terminal agent
+  commands can work from the same Problems data shown in Axon.
+- Improved packaged cold start by showing the editor window before waiting for
+  bundled `axon-core` health.
+- Added the first Axon status-bar identity pass with an animated accent strip,
+  stronger active status controls, and a tighter footer treatment.
+- Restored richer Monaco semantic token colors so functions, methods, classes,
+  interfaces, parameters, and properties get distinct syntax colors.
+- Removed the global Monaco foreground override that flattened token classes
+  back to the default editor text color.
+- Restored Git color on sidebar file and folder names while keeping the newer
+  dot and status-label indicators.
+- Enabled scrolling beyond the last editor line so users can keep reading and
+  editing with breathing room at the bottom of the buffer.
 - Updated core packaging so releases build and ship both `axon-core` and the
   `axon` CLI binary.
+- Renamed the local development copy source to `AXON_FEATURES_AND_WORK.md` so
+  it describes shipped features and active work for the future website.
 
 ## v1.2.2
 

@@ -256,6 +256,26 @@
   color: var(--axon-syntax-method) !important;
 }
 
+.axon-status-flow-strip {
+  background-size: 240% 100%;
+  animation: axon-status-flow 4.8s linear infinite;
+}
+
+@keyframes axon-status-flow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 240% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .axon-status-flow-strip {
+    animation: none;
+  }
+}
+
 .axon-git-line--added {
   background: rgba(126, 231, 135, 0.055);
 }

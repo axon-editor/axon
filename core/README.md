@@ -66,6 +66,7 @@ entrypoint stable while giving users the expected terminal flow: `axon .`,
 ```bash
 go run cmd/axon-agent/main.go .
 go run cmd/axon-agent/main.go ask "why is startup slow?"
+go run cmd/axon-agent/main.go fix
 go run cmd/axon-agent/main.go commit
 ```
 
@@ -73,6 +74,11 @@ go run cmd/axon-agent/main.go commit
 same project context pack the sidebar uses, and streams `/ai/chat/stream`
 responses to stdout. `axon commit` reads `git diff --staged`, streams a
 draft commit message, then asks before running `git commit`.
+
+`axon fix` reads `~/.axon/diagnostics.json`, which the open editor exports from
+the current Problems panel. It sends those diagnostics through the local agent,
+requires an edit proposal, and writes only files that resolve inside the
+diagnostics workspace.
 
 ## Test
 

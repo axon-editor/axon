@@ -458,7 +458,7 @@ export default function FileTreeNode({
   const gitColor = gitDecoration
     ? gitDecorationColors[gitDecoration.tone]
     : undefined;
-  const entryColor = ignored && !gitDecoration ? "#4b5568" : undefined;
+  const entryColor = gitColor ?? (ignored ? "#4b5568" : undefined);
 
   if (node.is_dir) {
     const isHighlighted = dragOver || isBlinkOn;

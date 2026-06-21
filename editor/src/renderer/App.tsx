@@ -45,6 +45,7 @@ import {
   syncLanguageServerDiagnosticsToMonaco,
   type EditorDiagnostic,
 } from "./features/diagnostics/lib/diagnostics";
+import { useAgentDiagnosticsExport } from "./features/diagnostics/lib/useAgentDiagnosticsExport";
 import {
   capDiagnostics,
   isDiagnosticInWorkspace,
@@ -407,6 +408,8 @@ function App() {
     [diagnostics],
   );
 
+  useAgentDiagnosticsExport({ folderPath, diagnostics });
+
   useEffect(() => {
     // Theme selection has to be applied at the app level, not only when an
     // editor widget mounts. Settings preview can change the active theme while
@@ -420,32 +423,6 @@ function App() {
       extensionThemes,
     );
   }, [extensionThemes, settings.editor.themeId, themeTokens]);
-
-  useEffect(() => {
-    const styleId = "axon-monaco-default-token-fallback";
-    const styleElement =
-      document.getElementById(styleId) ??
-      (() => {
-        const nextStyleElement = document.createElement("style");
-        nextStyleElement.id = styleId;
-        document.head.appendChild(nextStyleElement);
-        return nextStyleElement;
-      })();
-
-    // Monaco generates token CSS dynamically, and files with weak tokenization
-    // such as Markdown body text, go.mod, go.sum, .sim, and plaintext can land
-    // on its default token classes instead of one of Axon's rich syntax scopes.
-    // I inject this after theme resolution with a concrete color so those
-    // default spans cannot fall back to black on dark editor backgrounds.
-    styleElement.textContent = `
-      .monaco-editor .view-line,
-      .monaco-editor .view-line span:not(.axon-go-function-token):not(.axon-go-method-token).mtk1,
-      .monaco-editor .view-line span:not(.axon-go-function-token):not(.axon-go-method-token).mtk0,
-      .monaco-editor .view-line span:not([class*="mtk"]) {
-        color: ${themeTokens["editor.foreground"]} !important;
-      }
-    `;
-  }, [themeTokens]);
 
   const activeFileSymbols = useMemo<FileSymbol[]>(() => {
     const activeFile = activePane?.activeFile;

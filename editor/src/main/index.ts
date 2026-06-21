@@ -314,10 +314,17 @@ app.whenReady().then(async () => {
     return net.fetch(url.pathToFileURL(filePath).toString());
   });
 
-  await bundledCore.startBundledAxonCore();
-  bundledCore.startBundledCoreWatchdog();
+  // Cold start should show the editor shell first, then let backend readiness
+  // catch up in the background. Waiting for axon-core before creating the
+  // BrowserWindow makes a normal packaged launch feel like Electron is stuck,
+  // even though the renderer can already restore chrome, tabs, and the last
+  // workspace while core finishes binding its local port.
+  const bundledCoreReady = bundledCore.startBundledAxonCore();
   createManagedWindow({ restoreSession: true });
-  void warmUpAiRuntime({ axonCorePort });
+  void bundledCoreReady.then(() => {
+    bundledCore.startBundledCoreWatchdog();
+    void warmUpAiRuntime({ axonCorePort });
+  });
 
   // Prefer Axon's bundled Spotify app client_id. It is public PKCE metadata,
   // not a client secret, and lets users connect without creating their own

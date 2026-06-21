@@ -28,15 +28,6 @@
   }
 }
 
-.monaco-editor,
-.monaco-editor .view-line {
-  color: var(--axon-editor-foreground) !important;
-}
-
-.monaco-editor .mtk1 {
-  color: var(--axon-editor-foreground) !important;
-}
-
 .monaco-editor .suggest-widget {
   border: 1px solid rgba(82, 93, 119, 0.42) !important;
   border-radius: 10px !important;

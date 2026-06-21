@@ -13,6 +13,7 @@ import { soraTheme } from "./sora";
 import { zedDarkTheme } from "./zedDark";
 import {
   createExtensionSyntaxRules,
+  createSemanticTokenColors,
   createSyntaxRules,
   type AxonThemeDefinition,
   type ThemeTokenMap,
@@ -83,6 +84,8 @@ function buildMonacoTheme(
       ...createSyntaxRules(tokens),
       ...(extensionTheme ? createExtensionSyntaxRules(extensionTheme.syntax) : []),
     ],
+    semanticHighlighting: true,
+    semanticTokenColors: createSemanticTokenColors(tokens),
     colors: {
       foreground: tokens["editor.foreground"],
       "editor.background": tokens["editor.background"],

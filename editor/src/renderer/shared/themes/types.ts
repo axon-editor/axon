@@ -130,6 +130,44 @@ export function createSyntaxRules(tokens: ThemeTokenMap): editor.ITokenThemeRule
   ];
 }
 
+export function createSemanticTokenColors(tokens: ThemeTokenMap) {
+  // LSP semantic tokens are the reliable path for the editor feel Gorden wants:
+  // functions, methods, classes, interfaces, properties, and parameters should
+  // keep distinct colors even when a language tokenizer emits broad Monaco
+  // classes. These selectors map the LSP semantic vocabulary back to Axon's
+  // theme tokens so TypeScript, TSX, Go, Rust, Python, and C++ can share the
+  // same visual language.
+  return {
+    function: tokens["syntax.function"],
+    "function.declaration": tokens["syntax.function"],
+    method: tokens["syntax.method"],
+    "method.declaration": tokens["syntax.method"],
+    class: tokens["syntax.class"],
+    "class.declaration": tokens["syntax.class"],
+    interface: tokens["syntax.interface"],
+    "interface.declaration": tokens["syntax.interface"],
+    type: tokens["syntax.type"],
+    typeParameter: tokens["syntax.type"],
+    enum: tokens["syntax.type"],
+    namespace: tokens["syntax.type"],
+    parameter: tokens["syntax.parameter"],
+    variable: tokens["syntax.variable"],
+    "variable.readonly": tokens["syntax.constant"],
+    property: tokens["syntax.property"],
+    "property.readonly": tokens["syntax.constant"],
+    enumMember: tokens["syntax.constant"],
+    decorator: tokens["syntax.attribute"],
+    event: tokens["syntax.method"],
+    macro: tokens["syntax.function"],
+    keyword: tokens["syntax.keyword"],
+    comment: tokens["syntax.comment"],
+    string: tokens["syntax.string"],
+    number: tokens["syntax.number"],
+    regexp: tokens["syntax.constant"],
+    operator: tokens["syntax.operator"],
+  } satisfies Record<string, string>;
+}
+
 function normalizeFontStyle(style: ExtensionThemeSyntaxStyle) {
   const parts = [
     style.fontStyle,

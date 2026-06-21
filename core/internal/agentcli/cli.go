@@ -27,6 +27,8 @@ func Run(args []string) int {
 		return runAsk(args[1:])
 	case "commit":
 		return runCommit(args[1:])
+	case "fix":
+		return runFix(args[1:])
 	default:
 		// Any unknown first argument is treated as a path, matching the expected
 		// `axon .` and `axon /path/to/project` workflow. This makes opening a
@@ -74,5 +76,6 @@ Usage:
   axon .                       open the current directory in Axon
   axon /path/to/project         open a project in Axon
   axon ask "why is X slow"      stream an answer about the codebase
+  axon fix                      fix current Problems from the open editor
   axon commit                   draft a commit message from staged diff`)
 }

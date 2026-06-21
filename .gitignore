@@ -13,5 +13,5 @@ docs/.docusaurus/
 docs/.next/
 docs/build/
 docs/out/
-AXON_DEVELOPMENT_PLAN.md
+AXON_FEATURES_AND_WORK.md
 .env
