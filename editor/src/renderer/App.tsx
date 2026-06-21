@@ -1792,10 +1792,12 @@ function App() {
           }
           break;
         case AXON_COMMANDS.ASK_AXON:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
           setAgentSidebarOpen(true);
           setAgentActionRequest({ action: "ask", nonce: Date.now() });
           break;
         case AXON_COMMANDS.AI_EXPLAIN_SELECTION:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
           setAgentSidebarOpen(true);
           setAgentActionRequest({
             action: "explain-selection",
@@ -1803,10 +1805,12 @@ function App() {
           });
           break;
         case AXON_COMMANDS.AI_FIX_PROBLEM:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
           setAgentSidebarOpen(true);
           setAgentActionRequest({ action: "fix-problem", nonce: Date.now() });
           break;
         case AXON_COMMANDS.AI_REFACTOR_SELECTION:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
           setAgentSidebarOpen(true);
           setAgentActionRequest({
             action: "refactor-selection",
@@ -1814,6 +1818,7 @@ function App() {
           });
           break;
         case AXON_COMMANDS.AI_GENERATE_TESTS:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
           setAgentSidebarOpen(true);
           setAgentActionRequest({
             action: "generate-tests",
@@ -1821,6 +1826,7 @@ function App() {
           });
           break;
         case AXON_COMMANDS.AI_REVIEW_GIT_DIFF:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
           setAgentSidebarOpen(true);
           setAgentActionRequest({
             action: "review-git-diff",
@@ -1828,6 +1834,7 @@ function App() {
           });
           break;
         case AXON_COMMANDS.AI_DRAFT_COMMIT_MESSAGE:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
           setAgentSidebarOpen(true);
           setAgentActionRequest({
             action: "draft-commit-message",

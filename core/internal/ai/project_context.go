@@ -17,6 +17,8 @@ const (
 	maxProjectContextBytes       = 60000
 	maxProjectContextFileBytes   = 8000
 	maxProjectContextTreeEntries = 1500
+	bytesPerToken                = 3
+	maxProjectContextTokens      = 6000
 )
 
 type ProjectContextFile struct {
@@ -168,6 +170,26 @@ func BuildProjectContext(ctx context.Context, root string) (ProjectContext, erro
 
 	contextPack.IncludedFiles = len(contextPack.Files)
 	return contextPack, nil
+}
+
+func trimProjectContextToTokenBudget(contextPack *ProjectContext, maxTokens int) {
+	if contextPack == nil {
+		return
+	}
+	budget := maxTokens * bytesPerToken
+	used := 0
+	kept := contextPack.Files[:0]
+	for _, file := range contextPack.Files {
+		if used+len(file.Content) > budget {
+			contextPack.Truncated = true
+			contextPack.SkippedFiles++
+			continue
+		}
+		used += len(file.Content)
+		kept = append(kept, file)
+	}
+	contextPack.Files = kept
+	contextPack.IncludedFiles = len(kept)
 }
 
 // validateProjectContextRoot rejects missing or stale workspaces before the

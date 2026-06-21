@@ -356,6 +356,7 @@ func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent)
 		}
 	}
 
+	trimProjectContextToTokenBudget(request.ProjectContext, maxProjectContextTokens)
 	messages, err := buildToolAwareMessages(ctx, request)
 	if err != nil {
 		return err

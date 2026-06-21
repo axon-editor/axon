@@ -69,9 +69,18 @@ function parseEditProposal(text: string): AiEditProposal | undefined {
 }
 
 function stripEditProposalJson(text: string) {
-  return text
-    .replace(/```(?:json)?\s*{\s*"editProposal"[\s\S]*?}\s*```/i, "")
-    .trim();
+  const fenceStart = text.search(/```(?:json)?\s*{\s*"editProposal"/i);
+  if (fenceStart === -1) {
+    const bareStart = text.search(/^\s*{\s*"editProposal"/im);
+    if (bareStart === -1) return text.trim();
+    const bareEnd = text.lastIndexOf("}");
+    if (bareEnd === -1) return text.trim();
+    return (text.slice(0, bareStart) + text.slice(bareEnd + 1)).trim();
+  }
+
+  const fenceEnd = text.indexOf("```", fenceStart + 3);
+  if (fenceEnd === -1) return text.trim();
+  return (text.slice(0, fenceStart) + text.slice(fenceEnd + 3)).trim();
 }
 
 export async function listLocalAiModels(
@@ -142,6 +151,7 @@ export async function runLocalAiChat(
           temperature: request.action === "draft-commit-message" ? 0.2 : 0.35,
         },
       }),
+      signal: AbortSignal.timeout(120_000),
     });
 
     if (!response.ok) {

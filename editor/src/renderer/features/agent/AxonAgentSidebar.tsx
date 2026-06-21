@@ -40,6 +40,7 @@ import {
   selectAgentConversation,
   startAgentConversation,
 } from "./agentConversation";
+import { resolveProposalPath } from "./agentProposalPaths";
 
 interface Props {
   activeFileContent: string;
@@ -88,13 +89,18 @@ function parseEditProposal(text: string) {
 }
 
 function stripEditProposalJson(text: string) {
-  const fencedStripped = text.replace(
-    /```(?:json)?\s*{\s*"editProposal"[\s\S]*?}\s*```/i,
-    "",
-  );
-  return fencedStripped
-    .replace(/^\s*{\s*"editProposal"\s*:\s*{[\s\S]*}\s*}\s*$/i, "")
-    .trim();
+  const fenceStart = text.search(/```(?:json)?\s*{\s*"editProposal"/i);
+  if (fenceStart === -1) {
+    const bareStart = text.search(/^\s*{\s*"editProposal"/im);
+    if (bareStart === -1) return text.trim();
+    const bareEnd = text.lastIndexOf("}");
+    if (bareEnd === -1) return text.trim();
+    return (text.slice(0, bareStart) + text.slice(bareEnd + 1)).trim();
+  }
+
+  const fenceEnd = text.indexOf("```", fenceStart + 3);
+  if (fenceEnd === -1) return text.trim();
+  return (text.slice(0, fenceStart) + text.slice(fenceEnd + 3)).trim();
 }
 
 function buildContextFile(input: Props): AiContextFile[] {
@@ -520,10 +526,20 @@ export default function AxonAgentSidebar(props: Props) {
   }, [props.initialAction?.nonce]);
 
   const applyEdit = async (file: AiEditFileProposal) => {
-    const resolvedPath =
-      props.folderPath && !file.path.startsWith("/")
-        ? `${props.folderPath.replace(/\/+$/, "")}/${file.path.replace(/^\/+/, "")}`
-        : file.path;
+    const resolvedPath = props.folderPath
+      ? resolveProposalPath(file.path, props.folderPath)
+      : file.path;
+    if (!resolvedPath) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: Date.now(),
+          role: "assistant",
+          content: `Skipped unsafe edit proposal path outside the workspace: ${file.path}`,
+        },
+      ]);
+      return;
+    }
     await props.onApplyEdit(resolvedPath, file.newContent);
     setMessages((current) => [
       ...current,

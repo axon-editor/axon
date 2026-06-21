@@ -25,6 +25,25 @@ function trimForPrompt(value: string, limit: number) {
 }
 
 export function buildAiMessages(request: AiChatRequest) {
+  const systemMessage = {
+    role: "system",
+    content:
+      "You are Axon Agent, the local coding assistant inside Axon Editor. You are project-aware, direct, and precise. Do not claim to use external cloud services. When proposing file edits, include a JSON block exactly shaped as {\"editProposal\":{\"title\":\"...\",\"files\":[{\"path\":\"absolute or workspace path\",\"summary\":\"...\",\"newContent\":\"full file content\"}]}}. Outside edit proposals, answer normally.",
+  };
+  const currentPrompt = request.prompt.trim();
+  const historyMessages = (request.conversation ?? [])
+    .filter((message) => message.content.trim())
+    .filter(
+      (message, index, messages) =>
+        index !== messages.length - 1 ||
+        message.role !== "user" ||
+        message.content.trim() !== currentPrompt,
+    )
+    .slice(-20)
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
   const contextParts = [
     `Workspace: ${request.folderPath ?? "No workspace"}`,
     `Active file: ${request.activeFilePath ?? "No active file"}`,
@@ -65,11 +84,8 @@ export function buildAiMessages(request: AiChatRequest) {
   }
 
   return [
-    {
-      role: "system",
-      content:
-        "You are Axon Agent, the local coding assistant inside Axon Editor. You are project-aware, direct, and precise. Do not claim to use external cloud services. When proposing file edits, include a JSON block exactly shaped as {\"editProposal\":{\"title\":\"...\",\"files\":[{\"path\":\"absolute or workspace path\",\"summary\":\"...\",\"newContent\":\"full file content\"}]}}. Outside edit proposals, answer normally.",
-    },
+    systemMessage,
+    ...historyMessages,
     {
       role: "user",
       content: [

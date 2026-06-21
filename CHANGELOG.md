@@ -1,5 +1,18 @@
 # Changelog
 
+## Next
+
+- Fixed legacy local-provider prompts so prior conversation turns are passed to
+  the model for follow-up context.
+- Added a timeout to the non-streaming local-provider request path so a stalled
+  local model cannot hang forever.
+- Hardened edit proposal application by rejecting paths outside the current
+  workspace and stripping multi-file edit proposal JSON correctly.
+- Added a project-context token budget trim before sending context packs to
+  local models.
+- Kept Ask Axon command entry points behind workspace trust because local agent
+  tools can read and search project files.
+
 ## v1.2.2
 
 - Added project-aware Axon Agent tools in `axon-core` for listing workspace
