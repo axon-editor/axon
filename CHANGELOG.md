@@ -12,6 +12,12 @@
   local models.
 - Kept Ask Axon command entry points behind workspace trust because local agent
   tools can read and search project files.
+- Added the first `axon` terminal companion build, with `axon .`,
+  `axon ask`, and `axon commit` routed through `axon-core`.
+- Added the `~/.axon/core.port` contract so the terminal command can find the
+  running backend without hardcoded discovery.
+- Updated core packaging so releases build and ship both `axon-core` and the
+  `axon` CLI binary.
 
 ## v1.2.2
 

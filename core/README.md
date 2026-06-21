@@ -24,8 +24,10 @@ terminal.
 
 ```text
 core/
-├── cmd/axon/          # executable entry point
+├── cmd/axon/          # axon-core server entry point
+├── cmd/axon-agent/    # source for the axon CLI companion
 └── internal/
+    ├── agentcli/      # thin CLI client that talks to a running axon-core
     ├── ai/            # placeholder for future local AI/backend flows
     ├── fs/            # workspace file, folder, drag/drop, and search helpers
     ├── server/        # HTTP server, route registration, and CORS handling
@@ -49,6 +51,28 @@ AXON_CORE_PORT=17777 go run cmd/axon/main.go
 The renderer selects the matching URL through its core API configuration. If the
 desktop app cannot connect, folder operations and terminals will fail even if
 the UI itself is running.
+
+When core starts it writes the selected port to `~/.axon/core.port`. The `axon`
+CLI reads that file first and falls back to `7777`, so terminal
+commands do not need to guess the desktop app's local API port.
+
+## Axon Agent CLI
+
+The terminal companion lives under `cmd/axon-agent` in source, but it is built
+and shipped as the `axon` command. This keeps the existing core server
+entrypoint stable while giving users the expected terminal flow: `axon .`,
+`axon ask`, and `axon commit`.
+
+```bash
+go run cmd/axon-agent/main.go .
+go run cmd/axon-agent/main.go ask "why is startup slow?"
+go run cmd/axon-agent/main.go commit
+```
+
+`axon ask` loads the current directory as the workspace, asks core for the
+same project context pack the sidebar uses, and streams `/ai/chat/stream`
+responses to stdout. `axon commit` reads `git diff --staged`, streams a
+draft commit message, then asks before running `git commit`.
 
 ## Test
 

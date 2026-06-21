@@ -8,8 +8,17 @@ const editorRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(editorRoot, "..");
 const coreRoot = path.join(repoRoot, "core");
 const outputDir = path.join(editorRoot, "build", "core");
-const outputName = process.platform === "win32" ? "axon-core.exe" : "axon-core";
-const outputPath = path.join(outputDir, outputName);
+const executableSuffix = process.platform === "win32" ? ".exe" : "";
+const builds = [
+  {
+    packagePath: "./cmd/axon",
+    outputName: `axon-core${executableSuffix}`,
+  },
+  {
+    packagePath: "./cmd/axon-agent",
+    outputName: `axon${executableSuffix}`,
+  },
+];
 
 mkdirSync(outputDir, { recursive: true });
 
@@ -18,14 +27,19 @@ mkdirSync(outputDir, { recursive: true });
 // Building from this script keeps the package.json commands cross-platform:
 // each GitHub runner compiles the binary for its own OS and electron-builder
 // then copies that exact binary into the desktop app.
-const result = spawnSync("go", ["build", "-o", outputPath, "./cmd/axon"], {
-  cwd: coreRoot,
-  stdio: "inherit",
-});
+for (const build of builds) {
+  const outputPath = path.join(outputDir, build.outputName);
+  const result = spawnSync("go", ["build", "-o", outputPath, build.packagePath], {
+    cwd: coreRoot,
+    stdio: "inherit",
+  });
 
-if (result.error) {
-  console.error(result.error.message);
-  process.exit(1);
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
 }
-
-process.exit(result.status ?? 1);
