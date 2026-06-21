@@ -7,6 +7,10 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { type AxonSettings, type CustomFont } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import {
+  type CliToolInstallResult,
+  type CliToolStatus,
+} from "../shared/app";
+import {
   type AiChatRequest,
   type AiChatResult,
   type AiChatStreamEvent,
@@ -97,6 +101,10 @@ import type {
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
+  getCliToolStatus: (): Promise<CliToolStatus> =>
+    ipcRenderer.invoke("app:getCliToolStatus"),
+  installCliTool: (): Promise<CliToolInstallResult> =>
+    ipcRenderer.invoke("app:installCliTool"),
   importFont: (): Promise<CustomFont | null> =>
     ipcRenderer.invoke("dialog:importFont"),
   listAvailableFonts: (): Promise<CustomFont[]> =>

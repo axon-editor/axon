@@ -144,6 +144,7 @@ registerUpdateHandlers(updateManager);
 registerAppHandlers({
   windowSessionRestore,
   isExternalHandlerUrl,
+  isDev,
 });
 registerDiagnosticsHandlers();
 registerExtensionHandlers();

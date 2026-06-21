@@ -110,6 +110,8 @@ import "./App.css";
 import * as monaco from "monaco-editor";
 import SpotifyFloatingPlayer from "./features/spotify/SpotifyFloatingPlayer";
 import AxonAgentSidebar from "./features/agent/AxonAgentSidebar";
+import CliToolInstallPrompt from "./features/cli/CliToolInstallPrompt";
+import { useCliToolInstallPrompt } from "./features/cli/useCliToolInstallPrompt";
 
 function formatOutputTime(date = new Date()) {
   return date.toLocaleTimeString([], {
@@ -240,6 +242,7 @@ function App() {
     action: AiActionId;
     nonce: number;
   } | null>(null);
+  const cliToolInstallPrompt = useCliToolInstallPrompt();
   const [workspaceTrustNonce, setWorkspaceTrustNonce] = useState(0);
 
   const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
@@ -2914,6 +2917,7 @@ function App() {
       )}
 
       {loading && !splashVisible && <WorkspaceLoadingOverlay />}
+      <CliToolInstallPrompt prompt={cliToolInstallPrompt} />
       {splashVisible && <SplashScreen leaving={splashLeaving} />}
     </div>
   );

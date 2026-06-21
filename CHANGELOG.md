@@ -2,6 +2,8 @@
 
 ## Next
 
+## v1.2.3
+
 - Fixed legacy local-provider prompts so prior conversation turns are passed to
   the model for follow-up context.
 - Added a timeout to the non-streaming local-provider request path so a stalled
@@ -35,6 +37,9 @@
   editing with breathing room at the bottom of the buffer.
 - Updated core packaging so releases build and ship both `axon-core` and the
   `axon` CLI binary.
+- Added an app-owned command-line tool prompt so macOS users can install or
+  update `/usr/local/bin/axon` from Axon instead of discovering `command not
+  found` in the terminal.
 - Renamed the local development copy source to `AXON_FEATURES_AND_WORK.md` so
   it describes shipped features and active work for the future website.
 

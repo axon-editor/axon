@@ -1,4 +1,8 @@
 import type { AxonCommand } from "../../shared/commands";
+import type {
+  CliToolInstallResult,
+  CliToolStatus,
+} from "../../shared/app";
 import type { EditorDiagnostic } from "../features/diagnostics/lib/diagnostics";
 import type {
   ExtensionActionResult,
@@ -96,6 +100,8 @@ declare global {
     axon: {
       platform: string;
       openFolder: () => Promise<string | null>;
+      getCliToolStatus: () => Promise<CliToolStatus>;
+      installCliTool: () => Promise<CliToolInstallResult>;
       importFont: () => Promise<CustomFont | null>;
       listAvailableFonts: () => Promise<CustomFont[]>;
       selectEditorBackgroundImage: () => Promise<string | null>;

@@ -107,11 +107,21 @@ func axonCoreCandidates() []string {
 	candidates := []string{}
 	if executablePath, err := os.Executable(); err == nil {
 		candidates = append(candidates, filepath.Join(filepath.Dir(executablePath), executableName("axon-core")))
+
+		// `axon` is normally installed into /usr/local/bin as a symlink to the
+		// bundled CLI binary. os.Executable can report the symlink path, which
+		// would make the sibling lookup search /usr/local/bin/axon-core instead
+		// of the real release resources folder. Resolving the symlink keeps the
+		// CLI paired with the axon-core binary it was built beside.
+		if realPath, err := filepath.EvalSymlinks(executablePath); err == nil {
+			candidates = append(candidates, filepath.Join(filepath.Dir(realPath), executableName("axon-core")))
+		}
 	}
 
 	return append(candidates,
 		"/Applications/Axon.app/Contents/Resources/core/"+executableName("axon-core"),
 		"/usr/lib/axon/"+executableName("axon-core"),
+		filepath.Join(".", "editor", "build", "core", executableName("axon-core")),
 		filepath.Join(".", "core", executableName("axon-core")),
 		filepath.Join(".", executableName("axon-core")),
 		executableName("axon-core"),
