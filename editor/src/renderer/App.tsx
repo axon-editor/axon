@@ -73,6 +73,7 @@ import {
   type CustomFont,
 } from "../shared/settings";
 import { AXON_COMMANDS, type AxonCommand } from "../shared/commands";
+import { type AiActionId } from "../shared/ai";
 import {
   type GitCommitDiffResult,
   type GitHistoryCommit,
@@ -234,6 +235,10 @@ function App() {
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
   const [agentSidebarOpen, setAgentSidebarOpen] = useState(false);
+  const [agentActionRequest, setAgentActionRequest] = useState<{
+    action: AiActionId;
+    nonce: number;
+  } | null>(null);
   const [workspaceTrustNonce, setWorkspaceTrustNonce] = useState(0);
 
   const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
@@ -448,6 +453,12 @@ function App() {
     const model = getModel(activeFile);
     if (!model || model.isDisposed()) return [];
     return collectFileSymbols(model.getValue());
+  }, [activePane?.activeFile, layout]);
+  const activeFileContent = useMemo(() => {
+    const activeFile = activePane?.activeFile;
+    if (!activeFile) return "";
+    const model = getModel(activeFile);
+    return model && !model.isDisposed() ? model.getValue() : "";
   }, [activePane?.activeFile, layout]);
   const gitChangeCount = gitStatus?.changes.length ?? 0;
   const deletedFiles = useMemo(() => {
@@ -1285,6 +1296,16 @@ function App() {
     appendOutput("file", `Created ${name}`, "success");
   };
 
+  const handleApplyAgentEdit = useCallback(
+    async (filePath: string, content: string) => {
+      await writeFile(filePath, content);
+      handleFileSelect(filePath);
+      await handleRefresh();
+      appendOutput("ai", `Applied Axon edit to ${filePath}`, "success");
+    },
+    [appendOutput],
+  );
+
   const handleSettingsSave = async (nextSettings: AxonSettings) => {
     const normalizedSettings = normalizeSettings(nextSettings);
     setSettings(normalizedSettings);
@@ -1770,6 +1791,49 @@ function App() {
             setUpdateModalOpen(true);
           }
           break;
+        case AXON_COMMANDS.ASK_AXON:
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({ action: "ask", nonce: Date.now() });
+          break;
+        case AXON_COMMANDS.AI_EXPLAIN_SELECTION:
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "explain-selection",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_FIX_PROBLEM:
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({ action: "fix-problem", nonce: Date.now() });
+          break;
+        case AXON_COMMANDS.AI_REFACTOR_SELECTION:
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "refactor-selection",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_GENERATE_TESTS:
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "generate-tests",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_REVIEW_GIT_DIFF:
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "review-git-diff",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_DRAFT_COMMIT_MESSAGE:
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "draft-commit-message",
+            nonce: Date.now(),
+          });
+          break;
         case AXON_COMMANDS.TOGGLE_ZEN_MODE:
           setZenMode((prev) => !prev);
           break;
@@ -2104,6 +2168,79 @@ function App() {
         disabled: !activePane?.activeFile,
       },
       {
+        id: AXON_COMMANDS.ASK_AXON,
+        title: "Ask Axon",
+        group: "AI",
+        subtitle: settings.ai.enabled
+          ? "Open project-aware local assistant"
+          : "Enable Axon Agent in settings",
+        keywords: ["ai", "agent", "chat", "local model"],
+        disabled: !settings.ai.enabled,
+      },
+      {
+        id: AXON_COMMANDS.AI_EXPLAIN_SELECTION,
+        title: "AI: Explain Active File",
+        group: "AI",
+        subtitle: activePane?.activeFile
+          ? "Explain the active code with project context"
+          : "Open a file first",
+        keywords: ["ai", "explain", "selection", "code"],
+        disabled: !settings.ai.enabled || !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.AI_FIX_PROBLEM,
+        title: "AI: Fix Problem",
+        group: "AI",
+        subtitle:
+          diagnostics.length > 0
+            ? `${diagnostics.length} problem${diagnostics.length === 1 ? "" : "s"} in context`
+            : "No current problems",
+        keywords: ["ai", "fix", "diagnostic", "problem"],
+        disabled: !settings.ai.enabled || diagnostics.length === 0,
+      },
+      {
+        id: AXON_COMMANDS.AI_REFACTOR_SELECTION,
+        title: "AI: Refactor Active File",
+        group: "AI",
+        subtitle: activePane?.activeFile
+          ? "Prepare a safer refactor proposal"
+          : "Open a file first",
+        keywords: ["ai", "refactor", "cleanup"],
+        disabled: !settings.ai.enabled || !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.AI_GENERATE_TESTS,
+        title: "AI: Generate Tests",
+        group: "AI",
+        subtitle: activePane?.activeFile
+          ? "Create test ideas or an edit proposal"
+          : "Open a file first",
+        keywords: ["ai", "test", "coverage"],
+        disabled: !settings.ai.enabled || !activePane?.activeFile,
+      },
+      {
+        id: AXON_COMMANDS.AI_REVIEW_GIT_DIFF,
+        title: "AI: Review Git Diff",
+        group: "AI",
+        subtitle:
+          gitChangeCount > 0
+            ? `${gitChangeCount} changed file${gitChangeCount === 1 ? "" : "s"}`
+            : "No Git changes",
+        keywords: ["ai", "review", "diff", "git"],
+        disabled: !settings.ai.enabled || gitChangeCount === 0,
+      },
+      {
+        id: AXON_COMMANDS.AI_DRAFT_COMMIT_MESSAGE,
+        title: "AI: Draft Commit Message",
+        group: "AI",
+        subtitle:
+          gitChangeCount > 0
+            ? "Write a commit message for current changes"
+            : "No Git changes",
+        keywords: ["ai", "commit", "message", "git"],
+        disabled: !settings.ai.enabled || gitChangeCount === 0,
+      },
+      {
         id: AXON_COMMANDS.OPEN_SETTINGS,
         title: "Open Settings",
         group: "Settings",
@@ -2166,6 +2303,7 @@ function App() {
     folderPath,
     gitChangeCount,
     language,
+    settings.ai.enabled,
     terminalOpen,
     updateInfo?.latestVersion,
     updateInfo?.updateAvailable,
@@ -2527,7 +2665,19 @@ function App() {
         </div>
 
         {!zenMode && settings.ai.enabled && agentSidebarOpen && (
-          <AxonAgentSidebar onClose={() => setAgentSidebarOpen(false)} />
+          <AxonAgentSidebar
+            activeFileContent={activeFileContent}
+            activeFileLanguage={
+              activePane?.activeFile ? detectLanguage(activePane.activeFile) : "plaintext"
+            }
+            activeFilePath={activePane?.activeFile ?? null}
+            diagnostics={diagnostics}
+            folderPath={folderPath}
+            gitChanges={gitStatus?.changes ?? []}
+            initialAction={agentActionRequest}
+            onApplyEdit={handleApplyAgentEdit}
+            onClose={() => setAgentSidebarOpen(false)}
+          />
         )}
       </div>
 

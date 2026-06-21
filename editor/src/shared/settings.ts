@@ -9,7 +9,7 @@ export const BUILT_IN_THEME_IDS = [
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
 export type ThemeId = BuiltInThemeId | string;
 
-export const AI_PROVIDER_IDS = ["openai", "local"] as const;
+export const AI_PROVIDER_IDS = ["local"] as const;
 
 export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
 
@@ -236,10 +236,10 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     stickyScrollEnabled: true,
   },
   ai: {
-    enabled: false,
-    provider: "openai",
-    model: "gpt-5.1",
-    apiKeyEnv: "OPENAI_API_KEY",
+    enabled: true,
+    provider: "local",
+    model: "axon-code",
+    apiKeyEnv: "",
     includeWorkspaceContext: true,
   },
   lsp: {

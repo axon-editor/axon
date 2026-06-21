@@ -183,8 +183,7 @@ export const MULTI_CURSOR_MODIFIER_ITEMS: SearchSelectItem<EditorMultiCursorModi
   }));
 
 const AI_PROVIDER_LABELS: Record<AiProviderId, string> = {
-  openai: "OpenAI",
-  local: "Local",
+  local: "Axon models",
 };
 
 export const AI_PROVIDER_ITEMS: SearchSelectItem<AiProviderId>[] =

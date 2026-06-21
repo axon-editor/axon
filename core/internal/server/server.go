@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/ai"
 	"github.com/GordenArcher/axon-core/internal/fs"
 	"github.com/GordenArcher/axon-core/internal/terminal"
 	"github.com/google/uuid"
@@ -34,14 +35,14 @@ func New() *Server {
 //   - Status:     "ok" or "error"
 //   - Message:    human-readable message (optional, used for success confirmations)
 //   - Data:       the actual payload (omitted when nil)
-//   - Error:      error detail string (omitted when empty)
+//   - Error:      structured error detail object (omitted when nil)
 //   - RequestID:  unique ID per request for debugging/tracing
 //   - Timestamp:  UTC time the response was generated
 type Response struct {
 	Status    string `json:"status"`
 	Message   string `json:"message,omitempty"`
 	Data      any    `json:"data,omitempty"`
-	Error     string `json:"error,omitempty"`
+	Error     any    `json:"error,omitempty"`
 	RequestID string `json:"request_id"`
 	Timestamp string `json:"timestamp"`
 }
@@ -79,6 +80,12 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/fs/rename", s.handleFSRename)
 	mux.HandleFunc("/fs/search", s.handleFSSearch)
 
+	// AI
+	mux.HandleFunc("/ai/runtime", s.handleAIRuntime)
+	mux.HandleFunc("/ai/models", s.handleAIModels)
+	mux.HandleFunc("/ai/models/pull/stream", s.handleAIModelPullStream)
+	mux.HandleFunc("/ai/chat/stream", s.handleAIChatStream)
+
 	// terminal WebSocket endpoint
 	// each connection spawns a real shell attached to a PTY
 	mux.HandleFunc("/terminal", terminal.Handler)
@@ -115,6 +122,109 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		Status:  "ok",
 		Message: "axon-core running",
 	})
+}
+
+func (s *Server) handleAIChatStream(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeAIJSON(w, http.StatusMethodNotAllowed, aiErrorEnvelope("", http.StatusMethodNotAllowed, ai.ErrorDetail{
+			Field:   "method",
+			Code:    "METHOD_NOT_ALLOWED",
+			Message: "method not allowed",
+		}))
+		return
+	}
+
+	var request ai.ChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAIJSON(w, http.StatusBadRequest, aiErrorEnvelope("", http.StatusBadRequest, ai.ErrorDetail{
+			Field:   "body",
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "invalid request body",
+		}))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	requestID := newStreamRequestID()
+
+	// AI streaming is intentionally line-delimited JSON instead of the normal
+	// single response write. Each line still uses Axon's normal response
+	// envelope so streaming stays compatible with the same client-side response
+	// contract as every other core endpoint while tokens move immediately.
+	if err := ai.StreamChat(r.Context(), request, func(event ai.StreamEvent) error {
+		return writeStreamEnvelope(w, requestID, http.StatusOK, "AI stream event.", event)
+	}); err != nil {
+		_ = writeStreamErrorEnvelope(w, requestID, http.StatusUnprocessableEntity, ai.PublicError(err))
+	}
+}
+
+func (s *Server) handleAIRuntime(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeAIJSON(w, http.StatusMethodNotAllowed, aiErrorEnvelope("", http.StatusMethodNotAllowed, ai.ErrorDetail{
+			Field:   "method",
+			Code:    "METHOD_NOT_ALLOWED",
+			Message: "method not allowed",
+		}))
+		return
+	}
+
+	status := ai.EnsureRuntimeStatus(r.Context(), r.URL.Query().Get("model"))
+	writeAIJSON(w, http.StatusOK, aiSuccessEnvelope("", http.StatusOK, status.Detail, status))
+}
+
+func (s *Server) handleAIModels(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeAIJSON(w, http.StatusMethodNotAllowed, aiErrorEnvelope("", http.StatusMethodNotAllowed, ai.ErrorDetail{
+			Field:   "method",
+			Code:    "METHOD_NOT_ALLOWED",
+			Message: "method not allowed",
+		}))
+		return
+	}
+
+	models, err := ai.ListModels(r.Context(), r.URL.Query().Get("model"))
+	if err != nil {
+		writeAIJSON(w, http.StatusInternalServerError, aiErrorEnvelope("", http.StatusInternalServerError, ai.PublicError(err)))
+		return
+	}
+
+	writeAIJSON(w, http.StatusOK, aiSuccessEnvelope("", http.StatusOK, "Loaded Axon models.", models))
+}
+
+func (s *Server) handleAIModelPullStream(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeAIJSON(w, http.StatusMethodNotAllowed, aiErrorEnvelope("", http.StatusMethodNotAllowed, ai.ErrorDetail{
+			Field:   "method",
+			Code:    "METHOD_NOT_ALLOWED",
+			Message: "method not allowed",
+		}))
+		return
+	}
+
+	var request ai.PullRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAIJSON(w, http.StatusBadRequest, aiErrorEnvelope("", http.StatusBadRequest, ai.ErrorDetail{
+			Field:   "body",
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "invalid request body",
+		}))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	requestID := newStreamRequestID()
+
+	if err := ai.PullModel(r.Context(), request.Model, func(event ai.PullEvent) error {
+		return writeStreamEnvelope(w, requestID, http.StatusOK, "Model download progress.", event)
+	}); err != nil {
+		_ = writeStreamErrorEnvelope(w, requestID, http.StatusUnprocessableEntity, ai.PublicError(err))
+	}
 }
 
 // handleFSTree handles GET /fs/tree?path=<absolute_path>

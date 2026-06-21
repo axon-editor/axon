@@ -77,6 +77,16 @@ import type {
   UpdateInstallState,
 } from "../../shared/updates";
 import type { AppInfo } from "../shared/components/AboutModal";
+import type {
+  AiChatRequest,
+  AiChatResult,
+  AiChatStreamEvent,
+  AiChatStreamStarted,
+  AiModelInfo,
+  AiPullEvent,
+  AiPullStarted,
+  AiRuntimeStatus,
+} from "../../shared/ai";
 
 declare global {
   interface Window {
@@ -104,6 +114,17 @@ declare global {
       getProjectDiagnostics: (
         folderPath: string,
       ) => Promise<EditorDiagnostic[]>;
+      listAiModels: (folderPath?: string | null) => Promise<AiModelInfo[]>;
+      getAiRuntimeStatus: (
+        folderPath?: string | null,
+      ) => Promise<AiRuntimeStatus>;
+      runAiChat: (request: AiChatRequest) => Promise<AiChatResult>;
+      runAiChatStream: (
+        request: AiChatRequest,
+      ) => Promise<AiChatStreamStarted>;
+      cancelAiChatStream: (requestId: string) => Promise<boolean>;
+      pullAiModel: (model: string) => Promise<AiPullStarted>;
+      cancelAiModelPull: (requestId: string) => Promise<boolean>;
       getLanguageServerStatus: (
         folderPath: string,
       ) => Promise<LanguageServerStatus[]>;
@@ -268,6 +289,10 @@ declare global {
       ) => () => void;
       onFolderChanged: (callback: () => void) => () => void;
       onGitChanged: (callback: () => void) => () => void;
+      onAiChatStreamEvent: (
+        callback: (event: AiChatStreamEvent) => void,
+      ) => () => void;
+      onAiPullEvent: (callback: (event: AiPullEvent) => void) => () => void;
       onTaskOutput: (callback: (event: TaskOutputEvent) => void) => () => void;
       onTaskFinished: (
         callback: (event: TaskFinishedEvent) => void,

@@ -281,7 +281,7 @@ export default function TabBar({
 
   if (openTabs.length === 0) {
     return (
-      <div className="h-9 bg-[#0a0c12] border-b border-[#222838] flex items-center px-3">
+      <div className="flex h-9 items-center border-b border-[#1d2432] bg-[#090b10] px-3">
         <span className="text-[11px] text-[#364050]">no file open</span>
       </div>
     );
@@ -292,7 +292,7 @@ export default function TabBar({
       items={openTabs.map((path) => getTabDragId(paneId, path))}
       strategy={horizontalListSortingStrategy}
     >
-      <div className="h-9 bg-[#0a0c12] border-b border-[#222838] flex items-end overflow-x-auto px-1 gap-0.5 scrollbar-none">
+      <div className="flex h-9 items-stretch overflow-x-auto border-b border-[#1d2432] bg-[#090b10] scrollbar-none">
         {openTabs.map((path) => (
           <SortableTab
             key={path}

@@ -32,6 +32,13 @@ export const AXON_COMMANDS = {
   OPEN_UPDATE_NOTES: "open-update-notes",
   TOGGLE_ZEN_MODE: "toggle-zen-mode",
   NEW_TERMINAL: "new-terminal",
+  ASK_AXON: "ask-axon",
+  AI_EXPLAIN_SELECTION: "ai-explain-selection",
+  AI_FIX_PROBLEM: "ai-fix-problem",
+  AI_REFACTOR_SELECTION: "ai-refactor-selection",
+  AI_GENERATE_TESTS: "ai-generate-tests",
+  AI_REVIEW_GIT_DIFF: "ai-review-git-diff",
+  AI_DRAFT_COMMIT_MESSAGE: "ai-draft-commit-message",
 } as const;
 
 export type BuiltInAxonCommand =

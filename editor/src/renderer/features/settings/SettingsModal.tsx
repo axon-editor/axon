@@ -1519,12 +1519,12 @@ export default function SettingsModal({
 
             {activeSection === "ai" && (
               <SettingsSection
-                title="AI"
-                description="These defaults are not the full AI feature yet, but keeping them editable now means the provider layer can reuse the same settings contract later."
+                title="Axon Agent"
+                description="Local Axon models power project-aware chat, explanations, fixes, tests, diff review, and commit drafting without exposing third-party providers in the UI."
               >
                 <SettingsField
                   label="Assistant"
-                  description="Controls whether AI features should be available once wired."
+                  description="Controls whether Axon Agent commands and the side panel are available."
                 >
                   <SettingsToggle
                     checked={draft.ai.enabled}
@@ -1533,42 +1533,30 @@ export default function SettingsModal({
                   />
                 </SettingsField>
 
-                <SettingsField label="Provider" description="Default AI provider.">
+                <SettingsField label="Provider" description="Local model runtime used by Axon Agent.">
                   <SearchSelect
                     value={draft.ai.provider}
                     items={AI_PROVIDER_ITEMS}
                     onChange={(provider) => updateAi("provider", provider)}
-                    ariaLabel="AI provider"
+                    ariaLabel="Axon model provider"
                     placeholder="Search providers..."
                   />
                 </SettingsField>
 
                 <SettingsField
                   label="Model"
-                  description="Stored as text so newer models can be used without a UI release."
+                  description="Axon model name. Advanced users can point this at another local model without changing the provider UI."
                 >
                   <SettingsTextInput
                     value={draft.ai.model}
                     onChange={(value) => updateAi("model", value)}
-                    placeholder="gpt-5.1"
-                  />
-                </SettingsField>
-
-                <SettingsField
-                  label="API key env"
-                  description="Environment variable read by the future provider service."
-                >
-                  <SettingsTextInput
-                    value={draft.ai.apiKeyEnv}
-                    onChange={(value) => updateAi("apiKeyEnv", value)}
-                    placeholder="OPENAI_API_KEY"
-                    monospace
+                    placeholder="axon-code"
                   />
                 </SettingsField>
 
                 <SettingsField
                   label="Workspace context"
-                  description="Allows future AI actions to include project files and search context."
+                  description="Allows Axon Agent actions to include active files, diagnostics, Git changes, and selected project context."
                 >
                   <SettingsToggle
                     checked={draft.ai.includeWorkspaceContext}

@@ -117,6 +117,7 @@ export default function SingleEditor({
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
   const [findMatchCount, setFindMatchCount] = useState(0);
+  const [bufferSymbolsOpen, setBufferSymbolsOpen] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -216,6 +217,31 @@ export default function SingleEditor({
     findDecorationsRef.current?.clear();
     editorRef.current?.focus();
   }, []);
+
+  const jumpToBreadcrumbSymbol = useCallback((line: number, column: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    // Breadcrumb symbols are navigation, not just labels. I reveal the target
+    // in the mounted Monaco model and focus the editor so clicking a function,
+    // method, interface, or const behaves like Zed's buffer outline instead of
+    // leaving focus trapped in the breadcrumb popover.
+    const position = {
+      lineNumber: Math.max(1, line),
+      column: Math.max(1, column),
+    };
+    editor.setPosition(position);
+    editor.revealPositionInCenter(position, monaco.editor.ScrollType.Smooth);
+    editor.focus();
+  }, []);
+
+  const jumpToBufferSymbol = useCallback(
+    (symbol: { line: number; column: number }) => {
+      setBufferSymbolsOpen(false);
+      jumpToBreadcrumbSymbol(symbol.line, symbol.column);
+    },
+    [jumpToBreadcrumbSymbol],
+  );
 
   const moveFindSelection = useCallback(
     (direction: 1 | -1) => {

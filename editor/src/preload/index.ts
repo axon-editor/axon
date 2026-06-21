@@ -6,6 +6,16 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { type AxonSettings, type CustomFont } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
+import {
+  type AiChatRequest,
+  type AiChatResult,
+  type AiChatStreamEvent,
+  type AiChatStreamStarted,
+  type AiModelInfo,
+  type AiPullEvent,
+  type AiPullStarted,
+  type AiRuntimeStatus,
+} from "../shared/ai";
 import { type EditorDiagnostic } from "../shared/diagnostics";
 import {
   type GitActionResult,
@@ -104,6 +114,23 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>
     ipcRenderer.invoke("diagnostics:project", folderPath),
+  listAiModels: (folderPath?: string | null): Promise<AiModelInfo[]> =>
+    ipcRenderer.invoke("ai:listModels", folderPath),
+  getAiRuntimeStatus: (
+    folderPath?: string | null,
+  ): Promise<AiRuntimeStatus> =>
+    ipcRenderer.invoke("ai:getRuntimeStatus", folderPath),
+  runAiChat: (request: AiChatRequest): Promise<AiChatResult> =>
+    ipcRenderer.invoke("ai:chat", request),
+  runAiChatStream: (
+    request: AiChatRequest,
+  ): Promise<AiChatStreamStarted> => ipcRenderer.invoke("ai:chatStream", request),
+  cancelAiChatStream: (requestId: string): Promise<boolean> =>
+    ipcRenderer.invoke("ai:cancelChatStream", requestId),
+  pullAiModel: (model: string): Promise<AiPullStarted> =>
+    ipcRenderer.invoke("ai:pullModel", model),
+  cancelAiModelPull: (requestId: string): Promise<boolean> =>
+    ipcRenderer.invoke("ai:cancelPullModel", requestId),
   getLanguageServerStatus: (
     folderPath: string,
   ): Promise<LanguageServerStatus[]> =>
@@ -364,6 +391,16 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = () => callback();
     ipcRenderer.on("git:changed", handler);
     return () => ipcRenderer.removeListener("git:changed", handler);
+  },
+  onAiChatStreamEvent: (callback: (event: AiChatStreamEvent) => void) => {
+    const handler = (_: unknown, event: AiChatStreamEvent) => callback(event);
+    ipcRenderer.on("ai:chatStreamEvent", handler);
+    return () => ipcRenderer.removeListener("ai:chatStreamEvent", handler);
+  },
+  onAiPullEvent: (callback: (event: AiPullEvent) => void) => {
+    const handler = (_: unknown, event: AiPullEvent) => callback(event);
+    ipcRenderer.on("ai:pullEvent", handler);
+    return () => ipcRenderer.removeListener("ai:pullEvent", handler);
   },
   onTaskOutput: (callback: (event: TaskOutputEvent) => void) => {
     const handler = (_: unknown, event: TaskOutputEvent) => callback(event);

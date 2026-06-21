@@ -1,7 +1,8 @@
 // Shared tab shell for editor panes and terminal tabs.
-// Keeping this shape in one component prevents the two tab surfaces from
-// drifting apart as the editor grows: close affordance, rounded active state,
-// hover treatment, dirty indicator, and text truncation all stay consistent.
+// Axon tabs should feel like editor navigation, not browser chrome: compact,
+// predictable, and stable while users move quickly between files. Keeping the
+// shape here prevents close buttons, dirty markers, pinned state, and deleted
+// state from drifting across every tab surface as the editor grows.
 import {
   forwardRef,
   type HTMLAttributes,
@@ -46,43 +47,48 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
     event.stopPropagation();
   };
 
+  const stateClass = deleted
+    ? active
+      ? "border-[#3b1f2a] bg-[#1a1016] text-[#ff9aa2] before:bg-[#ff7b72]"
+      : "border-transparent bg-transparent text-[#d36b72] hover:bg-[#171017] hover:text-[#ff9aa2] before:bg-transparent"
+    : active
+      ? "border-[#242b3a] bg-[#111720] text-[#e4ebf6] before:bg-[#80c8e0]"
+      : "border-transparent bg-transparent text-[#7c8799] hover:bg-[#10151e] hover:text-[#d7dfec] before:bg-transparent";
+
   return (
     <div
       ref={ref}
       {...props}
-      className={`group relative flex h-8 w-fit min-w-[72px] max-w-[190px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded-t-md border border-b-0 px-2.5 text-[11px] transition-colors ${
-        active
-          ? deleted
-            ? "border-[#4b1f28] bg-[#211018] text-[#ff9aa2] shadow-[inset_0_1px_0_rgba(255,123,114,0.2)] after:absolute after:bottom-0 after:left-2 after:right-2 after:h-px after:bg-[#ff7b72]"
-            : "border-[#2a3346] bg-[#151923] text-[#dce4f0] shadow-[inset_0_1px_0_rgba(128,200,224,0.22)] after:absolute after:bottom-0 after:left-2 after:right-2 after:h-px after:bg-[#80c8e0]"
-          : deleted
-            ? "border-transparent bg-transparent text-[#d36b72] hover:border-[#3a1d27] hover:bg-[#1a1015] hover:text-[#ff9aa2]"
-            : "border-transparent bg-transparent text-[#7b8496] hover:border-[#1e2635] hover:bg-[#111722] hover:text-neutral-100"
-      } ${className}`}
+      className={`group relative flex h-9 w-fit min-w-[86px] max-w-[210px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden border-r px-2.5 text-[12px] transition-colors before:absolute before:bottom-0 before:left-0 before:right-0 before:h-0.5 ${stateClass} ${className}`}
     >
+      {pinned ? (
+        <Pin size={12} className="shrink-0 text-[#80c8e0]" />
+      ) : null}
+
       {tooltipLabel ? (
         <Tooltip
           label={tooltipLabel}
           side="bottom"
           delayMs={tooltipDelayMs}
-          triggerClassName="min-w-0 flex-auto pr-1"
+          triggerClassName="min-w-0 flex-auto"
         >
           <span className={`block truncate ${deleted ? "line-through" : ""}`}>
             {label}
           </span>
         </Tooltip>
       ) : (
-        <span className={`min-w-0 flex-auto truncate pr-1 ${deleted ? "line-through" : ""}`}>
+        <span className={`min-w-0 flex-auto truncate ${deleted ? "line-through" : ""}`}>
           {label}
         </span>
       )}
 
       {dirty ? (
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#80c8e0] group-hover:hidden" />
-      ) : null}
-
-      {pinned ? (
-        <Pin size={10} className="shrink-0 text-[#80c8e0]" />
+        <span
+          aria-label="Unsaved changes"
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+            deleted ? "bg-[#ff7b72]" : "bg-[#80c8e0]"
+          }`}
+        />
       ) : null}
 
       {onClose ? (
@@ -92,9 +98,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
             aria-label={closeLabel}
             onPointerDown={handleClosePointerDown}
             onClick={onClose}
-            className={`ml-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded bg-[#202838] text-[#7b8496] transition hover:bg-[#2a3346] hover:text-white ${
-              dirty ? "hidden group-hover:flex" : "opacity-0 group-hover:opacity-100"
-            }`}
+            className="ml-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[#687386] opacity-0 transition hover:bg-[#202838] hover:text-white group-hover:opacity-100 focus:opacity-100"
           >
             <X size={11} />
           </button>

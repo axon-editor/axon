@@ -41,6 +41,7 @@ import { UpdateManager } from "./updates/updater";
 import { createMainProcessIpc } from "./core/ipc";
 import { createBundledCoreController } from "./core/process";
 import { registerSpotifyHandlers } from "./spotify/handlers";
+import { registerAiHandlers } from "./ai/handlers";
 import { setClientId } from "./spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "./generated/buildConfig";
 import {
@@ -146,6 +147,7 @@ registerAppHandlers({
 registerDiagnosticsHandlers();
 registerExtensionHandlers();
 registerGitHandlers();
+registerAiHandlers({ axonCorePort });
 registerLspHandlers();
 registerSettingsHandlers({
   getActiveLanguageServers: () => getActiveLanguageServerSessions(),
