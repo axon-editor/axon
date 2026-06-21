@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   Check,
   ChevronDown,
@@ -9,7 +7,6 @@ import {
   FilePenLine,
   LoaderCircle,
   Send,
-  Sparkles,
   Square,
   StopCircle,
   X,
@@ -31,6 +28,15 @@ import {
   agentQuickActions,
   defaultPromptForAction,
 } from "./agentActions";
+import AssistantMarkdown from "./AssistantMarkdown";
+import StreamingIndicator from "./StreamingIndicator";
+import {
+  type AgentMessage,
+  conversationContext,
+  isGreetingPrompt,
+  loadAgentConversation,
+  saveAgentConversation,
+} from "./agentConversation";
 
 interface Props {
   activeFileContent: string;
@@ -42,14 +48,6 @@ interface Props {
   initialAction: { action: AiActionId; nonce: number } | null;
   onApplyEdit: (path: string, content: string) => Promise<void>;
   onClose: () => void;
-}
-
-interface AgentMessage {
-  id: number;
-  role: "user" | "assistant" | "system";
-  content: string;
-  action?: AiActionId;
-  result?: AiChatResult;
 }
 
 function actionCanApplyEdits(action?: AiActionId) {
@@ -132,70 +130,6 @@ function chooseModel(models: AiModelInfo[], requestedModel: string) {
   return models[0]?.id ?? requestedModel;
 }
 
-function AssistantMarkdown({ content }: { content: string }) {
-  return (
-    <div className="text-[12px] leading-5 text-[#d3dbea]">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-          ul: ({ children }) => (
-            <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0">
-              {children}
-            </ul>
-          ),
-          ol: ({ children }) => (
-            <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0">
-              {children}
-            </ol>
-          ),
-          li: ({ children }) => <li className="pl-1">{children}</li>,
-          h1: ({ children }) => (
-            <h1 className="mb-2 text-[16px] font-semibold text-[#edf3ff]">
-              {children}
-            </h1>
-          ),
-          h2: ({ children }) => (
-            <h2 className="mb-2 text-[14px] font-semibold text-[#edf3ff]">
-              {children}
-            </h2>
-          ),
-          h3: ({ children }) => (
-            <h3 className="mb-2 text-[13px] font-semibold text-[#edf3ff]">
-              {children}
-            </h3>
-          ),
-          code: ({ children }) => (
-            <code className="rounded bg-[#101722] px-1 py-0.5 text-[11px] text-[#bfe9ff]">
-              {children}
-            </code>
-          ),
-          pre: ({ children }) => (
-            <pre className="mb-3 max-w-full overflow-x-auto rounded-md border border-[#243047] bg-[#090d13] p-3 text-[11px] leading-5 text-[#dce4f0] last:mb-0">
-              {children}
-            </pre>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className="mb-3 border-l-2 border-[#37516a] pl-3 text-[#aeb8ca] last:mb-0">
-              {children}
-            </blockquote>
-          ),
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              className="text-[#80c8e0] underline decoration-[#31566a] underline-offset-2"
-            >
-              {children}
-            </a>
-          ),
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  );
-}
-
 async function collectGitDiffForAgent(folderPath: string, changes: GitChange[]) {
   const chunks: string[] = [];
   for (const change of changes.slice(0, 12)) {
@@ -222,7 +156,9 @@ async function collectGitDiffForAgent(folderPath: string, changes: GitChange[]) 
 }
 
 export default function AxonAgentSidebar(props: Props) {
-  const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [messages, setMessages] = useState<AgentMessage[]>(() =>
+    loadAgentConversation(props.folderPath),
+  );
   const [prompt, setPrompt] = useState("");
   const [action, setAction] = useState<AiActionId>("ask");
   const [busy, setBusy] = useState(false);
@@ -245,6 +181,14 @@ export default function AxonAgentSidebar(props: Props) {
     null,
   );
   const contextSummary = useMemo(() => summarizeContext(props), [props]);
+
+  useEffect(() => {
+    setMessages(loadAgentConversation(props.folderPath));
+  }, [props.folderPath]);
+
+  useEffect(() => {
+    saveAgentConversation(props.folderPath, messages);
+  }, [messages, props.folderPath]);
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({
@@ -422,6 +366,20 @@ export default function AxonAgentSidebar(props: Props) {
     setPrompt("");
     setBusy(true);
 
+    if (messages.length === 0 && nextAction === "ask" && isGreetingPrompt(finalPrompt)) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: "What are we working on in Axon today?",
+          action: nextAction,
+        },
+      ]);
+      setBusy(false);
+      return;
+    }
+
     const gitDiff =
       props.folderPath &&
       (nextAction === "review-git-diff" ||
@@ -448,6 +406,7 @@ export default function AxonAgentSidebar(props: Props) {
       files: buildContextFile(props),
       diagnostics: props.diagnostics,
       gitChanges: props.gitChanges,
+      conversation: conversationContext(messages),
       gitDiff,
       model: selectedModel,
     });
@@ -580,9 +539,6 @@ export default function AxonAgentSidebar(props: Props) {
         style={{ borderColor: "var(--axon-panel-border)" }}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#263047] bg-[#101827] text-[#80c8e0] shadow-sm shadow-black/30">
-            <Sparkles size={17} />
-          </div>
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold text-[#edf3ff]">
               Ask Axon
@@ -736,8 +692,7 @@ export default function AxonAgentSidebar(props: Props) {
         ) : null}
         {messages.length === 0 && canChat ? (
           <div className="rounded-md border border-[#243047] bg-[#0d121b] p-4 shadow-sm shadow-black/20">
-            <div className="flex items-center gap-2 text-[13px] font-semibold text-[#edf3ff]">
-              <Sparkles size={15} className="text-[#80c8e0]" />
+            <div className="text-[13px] font-semibold text-[#edf3ff]">
               Ready for project-aware help
             </div>
             <div className="mt-2 text-[12px] leading-5 text-[#8d98aa]">
@@ -816,10 +771,7 @@ export default function AxonAgentSidebar(props: Props) {
               ) : message.content ? (
                 <AssistantMarkdown content={message.content} />
               ) : (
-                <div className="flex items-center gap-2 text-[12px] text-[#8d98aa]">
-                  <LoaderCircle size={13} className="animate-spin text-[#80c8e0]" />
-                  Axon is writing...
-                </div>
+                <StreamingIndicator />
               )}
               {message.result?.editProposal ? (
                 <div className="mt-3 rounded border border-[#263047] bg-[#0b0f17]">

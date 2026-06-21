@@ -20,6 +20,11 @@ export interface AiContextFile {
   active: boolean;
 }
 
+export interface AiConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface AiEditFileProposal {
   path: string;
   newContent: string;
@@ -39,6 +44,7 @@ export interface AiChatRequest {
   files: AiContextFile[];
   diagnostics: EditorDiagnostic[];
   gitChanges: GitChange[];
+  conversation: AiConversationMessage[];
   gitDiff?: string;
   model?: string;
 }

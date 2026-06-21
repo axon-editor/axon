@@ -43,16 +43,22 @@ type ContextFile struct {
 	Active     bool   `json:"active"`
 }
 
+type ConversationMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 type ChatRequest struct {
-	Action         string        `json:"action"`
-	Prompt         string        `json:"prompt"`
-	FolderPath     *string       `json:"folderPath"`
-	ActiveFilePath *string       `json:"activeFilePath"`
-	Files          []ContextFile `json:"files"`
-	Diagnostics    []Diagnostic  `json:"diagnostics"`
-	GitChanges     []GitChange   `json:"gitChanges"`
-	GitDiff        string        `json:"gitDiff"`
-	Model          string        `json:"model"`
+	Action         string                `json:"action"`
+	Prompt         string                `json:"prompt"`
+	FolderPath     *string               `json:"folderPath"`
+	ActiveFilePath *string               `json:"activeFilePath"`
+	Files          []ContextFile         `json:"files"`
+	Diagnostics    []Diagnostic          `json:"diagnostics"`
+	GitChanges     []GitChange           `json:"gitChanges"`
+	Conversation   []ConversationMessage `json:"conversation"`
+	GitDiff        string                `json:"gitDiff"`
+	Model          string                `json:"model"`
 }
 
 type StreamEvent struct {
@@ -451,6 +457,21 @@ func buildContext(request ChatRequest) string {
 
 	if strings.TrimSpace(request.GitDiff) != "" {
 		parts = append(parts, "Git diff:\n"+trimForPrompt(request.GitDiff, 16000))
+	}
+
+	if len(request.Conversation) > 0 {
+		lines := []string{"Recent conversation:"}
+		for index, message := range request.Conversation {
+			if index >= 12 {
+				break
+			}
+			role := strings.TrimSpace(message.Role)
+			if role == "" {
+				role = "message"
+			}
+			lines = append(lines, fmt.Sprintf("- %s: %s", role, trimForPrompt(message.Content, 1200)))
+		}
+		parts = append(parts, strings.Join(lines, "\n"))
 	}
 
 	for index, file := range request.Files {
