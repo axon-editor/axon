@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.2.2
+
+- Added project-aware Axon Agent tools in `axon-core` for listing workspace
+  files, reading project files, and searching project text.
+- Routed Ask Axon through a backend tool-aware local model flow so project
+  questions can be answered from filesystem tool results instead of a large
+  renderer-built prompt.
+- Added a fallback project probe for smaller local models that try to answer
+  project questions without calling tools.
+- Removed renderer-side project context preloading so the chat UI starts
+  streaming without waiting on a large workspace context pack.
+- Started the local Axon models runtime during app startup when it is installed
+  but not already running.
+- Improved packaged macOS runtime discovery by checking common Ollama install
+  paths outside the GUI app `PATH`.
+- Added workspace-scoped Ask Axon conversation sessions with switching, new
+  conversations, and confirmed per-conversation clearing.
+- Split Ask Axon conversation picker, message list, and clear-confirmation UI
+  into focused components to keep sidebar files maintainable.
+
 ## v1.2.1
 
 - Added fuller local Git workflows: branch creation/checkout, stash create/apply
