@@ -25,6 +25,24 @@ export interface AiConversationMessage {
   content: string;
 }
 
+export interface AiProjectContextFile {
+  path: string;
+  content: string;
+  languageId: string;
+  size: number;
+  truncated: boolean;
+}
+
+export interface AiProjectContext {
+  root: string;
+  tree: string[];
+  files: AiProjectContextFile[];
+  totalFiles: number;
+  includedFiles: number;
+  skippedFiles: number;
+  truncated: boolean;
+}
+
 export interface AiEditFileProposal {
   path: string;
   newContent: string;
@@ -45,6 +63,7 @@ export interface AiChatRequest {
   diagnostics: EditorDiagnostic[];
   gitChanges: GitChange[];
   conversation: AiConversationMessage[];
+  projectContext?: AiProjectContext;
   gitDiff?: string;
   model?: string;
 }

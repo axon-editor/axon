@@ -42,6 +42,7 @@ import { createMainProcessIpc } from "./core/ipc";
 import { createBundledCoreController } from "./core/process";
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { registerAiHandlers } from "./ai/handlers";
+import { warmUpAiRuntime } from "./ai/runtimeWarmup";
 import { setClientId } from "./spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "./generated/buildConfig";
 import {
@@ -316,6 +317,7 @@ app.whenReady().then(async () => {
   await bundledCore.startBundledAxonCore();
   bundledCore.startBundledCoreWatchdog();
   createManagedWindow({ restoreSession: true });
+  void warmUpAiRuntime({ axonCorePort });
 
   // Prefer Axon's bundled Spotify app client_id. It is public PKCE metadata,
   // not a client secret, and lets users connect without creating their own

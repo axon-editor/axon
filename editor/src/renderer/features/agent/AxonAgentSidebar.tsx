@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Check,
   ChevronDown,
-  Copy,
   Download,
-  FilePenLine,
   LoaderCircle,
+  MessageSquarePlus,
   Send,
   Square,
   StopCircle,
@@ -28,14 +26,19 @@ import {
   agentQuickActions,
   defaultPromptForAction,
 } from "./agentActions";
-import AssistantMarkdown from "./AssistantMarkdown";
-import StreamingIndicator from "./StreamingIndicator";
+import AgentConversationPicker from "./AgentConversationPicker";
+import AgentMessageList from "./AgentMessageList";
+import ClearConversationConfirmModal from "./ClearConversationConfirmModal";
 import {
   type AgentMessage,
+  activeAgentConversation,
+  clearAgentConversation,
   conversationContext,
   isGreetingPrompt,
-  loadAgentConversation,
-  saveAgentConversation,
+  loadAgentConversationState,
+  saveActiveAgentConversation,
+  selectAgentConversation,
+  startAgentConversation,
 } from "./agentConversation";
 
 interface Props {
@@ -156,8 +159,11 @@ async function collectGitDiffForAgent(folderPath: string, changes: GitChange[]) 
 }
 
 export default function AxonAgentSidebar(props: Props) {
+  const [conversationState, setConversationState] = useState(() =>
+    loadAgentConversationState(props.folderPath),
+  );
   const [messages, setMessages] = useState<AgentMessage[]>(() =>
-    loadAgentConversation(props.folderPath),
+    activeAgentConversation(loadAgentConversationState(props.folderPath)).messages,
   );
   const [prompt, setPrompt] = useState("");
   const [action, setAction] = useState<AiActionId>("ask");
@@ -174,6 +180,10 @@ export default function AxonAgentSidebar(props: Props) {
   const [pullEvent, setPullEvent] = useState<AiPullEvent | null>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [actionPickerOpen, setActionPickerOpen] = useState(false);
+  const [conversationPickerOpen, setConversationPickerOpen] = useState(false);
+  const [clearConversationId, setClearConversationId] = useState<string | null>(
+    null,
+  );
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const pullRef = useRef<{ requestId: string; model: string } | null>(null);
@@ -181,13 +191,18 @@ export default function AxonAgentSidebar(props: Props) {
     null,
   );
   const contextSummary = useMemo(() => summarizeContext(props), [props]);
+  const activeConversation = activeAgentConversation(conversationState);
 
   useEffect(() => {
-    setMessages(loadAgentConversation(props.folderPath));
+    const nextState = loadAgentConversationState(props.folderPath);
+    setConversationState(nextState);
+    setMessages(activeAgentConversation(nextState).messages);
   }, [props.folderPath]);
 
   useEffect(() => {
-    saveAgentConversation(props.folderPath, messages);
+    setConversationState((current) =>
+      saveActiveAgentConversation(props.folderPath, current, messages),
+    );
   }, [messages, props.folderPath]);
 
   useEffect(() => {
@@ -380,13 +395,6 @@ export default function AxonAgentSidebar(props: Props) {
       return;
     }
 
-    const gitDiff =
-      props.folderPath &&
-      (nextAction === "review-git-diff" ||
-        nextAction === "draft-commit-message")
-        ? await collectGitDiffForAgent(props.folderPath, props.gitChanges)
-        : undefined;
-
     const assistantMessageId = Date.now() + 1;
     setMessages((current) => [
       ...current,
@@ -397,6 +405,13 @@ export default function AxonAgentSidebar(props: Props) {
         action: nextAction,
       },
     ]);
+
+    const gitDiff =
+      props.folderPath &&
+      (nextAction === "review-git-diff" ||
+        nextAction === "draft-commit-message")
+        ? await collectGitDiffForAgent(props.folderPath, props.gitChanges)
+        : undefined;
 
     const started = await window.axon.runAiChatStream({
       action: nextAction,
@@ -437,6 +452,61 @@ export default function AxonAgentSidebar(props: Props) {
     const stream = streamRef.current;
     if (!stream) return;
     await window.axon.cancelAiChatStream(stream.requestId);
+  };
+
+  const startNewConversation = async () => {
+    if (activeStreamId) {
+      await cancelActiveStream();
+    }
+    streamRef.current = null;
+    setActiveStreamId(null);
+    setBusy(false);
+    setConversationState((current) =>
+      startAgentConversation(props.folderPath, current),
+    );
+    setMessages([]);
+    setCopiedId(null);
+    setConversationPickerOpen(false);
+  };
+
+  const switchConversation = async (conversationId: string) => {
+    if (activeStreamId) {
+      await cancelActiveStream();
+    }
+    setConversationState((current) => {
+      const nextState = selectAgentConversation(
+        props.folderPath,
+        current,
+        conversationId,
+      );
+      setMessages(activeAgentConversation(nextState).messages);
+      return nextState;
+    });
+    streamRef.current = null;
+    setActiveStreamId(null);
+    setBusy(false);
+    setConversationPickerOpen(false);
+  };
+
+  const confirmClearConversation = async () => {
+    if (!clearConversationId) return;
+    if (activeStreamId) {
+      await cancelActiveStream();
+    }
+    setConversationState((current) => {
+      const nextState = clearAgentConversation(
+        props.folderPath,
+        current,
+        clearConversationId,
+      );
+      setMessages(activeAgentConversation(nextState).messages);
+      return nextState;
+    });
+    streamRef.current = null;
+    setActiveStreamId(null);
+    setBusy(false);
+    setClearConversationId(null);
+    setConversationPickerOpen(false);
   };
 
   useEffect(() => {
@@ -549,6 +619,24 @@ export default function AxonAgentSidebar(props: Props) {
           </div>
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
+          <AgentConversationPicker
+            activeTitle={activeConversation.title}
+            conversationState={conversationState}
+            open={conversationPickerOpen}
+            onOpenChange={setConversationPickerOpen}
+            onRequestClear={setClearConversationId}
+            onSelect={(conversationId) => void switchConversation(conversationId)}
+          />
+          <Tooltip label="Start new Ask Axon conversation" side="left">
+            <button
+              type="button"
+              onClick={() => void startNewConversation()}
+              aria-label="Start new Ask Axon conversation"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+            >
+              <MessageSquarePlus size={14} />
+            </button>
+          </Tooltip>
           <Tooltip label="Close Ask Axon" side="left">
             <button
               type="button"
@@ -727,82 +815,24 @@ export default function AxonAgentSidebar(props: Props) {
             </div>
           </div>
         ) : null}
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`mb-5 flex ${
-              message.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            <div
-              className={
-                message.role === "user"
-                  ? "max-w-[82%]"
-                  : "w-full max-w-full"
-              }
-            >
-              <div
-                className={`mb-1 flex items-center gap-2 ${
-                  message.role === "user" ? "justify-end" : "justify-between"
-                }`}
-              >
-                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#647086]">
-                  {message.role === "assistant" ? "Axon" : "You"}
-                </span>
-                {message.role === "assistant" ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void window.axon.copyText(message.content);
-                      setCopiedId(message.id);
-                      window.setTimeout(() => setCopiedId(null), 1200);
-                    }}
-                    className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#647086] hover:bg-[#202838] hover:text-white"
-                    aria-label="Copy response"
-                  >
-                    {copiedId === message.id ? <Check size={12} /> : <Copy size={12} />}
-                  </button>
-                ) : null}
-              </div>
-              {message.role === "user" ? (
-                <div className="whitespace-pre-wrap rounded-md bg-[#14212d] px-3 py-2 text-[12px] leading-5 text-[#edf3ff]">
-                  {message.content}
-                </div>
-              ) : message.content ? (
-                <AssistantMarkdown content={message.content} />
-              ) : (
-                <StreamingIndicator />
-              )}
-              {message.result?.editProposal ? (
-                <div className="mt-3 rounded border border-[#263047] bg-[#0b0f17]">
-                  <div className="flex items-center gap-2 border-b border-[#1d2432] px-2 py-1.5 text-[11px] text-[#9aa4b8]">
-                    <FilePenLine size={12} className="text-[#80c8e0]" />
-                    {message.result.editProposal.title}
-                  </div>
-                  {message.result.editProposal.files.map((file) => (
-                    <div key={file.path} className="border-b border-[#151b27] p-2 last:border-b-0">
-                      <div className="truncate text-[11px] text-[#dce4f0]">
-                        {file.path}
-                      </div>
-                      <div className="mt-1 text-[11px] text-[#647086]">
-                        {file.summary}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void applyEdit(file)}
-                        className="mt-2 h-7 cursor-pointer rounded bg-[#16323c] px-2 text-[11px] text-[#dff7ff] hover:bg-[#1d4350]"
-                      >
-                        Apply file
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ))}
-        <div ref={scrollAnchorRef} />
+        <AgentMessageList
+          copiedId={copiedId}
+          messages={messages}
+          onApplyEdit={(file) => void applyEdit(file)}
+          onCopied={(messageId) => {
+            setCopiedId(messageId);
+            window.setTimeout(() => setCopiedId(null), 1200);
+          }}
+          scrollAnchorRef={scrollAnchorRef}
+        />
       </div>
+
+      {clearConversationId ? (
+        <ClearConversationConfirmModal
+          onCancel={() => setClearConversationId(null)}
+          onConfirm={() => void confirmClearConversation()}
+        />
+      ) : null}
 
       {canChat ? (
         <div className="shrink-0 border-t border-[#1d2432] bg-[#080c12] p-3">

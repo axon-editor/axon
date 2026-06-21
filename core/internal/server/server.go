@@ -83,6 +83,7 @@ func (s *Server) Router() http.Handler {
 	// AI
 	mux.HandleFunc("/ai/runtime", s.handleAIRuntime)
 	mux.HandleFunc("/ai/models", s.handleAIModels)
+	mux.HandleFunc("/ai/project-context", s.handleAIProjectContext)
 	mux.HandleFunc("/ai/models/pull/stream", s.handleAIModelPullStream)
 	mux.HandleFunc("/ai/chat/stream", s.handleAIChatStream)
 
@@ -192,6 +193,30 @@ func (s *Server) handleAIModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeAIJSON(w, http.StatusOK, aiSuccessEnvelope("", http.StatusOK, "Loaded Axon models.", models))
+}
+
+func (s *Server) handleAIProjectContext(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeAIJSON(w, http.StatusMethodNotAllowed, aiErrorEnvelope("", http.StatusMethodNotAllowed, ai.ErrorDetail{
+			Field:   "method",
+			Code:    "METHOD_NOT_ALLOWED",
+			Message: "method not allowed",
+		}))
+		return
+	}
+
+	contextPack, err := ai.BuildProjectContext(r.Context(), r.URL.Query().Get("root"))
+	if err != nil {
+		detail := ai.PublicError(err)
+		status := http.StatusInternalServerError
+		if detail.Code == "WORKSPACE_REQUIRED" || detail.Code == "WORKSPACE_NOT_FOUND" || detail.Code == "WORKSPACE_NOT_DIRECTORY" {
+			status = http.StatusUnprocessableEntity
+		}
+		writeAIJSON(w, status, aiErrorEnvelope("", status, detail))
+		return
+	}
+
+	writeAIJSON(w, http.StatusOK, aiSuccessEnvelope("", http.StatusOK, "Loaded project context.", contextPack))
 }
 
 func (s *Server) handleAIModelPullStream(w http.ResponseWriter, r *http.Request) {

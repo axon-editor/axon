@@ -57,6 +57,7 @@ type ChatRequest struct {
 	Diagnostics    []Diagnostic          `json:"diagnostics"`
 	GitChanges     []GitChange           `json:"gitChanges"`
 	Conversation   []ConversationMessage `json:"conversation"`
+	ProjectContext *ProjectContext       `json:"projectContext"`
 	GitDiff        string                `json:"gitDiff"`
 	Model          string                `json:"model"`
 }
@@ -133,8 +134,18 @@ var modelCatalog = []catalogModel{
 }
 
 type modelMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role      string          `json:"role"`
+	Content   string          `json:"content"`
+	ToolCalls []modelToolCall `json:"tool_calls,omitempty"`
+}
+
+type modelToolCall struct {
+	Function modelToolFunction `json:"function"`
+}
+
+type modelToolFunction struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
 }
 
 type localModelListResponse struct {
@@ -145,11 +156,17 @@ type localModelListResponse struct {
 
 type modelStreamResponse struct {
 	Message *struct {
-		Content string `json:"content"`
+		Content   string          `json:"content"`
+		ToolCalls []modelToolCall `json:"tool_calls"`
 	} `json:"message"`
 	Response string `json:"response"`
 	Error    string `json:"error"`
 	Done     bool   `json:"done"`
+}
+
+type modelChatResponse struct {
+	Message modelMessage `json:"message"`
+	Error   string       `json:"error"`
 }
 
 func ModelBaseURL() string {
@@ -278,6 +295,8 @@ func BuildMessages(request ChatRequest) []modelMessage {
 				"You are project-aware, direct, and precise.",
 				"Do not claim to use cloud services.",
 				"Do not invent marketing copy, README content, support emails, docs links, files, or product claims.",
+				"Use the available project tools before answering when the user asks about files, project structure, symbols, implementation details, or text that may not be in the prompt.",
+				"Never guess which file contains a symbol or feature. Search or read the project first, then answer from the tool results.",
 				"For normal Ask/chat prompts, answer in plain text only. Do not propose file edits. Do not output JSON.",
 				editProposalInstruction(request.Action),
 			}, "\n"),
@@ -337,15 +356,93 @@ func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent)
 		}
 	}
 
-	payload := map[string]any{
-		"model":    ModelName(request),
-		"messages": BuildMessages(request),
-		"stream":   true,
-		"options": map[string]any{
-			"temperature": temperatureForAction(request.Action),
-		},
+	messages, err := buildToolAwareMessages(ctx, request)
+	if err != nil {
+		return err
+	}
+	return streamChatMessages(ctx, request, messages, emit)
+}
+
+func buildToolAwareMessages(ctx context.Context, request ChatRequest) ([]modelMessage, error) {
+	messages := BuildMessages(request)
+	if request.FolderPath == nil || strings.TrimSpace(*request.FolderPath) == "" {
+		return messages, nil
+	}
+
+	for round := 0; round < 4; round++ {
+		response, err := callChatOnce(ctx, request, messages, true)
+		if err != nil {
+			return nil, err
+		}
+		if len(response.Message.ToolCalls) == 0 {
+			if probe := AutomaticProjectProbe(ctx, request); probe != "" {
+				messages = append(messages, modelMessage{
+					Role:    "tool",
+					Content: probe,
+				})
+			}
+			return messages, nil
+		}
+		messages = append(messages, response.Message)
+		for _, toolCall := range response.Message.ToolCalls {
+			result := RunProjectTool(ctx, request, toolCall.Function.Name, toolCall.Function.Arguments)
+			messages = append(messages, modelMessage{
+				Role:    "tool",
+				Content: result,
+			})
+		}
+	}
+	messages = append(messages, modelMessage{
+		Role:    "tool",
+		Content: "Tool limit reached. Answer with the project information already gathered.",
+	})
+	return messages, nil
+}
+
+func callChatOnce(ctx context.Context, request ChatRequest, messages []modelMessage, withTools bool) (modelChatResponse, error) {
+	payload := chatPayload(request, messages, false)
+	if withTools {
+		payload["tools"] = ProjectToolDefinitions()
 	}
 	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		return modelChatResponse{}, err
+	}
+
+	httpRequest, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		ModelBaseURL()+"/api/chat",
+		bytes.NewReader(rawPayload),
+	)
+	if err != nil {
+		return modelChatResponse{}, err
+	}
+	httpRequest.Header.Set("Content-Type", "application/json")
+
+	response, err := http.DefaultClient.Do(httpRequest)
+	if err != nil {
+		return modelChatResponse{}, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		return modelChatResponse{}, fmt.Errorf("Axon models returned %d: %s", response.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var chatResponse modelChatResponse
+	if err := json.NewDecoder(response.Body).Decode(&chatResponse); err != nil {
+		return modelChatResponse{}, err
+	}
+	if chatResponse.Error != "" {
+		return modelChatResponse{}, errors.New(chatResponse.Error)
+	}
+	return chatResponse, nil
+}
+
+func streamChatMessages(ctx context.Context, request ChatRequest, messages []modelMessage, emit func(StreamEvent) error) error {
+	rawPayload, err := json.Marshal(chatPayload(request, messages, true))
 	if err != nil {
 		return err
 	}
@@ -408,6 +505,17 @@ func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent)
 	return emit(StreamEvent{Type: "done", Done: true})
 }
 
+func chatPayload(request ChatRequest, messages []modelMessage, stream bool) map[string]any {
+	return map[string]any{
+		"model":    ModelName(request),
+		"messages": messages,
+		"stream":   stream,
+		"options": map[string]any{
+			"temperature": temperatureForAction(request.Action),
+		},
+	}
+}
+
 func actionInstruction(action string) string {
 	switch action {
 	case "explain-selection":
@@ -459,6 +567,10 @@ func buildContext(request ChatRequest) string {
 		parts = append(parts, "Git diff:\n"+trimForPrompt(request.GitDiff, 16000))
 	}
 
+	if request.ProjectContext != nil {
+		parts = append(parts, formatProjectContextForPrompt(*request.ProjectContext))
+	}
+
 	if len(request.Conversation) > 0 {
 		lines := []string{"Recent conversation:"}
 		for index, message := range request.Conversation {
@@ -490,6 +602,32 @@ func buildContext(request ChatRequest) string {
 	}
 
 	return strings.Join(parts, "\n\n---\n\n")
+}
+
+func formatProjectContextForPrompt(contextPack ProjectContext) string {
+	lines := []string{
+		"Project context:",
+		fmt.Sprintf("Root: %s", contextPack.Root),
+		fmt.Sprintf("Files indexed: %d included, %d total, %d skipped, truncated=%t", contextPack.IncludedFiles, contextPack.TotalFiles, contextPack.SkippedFiles, contextPack.Truncated),
+	}
+	if len(contextPack.Tree) > 0 {
+		lines = append(lines, "Workspace tree:")
+		for index, entry := range contextPack.Tree {
+			if index >= 350 {
+				lines = append(lines, fmt.Sprintf("[tree truncated, %d more entries]", len(contextPack.Tree)-index))
+				break
+			}
+			lines = append(lines, "- "+entry)
+		}
+	}
+	for _, file := range contextPack.Files {
+		truncated := ""
+		if file.Truncated {
+			truncated = " [truncated]"
+		}
+		lines = append(lines, fmt.Sprintf("Project file: %s (%s, %d bytes)%s\n%s", file.Path, file.LanguageID, file.Size, truncated, trimForPrompt(file.Content, maxProjectContextFileBytes)))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func trimForPrompt(value string, limit int) string {

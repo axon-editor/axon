@@ -83,6 +83,7 @@ import type {
   AiChatStreamEvent,
   AiChatStreamStarted,
   AiModelInfo,
+  AiProjectContext,
   AiPullEvent,
   AiPullStarted,
   AiRuntimeStatus,
@@ -115,6 +116,7 @@ declare global {
         folderPath: string,
       ) => Promise<EditorDiagnostic[]>;
       listAiModels: (folderPath?: string | null) => Promise<AiModelInfo[]>;
+      getAiProjectContext: (folderPath: string) => Promise<AiProjectContext>;
       getAiRuntimeStatus: (
         folderPath?: string | null,
       ) => Promise<AiRuntimeStatus>;

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -56,8 +57,27 @@ var runtimeProcess = struct {
 }{}
 
 func RuntimeBinaryPath() (string, bool) {
-	binaryPath, err := exec.LookPath("ollama")
-	return binaryPath, err == nil
+	if binaryPath, err := exec.LookPath("ollama"); err == nil {
+		return binaryPath, true
+	}
+
+	// Packaged macOS apps do not inherit the same PATH as an interactive shell,
+	// so exec.LookPath can miss a perfectly valid Homebrew install. I check the
+	// common install locations explicitly so opening Axon from Finder can still
+	// start the local Axon models runtime without asking the user to run a
+	// terminal command first.
+	for _, candidate := range []string{
+		"/opt/homebrew/bin/ollama",
+		"/usr/local/bin/ollama",
+		"/Applications/Ollama.app/Contents/Resources/ollama",
+	} {
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() {
+			return candidate, true
+		}
+	}
+
+	return "", false
 }
 
 func CheckRuntimeRunning(ctx context.Context) bool {

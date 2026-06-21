@@ -12,6 +12,7 @@ import {
   type AiChatStreamEvent,
   type AiChatStreamStarted,
   type AiModelInfo,
+  type AiProjectContext,
   type AiPullEvent,
   type AiPullStarted,
   type AiRuntimeStatus,
@@ -116,6 +117,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("diagnostics:project", folderPath),
   listAiModels: (folderPath?: string | null): Promise<AiModelInfo[]> =>
     ipcRenderer.invoke("ai:listModels", folderPath),
+  getAiProjectContext: (folderPath: string): Promise<AiProjectContext> =>
+    ipcRenderer.invoke("ai:getProjectContext", folderPath),
   getAiRuntimeStatus: (
     folderPath?: string | null,
   ): Promise<AiRuntimeStatus> =>

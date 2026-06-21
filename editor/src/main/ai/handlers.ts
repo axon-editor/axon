@@ -4,6 +4,7 @@ import {
   type AiChatResult,
   type AiChatStreamStarted,
   type AiModelInfo,
+  type AiProjectContext,
   type AiPullStarted,
   type AiRuntimeStatus,
 } from "../../shared/ai";
@@ -59,6 +60,20 @@ async function getCoreAiRuntimeStatus(input: {
   return json.data;
 }
 
+async function getCoreAiProjectContext(input: {
+  axonCorePort: string;
+  folderPath: string;
+}): Promise<AiProjectContext> {
+  const response = await fetch(
+    `http://127.0.0.1:${input.axonCorePort}/ai/project-context?root=${encodeURIComponent(input.folderPath)}`,
+  );
+  const json = (await response.json()) as CoreResponse<AiProjectContext>;
+  if (!response.ok || json.status !== "success" || !json.data) {
+    throw new Error(coreErrorMessage(json, `axon-core returned ${response.status}`));
+  }
+  return json.data;
+}
+
 export function registerAiHandlers(deps: { axonCorePort: string }) {
   ipcMain.handle(
     "ai:getRuntimeStatus",
@@ -78,6 +93,16 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
       return listCoreAiModels({
         axonCorePort: deps.axonCorePort,
         model: settings.ai.model,
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "ai:getProjectContext",
+    async (_event, folderPath: string): Promise<AiProjectContext> => {
+      return getCoreAiProjectContext({
+        axonCorePort: deps.axonCorePort,
+        folderPath,
       });
     },
   );
