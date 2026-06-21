@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type Diagnostic struct {
@@ -63,10 +64,11 @@ type ChatRequest struct {
 }
 
 type StreamEvent struct {
-	Type  string `json:"type"`
-	Delta string `json:"delta,omitempty"`
-	Error string `json:"error,omitempty"`
-	Done  bool   `json:"done,omitempty"`
+	Type   string `json:"type"`
+	Delta  string `json:"delta,omitempty"`
+	Status string `json:"status,omitempty"`
+	Error  string `json:"error,omitempty"`
+	Done   bool   `json:"done,omitempty"`
 }
 
 type ErrorDetail struct {
@@ -324,6 +326,9 @@ func editProposalInstruction(action string) string {
 }
 
 func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent) error) error {
+	if err := emit(StreamEvent{Type: "status", Status: "Checking local model runtime..."}); err != nil {
+		return err
+	}
 	if err := StartRuntime(ctx); err != nil {
 		return UserError{
 			Field:   "runtime",
@@ -357,26 +362,45 @@ func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent)
 	}
 
 	trimProjectContextToTokenBudget(request.ProjectContext, maxProjectContextTokens)
-	messages, err := buildToolAwareMessages(ctx, request)
+	messages, err := buildToolAwareMessages(ctx, request, emit)
 	if err != nil {
+		return err
+	}
+	if err := emit(StreamEvent{Type: "status", Status: "Streaming response..."}); err != nil {
 		return err
 	}
 	return streamChatMessages(ctx, request, messages, emit)
 }
 
-func buildToolAwareMessages(ctx context.Context, request ChatRequest) ([]modelMessage, error) {
+func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(StreamEvent) error) ([]modelMessage, error) {
 	messages := BuildMessages(request)
 	if request.FolderPath == nil || strings.TrimSpace(*request.FolderPath) == "" {
 		return messages, nil
 	}
+	if !shouldUseProjectTools(request) {
+		return messages, nil
+	}
 
 	for round := 0; round < 4; round++ {
-		response, err := callChatOnce(ctx, request, messages, true)
-		if err != nil {
+		if err := emit(StreamEvent{Type: "status", Status: "Reading project context..."}); err != nil {
 			return nil, err
+		}
+
+		planningCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		response, err := callChatOnce(planningCtx, request, messages, true)
+		cancel()
+		if err != nil {
+			messages = append(messages, modelMessage{
+				Role:    "tool",
+				Content: "Project tool planning was skipped because the local model did not return tool choices quickly enough. Answer from the supplied context and say when more project inspection is needed.",
+			})
+			return messages, nil
 		}
 		if len(response.Message.ToolCalls) == 0 {
 			if probe := AutomaticProjectProbe(ctx, request); probe != "" {
+				if err := emit(StreamEvent{Type: "status", Status: "Scanning project files..."}); err != nil {
+					return nil, err
+				}
 				messages = append(messages, modelMessage{
 					Role:    "tool",
 					Content: probe,
@@ -398,6 +422,35 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest) ([]modelMe
 		Content: "Tool limit reached. Answer with the project information already gathered.",
 	})
 	return messages, nil
+}
+
+func shouldUseProjectTools(request ChatRequest) bool {
+	if request.Action != "ask" {
+		return true
+	}
+	prompt := strings.ToLower(strings.TrimSpace(request.Prompt))
+	if prompt == "" {
+		return false
+	}
+	greetings := map[string]bool{
+		"hi": true, "hey": true, "hello": true, "yo": true,
+		"hi axon": true, "hey axon": true, "hello axon": true,
+	}
+	if greetings[prompt] {
+		return false
+	}
+
+	projectTerms := []string{
+		"file", "folder", "project", "workspace", "repo", "code", "function",
+		"method", "class", "component", "where", "find", "search", "read",
+		"implement", "fix", "bug", "error", "diagnostic", "git", "diff",
+	}
+	for _, term := range projectTerms {
+		if strings.Contains(prompt, term) {
+			return true
+		}
+	}
+	return len(strings.Fields(prompt)) > 6
 }
 
 func callChatOnce(ctx context.Context, request ChatRequest, messages []modelMessage, withTools bool) (modelChatResponse, error) {

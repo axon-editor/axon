@@ -68,14 +68,17 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		Model:       defaultModelID(),
 	}
 
-	// Project context is best-effort here because the useful behavior is still
-	// to answer from the current workspace path and backend tools if a context
-	// pack cannot be built. This prevents one stale folder, permission issue, or
-	// oversized workspace scan from making every terminal AI command unusable.
-	if contextPack, err := fetchProjectContext(ctx, port, folderPath); err == nil {
-		request.ProjectContext = &contextPack
-	} else {
-		fmt.Fprintln(os.Stderr, dim("Project context unavailable; continuing with workspace path only."))
+	if shouldFetchProjectContext(input) {
+		// Project context is best-effort here because the useful behavior is
+		// still to answer from the current workspace path and backend tools if a
+		// context pack cannot be built. We only attach it for project-shaped
+		// requests; sending a huge workspace pack for `axon ask hi` makes the
+		// model appear frozen even though the stream transport is healthy.
+		if contextPack, err := fetchProjectContext(ctx, port, folderPath); err == nil {
+			request.ProjectContext = &contextPack
+		} else {
+			fmt.Fprintln(os.Stderr, dim("Project context unavailable; continuing with workspace path only."))
+		}
 	}
 
 	rawPayload, err := json.Marshal(request)
@@ -125,6 +128,10 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		if err := json.Unmarshal(envelope.Data, &event); err != nil {
 			return fullResponse.String(), err
 		}
+		if event.Type == "status" && event.Status != "" {
+			fmt.Fprintln(os.Stderr, dim(event.Status))
+			continue
+		}
 		if event.Type == "delta" && event.Delta != "" {
 			fmt.Print(white(event.Delta))
 			fullResponse.WriteString(event.Delta)
@@ -149,4 +156,33 @@ func defaultModelID() string {
 		return modelID
 	}
 	return "axon-code-fast"
+}
+
+func shouldFetchProjectContext(input streamRequestInput) bool {
+	if input.Action != "ask" {
+		return true
+	}
+	prompt := strings.ToLower(strings.TrimSpace(input.Prompt))
+	if prompt == "" {
+		return false
+	}
+	greetings := map[string]bool{
+		"hi": true, "hey": true, "hello": true, "yo": true,
+		"hi axon": true, "hey axon": true, "hello axon": true,
+	}
+	if greetings[prompt] {
+		return false
+	}
+
+	projectTerms := []string{
+		"file", "folder", "project", "workspace", "repo", "code", "function",
+		"method", "class", "component", "where", "find", "search", "read",
+		"implement", "fix", "bug", "error", "diagnostic", "git", "diff",
+	}
+	for _, term := range projectTerms {
+		if strings.Contains(prompt, term) {
+			return true
+		}
+	}
+	return len(strings.Fields(prompt)) > 6
 }

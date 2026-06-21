@@ -53,6 +53,9 @@ function toChatStreamEvent(event: CoreStreamEvent): Omit<AiChatStreamEvent, "req
   if (event.type === "delta") {
     return { type: "delta", delta: event.delta };
   }
+  if (event.type === "status") {
+    return { type: "status", status: event.status };
+  }
   if (event.type === "done") {
     return { type: "done", done: true };
   }

@@ -84,8 +84,9 @@ export interface AiChatStreamStarted {
 
 export interface AiChatStreamEvent {
   requestId: string;
-  type: "delta" | "done" | "error" | "cancelled";
+  type: "delta" | "status" | "done" | "error" | "cancelled";
   delta?: string;
+  status?: string;
   error?: string;
   done?: boolean;
 }

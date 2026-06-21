@@ -234,6 +234,10 @@ export default function AxonAgentSidebar(props: Props) {
         return;
       }
 
+      if (event.type === "status") {
+        return;
+      }
+
       if (event.type === "error") {
         setMessages((current) =>
           current.map((message) =>
