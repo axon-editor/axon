@@ -50,6 +50,8 @@ interface Props {
   folderPath: string | null;
   gitChanges: GitChange[];
   initialAction: { action: AiActionId; nonce: number } | null;
+  resumeConversationId: string | null;
+  resumeRequested: boolean;
   onApplyEdit: (path: string, content: string) => Promise<void>;
   onClose: () => void;
 }
@@ -196,8 +198,59 @@ export default function AxonAgentSidebar(props: Props) {
   const streamRef = useRef<{ requestId: string; messageId: number } | null>(
     null,
   );
+  const resumeRequestHandledRef = useRef<string | null>(null);
   const contextSummary = useMemo(() => summarizeContext(props), [props]);
   const activeConversation = activeAgentConversation(conversationState);
+
+  useEffect(() => {
+    const resumeConversationId = props.resumeConversationId;
+    const resumeToken = props.resumeRequested
+      ? resumeConversationId || "__list__"
+      : null;
+
+    if (!resumeToken) {
+      resumeRequestHandledRef.current = null;
+      return;
+    }
+
+    if (resumeRequestHandledRef.current === resumeToken) return;
+    resumeRequestHandledRef.current = resumeToken;
+
+    if (!resumeConversationId) {
+      // A bare `axon resume` means reopen the workspace and surface the saved
+      // conversation list first. That keeps the CLI flow conversation-based
+      // without forcing the user into a brand-new thread when they meant to
+      // continue something already in progress.
+      setConversationPickerOpen(true);
+      return;
+    }
+
+    if (conversationState.activeId === resumeConversationId) return;
+    if (
+      !conversationState.conversations.some(
+        (conversation) => conversation.id === resumeConversationId,
+      )
+    ) {
+      setConversationPickerOpen(true);
+      return;
+    }
+
+    setConversationState((current) =>
+      selectAgentConversation(props.folderPath, current, resumeConversationId),
+    );
+    setMessages(
+      conversationState.conversations.find(
+        (conversation) => conversation.id === resumeConversationId,
+      )?.messages ?? [],
+    );
+    setConversationPickerOpen(false);
+  }, [
+    conversationState.activeId,
+    conversationState.conversations,
+    props.folderPath,
+    props.resumeRequested,
+    props.resumeConversationId,
+  ]);
 
   useEffect(() => {
     const nextState = loadAgentConversationState(props.folderPath);

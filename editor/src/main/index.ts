@@ -1,379 +1,200 @@
-import {
-  app,
-  BrowserWindow,
-  Menu,
-  protocol,
-  net,
-} from "electron";
+import { app, BrowserWindow, protocol } from "electron";
+import fs from "fs";
 import path from "path";
 import url from "url";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { registerLspHandlers } from "./lsp/handlers";
-import {
-  getActiveLanguageServerSessions,
-  startLanguageServerForLanguage,
-  stopAllLanguageServers,
-} from "./lsp/features";
-import {
-  notifyLanguageServer,
-  notifyLanguageServerConfiguration,
-} from "./lsp/session";
-import { registerAppHandlers } from "./app/handlers";
-import { registerDiagnosticsHandlers } from "./diagnostics/handlers";
-import { registerExtensionHandlers } from "./extensions/handlers";
-import { registerFileWatcherHandlers } from "./fs/handlers";
-import { FileWatcherManager } from "./fs/watcher";
-import { registerGitHandlers } from "./git/handlers";
-import { getGitWatchPaths } from "./git/git";
-import { registerHtmlPreviewHandlers } from "./htmlPreview/handlers";
-import { registerTaskHandlers } from "./tasks/handlers";
-import { TaskManager } from "./tasks/tasks";
-import { registerTestHandlers } from "./tests/handlers";
-import { TestManager } from "./tests/tests";
-import { HtmlPreviewServer } from "./htmlPreview/server";
-import { createWindow } from "./window/createWindow";
-import { readSettingsForFolder, readSettingsFromDisk } from "./settings/io";
-import { getAxonIconPath } from "./fonts/fonts";
-import { registerSettingsHandlers } from "./settings/handlers";
-import { registerUpdateHandlers } from "./updates/handlers";
-import { UpdateManager } from "./updates/updater";
-import { createMainProcessIpc } from "./core/ipc";
-import { createBundledCoreController } from "./core/process";
-import { registerSpotifyHandlers } from "./spotify/handlers";
-import { registerAiHandlers } from "./ai/handlers";
-import { warmUpAiRuntime } from "./ai/runtimeWarmup";
-import { setClientId } from "./spotify/api";
-import { AXON_SPOTIFY_CLIENT_ID } from "./generated/buildConfig";
-import {
-  handleSpotifyProtocolRequest,
-  handleSpotifySecondInstanceArg,
-  registerSpotifyOpenUrlHandler,
-  registerSpotifyProtocolClient,
-} from "./spotify/protocol";
 
-const isDev = process.env.NODE_ENV === "development";
-const axonDevServerUrl =
-  process.env.AXON_DEV_SERVER_URL ?? "http://localhost:5173";
-const hasDevSingleInstanceLock = !isDev || app.requestSingleInstanceLock();
-app.setName("Axon");
-const execFileAsync = promisify(execFile);
+let bootSplashWindow: BrowserWindow | null = null;
 
-const isMac = process.platform === "darwin";
-const isWindows = process.platform === "win32";
-const shouldPollWatchers = process.platform === "darwin";
-function resolveMacAppBundlePath() {
-  if (!isMac) return null;
-
-  const appPathParts = process.execPath.split(`${path.sep}Contents${path.sep}`);
-  if (appPathParts.length < 2 || !appPathParts[0].endsWith(".app")) {
-    return null;
-  }
-
-  return appPathParts[0];
-}
-function isExternalHandlerUrl(href: string) {
-  return /^(https?:|mailto:|tel:)/i.test(href);
-}
-let mainWindow: BrowserWindow | null = null;
-let isQuitting = false;
-const windowSessionRestore = new Map<number, boolean>();
-const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
-const axonReleaseApiUrl =
-  "https://api.github.com/repos/GordenArcher/axon/releases/latest";
-const axonReleasePageUrl =
-  "https://github.com/GordenArcher/axon/releases/latest";
-let htmlPreviewServer: HtmlPreviewServer | null = null;
-const { sendToRenderer, sendMenuCommand } = createMainProcessIpc({
-  getMainWindow: () => mainWindow,
-});
-const bundledCore = createBundledCoreController({
-  isDev,
-  axonCorePort,
-});
-const taskManager = new TaskManager({
-  sendToRenderer,
-});
-const testManager = new TestManager({
-  sendToRenderer,
-});
-const fileWatcherManager = new FileWatcherManager({
-  shouldPollWatchers,
-  shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => {
-    const normalizedPath = candidatePath.replace(/\\/g, "/");
-    const segments = normalizedPath.split("/").filter(Boolean);
-
-    // Hidden project files are valid editor content. I only ignore folders/files
-    // that are implementation noise or generated output, because ignoring every
-    // dot-prefixed path makes newly created files such as .gitignore and release
-    // workflow files invisible until the core tree filter is changed too.
-    return segments.some((segment, index) => {
-      if (segment === ".git" || segment === ".DS_Store") return true;
-      if (
-        segment === "node_modules" ||
-        segment === "vendor" ||
-        segment === "dist" ||
-        segment === "release"
-      ) {
-        return true;
-      }
-
-      return (
-        segment === "build" &&
-        index < segments.length - 1 &&
-        segments[index + 1] === "core"
-      );
-    });
-  },
-  sendToRenderer,
-  getGitWatchPaths,
-  stopAllLanguageServers,
-});
-const updateManager = new UpdateManager({
-  sendToRenderer,
-  releaseApiUrl: axonReleaseApiUrl,
-  releasePageUrl: axonReleasePageUrl,
-  isDev,
-  isMac,
-  isWindows,
-  execFileAsync,
-  resolveMacAppBundlePath,
-});
-updateManager.configureAutoUpdater();
-registerUpdateHandlers(updateManager);
-registerAppHandlers({
-  windowSessionRestore,
-  isExternalHandlerUrl,
-  isDev,
-});
-registerDiagnosticsHandlers();
-registerExtensionHandlers();
-registerGitHandlers();
-registerAiHandlers({ axonCorePort });
-registerLspHandlers();
-registerSettingsHandlers({
-  getActiveLanguageServers: () => getActiveLanguageServerSessions(),
-  notifyPythonConfigurationForFolder: (folderPath) => {
-    const session = [...getActiveLanguageServerSessions()].find(
-      (candidate) =>
-        candidate.id === "python" &&
-        path.resolve(candidate.folderPath) === path.resolve(folderPath),
-    );
-    if (session)
-      notifyLanguageServerConfiguration(session, notifyLanguageServer);
-  },
-  startPythonLanguageServerForFolder: async (folderPath) => {
-    await startLanguageServerForLanguage(folderPath, "python");
-  },
-});
-registerFileWatcherHandlers(fileWatcherManager);
-registerHtmlPreviewHandlers(getHtmlPreviewServer);
-registerTaskHandlers(taskManager);
-registerTestHandlers(testManager);
-
-if (!hasDevSingleInstanceLock) {
-  app.quit();
-}
-
-app.on("second-instance", () => {
-  if (!isDev) return;
-
-  // The development runner can be started more than once while a Vite server
-  // is already alive. Without a single-instance guard, each Electron process
-  // gets its own Dock icon and its own renderer window, which looks like Axon
-  // is spawning copies of itself. The production app still owns normal
-  // multi-window behavior through the File menu; this path only collapses
-  // duplicate dev launches back onto the current main window.
-  const currentMainWindow = mainWindow as BrowserWindow | null;
-  let targetWindow: BrowserWindow | null = null;
-  if (currentMainWindow !== null && !currentMainWindow.isDestroyed()) {
-    targetWindow = currentMainWindow;
-  }
-  if (!targetWindow) {
-    for (const candidate of BrowserWindow.getAllWindows()) {
-      if (!candidate.isDestroyed()) {
-        targetWindow = candidate;
-        break;
-      }
-    }
-  }
-
-  if (!targetWindow) return;
-
-  if (targetWindow.isMinimized()) {
-    targetWindow.restore();
-  }
-  targetWindow.focus();
-});
-
-function getHtmlPreviewServer() {
-  if (!htmlPreviewServer) {
-    htmlPreviewServer = new HtmlPreviewServer({
-      buildWatcherOptions: () => fileWatcherManager.buildWatcherOptions(),
-      shouldIgnoreWorkspaceWatchPath: (candidatePath: string) =>
-        fileWatcherManager.shouldIgnoreWorkspaceWatchPath(candidatePath),
-      sendToRenderer,
-    });
-  }
-
-  return htmlPreviewServer;
-}
-
-function createManagedWindow(options: { restoreSession?: boolean } = {}) {
-  const createdWindow = createWindow(
-    {
-      axonDevServerUrl,
-      isDev,
-      isMac,
-      isWindows,
-      getAxonIconPath: () => getAxonIconPath(isDev),
-      shouldBlockBrowserShortcut,
-      sendMenuCommand,
-      createNewWindow: () => {
-        createManagedWindow({ restoreSession: false });
-      },
-    },
-    options,
-  );
-
-  mainWindow = createdWindow.window;
-  const createdWebContentsId = createdWindow.window.webContents.id;
-  windowSessionRestore.set(createdWebContentsId, createdWindow.restoreSession);
-
-  createdWindow.window.on("closed", () => {
-    // I capture the webContents id before registering this handler because
-    // Electron destroys the BrowserWindow and its webContents before `closed`
-    // listeners finish. Reading `window.webContents.id` here can throw
-    // "Object has been destroyed" during native quit, which turns a normal app
-    // shutdown into a scary main-process crash dialog.
-    windowSessionRestore.delete(createdWebContentsId);
-    if (mainWindow === createdWindow.window) {
-      mainWindow =
-        BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??
-        null;
-    }
-  });
-
-  Menu.setApplicationMenu(Menu.buildFromTemplate(createdWindow.menu));
-  return createdWindow;
-}
-
-function shouldBlockBrowserShortcut(input: {
-  key: string;
-  control: boolean;
-  meta: boolean;
-  alt: boolean;
-  shift: boolean;
-}) {
-  const key = input.key.toLowerCase();
-  const commandOrControl = input.meta || input.control;
-
-  // Packaged Axon should behave like an editor, not like a browser tab. The
-  // default Electron View menu exposes reload and DevTools shortcuts that can
-  // wipe renderer state or expose internals. I block those browser-level
-  // shortcuts in the main process so they never reach Chromium, while leaving
-  // Axon-owned shortcuts like plain F12 available to the renderer.
-  if (key === "f5") return true;
-  if (commandOrControl && key === "r") return true;
-  if (commandOrControl && input.shift && key === "r") return true;
-  if (commandOrControl && input.alt && key === "i") return true;
-  if (commandOrControl && input.shift && key === "i") return true;
-
-  return false;
-}
-
-
-registerSpotifyProtocolClient();
-registerSpotifyOpenUrlHandler({ sendToRenderer });
-
-app.on("second-instance", async (_event, argv) => {
-  await handleSpotifySecondInstanceArg(argv, { sendToRenderer });
-
-  // Focus the existing window as normal.
-  const existingWindow = BrowserWindow.getAllWindows()[0];
-  if (existingWindow) {
-    if (existingWindow.isMinimized()) existingWindow.restore();
-    existingWindow.focus();
-  }
-});
-
-app.whenReady().then(async () => {
-  if (!hasDevSingleInstanceLock) return;
-
-  protocol.handle("axon", async (request) => {
-    const requestUrl = new URL(request.url);
-
-    const spotifyResponse = await handleSpotifyProtocolRequest(requestUrl, {
-      sendToRenderer,
-    });
-    if (spotifyResponse) return spotifyResponse;
-
-    // axon://local/absolute/path, existing local file serving, unchanged
-    const filePath = decodeURIComponent(
-      request.url.replace("axon://local", ""),
-    );
-    return net.fetch(url.pathToFileURL(filePath).toString());
-  });
-
-  // Cold start should show the editor shell first, then let backend readiness
-  // catch up in the background. Waiting for axon-core before creating the
-  // BrowserWindow makes a normal packaged launch feel like Electron is stuck,
-  // even though the renderer can already restore chrome, tabs, and the last
-  // workspace while core finishes binding its local port.
-  const bundledCoreReady = bundledCore.startBundledAxonCore();
-  createManagedWindow({ restoreSession: true });
-  void bundledCoreReady.then(() => {
-    bundledCore.startBundledCoreWatchdog();
-    void warmUpAiRuntime({ axonCorePort });
-  });
-
-  // Prefer Axon's bundled Spotify app client_id. It is public PKCE metadata,
-  // not a client secret, and lets users connect without creating their own
-  // Spotify developer app. Local development can still fall back to settings
-  // when the build-time value is intentionally empty.
-  const appSettings = readSettingsFromDisk("");
-  const spotifyClientId =
-    AXON_SPOTIFY_CLIENT_ID || appSettings?.spotify?.clientId || "";
-  if (spotifyClientId) setClientId(spotifyClientId);
-  registerSpotifyHandlers();
-});
-
-app.on("activate", () => {
-  if (isQuitting) return;
-
-  const hasLiveWindow = BrowserWindow.getAllWindows().some(
-    (window) => !window.isDestroyed(),
-  );
-  if (!hasLiveWindow) {
-    // macOS sends activate when the Dock icon is clicked after all windows are
-    // closed. That should open a blank session, not silently restore the last
-    // workspace or reopen during a quit/update teardown. Session restore stays
-    // reserved for the normal cold app launch path above.
-    createManagedWindow({ restoreSession: false });
-  }
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
-
-app.on("before-quit", async () => {
-  isQuitting = true;
-  taskManager.stopAll();
-  testManager.stopAll();
-  stopAllLanguageServers();
-  bundledCore.stopBundledCoreWatchdog();
-  bundledCore.stopBundledAxonCore();
-  await fileWatcherManager.closeAll();
-  await htmlPreviewServer?.close();
-});
-
-// register axon:// protocol before app is ready
-// this lets the renderer load local files via axon://path/to/file
-// without needing file:// which Electron blocks for security
+// `axon://` has to be declared before Electron reaches the ready state. The
+// rest of the main process now loads after the boot splash exists, so this
+// early protocol declaration stays in the tiny entrypoint instead of appMain.
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "axon",
     privileges: { secure: true, standard: true, stream: true },
   },
 ]);
+
+function bootSplashImageUrl() {
+  const candidates = [
+    path.join(__dirname, "../renderer/axon.png"),
+    path.join(app.getAppPath(), "dist", "renderer", "axon.png"),
+    path.join(app.getAppPath(), "public", "axon.png"),
+    path.join(app.getAppPath(), "build", "axon.png"),
+  ];
+  const imagePath = candidates.find((candidate) => fs.existsSync(candidate));
+  return imagePath ? url.pathToFileURL(imagePath).toString() : "";
+}
+
+function bootSplashHtml(imageUrl: string) {
+  const imageMarkup = imageUrl
+    ? `<img class="axon-splash__mark" src="${imageUrl}" alt="" />`
+    : `<div class="axon-splash__fallback-mark">A</div>`;
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #080a10;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(128, 200, 224, 0.025), transparent 28%),
+          linear-gradient(180deg, #10131b 0%, #080a10 100%);
+        color: #e6ebf5;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .axon-splash {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+      }
+
+      .axon-splash__mark-wrap {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 156px;
+        height: 172px;
+      }
+
+      .axon-splash__aura {
+        position: absolute;
+        width: 138px;
+        height: 138px;
+        border: 1px solid rgba(128, 200, 224, 0.12);
+        border-radius: 999px;
+        background: rgba(128, 200, 224, 0.01);
+        opacity: 0.72;
+        transform: scale(1);
+      }
+
+      .axon-splash__mark {
+        position: relative;
+        z-index: 2;
+        width: 112px;
+        height: 112px;
+        object-fit: contain;
+        filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.36));
+        animation: axonMarkPulse 1200ms ease-in-out infinite alternate;
+      }
+
+      .axon-splash__fallback-mark {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 112px;
+        height: 112px;
+        border: 1px solid rgba(128, 200, 224, 0.24);
+        border-radius: 30px;
+        background: rgba(128, 200, 224, 0.055);
+        color: #f5f8ff;
+        font-size: 56px;
+        font-weight: 700;
+        animation: axonMarkPulse 1200ms ease-in-out infinite alternate;
+      }
+
+      .axon-splash__title {
+        display: flex;
+        min-height: 30px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0;
+        color: #f5f8ff;
+      }
+
+      .axon-splash__wordline {
+        width: 88px;
+        height: 1px;
+        margin-top: 7px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, transparent, rgba(128, 200, 224, 0.68), transparent);
+      }
+
+      @keyframes axonMarkPulse {
+        from { transform: scale(0.985); opacity: 0.92; }
+        to { transform: scale(1.02); opacity: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="axon-splash" role="status" aria-label="Opening Axon">
+      <div class="axon-splash__mark-wrap">
+        <div class="axon-splash__aura"></div>
+        ${imageMarkup}
+      </div>
+      <div>
+        <div class="axon-splash__title"><span>A</span><span>X</span><span>O</span><span>N</span></div>
+        <div class="axon-splash__wordline"></div>
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
+function createBootSplashWindow() {
+  // This window exists before Axon's full main process is imported. The normal
+  // renderer splash can only appear after BrowserWindow creation and HTML load,
+  // but the expensive main-process module graph was previously evaluated before
+  // either of those things happened. Keeping this boot file tiny lets the user
+  // see Axon immediately while the real editor services register in appMain.
+  bootSplashWindow = new BrowserWindow({
+    width: 420,
+    height: 360,
+    resizable: false,
+    movable: true,
+    show: true,
+    frame: false,
+    title: "Axon",
+    backgroundColor: "#080a10",
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  void bootSplashWindow.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(bootSplashHtml(bootSplashImageUrl()))}`,
+  );
+  bootSplashWindow.on("closed", () => {
+    bootSplashWindow = null;
+  });
+}
+
+function closeBootSplashWindow() {
+  const splashWindow = bootSplashWindow;
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  bootSplashWindow = null;
+  splashWindow.close();
+}
+
+(globalThis as typeof globalThis & {
+  closeAxonBootSplash?: () => void;
+}).closeAxonBootSplash = closeBootSplashWindow;
+
+app.whenReady().then(() => {
+  createBootSplashWindow();
+
+  // Load the real main process only after the boot splash exists. `require`
+  // stays inside this callback on purpose: a static import would put the heavy
+  // module graph back on the critical path and recreate the blank window delay.
+  require("./appMain");
+});

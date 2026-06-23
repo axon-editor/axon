@@ -297,8 +297,13 @@ func BuildMessages(request ChatRequest) []modelMessage {
 				"You are project-aware, direct, and precise.",
 				"Do not claim to use cloud services.",
 				"Do not invent marketing copy, README content, support emails, docs links, files, or product claims.",
+				"Never invent placeholder paths, counts, filenames, symbols, commands, URLs, emails, API names, or project facts. Use exact values from context and tool results. If a value is missing, say it is not available.",
+				"Never present example values such as /path/to/your/project, 123 indexed files, example.com, or support@example.com as real workspace facts.",
 				"Use the available project tools before answering when the user asks about files, project structure, symbols, implementation details, or text that may not be in the prompt.",
 				"Never guess which file contains a symbol or feature. Search or read the project first, then answer from the tool results.",
+				"If Project context is present, you can see the workspace snapshot included in this request. Do not say you cannot inspect the project, cannot see the codebase, or need the user to provide files.",
+				"If the user asks whether you can see the codebase, answer directly: yes when Project context is present, then mention the workspace root and the indexed file/tree counts.",
+				projectFactInstruction(request),
 				"For normal Ask/chat prompts, answer in plain text only. Do not propose file edits. Do not output JSON.",
 				editProposalInstruction(request.Action),
 			}, "\n"),
@@ -314,6 +319,26 @@ func BuildMessages(request ChatRequest) []modelMessage {
 			}, "\n\n"),
 		},
 	}
+}
+
+func projectFactInstruction(request ChatRequest) string {
+	if request.ProjectContext == nil {
+		return "No Project context is attached to this request. Do not claim to see workspace files unless a tool result provides them."
+	}
+
+	contextPack := request.ProjectContext
+	// The model is allowed to speak confidently only about facts that the core
+	// has attached to this request. Local coding models often fill missing
+	// facts with tutorial-style placeholders, so the exact workspace facts are
+	// repeated in the system message where they override generic examples.
+	return fmt.Sprintf(
+		"Current project facts: Project context is attached. Workspace root is %s. Indexed files are %d included, %d total, %d skipped, truncated=%t. Use these exact values when asked what workspace you can see.",
+		contextPack.Root,
+		contextPack.IncludedFiles,
+		contextPack.TotalFiles,
+		contextPack.SkippedFiles,
+		contextPack.Truncated,
+	)
 }
 
 func editProposalInstruction(action string) string {
@@ -661,6 +686,7 @@ func buildContext(request ChatRequest) string {
 func formatProjectContextForPrompt(contextPack ProjectContext) string {
 	lines := []string{
 		"Project context:",
+		"Project visibility: attached to this request.",
 		fmt.Sprintf("Root: %s", contextPack.Root),
 		fmt.Sprintf("Files indexed: %d included, %d total, %d skipped, truncated=%t", contextPack.IncludedFiles, contextPack.TotalFiles, contextPack.SkippedFiles, contextPack.Truncated),
 	}

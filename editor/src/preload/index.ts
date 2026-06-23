@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { type AxonSettings, type CustomFont } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import {
+  type AgentResumeRequest,
   type CliToolInstallResult,
   type CliToolStatus,
 } from "../shared/app";
@@ -105,6 +106,21 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("app:getCliToolStatus"),
   installCliTool: (): Promise<CliToolInstallResult> =>
     ipcRenderer.invoke("app:installCliTool"),
+  getAgentResumeRequest: (): Promise<AgentResumeRequest | null> =>
+    ipcRenderer.invoke("app:getAgentResumeRequest"),
+  saveAgentResumeRequest: (request: AgentResumeRequest): Promise<boolean> =>
+    ipcRenderer.invoke("app:saveAgentResumeRequest", request),
+  onAgentResumeRequest: (
+    callback: (request: AgentResumeRequest) => void,
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      request: AgentResumeRequest,
+    ) => callback(request);
+
+    ipcRenderer.on("agent:resumeRequest", listener);
+    return () => ipcRenderer.removeListener("agent:resumeRequest", listener);
+  },
   importFont: (): Promise<CustomFont | null> =>
     ipcRenderer.invoke("dialog:importFont"),
   listAvailableFonts: (): Promise<CustomFont[]> =>

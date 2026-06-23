@@ -1,5 +1,6 @@
 import type { AxonCommand } from "../../shared/commands";
 import type {
+  AgentResumeRequest,
   CliToolInstallResult,
   CliToolStatus,
 } from "../../shared/app";
@@ -102,6 +103,11 @@ declare global {
       openFolder: () => Promise<string | null>;
       getCliToolStatus: () => Promise<CliToolStatus>;
       installCliTool: () => Promise<CliToolInstallResult>;
+      getAgentResumeRequest: () => Promise<AgentResumeRequest | null>;
+      saveAgentResumeRequest: (request: AgentResumeRequest) => Promise<boolean>;
+      onAgentResumeRequest: (
+        callback: (request: AgentResumeRequest) => void,
+      ) => () => void;
       importFont: () => Promise<CustomFont | null>;
       listAvailableFonts: () => Promise<CustomFont[]>;
       selectEditorBackgroundImage: () => Promise<string | null>;

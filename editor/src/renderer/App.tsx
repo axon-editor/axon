@@ -87,6 +87,7 @@ import {
 } from "../shared/lsp";
 import { type UpdateInfo, type UpdateInstallState } from "../shared/updates";
 import { type ExtensionState } from "../shared/extensions";
+import { type AgentResumeRequest } from "../shared/app";
 import { createThemeCssVariables, resolveThemeTokens } from "./shared/lib/themeTokens";
 import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { type EditorNavigationTarget } from "./features/editor/lib/navigation";
@@ -238,6 +239,9 @@ function App() {
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
   const [agentSidebarOpen, setAgentSidebarOpen] = useState(false);
+  const [agentResumeRequest, setAgentResumeRequest] =
+    useState<AgentResumeRequest | null>(null);
+  const [agentResumeRequested, setAgentResumeRequested] = useState(false);
   const [agentActionRequest, setAgentActionRequest] = useState<{
     action: AiActionId;
     nonce: number;
@@ -251,6 +255,36 @@ function App() {
   useEffect(() => {
     window.axonEditorSettings = settings;
   }, [settings]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadResumeRequest() {
+      try {
+        const request = await window.axon.getAgentResumeRequest();
+        if (!cancelled && request) {
+          setAgentResumeRequest(request);
+          setAgentResumeRequested(true);
+          setAgentSidebarOpen(true);
+        }
+      } catch (err) {
+        console.error("failed to load agent resume request:", err);
+      }
+    }
+
+    void loadResumeRequest();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return window.axon.onAgentResumeRequest((request) => {
+      setAgentResumeRequest(request);
+      setAgentResumeRequested(true);
+      setAgentSidebarOpen(true);
+    });
+  }, []);
 
   useEffect(() => {
     window.axon
@@ -655,18 +689,19 @@ function App() {
   }, [appendOutput, folderPath]);
 
   useEffect(() => {
-    // The splash is a renderer overlay rather than a separate Electron window.
-    // That keeps startup simple: the real app can mount and load settings
-    // underneath while the brand animation plays once, then the overlay fades
-    // out without creating another window lifecycle to coordinate.
-    const leaveTimer = window.setTimeout(() => setSplashLeaving(true), 5000);
-    const removeTimer = window.setTimeout(() => setSplashVisible(false), 5520);
+    if (!settingsHydrated || !sessionReady || loading) return;
+
+    // The splash should protect startup work, not run as a decorative timer.
+    // It stays visible while settings and session restore are still resolving,
+    // then exits as soon as the app can show the real editor shell.
+    const leaveTimer = window.setTimeout(() => setSplashLeaving(true), 90);
+    const removeTimer = window.setTimeout(() => setSplashVisible(false), 610);
 
     return () => {
       window.clearTimeout(leaveTimer);
       window.clearTimeout(removeTimer);
     };
-  }, []);
+  }, [loading, sessionReady, settingsHydrated]);
 
   useEffect(() => {
     window.axon
@@ -2662,6 +2697,8 @@ function App() {
             folderPath={folderPath}
             gitChanges={gitStatus?.changes ?? []}
             initialAction={agentActionRequest}
+            resumeConversationId={agentResumeRequest?.conversationId ?? null}
+            resumeRequested={agentResumeRequested}
             onApplyEdit={handleApplyAgentEdit}
             onClose={() => setAgentSidebarOpen(false)}
           />

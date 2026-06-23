@@ -14,3 +14,8 @@ export interface CliToolInstallResult {
   status: CliToolStatus;
   message: string;
 }
+
+export interface AgentResumeRequest {
+  folderPath: string;
+  conversationId: string | null;
+}

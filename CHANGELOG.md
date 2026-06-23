@@ -2,6 +2,12 @@
 
 ## Next
 
+## v1.2.4
+
+- Added `axon resume` so the terminal command can reopen Axon on the current
+  workspace and restore a saved conversation instead of starting from a blank
+  one.
+
 ## v1.2.3
 
 - Fixed legacy local-provider prompts so prior conversation turns are passed to

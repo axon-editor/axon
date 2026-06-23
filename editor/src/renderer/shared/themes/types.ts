@@ -131,7 +131,7 @@ export function createSyntaxRules(tokens: ThemeTokenMap): editor.ITokenThemeRule
 }
 
 export function createSemanticTokenColors(tokens: ThemeTokenMap) {
-  // LSP semantic tokens are the reliable path for the editor feel Gorden wants:
+  // LSP semantic tokens are the reliable path for Axon's editor feel:
   // functions, methods, classes, interfaces, properties, and parameters should
   // keep distinct colors even when a language tokenizer emits broad Monaco
   // classes. These selectors map the LSP semantic vocabulary back to Axon's

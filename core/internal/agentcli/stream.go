@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
@@ -18,11 +20,12 @@ import (
 // full ai.ChatRequest sent to core. Keeping this separate prevents ask and
 // commit from needing to know about every renderer chat field.
 type streamRequestInput struct {
-	Action      string
-	Prompt      string
-	FolderPath  string
-	Diagnostics []ai.Diagnostic
-	GitDiff     string
+	Action       string
+	Prompt       string
+	FolderPath   string
+	Diagnostics  []ai.Diagnostic
+	GitDiff      string
+	Conversation []ai.ConversationMessage
 }
 
 // streamEnvelope is the NDJSON envelope emitted by axon-core for each stream
@@ -60,12 +63,13 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 	}
 
 	request := ai.ChatRequest{
-		Action:      input.Action,
-		Prompt:      input.Prompt,
-		FolderPath:  &folderPath,
-		Diagnostics: input.Diagnostics,
-		GitDiff:     input.GitDiff,
-		Model:       defaultModelID(),
+		Action:       input.Action,
+		Prompt:       input.Prompt,
+		FolderPath:   &folderPath,
+		Diagnostics:  input.Diagnostics,
+		GitDiff:      input.GitDiff,
+		Conversation: input.Conversation,
+		Model:        defaultModelID(),
 	}
 
 	if shouldFetchProjectContext(input) {
@@ -92,7 +96,9 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 	}
 	httpRequest.Header.Set("Content-Type", "application/json")
 
-	fmt.Fprintln(os.Stderr, dim("Thinking..."))
+	spinner := startStreamSpinner("Axon is thinking")
+	defer spinner.Stop()
+
 	response, err := http.DefaultClient.Do(httpRequest)
 	if err != nil {
 		return "", err
@@ -100,6 +106,7 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 	defer response.Body.Close()
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		spinner.Stop()
 		body, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 		return "", fmt.Errorf("Axon Agent request failed: %s", strings.TrimSpace(string(body)))
 	}
@@ -119,31 +126,38 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		// payloads inside data.
 		var envelope streamEnvelope
 		if err := json.Unmarshal([]byte(line), &envelope); err != nil {
+			spinner.Stop()
 			return fullResponse.String(), err
 		}
 		if envelope.Status == "error" {
+			spinner.Stop()
 			return fullResponse.String(), fmt.Errorf("%s", envelope.Message)
 		}
 		var event ai.StreamEvent
 		if err := json.Unmarshal(envelope.Data, &event); err != nil {
+			spinner.Stop()
 			return fullResponse.String(), err
 		}
 		if event.Type == "status" && event.Status != "" {
-			fmt.Fprintln(os.Stderr, dim(event.Status))
+			spinner.Update(streamStatusLabel(event.Status))
 			continue
 		}
 		if event.Type == "delta" && event.Delta != "" {
+			spinner.Stop()
 			fmt.Print(white(event.Delta))
 			fullResponse.WriteString(event.Delta)
 		}
 		if event.Type == "done" || event.Done {
+			spinner.Stop()
 			fmt.Println()
 			return strings.TrimSpace(fullResponse.String()), nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
+		spinner.Stop()
 		return fullResponse.String(), err
 	}
+	spinner.Stop()
 	fmt.Println()
 	return strings.TrimSpace(fullResponse.String()), nil
 }
@@ -152,37 +166,198 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 // The environment override is intentionally kept for development and debugging
 // without exposing raw runtime model names in normal CLI usage.
 func defaultModelID() string {
-	if modelID := strings.TrimSpace(os.Getenv("AXON_AGENT_MODEL")); modelID != "" {
-		return modelID
-	}
-	return "axon-code-fast"
+	return selectedModelID()
 }
 
 func shouldFetchProjectContext(input streamRequestInput) bool {
 	if input.Action != "ask" {
 		return true
 	}
-	prompt := strings.ToLower(strings.TrimSpace(input.Prompt))
-	if prompt == "" {
+	if promptNeedsProjectContext(input.Prompt) {
+		return true
+	}
+
+	// Follow-up prompts are often short: "yes", "where?", "can you see it?".
+	// Looking only at the current text drops project context exactly when the
+	// conversation needs continuity, so we inspect recent user turns before
+	// deciding that a small prompt is just casual chat.
+	for index := len(input.Conversation) - 1; index >= 0 && index >= len(input.Conversation)-6; index-- {
+		message := input.Conversation[index]
+		if message.Role == "user" && promptNeedsProjectContext(message.Content) {
+			return true
+		}
+	}
+	return false
+}
+
+func promptNeedsProjectContext(prompt string) bool {
+	normalizedPrompt := strings.ToLower(strings.TrimSpace(prompt))
+	if normalizedPrompt == "" {
 		return false
 	}
 	greetings := map[string]bool{
 		"hi": true, "hey": true, "hello": true, "yo": true,
 		"hi axon": true, "hey axon": true, "hello axon": true,
 	}
-	if greetings[prompt] {
+	if greetings[normalizedPrompt] {
 		return false
 	}
 
 	projectTerms := []string{
-		"file", "folder", "project", "workspace", "repo", "code", "function",
+		"file", "folder", "project", "workspace", "repo", "code", "codebase", "code base", "function",
 		"method", "class", "component", "where", "find", "search", "read",
-		"implement", "fix", "bug", "error", "diagnostic", "git", "diff",
+		"implement", "fix", "bug", "error", "diagnostic", "git", "diff", "see my",
 	}
 	for _, term := range projectTerms {
-		if strings.Contains(prompt, term) {
+		if strings.Contains(normalizedPrompt, term) {
 			return true
 		}
 	}
-	return len(strings.Fields(prompt)) > 6
+	return len(strings.Fields(normalizedPrompt)) > 6
+}
+
+type streamSpinner struct {
+	output io.Writer
+	done   chan struct{}
+	once   sync.Once
+	mu     sync.Mutex
+	label  string
+	active bool
+	width  int
+}
+
+func startStreamSpinner(label string) *streamSpinner {
+	spinner := &streamSpinner{
+		output: os.Stderr,
+		done:   make(chan struct{}),
+		label:  label,
+		active: isTerminalOutput(os.Stderr),
+		width:  terminalStatusWidth(),
+	}
+	if !spinner.active {
+		return spinner
+	}
+
+	// The model stream already sends internal status events such as runtime
+	// checks and transport setup. Those are useful for logs but noisy for a
+	// serious terminal UI, so the CLI collapses them into one live progress line
+	// that disappears before the first assistant token is printed.
+	go spinner.run()
+	return spinner
+}
+
+func (spinner *streamSpinner) Update(label string) {
+	if !spinner.active || strings.TrimSpace(label) == "" {
+		return
+	}
+	spinner.mu.Lock()
+	spinner.label = label
+	spinner.mu.Unlock()
+}
+
+func (spinner *streamSpinner) Stop() {
+	spinner.once.Do(func() {
+		close(spinner.done)
+		if spinner.active {
+			fmt.Fprint(spinner.output, "\r\x1b[2K")
+		}
+	})
+}
+
+func (spinner *streamSpinner) run() {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	delay := time.NewTimer(260 * time.Millisecond)
+	defer delay.Stop()
+
+	select {
+	case <-spinner.done:
+		return
+	case <-delay.C:
+	}
+
+	ticker := time.NewTicker(90 * time.Millisecond)
+	defer ticker.Stop()
+
+	index := 0
+	for {
+		select {
+		case <-spinner.done:
+			return
+		case <-ticker.C:
+			spinner.mu.Lock()
+			label := spinner.label
+			spinner.mu.Unlock()
+			fmt.Fprintf(
+				spinner.output,
+				"\r\x1b[2K%s %s",
+				// This frame set is Axon's loading mark. It stays separate from
+				// the prompt cursor: the prompt owns input focus, and this animated
+				// mark only appears on the transient status line that gets cleared
+				// before model output is printed.
+				accent(frames[index%len(frames)]),
+				shimmerStatusText(label, spinner.width, index),
+			)
+			index++
+		}
+	}
+}
+
+func shimmerStatusText(label string, width int, frame int) string {
+	trimmed := strings.TrimSpace(label)
+	if trimmed == "" {
+		trimmed = "Axon is thinking"
+	}
+	if width < 18 {
+		width = 18
+	}
+	if width > 42 {
+		width = 42
+	}
+
+	runes := []rune(trimmed)
+	if len(runes) > width {
+		runes = runes[:width]
+	}
+
+	// The moving bright segment is the terminal version of the Codex-style
+	// thinking shimmer: the text stays in one place, while a small white window
+	// sweeps across it to signal active work without printing internal backend
+	// milestones into the transcript.
+	position := frame % (len(runes) + 4)
+	var builder strings.Builder
+	for index, r := range runes {
+		if index >= position-1 && index <= position+1 {
+			builder.WriteString(white(string(r)))
+			continue
+		}
+		builder.WriteString(dim(string(r)))
+	}
+	return builder.String()
+}
+
+func streamStatusLabel(status string) string {
+	normalized := strings.ToLower(strings.TrimSpace(status))
+	switch {
+	case strings.Contains(normalized, "project") || strings.Contains(normalized, "context"):
+		return "Reading workspace"
+	case strings.Contains(normalized, "stream"):
+		return "Preparing response"
+	case strings.Contains(normalized, "runtime") || strings.Contains(normalized, "model"):
+		return "Preparing local model"
+	default:
+		return "Axon is thinking"
+	}
+}
+
+func isTerminalOutput(file *os.File) bool {
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+func terminalStatusWidth() int {
+	width := terminalPromptWidth()
+	if width <= 0 {
+		return 36
+	}
+	return width - 6
 }

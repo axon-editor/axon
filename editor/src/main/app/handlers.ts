@@ -5,9 +5,14 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { app, clipboard, ipcMain, shell } from "electron";
 import {
+  type AgentResumeRequest,
   type CliToolInstallResult,
   type CliToolStatus,
 } from "../../shared/app";
+import {
+  consumePendingAgentResumeRequest,
+  writePendingAgentResumeRequest,
+} from "./resumeRequest";
 
 interface AppHandlerDependencies {
   windowSessionRestore: Map<number, boolean>;
@@ -189,4 +194,16 @@ export function registerAppHandlers({
   ipcMain.handle("app:getCliToolStatus", async () => getCliToolStatus(isDev));
 
   ipcMain.handle("app:installCliTool", async () => installCliTool(isDev));
+
+  ipcMain.handle("app:getAgentResumeRequest", async () =>
+    consumePendingAgentResumeRequest(),
+  );
+
+  ipcMain.handle(
+    "app:saveAgentResumeRequest",
+    async (_event, request: AgentResumeRequest) => {
+      await writePendingAgentResumeRequest(request);
+      return true;
+    },
+  );
 }

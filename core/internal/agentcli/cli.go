@@ -1,11 +1,12 @@
 package agentcli
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/GordenArcher/axon-core/internal/ai"
 )
 
 // Run is the small command router for the shipped `axon` binary.
@@ -15,8 +16,7 @@ import (
 // dependency surface.
 func Run(args []string) int {
 	if len(args) == 0 {
-		printHelp()
-		return 0
+		return runSession(nil)
 	}
 
 	switch args[0] {
@@ -25,6 +25,8 @@ func Run(args []string) int {
 		return 0
 	case "ask":
 		return runAsk(args[1:])
+	case "resume":
+		return runResume(args[1:])
 	case "commit":
 		return runCommit(args[1:])
 	case "fix":
@@ -42,6 +44,47 @@ func Run(args []string) int {
 	}
 }
 
+func runSession(args []string) int {
+	workspace, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, red(err.Error()))
+		return 1
+	}
+
+	workspace, err = normalizeWorkspacePath(workspace)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, red(err.Error()))
+		return 1
+	}
+
+	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
+		sessionID := strings.TrimSpace(strings.TrimPrefix(args[0], ":"))
+		session, err := findWorkspaceSession(workspace, sessionID)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, red(err.Error()))
+			return 1
+		}
+		if session != nil {
+			loaded := newAgentTerminalSession(
+				workspace,
+				append([]ai.ConversationMessage(nil), session.Conversation...),
+				session.ID,
+			)
+			if createdAt, err := time.Parse(time.RFC3339, session.CreatedAt); err == nil {
+				loaded.createdAt = createdAt
+			}
+			if updatedAt, err := time.Parse(time.RFC3339, session.UpdatedAt); err == nil {
+				loaded.updatedAt = updatedAt
+			}
+			return runTerminalSession(workspace, &loaded)
+		}
+		fmt.Fprintln(os.Stderr, red("No session found with that id in this workspace."))
+		return printSessionList(workspace)
+	}
+
+	return runTerminalSession(workspace, nil)
+}
+
 // runAsk joins the remaining arguments into one prompt so users can type the
 // natural terminal form: `axon ask why is this slow`. A finite command timeout
 // protects the shell from a stuck local model request while still giving slower
@@ -49,21 +92,29 @@ func Run(args []string) int {
 func runAsk(args []string) int {
 	prompt := strings.TrimSpace(strings.Join(args, " "))
 	if prompt == "" {
-		fmt.Fprintln(os.Stderr, red("Usage: axon ask \"why is this slow?\""))
-		return 1
+		return runSession(nil)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
+	// Slash-prefixed prompts are local terminal commands, not model requests.
+	// This mirrors the Codex/Claude Code style the user asked for: the CLI can
+	// expose fast commands like `/models` without paying the cost of a stream
+	// round-trip or polluting the conversation with tool output.
+	if handled, exitCode := runSlashCommand(prompt); handled {
+		return exitCode
+	}
 
-	if _, err := streamAgentRequest(ctx, streamRequestInput{
-		Action: "ask",
-		Prompt: prompt,
-	}); err != nil {
+	workspace, err := os.Getwd()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, red(err.Error()))
 		return 1
 	}
-	return 0
+	workspace, err = normalizeWorkspacePath(workspace)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, red(err.Error()))
+		return 1
+	}
+
+	return runOneShotSession(workspace, prompt)
 }
 
 // printHelp uses the installed command name, not the source directory name.
@@ -73,9 +124,14 @@ func printHelp() {
 	fmt.Println(`Axon Agent
 
 Usage:
+  axon                         start a new terminal conversation
   axon .                       open the current directory in Axon
   axon /path/to/project         open a project in Axon
-  axon ask "why is X slow"      stream an answer about the codebase
+  axon ask "why is X slow"      ask a one-shot question
+  axon ask                     start a terminal conversation
+  axon ask /models              list local Axon models without calling the agent
+  axon resume                  list saved conversations for the current workspace
+  axon resume :conversation     reopen a saved terminal conversation
   axon fix                      fix current Problems from the open editor
   axon commit                   draft a commit message from staged diff`)
 }
