@@ -13,8 +13,6 @@ const (
 	ansiMuted     = "\033[38;2;154;164;184m"
 	ansiInputBg   = "\033[48;2;14;18;27m"
 	ansiActiveRow = "\033[48;2;20;42;54m\033[38;2;223;247;255m"
-	ansiBlink     = "\033[5m"
-	ansiBlinkOff  = "\033[25m"
 )
 
 // dim is used for progress and confirmation prompts. Those messages should be
@@ -56,8 +54,4 @@ func inputSurface(text string) string {
 
 func activeRow(text string) string {
 	return ansiActiveRow + text + ansiReset
-}
-
-func blinkingCursor(text string) string {
-	return ansiBlink + text + ansiBlinkOff
 }

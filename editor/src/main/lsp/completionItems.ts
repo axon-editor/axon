@@ -148,6 +148,7 @@ export function normalizeLanguageServerCompletionItems(
         preselect?: unknown;
         textEdit?: unknown;
         additionalTextEdits?: unknown;
+        data?: unknown;
       };
       if (typeof completionItem.label !== "string") return null;
 
@@ -166,6 +167,7 @@ export function normalizeLanguageServerCompletionItems(
 
       return {
         label: completionItem.label,
+        data: completionItem.data,
         kind:
           typeof completionItem.kind === "number"
             ? completionItem.kind

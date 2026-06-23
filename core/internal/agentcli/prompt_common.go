@@ -9,6 +9,5 @@ const (
 	// surface, while the fallback line reader still prints the same prefix when
 	// raw mode is not available.
 	interactivePromptTitle = "Axon"
-	promptCursorRune       = '▌'
 	maxPromptSuggestions   = 4
 )

@@ -86,6 +86,7 @@ export interface LanguageServerTextEdit {
 
 export interface LanguageServerCompletionItem {
   label: string;
+  data?: unknown;
   kind?: number;
   detail?: string;
   documentation?: string;

@@ -263,7 +263,7 @@ func renderPromptInput(value []rune, cursor int, innerWidth int) string {
 		innerWidth = 1
 	}
 
-	available := innerWidth - 1
+	available := innerWidth
 	if available < 1 {
 		available = 1
 	}
@@ -277,10 +277,11 @@ func renderPromptInput(value []rune, cursor int, innerWidth int) string {
 
 	start := 0
 	if len(value) > available {
-		// When the prompt is longer than the visible input, keep the cursor near
-		// the middle of the field instead of always anchoring at the start. This
-		// matches editor behavior: the text scrolls under the caret while the
-		// input component itself stays stable.
+		// When the prompt is longer than the visible input, keep the internal
+		// edit position near the middle of the field instead of always anchoring
+		// at the start. The cursor itself is not rendered because Axon's terminal
+		// input should look like a clean command surface, but the hidden position
+		// still matters for arrow-key edits and backspace behavior.
 		start = cursor - available/2
 		if start < 0 {
 			start = 0
@@ -295,34 +296,14 @@ func renderPromptInput(value []rune, cursor int, innerWidth int) string {
 		end = len(value)
 	}
 
-	visible := value[start:end]
-	cursorInWindow := cursor - start
-	if cursorInWindow < 0 {
-		cursorInWindow = 0
-	}
-	if cursorInWindow > len(visible) {
-		cursorInWindow = len(visible)
-	}
-
-	var builder strings.Builder
-	for index, r := range visible {
-		if index == cursorInWindow {
-			builder.WriteRune(promptCursorRune)
-		}
-		builder.WriteRune(r)
-	}
-	if cursorInWindow == len(visible) {
-		builder.WriteRune(promptCursorRune)
-	}
-
-	rendered := []rune(builder.String())
+	rendered := []rune(string(value[start:end]))
 	if len(rendered) < innerWidth {
 		rendered = append(rendered, []rune(strings.Repeat(" ", innerWidth-len(rendered)))...)
 	}
 	if len(rendered) > innerWidth {
 		rendered = rendered[:innerWidth]
 	}
-	return strings.Replace(string(rendered), string(promptCursorRune), blinkingCursor(string(promptCursorRune)), 1)
+	return string(rendered)
 }
 
 func resolvePromptSelection(value string, selectedSuggestion int) string {

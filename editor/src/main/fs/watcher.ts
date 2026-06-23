@@ -21,15 +21,16 @@ export class FileWatcherManager {
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: {
-        stabilityThreshold: 100,
-        pollInterval: 50,
+        stabilityThreshold: 80,
+        pollInterval: 30,
       },
-      // macOS kqueue watchers are fast, but on a large workspace they can chew
-      // through the process file-descriptor limit. Polling is less elegant, but
-      // it keeps Axon stable under the repo sizes we actually run here.
+      atomic: true,
+      // Polling is intentionally opt-in. It can help debug rare native watcher
+      // failures, but it is too expensive as the default on older MacBooks
+      // because every watched workspace path gets checked on an interval.
       usePolling: this.deps.shouldPollWatchers,
-      interval: 250,
-      binaryInterval: 400,
+      interval: 400,
+      binaryInterval: 800,
     };
   }
 
@@ -154,7 +155,7 @@ export class FileWatcherManager {
         // the tree and Git decorations move together after creates, imports,
         // edits, and deletes.
         this.deps.sendToRenderer("git:changed");
-      }, 120);
+      }, 90);
     };
 
     this.folderWatcher.on("add", notify);
@@ -174,7 +175,7 @@ export class FileWatcherManager {
         if (gitDebounceTimer) clearTimeout(gitDebounceTimer);
         gitDebounceTimer = setTimeout(() => {
           this.deps.sendToRenderer("git:changed");
-        }, 120);
+        }, 90);
       };
 
       this.gitWatcher.on("add", notifyGit);

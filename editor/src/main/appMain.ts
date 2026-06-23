@@ -62,7 +62,12 @@ const execFileAsync = promisify(execFile);
 
 const isMac = process.platform === "darwin";
 const isWindows = process.platform === "win32";
-const shouldPollWatchers = process.platform === "darwin";
+// Native filesystem events should be the default on macOS. Polling a whole
+// workspace every few hundred milliseconds is too expensive on older Intel
+// MacBooks and makes the editor feel slow even when the renderer is idle. The
+// escape hatch stays available for debugging unusual watcher failures, but it
+// must be an explicit opt-in instead of the normal product path.
+const shouldPollWatchers = process.env.AXON_WATCH_USE_POLLING === "1";
 function resolveMacAppBundlePath() {
   if (!isMac) return null;
 

@@ -49,6 +49,7 @@ import {
   getLanguageServerInitializationOptions,
   getLanguageServerSessionKey,
   getPythonLanguageServerSettings,
+  getTypeScriptLanguageServerPreferences,
   hasWorkspaceMarker,
   notifyLanguageServerConfiguration,
   resolveLanguageServerCommand,
@@ -442,7 +443,10 @@ function syncLanguageServerDocument(
 ) {
   const uri = url.pathToFileURL(request.filePath).toString();
   const existingDocument = session.syncedDocuments.get(uri);
-  const languageId = request.languageId === "cpp" ? "cpp" : request.languageId;
+  const languageId = normalizeDocumentLanguageId(
+    request.filePath,
+    request.languageId,
+  );
 
   if (!existingDocument) {
     // Completion only makes sense if the server has the latest in-memory text.
@@ -475,6 +479,13 @@ function syncLanguageServerDocument(
     languageId: existingDocument.languageId,
   });
   return uri;
+}
+
+function normalizeDocumentLanguageId(filePath: string, languageId: string) {
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === ".tsx") return "typescriptreact";
+  if (extension === ".jsx") return "javascriptreact";
+  return languageId === "cpp" ? "cpp" : languageId;
 }
 
 export async function syncDocumentWithLanguageServer(
@@ -565,6 +576,33 @@ function getConfigurationValueForSection(
   session: LanguageServerSession,
   section: string,
 ) {
+  if (session.id === "typescript") {
+    const preferences = getTypeScriptLanguageServerPreferences();
+    const suggest = {
+      includeCompletionsForModuleExports: true,
+      includeCompletionsForImportStatements: true,
+      autoImports: true,
+    };
+
+    // TypeScript asks the editor for VS Code-shaped settings after
+    // initialization. Auto-import completions from packages such as
+    // lucide-react depend on these preferences; returning `{}` makes the server
+    // behave like a minimal client and hide many exported symbols.
+    if (!section || section === "typescript" || section === "javascript") {
+      return { preferences, suggest };
+    }
+    if (
+      section === "typescript.preferences" ||
+      section === "javascript.preferences"
+    ) {
+      return preferences;
+    }
+    if (section === "typescript.suggest" || section === "javascript.suggest") {
+      return suggest;
+    }
+    return null;
+  }
+
   if (session.id !== "python") {
     // Most bundled servers ask for workspace/configuration after initialize.
     // Returning null is technically allowed by the protocol, but some servers
@@ -896,6 +934,15 @@ function initializeLanguageServer(session: LanguageServerSession) {
             completionItem: {
               documentationFormat: ["markdown", "plaintext"],
               snippetSupport: true,
+              resolveSupport: {
+                properties: [
+                  "documentation",
+                  "detail",
+                  "additionalTextEdits",
+                  "textEdit",
+                  "insertText",
+                ],
+              },
             },
             contextSupport: true,
             dynamicRegistration: false,
@@ -1504,10 +1551,17 @@ export async function getLanguageServerCompletions(
         },
       },
     );
+    const completionItems = normalizeLanguageServerCompletionItems(
+      completionResult,
+    );
+    const resolvedCompletionItems =
+      serverId === "typescript"
+        ? await resolveTypeScriptCompletionItems(session, completionItems)
+        : completionItems;
 
     return {
       ok: true,
-      items: normalizeLanguageServerCompletionItems(completionResult),
+      items: resolvedCompletionItems,
     };
   } catch (err) {
     return {
@@ -1519,6 +1573,33 @@ export async function getLanguageServerCompletions(
       items: [],
     };
   }
+}
+
+async function resolveTypeScriptCompletionItems(
+  session: LanguageServerSession,
+  items: ReturnType<typeof normalizeLanguageServerCompletionItems>,
+) {
+  const resolveLimit = 80;
+  const resolvedItems = await Promise.all(
+    items.slice(0, resolveLimit).map(async (item) => {
+      if (!item.data) return item;
+
+      try {
+        const resolved = await requestLanguageServer(
+          session,
+          "completionItem/resolve",
+          item,
+          2500,
+        );
+        const normalized = normalizeLanguageServerCompletionItems([resolved]);
+        return normalized[0] ?? item;
+      } catch {
+        return item;
+      }
+    }),
+  );
+
+  return [...resolvedItems, ...items.slice(resolveLimit)];
 }
 
 export async function getLanguageServerHover(

@@ -120,6 +120,20 @@ export function detectLanguage(path: string): string {
   return map[ext ?? ""] ?? "plaintext";
 }
 
+export function detectLanguageServerLanguage(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase();
+
+  // Monaco intentionally uses the normal TypeScript/JavaScript language ids for
+  // TSX and JSX so its tokenizer and worker attach correctly. Language servers
+  // need the protocol-facing React ids, though; if a `.tsx` document is opened
+  // as plain `typescript`, the server parses JSX tags like `<div>` as invalid
+  // TypeScript syntax and floods Problems with false parser errors.
+  if (ext === "tsx") return "typescriptreact";
+  if (ext === "jsx") return "javascriptreact";
+
+  return detectLanguage(path);
+}
+
 // acquireModel increments the ref count and returns the model.
 // Creates the model if it doesn't exist yet.
 // Always call this once per editor instance that opens a file.

@@ -1,4 +1,5 @@
 import * as monaco from "monaco-editor";
+import { detectLanguageServerLanguage } from "../../editor/lib/monacoModels";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -181,8 +182,20 @@ const tailwindUtilitySuggestions = [
   "overflow-y-auto",
   "transition-colors",
   "cursor-pointer",
-  "hover:bg-[#11151c]",
-  "hover:text-white",
+];
+
+const tailwindVariantPrefixes = [
+  "hover",
+  "focus",
+  "active",
+  "disabled",
+  "group-hover",
+  "dark",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+  "2xl",
 ];
 
 const lspToMonacoCompletionKind: Record<
@@ -258,6 +271,37 @@ function isFileInsideWorkspace(filePath: string, folderPath: string) {
 
 function getLinePrefix(model: monaco.editor.ITextModel, position: monaco.Position) {
   return model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+}
+
+function getTailwindTokenContext(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) {
+  const linePrefix = getLinePrefix(model, position);
+  const tokenMatch = /(?:^|\s)([^\s"'`{}<>]*)$/.exec(linePrefix);
+  const token = tokenMatch?.[1] ?? "";
+  const tokenStartColumn = position.column - token.length;
+  const variantSeparator = token.lastIndexOf(":");
+  const variantPrefix =
+    variantSeparator >= 0 ? token.slice(0, variantSeparator + 1) : "";
+  const utilityQuery =
+    variantSeparator >= 0 ? token.slice(variantSeparator + 1) : token;
+
+  // Monaco's normal word range intentionally breaks at `:`, which is correct
+  // for TypeScript identifiers but wrong for Tailwind variants. A class token
+  // such as `hover:bg-` must be replaced as one unit; otherwise accepting a
+  // completion leaves duplicated text or drops the variant prefix.
+  return {
+    token,
+    variantPrefix,
+    utilityQuery: utilityQuery.toLowerCase(),
+    range: new monaco.Range(
+      position.lineNumber,
+      Math.max(1, tokenStartColumn),
+      position.lineNumber,
+      position.column,
+    ),
+  };
 }
 
 function snippetsEnabled() {
@@ -593,28 +637,56 @@ function registerTailwindUtilityProvider(monacoInstance: typeof monaco) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
       triggerCharacters: ["\"", "'", "`", " ", "-", ":"],
       provideCompletionItems: (model, position) => {
-        const range = getWordReplaceRange(model, position);
-        const word = model.getWordUntilPosition(position).word.toLowerCase();
+        const tokenContext = getTailwindTokenContext(model, position);
         const linePrefix = getLinePrefix(model, position);
         const inClassLikeContext = isClassLikeCompletionContext(linePrefix);
-        if (!inClassLikeContext && word.length < 2) {
+        if (!inClassLikeContext && tokenContext.token.length < 2) {
           return { suggestions: [] };
         }
 
-        return {
-          suggestions: tailwindUtilitySuggestions
-            .filter((utility) => !word || utility.startsWith(word))
-            .slice(0, 40)
-            .map((utility, index) => ({
-              label: utility,
+        const variantSuggestions =
+          tokenContext.variantPrefix.length === 0
+            ? tailwindVariantPrefixes
+                .filter((variant) =>
+                  variant.startsWith(tokenContext.utilityQuery),
+                )
+                .map((variant, index) => ({
+                  label: `${variant}:`,
+                  kind: monacoInstance.languages.CompletionItemKind.Keyword,
+                  insertText: `${variant}:`,
+                  detail: "Tailwind variant",
+                  documentation:
+                    "Tailwind variant prefix. Continue typing a utility after the colon.",
+                  sortText: `0${String(index).padStart(3, "0")}`,
+                  range: tokenContext.range,
+                }))
+            : [];
+
+        const utilitySuggestions = tailwindUtilitySuggestions
+          .filter(
+            (utility) =>
+              !tokenContext.utilityQuery ||
+              utility.startsWith(tokenContext.utilityQuery),
+          )
+          .slice(0, 40)
+          .map((utility, index) => {
+            const insertText = `${tokenContext.variantPrefix}${utility}`;
+            return {
+              label: insertText,
               kind: monacoInstance.languages.CompletionItemKind.Keyword,
-              insertText: utility,
-              detail: "Tailwind utility",
+              insertText,
+              detail: tokenContext.variantPrefix
+                ? "Tailwind variant utility"
+                : "Tailwind utility",
               documentation:
                 "Local Tailwind utility hint. The Tailwind language server can add project-aware completions when it is installed.",
               sortText: `1${String(index).padStart(3, "0")}`,
-              range,
-            })),
+              range: tokenContext.range,
+            };
+          });
+
+        return {
+          suggestions: [...variantSuggestions, ...utilitySuggestions],
         };
       },
     });
@@ -635,7 +707,7 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
         const result = await window.axon.getLanguageServerCompletions({
           folderPath,
           filePath,
-          languageId,
+          languageId: detectLanguageServerLanguage(filePath),
           content: model.getValue(),
           line: position.lineNumber,
           column: position.column,

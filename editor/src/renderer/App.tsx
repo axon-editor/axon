@@ -105,7 +105,11 @@ import {
   upsertWorkspaceRoot,
   type WorkspaceRoot,
 } from "./shared/lib/workspaceRoots";
-import { detectLanguage, getModel } from "./features/editor/lib/monacoModels";
+import {
+  detectLanguage,
+  detectLanguageServerLanguage,
+  getModel,
+} from "./features/editor/lib/monacoModels";
 import { collectFileSymbols, type FileSymbol } from "./features/sidebar/files/lib/fileSymbols";
 import "./App.css";
 import * as monaco from "monaco-editor";
@@ -235,7 +239,6 @@ function App() {
   const folderRefreshTimerRef = useRef<number | null>(null);
   const folderRefreshRequestRef = useRef(0);
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
-  const autoStartedLspWorkspaceRef = useRef<string | null>(null);
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
   const [agentSidebarOpen, setAgentSidebarOpen] = useState(false);
@@ -318,7 +321,6 @@ function App() {
     setTaskRunnerOpen(false);
     setExtensionsOpen(false);
     setAgentSidebarOpen(false);
-    autoStartedLspWorkspaceRef.current = null;
     activeLanguageServerStartRef.current.clear();
     void window.axon.stopLanguageServers(folderPath).catch((err) => {
       console.error("failed to stop language servers for untrusted workspace:", err);
@@ -537,36 +539,6 @@ function App() {
   );
 
   useEffect(() => {
-    if (!folderPath || !settings.lsp.enabled || !workspaceTrusted) {
-      autoStartedLspWorkspaceRef.current = null;
-      activeLanguageServerStartRef.current.clear();
-      return;
-    }
-
-    if (autoStartedLspWorkspaceRef.current === folderPath) return;
-    autoStartedLspWorkspaceRef.current = folderPath;
-
-    // Completion should be ready by the time the user starts typing, not only
-    // after they visit Settings. I auto-start relevant language servers once
-    // per workspace while still respecting the LSP toggle, then leave manual
-    // Start/Stop in Settings as the explicit override surface.
-    window.axon
-      .startLanguageServers(folderPath)
-      .then((result) => {
-        appendOutput("lsp", result.message, result.ok ? "success" : "error");
-      })
-      .catch((err) => {
-        appendOutput(
-          "lsp",
-          err instanceof Error
-            ? err.message
-            : "Failed to start language servers.",
-          "error",
-        );
-      });
-  }, [appendOutput, folderPath, settings.lsp.enabled, workspaceTrusted]);
-
-  useEffect(() => {
     if (
       !folderPath ||
       !settings.lsp.enabled ||
@@ -576,40 +548,44 @@ function App() {
       return;
     }
 
-    const languageId = detectLanguage(activePane.activeFile);
+    const languageId = detectLanguageServerLanguage(activePane.activeFile);
     const startKey = `${folderPath}::${languageId}`;
     if (activeLanguageServerStartRef.current.has(startKey)) return;
     if (!window.axon.startLanguageServerForLanguage) return;
     activeLanguageServerStartRef.current.add(startKey);
 
-    window.axon
-      .startLanguageServerForLanguage({ folderPath, languageId })
-      .then((result) => {
-        if (result.message.startsWith("No external language server")) return;
-        // I release the start key when the main process reports a failed
-        // start because some managed servers can exit once during cold-start
-        // workspace scanning and then succeed on the next attempt. Keeping the
-        // failed key locked would make the renderer believe it already asked
-        // for this workspace/language pair, leaving completions dead until the
-        // user restarts Axon.
-        if (!result.ok) {
+    const startTimer = window.setTimeout(() => {
+      window.axon
+        .startLanguageServerForLanguage({ folderPath, languageId })
+        .then((result) => {
+          if (result.message.startsWith("No external language server")) return;
+          // Language servers should come online after the editor shell and the
+          // first file are usable. Starting every relevant server during
+          // workspace restore made startup compete with file-tree rendering,
+          // Git status, diagnostics, and Monaco on older 8GB Intel machines.
+          // This delayed, active-file-only path keeps completions available
+          // without turning project open into a background process storm.
+          if (!result.ok) {
+            activeLanguageServerStartRef.current.delete(startKey);
+          }
+          appendOutput("lsp", result.message, result.ok ? "success" : "error");
+        })
+        .catch((err) => {
+          // IPC errors are transient from the renderer's point of view. If the
+          // key stayed locked here, one failed bridge call would permanently
+          // block the next active-file change from starting the server again.
           activeLanguageServerStartRef.current.delete(startKey);
-        }
-        appendOutput("lsp", result.message, result.ok ? "success" : "error");
-      })
-      .catch((err) => {
-        // IPC errors are also transient from the renderer's point of view. If I
-        // keep the key locked here, one failed bridge call permanently blocks
-        // the next active-file change from starting the language server again.
-        activeLanguageServerStartRef.current.delete(startKey);
-        appendOutput(
-          "lsp",
-          err instanceof Error
-            ? err.message
-            : "Failed to start language server.",
-          "error",
-        );
-      });
+          appendOutput(
+            "lsp",
+            err instanceof Error
+              ? err.message
+              : "Failed to start language server.",
+            "error",
+          );
+        });
+    }, 900);
+
+    return () => window.clearTimeout(startTimer);
   }, [
     activePane?.activeFile,
     appendOutput,
@@ -941,11 +917,8 @@ function App() {
             }
           })
           .catch(console.error);
-        if (workspaceTrusted) {
-          void refreshProjectDiagnostics();
-        }
         void refreshGitStatus({ silent: true });
-      }, 60);
+      }, 90);
     });
     return () => {
       cleanup();
@@ -954,7 +927,7 @@ function App() {
         folderRefreshTimerRef.current = null;
       }
     };
-  }, [folderPath, refreshGitStatus, refreshProjectDiagnostics, workspaceTrusted]);
+  }, [folderPath, refreshGitStatus]);
 
   useEffect(() => {
     const cleanup = window.axon.onGitChanged(() => {
@@ -1180,25 +1153,6 @@ function App() {
       .then(setGitStatus)
       .catch(() => {
         setGitStatus(null);
-      });
-    void window.axon
-      .getProjectDiagnostics(path)
-      .then((nextDiagnostics) => {
-        setProjectDiagnostics(
-          capDiagnostics(nextDiagnostics, MAX_PROJECT_DIAGNOSTICS),
-        );
-        appendOutput(
-          "diagnostics",
-          nextDiagnostics.length === 0
-            ? "Project diagnostics completed with no errors."
-            : `Project diagnostics found ${nextDiagnostics.length} issue${nextDiagnostics.length === 1 ? "" : "s"}.`,
-          nextDiagnostics.length === 0 ? "success" : "warning",
-        );
-      })
-      .catch((err) => {
-        console.error("failed to load project diagnostics:", err);
-        appendOutput("diagnostics", "Project diagnostics failed.", "error");
-        setProjectDiagnostics([]);
       });
   };
 
@@ -1568,17 +1522,12 @@ function App() {
         new CustomEvent("axon:fileSaved", { detail: { path: filePath } }),
       );
       appendOutput("file", `Saved ${filePath}`, "success");
-      if (workspaceTrusted) {
-        void refreshProjectDiagnostics();
-      }
       return true;
     },
     [
       appendOutput,
       folderPath,
-      refreshProjectDiagnostics,
       settings.editor.formatOnSave,
-      workspaceTrusted,
     ],
   );
 

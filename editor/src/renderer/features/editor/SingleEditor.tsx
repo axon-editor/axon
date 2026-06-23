@@ -29,6 +29,7 @@ import {
   acquireModel,
   getModel,
   detectLanguage,
+  detectLanguageServerLanguage,
 } from "./lib/monacoModels";
 import { collectFileSymbols } from "../sidebar/files/lib/fileSymbols";
 
@@ -259,7 +260,7 @@ export default function SingleEditor({
     const position = editor?.getPosition();
     if (!editor || !model || !position || !folderPath) return false;
 
-    const languageId = model.getLanguageId();
+    const languageId = detectLanguageServerLanguage(filePath);
     if (languageId === "plaintext") return false;
 
     try {
@@ -302,7 +303,7 @@ export default function SingleEditor({
   const syncDocumentWithLanguageServer = useCallback(
     (content: string) => {
       if (!folderPath) return;
-      const languageId = detectLanguage(filePathRef.current);
+      const languageId = detectLanguageServerLanguage(filePathRef.current);
       if (languageId === "plaintext") return;
 
       // Diagnostics are pushed by the language server after it sees the latest
@@ -680,7 +681,7 @@ export default function SingleEditor({
     const editor = editorRef.current;
     setSaving(true);
     try {
-      const languageId = detectLanguage(path);
+      const languageId = detectLanguageServerLanguage(path);
       if (
         editorSettings.formatOnSave &&
         folderPath &&

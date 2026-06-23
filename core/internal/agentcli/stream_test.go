@@ -68,8 +68,6 @@ func stripAnsiForTest(value string) string {
 		ansiMuted, "",
 		ansiInputBg, "",
 		ansiActiveRow, "",
-		ansiBlink, "",
-		ansiBlinkOff, "",
 	)
 	return replacer.Replace(value)
 }

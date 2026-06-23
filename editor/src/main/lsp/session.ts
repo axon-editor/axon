@@ -242,6 +242,7 @@ export function getLanguageServerInitializationOptions(
         path: tsserverPath,
         fallbackPath: bundledTsserver || undefined,
       },
+      preferences: getTypeScriptLanguageServerPreferences(),
     };
   }
 
@@ -251,6 +252,17 @@ export function getLanguageServerInitializationOptions(
 
   return {
     settings: pythonSettings,
+  };
+}
+
+export function getTypeScriptLanguageServerPreferences() {
+  return {
+    includePackageJsonAutoImports: "auto",
+    includeCompletionsForModuleExports: true,
+    includeCompletionsForImportStatements: true,
+    includeCompletionsWithInsertText: true,
+    includeAutomaticOptionalChainCompletions: true,
+    importModuleSpecifierPreference: "shortest",
   };
 }
 

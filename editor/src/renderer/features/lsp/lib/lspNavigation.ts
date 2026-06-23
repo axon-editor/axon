@@ -1,5 +1,6 @@
 import * as monaco from "monaco-editor";
 import { applyWorkspaceEdits } from "./workspaceEdits";
+import { detectLanguageServerLanguage } from "../../editor/lib/monacoModels";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -46,7 +47,7 @@ function toLspRequestBase(
   return {
     folderPath,
     filePath,
-    languageId,
+    languageId: detectLanguageServerLanguage(filePath),
     content: model.getValue(),
   };
 }

@@ -4,6 +4,13 @@ package agentcli
 
 import "testing"
 
+func TestRenderPromptInputDoesNotDrawCursorGlyph(t *testing.T) {
+	got := renderPromptInput([]rune("what model are you ?"), 6, 32)
+	if containsRune(got, '▌') {
+		t.Fatalf("renderPromptInput rendered cursor glyph: %q", got)
+	}
+}
+
 func TestResolvePromptSelectionExpandsUniqueSlashCommand(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -44,6 +51,15 @@ func TestResolvePromptSelectionExpandsUniqueSlashCommand(t *testing.T) {
 			}
 		})
 	}
+}
+
+func containsRune(value string, target rune) bool {
+	for _, candidate := range value {
+		if candidate == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestResolvePromptSelectionUsesHighlightedSlashCommand(t *testing.T) {
