@@ -145,10 +145,10 @@ export class FileWatcherManager {
       depth: 8,
     });
 
-    const notify = () => {
+    const notify = (changedPath: string) => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        this.deps.sendToRenderer("fs:folderChanged");
+        this.deps.sendToRenderer("fs:folderChanged", { path: changedPath });
         // New untracked files and deleted files do not always mutate the small
         // set of .git paths we watch quickly enough for the sidebar colors to
         // feel live. I refresh Git status from the normal folder watcher too so

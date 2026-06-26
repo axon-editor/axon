@@ -10,6 +10,8 @@ export interface AxonThemeDefinition {
   base: editor.BuiltinTheme;
   tokens: ThemeTokenMap;
   monacoColors: editor.IColors;
+  tokenRules?: editor.ITokenThemeRule[];
+  semanticTokenColors?: Record<string, unknown>;
 }
 
 export function hexToMonaco(color: string) {

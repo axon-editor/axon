@@ -463,16 +463,16 @@ export default function SourceControlModal({
               </div>
             </div>
 
-            <GitWorkflowPanel
-              folderPath={folderPath}
-              onChanged={() => {
-                void loadStatus();
-                onGitStatusChanged();
-              }}
-              onOutput={onOutput}
-            />
-
             <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain py-2">
+              <GitWorkflowPanel
+                folderPath={folderPath}
+                onChanged={() => {
+                  void loadStatus();
+                  onGitStatusChanged();
+                }}
+                onOutput={onOutput}
+              />
+
               {!folderPath && (
                 <div className="px-3 py-2 text-[12px] text-[#586478]">
                   Open a folder to inspect Git changes.

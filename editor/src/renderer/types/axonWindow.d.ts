@@ -305,7 +305,7 @@ declare global {
       onFileChanged: (
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;
-      onFolderChanged: (callback: () => void) => () => void;
+      onFolderChanged: (callback: (data?: { path?: string }) => void) => () => void;
       onGitChanged: (callback: () => void) => () => void;
       onAiChatStreamEvent: (
         callback: (event: AiChatStreamEvent) => void,

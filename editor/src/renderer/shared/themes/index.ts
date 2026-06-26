@@ -7,6 +7,7 @@ import {
 } from "../../../shared/settings";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import { axonDarkTheme } from "./axonDark";
+import { axonMoonlightTheme } from "./axonMoonlight";
 import { ayuDarkTheme } from "./ayuDark";
 import { catppuccinMochaTheme } from "./catppuccinMocha";
 import { soraTheme } from "./sora";
@@ -27,6 +28,7 @@ const registeredMonacos = new WeakSet<MonacoInstance>();
 
 export const BUILT_IN_THEMES: Record<BuiltInThemeId, AxonThemeDefinition> = {
   "axon-dark": axonDarkTheme,
+  "axon-moonlight": axonMoonlightTheme,
   sora: soraTheme,
   "zed-dark": zedDarkTheme,
   "catppuccin-mocha": catppuccinMochaTheme,
@@ -77,15 +79,14 @@ function buildMonacoTheme(
   tokens: ThemeTokenMap = theme.tokens,
   extensionTheme?: ResolvedExtensionTheme,
 ) {
-  return {
+  const themeData: monaco.editor.IStandaloneThemeData = {
     base: theme.base,
     inherit: true,
     rules: [
       ...createSyntaxRules(tokens),
+      ...(theme.tokenRules ?? []),
       ...(extensionTheme ? createExtensionSyntaxRules(extensionTheme.syntax) : []),
     ],
-    semanticHighlighting: true,
-    semanticTokenColors: createSemanticTokenColors(tokens),
     colors: {
       foreground: tokens["editor.foreground"],
       "editor.background": tokens["editor.background"],
@@ -98,7 +99,22 @@ function buildMonacoTheme(
       "terminal.foreground": tokens["terminal.foreground"],
       ...theme.monacoColors,
     },
-  } satisfies monaco.editor.IStandaloneThemeData;
+  };
+
+  // Monaco consumes semanticTokenColors at runtime, but the bundled type in
+  // this version does not expose that field. Keep the theme object strict and
+  // attach the runtime field through a narrow extension instead of weakening
+  // the full theme builder with any.
+  (
+    themeData as monaco.editor.IStandaloneThemeData & {
+      semanticTokenColors: Record<string, unknown>;
+    }
+  ).semanticTokenColors = {
+    ...createSemanticTokenColors(tokens),
+    ...(theme.semanticTokenColors ?? {}),
+  };
+
+  return themeData;
 }
 
 function defineAllThemes(

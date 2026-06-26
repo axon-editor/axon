@@ -415,8 +415,8 @@ contextBridge.exposeInMainWorld("axon", {
   },
 
   // notifies renderer when any file is created, deleted, or renamed in the folder
-  onFolderChanged: (callback: () => void) => {
-    const handler = () => callback();
+  onFolderChanged: (callback: (data?: { path?: string }) => void) => {
+    const handler = (_: unknown, data?: { path?: string }) => callback(data);
     ipcRenderer.on("fs:folderChanged", handler);
     return () => ipcRenderer.removeListener("fs:folderChanged", handler);
   },
