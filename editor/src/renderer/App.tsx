@@ -82,18 +82,22 @@ import {
   type GitStatusResult,
 } from "../shared/git";
 import { type WorkspaceTask } from "../shared/tasks";
-import {
-  type LanguageServerTextEdit,
-} from "../shared/lsp";
+import { type LanguageServerTextEdit } from "../shared/lsp";
 import { type UpdateInfo, type UpdateInstallState } from "../shared/updates";
 import { type ExtensionState } from "../shared/extensions";
 import { type AgentResumeRequest } from "../shared/app";
-import { createThemeCssVariables, resolveThemeTokens } from "./shared/lib/themeTokens";
+import {
+  createThemeCssVariables,
+  resolveThemeTokens,
+} from "./shared/lib/themeTokens";
 import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { type EditorNavigationTarget } from "./features/editor/lib/navigation";
 import { fontStack } from "./shared/lib/fonts";
 import { createBundledFontFaces } from "./shared/lib/bundledFonts";
-import { createHtmlPreviewTabPath, isHtmlFile } from "./features/preview/lib/htmlPreviewTabs";
+import {
+  createHtmlPreviewTabPath,
+  isHtmlFile,
+} from "./features/preview/lib/htmlPreviewTabs";
 import {
   loadWorkspaceSession,
   sanitizeRestoredLayout,
@@ -110,7 +114,10 @@ import {
   detectLanguageServerLanguage,
   getModel,
 } from "./features/editor/lib/monacoModels";
-import { collectFileSymbols, type FileSymbol } from "./features/sidebar/files/lib/fileSymbols";
+import {
+  collectFileSymbols,
+  type FileSymbol,
+} from "./features/sidebar/files/lib/fileSymbols";
 import "./App.css";
 import * as monaco from "monaco-editor";
 import SpotifyFloatingPlayer from "./features/spotify/SpotifyFloatingPlayer";
@@ -323,7 +330,10 @@ function App() {
     setAgentSidebarOpen(false);
     activeLanguageServerStartRef.current.clear();
     void window.axon.stopLanguageServers(folderPath).catch((err) => {
-      console.error("failed to stop language servers for untrusted workspace:", err);
+      console.error(
+        "failed to stop language servers for untrusted workspace:",
+        err,
+      );
     });
   }, [folderPath, workspaceTrusted]);
   const extensionThemes = useMemo(
@@ -796,13 +806,9 @@ function App() {
       .map((font) => {
         const family = escapeCssString(font.family);
         const url = escapeCssString(font.url);
-        const weight = font.weight
-          ? `font-weight:${font.weight};`
-          : "";
+        const weight = font.weight ? `font-weight:${font.weight};` : "";
         const style = font.style ? `font-style:${font.style};` : "";
-        const stretch = font.stretch
-          ? `font-stretch:${font.stretch};`
-          : "";
+        const stretch = font.stretch ? `font-stretch:${font.stretch};` : "";
         return `@font-face{font-family:"${family}";src:url("${url}");${weight}${style}${stretch}font-display:swap;}`;
       })
       .join("\n");
@@ -831,13 +837,31 @@ function App() {
     return window.axon.onLanguageServerDiagnostics((event) => {
       if (event.folderPath !== folderPath) return;
       setLspDiagnosticsByFile((current) =>
-        updateLspDiagnosticCache(current, event.filePath, event.diagnostics),
+        updateLspDiagnosticCache(
+          current,
+          event.filePath,
+          event.serverId,
+          event.diagnostics,
+        ),
       );
     });
   }, [folderPath, settings.lsp.enabled]);
 
   useEffect(() => {
-    syncLanguageServerDiagnosticsToMonaco(lspDiagnosticsByFile);
+    const diagnosticsByFile = Object.values(lspDiagnosticsByFile)
+      .flat()
+      .reduce<Record<string, EditorDiagnostic[]>>(
+        (nextDiagnostics, diagnostic) => {
+          nextDiagnostics[diagnostic.path] = [
+            ...(nextDiagnostics[diagnostic.path] ?? []),
+            diagnostic,
+          ];
+          return nextDiagnostics;
+        },
+        {},
+      );
+
+    syncLanguageServerDiagnosticsToMonaco(diagnosticsByFile);
   }, [lspDiagnosticsByFile]);
 
   useEffect(() => {
@@ -1109,7 +1133,11 @@ function App() {
     const nextRoots =
       restoredRoots.length > 0
         ? upsertWorkspaceRoot(restoredRoots, path, getWorkspaceTrustState(path))
-        : upsertWorkspaceRoot(workspaceRoots, path, getWorkspaceTrustState(path));
+        : upsertWorkspaceRoot(
+            workspaceRoots,
+            path,
+            getWorkspaceTrustState(path),
+          );
     const nextActiveRoot =
       nextRoots.find((root) => root.path === path) ?? createWorkspaceRoot(path);
 
@@ -1361,13 +1389,13 @@ function App() {
 
       const nextDiagnostic =
         direction === 1
-          ? orderedDiagnostics.find(
+          ? (orderedDiagnostics.find(
               (diagnostic) => compareWithAnchor(diagnostic) > 0,
-            ) ?? orderedDiagnostics[0]
-          : [...orderedDiagnostics]
+            ) ?? orderedDiagnostics[0])
+          : ([...orderedDiagnostics]
               .reverse()
               .find((diagnostic) => compareWithAnchor(diagnostic) < 0) ??
-            orderedDiagnostics[orderedDiagnostics.length - 1];
+            orderedDiagnostics[orderedDiagnostics.length - 1]);
 
       // Problem navigation is intentionally based on the merged diagnostics
       // store instead of the currently mounted Monaco model. That lets F8 walk
@@ -1445,7 +1473,7 @@ function App() {
     async (filePath: string) => {
       const model = getModel(filePath);
       if (!model || model.isDisposed()) return false;
-      const languageId = detectLanguage(filePath);
+      const languageId = detectLanguageServerLanguage(filePath);
 
       if (
         settings.editor.formatOnSave &&
@@ -1467,8 +1495,8 @@ function App() {
           if (result.ok && result.edits.length > 0) {
             // Format-on-save works on the shared Monaco model before the disk
             // write so every split showing this file receives the same edits.
-            // If I formatted a detached string instead, the saved text and the
-            // visible editor could drift until the next model refresh.
+            // Formatting a detached string instead would let the saved text and
+            // the visible editor drift until the next model refresh.
             model.pushEditOperations(
               [],
               result.edits.map(toMonacoEdit),
@@ -1480,9 +1508,7 @@ function App() {
         } catch (err) {
           appendOutput(
             "lsp",
-            err instanceof Error
-              ? err.message
-              : "Format on save failed.",
+            err instanceof Error ? err.message : "Format on save failed.",
             "warning",
           );
         }
@@ -1500,11 +1526,14 @@ function App() {
             });
           } catch (err) {
             // Saving the file must never fail just because the language server
-            // is unavailable. I still try to push the latest saved content into
+            // is unavailable. Axon still pushes the latest saved content into
             // LSP immediately so diagnostics refresh from the same text that
-            // hit disk, then fall back to the normal server reconnect/output
+            // hit disk, then falls back to the normal server reconnect/output
             // path if the sync bridge is not ready yet.
-            console.error("failed to sync saved file with language server:", err);
+            console.error(
+              "failed to sync saved file with language server:",
+              err,
+            );
           }
         }
       }
@@ -1524,11 +1553,7 @@ function App() {
       appendOutput("file", `Saved ${filePath}`, "success");
       return true;
     },
-    [
-      appendOutput,
-      folderPath,
-      settings.editor.formatOnSave,
-    ],
+    [appendOutput, folderPath, settings.editor.formatOnSave],
   );
 
   const handleSaveActiveFile = useCallback(() => {
@@ -1840,11 +1865,10 @@ function App() {
               id: `extension:${extension.id}.${command.id}` as const,
               title: command.title,
               group: command.category ?? "Extensions",
-              subtitle:
-                !workspaceTrusted
-                  ? "Trust this workspace before running extension commands"
-                  : command.description ??
-                    `${extension.name} command contribution`,
+              subtitle: !workspaceTrusted
+                ? "Trust this workspace before running extension commands"
+                : (command.description ??
+                  `${extension.name} command contribution`),
               keywords: [extension.name, extension.publisher, command.id],
               disabled: !workspaceTrusted,
             }))
@@ -1902,8 +1926,8 @@ function App() {
         subtitle: !workspaceTrusted
           ? "Trust this workspace before running tasks"
           : folderPath
-          ? "Run package, Go, or Cargo workspace tasks"
-          : "Open a folder first",
+            ? "Run package, Go, or Cargo workspace tasks"
+            : "Open a folder first",
         keywords: ["build", "test", "npm", "go", "cargo"],
         disabled: !folderPath || !workspaceTrusted,
       },
@@ -2508,11 +2532,13 @@ function App() {
           {!zenMode && (
             <div
               className="flex items-center border-b pr-1"
-              style={{
-                background: "var(--axon-toolbar-background)",
-                borderColor: "var(--axon-panel-border)",
-                WebkitAppRegion: "drag",
-              } as React.CSSProperties}
+              style={
+                {
+                  background: "var(--axon-toolbar-background)",
+                  borderColor: "var(--axon-panel-border)",
+                  WebkitAppRegion: "drag",
+                } as React.CSSProperties
+              }
             >
               <div className="flex min-w-0 flex-1 overflow-hidden" />
               <div
@@ -2639,7 +2665,9 @@ function App() {
           <AxonAgentSidebar
             activeFileContent={activeFileContent}
             activeFileLanguage={
-              activePane?.activeFile ? detectLanguage(activePane.activeFile) : "plaintext"
+              activePane?.activeFile
+                ? detectLanguage(activePane.activeFile)
+                : "plaintext"
             }
             activeFilePath={activePane?.activeFile ?? null}
             diagnostics={diagnostics}

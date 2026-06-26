@@ -52,6 +52,14 @@ function isTypeScriptLikeLanguage(languageId: string) {
 
 function shouldCollectMonacoMarker(marker: monaco.editor.IMarker) {
   if (marker.resource.scheme !== "file") return false;
+  const markerOwner =
+    typeof (marker as { owner?: unknown }).owner === "string"
+      ? (marker as { owner: string }).owner
+      : "";
+  if (markerOwner.startsWith(lspMarkerOwnerPrefix)) {
+    return false;
+  }
+
   if (marker.source === "typescript" || marker.source === "javascript") {
     return false;
   }
@@ -84,10 +92,7 @@ function normalizeMarkerRange(
     Math.min(diagnostic.line, model.getLineCount()),
   );
   const lineMaxColumn = model.getLineMaxColumn(startLineNumber);
-  const startColumn = Math.max(
-    1,
-    Math.min(diagnostic.column, lineMaxColumn),
-  );
+  const startColumn = Math.max(1, Math.min(diagnostic.column, lineMaxColumn));
   const requestedEndLine = diagnostic.endLine ?? diagnostic.line;
   const endLineNumber = Math.max(
     startLineNumber,

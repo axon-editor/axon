@@ -172,9 +172,24 @@
                     transform: scaleX(1);
                 }
             }
+
+            #axon-window-drag-strip {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 36px;
+                z-index: 10000;
+                -webkit-app-region: drag;
+            }
+
+            body.axon-react-ready #axon-window-drag-strip {
+                display: none;
+            }
         </style>
     </head>
     <body>
+        <div id="axon-window-drag-strip" aria-hidden="true"></div>
         <div id="root">
             <div class="axon-splash" role="status" aria-label="Opening Axon">
                 <div class="axon-splash__mark-wrap">

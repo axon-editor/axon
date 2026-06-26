@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, GitCommitHorizontal } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import {
   type GitCommitDiffResult,
+  type GitFileState,
   type GitHistoryCommit,
   type GitHistoryFile,
   type GitHistoryResult,
-  type GitFileState,
 } from "../../../../shared/git";
 
 const stateLabels: Record<GitFileState, string> = {
@@ -35,6 +35,27 @@ function getFileName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
 
+function resolveAuthorAvatarUrl(commit: GitHistoryCommit) {
+  if (commit.authorAvatarUrl) {
+    return commit.authorAvatarUrl;
+  }
+
+  const maybeGitHubUsername = commit.authorName.trim();
+  const isGitHubUsername =
+    /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(maybeGitHubUsername);
+
+  if (!isGitHubUsername) {
+    return null;
+  }
+
+  // Git history often has only the author name and email. When the name is a
+  // valid GitHub username, the public avatar endpoint gives the history panel a
+  // richer identity without needing API calls. Regular names like "Jane Doe"
+  // must stay on initials, otherwise the UI would waste requests on invalid
+  // avatar URLs and show broken images.
+  return `https://github.com/${maybeGitHubUsername}.png?size=80`;
+}
+
 function AuthorAvatar({
   commit,
   large,
@@ -51,11 +72,12 @@ function AuthorAvatar({
       .map((part) => part[0]?.toUpperCase())
       .join("") || "?";
   const sizeClass = large ? "h-11 w-11 text-[13px]" : "h-8 w-8 text-[11px]";
+  const avatarUrl = resolveAuthorAvatarUrl(commit);
 
-  if (commit.authorAvatarUrl && !failed) {
+  if (avatarUrl && !failed) {
     return (
       <img
-        src={commit.authorAvatarUrl}
+        src={avatarUrl}
         alt={commit.authorName}
         onError={() => setFailed(true)}
         className={`${sizeClass} shrink-0 rounded-full border border-[#222838] bg-[#151923] object-cover`}
@@ -248,7 +270,9 @@ export default function GitHistoryView({
                   <div className="mt-2 space-y-1 text-[10px] text-[#647086]">
                     <div className="truncate">{selectedCommit.authorName}</div>
                     {selectedCommit.authorEmail ? (
-                      <div className="truncate">{selectedCommit.authorEmail}</div>
+                      <div className="truncate">
+                        {selectedCommit.authorEmail}
+                      </div>
                     ) : null}
                     <div className="font-mono">{selectedCommit.shortHash}</div>
                     <div>{formatCommitDate(selectedCommit.date)}</div>

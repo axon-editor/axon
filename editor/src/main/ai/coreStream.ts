@@ -49,7 +49,9 @@ function parseCoreStreamLine(line: string): CoreStreamEvent {
   return envelope.data;
 }
 
-function toChatStreamEvent(event: CoreStreamEvent): Omit<AiChatStreamEvent, "requestId"> {
+function toChatStreamEvent(
+  event: CoreStreamEvent,
+): Omit<AiChatStreamEvent, "requestId"> {
   if (event.type === "delta") {
     return { type: "delta", delta: event.delta };
   }
@@ -196,8 +198,7 @@ export function startCoreModelPullStream(input: {
 
       input.send({ requestId, type: "done", model: input.model, done: true });
     } catch (err) {
-      const cancelled =
-        err instanceof Error && err.name === "AbortError";
+      const cancelled = err instanceof Error && err.name === "AbortError";
       input.send({
         requestId,
         type: cancelled ? "cancelled" : "error",

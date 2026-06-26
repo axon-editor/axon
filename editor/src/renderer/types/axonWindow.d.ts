@@ -138,9 +138,7 @@ declare global {
         folderPath?: string | null,
       ) => Promise<AiRuntimeStatus>;
       runAiChat: (request: AiChatRequest) => Promise<AiChatResult>;
-      runAiChatStream: (
-        request: AiChatRequest,
-      ) => Promise<AiChatStreamStarted>;
+      runAiChatStream: (request: AiChatRequest) => Promise<AiChatStreamStarted>;
       cancelAiChatStream: (requestId: string) => Promise<boolean>;
       pullAiModel: (model: string) => Promise<AiPullStarted>;
       cancelAiModelPull: (requestId: string) => Promise<boolean>;
@@ -190,6 +188,7 @@ declare global {
         callback: (event: {
           folderPath: string;
           filePath: string;
+          serverId: string;
           diagnostics: EditorDiagnostic[];
         }) => void,
       ) => () => void;
@@ -346,7 +345,9 @@ declare global {
         }>;
         getPlaybackState: () => Promise<SpotifyPlaybackResult>;
         getDevices: () => Promise<SpotifyDevicesResult>;
-        play: (request: SpotifyPlayTrackRequest) => Promise<SpotifyActionResult>;
+        play: (
+          request: SpotifyPlayTrackRequest,
+        ) => Promise<SpotifyActionResult>;
         pause: () => Promise<SpotifyActionResult>;
         next: () => Promise<SpotifyActionResult>;
         previous: () => Promise<SpotifyActionResult>;

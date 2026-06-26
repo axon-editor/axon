@@ -69,7 +69,13 @@ export function createWindow(deps: WindowDependencies, options: { restoreSession
     minWidth: 800,
     minHeight: 600,
     title: "Axon",
-    titleBarStyle: "hidden",
+    // macOS can provide the first draggable titlebar region before React has
+    // mounted. That matters during cold start: if the renderer owns all drag
+    // regions, the window feels inert while Vite/React are still booting. The
+    // native hidden-inset titlebar keeps Axon movable immediately, while the
+    // renderer can focus only on editor chrome once it is ready.
+    titleBarStyle: deps.isMac ? "hiddenInset" : "hidden",
+    trafficLightPosition: deps.isMac ? { x: 14, y: 13 } : undefined,
     titleBarOverlay: deps.isWindows
       ? {
           color: "#0f1117",

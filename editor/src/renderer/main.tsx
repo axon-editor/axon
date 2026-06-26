@@ -48,6 +48,12 @@ configureMonacoDiagnostics(monaco);
 configureLspCompletions(monaco);
 configureLspNavigation(monaco);
 
+// The static drag strip in index.html exists before React so the window can be
+// moved during the boot splash and early renderer startup. Once React is ready,
+// the real toolbar/sidebar drag regions take over and the static strip must get
+// out of the hit-test path so it cannot block editor controls.
+document.body.classList.add("axon-react-ready");
+
 // StrictMode is disabled because it double-invokes effects in development
 // which causes Monaco's InstantiationService to be disposed and crash
 // on the second mount. Not a concern in production.

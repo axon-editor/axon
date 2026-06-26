@@ -110,9 +110,7 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("app:getAgentResumeRequest"),
   saveAgentResumeRequest: (request: AgentResumeRequest): Promise<boolean> =>
     ipcRenderer.invoke("app:saveAgentResumeRequest", request),
-  onAgentResumeRequest: (
-    callback: (request: AgentResumeRequest) => void,
-  ) => {
+  onAgentResumeRequest: (callback: (request: AgentResumeRequest) => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
       request: AgentResumeRequest,
@@ -127,7 +125,9 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("fonts:listAvailable"),
   selectEditorBackgroundImage: (): Promise<string | null> =>
     ipcRenderer.invoke("dialog:selectEditorBackgroundImage"),
-  selectPythonVirtualEnv: (folderPath?: string | null): Promise<{
+  selectPythonVirtualEnv: (
+    folderPath?: string | null,
+  ): Promise<{
     virtualEnvPath: string;
     interpreterPath: string;
   } | null> => ipcRenderer.invoke("dialog:selectPythonVirtualEnv", folderPath),
@@ -149,15 +149,12 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("ai:listModels", folderPath),
   getAiProjectContext: (folderPath: string): Promise<AiProjectContext> =>
     ipcRenderer.invoke("ai:getProjectContext", folderPath),
-  getAiRuntimeStatus: (
-    folderPath?: string | null,
-  ): Promise<AiRuntimeStatus> =>
+  getAiRuntimeStatus: (folderPath?: string | null): Promise<AiRuntimeStatus> =>
     ipcRenderer.invoke("ai:getRuntimeStatus", folderPath),
   runAiChat: (request: AiChatRequest): Promise<AiChatResult> =>
     ipcRenderer.invoke("ai:chat", request),
-  runAiChatStream: (
-    request: AiChatRequest,
-  ): Promise<AiChatStreamStarted> => ipcRenderer.invoke("ai:chatStream", request),
+  runAiChatStream: (request: AiChatRequest): Promise<AiChatStreamStarted> =>
+    ipcRenderer.invoke("ai:chatStream", request),
   cancelAiChatStream: (requestId: string): Promise<boolean> =>
     ipcRenderer.invoke("ai:cancelChatStream", requestId),
   pullAiModel: (model: string): Promise<AiPullStarted> =>
@@ -223,6 +220,7 @@ contextBridge.exposeInMainWorld("axon", {
     callback: (event: {
       folderPath: string;
       filePath: string;
+      serverId: string;
       diagnostics: EditorDiagnostic[];
     }) => void,
   ) => {
@@ -231,6 +229,7 @@ contextBridge.exposeInMainWorld("axon", {
       payload: {
         folderPath: string;
         filePath: string;
+        serverId: string;
         diagnostics: EditorDiagnostic[];
       },
     ) => callback(payload);
@@ -394,8 +393,9 @@ contextBridge.exposeInMainWorld("axon", {
   importExternalEntries: (
     sourcePaths: string[],
     targetDir: string,
-  ): Promise<Array<{ sourcePath: string; targetPath: string; isDir: boolean }>> =>
-    ipcRenderer.invoke("fs:importEntries", sourcePaths, targetDir),
+  ): Promise<
+    Array<{ sourcePath: string; targetPath: string; isDir: boolean }>
+  > => ipcRenderer.invoke("fs:importEntries", sourcePaths, targetDir),
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
   watchFolder: (path: string) => ipcRenderer.invoke("fs:watchFolder", path),

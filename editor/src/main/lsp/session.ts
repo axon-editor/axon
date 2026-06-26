@@ -4,10 +4,18 @@ import fs from "fs";
 import path from "path";
 import url from "url";
 import { type EditorDiagnostic } from "../../shared/diagnostics";
-import { type LanguageServerDocumentSyncRequest, type LanguageServerId } from "../../shared/lsp";
+import {
+  type LanguageServerDocumentSyncRequest,
+  type LanguageServerId,
+} from "../../shared/lsp";
 import { readSettingsForFolder } from "../settings/io";
 import { getWorkspaceSettingsPath } from "../settings/paths";
-import { LANGUAGE_SERVER_DEFINITIONS, type LanguageServerDefinition, type ResolvedLanguageServerCommand, type LanguageServerStartAttempt } from "./definitions";
+import {
+  LANGUAGE_SERVER_DEFINITIONS,
+  type LanguageServerDefinition,
+  type ResolvedLanguageServerCommand,
+  type LanguageServerStartAttempt,
+} from "./definitions";
 import { getBundledAppFilePath, resolveBundledAppFilePath } from "./paths";
 
 export interface LanguageServerSession {
@@ -146,13 +154,7 @@ export function getPythonInterpreterFromVirtualEnv(virtualEnvPath: string) {
 export function detectPythonVirtualEnvForWorkspace(folderPath: string) {
   if (!folderPath) return { virtualEnvPath: "", interpreterPath: "" };
 
-  const candidateNames = [
-    ".venv",
-    "venv",
-    "env",
-    ".env",
-    "virtualenv",
-  ];
+  const candidateNames = [".venv", "venv", "env", ".env", "virtualenv"];
 
   for (const candidateName of candidateNames) {
     const virtualEnvPath = path.join(folderPath, candidateName);
@@ -185,7 +187,9 @@ export function getPythonLanguageServerSettings(folderPath: string) {
   const virtualEnvPath =
     configuredVirtualEnvPath || detectedVirtualEnv.virtualEnvPath;
   const virtualEnvName = virtualEnvPath ? path.basename(virtualEnvPath) : "";
-  const parentVirtualEnvPath = virtualEnvPath ? path.dirname(virtualEnvPath) : "";
+  const parentVirtualEnvPath = virtualEnvPath
+    ? path.dirname(virtualEnvPath)
+    : "";
 
   // Pyright accepts the same settings shape used by Python editor extensions:
   // python.pythonPath points at the interpreter, while python.venvPath and
@@ -207,40 +211,68 @@ export function getPythonLanguageServerSettings(folderPath: string) {
   };
 }
 
+function resolveTypeScriptSdkPath(folderPath: string) {
+  const candidateRoots = [
+    folderPath,
+    ...fs
+      .readdirSync(folderPath, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .map((entry) => path.join(folderPath, entry.name)),
+  ];
+
+  for (const candidateRoot of candidateRoots) {
+    const yarnTsdk = path.join(
+      candidateRoot,
+      ".yarn",
+      "sdks",
+      "typescript",
+      "lib",
+    );
+    if (fs.existsSync(yarnTsdk)) return yarnTsdk;
+
+    const workspaceTsdk = path.join(
+      candidateRoot,
+      "node_modules",
+      "typescript",
+      "lib",
+    );
+    if (fs.existsSync(workspaceTsdk)) return workspaceTsdk;
+  }
+
+  const bundledTsdk = resolveBundledAppFilePath(
+    "node_modules",
+    "typescript",
+    "lib",
+  );
+  if (fs.existsSync(bundledTsdk)) return bundledTsdk;
+
+  return null;
+}
+
 export function getLanguageServerInitializationOptions(
   session: LanguageServerSession,
 ) {
   if (session.id === "typescript") {
-    const workspaceTsserver = path.join(
-      session.folderPath,
+    const tsserverPath = resolveTypeScriptSdkPath(session.folderPath);
+    const bundledTsdk = resolveBundledAppFilePath(
       "node_modules",
       "typescript",
       "lib",
-      "tsserver.js",
     );
-    const bundledTsserver = resolveBundledAppFilePath(
-      "node_modules",
-      "typescript",
-      "lib",
-      "tsserver.js",
-    );
-    const tsserverPath = fs.existsSync(workspaceTsserver)
-      ? workspaceTsserver
-      : fs.existsSync(bundledTsserver)
-        ? bundledTsserver
-        : "";
 
-    if (!tsserverPath) return undefined;
-
-    // TypeScript projects are often sensitive to the exact TypeScript SDK
-    // version installed in the workspace. Passing tsserver.path mirrors how
-    // mature editors point the language server at the project SDK, so local
-    // declaration files, path aliases, generated types, and framework plugins
-    // are resolved from the same dependency tree the project uses at runtime.
+    // typescript-language-server expects `tsserver.path` to point at either
+    // the TypeScript `lib` directory or the `tsserver.js` file. Zed passes the
+    // project SDK directory and lets tsserver discover the project from the
+    // workspace root and file paths; doing the same here keeps Axon on the
+    // documented path instead of depending on unsupported config-file options.
     return {
+      hostInfo: "axon",
+      provideFormatter: true,
+      disableAutomaticTypingAcquisition: true,
       tsserver: {
-        path: tsserverPath,
-        fallbackPath: bundledTsserver || undefined,
+        ...(tsserverPath ? { path: tsserverPath } : {}),
+        ...(fs.existsSync(bundledTsdk) ? { fallbackPath: bundledTsdk } : {}),
+        useSyntaxServer: "never",
       },
       preferences: getTypeScriptLanguageServerPreferences(),
     };
@@ -286,6 +318,53 @@ export function notifyLanguageServerConfiguration(
     params: unknown,
   ) => void,
 ) {
+  if (session.id === "typescript") {
+    const tsdk = resolveTypeScriptSdkPath(session.folderPath);
+    const preferences = getTypeScriptLanguageServerPreferences();
+
+    // typescript-language-server asks for VS Code-shaped settings after the
+    // initialized notification. Sending the SDK path here makes tsserver use
+    // the workspace's TypeScript package when it exists, while the bundled SDK
+    // remains the fallback for projects without local dependencies installed.
+    notifyLanguageServer(session, "workspace/didChangeConfiguration", {
+      settings: {
+        typescript: {
+          ...(tsdk ? { tsdk } : {}),
+          preferences,
+          implicitProjectConfiguration: {
+            checkJs: false,
+            module: "ESNext",
+            strictNullChecks: true,
+            strictFunctionTypes: true,
+            target: "ES2020",
+          },
+          suggest: {
+            includeCompletionsForModuleExports: true,
+            includeCompletionsForImportStatements: true,
+            autoImports: true,
+          },
+        },
+        javascript: {
+          ...(tsdk ? { tsdk } : {}),
+          preferences,
+          implicitProjectConfiguration: {
+            checkJs: false,
+            module: "ESNext",
+            strictNullChecks: true,
+            strictFunctionTypes: true,
+            target: "ES2020",
+          },
+          suggest: {
+            includeCompletionsForModuleExports: true,
+            includeCompletionsForImportStatements: true,
+            autoImports: true,
+          },
+        },
+      },
+    });
+    return;
+  }
+
   if (session.id !== "python") return;
   const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
   if (!pythonSettings) return;
@@ -389,7 +468,9 @@ export function resolveManagedLanguageServer(
   for (const root of getManagedLanguageServerRoots()) {
     for (const platformKey of getManagedLanguageServerPlatformKeys()) {
       for (const executableName of definition.managedBundle.executableNames) {
-        for (const executableVariant of getExecutableNameVariants(executableName)) {
+        for (const executableVariant of getExecutableNameVariants(
+          executableName,
+        )) {
           const executablePath = path.join(
             root,
             platformKey,
@@ -486,7 +567,8 @@ export function getExecutableSearchDirectories() {
     );
   } else if (process.platform === "win32") {
     [
-      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs"),
+      process.env.LOCALAPPDATA &&
+        path.join(process.env.LOCALAPPDATA, "Programs"),
       process.env.ProgramFiles,
       process.env["ProgramFiles(x86)"],
     ].forEach((dir) => {
@@ -634,7 +716,10 @@ export function waitForLanguageServerSpawn(
 export function readLanguageServerMessages(
   session: LanguageServerSession,
   chunk: Buffer,
-  handleLanguageServerPayload: (session: LanguageServerSession, payload: unknown) => void,
+  handleLanguageServerPayload: (
+    session: LanguageServerSession,
+    payload: unknown,
+  ) => void,
 ) {
   session.stdoutBuffer = Buffer.concat([session.stdoutBuffer, chunk]);
 
@@ -654,7 +739,9 @@ export function readLanguageServerMessages(
     const bodyEnd = bodyStart + bodyLength;
     if (session.stdoutBuffer.length < bodyEnd) return;
 
-    const body = session.stdoutBuffer.slice(bodyStart, bodyEnd).toString("utf-8");
+    const body = session.stdoutBuffer
+      .slice(bodyStart, bodyEnd)
+      .toString("utf-8");
     session.stdoutBuffer = session.stdoutBuffer.slice(bodyEnd);
 
     try {
