@@ -4,9 +4,47 @@
 
 ## v1.2.4
 
-- Added `axon resume` so the terminal command can reopen Axon on the current
-  workspace and restore a saved conversation instead of starting from a blank
-  one.
+- Added interactive `axon` terminal sessions so running `axon` without
+  arguments starts a workspace-aware local conversation instead of printing
+  usage text.
+- Added saved terminal conversations with `axon resume` and `axon resume :id`
+  so workspace sessions can be listed and restored from the command line.
+- Added slash commands, model selection, custom prompt rendering, and streaming
+  status polish to the terminal agent experience.
+- Carried conversation history and project context through CLI requests so
+  follow-up prompts stay tied to the current workspace.
+- Hardened local agent prompts against placeholder paths, fake file counts,
+  invented URLs, and missing project facts.
+- Split main-process startup into a tiny boot splash entry and the full app
+  bootstrap so the splash appears before heavier editor services load.
+- Switched workspace watchers to native filesystem events by default, with
+  polling kept behind `AXON_WATCH_USE_POLLING`.
+- Kept external disk changes responsive with atomic watcher handling and short
+  debounce windows.
+- Stopped project-wide diagnostics from running during workspace open and
+  watcher bursts so startup stays lightweight.
+- Delayed active-file language-server startup instead of starting every
+  relevant server during restore.
+- Split Monaco language ids from LSP language ids so TSX and JSX render with
+  Monaco's editor support while syncing to language servers as React documents.
+- Added TypeScript completion resolve support so package auto-import edits from
+  libraries such as `lucide-react` can be applied correctly.
+- Added Tailwind variant-aware completions so prefixes such as `hover:` suggest
+  proper utility classes.
+- Attached Tailwind alongside web language servers so Tailwind warnings and
+  hover content flow through Axon's LSP pipeline.
+- Preserved diagnostics per language server before merging them by file so
+  Tailwind and TypeScript diagnostics do not overwrite each other.
+- Added bundled Prettier fallback formatting for common editor languages when
+  an LSP formatter is unavailable or returns no edits.
+- Restored Monaco's native editor hover UI while keeping improved LSP and
+  Tailwind hover data.
+- Improved Axon Dark and Sora syntax colors with stronger separation for
+  functions, methods, types, properties, parameters, JSX tags, and constants.
+- Added a pre-React drag strip for early startup and restored renderer
+  app-region chrome so the app remains draggable after React loads.
+- Fixed Git history avatar fallback handling so commit history keeps a stable
+  author image path.
 
 ## v1.2.3
 

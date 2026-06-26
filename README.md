@@ -98,6 +98,7 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 axon/
 ├── core/                         # Go backend
 │   ├── cmd/axon/                 # backend entry point
+│   ├── cmd/axon-agent/           # terminal agent command installed as axon
 │   └── internal/
 │       ├── fs/                   # file tree, text reads, writes, search
 │       ├── server/               # HTTP routes
@@ -191,14 +192,20 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Problems panel with project-aware LSP diagnostics and copy actions
 - Test explorer with provider discovery, target runs, and inline output
 - Integrated terminal with tabs
+- Interactive `axon` terminal sessions with workspace context, saved
+  conversations, `axon resume`, slash commands, model selection, and streaming
+  responses
 - Settings UI and settings JSON
 - Custom themes, theme overrides, and imported fonts
 - Splash screen and custom app icon/name
-- LSP completion for TypeScript/JavaScript, Go, Python, Rust, C/C++, Java, C#,
-  Kotlin, PHP, Lua, Docker, and Tailwind CSS
+- LSP completion and diagnostics for TypeScript/JavaScript, TSX/JSX, Go,
+  Python, Rust, C/C++, Java, C#, Kotlin, PHP, Lua, Docker, and Tailwind CSS
+- Tailwind CSS warnings, hover details, and variant-aware utility completions
 - Language tools modal for definition, references, rename, formatting, server
   status, and file symbols
 - Live LSP diagnostics routed into Problems
+- Format-on-save support with bundled Prettier fallback for common web and
+  document languages when a language server does not format the file
 
 ## Language Servers
 
@@ -229,7 +236,9 @@ More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 
 ## Release Notes
 
-See [CHANGELOG.md](CHANGELOG.md).
+See [CHANGELOG.md](CHANGELOG.md) for the full history and
+[docs/releases/v1.2.4.md](docs/releases/v1.2.4.md) for the latest release
+notes.
 
 ## Roadmap
 
