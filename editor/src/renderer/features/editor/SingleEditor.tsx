@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
-import { type LanguageServerTextEdit } from "../../../shared/lsp";
 import { readFile, writeFile } from "../../shared/lib/api";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { registerAxonTheme } from "../../shared/lib/soraTheme";
@@ -32,6 +31,13 @@ import {
   detectLanguageServerLanguage,
 } from "./lib/monacoModels";
 import { collectFileSymbols } from "../sidebar/files/lib/fileSymbols";
+import {
+  encodeLocalPath,
+  goCallExclusions,
+  isMarkdown,
+  normalizePath,
+  toMonacoEdit,
+} from "./lib/editorDocumentHelpers";
 
 interface Props {
   filePath: string;
@@ -39,6 +45,7 @@ interface Props {
   visible: boolean;
   onDirtyChange: (path: string, dirty: boolean) => void;
   onOpenFile?: (path: string) => void;
+  onOpenMarkdownPreviewTab?: (path: string) => void;
   onOpenNavigationTarget?: (
     target: Omit<EditorNavigationTarget, "id">,
   ) => void;
@@ -50,49 +57,8 @@ interface Props {
   gitChanges?: GitChange[];
 }
 
-function isMarkdown(path: string): boolean {
-  return path.split(".").pop()?.toLowerCase() === "md";
-}
-
-function normalizePath(path: string) {
-  return path.replace(/\\/g, "/").replace(/\/+$/, "");
-}
-
-const goCallExclusions = new Set([
-  "if",
-  "for",
-  "switch",
-  "select",
-  "return",
-  "defer",
-  "go",
-  "func",
-]);
-
-type PreviewMode = "editor" | "preview" | "split";
+type PreviewMode = "editor" | "split";
 type EditorActionRequest = "definition" | "references" | "rename" | "format";
-
-function encodeLocalPath(path: string) {
-  return path
-    .split(/([/\\])/)
-    .map((part) =>
-      part === "/" || part === "\\" ? "/" : encodeURIComponent(part),
-    )
-    .join("");
-}
-
-function toMonacoEdit(edit: LanguageServerTextEdit) {
-  return {
-    range: new monaco.Range(
-      edit.range.start.line + 1,
-      edit.range.start.character + 1,
-      edit.range.end.line + 1,
-      edit.range.end.character + 1,
-    ),
-    text: edit.newText,
-    forceMoveMarkers: true,
-  };
-}
 
 export default function SingleEditor({
   filePath,
@@ -100,6 +66,7 @@ export default function SingleEditor({
   visible,
   onDirtyChange,
   onOpenFile,
+  onOpenMarkdownPreviewTab,
   onOpenNavigationTarget,
   onCursorChange,
   onLanguageChange,
@@ -122,12 +89,8 @@ export default function SingleEditor({
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const suggestTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
-  );
-  const lspSyncTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
-  );
+  const suggestTimerRef = useRef<number | null>(null);
+  const lspSyncTimerRef = useRef<number | null>(null);
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const gitDecorationsRef =
@@ -146,7 +109,8 @@ export default function SingleEditor({
     ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
     : "";
   const shouldUseTransparentEditorSurface =
-    editorSettings.appTransparency || Boolean(editorBackgroundImageUrl);
+    editorSettings.appTransparency ||
+    Boolean(editorBackgroundImageUrl);
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
   );
@@ -776,7 +740,7 @@ export default function SingleEditor({
 
     editorOpenerRef.current?.dispose();
     editorOpenerRef.current = monaco.editor.registerEditorOpener({
-      openCodeEditor: (source, resource, selectionOrPosition) => {
+      openCodeEditor: (_source, resource, selectionOrPosition) => {
         if (resource.scheme !== "file") return false;
 
         const targetPath = resource.fsPath;
@@ -985,9 +949,9 @@ export default function SingleEditor({
           </Tooltip>
           <Tooltip label="Preview" side="bottom">
             <button
-              onClick={() => setPreviewMode("preview")}
+              onClick={() => onOpenMarkdownPreviewTab?.(filePath)}
               aria-label="Preview"
-              className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "preview" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
+              className="p-1 rounded transition-colors cursor-pointer text-[#586478] hover:text-white"
             >
               <Eye size={13} />
             </button>
@@ -997,16 +961,6 @@ export default function SingleEditor({
 
       <div className="flex flex-1 overflow-hidden">
         {previewMode === "editor" && editorNode}
-        {previewMode === "preview" && (
-          <div className="flex-1 overflow-hidden">
-            <MarkdownPreview
-              content={liveContent}
-              filePath={filePath}
-              folderPath={folderPath}
-              onOpenFile={onOpenFile}
-            />
-          </div>
-        )}
         {previewMode === "split" && (
           <>
             {editorNode}

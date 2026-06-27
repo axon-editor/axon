@@ -1,6 +1,11 @@
 import { type FileNode } from "./api";
 import { createInitialLayout } from "../../features/editor/lib/layoutManager";
 import { type Layout } from "../../features/editor/lib/types";
+import {
+  getTabFilePath,
+  isVirtualTabPath,
+} from "../../features/editor/lib/tabIdentity";
+import { isWelcomeTabPath } from "../../features/onboarding/lib/welcomeTab";
 import { type BottomPanelTab } from "../../features/terminal/BottomPanel";
 import {
   createWorkspaceRoot,
@@ -103,9 +108,14 @@ export function sanitizeRestoredLayout(
   }
 
   const filePaths = collectFilePaths(tree);
+  const isRestorableTab = (tab: string) => {
+    if (isWelcomeTabPath(tab)) return true;
+    if (isVirtualTabPath(tab)) return filePaths.has(getTabFilePath(tab));
+    return filePaths.has(tab);
+  };
   const panes = layout.panes.slice(0, 5).map((pane) => {
     const openTabs = Array.isArray(pane.openTabs)
-      ? pane.openTabs.filter((tab) => filePaths.has(tab))
+      ? pane.openTabs.filter(isRestorableTab)
       : [];
     const activeFile =
       pane.activeFile && openTabs.includes(pane.activeFile)

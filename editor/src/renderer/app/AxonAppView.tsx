@@ -24,6 +24,7 @@ import SpotifyFloatingPlayer from "../features/spotify/SpotifyFloatingPlayer";
 import AxonAgentSidebar from "../features/agent/AxonAgentSidebar";
 import CliToolInstallPrompt from "../features/cli/CliToolInstallPrompt";
 import { AXON_COMMANDS } from "../../shared/commands";
+import { type BuiltInThemeId } from "../../shared/settings";
 import {
   closePane,
   moveTabBetweenPanes,
@@ -161,6 +162,34 @@ export function AxonAppView(props: Record<string, any>) {
     setCursorInfo,
     setZenMode
   } = props;
+  const [agentSidebarWidth, setAgentSidebarWidth] = React.useState(460);
+  const mainSidebarSide =
+    settings.editor.sidebarSide === "right" ? "right" : "left";
+  const shouldShowAgentSidebar =
+    !zenMode && settings.ai.enabled && agentSidebarOpen;
+  const agentSidebarNode = shouldShowAgentSidebar ? (
+    <AxonAgentSidebar
+      activeFileContent={activeFileContent}
+      activeFileLanguage={
+        activePane?.activeFile ? detectLanguage(activePane.activeFile) : "plaintext"
+      }
+      activeFilePath={activePane?.activeFile ?? null}
+      diagnostics={diagnostics}
+      folderPath={folderPath}
+      gitChanges={gitStatus?.changes ?? []}
+      initialAction={agentActionRequest}
+      resumeConversationId={agentResumeRequest?.conversationId ?? null}
+      resumeRequested={agentResumeRequested}
+      side="right"
+      width={agentSidebarWidth}
+      onApplyEdit={handleApplyAgentEdit}
+      onClose={() => setAgentSidebarOpen(false)}
+      onWidthChange={setAgentSidebarWidth}
+    />
+  ) : null;
+  const mainSidebarOrder = mainSidebarSide === "right" ? 3 : 1;
+  const editorOrder = 2;
+  const agentSidebarOrder = 4;
 
   return (
     <div
@@ -212,51 +241,57 @@ export function AxonAppView(props: Record<string, any>) {
 
       <div className={`flex flex-1 overflow-hidden ${zenMode ? "pt-9" : ""}`}>
         {!zenMode && (
-          <Sidebar
-            tree={tree}
-            folderPath={folderPath}
-            workspaceRoots={workspaceRoots}
-            activeRootId={activeRootId}
-            activeFile={activePane?.activeFile ?? null}
-            onFileSelect={handleFileSelect}
-            onOpenFolder={handleOpenFolder}
-            onFolderChange={handleFolderChange}
-            onSwitchWorkspaceRoot={handleSwitchWorkspaceRoot}
-            onRefresh={handleRefresh}
-            loading={loading}
-            collapsed={sidebarCollapsed}
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            view={sidebarView}
-            onOpenGitHistoryFile={(commit, file, diff) => {
-              setGitHistoryEditor({ commit, file, diff });
-            }}
-            onSplitFile={(filePath) => handleSplit("right", filePath)}
-            onOpenInTerminal={handleOpenPathInTerminal}
-            onOpenHtmlPreview={handleOpenHtmlPreview}
-            onEntryDeleted={(path) =>
-              setLayout((prev: any) => removePathFromLayout(prev, path))
-            }
-            onEntryMoved={(oldPath, newPath) =>
-              setLayout((prev: any) => replacePathInLayout(prev, oldPath, newPath))
-            }
-            onEntryRenamed={(oldPath, newPath) =>
-              setLayout((prev: any) => replacePathInLayout(prev, oldPath, newPath))
-            }
-            gitChanges={gitStatus?.changes ?? []}
-            ignoredPaths={gitStatus?.ignoredPaths ?? []}
-            folderPickerOpen={folderPickerOpen}
-            onOpenFolderPicker={() => setFolderPickerOpen(true)}
-            onCloseFolderPicker={() => setFolderPickerOpen(false)}
-            platform={platform}
-            spotifyState={spotifyState}
-            spotifyActions={spotifyActions}
-            playerOpen={spotifyPlayerOpen}
-            onTogglePlayer={() => setSpotifyPlayerOpen((p: boolean) => !p)}
-            onWorkspaceTrustChanged={() =>
-              setWorkspaceTrustNonce((nonce: number) => nonce + 1)
-            }
-          />
+          <div className="flex shrink-0" style={{ order: mainSidebarOrder }}>
+            <Sidebar
+              tree={tree}
+              folderPath={folderPath}
+              workspaceRoots={workspaceRoots}
+              activeRootId={activeRootId}
+              activeFile={activePane?.activeFile ?? null}
+              onFileSelect={handleFileSelect}
+              onOpenFolder={handleOpenFolder}
+              onFolderChange={handleFolderChange}
+              onSwitchWorkspaceRoot={handleSwitchWorkspaceRoot}
+              onRefresh={handleRefresh}
+              loading={loading}
+              collapsed={sidebarCollapsed}
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              view={sidebarView}
+              onOpenGitHistoryFile={(commit, file, diff) => {
+                setGitHistoryEditor({ commit, file, diff });
+              }}
+              onSplitFile={(filePath) => handleSplit("right", filePath)}
+              onOpenInTerminal={handleOpenPathInTerminal}
+              onOpenHtmlPreview={handleOpenHtmlPreview}
+              onEntryDeleted={(path) =>
+                setLayout((prev: any) => removePathFromLayout(prev, path))
+              }
+              onEntryMoved={(oldPath, newPath) =>
+                setLayout((prev: any) =>
+                  replacePathInLayout(prev, oldPath, newPath),
+                )
+              }
+              onEntryRenamed={(oldPath, newPath) =>
+                setLayout((prev: any) =>
+                  replacePathInLayout(prev, oldPath, newPath),
+                )
+              }
+              gitChanges={gitStatus?.changes ?? []}
+              ignoredPaths={gitStatus?.ignoredPaths ?? []}
+              folderPickerOpen={folderPickerOpen}
+              onOpenFolderPicker={() => setFolderPickerOpen(true)}
+              onCloseFolderPicker={() => setFolderPickerOpen(false)}
+              platform={platform}
+              spotifyState={spotifyState}
+              spotifyActions={spotifyActions}
+              playerOpen={spotifyPlayerOpen}
+              onTogglePlayer={() => setSpotifyPlayerOpen((p: boolean) => !p)}
+              onWorkspaceTrustChanged={() =>
+                setWorkspaceTrustNonce((nonce: number) => nonce + 1)
+              }
+            />
+          </div>
         )}
 
         {spotifyPlayerOpen && spotifyState.status?.connected && (
@@ -279,7 +314,10 @@ export function AxonAppView(props: Record<string, any>) {
           />
         )}
 
-        <div className="relative flex flex-col flex-1 overflow-hidden">
+        <div
+          className="relative flex flex-col flex-1 overflow-hidden"
+          style={{ order: editorOrder }}
+        >
           {!zenMode && (
             <div
               className="flex items-center border-b pr-1"
@@ -358,10 +396,29 @@ export function AxonAppView(props: Record<string, any>) {
               onClosePane={(paneId) =>
                 setLayout((prev: any) => closePane(prev, paneId))
               }
+              onOpenAgent={() => setAgentSidebarOpen(true)}
               onOpenTabInTerminal={handleOpenTabInTerminal}
               onOpenFile={handleFileSelect}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenTerminal={() => {
+                setBottomPanelOpen(false);
+                setTerminalOpen(true);
+              }}
+              onSelectTheme={(themeId: BuiltInThemeId) => {
+                void handleSettingsSave(
+                  {
+                    ...settings,
+                    editor: {
+                      ...settings.editor,
+                      themeId,
+                    },
+                  },
+                  { announce: false },
+                );
+              }}
               onOpenNavigationTarget={handleOpenNavigationTarget}
               editorSettings={settings.editor}
+              currentThemeId={settings.editor.themeId}
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitStatus?.changes ?? []}
@@ -412,25 +469,11 @@ export function AxonAppView(props: Record<string, any>) {
           ) : null}
         </div>
 
-        {!zenMode && settings.ai.enabled && agentSidebarOpen && (
-          <AxonAgentSidebar
-            activeFileContent={activeFileContent}
-            activeFileLanguage={
-              activePane?.activeFile
-                ? detectLanguage(activePane.activeFile)
-                : "plaintext"
-            }
-            activeFilePath={activePane?.activeFile ?? null}
-            diagnostics={diagnostics}
-            folderPath={folderPath}
-            gitChanges={gitStatus?.changes ?? []}
-            initialAction={agentActionRequest}
-            resumeConversationId={agentResumeRequest?.conversationId ?? null}
-            resumeRequested={agentResumeRequested}
-            onApplyEdit={handleApplyAgentEdit}
-            onClose={() => setAgentSidebarOpen(false)}
-          />
-        )}
+        {agentSidebarNode ? (
+          <div className="flex shrink-0" style={{ order: agentSidebarOrder }}>
+            {agentSidebarNode}
+          </div>
+        ) : null}
       </div>
 
       {!zenMode && (

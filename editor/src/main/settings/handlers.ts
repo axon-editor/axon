@@ -168,7 +168,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
         };
       }
     }
-    if (!folderPath || hasWorkspaceSettings) {
+    if (!folderPath) {
       writeSettingsToDisk(settings, settingsPath);
     }
     return settings;

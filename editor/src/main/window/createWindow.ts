@@ -20,6 +20,11 @@ interface WindowDependencies {
   createNewWindow: () => void;
 }
 
+interface CreateWindowOptions {
+  existingWindow?: BrowserWindow | null;
+  restoreSession?: boolean;
+}
+
 function isExternalHandlerUrl(href: string) {
   return /^(https?:|mailto:|tel:)/i.test(href);
 }
@@ -48,7 +53,7 @@ function routeExternalNavigation(window: BrowserWindow) {
   });
 }
 
-export function createWindow(deps: WindowDependencies, options: { restoreSession?: boolean } = {}) {
+export function createWindow(deps: WindowDependencies, options: CreateWindowOptions = {}) {
   const axonIconPath = deps.getAxonIconPath();
   const restoreSession = options.restoreSession !== false;
 
@@ -63,45 +68,52 @@ export function createWindow(deps: WindowDependencies, options: { restoreSession
     app.dock.setIcon(axonIconPath);
   }
 
-  const window = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
-    title: "Axon",
-    // macOS can provide the first draggable titlebar region before React has
-    // mounted. That matters during cold start: if the renderer owns all drag
-    // regions, the window feels inert while Vite/React are still booting. The
-    // native hidden-inset titlebar keeps Axon movable immediately, while the
-    // renderer can focus only on editor chrome once it is ready.
-    titleBarStyle: deps.isMac ? "hiddenInset" : "hidden",
-    trafficLightPosition: deps.isMac ? { x: 14, y: 13 } : undefined,
-    titleBarOverlay: deps.isWindows
-      ? {
-          color: "#0f1117",
-          symbolColor: "#9aa4b8",
-          height: 36,
-        }
-      : undefined,
-    // I keep the native window opaque by default because macOS Mission Control
-    // has to live-composite every visible window while it animates the desktop.
-    // A transparent Electron window with vibrancy forces WindowServer and the
-    // GPU process to blend Axon's full editor surface even when the renderer is
-    // mostly painting opaque panels. That is exactly the path that makes the
-    // three-finger "show all apps" gesture feel slow on some Macs.
-    //
-    // The renderer still owns Axon's theme colors, but the native surface should
-    // stay cheap unless we deliberately build a separate performance-gated
-    // transparency mode later.
-    transparent: false,
-    backgroundMaterial: deps.isWindows ? "mica" : undefined,
-    backgroundColor: "#0f1117",
-    icon: axonIconPath,
-    webPreferences: {
-      preload: path.join(__dirname, "../../preload/index.js"),
-      nodeIntegration: false,
-    },
-  });
+  const window =
+    options.existingWindow && !options.existingWindow.isDestroyed()
+      ? options.existingWindow
+      : new BrowserWindow({
+          width: 1280,
+          height: 800,
+          minWidth: 800,
+          minHeight: 600,
+          title: "Axon",
+          // macOS can provide the first draggable titlebar region before React
+          // has mounted. That matters during cold start: if the renderer owns
+          // all drag regions, the window feels inert while Vite/React are still
+          // booting. The native hidden-inset titlebar keeps Axon movable
+          // immediately, while the renderer can focus only on editor chrome
+          // once it is ready.
+          titleBarStyle: deps.isMac ? "hiddenInset" : "hidden",
+          trafficLightPosition: deps.isMac ? { x: 14, y: 13 } : undefined,
+          titleBarOverlay: deps.isWindows
+            ? {
+                color: "#0f1117",
+                symbolColor: "#9aa4b8",
+                height: 36,
+              }
+            : undefined,
+          // I keep the native window opaque by default because macOS Mission
+          // Control has to live-composite every visible window while it animates
+          // the desktop. A transparent Electron window with vibrancy forces
+          // WindowServer and the GPU process to blend Axon's full editor surface
+          // even when the renderer is mostly painting opaque panels. That is
+          // exactly the path that makes the three-finger "show all apps"
+          // gesture feel slow on some Macs.
+          //
+          // The renderer still owns Axon's theme colors, but the native surface
+          // should stay cheap unless we deliberately build a separate
+          // performance-gated transparency mode later.
+          transparent: false,
+          backgroundMaterial: deps.isWindows ? "mica" : undefined,
+          backgroundColor: "#0f1117",
+          icon: axonIconPath,
+          webPreferences: {
+            preload: path.join(__dirname, "../../preload/index.js"),
+            nodeIntegration: false,
+          },
+        });
+
+  window.setTitle("Axon");
 
   window.webContents.on("before-input-event", (event, input) => {
     if (!deps.shouldBlockBrowserShortcut(input)) return;

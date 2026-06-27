@@ -21,6 +21,26 @@ export function readSettingsFromDisk(settingsPath: string): AxonSettings {
   }
 }
 
+function applyAppAwareSettings(
+  settings: AxonSettings,
+  appSettings: AxonSettings,
+): AxonSettings {
+  // Workspace settings can tune project behavior, but the editor chrome should
+  // feel like the user's app, not like a property of whatever folder is open.
+  // Keeping theme and main sidebar side sourced from user settings prevents a
+  // workspace axon.json from moving the sidebar back to the default or changing
+  // the shell theme when the user switches projects.
+  return {
+    ...settings,
+    editor: {
+      ...settings.editor,
+      themeId: appSettings.editor.themeId,
+      sidebarSide: appSettings.editor.sidebarSide,
+    },
+    theme_overrides: appSettings.theme_overrides,
+  };
+}
+
 export function writeSettingsToDisk(
   settings: AxonSettings,
   settingsPath: string,
@@ -43,14 +63,19 @@ export function writeSettingsToDisk(
 export function readSettingsForFolder(
   folderPath?: string | null,
 ): AxonSettings {
+  const appSettings = readSettingsFromDisk(getUserSettingsPath());
+
   if (folderPath) {
     const workspaceSettingsPath = getWorkspaceSettingsPath(folderPath);
     if (fs.existsSync(workspaceSettingsPath)) {
-      return readSettingsFromDisk(workspaceSettingsPath);
+      return applyAppAwareSettings(
+        readSettingsFromDisk(workspaceSettingsPath),
+        appSettings,
+      );
     }
   }
 
-  return readSettingsFromDisk(getUserSettingsPath());
+  return appSettings;
 }
 
 export { getSettingsPath } from "./paths";

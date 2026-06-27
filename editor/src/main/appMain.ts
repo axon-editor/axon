@@ -232,6 +232,9 @@ function getHtmlPreviewServer() {
 }
 
 function createManagedWindow(options: { restoreSession?: boolean } = {}) {
+  const bootWindow = (globalThis as typeof globalThis & {
+    takeAxonBootWindow?: () => BrowserWindow | null;
+  }).takeAxonBootWindow?.();
   const createdWindow = createWindow(
     {
       axonDevServerUrl,
@@ -245,26 +248,30 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
         createManagedWindow({ restoreSession: false });
       },
     },
-    options,
+    {
+      ...options,
+      existingWindow: bootWindow,
+    },
   );
 
   mainWindow = createdWindow.window;
   const createdWebContentsId = createdWindow.window.webContents.id;
   windowSessionRestore.set(createdWebContentsId, createdWindow.restoreSession);
 
-  const closeBootSplash = () => {
-    (globalThis as typeof globalThis & {
-      closeAxonBootSplash?: () => void;
-    }).closeAxonBootSplash?.();
-  };
-  // The native boot splash is created before this file is imported, because
-  // this module pulls in the heavyweight editor services. Once the real editor
-  // window has either loaded or reached `ready-to-show`, the boot splash has
-  // done its job and must get out of the way. Listening to both events keeps
-  // the handoff reliable across dev server loads, packaged file loads, and
-  // Chromium timing differences where one event may arrive earlier.
-  createdWindow.window.once("ready-to-show", closeBootSplash);
-  createdWindow.window.webContents.once("did-finish-load", closeBootSplash);
+  if (!bootWindow) {
+    const closeBootSplash = () => {
+      (globalThis as typeof globalThis & {
+        closeAxonBootSplash?: () => void;
+      }).closeAxonBootSplash?.();
+    };
+    // The fallback native boot splash is only closed here when appMain did not
+    // receive a reusable boot window. In the normal path the boot splash is the
+    // same BrowserWindow that becomes the editor, so closing it would close the
+    // app. Keeping this guard lets older boot paths fail closed without
+    // reintroducing the duplicate-window launch.
+    createdWindow.window.once("ready-to-show", closeBootSplash);
+    createdWindow.window.webContents.once("did-finish-load", closeBootSplash);
+  }
 
   createdWindow.window.on("closed", () => {
     // I capture the webContents id before registering this handler because

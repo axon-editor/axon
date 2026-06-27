@@ -12,6 +12,7 @@ import {
   UI_FONT_FAMILIES,
   type AiProviderId,
   type BuiltInThemeId,
+  type EditorSidebarSide,
   type EditorFontFamily,
   type EditorCursorBlinking,
   type EditorCursorStyle,
@@ -191,6 +192,11 @@ export const AI_PROVIDER_ITEMS: SearchSelectItem<AiProviderId>[] =
     value: provider,
     label: AI_PROVIDER_LABELS[provider],
   }));
+
+export const EDITOR_SIDEBAR_SIDE_ITEMS: SearchSelectItem<EditorSidebarSide>[] = [
+  { value: "left", label: "Left" },
+  { value: "right", label: "Right" },
+];
 
 export const THEME_COLOR_LABELS: Record<ThemeColorToken, string> = {
   background: "App background",

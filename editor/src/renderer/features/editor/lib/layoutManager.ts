@@ -4,9 +4,17 @@
 import { type Layout, type Pane, type SplitDirection } from "./types";
 import {
   createHtmlPreviewTabPath,
-  getHtmlPreviewFilePath,
   isHtmlPreviewTabPath,
 } from "../../preview/lib/htmlPreviewTabs";
+import {
+  createMarkdownPreviewTabPath,
+  isMarkdownPreviewTabPath,
+} from "../../preview/lib/markdownPreviewTabs";
+import {
+  AXON_WELCOME_TAB_PATH,
+  isWelcomeTabPath,
+} from "../../onboarding/lib/welcomeTab";
+import { getTabFilePath } from "./tabIdentity";
 
 const MAX_PANES = 5;
 
@@ -28,7 +36,7 @@ export function createPane(activeFile?: string): Pane {
 
 // createInitialLayout creates the default single pane layout
 export function createInitialLayout(): Layout {
-  const pane = createPane();
+  const pane = createPane(AXON_WELCOME_TAB_PATH);
   return {
     panes: [pane],
     activePaneId: pane.id,
@@ -247,9 +255,7 @@ export function moveTabBetweenPanes(
 }
 
 function getComparableTabPath(tabPath: string) {
-  return isHtmlPreviewTabPath(tabPath)
-    ? getHtmlPreviewFilePath(tabPath)
-    : tabPath;
+  return getTabFilePath(tabPath);
 }
 
 function isSamePathOrChild(filePath: string, parentPath: string) {
@@ -257,11 +263,16 @@ function isSamePathOrChild(filePath: string, parentPath: string) {
 }
 
 function replacePathPrefix(tabPath: string, oldPath: string, newPath: string) {
-  const isPreviewTab = isHtmlPreviewTabPath(tabPath);
+  const isHtmlPreviewTab = isHtmlPreviewTabPath(tabPath);
+  const isMarkdownPreviewTab = isMarkdownPreviewTabPath(tabPath);
+  if (isWelcomeTabPath(tabPath)) return tabPath;
+
   const filePath = getComparableTabPath(tabPath);
 
   if (filePath === oldPath) {
-    return isPreviewTab ? createHtmlPreviewTabPath(newPath) : newPath;
+    if (isHtmlPreviewTab) return createHtmlPreviewTabPath(newPath);
+    if (isMarkdownPreviewTab) return createMarkdownPreviewTabPath(newPath);
+    return newPath;
   }
   if (!filePath.startsWith(`${oldPath}/`)) return tabPath;
 
@@ -270,7 +281,9 @@ function replacePathPrefix(tabPath: string, oldPath: string, newPath: string) {
   // preview tab can coexist. When a file/folder is renamed, the wrapper has to
   // be rebuilt around the new underlying path; otherwise the preview would keep
   // pointing at the deleted name even though normal source tabs moved forward.
-  return isPreviewTab ? createHtmlPreviewTabPath(replacedPath) : replacedPath;
+  if (isHtmlPreviewTab) return createHtmlPreviewTabPath(replacedPath);
+  if (isMarkdownPreviewTab) return createMarkdownPreviewTabPath(replacedPath);
+  return replacedPath;
 }
 
 // removePathFromLayout keeps editor state honest after a file or folder is

@@ -161,6 +161,30 @@
   }
 }
 
+.axon-welcome-word {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.axon-welcome-word span {
+  display: inline-block;
+  animation: axonWelcomeLetterWave 1500ms ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes axonWelcomeLetterWave {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  28% {
+    transform: translateY(-5px);
+  }
+  58% {
+    transform: translateY(0);
+  }
+}
+
 .ticks {
   position: relative;
   width: 100%;

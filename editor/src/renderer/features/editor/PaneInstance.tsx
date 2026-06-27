@@ -4,7 +4,11 @@
 // Clicking anywhere in the pane marks it as the active pane.
 import { useDroppable } from "@dnd-kit/core";
 import { useRef, useState } from "react";
-import { type EditorSettings } from "../../../shared/settings";
+import {
+  type BuiltInThemeId,
+  type EditorSettings,
+  type ThemeId,
+} from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import {
   decodeFileTreeDragPayload,
@@ -18,11 +22,19 @@ import {
   getHtmlPreviewFilePath,
   isHtmlPreviewTabPath,
 } from "../preview/lib/htmlPreviewTabs";
+import {
+  createMarkdownPreviewTabPath,
+  getMarkdownPreviewFilePath,
+  isMarkdownPreviewTabPath,
+} from "../preview/lib/markdownPreviewTabs";
+import { isWelcomeTabPath } from "../onboarding/lib/welcomeTab";
 import MediaPreview, { isMediaFile } from "../preview/MediaPreview";
 import HtmlPreview from "../preview/HtmlPreview";
+import MarkdownPreviewTab from "../preview/MarkdownPreviewTab";
 import SingleEditor from "./SingleEditor";
 import EmptyPane from "./EmptyPane";
 import WorkspaceBlankPane from "./WorkspaceBlankPane";
+import WelcomeTab from "../onboarding/WelcomeTab";
 
 interface Props {
   pane: Pane;
@@ -33,8 +45,12 @@ interface Props {
   onCloseTab: (filePath: string) => void;
   onPinTab: (filePath: string, pinned: boolean) => void;
   onCloseEmptyPane?: () => void;
+  onOpenAgent: () => void;
   onOpenTabInTerminal?: (filePath: string) => void;
   onOpenFile?: (filePath: string) => void;
+  onOpenSettings: () => void;
+  onOpenTerminal: () => void;
+  onSelectTheme: (themeId: BuiltInThemeId) => void;
   onOpenNavigationTarget?: (
     target: Omit<EditorNavigationTarget, "id">,
   ) => void;
@@ -42,6 +58,7 @@ interface Props {
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
+  currentThemeId: ThemeId;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
@@ -60,13 +77,18 @@ export default function PaneInstance({
   onCloseTab,
   onPinTab,
   onCloseEmptyPane,
+  onOpenAgent,
   onOpenTabInTerminal,
   onOpenFile,
+  onOpenSettings,
+  onOpenTerminal,
+  onSelectTheme,
   onOpenNavigationTarget,
   onDirtyChange,
   onCursorChange,
   onLanguageChange,
   editorSettings,
+  currentThemeId,
   themeTokens,
   navigationTarget,
   gitChanges,
@@ -197,10 +219,25 @@ export default function PaneInstance({
                 flexDirection: "column",
               }}
             >
-              {isHtmlPreviewTabPath(path) ? (
+              {isWelcomeTabPath(path) ? (
+                <WelcomeTab
+                  currentThemeId={currentThemeId}
+                  onOpenAgent={onOpenAgent}
+                  onOpenFolder={onOpenFolder}
+                  onOpenSettings={onOpenSettings}
+                  onOpenTerminal={onOpenTerminal}
+                  onSelectTheme={onSelectTheme}
+                />
+              ) : isHtmlPreviewTabPath(path) ? (
                 <HtmlPreview
                   filePath={getHtmlPreviewFilePath(path)}
                   folderPath={folderPath}
+                />
+              ) : isMarkdownPreviewTabPath(path) ? (
+                <MarkdownPreviewTab
+                  filePath={getMarkdownPreviewFilePath(path)}
+                  folderPath={folderPath}
+                  onOpenFile={onOpenFile}
                 />
               ) : isMediaFile(path) ? (
                 <MediaPreview filePath={path} />
@@ -211,6 +248,9 @@ export default function PaneInstance({
                   visible={path === pane.activeFile && isActive}
                   onDirtyChange={onDirtyChange}
                   onOpenFile={onOpenFile}
+                  onOpenMarkdownPreviewTab={(markdownPath) =>
+                    onSelectFile(createMarkdownPreviewTabPath(markdownPath))
+                  }
                   onOpenNavigationTarget={onOpenNavigationTarget}
                   onCursorChange={isActive ? onCursorChange : () => {}}
                   onLanguageChange={isActive ? onLanguageChange : () => {}}

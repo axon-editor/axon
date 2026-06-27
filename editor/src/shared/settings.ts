@@ -157,6 +157,7 @@ export interface CustomFont {
 export interface EditorSettings {
   fontPreset: FontPresetId;
   uiFontFamily: string;
+  sidebarSide: EditorSidebarSide;
   themeId: ThemeId;
   fontFamily: string;
   fontSize: number;
@@ -208,10 +209,13 @@ export interface AiSettings {
   includeWorkspaceContext: boolean;
 }
 
+export type EditorSidebarSide = "left" | "right";
+
 export const DEFAULT_SETTINGS: AxonSettings = {
   editor: {
     fontPreset: "axon-default",
     uiFontFamily: ".AxonSans",
+    sidebarSide: "left",
     themeId: "ayu-dark",
     fontFamily: ".AxonMono",
     fontSize: 14,
@@ -377,6 +381,10 @@ function normalizeCustomFonts(value: unknown): CustomFont[] {
     .filter((font): font is CustomFont => font !== null);
 }
 
+function isEditorSidebarSide(value: unknown): value is EditorSidebarSide {
+  return value === "left" || value === "right";
+}
+
 export function normalizeSettings(value: unknown): AxonSettings {
   const root = isRecord(value) ? value : {};
   const editor = isRecord(root.editor) ? root.editor : {};
@@ -411,6 +419,9 @@ export function normalizeSettings(value: unknown): AxonSettings {
         ? editor.fontPreset
         : DEFAULT_SETTINGS.editor.fontPreset,
       uiFontFamily,
+      sidebarSide: isEditorSidebarSide(editor.sidebarSide)
+        ? editor.sidebarSide
+        : DEFAULT_SETTINGS.editor.sidebarSide,
       themeId: isThemeId(editor.themeId)
         ? editor.themeId
         : DEFAULT_SETTINGS.editor.themeId,

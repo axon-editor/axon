@@ -27,6 +27,7 @@ import CommandModal from "../../shared/components/CommandModal";
 import SearchSelect from "../search/SearchSelect";
 import {
   AI_PROVIDER_ITEMS,
+  EDITOR_SIDEBAR_SIDE_ITEMS,
   EDITOR_BACKGROUND_IMAGE_FIT_ITEMS,
   EDITOR_CURSOR_BLINKING_ITEMS,
   EDITOR_CURSOR_STYLE_ITEMS,
@@ -720,6 +721,19 @@ export default function SettingsModal({
                     }
                     ariaLabel="UI font"
                     placeholder="Search UI fonts..."
+                  />
+                </SettingsField>
+
+                <SettingsField
+                  label="Sidebar side"
+                  description="Moves the Files, History, and Spotify sidebar to the left or right of the editor."
+                >
+                  <SearchSelect
+                    value={draft.editor.sidebarSide}
+                    items={EDITOR_SIDEBAR_SIDE_ITEMS}
+                    onChange={(side) => updateEditor("sidebarSide", side)}
+                    ariaLabel="Main sidebar side"
+                    placeholder="Search sides..."
                   />
                 </SettingsField>
               </SettingsSection>

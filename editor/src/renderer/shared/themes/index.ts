@@ -20,6 +20,8 @@ import {
   type ThemeTokenMap,
 } from "./types";
 
+export type { ThemeTokenMap } from "./types";
+
 export const AXON_MONACO_THEME: BuiltInThemeId = "axon-dark";
 
 type MonacoInstance = typeof monaco;

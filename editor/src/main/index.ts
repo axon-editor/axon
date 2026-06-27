@@ -150,22 +150,29 @@ function bootSplashHtml(imageUrl: string) {
 }
 
 function createBootSplashWindow() {
-  // This window exists before Axon's full main process is imported. The normal
-  // renderer splash can only appear after BrowserWindow creation and HTML load,
-  // but the expensive main-process module graph was previously evaluated before
-  // either of those things happened. Keeping this boot file tiny lets the user
-  // see Axon immediately while the real editor services register in appMain.
+  // This is the real editor window during its boot phase, not a second splash
+  // window. It starts by showing a tiny data-URL splash so the user does not
+  // stare at a blank native surface while appMain imports the heavier editor
+  // services. appMain later adopts this exact BrowserWindow and navigates it to
+  // Vite/the packaged renderer, which avoids the old "small window plus big
+  // window" launch behavior.
   bootSplashWindow = new BrowserWindow({
-    width: 420,
-    height: 360,
-    resizable: false,
+    width: 1280,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    resizable: true,
     movable: true,
     show: true,
     frame: false,
     title: "Axon",
-    backgroundColor: "#080a10",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
+    trafficLightPosition:
+      process.platform === "darwin" ? { x: 14, y: 13 } : undefined,
+    backgroundColor: "#0f1117",
+    transparent: false,
     webPreferences: {
-      sandbox: true,
+      preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -188,7 +195,17 @@ function closeBootSplashWindow() {
 
 (globalThis as typeof globalThis & {
   closeAxonBootSplash?: () => void;
+  takeAxonBootWindow?: () => BrowserWindow | null;
 }).closeAxonBootSplash = closeBootSplashWindow;
+
+(globalThis as typeof globalThis & {
+  closeAxonBootSplash?: () => void;
+  takeAxonBootWindow?: () => BrowserWindow | null;
+}).takeAxonBootWindow = () => {
+  const splashWindow = bootSplashWindow;
+  bootSplashWindow = null;
+  return splashWindow && !splashWindow.isDestroyed() ? splashWindow : null;
+};
 
 app.whenReady().then(() => {
   createBootSplashWindow();

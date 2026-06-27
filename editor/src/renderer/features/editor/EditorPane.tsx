@@ -15,7 +15,11 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { type EditorSettings } from "../../../shared/settings";
+import {
+  type BuiltInThemeId,
+  type EditorSettings,
+  type ThemeId,
+} from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import { type Layout } from "./lib/types";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
@@ -25,7 +29,7 @@ import PaneDivider from "./PaneDivider";
 import { type DragTabData, type PaneDropData } from "./TabBar";
 import { getTree, type FileNode } from "../../shared/lib/api";
 import { addRecentFolder } from "../sidebar";
-import { getTabDisplayName } from "../preview/lib/htmlPreviewTabs";
+import { getTabDisplayName } from "./lib/tabIdentity";
 
 interface Props {
   layout: Layout;
@@ -34,8 +38,12 @@ interface Props {
   onSelectFile: (paneId: string, filePath: string) => void;
   onCloseTab: (paneId: string, filePath: string) => void;
   onPinTab: (paneId: string, filePath: string, pinned: boolean) => void;
+  onOpenAgent: () => void;
   onOpenTabInTerminal?: (filePath: string) => void;
   onOpenFile?: (filePath: string) => void;
+  onOpenSettings: () => void;
+  onOpenTerminal: () => void;
+  onSelectTheme: (themeId: BuiltInThemeId) => void;
   onOpenNavigationTarget?: (
     target: Omit<EditorNavigationTarget, "id">,
   ) => void;
@@ -50,6 +58,7 @@ interface Props {
   ) => void;
   onClosePane: (paneId: string) => void;
   editorSettings: EditorSettings;
+  currentThemeId: ThemeId;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
@@ -96,8 +105,12 @@ export default function EditorPane({
   onSelectFile,
   onCloseTab,
   onPinTab,
+  onOpenAgent,
   onOpenTabInTerminal,
   onOpenFile,
+  onOpenSettings,
+  onOpenTerminal,
+  onSelectTheme,
   onOpenNavigationTarget,
   onReorderTabs,
   onDirtyChange,
@@ -106,6 +119,7 @@ export default function EditorPane({
   onMoveTabBetweenPanes,
   onClosePane,
   editorSettings,
+  currentThemeId,
   themeTokens,
   navigationTarget,
   gitChanges,
@@ -231,11 +245,16 @@ export default function EditorPane({
               }
               onOpenTabInTerminal={onOpenTabInTerminal}
               onOpenFile={onOpenFile}
+              onOpenAgent={onOpenAgent}
+              onOpenSettings={onOpenSettings}
+              onOpenTerminal={onOpenTerminal}
+              onSelectTheme={onSelectTheme}
               onOpenNavigationTarget={onOpenNavigationTarget}
               onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}
               onCursorChange={onCursorChange}
               onLanguageChange={onLanguageChange}
               editorSettings={editorSettings}
+              currentThemeId={currentThemeId}
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitChanges}

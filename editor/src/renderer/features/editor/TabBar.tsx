@@ -15,8 +15,9 @@ import ChromeTab from "./ChromeTab";
 import {
   getTabDisplayName,
   getTabFilePath,
-  isHtmlPreviewTabPath,
-} from "../preview/lib/htmlPreviewTabs";
+  getTabTooltipLabel,
+  isVirtualTabPath,
+} from "./lib/tabIdentity";
 
 export interface DragTabData {
   type: "tab";
@@ -101,8 +102,6 @@ function SortableTab({
   };
 
   const name = getTabDisplayName(path);
-  const realPath = getTabFilePath(path);
-
   return (
     <ChromeTab
       ref={setNodeRef}
@@ -114,9 +113,7 @@ function SortableTab({
       dirty={isDirty}
       deleted={isDeleted}
       pinned={isPinned}
-      tooltipLabel={
-        isHtmlPreviewTabPath(path) ? `HTML preview: ${realPath}` : realPath
-      }
+      tooltipLabel={getTabTooltipLabel(path)}
       tooltipDelayMs={3000}
       closeLabel={`Close ${name}`}
       onClick={() => onSelect(path)}
@@ -158,6 +155,7 @@ function ContextMenu({
   const canCloseOthers = openTabs.length > 1;
   const isPinned = pinnedTabs.includes(menu.path);
   const realPath = getTabFilePath(menu.path);
+  const isVirtualTab = isVirtualTabPath(menu.path);
 
   const runAction = (action: () => void) => {
     action();
@@ -225,6 +223,7 @@ function ContextMenu({
       {onOpenInTerminal ? (
         <button
           type="button"
+          disabled={isVirtualTab}
           className={menuItemClass}
           onClick={() => runAction(() => onOpenInTerminal(realPath))}
         >
@@ -234,6 +233,7 @@ function ContextMenu({
       ) : null}
       <button
         type="button"
+        disabled={isVirtualTab}
         className={menuItemClass}
         onClick={() =>
           runAction(() => {
