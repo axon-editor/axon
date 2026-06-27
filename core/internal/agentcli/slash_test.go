@@ -64,3 +64,17 @@ func TestInstalledModelsKeepsOnlyAvailableModels(t *testing.T) {
 		t.Fatalf("installedModels returned %v, want only available models in original order", got)
 	}
 }
+
+func TestFilterSlashCommandsUsesFirstTokenAndRanksAliases(t *testing.T) {
+	matches := filterSlashCommands("/models extra text")
+	if len(matches) == 0 || matches[0].Name != "model" {
+		t.Fatalf("filterSlashCommands did not promote /models alias: %#v", matches)
+	}
+}
+
+func TestFilterSlashCommandsSupportsFuzzyCommandTyping(t *testing.T) {
+	matches := filterSlashCommands("/mdl")
+	if len(matches) == 0 || matches[0].Name != "model" {
+		t.Fatalf("filterSlashCommands did not fuzzy-match /mdl to /model: %#v", matches)
+	}
+}

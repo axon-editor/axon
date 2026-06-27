@@ -92,7 +92,10 @@ export async function getMe(): Promise<{
   try {
     const res = await spotifyFetch("/me");
     if (!res.ok) return null;
-    return res.json();
+    return (await res.json()) as {
+      display_name: string;
+      images: { url: string }[];
+    };
   } catch {
     return null;
   }
@@ -104,7 +107,7 @@ export async function getPlaybackState(): Promise<SpotifyPlaybackState | null> {
     // 204 means Spotify is active but nothing is playing / no active device.
     if (res.status === 204) return null;
     if (!res.ok) return null;
-    return res.json();
+    return (await res.json()) as SpotifyPlaybackState;
   } catch {
     return null;
   }

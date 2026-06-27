@@ -1,10 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  Menu,
-  protocol,
-  net,
-} from "electron";
+import { app, BrowserWindow, Menu, protocol, net } from "electron";
 import path from "path";
 import url from "url";
 import { execFile } from "child_process";
@@ -84,6 +78,8 @@ function isExternalHandlerUrl(href: string) {
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const windowSessionRestore = new Map<number, boolean>();
+let pendingCliOpenFolderPath: string | null = null;
+let mainWindowReadyForCliOpen = false;
 const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
 const axonReleaseApiUrl =
   "https://api.github.com/repos/GordenArcher/axon/releases/latest";
@@ -98,6 +94,26 @@ async function deliverPendingAgentResumeRequest() {
   if (request) {
     sendToRenderer("agent:resumeRequest", request);
   }
+}
+// deliverPendingCliOpenFolder is the best-effort push side of `axon .`.
+// macOS can deliver open-file before React has subscribed to IPC, so this send
+// is deliberately not the only delivery path. The renderer also pulls the
+// pending value through `app:consumeCliOpenFolder` after mount, which closes the
+// startup race while keeping already-open windows responsive.
+function deliverPendingCliOpenFolder() {
+  if (!mainWindowReadyForCliOpen) return;
+  if (!pendingCliOpenFolderPath) return;
+  sendToRenderer("cli:open-folder", pendingCliOpenFolderPath);
+}
+
+// consumePendingCliOpenFolder is the reliable pull side of `axon .`. It clears
+// the queued path only when the renderer explicitly asks for it, so a folder
+// request cannot disappear just because Electron loaded before React effects
+// were registered.
+function consumePendingCliOpenFolder() {
+  const folderPath = pendingCliOpenFolderPath;
+  pendingCliOpenFolderPath = null;
+  return folderPath;
 }
 const bundledCore = createBundledCoreController({
   isDev,
@@ -156,6 +172,7 @@ registerUpdateHandlers(updateManager);
 registerAppHandlers({
   windowSessionRestore,
   isExternalHandlerUrl,
+  consumePendingCliOpenFolder,
   isDev,
 });
 registerDiagnosticsHandlers();
@@ -232,9 +249,11 @@ function getHtmlPreviewServer() {
 }
 
 function createManagedWindow(options: { restoreSession?: boolean } = {}) {
-  const bootWindow = (globalThis as typeof globalThis & {
-    takeAxonBootWindow?: () => BrowserWindow | null;
-  }).takeAxonBootWindow?.();
+  const bootWindow = (
+    globalThis as typeof globalThis & {
+      takeAxonBootWindow?: () => BrowserWindow | null;
+    }
+  ).takeAxonBootWindow?.();
   const createdWindow = createWindow(
     {
       axonDevServerUrl,
@@ -255,14 +274,17 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
   );
 
   mainWindow = createdWindow.window;
+  mainWindowReadyForCliOpen = false;
   const createdWebContentsId = createdWindow.window.webContents.id;
   windowSessionRestore.set(createdWebContentsId, createdWindow.restoreSession);
 
   if (!bootWindow) {
     const closeBootSplash = () => {
-      (globalThis as typeof globalThis & {
-        closeAxonBootSplash?: () => void;
-      }).closeAxonBootSplash?.();
+      (
+        globalThis as typeof globalThis & {
+          closeAxonBootSplash?: () => void;
+        }
+      ).closeAxonBootSplash?.();
     };
     // The fallback native boot splash is only closed here when appMain did not
     // receive a reusable boot window. In the normal path the boot splash is the
@@ -272,6 +294,10 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
     createdWindow.window.once("ready-to-show", closeBootSplash);
     createdWindow.window.webContents.once("did-finish-load", closeBootSplash);
   }
+  createdWindow.window.webContents.once("did-finish-load", () => {
+    mainWindowReadyForCliOpen = true;
+    deliverPendingCliOpenFolder();
+  });
 
   createdWindow.window.on("closed", () => {
     // I capture the webContents id before registering this handler because
@@ -284,6 +310,7 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
       mainWindow =
         BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??
         null;
+      mainWindowReadyForCliOpen = false;
     }
   });
 
@@ -315,7 +342,6 @@ function shouldBlockBrowserShortcut(input: {
   return false;
 }
 
-
 registerSpotifyProtocolClient();
 registerSpotifyOpenUrlHandler({ sendToRenderer });
 
@@ -330,6 +356,18 @@ app.on("second-instance", async (_event, argv) => {
   }
 
   void deliverPendingAgentResumeRequest();
+});
+
+// Handle `axon .` and `axon /path` -- macOS sends the folder path through
+// open-file when the CLI calls `open -a Axon <path>`. That event can arrive
+// before the renderer is alive, so I store the latest requested path and flush
+// it after the BrowserWindow finishes loading. Without the queue, Axon falls
+// back to the last restored workspace and makes `axon .` look like it opened
+// the wrong folder.
+app.on("open-file", (event, filePath) => {
+  event.preventDefault();
+  pendingCliOpenFolderPath = filePath;
+  deliverPendingCliOpenFolder();
 });
 
 app.whenReady().then(async () => {

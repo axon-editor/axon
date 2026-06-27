@@ -4,15 +4,16 @@ const (
 	// ANSI colors keep the first CLI version dependency-free while still making
 	// terminal output readable: dim status lines stay out of the way, streamed
 	// model text is clear, and errors are immediately visible.
-	ansiReset     = "\033[0m"
-	ansiDim       = "\033[2m"
-	ansiGreen     = "\033[32m"
-	ansiRed       = "\033[31m"
-	ansiWhite     = "\033[37m"
-	ansiAccent    = "\033[38;2;128;200;224m"
-	ansiMuted     = "\033[38;2;154;164;184m"
-	ansiInputBg   = "\033[48;2;14;18;27m"
-	ansiActiveRow = "\033[48;2;20;42;54m\033[38;2;223;247;255m"
+	ansiReset       = "\033[0m"
+	ansiDim         = "\033[2m"
+	ansiGreen       = "\033[32m"
+	ansiRed         = "\033[31m"
+	ansiWhite       = "\033[37m"
+	ansiAccent      = "\033[38;2;128;200;224m"
+	ansiMuted       = "\033[38;2;154;164;184m"
+	ansiInputBg     = "\033[48;2;16;22;32m"
+	ansiActiveRow   = "\033[48;2;20;42;54m\033[38;2;223;247;255m"
+	ansiPromptCaret = "\033[48;2;223;247;255m\033[38;2;16;22;32m"
 )
 
 // dim is used for progress and confirmation prompts. Those messages should be
@@ -54,4 +55,8 @@ func inputSurface(text string) string {
 
 func activeRow(text string) string {
 	return ansiActiveRow + text + ansiReset
+}
+
+func promptCaret(text string) string {
+	return ansiPromptCaret + text + ansiReset + ansiInputBg
 }

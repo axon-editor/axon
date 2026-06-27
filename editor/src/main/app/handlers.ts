@@ -17,6 +17,7 @@ import {
 interface AppHandlerDependencies {
   windowSessionRestore: Map<number, boolean>;
   isExternalHandlerUrl: (href: string) => boolean;
+  consumePendingCliOpenFolder: () => string | null;
   isDev: boolean;
 }
 
@@ -162,6 +163,7 @@ async function installCliTool(isDev: boolean): Promise<CliToolInstallResult> {
 export function registerAppHandlers({
   windowSessionRestore,
   isExternalHandlerUrl,
+  consumePendingCliOpenFolder,
   isDev,
 }: AppHandlerDependencies) {
   ipcMain.handle("app:getInfo", async () => {
@@ -178,6 +180,10 @@ export function registerAppHandlers({
   ipcMain.handle("app:shouldRestoreSession", (event) => {
     return windowSessionRestore.get(event.sender.id) !== false;
   });
+
+  ipcMain.handle("app:consumeCliOpenFolder", () =>
+    consumePendingCliOpenFolder(),
+  );
 
   ipcMain.handle("shell:openExternal", async (_event, href: string) => {
     if (!isExternalHandlerUrl(href)) {

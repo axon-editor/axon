@@ -108,6 +108,7 @@ declare global {
       onAgentResumeRequest: (
         callback: (request: AgentResumeRequest) => void,
       ) => () => void;
+      onCliOpenFolder: (callback: (folderPath: string) => void) => () => void;
       importFont: () => Promise<CustomFont | null>;
       listAvailableFonts: () => Promise<CustomFont[]>;
       selectEditorBackgroundImage: () => Promise<string | null>;
@@ -273,6 +274,7 @@ declare global {
         folderPath?: string | null,
       ) => Promise<ExtensionActionResult>;
       shouldRestoreSession: () => Promise<boolean>;
+      consumeCliOpenFolder: () => Promise<string | null>;
       checkForUpdates: () => Promise<UpdateInfo>;
       getUpdateInstallState: () => Promise<UpdateInstallState>;
       downloadUpdate: () => Promise<UpdateActionResult>;

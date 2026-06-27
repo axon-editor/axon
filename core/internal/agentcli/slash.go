@@ -168,6 +168,12 @@ func installedModels(models []ai.ModelInfo) []ai.ModelInfo {
 	return installed
 }
 
+// filterSlashCommands mirrors the command-popup behavior users expect from
+// Codex-style CLIs: only the first slash token controls the popup, aliases are
+// treated as first-class matches, and typo-tolerant fuzzy matches still show a
+// useful suggestion. Ranking matters here because Enter accepts the highlighted
+// row; exact matches must win over broad fuzzy matches or `/models` could run a
+// surprising command as the catalog grows.
 func filterSlashCommands(prefix string) []slashCommandDefinition {
 	catalog := slashCommandsCatalog()
 	trimmed := strings.TrimSpace(strings.TrimPrefix(prefix, "/"))
@@ -175,19 +181,80 @@ func filterSlashCommands(prefix string) []slashCommandDefinition {
 		return catalog
 	}
 
-	filtered := make([]slashCommandDefinition, 0, len(catalog))
-	lowered := strings.ToLower(trimmed)
+	// A slash command may eventually accept arguments, so filtering on the whole
+	// line would make `/model fast` stop matching `/model`. Codex's composer
+	// filters on the first token and leaves the remaining text for the command
+	// handler; Axon follows the same contract here.
+	token := strings.Fields(trimmed)
+	if len(token) == 0 {
+		return catalog
+	}
+
+	exactMatches := make([]slashCommandDefinition, 0, len(catalog))
+	prefixMatches := make([]slashCommandDefinition, 0, len(catalog))
+	fuzzyMatches := make([]slashCommandDefinition, 0, len(catalog))
+	lowered := strings.ToLower(token[0])
 	for _, command := range catalog {
-		if strings.HasPrefix(command.Name, lowered) {
-			filtered = append(filtered, command)
+		// The three buckets preserve useful ordering without needing a heavier
+		// ranking engine. Exact command/alias hits are what Enter should choose,
+		// prefix hits are what normal typing expects, and fuzzy hits are the
+		// recovery path for small mistakes like `/mdl`.
+		if command.Name == lowered {
+			exactMatches = append(exactMatches, command)
 			continue
 		}
-		for _, alias := range command.Aliases {
-			if strings.HasPrefix(alias, lowered) {
-				filtered = append(filtered, command)
-				break
-			}
+		if commandSlashAliasMatch(command, lowered, func(candidate string, value string) bool {
+			return candidate == value
+		}) {
+			exactMatches = append(exactMatches, command)
+			continue
+		}
+		if strings.HasPrefix(command.Name, lowered) {
+			prefixMatches = append(prefixMatches, command)
+			continue
+		}
+		if commandSlashAliasMatch(command, lowered, func(candidate string, value string) bool {
+			return strings.HasPrefix(candidate, value)
+		}) {
+			prefixMatches = append(prefixMatches, command)
+			continue
+		}
+		if slashFuzzyMatch(command.Name, lowered) || commandSlashAliasMatch(command, lowered, slashFuzzyMatch) {
+			fuzzyMatches = append(fuzzyMatches, command)
 		}
 	}
-	return filtered
+	return append(append(exactMatches, prefixMatches...), fuzzyMatches...)
+}
+
+// commandSlashAliasMatch lets aliases participate in the same matching pass as
+// canonical command names. Without this helper, `/models` could resolve when
+// submitted but fail to highlight `/model` in the popup, which makes the UI feel
+// inconsistent even though the command eventually works.
+func commandSlashAliasMatch(command slashCommandDefinition, value string, match func(string, string) bool) bool {
+	for _, alias := range command.Aliases {
+		if match(alias, value) {
+			return true
+		}
+	}
+	return false
+}
+
+// slashFuzzyMatch is intentionally simple subsequence matching. It is enough
+// for a tiny local command catalog, keeps the CLI dependency-free, and still
+// gives the important "I typed /mdl and got /model" behavior from larger TUI
+// command palettes.
+func slashFuzzyMatch(candidate string, query string) bool {
+	if query == "" {
+		return true
+	}
+	queryIndex := 0
+	for _, char := range candidate {
+		if queryIndex >= len(query) {
+			return true
+		}
+		if byte(char) == query[queryIndex] {
+			queryIndex++
+		}
+	}
+	return queryIndex == len(query)
 }

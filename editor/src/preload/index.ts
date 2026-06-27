@@ -119,6 +119,13 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.on("agent:resumeRequest", listener);
     return () => ipcRenderer.removeListener("agent:resumeRequest", listener);
   },
+  onCliOpenFolder: (callback: (folderPath: string) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, folderPath: string) =>
+      callback(folderPath);
+
+    ipcRenderer.on("cli:open-folder", listener);
+    return () => ipcRenderer.removeListener("cli:open-folder", listener);
+  },
   importFont: (): Promise<CustomFont | null> =>
     ipcRenderer.invoke("dialog:importFont"),
   listAvailableFonts: (): Promise<CustomFont[]> =>
@@ -359,6 +366,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("extensions:openFolder", folderPath),
   shouldRestoreSession: (): Promise<boolean> =>
     ipcRenderer.invoke("app:shouldRestoreSession"),
+  consumeCliOpenFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke("app:consumeCliOpenFolder"),
   checkForUpdates: (): Promise<UpdateInfo> =>
     ipcRenderer.invoke("app:checkForUpdates"),
   // The renderer can request updater actions, but it still cannot touch

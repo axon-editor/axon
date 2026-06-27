@@ -716,6 +716,56 @@ export function useAxonAppEffects({
   }, [folderPath, workspaceTrusted]);
 
   useEffect(() => {
+    // The CLI opens projects through the main process because `axon .` is
+    // launched outside the renderer. The event goes through the same
+    // `getTree -> handleFolderChange` path as the folder picker so settings,
+    // recent folders, Git state, file watching, and workspace trust all update
+    // together instead of only replacing the folder path string.
+    const handledCliFolders = new Set<string>();
+    const openCliFolder = (nextFolderPath: string) => {
+      if (handledCliFolders.has(nextFolderPath)) return;
+      handledCliFolders.add(nextFolderPath);
+      setLoading(true);
+      appendOutput("workspace", `Opening ${nextFolderPath}`);
+      getTree(nextFolderPath)
+        .then(async (fileTree) => {
+          addRecentFolder(nextFolderPath);
+          await handleFolderChange(nextFolderPath, fileTree);
+          appendOutput("workspace", `Opened ${nextFolderPath}`, "success");
+        })
+        .catch((err) => {
+          console.error("failed to open folder from CLI:", err);
+          appendOutput("workspace", "Failed to open folder from CLI.", "error");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    };
+
+    // Pull first, then subscribe. This handles the cold-start path where macOS
+    // sent `open-file` before React mounted. The live event below handles the
+    // already-running path where `axon .` targets an existing Axon window.
+    window.axon
+      .consumeCliOpenFolder()
+      .then((nextFolderPath) => {
+        if (nextFolderPath) openCliFolder(nextFolderPath);
+      })
+      .catch((err) => {
+        console.error("failed to consume CLI folder request:", err);
+      });
+
+    const cleanup = window.axon.onCliOpenFolder((nextFolderPath) => {
+      // The push event intentionally does not clear the main-process queue;
+      // clearing happens through the explicit consume call so a renderer reload
+      // cannot accidentally lose the folder request mid-flight.
+      void window.axon.consumeCliOpenFolder();
+      openCliFolder(nextFolderPath);
+    });
+
+    return cleanup;
+  }, [appendOutput, handleFolderChange, setLoading]);
+
+  useEffect(() => {
     const cleanup = window.axon.onMenuCommand(runCommand);
 
     return cleanup;

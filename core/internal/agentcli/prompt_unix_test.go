@@ -2,12 +2,19 @@
 
 package agentcli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-func TestRenderPromptInputDoesNotDrawCursorGlyph(t *testing.T) {
-	got := renderPromptInput([]rune("what model are you ?"), 6, 32)
-	if containsRune(got, '▌') {
-		t.Fatalf("renderPromptInput rendered cursor glyph: %q", got)
+func TestRenderPromptInputLinesDrawsCaretWithoutHeavyGlyph(t *testing.T) {
+	got := renderPromptInputLines([]rune("what model are you ?"), 6, 32, true)
+	joined := strings.Join(got, "\n")
+	if containsRune(joined, '▌') {
+		t.Fatalf("renderPromptInputLines rendered heavy cursor glyph: %q", got)
+	}
+	if !strings.Contains(joined, ansiPromptCaret) {
+		t.Fatalf("renderPromptInputLines did not render prompt caret: %q", got)
 	}
 }
 

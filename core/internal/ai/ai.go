@@ -415,10 +415,18 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 		response, err := callChatOnce(planningCtx, request, messages, true)
 		cancel()
 		if err != nil {
-			messages = append(messages, modelMessage{
-				Role:    "tool",
-				Content: "Project tool planning was skipped because the local model did not return tool choices quickly enough. Answer from the supplied context and say when more project inspection is needed.",
-			})
+			// Tool planning is an optimization, not the user's answer. When a
+			// small local model does not return tool calls quickly enough, feeding
+			// the failure text back into the chat makes the model repeat that
+			// backend detail to the user. Instead, Axon falls back to the
+			// deterministic project probe when it can, then lets the final response
+			// use the normal workspace context without leaking the planning failure.
+			if probe := AutomaticProjectProbe(ctx, request); probe != "" {
+				messages = append(messages, modelMessage{
+					Role:    "tool",
+					Content: probe,
+				})
+			}
 			return messages, nil
 		}
 		if len(response.Message.ToolCalls) == 0 {

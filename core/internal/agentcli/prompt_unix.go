@@ -71,7 +71,7 @@ func readAgentPrompt() (string, error) {
 		}
 
 		switch key {
-		case '\r', '\n':
+		case '\r':
 			// Enter is also the command accept key. If the user has typed a
 			// unique slash prefix such as `/mo`, the prompt expands it to the
 			// highlighted command before returning. That keeps command discovery
@@ -89,8 +89,19 @@ func readAgentPrompt() (string, error) {
 				render()
 				continue
 			}
+			renderedLines = renderAgentPromptSurface(os.Stdout, buffer, cursor, selectedSuggestion, "", renderedLines, false)
 			fmt.Fprint(os.Stdout, "\r\n")
 			return strings.TrimSpace(string(buffer)), nil
+		case 11:
+			// Multiline input uses Ctrl-K because Return is the fast send key in
+			// the terminal composer. macOS terminal apps usually reserve true
+			// Command-K for clearing the screen/scrollback before the process sees
+			// it, so the reliable process-level shortcut is the Ctrl-K byte.
+			notice = ""
+			selectedSuggestion = 0
+			buffer = append(buffer[:cursor], append([]rune{'\n'}, buffer[cursor:]...)...)
+			cursor++
+			render()
 		case 3:
 			return "", io.EOF
 		case 4:
@@ -108,14 +119,13 @@ func readAgentPrompt() (string, error) {
 		case 27:
 			switch readPromptEscapeSequence(reader) {
 			case "up":
-				if len(promptSuggestions(string(buffer))) > 0 && selectedSuggestion > 0 {
-					selectedSuggestion--
+				if suggestions := promptSuggestions(string(buffer)); len(suggestions) > 0 {
+					selectedSuggestion = (selectedSuggestion - 1 + len(suggestions)) % len(suggestions)
 				}
 				render()
 			case "down":
-				suggestions := promptSuggestions(string(buffer))
-				if len(suggestions) > 0 && selectedSuggestion < len(suggestions)-1 {
-					selectedSuggestion++
+				if suggestions := promptSuggestions(string(buffer)); len(suggestions) > 0 {
+					selectedSuggestion = (selectedSuggestion + 1) % len(suggestions)
 				}
 				render()
 			case "left":
@@ -179,7 +189,22 @@ func renderAgentPrompt(output io.Writer, value []rune, cursor int, previousLines
 	return renderAgentPromptWithNotice(output, value, cursor, 0, "", previousLines)
 }
 
+// renderAgentPromptWithNotice draws Axon's terminal composer as one owned
+// surface instead of printing a normal shell prompt plus a separate helper
+// list. Codex and Claude Code feel polished because typed text wraps naturally
+// inside one composer surface, command suggestions sit inside the same control,
+// and the brand label is not competing with the editable text. This function
+// keeps that interaction contract while staying dependency-free in Go.
 func renderAgentPromptWithNotice(output io.Writer, value []rune, cursor int, selectedSuggestion int, notice string, previousLines int) int {
+	return renderAgentPromptSurface(output, value, cursor, selectedSuggestion, notice, previousLines, true)
+}
+
+// renderAgentPromptSurface owns both the live composer and the submitted
+// composer snapshot. While editing, `showCaret` is true so the user can see the
+// insertion point. When the user submits, Axon redraws the same surface with
+// `showCaret` false before starting the stream, which prevents the old input
+// box from leaving a fake cursor in the transcript.
+func renderAgentPromptSurface(output io.Writer, value []rune, cursor int, selectedSuggestion int, notice string, previousLines int, showCaret bool) int {
 	if previousLines > 0 {
 		// Each redraw starts from the original input line so the terminal never
 		// accumulates stale prompt rows underneath the current textbox. The old
@@ -191,27 +216,22 @@ func renderAgentPromptWithNotice(output io.Writer, value []rune, cursor int, sel
 
 	suggestions := promptSuggestions(string(value))
 	selectedSuggestion = clampSuggestionIndex(suggestions, selectedSuggestion)
-	// The input surface is intentionally capped below the full terminal width.
-	// Long prompt chrome wrapping is what made the previous version look broken
-	// in wide terminals. Keeping a fixed upper bound gives Axon a cleaner CLI
-	// shape and makes redraw math predictable.
-	width := terminalPromptWidth()
-	if width < 40 {
-		width = 40
-	}
-	if width > 88 {
-		width = 88
-	}
-	innerWidth := width - len(interactivePromptTitle) - 6
+	width := terminalPromptSurfaceWidth()
+	innerWidth := width - 4
 	if innerWidth < 20 {
 		innerWidth = 20
 	}
 
 	var lines bytes.Buffer
-	lines.WriteString(accent(interactivePromptTitle))
-	lines.WriteString("  ")
-	lines.WriteString(inputSurface(" " + renderPromptInput(value, cursor, innerWidth) + " "))
-	lines.WriteString("\r\n")
+	inputLines := renderPromptInputLines(value, cursor, innerWidth, showCaret)
+	// The composer height comes from the actual prompt content. Forced blank
+	// padding rows looked like separate input boxes, especially before the user
+	// typed anything. Keeping only content rows makes multiline input read as
+	// one textbox where text flows to the next line.
+	for _, inputLine := range inputLines {
+		lines.WriteString(inputSurface(padPromptLine("  "+inputLine, width)))
+		lines.WriteString("\r\n")
+	}
 
 	if len(suggestions) > 0 {
 		// The first match is treated as the active row. Enter accepts it, so the
@@ -222,19 +242,20 @@ func renderAgentPromptWithNotice(output io.Writer, value []rune, cursor int, sel
 			visible = visible[:maxPromptSuggestions]
 		}
 		for index, command := range visible {
-			row := "  /" + command.Name + "  " + clipPromptLine(command.Summary, width-8-len(command.Name))
+			// The popup rows are padded to the same width as the input row so the
+			// whole control feels like one block. If only the command text is
+			// colored, the UI falls back to the broken "printed help under a
+			// prompt" look that made the earlier version feel unfinished.
+			row := "   /" + command.Name + "  " + clipPromptLine(command.Summary, width-9-len(command.Name))
 			if index == selectedSuggestion {
 				lines.WriteString(activeRow(padPromptLine(row, width)))
 				lines.WriteString("\r\n")
 				continue
 			}
-			lines.WriteString(muted("  /"))
-			lines.WriteString(command.Name)
-			lines.WriteString(muted("  "))
-			lines.WriteString(muted(clipPromptLine(command.Summary, width-8-len(command.Name))))
+			lines.WriteString(inputSurface(padPromptLine(row, width)))
 			lines.WriteString("\r\n")
 		}
-		lines.WriteString(dim("  ↑/↓ selects. Enter runs highlighted command. Ctrl-D exits."))
+		lines.WriteString(inputSurface(padPromptLine("   ↑/↓ selects. Enter accepts highlighted command.", width)))
 		lines.WriteString("\r\n")
 	}
 	if strings.TrimSpace(notice) != "" {
@@ -244,7 +265,7 @@ func renderAgentPromptWithNotice(output io.Writer, value []rune, cursor int, sel
 	}
 
 	_, _ = output.Write(lines.Bytes())
-	rendered := 1
+	rendered := len(inputLines)
 	if len(suggestions) > 0 {
 		visible := len(suggestions)
 		if visible > maxPromptSuggestions {
@@ -258,7 +279,82 @@ func renderAgentPromptWithNotice(output io.Writer, value []rune, cursor int, sel
 	return rendered
 }
 
-func renderPromptInput(value []rune, cursor int, innerWidth int) string {
+// renderPromptInputLines returns the visible rows for the multiline composer.
+// The buffer stays as one rune slice so existing editing and history behavior
+// remains simple, but rendering splits that buffer into rows and keeps the row
+// containing the caret inside a small viewport. Without this viewport, a pasted
+// prompt could expand the terminal forever and make the next redraw expensive.
+func renderPromptInputLines(value []rune, cursor int, innerWidth int, showCaret bool) []string {
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor > len(value) {
+		cursor = len(value)
+	}
+
+	rawLines := strings.Split(string(value), "\n")
+	if len(rawLines) == 0 {
+		rawLines = []string{""}
+	}
+	lineIndex, column := promptCursorLineAndColumn(value, cursor)
+	if lineIndex >= len(rawLines) {
+		lineIndex = len(rawLines) - 1
+		column = len([]rune(rawLines[lineIndex]))
+	}
+
+	start := 0
+	if len(rawLines) > maxPromptInputRows {
+		start = lineIndex - maxPromptInputRows/2
+		if start < 0 {
+			start = 0
+		}
+		maxStart := len(rawLines) - maxPromptInputRows
+		if start > maxStart {
+			start = maxStart
+		}
+	}
+	end := start + maxPromptInputRows
+	if end > len(rawLines) {
+		end = len(rawLines)
+	}
+
+	rendered := make([]string, 0, maxPromptInputRows)
+	for index := start; index < end; index++ {
+		line := []rune(rawLines[index])
+		if index == lineIndex {
+			rendered = append(rendered, renderPromptLine(line, column, innerWidth, showCaret))
+			continue
+		}
+		rendered = append(rendered, renderPromptLine(line, 0, innerWidth, false))
+	}
+	return rendered
+}
+
+func promptCursorLineAndColumn(value []rune, cursor int) (int, int) {
+	line := 0
+	column := 0
+	for index, char := range value {
+		if index >= cursor {
+			break
+		}
+		if char == '\n' {
+			line++
+			column = 0
+			continue
+		}
+		column++
+	}
+	return line, column
+}
+
+// renderPromptLine returns one visible row and optionally paints the caret at
+// the current edit column. Raw terminal mode hides the native cursor while Axon
+// owns the composer redraws, so the textbox must provide its own caret or the
+// user has no clear typing target.
+func renderPromptLine(value []rune, cursor int, innerWidth int, showCaret bool) string {
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
@@ -279,9 +375,8 @@ func renderPromptInput(value []rune, cursor int, innerWidth int) string {
 	if len(value) > available {
 		// When the prompt is longer than the visible input, keep the internal
 		// edit position near the middle of the field instead of always anchoring
-		// at the start. The cursor itself is not rendered because Axon's terminal
-		// input should look like a clean command surface, but the hidden position
-		// still matters for arrow-key edits and backspace behavior.
+		// at the start. That keeps the painted caret visible during long prompts
+		// while still allowing arrow-key edits and backspace to work normally.
 		start = cursor - available/2
 		if start < 0 {
 			start = 0
@@ -303,7 +398,26 @@ func renderPromptInput(value []rune, cursor int, innerWidth int) string {
 	if len(rendered) > innerWidth {
 		rendered = rendered[:innerWidth]
 	}
-	return string(rendered)
+	if !showCaret {
+		return string(rendered)
+	}
+
+	caretIndex := cursor - start
+	if caretIndex < 0 {
+		caretIndex = 0
+	}
+	if caretIndex >= innerWidth {
+		caretIndex = innerWidth - 1
+	}
+
+	// Use a reversed cell instead of a heavy glyph. It reads as a real terminal
+	// caret, works when the input is empty, and avoids adding an extra character
+	// that would shift the visible text or break the surface width.
+	caretRune := rendered[caretIndex]
+	if caretRune == 0 {
+		caretRune = ' '
+	}
+	return string(rendered[:caretIndex]) + promptCaret(string(caretRune)) + string(rendered[caretIndex+1:])
 }
 
 func resolvePromptSelection(value string, selectedSuggestion int) string {
@@ -522,20 +636,14 @@ func renderInlineModelPicker(output io.Writer, models []ai.ModelInfo, selectedIn
 		fmt.Fprintf(output, "\x1b[%dF\x1b[0J", previousLines)
 	}
 
-	width := terminalPromptWidth()
-	if width < 52 {
-		width = 52
-	}
-	if width > 88 {
-		width = 88
-	}
+	width := terminalPromptSurfaceWidth()
 
 	var lines bytes.Buffer
-	lines.WriteString(accent(interactivePromptTitle))
-	lines.WriteString("  ")
-	lines.WriteString(inputSurface(" /model " + strings.Repeat(" ", width-len(interactivePromptTitle)-11)))
+	lines.WriteString(inputSurface(padPromptLine("", width)))
 	lines.WriteString("\r\n")
-	lines.WriteString(dim("  Choose a local Axon model. Use ↑/↓ and Enter. Ctrl-D cancels."))
+	lines.WriteString(inputSurface(padPromptLine("  /model", width)))
+	lines.WriteString("\r\n")
+	lines.WriteString(inputSurface(padPromptLine("  Choose a local Axon model. Use ↑/↓ and Enter. Ctrl-D cancels.", width)))
 	lines.WriteString("\r\n")
 
 	for index, model := range models {
@@ -547,17 +655,16 @@ func renderInlineModelPicker(output io.Writer, models []ai.ModelInfo, selectedIn
 		if index == selectedIndex {
 			lines.WriteString(activeRow(padPromptLine(row, width)))
 			lines.WriteString("\r\n")
-			lines.WriteString("  ")
-			lines.WriteString(muted(clipPromptLine(model.Description, width-2)))
+			lines.WriteString(inputSurface(padPromptLine("  "+clipPromptLine(model.Description, width-2), width)))
 			lines.WriteString("\r\n")
 			continue
 		}
-		lines.WriteString(row)
+		lines.WriteString(inputSurface(padPromptLine(row, width)))
 		lines.WriteString("\r\n")
 	}
 
 	_, _ = output.Write(lines.Bytes())
-	return len(models) + 3
+	return len(models) + 4
 }
 
 func renderModelPicker(output io.Writer, models []ai.ModelInfo, selectedIndex int, selectedModel string, previousLines int) int {
@@ -655,6 +762,20 @@ func terminalPromptWidth() int {
 		return 80
 	}
 	return int(ws.Col)
+}
+
+// terminalPromptSurfaceWidth returns the visible width Axon can safely own for
+// its composer surface. The prompt should feel full-width, but terminal emulators
+// often wrap when the final printable cell is filled exactly, especially once
+// ANSI reset sequences are involved. Reserving one column avoids ghost lines
+// without going back to the narrow boxed prompt.
+func terminalPromptSurfaceWidth() int {
+	width := terminalPromptWidth()
+	if width < 52 {
+		return 52
+	}
+
+	return width - 1
 }
 
 func clipPromptLine(text string, limit int) string {

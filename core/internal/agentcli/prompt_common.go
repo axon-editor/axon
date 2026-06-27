@@ -10,4 +10,5 @@ const (
 	// raw mode is not available.
 	interactivePromptTitle = "Axon"
 	maxPromptSuggestions   = 4
+	maxPromptInputRows     = 6
 )

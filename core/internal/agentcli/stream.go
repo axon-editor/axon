@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
+
+var errStreamInterrupted = errors.New("Axon stream interrupted.")
 
 // streamRequestInput is the small command-level shape before it becomes the
 // full ai.ChatRequest sent to core. Keeping this separate prevents ask and
@@ -48,8 +51,15 @@ type streamEnvelope struct {
 // like a real editor surface, so we do not wait for the full model response
 // before showing output.
 func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, error) {
+	streamCtx, cancelStream := context.WithCancel(ctx)
+	interruptState := startStreamInterrupt(cancelStream)
+	defer interruptState.Stop()
+	defer cancelStream()
+	cursorState := hideTerminalCursorDuringStream()
+	defer cursorState.Restore()
+
 	port := resolveCorePort()
-	if err := ensureCore(ctx, port); err != nil {
+	if err := ensureCore(streamCtx, port); err != nil {
 		return "", err
 	}
 
@@ -78,7 +88,7 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		// context pack cannot be built. We only attach it for project-shaped
 		// requests; sending a huge workspace pack for `axon ask hi` makes the
 		// model appear frozen even though the stream transport is healthy.
-		if contextPack, err := fetchProjectContext(ctx, port, folderPath); err == nil {
+		if contextPack, err := fetchProjectContext(streamCtx, port, folderPath); err == nil {
 			request.ProjectContext = &contextPack
 		} else {
 			fmt.Fprintln(os.Stderr, dim("Project context unavailable; continuing with workspace path only."))
@@ -90,7 +100,7 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		return "", err
 	}
 
-	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, coreURL(port, "/ai/chat/stream"), bytes.NewReader(rawPayload))
+	httpRequest, err := http.NewRequestWithContext(streamCtx, http.MethodPost, coreURL(port, "/ai/chat/stream"), bytes.NewReader(rawPayload))
 	if err != nil {
 		return "", err
 	}
@@ -101,6 +111,9 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 
 	response, err := http.DefaultClient.Do(httpRequest)
 	if err != nil {
+		if interruptState.Interrupted() {
+			return "", errStreamInterrupted
+		}
 		return "", err
 	}
 	defer response.Body.Close()
@@ -155,6 +168,9 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 	}
 	if err := scanner.Err(); err != nil {
 		spinner.Stop()
+		if interruptState.Interrupted() {
+			return fullResponse.String(), errStreamInterrupted
+		}
 		return fullResponse.String(), err
 	}
 	spinner.Stop()

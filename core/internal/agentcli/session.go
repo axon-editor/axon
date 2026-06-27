@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -331,6 +332,10 @@ func runTerminalSession(workspace string, session *agentTerminalSession) int {
 		})
 		cancel()
 		if err != nil {
+			if errors.Is(err, errStreamInterrupted) {
+				fmt.Fprintln(os.Stderr, red("Axon stream interrupted."))
+				continue
+			}
 			fmt.Fprintln(os.Stderr, red(err.Error()))
 			continue
 		}
@@ -354,6 +359,10 @@ func runOneShotSession(workspace, prompt string) int {
 		Conversation: history,
 	})
 	if err != nil {
+		if errors.Is(err, errStreamInterrupted) {
+			fmt.Fprintln(os.Stderr, red("Axon stream interrupted."))
+			return 1
+		}
 		fmt.Fprintln(os.Stderr, red(err.Error()))
 		return 1
 	}
