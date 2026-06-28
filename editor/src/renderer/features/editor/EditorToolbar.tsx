@@ -45,6 +45,17 @@ interface Props {
 
 type DropdownType = "new" | "split" | "app" | null;
 
+const toolbarButtonBase =
+  "flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors";
+const toolbarButtonIdle =
+  "text-[#586478] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#9aa4b8]";
+const toolbarButtonActive =
+  "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]";
+const toolbarMenu =
+  "axon-popover absolute right-0 top-8 z-50 rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-1 shadow-2xl";
+const toolbarMenuItem =
+  "flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-68 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100";
+
 export default function EditorToolbar({
   onNewFile,
   onOpenFile,
@@ -116,7 +127,7 @@ export default function EditorToolbar({
           <button
             onClick={onOpenUpdate}
             aria-label={`View Axon ${updateInfo.latestVersion} update notes`}
-            className="mr-1 flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+            className="mr-1 flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-2.5 text-[11px] text-[var(--axon-syntax-function)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)]"
           >
             <Download size={13} />
             {updateButtonLabel}
@@ -134,21 +145,22 @@ export default function EditorToolbar({
               <button
                 onClick={() => toggle("new")}
                 aria-label="New..."
-                className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
-                ${dropdown === "new" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+                className={`${toolbarButtonBase} ${
+                  dropdown === "new" ? toolbarButtonActive : toolbarButtonIdle
+                }`}
               >
                 <Plus size={14} />
               </button>
             </Tooltip>
 
             {dropdown === "new" && (
-              <div className="axon-popover absolute right-0 top-8 z-50 w-48 rounded-lg border border-[#222838] bg-[#14161e] py-1 shadow-2xl">
+              <div className={`${toolbarMenu} w-48`}>
                 <button
                   onClick={() => {
                     onNewFile();
                     setDropdown(null);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                  className={toolbarMenuItem}
                 >
                   <FileText size={13} className="shrink-0" />
                   new file
@@ -158,18 +170,18 @@ export default function EditorToolbar({
                     onOpenFile();
                     setDropdown(null);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                  className={toolbarMenuItem}
                 >
                   <FolderOpen size={13} className="shrink-0" />
                   open file
                 </button>
-                <div className="my-1 border-t border-[#222838]" />
+                <div className="my-1 border-t border-[var(--axon-panel-border)]" />
                 <button
                   onClick={() => {
                     onNewTerminal();
                     setDropdown(null);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                  className={toolbarMenuItem}
                 >
                   <Terminal size={13} className="shrink-0" />
                   new terminal
@@ -189,21 +201,22 @@ export default function EditorToolbar({
               <button
                 onClick={() => toggle("split")}
                 aria-label="Split editor"
-                className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
-                ${dropdown === "split" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+                className={`${toolbarButtonBase} ${
+                  dropdown === "split" ? toolbarButtonActive : toolbarButtonIdle
+                }`}
               >
                 <Columns2 size={14} />
               </button>
             </Tooltip>
 
             {dropdown === "split" && (
-              <div className="axon-popover absolute right-0 top-8 z-50 w-48 rounded-lg border border-[#222838] bg-[#14161e] py-1 shadow-2xl">
+              <div className={`${toolbarMenu} w-48`}>
                 <button
                   onClick={() => {
                     onSplit("right");
                     setDropdown(null);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                  className={toolbarMenuItem}
                 >
                   <AlignEndVertical size={13} className="shrink-0" />
                   split right
@@ -213,7 +226,7 @@ export default function EditorToolbar({
                     onSplit("left");
                     setDropdown(null);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                  className={toolbarMenuItem}
                 >
                   <AlignStartVertical size={13} className="shrink-0" />
                   split left
@@ -223,7 +236,7 @@ export default function EditorToolbar({
                     onSplit("up");
                     setDropdown(null);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                  className={toolbarMenuItem}
                 >
                   <AlignStartHorizontal size={13} className="shrink-0" />
                   split up
@@ -233,7 +246,7 @@ export default function EditorToolbar({
                     onSplit("down");
                     setDropdown(null);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white transition-colors cursor-pointer"
+                  className={toolbarMenuItem}
                 >
                   <AlignEndHorizontal size={13} className="shrink-0" />
                   split down
@@ -248,7 +261,7 @@ export default function EditorToolbar({
             <button
               onClick={onDiff}
               aria-label="Compare active file"
-              className="flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"
+              className={`${toolbarButtonBase} ${toolbarButtonIdle}`}
             >
               <GitCompare size={14} />
             </button>
@@ -265,8 +278,9 @@ export default function EditorToolbar({
         <button
           onClick={onZenMode}
           aria-label={isZenMode ? "Exit zen mode" : "Zen mode"}
-          className={`flex items-center justify-center w-7 h-7 rounded transition-colors cursor-pointer
-          ${isZenMode ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:text-[#9aa4b8] hover:bg-[#1e2430]"}`}
+          className={`${toolbarButtonBase} ${
+            isZenMode ? toolbarButtonActive : toolbarButtonIdle
+          }`}
         >
           {isZenMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </button>
@@ -277,21 +291,22 @@ export default function EditorToolbar({
           <button
             onClick={() => toggle("app")}
             aria-label="Axon menu"
-            className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors
-            ${dropdown === "app" ? "bg-[#1e2430] text-[#80c8e0]" : "text-[#586478] hover:bg-[#1e2430] hover:text-[#9aa4b8]"}`}
+            className={`${toolbarButtonBase} ${
+              dropdown === "app" ? toolbarButtonActive : toolbarButtonIdle
+            }`}
           >
             <ChevronDown size={15} />
           </button>
         </Tooltip>
 
         {dropdown === "app" && (
-          <div className="axon-popover absolute right-0 top-8 z-50 w-52 rounded-lg border border-[#222838] bg-[#14161e] py-1 shadow-2xl">
+          <div className={`${toolbarMenu} w-52`}>
             <button
               onClick={() => {
                 onSettings();
                 setDropdown(null);
               }}
-              className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#1e2430] hover:text-white"
+              className={toolbarMenuItem}
             >
               <Settings size={13} className="shrink-0" />
               settings
@@ -301,7 +316,7 @@ export default function EditorToolbar({
                 onExtensions();
                 setDropdown(null);
               }}
-              className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#1e2430] hover:text-white"
+              className={toolbarMenuItem}
             >
               <Blocks size={13} className="shrink-0" />
               extensions
@@ -311,20 +326,20 @@ export default function EditorToolbar({
                 onAbout();
                 setDropdown(null);
               }}
-              className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#1e2430] hover:text-white"
+              className={toolbarMenuItem}
             >
               <Info size={13} className="shrink-0" />
               about Axon
             </button>
             {updateInfo?.updateAvailable ? (
               <>
-                <div className="my-1 border-t border-[#222838]" />
+                <div className="my-1 border-t border-[var(--axon-panel-border)]" />
                 <button
                   onClick={() => {
                     onOpenUpdate();
                     setDropdown(null);
                   }}
-                  className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-[12px] text-[#80c8e0] transition-colors hover:bg-[#1e2430] hover:text-white"
+                  className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-[12px] text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
                 >
                   <Download size={13} className="shrink-0" />
                   update notes

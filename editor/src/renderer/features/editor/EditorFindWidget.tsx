@@ -22,8 +22,8 @@ export default function EditorFindWidget({
   onMoveSelection,
 }: Props) {
   return (
-    <div className="absolute right-4 top-3 z-20 flex h-8 items-center gap-1 rounded-md border border-[#2a3346] bg-[#10141d] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
-      <Search size={13} className="text-[#586478]" />
+    <div className="absolute right-4 top-3 z-20 flex h-8 items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
+      <Search size={13} className="text-[var(--axon-editor-foreground)] opacity-45" />
       <input
         ref={findInputRef}
         value={findQuery}
@@ -36,9 +36,9 @@ export default function EditorFindWidget({
           }
         }}
         placeholder="find..."
-        className="h-6 w-44 bg-transparent text-[12px] text-[#dce4f0] outline-none placeholder:text-[#465166]"
+        className="h-6 w-44 bg-transparent text-[12px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35"
       />
-      <span className="min-w-11 text-right text-[10px] text-[#586478]">
+      <span className="min-w-11 text-right text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
         {findQuery
           ? `${findMatchCount ? findIndex + 1 : 0}/${findMatchCount}`
           : "0/0"}
@@ -48,7 +48,7 @@ export default function EditorFindWidget({
           type="button"
           aria-label="Go to previous find match"
           onClick={() => onMoveSelection(-1)}
-          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
+          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
         >
           <ChevronUp size={13} />
         </button>
@@ -58,7 +58,7 @@ export default function EditorFindWidget({
           type="button"
           aria-label="Go to next find match"
           onClick={() => onMoveSelection(1)}
-          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
+          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
         >
           <ChevronDown size={13} />
         </button>
@@ -68,7 +68,7 @@ export default function EditorFindWidget({
           type="button"
           aria-label="Close find widget"
           onClick={onClose}
-          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#1a2030] hover:text-white"
+          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
         >
           <X size={13} />
         </button>

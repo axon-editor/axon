@@ -1,6 +1,7 @@
-// Reusable modal shell used by CommandPalette, FolderPicker, and OpenFile.
-// Renders a centered overlay with a consistent dark style.
-// Children render inside the modal body.
+// Reusable modal shell used by command, search, picker, and outline surfaces.
+// The shell owns the overlay and animation, while colors come from the active
+// Axon theme variables so every empty, error, and search message inside these
+// modals follows the selected theme instead of inheriting a hard-coded dark UI.
 // Closes on outside click or Escape key.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
@@ -59,26 +60,26 @@ export default function CommandModal({
 
   return (
     <div
-      className={`axon-modal-overlay fixed inset-0 z-50 flex items-start justify-center bg-[#05070c]/35 px-4 pt-24 backdrop-blur-[2px] ${
+      className={`axon-modal-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/35 px-4 pt-24 backdrop-blur-[2px] ${
         closing ? "axon-modal-overlay--leaving" : ""
       }`}
     >
       <div
         ref={ref}
-        className={`axon-modal-panel ${width} flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03] ${
+        className={`axon-modal-panel ${width} flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03] ${
           closing ? "axon-modal-panel--leaving" : ""
         }`}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-[#222838] bg-[#141824] px-4 py-3">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-[#9aa4b8]">
+          <div className="flex items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4 py-3">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-55">
               {title}
             </span>
             <Tooltip label="Close" side="left">
               <button
                 onClick={requestClose}
                 aria-label="Close"
-                className="text-[#586478] hover:text-white transition-colors cursor-pointer"
+                className="cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:opacity-100"
               >
                 <X size={13} />
               </button>

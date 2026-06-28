@@ -84,13 +84,13 @@ export default function DiffModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-6 py-6">
-      <div className="flex h-full max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[#222838] bg-[#0e1018] shadow-2xl">
-        <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
+      <div className="flex h-full max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
+        <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-medium text-white">
+            <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
               {fileName}
             </div>
-            <div className="truncate text-[10px] text-[#586478]">
+            <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
               git base to current buffer
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function DiffModal({
             <button
               onClick={onClose}
               aria-label="Close diff"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
             >
               <X size={14} />
             </button>
@@ -107,7 +107,7 @@ export default function DiffModal({
         </div>
 
         {loading && (
-          <div className="flex flex-1 items-center justify-center text-[13px] text-[#586478]">
+          <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--axon-editor-foreground)] opacity-45">
             loading diff...
           </div>
         )}

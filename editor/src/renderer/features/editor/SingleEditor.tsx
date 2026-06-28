@@ -855,7 +855,7 @@ export default function SingleEditor({
 
   if (loading) {
     return (
-      <div className="w-full h-full flex items-center justify-center text-[#364050] text-[13px]">
+      <div className="flex h-full w-full items-center justify-center bg-[var(--axon-editor-background)] text-[13px] text-[var(--axon-editor-foreground)] opacity-35">
         loading...
       </div>
     );
@@ -865,17 +865,17 @@ export default function SingleEditor({
     const fileName = filePath.split("/").pop() ?? filePath;
 
     return (
-      <div className="w-full h-full flex items-center justify-center bg-[#0e1018] px-6">
-        <div className="max-w-sm w-full rounded-lg border border-[#222838] bg-[#11141d] px-5 py-5 shadow-[0_18px_54px_rgba(0,0,0,0.28)]">
+      <div className="flex h-full w-full items-center justify-center bg-[var(--axon-editor-background)] px-6">
+        <div className="w-full max-w-sm rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-5 py-5 shadow-[0_18px_54px_rgba(0,0,0,0.28)]">
           <div className="flex items-start gap-3">
-            <div className="h-9 w-9 rounded-md border border-[#2a3346] bg-[#171c28] flex items-center justify-center text-[#80c8e0] shrink-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]">
               <FileWarning size={17} />
             </div>
             <div className="min-w-0">
-              <h3 className="text-[13px] font-medium text-[#d7deea] truncate">
+              <h3 className="truncate text-[13px] font-medium text-[var(--axon-editor-foreground)]">
                 {fileName}
               </h3>
-              <p className="mt-1 text-[12px] leading-5 text-[#8d98aa]">
+              <p className="mt-1 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-60">
                 {error}
               </p>
             </div>
@@ -928,12 +928,16 @@ export default function SingleEditor({
   return (
     <div className="w-full h-full flex flex-col">
       {isMd && (
-        <div className="flex items-center justify-end gap-1 px-3 py-1 bg-[#0a0c12] border-b border-[#222838]">
+        <div className="flex items-center justify-end gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 py-1">
           <Tooltip label="Editor" side="bottom">
             <button
               onClick={() => setPreviewMode("editor")}
               aria-label="Editor"
-              className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "editor" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
+              className={`cursor-pointer rounded p-1 transition-colors ${
+                previewMode === "editor"
+                  ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                  : "text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+              }`}
             >
               <FileText size={13} />
             </button>
@@ -942,7 +946,11 @@ export default function SingleEditor({
             <button
               onClick={() => setPreviewMode("split")}
               aria-label="Split preview"
-              className={`p-1 rounded transition-colors cursor-pointer ${previewMode === "split" ? "text-white bg-[#1e2430]" : "text-[#586478] hover:text-white"}`}
+              className={`cursor-pointer rounded p-1 transition-colors ${
+                previewMode === "split"
+                  ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                  : "text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+              }`}
             >
               <Columns2 size={13} />
             </button>
@@ -951,7 +959,7 @@ export default function SingleEditor({
             <button
               onClick={() => onOpenMarkdownPreviewTab?.(filePath)}
               aria-label="Preview"
-              className="p-1 rounded transition-colors cursor-pointer text-[#586478] hover:text-white"
+              className="cursor-pointer rounded p-1 text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
               <Eye size={13} />
             </button>
@@ -964,7 +972,7 @@ export default function SingleEditor({
         {previewMode === "split" && (
           <>
             {editorNode}
-            <div className="w-px bg-[#222838] shrink-0" />
+            <div className="w-px shrink-0 bg-[var(--axon-panel-border)]" />
             <div className="flex-1 overflow-hidden min-w-0">
               <MarkdownPreview
                 content={liveContent}

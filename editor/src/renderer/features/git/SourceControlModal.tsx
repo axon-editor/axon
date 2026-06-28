@@ -54,9 +54,9 @@ function SourceControlSkeleton() {
     <div className="space-y-3 px-3 py-2">
       {[0, 1, 2, 3, 4].map((item) => (
         <div key={item} className="grid grid-cols-[24px_1fr] gap-2">
-          <div className="h-5 animate-pulse rounded bg-[#151923]" />
+          <div className="h-5 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
           <div className="min-w-0 space-y-1.5">
-            <div className="h-3 w-3/4 animate-pulse rounded bg-[#151923]" />
+            <div className="h-3 w-3/4 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
             <div className="h-2.5 w-full animate-pulse rounded bg-[#111722]" />
           </div>
         </div>
@@ -384,17 +384,17 @@ export default function SourceControlModal({
     >
       <div
         ref={panelRef}
-        className="absolute bottom-8 left-1/2 top-20 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
+        className="absolute bottom-8 left-1/2 top-20 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
       >
-        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#222838] bg-[#141824] px-4">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-[#9aa4b8]">
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-65">
             source control
           </span>
           <Tooltip label="Close" side="left">
             <button
               onClick={onClose}
               aria-label="Close source control"
-              className="cursor-pointer text-[#586478] transition-colors hover:text-white"
+              className="cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:text-[var(--axon-editor-foreground)]"
             >
               <X size={13} />
             </button>
@@ -402,11 +402,11 @@ export default function SourceControlModal({
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] overflow-hidden">
-          <div className="flex min-h-0 flex-col border-r border-[#222838]">
-            <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
+          <div className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)]">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
               <div className="flex min-w-0 items-center gap-2">
-                <GitBranch size={14} className="text-[#80c8e0]" />
-                <span className="truncate text-[12px] text-[#c8d0e0]">
+                <GitBranch size={14} className="text-[var(--axon-syntax-function)]" />
+                <span className="truncate text-[12px] text-[var(--axon-editor-foreground)]">
                   {status?.branch ?? "no repository"}
                 </span>
               </div>
@@ -419,7 +419,7 @@ export default function SourceControlModal({
                       runningAction === "stage:all"
                     }
                     aria-label="Stage all changes"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <Plus size={13} />
                   </button>
@@ -432,7 +432,7 @@ export default function SourceControlModal({
                       runningAction === "unstage:all"
                     }
                     aria-label="Unstage all staged files"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <Minus size={13} />
                   </button>
@@ -442,7 +442,7 @@ export default function SourceControlModal({
                     onClick={() => void copyAllDiffs()}
                     disabled={!status?.changes.length}
                     aria-label="Copy all Git context"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     {copiedAction === "all" ? (
                       <Check size={13} />
@@ -455,7 +455,7 @@ export default function SourceControlModal({
                   <button
                     onClick={() => void loadStatus()}
                     aria-label="Refresh Git status"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                   >
                     <RefreshCw size={13} />
                   </button>
@@ -474,7 +474,7 @@ export default function SourceControlModal({
               />
 
               {!folderPath && (
-                <div className="px-3 py-2 text-[12px] text-[#586478]">
+                <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   Open a folder to inspect Git changes.
                 </div>
               )}
@@ -484,13 +484,13 @@ export default function SourceControlModal({
               )}
 
               {folderPath && status && !status.isRepository && (
-                <div className="px-3 py-2 text-[12px] text-[#586478]">
+                <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   This workspace is not a Git repository.
                 </div>
               )}
 
               {status?.isRepository && status.changes.length === 0 && (
-                <div className="px-3 py-2 text-[12px] text-[#586478]">
+                <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   No changed files.
                 </div>
               )}
@@ -522,13 +522,13 @@ export default function SourceControlModal({
               )}
             </div>
 
-            <div className="shrink-0 border-t border-[#222838] p-3">
+            <div className="shrink-0 border-t border-[var(--axon-panel-border)] p-3">
               <textarea
                 value={commitMessage}
                 onChange={(event) => setCommitMessage(event.target.value)}
                 placeholder="commit message..."
                 rows={4}
-                className="min-h-20 w-full resize-none rounded-md border border-[#222838] bg-[#0b0e15] px-3 py-2 text-[12px] leading-5 text-[#c8d0e0] outline-none transition-colors placeholder:text-[#364050] focus:border-[#3a455a]"
+                className="min-h-20 w-full resize-none rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 py-2 text-[12px] leading-5 text-[var(--axon-editor-foreground)] outline-none transition-colors placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30 focus:border-[var(--axon-syntax-function)]"
               />
               <div className="mt-2 flex items-center justify-between gap-2">
                 <button
@@ -538,7 +538,7 @@ export default function SourceControlModal({
                     unstagedChanges.length === 0 ||
                     runningAction === "discard:all"
                   }
-                  className="h-7 cursor-pointer rounded-md px-2 text-[11px] text-[#586478] transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72] disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                  className="h-7 cursor-pointer rounded-md px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                 >
                   discard all
                 </button>
@@ -550,7 +550,7 @@ export default function SourceControlModal({
                     stagedChanges.length === 0 ||
                     commitMessage.trim().length === 0
                   }
-                  className="h-7 cursor-pointer rounded-md border border-[#2a3346] bg-[#142a36] px-3 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:border-[#222838] disabled:bg-transparent disabled:text-[#364050]"
+                  className="h-7 cursor-pointer rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[11px] text-[var(--axon-syntax-function)] transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)] disabled:cursor-not-allowed disabled:border-[var(--axon-panel-border)] disabled:bg-transparent disabled:opacity-30"
                 >
                   {committing ? "committing..." : "commit staged"}
                 </button>
@@ -559,14 +559,14 @@ export default function SourceControlModal({
           </div>
 
           <div className="flex min-w-0 min-h-0 flex-col">
-            <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#222838] px-3">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-medium text-[#c8d0e0]">
+                <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
                   {selectedChange
                     ? getFileName(selectedChange.path)
                     : "No file selected"}
                 </div>
-                <div className="truncate text-[10px] text-[#586478]">
+                <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                   {selectedChange?.path ??
                     "Select a changed file to preview its diff"}
                 </div>
@@ -577,7 +577,7 @@ export default function SourceControlModal({
                     onClick={() => void copySelectedDiff()}
                     disabled={!selectedChange || !diff}
                     aria-label="Copy selected diff context"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     {copiedAction === "selected" ? (
                       <Check size={13} />
@@ -593,7 +593,7 @@ export default function SourceControlModal({
                     }
                     disabled={!selectedChange}
                     aria-label="Open file"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <FileText size={13} />
                   </button>
@@ -602,7 +602,7 @@ export default function SourceControlModal({
                   <button
                     onClick={onClose}
                     aria-label="Close source control"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                   >
                     <X size={13} />
                   </button>
@@ -610,12 +610,12 @@ export default function SourceControlModal({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-[#080a10]">
+            <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-[var(--axon-editor-background)]">
               {loadingDiff && (
                 <DiffSkeleton />
               )}
               {!loadingDiff && !selectedChange && (
-                <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
+                <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   Select a changed file to view diff context.
                 </div>
               )}
@@ -631,7 +631,7 @@ export default function SourceControlModal({
                     themeTokens={themeTokens}
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[#586478]">
+                  <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                     No diff available yet. Save the file first if the change is
                     only in the editor buffer.
                   </div>
@@ -669,7 +669,7 @@ function ChangeGroup({
 }) {
   return (
     <div className="mb-3">
-      <div className="px-3 pb-1 text-[10px] font-medium uppercase tracking-wide text-[#586478]">
+      <div className="px-3 pb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-45">
         {title} {changes.length}
       </div>
       {changes.map((change) => {
@@ -682,20 +682,20 @@ function ChangeGroup({
             key={`${title}:${change.path}`}
             className={`grid w-full cursor-pointer grid-cols-[24px_1fr] items-center gap-2 px-3 py-1.5 text-left transition-colors ${
               selected
-                ? "bg-[#1e2430] text-white"
-                : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"
+                ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                : "text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-background)] hover:text-[var(--axon-editor-foreground)]"
             }`}
             onClick={() => onSelect(change)}
             onDoubleClick={() => onOpenFile(change.absolutePath)}
           >
-            <span className="rounded bg-[#151923] px-1.5 py-0.5 text-center text-[10px] text-[#80c8e0]">
+            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-center text-[10px] text-[var(--axon-syntax-function)]">
               {changeLabel(change)}
             </span>
             <span className="min-w-0 pr-1">
               <span className="block truncate text-[12px]">
                 {getFileName(change.path)}
               </span>
-              <span className="block truncate text-[10px] text-[#586478]">
+              <span className="block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                 {change.path}
               </span>
             </span>
@@ -768,10 +768,10 @@ function GitActionButton({
         }}
         className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
           disabled
-            ? "cursor-not-allowed text-[#364050]"
+            ? "cursor-not-allowed text-[var(--axon-editor-foreground)] opacity-30"
             : danger
-              ? "cursor-pointer text-[#586478] hover:bg-[#2a1517] hover:text-[#ff7b72]"
-              : "cursor-pointer text-[#586478] hover:bg-[#151923] hover:text-[#80c8e0]"
+              ? "cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[#2a1517] hover:text-[#ff7b72] hover:opacity-100"
+              : "cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-syntax-function)] hover:opacity-100"
         }`}
       >
         {children}

@@ -101,11 +101,11 @@ export default function ExtensionsModal({
       bodyClassName="min-h-0 overflow-auto"
     >
       <div className="space-y-4 p-4">
-        <div className="rounded-lg border border-[#222838] bg-[#0b0d13] p-4">
+        <div className="rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[13px] font-medium text-[#dce4f0]">
-                <Blocks size={15} className="text-[#80c8e0]" />
+              <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--axon-editor-foreground)]">
+                <Blocks size={15} className="text-[var(--axon-syntax-function)]" />
                 Local extension host
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
@@ -114,11 +114,11 @@ export default function ExtensionsModal({
                     ? "safe declarative mode"
                     : "extension code enabled"}
                 </span>
-                <span className="rounded bg-[#151923] px-2 py-1 text-[#8f98aa]">
+                <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[var(--axon-editor-foreground)] opacity-55">
                   host: {extensionState?.hostStatus.mode ?? "loading"}
                 </span>
               </div>
-              <div className="mt-2 max-w-2xl text-[11px] leading-5 text-[#7f8aa3]">
+              <div className="mt-2 max-w-2xl text-[11px] leading-5 text-[var(--axon-editor-foreground)] opacity-60">
                 {extensionState?.hostStatus.message ??
                   "Axon is loading extension metadata."}
               </div>
@@ -127,14 +127,14 @@ export default function ExtensionsModal({
                   {extensionState.availableActivationEvents.map((eventName) => (
                     <span
                       key={eventName}
-                      className="rounded bg-[#101723] px-2 py-1 text-[10px] text-[#647086]"
+                      className="rounded bg-[#101723] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-45"
                     >
                       {eventName}
                     </span>
                   ))}
                 </div>
               ) : null}
-              <div className="mt-2 space-y-1 font-mono text-[10px] text-[#647086]">
+              <div className="mt-2 space-y-1 font-mono text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                 <div className="truncate">
                   workspace:{" "}
                   {extensionState?.workspaceExtensionsPath ??
@@ -152,7 +152,7 @@ export default function ExtensionsModal({
                 type="button"
                 onClick={() => void reloadExtensions()}
                 disabled={busyAction !== null}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2a3346] bg-[#1e2430] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-default disabled:opacity-60"
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)] disabled:cursor-default disabled:opacity-60"
               >
                 <RefreshCw
                   size={13}
@@ -164,7 +164,7 @@ export default function ExtensionsModal({
                 type="button"
                 onClick={() => void openExtensionsFolder()}
                 disabled={busyAction !== null}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2a3346] bg-[#1e2430] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-default disabled:opacity-60"
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)] disabled:cursor-default disabled:opacity-60"
               >
                 <FolderOpen size={13} />
                 Folder
@@ -177,7 +177,7 @@ export default function ExtensionsModal({
               className={`mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[11px] ${
                 messageTone === "error"
                   ? "border-[#3a2024] bg-[#1b0f13] text-[#ff9aa2]"
-                  : "border-[#1d3443] bg-[#0d1d26] text-[#80c8e0]"
+                  : "border-[#1d3443] bg-[#0d1d26] text-[var(--axon-syntax-function)]"
               }`}
             >
               {messageTone === "error" ? (
@@ -191,7 +191,7 @@ export default function ExtensionsModal({
         </div>
 
         {!extensionState || extensionState.extensions.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[#222838] px-4 py-10 text-center text-[12px] text-[#586478]">
+          <div className="rounded-lg border border-dashed border-[var(--axon-panel-border)] px-4 py-10 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
             No extensions loaded yet.
           </div>
         ) : (
@@ -212,18 +212,18 @@ export default function ExtensionsModal({
               return (
                 <div
                   key={extension.id}
-                  className="rounded-lg border border-[#222838] bg-[#0b0d13] p-4"
+                  className="rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[13px] font-medium text-[#dce4f0]">
+                        <span className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">
                           {extension.name}
                         </span>
-                        <span className="rounded bg-[#151923] px-1.5 py-0.5 text-[10px] text-[#647086]">
+                        <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                           {extension.version}
                         </span>
-                        <span className="rounded bg-[#142a36] px-1.5 py-0.5 text-[10px] text-[#80c8e0]">
+                        <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-syntax-function)]">
                           {extension.source}
                         </span>
                         {extension.builtin ? (
@@ -238,26 +238,26 @@ export default function ExtensionsModal({
                               ? "bg-[#152019] text-[#8fe3a2]"
                               : extension.lifecycle === "error"
                                 ? "bg-[#341b20] text-[#ff8b92]"
-                                : "bg-[#151923] text-[#647086]"
+                                : "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)] opacity-45"
                           }`}
                         >
                           <Cpu size={10} />
                           {extension.lifecycle}
                         </span>
                       </div>
-                      <div className="mt-1 text-[11px] text-[#647086]">
+                      <div className="mt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
                         {extension.publisher} / {extension.id}
                       </div>
                       {extension.description ? (
-                        <div className="mt-2 max-w-2xl text-[12px] leading-5 text-[#9aa4b8]">
+                        <div className="mt-2 max-w-2xl text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
                       {extension.description}
                         </div>
                       ) : null}
-                      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-[#647086]">
-                        <span className="rounded bg-[#151923] px-2 py-1">
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
+                        <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1">
                           host: {extension.hostKind}
                         </span>
-                        <span className="rounded bg-[#151923] px-2 py-1">
+                        <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1">
                           activation: {extension.activationReason}
                         </span>
                       </div>
@@ -276,14 +276,14 @@ export default function ExtensionsModal({
 
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {contributionCounts.length === 0 ? (
-                      <span className="rounded bg-[#151923] px-2 py-1 text-[10px] text-[#586478]">
+                      <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                         no contributions
                       </span>
                     ) : (
                       contributionCounts.map(([label, count]) => (
                         <span
                           key={`${extension.id}:${label}`}
-                          className="rounded bg-[#151923] px-2 py-1 text-[10px] text-[#8f98aa]"
+                          className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-55"
                         >
                           {count} {label}
                         </span>
@@ -292,14 +292,14 @@ export default function ExtensionsModal({
                     {extension.themes.map((theme) => (
                       <span
                         key={theme.id}
-                        className="rounded bg-[#1d2535] px-2 py-1 text-[10px] text-[#dce4f0]"
+                        className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)]"
                       >
                         theme: {theme.label}
                       </span>
                     ))}
                   </div>
 
-                  <div className="mt-3 truncate font-mono text-[10px] text-[#3f485a]">
+                  <div className="mt-3 truncate font-mono text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
                     {extension.path}
                   </div>
 

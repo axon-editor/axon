@@ -229,13 +229,13 @@ function CodeBlock({
   };
 
   return (
-    <div className="group relative my-4 overflow-hidden rounded-lg border border-[#30363d] bg-[#0d1117] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
-      <pre className="m-0 overflow-x-auto p-4 text-[13px] leading-6 text-[#c9d1d9]">
+    <div className="group relative my-4 overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+      <pre className="m-0 overflow-x-auto p-4 text-[13px] leading-6 text-[var(--axon-editor-foreground)]">
         <code className={className}>{children}</code>
       </pre>
       <div className="absolute right-2 top-2 flex items-center gap-2">
         {language !== "text" ? (
-          <span className="rounded bg-[#010409]/80 px-1.5 py-0.5 text-[10px] text-[#7d8590] opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="rounded bg-[var(--axon-editor-background)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-0 transition-opacity group-hover:opacity-55">
             {language}
           </span>
         ) : null}
@@ -246,7 +246,7 @@ function CodeBlock({
           className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-all ${
             copied
               ? "border-[#2ea043] bg-[#16351f] text-[#7ee787]"
-              : "border-[#30363d] bg-[#161b22] text-[#8b949e] opacity-80 hover:border-[#8b949e] hover:text-[#f0f6fc] group-hover:opacity-100"
+              : "border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] opacity-60 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-100"
           }`}
         >
           {copied ? <Check size={13} /> : <Copy size={13} />}
@@ -281,29 +281,29 @@ export default function MarkdownPreview({
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-[#0e1018] px-5 py-6">
-      <article className="mx-auto w-full max-w-5xl text-[14px] leading-7 text-[#c8d0e0]">
+    <div className="h-full overflow-y-auto bg-[var(--axon-editor-background)] px-5 py-6">
+      <article className="mx-auto w-full max-w-5xl text-[14px] leading-7 text-[var(--axon-editor-foreground)]">
         <ReactMarkdown
           rehypePlugins={[rehypeRaw]}
           remarkPlugins={[remarkGfm]}
           components={{
             h1: ({ children }) => (
-              <h1 className="mb-5 border-b border-[#222838] pb-3 text-[26px] font-semibold leading-tight text-white">
+              <h1 className="mb-5 border-b border-[var(--axon-panel-border)] pb-3 text-[26px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
                 {children}
               </h1>
             ),
             h2: ({ children }) => (
-              <h2 className="mb-3 mt-8 border-b border-[#222838] pb-2 text-[20px] font-semibold leading-tight text-white">
+              <h2 className="mb-3 mt-8 border-b border-[var(--axon-panel-border)] pb-2 text-[20px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
                 {children}
               </h2>
             ),
             h3: ({ children }) => (
-              <h3 className="mb-2 mt-6 text-[16px] font-semibold leading-tight text-white">
+              <h3 className="mb-2 mt-6 text-[16px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
                 {children}
               </h3>
             ),
             h4: ({ children }) => (
-              <h4 className="mb-2 mt-5 text-[14px] font-semibold leading-tight text-[#e6ebf5]">
+              <h4 className="mb-2 mt-5 text-[14px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
                 {children}
               </h4>
             ),
@@ -331,20 +331,20 @@ export default function MarkdownPreview({
                 }
                 onClick={(event) => handleLinkClick(event, href)}
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[#80c8e0] underline-offset-4 hover:underline"
+                className="inline-flex items-center gap-1 text-[var(--axon-syntax-function)] underline-offset-4 hover:underline"
               >
                 {children}
                 {href && isExternalUrl(href) && <ExternalLink size={11} />}
               </a>
             ),
             blockquote: ({ children }) => (
-              <blockquote className="my-5 border-l-2 border-[#80c8e0] bg-[#10131b] px-4 py-2 text-[#9aa4b8]">
+              <blockquote className="my-5 border-l-2 border-[var(--axon-syntax-function)] bg-[var(--axon-panel-background)] px-4 py-2 text-[var(--axon-editor-foreground)] opacity-75">
                 {children}
               </blockquote>
             ),
             code: ({ children, ...props }: any) => (
               <code
-                className="rounded bg-[#14161e] px-1.5 py-0.5 text-[13px] text-[#80c8e0]"
+                className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[13px] text-[var(--axon-syntax-function)]"
                 {...props}
               >
                 {children}
@@ -380,7 +380,7 @@ export default function MarkdownPreview({
                       maxWidth: "100%",
                       ...mediaStyle,
                     }}
-                    className="my-4 inline-block rounded-md border border-[#222838] bg-black align-middle"
+                    className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
                   />
                 );
               }
@@ -417,7 +417,7 @@ export default function MarkdownPreview({
                     maxWidth: "100%",
                     ...videoStyle,
                   }}
-                  className="my-4 inline-block rounded-md border border-[#222838] bg-black align-middle"
+                  className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
                   {...props}
                 >
                   {children}
@@ -443,32 +443,32 @@ export default function MarkdownPreview({
                   type="checkbox"
                   checked={checked}
                   readOnly
-                  className="mr-2 translate-y-[1px] accent-[#80c8e0]"
+                  className="mr-2 translate-y-[1px] accent-[var(--axon-syntax-function)]"
                 />
               ) : null,
             table: ({ children }) => (
-              <div className="my-5 overflow-x-auto rounded-md border border-[#222838]">
+              <div className="my-5 overflow-x-auto rounded-md border border-[var(--axon-panel-border)]">
                 <table className="w-full border-collapse text-left text-[13px]">
                   {children}
                 </table>
               </div>
             ),
             thead: ({ children }) => (
-              <thead className="bg-[#10131b] text-white">{children}</thead>
+              <thead className="bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]">{children}</thead>
             ),
             th: ({ children }) => (
-              <th className="border-b border-[#222838] px-3 py-2 font-medium">
+              <th className="border-b border-[var(--axon-panel-border)] px-3 py-2 font-medium">
                 {children}
               </th>
             ),
             td: ({ children }) => (
-              <td className="border-t border-[#1a2030] px-3 py-2">
+              <td className="border-t border-[var(--axon-panel-border)] px-3 py-2">
                 {children}
               </td>
             ),
-            hr: () => <hr className="my-8 border-[#222838]" />,
+            hr: () => <hr className="my-8 border-[var(--axon-panel-border)]" />,
             strong: ({ children }) => (
-              <strong className="font-semibold text-white">{children}</strong>
+              <strong className="font-semibold text-[var(--axon-editor-foreground)]">{children}</strong>
             ),
           }}
         >

@@ -105,7 +105,7 @@ export default function FileTree({
 
   if (loading) {
     return (
-      <div className="px-4 py-2 text-[12px] text-[#364050]">loading...</div>
+      <div className="px-4 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-35">loading...</div>
     );
   }
 
@@ -119,7 +119,7 @@ export default function FileTree({
         onDragLeave={() => setEmptyDragOver(false)}
         onDrop={handleEmptyDrop}
         className={`flex h-full flex-col items-center justify-center px-4 text-center transition-colors ${
-          emptyDragOver ? "bg-[#111a28]" : ""
+          emptyDragOver ? "bg-[var(--axon-sidebar-hover-background)]" : ""
         }`}
       >
         <img
@@ -128,10 +128,10 @@ export default function FileTree({
           className="mb-3 h-12 w-12 opacity-25"
           draggable={false}
         />
-        <div className="text-[12px] font-medium text-[#c8d0e0]">
+        <div className="text-[12px] font-medium text-[var(--axon-editor-foreground)]">
           {tree ? "empty workspace" : "no folder open"}
         </div>
-        <div className="mt-1 max-w-[160px] text-[11px] leading-4 text-[#586478]">
+        <div className="mt-1 max-w-[160px] text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-45">
           {tree
             ? "drop files here or create something new."
             : "drop a folder here or use the folder button above."}
@@ -140,7 +140,7 @@ export default function FileTree({
           <button
             type="button"
             onClick={onOpenFolderPicker}
-            className="mt-4 flex h-7 cursor-pointer items-center rounded border border-[#222838] px-3 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:bg-[#11151c] hover:text-white"
+            className="mt-4 flex h-7 cursor-pointer items-center rounded border border-[var(--axon-sidebar-border)] px-3 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
           >
             open folder
           </button>

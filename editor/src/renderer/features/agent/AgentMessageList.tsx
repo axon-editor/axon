@@ -32,7 +32,7 @@ export default function AgentMessageList(props: Props) {
                 message.role === "user" ? "justify-end" : "justify-between"
               }`}
             >
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#647086]">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-45">
                 {message.role === "assistant" ? "Axon" : "You"}
               </span>
               {message.role === "assistant" ? (
@@ -42,7 +42,7 @@ export default function AgentMessageList(props: Props) {
                     void window.axon.copyText(message.content);
                     props.onCopied(message.id);
                   }}
-                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#647086] hover:bg-[#202838] hover:text-white"
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                   aria-label="Copy response"
                 >
                   {props.copiedId === message.id ? (
@@ -54,7 +54,7 @@ export default function AgentMessageList(props: Props) {
               ) : null}
             </div>
             {message.role === "user" ? (
-              <div className="whitespace-pre-wrap rounded-md bg-[#14212d] px-3 py-2 text-[12px] leading-5 text-[#edf3ff]">
+              <div className="whitespace-pre-wrap rounded-md bg-[var(--axon-panel-overlay-hover)] px-3 py-2 text-[12px] leading-5 text-[var(--axon-editor-foreground)]">
                 {message.content}
               </div>
             ) : message.content ? (
@@ -63,26 +63,26 @@ export default function AgentMessageList(props: Props) {
               <StreamingIndicator />
             )}
             {message.result?.editProposal ? (
-              <div className="mt-3 rounded border border-[#263047] bg-[#0b0f17]">
-                <div className="flex items-center gap-2 border-b border-[#1d2432] px-2 py-1.5 text-[11px] text-[#9aa4b8]">
-                  <FilePenLine size={12} className="text-[#80c8e0]" />
+              <div className="mt-3 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
+                <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-2 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-65">
+                  <FilePenLine size={12} className="text-[var(--axon-syntax-function)]" />
                   {message.result.editProposal.title}
                 </div>
                 {message.result.editProposal.files.map((file) => (
                   <div
                     key={file.path}
-                    className="border-b border-[#151b27] p-2 last:border-b-0"
+                    className="border-b border-[var(--axon-panel-border)] p-2 last:border-b-0"
                   >
-                    <div className="truncate text-[11px] text-[#dce4f0]">
+                    <div className="truncate text-[11px] text-[var(--axon-editor-foreground)]">
                       {file.path}
                     </div>
-                    <div className="mt-1 text-[11px] text-[#647086]">
+                    <div className="mt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
                       {file.summary}
                     </div>
                     <button
                       type="button"
                       onClick={() => props.onApplyEdit(file)}
-                      className="mt-2 h-7 cursor-pointer rounded bg-[#16323c] px-2 text-[11px] text-[#dff7ff] hover:bg-[#1d4350]"
+                      className="mt-2 h-7 cursor-pointer rounded bg-[var(--axon-panel-overlay-hover)] px-2 text-[11px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
                     >
                       Apply file
                     </button>

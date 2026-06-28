@@ -100,7 +100,7 @@ function getLanguageServerStatusLabel(server: LanguageServerStatus) {
 
 function getLanguageServerStatusClass(server: LanguageServerStatus) {
   if (server.status === "failed") return "bg-[#341b20] text-[#ff8b92]";
-  if (server.status === "running") return "bg-[#142a36] text-[#80c8e0]";
+  if (server.status === "running") return "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]";
   if (server.bundled) return "bg-[#15321f] text-[#90c8a0]";
   if (server.status === "available") return "bg-[#1c2636] text-[#9fb7e8]";
   return "bg-[#2a1517] text-[#ff7b72]";
@@ -590,16 +590,16 @@ export default function SettingsModal({
       width="w-[min(1080px,calc(100vw-2rem))]"
       bodyClassName="min-h-0 overflow-hidden"
     >
-      <div className="grid h-[min(760px,calc(100vh-7.5rem))] min-h-0 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[#343841] bg-[#101116] shadow-2xl">
-        <aside className="flex min-h-0 flex-col border-r border-[#343841] bg-[#24262c]">
-          <div className="shrink-0 border-b border-[#343841] px-4 py-4">
-            <div className="flex items-center gap-2 rounded-md border border-[#3b3f48] bg-[#111319] px-3 py-2">
-              <Search size={14} className="shrink-0 text-[#7b8089]" />
+      <div className="grid h-[min(760px,calc(100vh-7.5rem))] min-h-0 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
+        <aside className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)] bg-[var(--axon-sidebar-background)]">
+          <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-4">
+            <div className="flex items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 py-2">
+              <Search size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
               <input
                 value={sectionQuery}
                 onChange={(event) => setSectionQuery(event.target.value)}
                 placeholder="Search settings..."
-                className="min-w-0 flex-1 bg-transparent text-[13px] text-[#d7d9df] outline-none placeholder:text-[#777b84]"
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-40"
               />
             </div>
             </div>
@@ -619,8 +619,8 @@ export default function SettingsModal({
                   onClick={() => setActiveSection(section.id)}
                   className={`group flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${
                     active
-                      ? "bg-[#343740] text-[#f2f3f5]"
-                      : "text-[#a0a3aa] hover:bg-[#2d3037] hover:text-[#f2f3f5]"
+                      ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                      : "text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                   }`}
                 >
                   <Icon
@@ -647,24 +647,24 @@ export default function SettingsModal({
             ) : null}
           </nav>
 
-          <div className="shrink-0 border-t border-[#343841] px-4 py-3 text-[11px] text-[#8a8d94]">
+          <div className="shrink-0 border-t border-[var(--axon-panel-border)] px-4 py-3 text-[11px] text-[var(--axon-editor-foreground)] opacity-55">
             {dirty ? "Unsaved changes" : "Settings saved"}
           </div>
         </aside>
 
-        <div className="flex min-h-0 flex-col bg-[#0d0f14]">
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#2b2e36] px-7 py-5">
+        <div className="flex min-h-0 flex-col bg-[var(--axon-editor-background)]">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--axon-panel-border)] px-7 py-5">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[12px] text-[#8a8d94]">
+              <div className="flex items-center gap-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
                 <span className="rounded bg-[#164163] px-2 py-0.5 text-[#7fc7ff]">
                   {folderPath ? "Workspace" : "User"}
                 </span>
                 <span className="truncate">{settingsScopeLabel}</span>
               </div>
-              <h2 className="mt-8 text-[22px] font-semibold text-[#e5e7eb]">
+              <h2 className="mt-8 text-[22px] font-semibold text-[var(--axon-editor-foreground)]">
                 {activeSectionMeta.label}
               </h2>
-              <p className="mt-2 max-w-2xl text-[13px] leading-6 text-[#8f939b]">
+              <p className="mt-2 max-w-2xl text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-65">
                 {activeSectionMeta.description}
               </p>
             </div>
@@ -675,14 +675,14 @@ export default function SettingsModal({
                 onPreview(initialSettingsRef.current);
               }}
               disabled={!dirty}
-              className="hidden h-8 cursor-pointer items-center gap-2 rounded-md border border-[#30333b] bg-[#171920] px-3 text-[12px] text-[#c9cbd1] transition-colors hover:bg-[#20232b] hover:text-white disabled:cursor-not-allowed disabled:text-[#676b74] disabled:hover:bg-[#171920] md:flex"
+              className="hidden h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[var(--axon-editor-background)] md:flex"
             >
               <RotateCcw size={13} />
               Reset
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-            <div className="mb-2 flex items-center gap-2 text-[12px] text-[#8a8d94]">
+            <div className="mb-2 flex items-center gap-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
               <Braces size={13} />
               <span>
                 {folderPath
@@ -1046,7 +1046,7 @@ export default function SettingsModal({
                       <button
                         type="button"
                         onClick={() => void selectEditorBackgroundImage()}
-                        className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2a3346] bg-[#1e2430] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+                        className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)]"
                       >
                         <FolderOpen size={13} />
                         Choose image
@@ -1055,7 +1055,7 @@ export default function SettingsModal({
                         type="button"
                         onClick={() => updateEditor("backgroundImagePath", "")}
                         disabled={!draft.editor.backgroundImagePath}
-                        className="h-8 cursor-pointer rounded-md px-2 text-[12px] text-[#586478] transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72] disabled:cursor-not-allowed disabled:text-[#364050] disabled:hover:bg-transparent"
+                        className="h-8 cursor-pointer rounded-md px-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                       >
                         Clear
                       </button>
@@ -1128,13 +1128,13 @@ export default function SettingsModal({
                 title="Fonts"
                 description="Import TTF, OTF, WOFF, or WOFF2 files into Axon storage, then use them for the UI, editor, terminal, and diff views."
               >
-                <div className="rounded-md border border-[#222838] bg-[#0b0d13] p-4">
+                <div className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-[12px] font-medium text-[#dce4f0]">
+                      <div className="text-[12px] font-medium text-[var(--axon-editor-foreground)]">
                         Import font file
                       </div>
-                      <div className="mt-1 text-[11px] leading-4 text-[#586478]">
+                      <div className="mt-1 text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-45">
                         Axon copies imported fonts into app storage so the
                         original file can move without breaking settings.
                       </div>
@@ -1142,7 +1142,7 @@ export default function SettingsModal({
                     <button
                       type="button"
                       onClick={() => void importFont()}
-                      className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2a3346] bg-[#1e2430] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+                      className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)]"
                     >
                       <Upload size={13} />
                       Import
@@ -1152,7 +1152,7 @@ export default function SettingsModal({
 
                 {draft.customFonts.length === 0 ? (
                   <>
-                    <div className="rounded-md border border-dashed border-[#222838] px-4 py-8 text-center text-[12px] text-[#586478]">
+                    <div className="rounded-md border border-dashed border-[var(--axon-panel-border)] px-4 py-8 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                       No custom fonts imported yet.
                     </div>
                     {fontImportError ? (
@@ -1171,18 +1171,18 @@ export default function SettingsModal({
                     {draft.customFonts.map((font) => (
                       <div
                         key={font.family}
-                        className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border border-[#222838] bg-[#0b0d13] px-3 py-2"
+                        className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 py-2"
                       >
                         <div className="min-w-0">
                           <div
-                            className="truncate text-[13px] text-[#dce4f0]"
+                            className="truncate text-[13px] text-[var(--axon-editor-foreground)]"
                             style={{
                               fontFamily: `"${font.family}", sans-serif`,
                             }}
                           >
                             {font.family}
                           </div>
-                          <div className="mt-0.5 truncate text-[10px] text-[#586478]">
+                          <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                             {font.path}
                           </div>
                         </div>
@@ -1192,7 +1192,7 @@ export default function SettingsModal({
                             onClick={() =>
                               updateEditor("uiFontFamily", font.family)
                             }
-                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                           >
                             UI
                           </button>
@@ -1201,7 +1201,7 @@ export default function SettingsModal({
                             onClick={() =>
                               updateEditor("fontFamily", font.family)
                             }
-                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                           >
                             Editor
                           </button>
@@ -1211,7 +1211,7 @@ export default function SettingsModal({
                               updateEditor("uiFontFamily", font.family);
                               updateEditor("fontFamily", font.family);
                             }}
-                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                            className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                           >
                             Both
                           </button>
@@ -1219,7 +1219,7 @@ export default function SettingsModal({
                             type="button"
                             onClick={() => removeFont(font.family)}
                             aria-label={`Remove ${font.family}`}
-                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72]"
+                            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72]"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1257,7 +1257,7 @@ export default function SettingsModal({
                           onChange={(event) =>
                             updateThemeColor(token, event.target.value)
                           }
-                          className="h-8 w-10 cursor-pointer rounded border border-[#222838] bg-[#0e1018] p-1"
+                          className="h-8 w-10 cursor-pointer rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1"
                           aria-label={`${THEME_COLOR_LABELS[token]} color`}
                         />
                         <SettingsTextInput
@@ -1306,7 +1306,7 @@ export default function SettingsModal({
                           onChange={(event) =>
                             updateThemeColor(token, event.target.value)
                           }
-                          className="h-8 w-10 cursor-pointer rounded border border-[#222838] bg-[#0e1018] p-1"
+                          className="h-8 w-10 cursor-pointer rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1"
                           aria-label={`${THEME_COLOR_LABELS[token]} color`}
                         />
                         <SettingsTextInput
@@ -1356,7 +1356,7 @@ export default function SettingsModal({
                           type="button"
                           onClick={() => void selectPythonVirtualEnv()}
                           disabled={!folderPath}
-                          className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#273044] bg-[#11151d] px-3 text-[12px] text-[#dce4f0] transition-colors hover:border-[#3b4660] hover:bg-[#171c27] disabled:cursor-not-allowed disabled:border-[#1c2230] disabled:text-[#465166]"
+                          className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35"
                         >
                           <FolderOpen size={14} />
                           Select venv
@@ -1368,7 +1368,7 @@ export default function SettingsModal({
                             !draft.lsp.pythonVirtualEnvPath &&
                             !draft.lsp.pythonInterpreterPath
                           }
-                          className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#8f9bb1] transition-colors hover:bg-[#171c27] hover:text-white disabled:cursor-not-allowed disabled:text-[#3d4658]"
+                          className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
                         >
                           Clear
                         </button>
@@ -1393,9 +1393,9 @@ export default function SettingsModal({
                   </SettingsField>
                 ) : null}
 
-                <div className="rounded-md border border-[#222838] bg-[#0b0d13]">
-                  <div className="flex items-center justify-between border-b border-[#222838] px-3 py-2">
-                    <div className="text-[12px] font-medium text-[#dce4f0]">
+                <div className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
+                  <div className="flex items-center justify-between border-b border-[var(--axon-panel-border)] px-3 py-2">
+                    <div className="text-[12px] font-medium text-[var(--axon-editor-foreground)]">
                       Workspace servers
                     </div>
                     <div className="flex items-center gap-1">
@@ -1408,7 +1408,7 @@ export default function SettingsModal({
                           !workspaceTrusted ||
                           languageServerAction !== null
                         }
-                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         {languageServerAction === "start"
                           ? "Starting..."
@@ -1422,7 +1422,7 @@ export default function SettingsModal({
                           !workspaceTrusted ||
                           languageServerAction !== null
                         }
-                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         {languageServerAction === "stop" ? "Stopping..." : "Stop"}
                       </button>
@@ -1435,7 +1435,7 @@ export default function SettingsModal({
                           !workspaceTrusted ||
                           languageServerAction !== null
                         }
-                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         {languageServerAction === "restart"
                           ? "Restarting..."
@@ -1445,14 +1445,14 @@ export default function SettingsModal({
                         type="button"
                         onClick={() => void refreshLanguageServers()}
                         disabled={!folderPath || loadingLanguageServers}
-                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         {loadingLanguageServers ? "Checking..." : "Refresh"}
                       </button>
                       <button
                         type="button"
                         onClick={onViewLogs}
-                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                        className="h-7 cursor-pointer rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                       >
                         View logs
                       </button>
@@ -1460,17 +1460,17 @@ export default function SettingsModal({
                   </div>
 
                   {languageServerMessage ? (
-                    <div className="border-b border-[#222838] px-3 py-2 text-[11px] text-[#647086]">
+                    <div className="border-b border-[var(--axon-panel-border)] px-3 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
                       {languageServerMessage}
                     </div>
                   ) : null}
 
                   {!folderPath ? (
-                    <div className="px-3 py-4 text-[12px] text-[#586478]">
+                    <div className="px-3 py-4 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                       Open a workspace folder to detect language servers.
                     </div>
                   ) : languageServers.length === 0 && !loadingLanguageServers ? (
-                    <div className="px-3 py-4 text-[12px] text-[#586478]">
+                    <div className="px-3 py-4 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                       No language server status is available yet.
                     </div>
                   ) : (
@@ -1482,7 +1482,7 @@ export default function SettingsModal({
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-[12px] font-medium text-[#dce4f0]">
+                              <span className="text-[12px] font-medium text-[var(--axon-editor-foreground)]">
                                 {server.label}
                               </span>
                               <span
@@ -1491,12 +1491,12 @@ export default function SettingsModal({
                                 {getLanguageServerStatusLabel(server)}
                               </span>
                               {server.relevant ? (
-                                <span className="rounded bg-[#142a36] px-1.5 py-0.5 text-[10px] text-[#80c8e0]">
+                                <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-syntax-function)]">
                                   workspace
                                 </span>
                               ) : null}
                             </div>
-                            <div className="mt-1 text-[11px] leading-4 text-[#647086]">
+                            <div className="mt-1 text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-45">
                               {server.detail}
                             </div>
                             {server.lastError ? (
@@ -1509,7 +1509,7 @@ export default function SettingsModal({
                                 {server.runtimeRequirement}
                               </div>
                             ) : null}
-                            <div className="mt-1 truncate font-mono text-[10px] text-[#3f485a]">
+                            <div className="mt-1 truncate font-mono text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
                               {server.command}
                             </div>
                             {server.runtimeHint ? (
@@ -1518,7 +1518,7 @@ export default function SettingsModal({
                               </div>
                             ) : null}
                           </div>
-                          <div className="max-w-[220px] text-right text-[10px] leading-4 text-[#586478]">
+                          <div className="max-w-[220px] text-right text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-45">
                             {server.available
                               ? server.languages.join(", ")
                               : server.installHint}
@@ -1586,8 +1586,8 @@ export default function SettingsModal({
             )}
           </div>
 
-          <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-t border-[#1d2432] bg-[#0b0f17] px-5 py-3">
-            <div className="min-w-0 text-[11px] text-[#647086]">
+          <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-t border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-5 py-3">
+            <div className="min-w-0 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
               {invalidThemeTokens.length > 0
                 ? "Fix invalid theme colors before saving."
                 : dirty
@@ -1602,7 +1602,7 @@ export default function SettingsModal({
                   onPreview(initialSettingsRef.current);
                 }}
                 disabled={!dirty}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white disabled:cursor-not-allowed disabled:text-[#3f485a] disabled:hover:bg-transparent md:hidden"
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent md:hidden"
               >
                 <RotateCcw size={13} />
                 Reset
@@ -1610,7 +1610,7 @@ export default function SettingsModal({
               <button
                 type="button"
                 onClick={close}
-                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
               >
                 Cancel
               </button>
@@ -1618,7 +1618,7 @@ export default function SettingsModal({
                 type="button"
                 onClick={save}
                 disabled={invalidThemeTokens.length > 0 || !dirty}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[#2f5f73] bg-[#142a36] px-3 text-[12px] text-[#dff7ff] transition-colors hover:bg-[#183345] hover:text-white disabled:cursor-not-allowed disabled:border-[#222838] disabled:bg-[#111722] disabled:text-[#586478]"
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-syntax-function)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:border-[var(--axon-panel-border)] disabled:bg-transparent disabled:opacity-45"
               >
                 <Save size={13} />
                 Save

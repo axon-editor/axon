@@ -80,14 +80,14 @@ function AuthorAvatar({
         src={avatarUrl}
         alt={commit.authorName}
         onError={() => setFailed(true)}
-        className={`${sizeClass} shrink-0 rounded-full border border-[#222838] bg-[#151923] object-cover`}
+        className={`${sizeClass} shrink-0 rounded-full border border-[var(--axon-sidebar-border)] bg-[var(--axon-sidebar-hover-background)] object-cover`}
       />
     );
   }
 
   return (
     <span
-      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-[#222838] bg-[#151923] font-medium text-[#80c8e0]`}
+      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-[var(--axon-sidebar-border)] bg-[var(--axon-sidebar-hover-background)] font-medium text-[#80c8e0]`}
     >
       {initials}
     </span>
@@ -177,7 +177,7 @@ export default function GitHistoryView({
         }`}
       >
         {!folderPath && (
-          <div className="px-3 py-2 text-[12px] text-[#586478]">
+          <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
             Open a folder to inspect Git history.
           </div>
         )}
@@ -186,11 +186,11 @@ export default function GitHistoryView({
           <div className="space-y-2 px-3 py-2">
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="flex gap-2 rounded-md px-1 py-1.5">
-                <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-[#151923]" />
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-[var(--axon-sidebar-hover-background)]" />
                 <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-3 w-4/5 animate-pulse rounded bg-[#151923]" />
-                  <div className="h-2.5 w-2/3 animate-pulse rounded bg-[#111722]" />
-                  <div className="h-2.5 w-1/3 animate-pulse rounded bg-[#111722]" />
+                  <div className="h-3 w-4/5 animate-pulse rounded bg-[var(--axon-sidebar-hover-background)]" />
+                  <div className="h-2.5 w-2/3 animate-pulse rounded bg-[var(--axon-sidebar-hover-background)] opacity-70" />
+                  <div className="h-2.5 w-1/3 animate-pulse rounded bg-[var(--axon-sidebar-hover-background)] opacity-70" />
                 </div>
               </div>
             ))}
@@ -198,7 +198,7 @@ export default function GitHistoryView({
         )}
 
         {folderPath && history && !history.isRepository && (
-          <div className="px-3 py-2 text-[12px] text-[#586478]">
+          <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
             This workspace is not a Git repository.
           </div>
         )}
@@ -206,7 +206,7 @@ export default function GitHistoryView({
         {history?.isRepository &&
           history.commits.length === 0 &&
           !loadingHistory && (
-            <div className="px-3 py-2 text-[12px] text-[#586478]">
+            <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
               No commit history found.
             </div>
           )}
@@ -216,18 +216,18 @@ export default function GitHistoryView({
             key={commit.hash}
             type="button"
             onClick={() => setSelectedCommit(commit)}
-            className="grid w-full cursor-pointer grid-cols-[34px_1fr] gap-2 px-3 py-2 text-left text-[#9aa4b8] transition-colors hover:bg-[#14161e] hover:text-white"
+            className="grid w-full cursor-pointer grid-cols-[34px_1fr] gap-2 px-3 py-2 text-left text-[var(--axon-editor-foreground)] opacity-72 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
           >
             <AuthorAvatar commit={commit} />
             <span className="min-w-0">
-              <span className="block truncate text-[12px] text-[#dce4f0]">
+              <span className="block truncate text-[12px] text-[var(--axon-editor-foreground)] opacity-95">
                 {commit.subject}
               </span>
-              <span className="mt-0.5 block truncate text-[10px] text-[#586478]">
+              <span className="mt-0.5 block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                 {commit.authorName} ·{" "}
                 {commit.relativeDate || formatCommitDate(commit.date)}
               </span>
-              <span className="mt-1 flex items-center gap-2 text-[10px] text-[#465166]">
+              <span className="mt-1 flex items-center gap-2 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
                 <span className="font-mono">{commit.shortHash}</span>
                 <span>
                   {commit.files.length} file
@@ -240,17 +240,17 @@ export default function GitHistoryView({
       </div>
 
       <div
-        className={`absolute inset-0 flex min-h-0 flex-col bg-[#0b0d13] transition-transform duration-300 ease-out ${
+        className={`absolute inset-0 flex min-h-0 flex-col bg-[var(--axon-sidebar-background)] transition-transform duration-300 ease-out ${
           isCommitOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {selectedCommit ? (
           <>
-            <div className="shrink-0 border-b border-[#222838] px-3 py-3">
+            <div className="shrink-0 border-b border-[var(--axon-sidebar-border)] px-3 py-3">
               <button
                 type="button"
                 onClick={() => setSelectedCommit(null)}
-                className="mb-3 flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-[11px] text-[#8f9bb1] transition-colors hover:bg-[#151923] hover:text-white"
+                className="mb-3 flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
               >
                 <ArrowLeft size={13} />
                 History
@@ -259,15 +259,15 @@ export default function GitHistoryView({
               <div className="flex items-start gap-3">
                 <AuthorAvatar commit={selectedCommit} large />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-medium leading-5 text-[#dce4f0]">
+                  <div className="text-[13px] font-medium leading-5 text-[var(--axon-editor-foreground)]">
                     {selectedCommit.subject}
                   </div>
                   {selectedCommit.body.trim() ? (
-                    <div className="mt-1 max-h-20 overflow-y-auto text-[11px] leading-4 text-[#8f9bb1]">
+                    <div className="mt-1 max-h-20 overflow-y-auto text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-65">
                       {selectedCommit.body.trim()}
                     </div>
                   ) : null}
-                  <div className="mt-2 space-y-1 text-[10px] text-[#647086]">
+                  <div className="mt-2 space-y-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                     <div className="truncate">{selectedCommit.authorName}</div>
                     {selectedCommit.authorEmail ? (
                       <div className="truncate">
@@ -281,18 +281,18 @@ export default function GitHistoryView({
               </div>
             </div>
 
-            <div className="flex h-9 shrink-0 items-center justify-between border-b border-[#222838] px-3">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-[#647086]">
+            <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--axon-sidebar-border)] px-3">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-45">
                 changed files
               </span>
-              <span className="text-[10px] text-[#465166]">
+              <span className="text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
                 {selectedCommit.files.length}
               </span>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto py-2">
               {selectedCommit.files.length === 0 ? (
-                <div className="px-3 py-2 text-[12px] text-[#586478]">
+                <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   No changed file list available for this commit.
                 </div>
               ) : (
@@ -304,16 +304,16 @@ export default function GitHistoryView({
                       key={fileKey}
                       type="button"
                       onClick={() => void openCommitFile(selectedCommit, file)}
-                      className="grid w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-2 px-3 py-2 text-left text-[#9aa4b8] transition-colors hover:bg-[#14161e] hover:text-white"
+                      className="grid w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-2 px-3 py-2 text-left text-[var(--axon-editor-foreground)] opacity-72 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
                     >
-                      <span className="rounded bg-[#151923] px-1.5 py-0.5 text-center text-[10px] text-[#80c8e0]">
+                      <span className="rounded bg-[var(--axon-sidebar-hover-background)] px-1.5 py-0.5 text-center text-[10px] text-[var(--axon-syntax-function)]">
                         {stateLabels[file.status]}
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-[12px]">
                           {getFileName(file.path)}
                         </span>
-                        <span className="block truncate text-[10px] text-[#586478]">
+                        <span className="block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                           {loading
                             ? "opening diff..."
                             : file.oldPath

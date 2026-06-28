@@ -21,11 +21,11 @@ interface AboutModalProps {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-[#1b2030] py-2 last:border-b-0">
-      <span className="text-[11px] uppercase tracking-normal text-[#586478]">
+    <div className="flex items-center justify-between gap-4 border-b border-[var(--axon-panel-border)] py-2 last:border-b-0">
+      <span className="text-[11px] uppercase tracking-normal text-[var(--axon-editor-foreground)] opacity-45">
         {label}
       </span>
-      <span className="text-[12px] text-[#c8d0e0]">{value}</span>
+      <span className="text-[12px] text-[var(--axon-editor-foreground)]">{value}</span>
     </div>
   );
 }
@@ -67,7 +67,7 @@ export default function AboutModal({
     <CommandModal title="about axon" onClose={onClose} width="w-[460px]">
       <div className="p-5">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-[#222838] bg-[#0a0c12]">
+          <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
             <img
               src={publicAsset("axon.png")}
               alt=""
@@ -76,17 +76,17 @@ export default function AboutModal({
             />
           </div>
           <div className="min-w-0">
-            <h2 className="text-[20px] font-semibold leading-tight text-white">
+            <h2 className="text-[20px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
               Axon
             </h2>
-            <p className="mt-1 text-[12px] leading-5 text-[#9aa4b8]">
+            <p className="mt-1 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
               A focused editor workspace built around panes, terminals, themes,
               and local project flow.
             </p>
           </div>
         </div>
 
-        <div className="mt-5 rounded-md border border-[#222838] bg-[#0a0c12] px-3">
+        <div className="mt-5 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3">
           <InfoRow label="version" value={appInfo?.version ?? "loading..."} />
           {updateInfo?.updateAvailable ? (
             <InfoRow label="latest" value={updateInfo.latestVersion} />
@@ -100,8 +100,8 @@ export default function AboutModal({
           <InfoRow label="platform" value={appInfo?.platform ?? "loading..."} />
         </div>
 
-        <div className="mt-5 flex items-center justify-between border-t border-[#222838] pt-4">
-          <span className="text-[11px] text-[#586478]">
+        <div className="mt-5 flex items-center justify-between border-t border-[var(--axon-panel-border)] pt-4">
+          <span className="text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
             {updateInfo?.updateAvailable
               ? "A newer Axon release is available."
               : "Axon is current."}
@@ -111,7 +111,7 @@ export default function AboutModal({
               <button
                 type="button"
                 onClick={onOpenUpdatePage}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded border border-[#2a3346] bg-[#142a36] px-3 text-[12px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white"
+                className="flex h-8 cursor-pointer items-center gap-2 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3 text-[12px] text-[var(--axon-syntax-function)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)]"
               >
                 <Download size={13} />
                 update
@@ -120,7 +120,7 @@ export default function AboutModal({
             <button
               type="button"
               onClick={handleCopy}
-              className="flex h-8 items-center gap-2 rounded border border-[#222838] bg-[#14161e] px-3 text-[12px] text-[#c8d0e0] transition-colors hover:border-[#80c8e0] hover:text-white cursor-pointer"
+              className="flex h-8 cursor-pointer items-center gap-2 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)]"
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? "copied" : "copy info"}

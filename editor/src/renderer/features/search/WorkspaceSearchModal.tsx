@@ -275,34 +275,34 @@ export default function WorkspaceSearchModal({
 
   return (
     <CommandModal onClose={onClose} width="w-[min(860px,calc(100vw-2rem))]">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#222838]">
-        <Search size={14} className="text-[#586478] shrink-0" />
+      <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-3">
+        <Search size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="search workspace..."
-          className="flex-1 bg-transparent text-[13px] text-white placeholder-[#364050] outline-none"
+          className="flex-1 bg-transparent text-[13px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35"
         />
-        <span className="text-[10px] text-[#364050] border border-[#222838] rounded px-1.5 py-0.5">
+        <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
           esc
         </span>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-[#222838] px-4 py-2">
-        <Replace size={14} className="shrink-0 text-[#586478]" />
+      <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-2">
+        <Replace size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
         <input
           value={replaceValue}
           onChange={(event) => setReplaceValue(event.target.value)}
           placeholder="replace with..."
-          className="flex-1 bg-transparent text-[12px] text-[#c8d0e0] placeholder-[#364050] outline-none"
+          className="flex-1 bg-transparent text-[12px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35"
         />
         <button
           type="button"
           disabled={!selectedResult || !query.trim() || replacing}
           onClick={() => void replaceSelected()}
-          className="h-7 cursor-pointer rounded-md border border-[#222838] px-2 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+          className="h-7 cursor-pointer rounded-md border border-[var(--axon-panel-border)] px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
         >
           replace
         </button>
@@ -310,7 +310,7 @@ export default function WorkspaceSearchModal({
           type="button"
           disabled={groupedResults.length === 0 || !query.trim() || replacing}
           onClick={() => void replaceAllVisible()}
-          className="h-7 cursor-pointer rounded-md border border-[#222838] px-2 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#3a455a] hover:text-white disabled:cursor-not-allowed disabled:text-[#364050]"
+          className="h-7 cursor-pointer rounded-md border border-[var(--axon-panel-border)] px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
         >
           replace all
         </button>
@@ -318,13 +318,13 @@ export default function WorkspaceSearchModal({
 
       <div ref={listRef} className="max-h-96 overflow-y-auto py-1">
         {!rootPath && (
-          <div className="px-4 py-3 text-[12px] text-[#364050]">
+          <div className="px-4 py-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-35">
             open a folder to search
           </div>
         )}
         {rootPath && query.trim().length < 2 && (
           <div className="px-4 py-3">
-            <div className="text-[12px] text-[#364050]">
+            <div className="text-[12px] text-[var(--axon-editor-foreground)] opacity-35">
               type at least two characters
             </div>
             {history.length > 0 && (
@@ -334,9 +334,9 @@ export default function WorkspaceSearchModal({
                     key={item}
                     type="button"
                     onClick={() => setQuery(item)}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-[#8f98aa] transition-colors hover:bg-[#14161e] hover:text-white"
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                   >
-                    <History size={12} className="shrink-0 text-[#586478]" />
+                    <History size={12} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
                     <span className="truncate">{item}</span>
                   </button>
                 ))}
@@ -348,10 +348,10 @@ export default function WorkspaceSearchModal({
           <div className="space-y-2 px-4 py-3">
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="flex items-start gap-2.5">
-                <div className="mt-0.5 h-4 w-4 shrink-0 animate-pulse rounded bg-[#202638]" />
+                <div className="mt-0.5 h-4 w-4 shrink-0 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
                 <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="h-3 w-2/3 animate-pulse rounded bg-[#202638]" />
-                  <div className="h-2.5 w-full animate-pulse rounded bg-[#171c2a]" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
+                  <div className="h-2.5 w-full animate-pulse rounded bg-[var(--axon-panel-overlay-hover)] opacity-70" />
                 </div>
               </div>
             ))}
@@ -361,7 +361,7 @@ export default function WorkspaceSearchModal({
           query.trim().length >= 2 &&
           !loading &&
           groupedResults.length === 0 && (
-            <div className="px-4 py-3 text-[12px] text-[#364050]">
+            <div className="px-4 py-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-35">
               no matches found
             </div>
           )}
@@ -371,8 +371,8 @@ export default function WorkspaceSearchModal({
             onClick={() => selectResult(result)}
             className={`w-full flex items-start gap-2.5 px-4 py-2.5 text-left cursor-pointer transition-colors ${
               index === selectedIndex
-                ? "bg-[#1e2430] text-[#f3f6fb]"
-                : "text-[#c4cbd8] hover:bg-[#14161e] hover:text-[#f3f6fb]"
+                ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                : "text-[var(--axon-editor-foreground)] opacity-75 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             }`}
           >
             <span className="mt-0.5 shrink-0">{getFileIcon(result.name)}</span>
@@ -381,11 +381,11 @@ export default function WorkspaceSearchModal({
                 <span className="text-[12px] truncate">
                   {result.relativePath}
                 </span>
-                <span className="text-[10px] text-[#586478] shrink-0">
+                <span className="shrink-0 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                   {result.line}:{result.column}
                 </span>
               </span>
-              <span className="block text-[11px] text-[#8f98aa] truncate mt-0.5">
+              <span className="mt-0.5 block truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-65">
                 {highlightPreview(result.preview, query).map((part, index) =>
                   part.match ? (
                     <mark

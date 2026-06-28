@@ -752,7 +752,7 @@ export default function Sidebar({
               type="button"
               onClick={onOpenFolderPicker}
               aria-label="Select folder"
-              className="min-w-0 max-w-[150px] truncate rounded px-2 py-1 text-left text-[11px] font-medium text-[#9aa4b8] transition-colors hover:bg-[#11151c] hover:text-white cursor-pointer"
+              className="min-w-0 max-w-[150px] cursor-pointer truncate rounded px-2 py-1 text-left text-[11px] font-medium text-[var(--axon-editor-foreground)] opacity-75 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
               style={{ WebkitAppRegion: "no-drag" } as any}
             >
               {getPathBasename(folderPath)}
@@ -791,14 +791,14 @@ export default function Sidebar({
               onDrop={handleRootDrop}
               className={`flex h-8 shrink-0 items-center justify-between border-b border-[var(--axon-sidebar-border)] px-2 text-[11px] transition-colors ${
                 rootDragOver
-                  ? "bg-[#182436] text-white"
-                  : "bg-[#090c12] text-[#586478]"
+                  ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
+                  : "bg-[var(--axon-sidebar-background)] text-[var(--axon-editor-foreground)] opacity-55"
               }`}
             >
               <button
                 type="button"
                 onClick={openRootContextMenu}
-                className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors hover:bg-[#11151c] hover:text-white"
+                className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:text-[var(--axon-editor-foreground)]"
               >
                 <FolderTree size={12} className="shrink-0" />
                 <span className="truncate">workspace root</span>
@@ -807,7 +807,7 @@ export default function Sidebar({
                 type="button"
                 onClick={openRootContextMenu}
                 aria-label="New root item"
-                className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#11151c] hover:text-[#80c8e0]"
+                className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:text-[var(--axon-syntax-function)] hover:opacity-100"
               >
                 <Plus size={12} />
               </button>
@@ -946,18 +946,18 @@ export default function Sidebar({
 
       {revokeTrustConfirmOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-          <div className="axon-modal-panel w-full max-w-sm rounded-xl border border-[#343841] bg-[#101116] p-5 shadow-2xl">
+          <div className="axon-modal-panel w-full max-w-sm rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2b2113] text-[#ffb454]">
                 <ShieldAlert size={17} />
               </div>
               <div className="min-w-0">
-                <div className="text-[14px] font-semibold text-[#f2f3f5]">
+                <div className="text-[14px] font-semibold text-[var(--axon-editor-foreground)]">
                   Mark workspace untrusted?
                 </div>
-                <p className="mt-2 text-[12px] leading-5 text-[#9aa0aa]">
+                <p className="mt-2 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
                   Axon will stop project execution features for{" "}
-                  <span className="font-medium text-[#d7d9df]">
+                  <span className="font-medium text-[var(--axon-editor-foreground)]">
                     {getPathBasename(folderPath)}
                   </span>
                   , including terminals, tasks, language servers, HTML preview,
@@ -969,14 +969,14 @@ export default function Sidebar({
               <button
                 type="button"
                 onClick={() => setRevokeTrustConfirmOpen(false)}
-                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[#9aa0aa] transition-colors hover:bg-[#24272f] hover:text-white"
+                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={revokeWorkspaceTrust}
-                className="h-8 cursor-pointer rounded-md border border-[#5c3320] bg-[#2b2113] px-3 text-[12px] text-[#ffcf8a] transition-colors hover:border-[#ffb454] hover:text-white"
+                className="h-8 cursor-pointer rounded-md border border-[#5c3320] bg-[#2b2113] px-3 text-[12px] text-[#ffcf8a] transition-colors hover:border-[#ffb454] hover:text-[#fff4d6]"
               >
                 Mark Untrusted
               </button>

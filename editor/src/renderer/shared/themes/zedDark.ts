@@ -10,6 +10,7 @@ export const zedDarkTheme: AxonThemeDefinition = {
     "title_bar.background": "#0d0f12",
     "toolbar.background": "#0d0f12",
     "sidebar.background": "#0d0f12",
+    "sidebar.hover_background": "#181b20",
     "sidebar.border": "#252a31",
     "tab.active_background": "#181b20",
     "panel.background": "#0d0f12",

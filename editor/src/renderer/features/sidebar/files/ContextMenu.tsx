@@ -112,7 +112,7 @@ export default function ContextMenu({
         (mode !== "rename" || trimmedName !== menu.node.name),
     );
   const itemClassName =
-    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-[#c8d0e0] transition-all duration-150 hover:bg-[#1a2030] hover:text-white";
+    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-75 transition-all duration-150 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100";
   const destructiveItemClassName =
     "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-red-400 transition-all duration-150 hover:bg-[#241820] hover:text-red-300";
 
@@ -248,7 +248,7 @@ export default function ContextMenu({
 
       {mode === "rename" && (
         <div className="axon-context-menu__panel px-3 py-3 flex flex-col gap-2.5">
-          <span className="text-[11px] uppercase tracking-normal text-[#586478]">
+          <span className="text-[11px] uppercase tracking-normal text-[var(--axon-editor-foreground)] opacity-45">
             new name
           </span>
           <input
@@ -256,10 +256,10 @@ export default function ContextMenu({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className={`h-8 bg-[#090b11] border rounded px-2 text-[12px] text-white outline-none w-full transition-colors ${
+            className={`h-8 w-full rounded border bg-[var(--axon-editor-background)] px-2 text-[12px] text-[var(--axon-editor-foreground)] outline-none transition-colors ${
               isDuplicateName
                 ? "border-red-500 focus:border-red-400"
-                : "border-[#222838] focus:border-[#80c8e0]"
+                : "border-[var(--axon-panel-border)] focus:border-[var(--axon-syntax-function)]"
             }`}
             placeholder={
               menu.node.name
@@ -273,7 +273,7 @@ export default function ContextMenu({
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="h-7 px-2 text-[11px] text-[#586478] hover:text-white cursor-pointer transition-colors"
+              className="h-7 cursor-pointer px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:opacity-100"
             >
               cancel
             </button>
@@ -290,13 +290,13 @@ export default function ContextMenu({
 
       {mode === "delete" && (
         <div className="axon-context-menu__panel px-3 py-3 flex flex-col gap-3">
-          <span className="text-[11px] text-[#9aa4b8]">
-            delete <span className="text-white">{menu.node.name}</span>?
+          <span className="text-[11px] text-[var(--axon-editor-foreground)] opacity-65">
+            delete <span className="font-medium text-[var(--axon-editor-foreground)] opacity-100">{menu.node.name}</span>?
           </span>
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="h-7 px-2 text-[11px] text-[#586478] hover:text-white cursor-pointer transition-colors"
+              className="h-7 cursor-pointer px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:opacity-100"
             >
               cancel
             </button>

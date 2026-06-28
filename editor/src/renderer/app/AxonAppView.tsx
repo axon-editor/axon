@@ -224,7 +224,7 @@ export function AxonAppView(props: Record<string, any>) {
           >
             <button
               onClick={() => setZenMode(false)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[11px] text-[#586478] hover:text-white hover:border-[#80c8e0] transition-colors cursor-pointer"
+              className="flex cursor-pointer items-center gap-1.5 rounded border px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:border-[var(--axon-syntax-function)] hover:opacity-100"
               style={{
                 background: "var(--axon-panel-background)",
                 borderColor: "var(--axon-panel-border)",
@@ -676,19 +676,19 @@ export function AxonAppView(props: Record<string, any>) {
 
       {workspaceTrustPromptPath && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-[#253044] bg-[#0e121b] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.48)]">
-            <div className="text-[14px] font-medium text-[#f4f7fb]">
+          <div className="w-full max-w-md rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.48)]">
+            <div className="text-[14px] font-medium text-[var(--axon-editor-foreground)]">
               Trust this workspace?
             </div>
-            <div className="mt-2 text-[12px] leading-5 text-[#9aa4b8]">
+            <div className="mt-2 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
               Axon can run project-aware features for{" "}
-              <span className="font-medium text-[#dce4f0]">
+              <span className="font-medium text-[var(--axon-editor-foreground)]">
                 {getPathBasename(workspaceTrustPromptPath)}
               </span>
               , including language servers, tasks, terminals, and extensions.
               Only trust folders you recognize.
             </div>
-            <div className="mt-3 truncate rounded-md border border-[#1d2432] bg-[#080b11] px-3 py-2 font-mono text-[10px] text-[#647086]">
+            <div className="mt-3 truncate rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 py-2 font-mono text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
               {workspaceTrustPromptPath}
             </div>
             <div className="mt-5 flex justify-end gap-2">
@@ -700,7 +700,7 @@ export function AxonAppView(props: Record<string, any>) {
                   setWorkspaceTrustPromptPath(null);
                   appendOutput("workspace", "Workspace marked untrusted.");
                 }}
-                className="h-8 cursor-pointer rounded-md border border-[#2a3346] px-3 text-[12px] text-[#9aa4b8] transition-colors hover:bg-[#151923] hover:text-white"
+                className="h-8 cursor-pointer rounded-md border border-[var(--axon-panel-border)] px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
               >
                 Don&apos;t trust
               </button>
@@ -712,7 +712,7 @@ export function AxonAppView(props: Record<string, any>) {
                   setWorkspaceTrustPromptPath(null);
                   appendOutput("workspace", "Workspace trusted.", "success");
                 }}
-                className="h-8 cursor-pointer rounded-md border border-[#80c8e0] bg-[#142a36] px-3 text-[12px] text-[#dff7ff] transition-colors hover:bg-[#183345]"
+                className="h-8 cursor-pointer rounded-md border border-[var(--axon-syntax-function)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:text-[var(--axon-syntax-function)]"
               >
                 Trust workspace
               </button>

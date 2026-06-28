@@ -29,10 +29,10 @@ interface Props {
 }
 
 function statusClass(status: LanguageServerStatus["status"]) {
-  if (status === "running") return "bg-[#14313d] text-[#80c8e0]";
+  if (status === "running") return "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]";
   if (status === "available") return "bg-[#18261d] text-[#90c8a0]";
   if (status === "failed") return "bg-[#321b1f] text-[#ff9aa2]";
-  return "bg-[#151923] text-[#647086]";
+  return "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)] opacity-45";
 }
 
 export default function LanguageToolsModal({
@@ -77,9 +77,9 @@ export default function LanguageToolsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
-      <div className="flex max-h-[78vh] w-full max-w-3xl flex-col rounded-lg border border-[#222838] bg-[#0b0e15] shadow-2xl">
-        <div className="flex h-11 items-center justify-between border-b border-[#222838] px-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-[#dce4f0]">
+      <div className="flex max-h-[78vh] w-full max-w-3xl flex-col rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl">
+        <div className="flex h-11 items-center justify-between border-b border-[var(--axon-panel-border)] px-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-[var(--axon-editor-foreground)]">
             <Languages size={16} />
             Language tools
           </div>
@@ -88,7 +88,7 @@ export default function LanguageToolsModal({
               type="button"
               aria-label="Close language tools"
               onClick={onClose}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#647086] hover:bg-[#151923] hover:text-white"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
             >
               <X size={15} />
             </button>
@@ -97,15 +97,15 @@ export default function LanguageToolsModal({
 
         <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)] gap-3 overflow-hidden p-3">
           <div className="space-y-2">
-            <div className="rounded border border-[#1b2130] bg-[#090c12] p-3">
-              <div className="mb-2 flex items-center gap-2 text-[11px] uppercase text-[#7a8498]">
+            <div className="rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-3">
+              <div className="mb-2 flex items-center gap-2 text-[11px] uppercase text-[var(--axon-editor-foreground)] opacity-55">
                 <FileCode2 size={12} />
                 Active file
               </div>
-              <div className="truncate text-[12px] text-[#dce4f0]">
+              <div className="truncate text-[12px] text-[var(--axon-editor-foreground)]">
                 {activeFile ?? "No active file"}
               </div>
-              <div className="mt-1 text-[11px] text-[#586478]">{language}</div>
+              <div className="mt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">{language}</div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -120,7 +120,7 @@ export default function LanguageToolsModal({
                   type="button"
                   disabled={!activeFile}
                   onClick={action as () => void}
-                  className="flex h-9 cursor-pointer items-center gap-2 rounded border border-[#222838] bg-[#090c12] px-2 text-[11px] text-[#9aa4b8] hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:text-[#3f485a]"
+                  className="flex h-9 cursor-pointer items-center gap-2 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 hover:border-[var(--axon-syntax-function)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   <Icon size={13} />
                   {label as string}
@@ -132,7 +132,7 @@ export default function LanguageToolsModal({
               type="button"
               onClick={onOpenOutline}
               disabled={!activeFile}
-              className="flex h-9 w-full cursor-pointer items-center gap-2 rounded border border-[#222838] bg-[#090c12] px-2 text-[11px] text-[#9aa4b8] hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:text-[#3f485a]"
+              className="flex h-9 w-full cursor-pointer items-center gap-2 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 hover:border-[var(--axon-syntax-function)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
             >
               <Sparkles size={13} />
               file symbols
@@ -140,9 +140,9 @@ export default function LanguageToolsModal({
           </div>
 
           <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-            <section className="min-h-0 rounded border border-[#1b2130] bg-[#090c12]">
-              <div className="flex h-9 items-center justify-between border-b border-[#1b2130] px-3">
-                <div className="text-[11px] uppercase text-[#7a8498]">
+            <section className="min-h-0 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
+              <div className="flex h-9 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
+                <div className="text-[11px] uppercase text-[var(--axon-editor-foreground)] opacity-55">
                   Language servers
                 </div>
                 <Tooltip label="Refresh language server status" side="bottom">
@@ -150,7 +150,7 @@ export default function LanguageToolsModal({
                     type="button"
                     aria-label="Refresh language server status"
                     onClick={() => void refresh()}
-                    className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#151923] hover:text-white"
+                    className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                   >
                     <RefreshCw
                       size={12}
@@ -164,10 +164,10 @@ export default function LanguageToolsModal({
                   (server) => (
                     <div
                       key={server.id}
-                      className="mb-1 rounded border border-[#151923] px-2 py-1.5 last:mb-0"
+                      className="mb-1 rounded border border-[var(--axon-panel-border)] px-2 py-1.5 last:mb-0"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-[12px] text-[#dce4f0]">
+                        <span className="truncate text-[12px] text-[var(--axon-editor-foreground)]">
                           {server.label}
                         </span>
                         <span
@@ -176,7 +176,7 @@ export default function LanguageToolsModal({
                           {server.status}
                         </span>
                       </div>
-                      <div className="truncate text-[10px] text-[#586478]">
+                      <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                         {server.detail || server.command}
                       </div>
                     </div>
@@ -185,8 +185,8 @@ export default function LanguageToolsModal({
               </div>
             </section>
 
-            <section className="min-h-0 rounded border border-[#1b2130] bg-[#090c12]">
-              <div className="h-9 border-b border-[#1b2130] px-3 py-2 text-[11px] uppercase text-[#7a8498]">
+            <section className="min-h-0 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
+              <div className="h-9 border-b border-[var(--axon-panel-border)] px-3 py-2 text-[11px] uppercase text-[var(--axon-editor-foreground)] opacity-55">
                 Symbols
               </div>
               <div className="max-h-full overflow-y-auto p-2">
@@ -195,16 +195,16 @@ export default function LanguageToolsModal({
                     key={`${symbol.name}:${symbol.line}:${symbol.column}`}
                     type="button"
                     onClick={onOpenOutline}
-                    className="mb-1 grid w-full grid-cols-[minmax(0,1fr)_54px] rounded px-2 py-1 text-left text-[11px] text-[#9aa4b8] hover:bg-[#151923] hover:text-white"
+                    className="mb-1 grid w-full grid-cols-[minmax(0,1fr)_54px] rounded px-2 py-1 text-left text-[11px] text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                   >
                     <span className="truncate">{symbol.name}</span>
-                    <span className="text-right text-[#586478]">
+                    <span className="text-right text-[var(--axon-editor-foreground)] opacity-45">
                       {symbol.line}:{symbol.column}
                     </span>
                   </button>
                 ))}
                 {symbols.length === 0 ? (
-                  <div className="px-2 py-2 text-[11px] text-[#465166]">
+                  <div className="px-2 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-35">
                     no symbols
                   </div>
                 ) : null}

@@ -15,6 +15,7 @@ export const axonMoonlightTheme: AxonThemeDefinition = {
     "title_bar.background": "#1e2030",
     "toolbar.background": "#1e2030",
     "sidebar.background": "#1e2030",
+    "sidebar.hover_background": "#222436",
     "sidebar.border": "#191a2a",
     "tab.active_background": "#222436",
     "panel.background": "#1e2030",

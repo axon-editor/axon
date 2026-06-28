@@ -94,10 +94,10 @@ export default function InlineCreateRow({
           if (event.key === "Escape") onCancel();
         }}
         placeholder={target.kind === "folder" ? "new-folder" : "new-file.ts"}
-        className={`h-6 min-w-0 flex-1 rounded border bg-[#090b11] px-2 text-[12px] text-white outline-none transition-colors ${
+        className={`h-6 min-w-0 flex-1 rounded border bg-[var(--axon-editor-background)] px-2 text-[12px] text-[var(--axon-editor-foreground)] outline-none transition-colors ${
           isDuplicateName
             ? "border-red-500"
-            : "border-[#2b3448] focus:border-[#80c8e0]"
+            : "border-[var(--axon-sidebar-border)] focus:border-[var(--axon-syntax-function)]"
         }`}
       />
     </div>

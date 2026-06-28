@@ -73,13 +73,14 @@ export default function StatusBar({
 }: Props) {
   const axonAccent =
     "linear-gradient(90deg, #ff6b5f 0%, #f2c94c 36%, #54d6b5 72%, #80c8e0 100%)";
-  const activeControlClass = "bg-[#151923] text-white";
+  const activeControlClass =
+    "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]";
   const idleControlClass =
-    "text-[#647086] hover:bg-[#11151c] hover:text-[#d7dde8]";
+    "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100";
 
   return (
     <div
-      className="relative h-8 border-t flex items-center justify-between px-2 text-[11px] text-[#586478] shrink-0 gap-2"
+      className="relative flex h-8 shrink-0 items-center justify-between gap-2 border-t px-2 text-[11px] text-[var(--axon-editor-foreground)]"
       style={{
         background: `linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.08)), ${themeTokens["status_bar.background"]}`,
         borderColor: "var(--axon-panel-border)",
@@ -96,7 +97,7 @@ export default function StatusBar({
             onClick={onToggleSidebar}
             aria-label="Toggle sidebar"
             className={`flex h-5 w-6 items-center justify-center rounded transition-colors cursor-pointer
-            ${sidebarCollapsed ? "text-[#586478] hover:text-[#54d6b5]" : "text-[#54d6b5]"}`}
+            ${sidebarCollapsed ? "text-[var(--axon-editor-foreground)] opacity-55 hover:text-[#54d6b5] hover:opacity-100" : "text-[#54d6b5]"}`}
           >
             <PanelLeft size={13} />
           </button>
@@ -107,7 +108,7 @@ export default function StatusBar({
             <button
               onClick={onOpenWorkspaceSearch}
               aria-label="Search workspace"
-              className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#54d6b5]"
+              className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:text-[#54d6b5] hover:opacity-100"
             >
               <Search size={12} />
             </button>
@@ -151,8 +152,8 @@ export default function StatusBar({
             aria-label="Show Spotify"
             className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
               view === "spotify"
-                ? "bg-[#151923] text-[#1db954]"
-                : "text-[#647086] hover:bg-[#11151c] hover:text-[#1db954]"
+                ? "bg-[var(--axon-panel-overlay-hover)] text-[#1db954]"
+                : "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#1db954] hover:opacity-100"
             }`}
           >
             <Music4 size={13} />
@@ -168,7 +169,7 @@ export default function StatusBar({
             <button
               onClick={onOpenSourceControl}
               aria-label="Source control"
-              className="flex h-5 cursor-pointer items-center gap-1 rounded px-2 text-[#586478] transition-colors hover:text-[#54d6b5]"
+              className="flex h-5 cursor-pointer items-center gap-1 rounded px-2 text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:text-[#54d6b5] hover:opacity-100"
             >
               <GitBranch size={12} />
               <span className="max-w-32 truncate">{gitBranch}</span>

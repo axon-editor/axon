@@ -478,15 +478,17 @@ export default function FileTreeNode({
           className={`flex items-center gap-1.5 py-0.5 text-[12px] cursor-pointer transition-colors select-none relative
             ${
               isHighlighted
-                ? "text-white"
+                ? "text-[var(--axon-editor-foreground)]"
                 : ignored
-                  ? "text-[#4b5568] hover:bg-[#151923] hover:text-[#647086]"
-                  : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
+                  ? "text-[var(--axon-editor-foreground)] opacity-35 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-55"
+                  : "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
             }`}
           style={{
             paddingLeft: `${rowPaddingLeft}px`,
             // use inline style for the highlight so the blink transition is smooth
-            backgroundColor: isHighlighted ? "#1e2430" : undefined,
+            backgroundColor: isHighlighted
+              ? "var(--axon-sidebar-hover-background)"
+              : undefined,
             // cyan left border when dragging over to make the drop zone very obvious
             borderLeft: dragOver
               ? "2px solid #80c8e0"
@@ -495,7 +497,7 @@ export default function FileTreeNode({
           }}
         >
           <TreeGuides depth={depth} />
-          <span className="relative z-10 flex h-4 w-3 items-center justify-center text-[#364050]">
+          <span className="relative z-10 flex h-4 w-3 items-center justify-center text-[var(--axon-editor-foreground)] opacity-30">
             {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
           </span>
           <span
@@ -575,10 +577,10 @@ export default function FileTreeNode({
       className={`relative flex items-center gap-1.5 py-1 text-[12px] cursor-pointer transition-colors truncate
         ${
           activeFile === node.path
-            ? "bg-[#171a24] text-white"
+            ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
             : ignored
-              ? "text-[#4b5568] hover:bg-[#151923] hover:text-[#647086]"
-              : "text-[#9aa4b8] hover:bg-[#1e2430] hover:text-white"
+              ? "text-[var(--axon-editor-foreground)] opacity-35 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-55"
+              : "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
         }`}
       style={{
         paddingLeft: `${rowPaddingLeft}px`,

@@ -10,6 +10,7 @@ export const axonDarkTheme: AxonThemeDefinition = {
     "title_bar.background": "#0a0c12",
     "toolbar.background": "#0a0c12",
     "sidebar.background": "#0a0c12",
+    "sidebar.hover_background": "#151923",
     "sidebar.border": "#222838",
     "tab.active_background": "#151923",
     "panel.background": "#0a0c12",

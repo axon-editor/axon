@@ -90,6 +90,10 @@ export function useAppDerivedState({
         themeTokens["sidebar.background"],
         opacity,
       ),
+      "--axon-sidebar-hover-background": colorWithAlpha(
+        themeTokens["sidebar.hover_background"],
+        Math.min(1, opacity + 0.2),
+      ),
       "--axon-sidebar-border": colorWithAlpha(
         themeTokens["sidebar.border"],
         Math.min(1, opacity + 0.25),

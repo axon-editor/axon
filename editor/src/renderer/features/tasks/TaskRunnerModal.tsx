@@ -86,8 +86,8 @@ export default function TaskRunnerModal({
 
   return (
     <CommandModal title="run task" onClose={onClose} width="w-[720px]">
-      <div className="flex items-center gap-2 border-b border-[#222838] px-4 py-3">
-        <Hammer size={14} className="shrink-0 text-[#586478]" />
+      <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-3">
+        <Hammer size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
         <input
           ref={inputRef}
           value={query}
@@ -97,23 +97,23 @@ export default function TaskRunnerModal({
           }}
           onKeyDown={handleKeyDown}
           placeholder="search tasks..."
-          className="flex-1 bg-transparent text-[13px] text-white outline-none placeholder-[#364050]"
+          className="flex-1 bg-transparent text-[13px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30"
         />
       </div>
 
       <div className="max-h-96 overflow-y-auto py-1">
         {!folderPath && (
-          <div className="px-4 py-3 text-[12px] text-[#586478]">
+          <div className="px-4 py-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
             Open a folder to run workspace tasks.
           </div>
         )}
         {folderPath && loading && (
-          <div className="px-4 py-3 text-[12px] text-[#586478]">
+          <div className="px-4 py-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
             loading tasks...
           </div>
         )}
         {folderPath && !loading && filteredTasks.length === 0 && (
-          <div className="px-4 py-3 text-[12px] text-[#586478]">
+          <div className="px-4 py-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
             No tasks found in this workspace.
           </div>
         )}
@@ -123,14 +123,14 @@ export default function TaskRunnerModal({
             onClick={() => runSelectedTask(task)}
             className={`grid w-full cursor-pointer grid-cols-[20px_1fr] items-center gap-3 px-4 py-2.5 text-left transition-colors ${
               index === selectedIndex
-                ? "bg-[#1e2430] text-white"
-                : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"
+                ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                : "text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             }`}
           >
-            <Play size={13} className="text-[#80c8e0]" />
+            <Play size={13} className="text-[var(--axon-syntax-function)]" />
             <span className="min-w-0">
               <span className="block truncate text-[12px]">{task.label}</span>
-              <span className="block truncate text-[10px] text-[#586478]">
+              <span className="block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                 {task.detail}
               </span>
             </span>

@@ -42,17 +42,17 @@ export default function MediaPreview({ filePath }: Props) {
   const src = `axon://local${filePath}`;
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#0e1018]">
+    <div className="flex h-full w-full flex-col bg-[var(--axon-editor-background)]">
       {!isVideo && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#222838] bg-[#0a0c12] shrink-0">
-          <span className="text-[11px] text-[#586478] truncate flex-1">
+        <div className="flex shrink-0 items-center gap-2 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 py-1.5">
+          <span className="flex-1 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-55">
             {filename}
           </span>
           <Tooltip label="Zoom in" side="bottom">
             <button
               onClick={() => setZoom((z) => Math.min(z + 0.25, 4))}
               aria-label="Zoom in"
-              className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
+              className="cursor-pointer rounded p-1 text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
               <ZoomIn size={13} />
             </button>
@@ -61,7 +61,7 @@ export default function MediaPreview({ filePath }: Props) {
             <button
               onClick={() => setZoom((z) => Math.max(z - 0.25, 0.25))}
               aria-label="Zoom out"
-              className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
+              className="cursor-pointer rounded p-1 text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
               <ZoomOut size={13} />
             </button>
@@ -70,18 +70,18 @@ export default function MediaPreview({ filePath }: Props) {
             <button
               onClick={() => setRotation((r) => (r + 90) % 360)}
               aria-label="Rotate"
-              className="text-[#586478] hover:text-white transition-colors cursor-pointer p-1"
+              className="cursor-pointer rounded p-1 text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
               <RotateCw size={13} />
             </button>
           </Tooltip>
-          <span className="text-[11px] text-[#364050]">
+          <span className="text-[11px] text-[var(--axon-editor-foreground)] opacity-35">
             {Math.round(zoom * 100)}%
           </span>
         </div>
       )}
 
-      <div className="flex-1 overflow-auto flex items-center justify-center p-8">
+      <div className="flex flex-1 items-center justify-center overflow-auto p-8">
         {isVideo ? (
           <video
             src={src}

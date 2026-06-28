@@ -38,7 +38,7 @@ function ActionButton({ action }: { action: Action }) {
     <button
       type="button"
       onClick={action.onSelect}
-      className="group grid min-h-24 cursor-pointer grid-cols-[34px_minmax(0,1fr)] gap-3 bg-[#111723] p-3 text-left transition-colors hover:bg-[#151d2c]"
+      className="group grid min-h-24 cursor-pointer grid-cols-[34px_minmax(0,1fr)] gap-3 bg-[var(--axon-panel-background)] p-3 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
     >
       <div
         className="flex h-8 w-8 items-center justify-center rounded-md border"
@@ -51,10 +51,10 @@ function ActionButton({ action }: { action: Action }) {
         {action.icon}
       </div>
       <div className="min-w-0">
-        <div className="text-[13px] font-medium text-[#edf3ff]">
+        <div className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">
           {action.title}
         </div>
-        <div className="mt-1 text-[11px] leading-4 text-[#7d8798]">
+        <div className="mt-1 text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-55">
           {action.body}
         </div>
       </div>
@@ -106,9 +106,9 @@ export default function WelcomeTab({
   ];
 
   return (
-    <div className="@container/welcome h-full overflow-auto bg-[#080b11] text-[#dce4f0]">
+    <div className="@container/welcome h-full overflow-auto bg-[var(--axon-editor-background)] text-[var(--axon-editor-foreground)]">
       <div className="grid min-h-full w-full grid-cols-[minmax(220px,280px)_minmax(0,1fr)] @max-[760px]/welcome:grid-cols-1">
-        <aside className="border-b border-[#222838] bg-[#090d14] p-5 md:border-b-0 md:border-r">
+        <aside className="border-b border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 md:border-b-0 md:border-r">
           <div className="w-fit select-none">
             <img
               src={publicAsset("axon.png")}
@@ -117,7 +117,7 @@ export default function WelcomeTab({
               className="h-12 w-12 object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
             />
             <div
-              className="axon-welcome-word mt-2 text-[13px] font-semibold tracking-wide text-[#f4f7ff]"
+              className="axon-welcome-word mt-2 text-[13px] font-semibold tracking-wide text-[var(--axon-editor-foreground)]"
               aria-label="Axon"
             >
               {"Axon".split("").map((letter, index) => (
@@ -133,19 +133,19 @@ export default function WelcomeTab({
           </div>
 
           <div className="mt-8">
-            <div className="text-[11px] uppercase tracking-wide text-[#647086]">
+            <div className="text-[11px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-45">
               welcome
             </div>
-            <h1 className="mt-2 text-[28px] font-semibold leading-8 text-[#f4f7ff]">
+            <h1 className="mt-2 text-[28px] font-semibold leading-8 text-[var(--axon-editor-foreground)]">
               Welcome to Axon.
             </h1>
-            <p className="mt-3 text-[12px] leading-5 text-[#7d8798]">
+            <p className="mt-3 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-55">
               Start from the workspace, then shape the editor around how the
               project actually moves.
             </p>
           </div>
 
-          <div className="mt-8 space-y-2 text-[11px] text-[#8b96aa]">
+          <div className="mt-8 space-y-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65">
             {[
               { label: "Workspace first", onSelect: onOpenFolder },
               { label: "Local tools ready", onSelect: onOpenSettings },
@@ -155,7 +155,7 @@ export default function WelcomeTab({
                 key={item.label}
                 type="button"
                 onClick={item.onSelect}
-                className="flex cursor-pointer items-center gap-2 text-left transition-colors hover:text-[#dce4f0]"
+                className="flex cursor-pointer items-center gap-2 text-left transition-colors hover:text-[var(--axon-editor-foreground)] hover:opacity-100"
               >
                 <Check size={13} className="text-[#32bb99]" />
                 <span>{item.label}</span>
@@ -177,12 +177,12 @@ export default function WelcomeTab({
             ))}
           </div>
 
-          <div className="overflow-hidden border-t border-[#222838] bg-[#0a0f18]">
-            <div className="grid grid-cols-[42px_minmax(0,1fr)] border-b border-[#222838]">
-              <div className="flex items-center justify-center border-r border-[#222838] text-[#647086]">
+          <div className="overflow-hidden border-t border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
+            <div className="grid grid-cols-[42px_minmax(0,1fr)] border-b border-[var(--axon-panel-border)]">
+              <div className="flex items-center justify-center border-r border-[var(--axon-panel-border)] text-[var(--axon-editor-foreground)] opacity-45">
                 <Keyboard size={15} />
               </div>
-              <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-[#647086]">
+              <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-45">
                 fast entry points
               </div>
             </div>
@@ -198,20 +198,20 @@ export default function WelcomeTab({
                 ["Problems", "Jump from diagnostics to code"],
                 ["Source control", "Review changes without leaving Axon"],
               ].map(([title, body]) => (
-                <div key={title} className="bg-[#0d111a] p-3">
-                  <div className="font-medium text-[#dce4f0]">{title}</div>
-                  <div className="mt-1 leading-4 text-[#6f7a8d]">{body}</div>
+                <div key={title} className="bg-[var(--axon-editor-background)] p-3">
+                  <div className="font-medium text-[var(--axon-editor-foreground)]">{title}</div>
+                  <div className="mt-1 leading-4 text-[var(--axon-editor-foreground)] opacity-55">{body}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="overflow-hidden border-t border-[#222838] bg-[#0a0f18]">
-            <div className="grid grid-cols-[42px_minmax(0,1fr)] border-b border-[#222838]">
-              <div className="flex items-center justify-center border-r border-[#222838] text-[#647086]">
+          <div className="overflow-hidden border-t border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
+            <div className="grid grid-cols-[42px_minmax(0,1fr)] border-b border-[var(--axon-panel-border)]">
+              <div className="flex items-center justify-center border-r border-[var(--axon-panel-border)] text-[var(--axon-editor-foreground)] opacity-45">
                 <Palette size={15} />
               </div>
-              <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-[#647086]">
+              <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-45">
                 choose a theme
               </div>
             </div>
@@ -229,15 +229,17 @@ export default function WelcomeTab({
                     key={themeId}
                     type="button"
                     onClick={() => onSelectTheme(themeId)}
-                    className={`group flex cursor-pointer items-center gap-3 bg-[#0d111a] p-3 text-left transition-colors hover:bg-[#121925] ${
-                      selected ? "text-[#edf3ff]" : "text-[#8b96aa]"
+                    className={`group flex cursor-pointer items-center gap-3 bg-[var(--axon-editor-background)] p-3 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)] ${
+                      selected
+                        ? "text-[var(--axon-editor-foreground)]"
+                        : "text-[var(--axon-editor-foreground)] opacity-65"
                     }`}
                   >
                     <span
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${
                         selected
-                          ? "border-[#80c8e0] bg-[#142a36] text-[#dff7ff]"
-                          : "border-[#283146] bg-[#111723] text-[#647086] group-hover:border-[#4d607f]"
+                          ? "border-[var(--axon-syntax-function)] bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]"
+                          : "border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] opacity-45 group-hover:opacity-100"
                       }`}
                     >
                       {selected ? <Check size={14} /> : null}
@@ -246,7 +248,7 @@ export default function WelcomeTab({
                       <span className="block truncate font-medium">
                         {THEME_LABELS[themeId]}
                       </span>
-                      <span className="mt-0.5 block truncate text-[#647086]">
+                      <span className="mt-0.5 block truncate text-[var(--axon-editor-foreground)] opacity-45">
                         Built into Axon
                       </span>
                     </span>
@@ -256,7 +258,7 @@ export default function WelcomeTab({
             </div>
           </div>
 
-          <div className="border-t border-[#222838] px-3 py-2 text-[11px] text-[#647086]">
+          <div className="border-t border-[var(--axon-panel-border)] px-3 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
             This is a real editor tab, so it can be closed, moved, split, and
             restored like the rest of Axon.
           </div>

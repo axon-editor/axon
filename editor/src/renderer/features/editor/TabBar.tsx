@@ -163,11 +163,11 @@ function ContextMenu({
   };
 
   const menuItemClass =
-    "flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-[12px] text-[#c8d0e0] transition-colors hover:bg-[#1b2030] disabled:cursor-default disabled:text-[#586478] disabled:hover:bg-transparent";
+    "flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent";
 
   return createPortal(
     <div
-      className="fixed z-[200] min-w-48 overflow-hidden rounded-md border border-[#2a3346] bg-[#10131a] py-1 shadow-2xl"
+      className="fixed z-[200] min-w-48 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-1 shadow-2xl"
       style={{ left: menu.x, top: menu.y }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
@@ -281,8 +281,8 @@ export default function TabBar({
 
   if (openTabs.length === 0) {
     return (
-      <div className="flex h-9 items-center border-b border-[#1d2432] bg-[#090b10] px-3">
-        <span className="text-[11px] text-[#364050]">no file open</span>
+      <div className="flex h-9 items-center border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3">
+        <span className="text-[11px] text-[var(--axon-editor-foreground)] opacity-35">no file open</span>
       </div>
     );
   }
@@ -292,7 +292,7 @@ export default function TabBar({
       items={openTabs.map((path) => getTabDragId(paneId, path))}
       strategy={horizontalListSortingStrategy}
     >
-      <div className="flex h-9 items-stretch overflow-x-auto border-b border-[#1d2432] bg-[#090b10] scrollbar-none">
+      <div className="flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] scrollbar-none">
         {openTabs.map((path) => (
           <SortableTab
             key={path}

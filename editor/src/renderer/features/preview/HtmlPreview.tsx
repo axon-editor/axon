@@ -37,7 +37,7 @@ function getConsoleTone(level: HtmlPreviewConsoleEvent["level"]) {
   if (level === "error") return "text-red-300";
   if (level === "warn") return "text-yellow-300";
   if (level === "info") return "text-[#80c8e0]";
-  return "text-[#c8d0e0]";
+  return "text-[var(--axon-editor-foreground)]";
 }
 
 export default function HtmlPreview({ filePath, folderPath }: Props) {
@@ -121,10 +121,10 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--axon-editor-background)]">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3">
-        <span className="min-w-0 flex-1 truncate text-[11px] text-[#9aa4b8]">
+        <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-55">
           {filePath}
         </span>
-        <div className="flex items-center rounded-md border border-[#222838] bg-[#0d1018] p-0.5">
+        <div className="flex items-center rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-0.5">
           {DEVICE_PRESETS.map((preset) => {
             const Icon = preset.icon;
             return (
@@ -135,8 +135,8 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
                   onClick={() => setDeviceId(preset.id)}
                   className={`flex h-7 w-8 cursor-pointer items-center justify-center rounded transition-colors ${
                     preset.id === device.id
-                      ? "bg-[#80c8e0] text-[#0e1018]"
-                      : "text-[#586478] hover:text-white"
+                      ? "bg-[var(--axon-syntax-function)] text-[var(--axon-editor-background)]"
+                      : "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                   }`}
                 >
                   <Icon size={14} />
@@ -150,7 +150,7 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
             type="button"
             aria-label="Reload preview"
             onClick={() => setReloadNonce((value) => value + 1)}
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#1a2030] hover:text-white"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
           >
             <RefreshCw size={14} />
           </button>
@@ -160,7 +160,7 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
             type="button"
             aria-label="Open in browser"
             onClick={() => void openInBrowser()}
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#1a2030] hover:text-white"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
           >
             <ExternalLink size={14} />
           </button>
@@ -168,14 +168,14 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
       </div>
 
       {error ? (
-        <div className="flex flex-1 items-center justify-center px-6 text-center text-[12px] text-[#9aa4b8]">
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-60">
           {error}
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-auto bg-[#090b11] p-4">
+          <div className="min-h-0 flex-1 overflow-auto bg-[var(--axon-editor-background)] p-4">
             <div
-              className="mx-auto h-full min-h-[320px] overflow-hidden rounded-md border border-[#222838] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
+              className="mx-auto h-full min-h-[320px] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
               style={{
                 width: device.width ? `${device.width}px` : "100%",
                 height: device.height ? `${device.height}px` : "100%",
@@ -195,7 +195,7 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
                   sandbox="allow-forms allow-modals allow-popups allow-same-origin allow-scripts"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-[12px] text-[#586478]">
+                <div className="flex h-full items-center justify-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   preparing preview...
                 </div>
               )}
@@ -203,14 +203,14 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
           </div>
 
           <div className="h-40 shrink-0 border-t border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
-            <div className="flex h-8 items-center gap-2 border-b border-[#222838] px-3">
-              <span className="flex-1 text-[11px] text-[#9aa4b8]">console</span>
+            <div className="flex h-8 items-center gap-2 border-b border-[var(--axon-panel-border)] px-3">
+              <span className="flex-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-55">console</span>
               <Tooltip label="Clear console" side="top">
                 <button
                   type="button"
                   aria-label="Clear console"
                   onClick={() => setConsoleEvents([])}
-                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#1a2030] hover:text-white"
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -218,17 +218,17 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
             </div>
             <div className="h-[calc(100%-2rem)] overflow-auto px-3 py-2 font-mono text-[11px]">
               {consoleEvents.length === 0 ? (
-                <div className="text-[#364050]">no console output</div>
+                <div className="text-[var(--axon-editor-foreground)] opacity-35">no console output</div>
               ) : (
                 consoleEvents.map((event) => (
                   <div key={event.id} className="mb-1 flex gap-2">
                     <span className={`w-10 shrink-0 ${getConsoleTone(event.level)}`}>
                       {event.level}
                     </span>
-                    <span className="min-w-0 flex-1 break-words text-[#c8d0e0]">
+                    <span className="min-w-0 flex-1 break-words text-[var(--axon-editor-foreground)]">
                       {event.message}
                       {event.source ? (
-                        <span className="ml-2 text-[#586478]">
+                        <span className="ml-2 text-[var(--axon-editor-foreground)] opacity-45">
                           {event.source}
                           {event.line ? `:${event.line}` : ""}
                         </span>

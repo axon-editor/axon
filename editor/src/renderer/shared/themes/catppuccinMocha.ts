@@ -10,6 +10,7 @@ export const catppuccinMochaTheme: AxonThemeDefinition = {
     "title_bar.background": "#181825",
     "toolbar.background": "#181825",
     "sidebar.background": "#181825",
+    "sidebar.hover_background": "#313244",
     "sidebar.border": "#313244",
     "tab.active_background": "#313244",
     "panel.background": "#181825",

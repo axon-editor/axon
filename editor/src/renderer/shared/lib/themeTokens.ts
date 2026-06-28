@@ -27,6 +27,7 @@ export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
     "--axon-title-bar-background": tokens["title_bar.background"],
     "--axon-toolbar-background": tokens["toolbar.background"],
     "--axon-sidebar-background": tokens["sidebar.background"],
+    "--axon-sidebar-hover-background": tokens["sidebar.hover_background"],
     "--axon-sidebar-border": tokens["sidebar.border"],
     "--axon-tab-active-background": tokens["tab.active_background"],
     "--axon-panel-background": tokens["panel.background"],

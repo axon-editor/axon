@@ -49,20 +49,20 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
 
   const stateClass = deleted
     ? active
-      ? "border-[#3b1f2a] bg-[#1a1016] text-[#ff9aa2] before:bg-[#ff7b72]"
-      : "border-transparent bg-transparent text-[#d36b72] hover:bg-[#171017] hover:text-[#ff9aa2] before:bg-transparent"
+      ? "border-[var(--axon-panel-border)] bg-[var(--axon-tab-active-background)] text-[#ff9aa2] before:bg-[#ff7b72]"
+      : "border-transparent bg-transparent text-[#d36b72] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#ff9aa2] before:bg-transparent"
     : active
-      ? "border-[#242b3a] bg-[#111720] text-[#e4ebf6] before:bg-[#80c8e0]"
-      : "border-transparent bg-transparent text-[#7c8799] hover:bg-[#10151e] hover:text-[#d7dfec] before:bg-transparent";
+      ? "border-[var(--axon-panel-border)] bg-[var(--axon-tab-active-background)] text-[var(--axon-editor-foreground)] before:bg-[var(--axon-syntax-function)]"
+      : "border-transparent bg-transparent text-[var(--axon-editor-foreground)] opacity-58 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-95 before:bg-transparent";
 
   return (
     <div
       ref={ref}
       {...props}
-      className={`group relative flex h-9 w-fit min-w-[86px] max-w-[210px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden border-r px-2.5 text-[12px] transition-colors before:absolute before:bottom-0 before:left-0 before:right-0 before:h-0.5 ${stateClass} ${className}`}
+      className={`group relative flex h-9 w-fit min-w-[92px] max-w-[220px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden border-r px-2.5 pl-3 text-[12px] transition-colors before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-r ${stateClass} ${className}`}
     >
       {pinned ? (
-        <Pin size={12} className="shrink-0 text-[#80c8e0]" />
+        <Pin size={12} className="shrink-0 text-[var(--axon-syntax-function)]" />
       ) : null}
 
       {tooltipLabel ? (
@@ -86,7 +86,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
         <span
           aria-label="Unsaved changes"
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-            deleted ? "bg-[#ff7b72]" : "bg-[#80c8e0]"
+            deleted ? "bg-[#ff7b72]" : "bg-[var(--axon-syntax-function)]"
           }`}
         />
       ) : null}
@@ -98,7 +98,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
             aria-label={closeLabel}
             onPointerDown={handleClosePointerDown}
             onClick={onClose}
-            className="ml-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[#687386] opacity-0 transition hover:bg-[#202838] hover:text-white group-hover:opacity-100 focus:opacity-100"
+            className="ml-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-55 focus:opacity-100"
           >
             <X size={11} />
           </button>

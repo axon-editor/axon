@@ -10,11 +10,11 @@ export function SettingsField({
   children: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 border-b border-[#22252d] py-5 md:grid-cols-[minmax(220px,280px)_1fr] md:items-center">
+    <div className="grid grid-cols-1 gap-3 border-b border-[var(--axon-panel-border)] py-5 md:grid-cols-[minmax(220px,280px)_1fr] md:items-center">
       <div className="min-w-0">
-        <div className="text-[13px] font-medium text-[#c9cbd1]">{label}</div>
+        <div className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">{label}</div>
         {description ? (
-          <div className="mt-1 text-[12px] leading-5 text-[#8a8d94]">
+          <div className="mt-1 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-55">
             {description}
           </div>
         ) : null}
@@ -40,7 +40,7 @@ export function SettingsTextInput({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
-      className={`h-9 w-full rounded-md border border-[#30333b] bg-[#171920] px-3 text-[12px] text-[#d7d9df] outline-none transition-colors placeholder:text-[#676b74] focus:border-[#5d7187] ${
+      className={`h-9 w-full rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] outline-none transition-colors placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35 focus:border-[var(--axon-syntax-function)] ${
         monospace ? "font-mono" : ""
       }`}
     />
@@ -66,13 +66,13 @@ export function SettingsToggle({
         if (!disabled) onChange(!checked);
       }}
       aria-pressed={checked}
-      className="flex w-fit cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[12px] text-[#d7d9df] transition-colors hover:bg-[#24272f] disabled:cursor-not-allowed disabled:text-[#676b74] disabled:hover:bg-transparent"
+      className="flex w-fit cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
     >
       <span
         className={`flex h-5 w-9 items-center rounded-full border p-0.5 transition-colors ${
           checked
             ? "border-[#5f8298] bg-[#315f77]"
-            : "border-[#3a3d45] bg-[#171920]"
+            : "border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]"
         }`}
       >
         <span
@@ -119,7 +119,7 @@ export function SettingsNumberSlider({
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="h-9 w-20 rounded-md border border-[#30333b] bg-[#171920] px-2 text-[12px] text-[#d7d9df] outline-none transition-colors focus:border-[#5d7187]"
+        className="h-9 w-20 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[12px] text-[var(--axon-editor-foreground)] outline-none transition-colors focus:border-[var(--axon-syntax-function)]"
       />
     </div>
   );
@@ -137,8 +137,8 @@ export function SettingsSection({
   return (
     <section className="space-y-2">
       <div className="pb-4">
-        <h2 className="text-[18px] font-semibold text-[#e5e7eb]">{title}</h2>
-        <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#8f939b]">
+        <h2 className="text-[18px] font-semibold text-[var(--axon-editor-foreground)]">{title}</h2>
+        <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-65">
           {description}
         </p>
       </div>

@@ -49,8 +49,8 @@ export default function MarkdownPreviewTab({
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#090b10] p-6 text-center">
-        <div className="max-w-md rounded-md border border-[#3a2430] bg-[#171016] p-4 text-[12px] leading-5 text-[#ff9aa8]">
+      <div className="flex h-full items-center justify-center bg-[var(--axon-editor-background)] p-6 text-center">
+        <div className="max-w-md rounded-md border border-[#3a2430] bg-[var(--axon-panel-background)] p-4 text-[12px] leading-5 text-[#ff9aa8]">
           {error}
         </div>
       </div>

@@ -40,20 +40,20 @@ export default function UpdateModal({
   // interpret multiple competing update buttons.
   return (
     <div className="fixed inset-0 z-50 bg-[#05070c]/40 backdrop-blur-[2px]">
-      <div className="absolute bottom-8 left-1/2 top-16 flex w-[min(900px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[#2a3042] bg-[#11141d] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]">
-        <div className="flex shrink-0 items-center justify-between border-b border-[#222838] bg-[#141824] px-4 py-3">
+      <div className="absolute bottom-8 left-1/2 top-16 flex w-[min(900px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4 py-3">
           <div className="min-w-0">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-[#80c8e0]">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-syntax-function)]">
               update available
             </div>
-            <div className="truncate text-[13px] font-medium text-[#c8d0e0]">
+            <div className="truncate text-[13px] font-medium text-[var(--axon-editor-foreground)]">
               Axon {updateInfo.latestVersion}
             </div>
-            <div className="mt-1 text-[11px] text-[#586478]">
+            <div className="mt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
               {updateInfo.currentVersion} {"->"} {updateInfo.latestVersion}
             </div>
             {statusMessage ? (
-              <div className="mt-1 max-w-[520px] truncate text-[11px] text-[#7b8496]">
+              <div className="mt-1 max-w-[520px] truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-55">
                 {statusMessage}
               </div>
             ) : null}
@@ -65,7 +65,7 @@ export default function UpdateModal({
                 type="button"
                 onClick={onInstallUpdate}
                 disabled={installing}
-                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-2.5 text-[11px] text-[var(--axon-syntax-function)] transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Download size={12} />
                 {installing ? "Restarting..." : "Restart to Update"}
@@ -75,7 +75,7 @@ export default function UpdateModal({
                 type="button"
                 onClick={onDownloadUpdate}
                 disabled={checking || downloading || installing}
-                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#2a3346] bg-[#142a36] px-2.5 text-[11px] text-[#80c8e0] transition-colors hover:border-[#80c8e0] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-2.5 text-[11px] text-[var(--axon-syntax-function)] transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Download size={12} />
                 {downloading ? `${Math.round(progress)}%` : "Update"}
@@ -85,7 +85,7 @@ export default function UpdateModal({
               <button
                 type="button"
                 onClick={onOpenUpdatePage}
-                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[#222838] bg-[#14161e] px-2.5 text-[11px] text-[#9aa4b8] transition-colors hover:border-[#80c8e0] hover:text-white"
+                className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-2.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)]"
               >
                 <ExternalLink size={11} />
                 GitHub
@@ -96,7 +96,7 @@ export default function UpdateModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close update notes"
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#1e2430] hover:text-white"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
               >
                 <X size={13} />
               </button>

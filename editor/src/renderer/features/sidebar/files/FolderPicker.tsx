@@ -39,7 +39,7 @@ export default function FolderPicker({
           onClick={() => {
             onOpenNew();
           }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded text-[12px] text-[#80c8e0] hover:bg-[#1e2430] transition-colors cursor-pointer"
+          className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2.5 text-[12px] text-[#80c8e0] transition-colors hover:bg-[var(--axon-sidebar-hover-background)]"
         >
           <FolderOpen size={14} className="shrink-0" />
           <span>browse for folder...</span>
@@ -67,7 +67,7 @@ export default function FolderPicker({
                   className={`flex w-full min-w-0 cursor-pointer items-center gap-3 rounded px-3 py-2 text-left transition-colors ${
                     active
                       ? "bg-[#142a36] text-[#dff7ff]"
-                      : "text-[#c8d0e0] hover:bg-[#1e2430]"
+                      : "text-[#c8d0e0] hover:bg-[var(--axon-sidebar-hover-background)]"
                   }`}
                 >
                   <FolderOpen
@@ -109,7 +109,7 @@ export default function FolderPicker({
               return (
                 <div
                   key={folder}
-                  className="group flex w-full items-center gap-2 rounded px-1 transition-colors hover:bg-[#1e2430]"
+                  className="group flex w-full items-center gap-2 rounded px-1 transition-colors hover:bg-[var(--axon-sidebar-hover-background)]"
                 >
                   <button
                     type="button"
@@ -152,11 +152,11 @@ export default function FolderPicker({
           </div>
         )}
 
-        <div className="mt-2 border-t border-[#1d2432] pt-2">
+        <div className="mt-2 border-t border-[var(--axon-panel-border)] pt-2">
           <button
             type="button"
             onClick={onClearSession}
-            className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2 text-left text-[12px] text-[#8d98aa] transition-colors hover:bg-[#1e2430] hover:text-white"
+            className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2 text-left text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
           >
             <Trash2 size={13} className="shrink-0 text-[#586478]" />
             <span>clear saved workspace session</span>

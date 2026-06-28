@@ -115,6 +115,7 @@ export const THEME_COLOR_TOKENS = [
   "title_bar.background",
   "toolbar.background",
   "sidebar.background",
+  "sidebar.hover_background",
   "sidebar.border",
   "tab.active_background",
   "panel.background",

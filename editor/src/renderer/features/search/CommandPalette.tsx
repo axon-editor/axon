@@ -322,31 +322,31 @@ export default function CommandPalette({
 
   return (
     <CommandModal onClose={onClose}>
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#222838]">
-        <Search size={14} className="text-[#586478] shrink-0" />
+      <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-3">
+        <Search size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Search files by name or path..."
-          className="flex-1 bg-transparent text-[13px] text-white placeholder-[#364050] outline-none"
+          className="flex-1 bg-transparent text-[13px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35"
         />
-        <span className="text-[10px] text-[#364050] border border-[#222838] rounded px-1.5 py-0.5">
+        <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
           &gt; commands
         </span>
         {loadingFiles ? (
-          <span className="text-[10px] text-[#586478] border border-[#222838] rounded px-1.5 py-0.5">
+          <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
             indexing files
           </span>
         ) : null}
-        <span className="text-[10px] text-[#364050] border border-[#222838] rounded px-1.5 py-0.5">
+        <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
           esc
         </span>
       </div>
       <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
         {filteredItems.length === 0 && (
-          <div className="px-4 py-3 text-[12px] text-[#364050]">
+          <div className="px-4 py-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-35">
             {loadingFiles
               ? "indexing project files..."
               : query.trim().startsWith(">")
@@ -367,12 +367,12 @@ export default function CommandPalette({
                 disabled={item.disabled}
                 className={`flex w-full items-center gap-2.5 px-4 py-2 text-left transition-colors ${
                   item.disabled
-                    ? "cursor-default text-[#3f485a]"
+                    ? "cursor-default text-[var(--axon-editor-foreground)] opacity-35"
                     : "cursor-pointer"
                 } ${
                   active && !item.disabled
-                    ? "bg-[#1e2430] text-white"
-                    : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"
+                    ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                    : "text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                 }`}
               >
                 <Icon size={14} className="shrink-0" />
@@ -380,17 +380,17 @@ export default function CommandPalette({
                   <span className="block truncate text-[13px]">
                     {item.title}
                   </span>
-                  <span className="block truncate text-[11px] text-[#586478]">
+                  <span className="block truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
                     {item.subtitle}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   {item.shortcut ? (
-                    <span className="rounded border border-[#222838] px-1.5 py-0.5 text-[10px] text-[#586478]">
+                    <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                       {item.shortcut}
                     </span>
                   ) : null}
-                  <span className="rounded border border-[#222838] px-1.5 py-0.5 text-[10px] text-[#586478]">
+                  <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                     {item.group}
                   </span>
                 </span>
@@ -403,11 +403,11 @@ export default function CommandPalette({
               key={item.id}
               onClick={() => handleSelect(item)}
               className={`flex w-full items-center gap-2.5 px-4 py-2 text-left cursor-pointer transition-colors
-                    ${active ? "bg-[#1e2430] text-white" : "text-[#9aa4b8] hover:bg-[#14161e] hover:text-white"}`}
+                    ${active ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]" : "text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"}`}
             >
               {getFileIcon(item.title)}
               <span className="text-[13px] truncate">{item.title}</span>
-              <span className="text-[11px] text-[#364050] truncate ml-auto shrink-0 max-w-48">
+              <span className="ml-auto max-w-48 shrink-0 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-35">
                 {item.subtitle}
               </span>
             </button>
