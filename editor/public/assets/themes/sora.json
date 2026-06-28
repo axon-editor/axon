@@ -1,0 +1,63 @@
+{
+  "name": "Sora",
+  "author": "Axon",
+  "themes": [
+    {
+      "id": "sora",
+      "label": "Sora",
+      "base": "vs-dark",
+      "tokens": {
+        "background": "#0e1018",
+        "status_bar.background": "#0a0c12",
+        "title_bar.background": "#0a0c12",
+        "toolbar.background": "#0a0c12",
+        "sidebar.background": "#0a0c12",
+        "sidebar.hover_background": "#171a24",
+        "sidebar.border": "#222838",
+        "tab.active_background": "#171a24",
+        "panel.background": "#0a0c12",
+        "panel.border": "#222838",
+        "panel.overlay_hover": "#171a24",
+        "editor.foreground": "#c8d0e0",
+        "editor.background": "#0e1018",
+        "editor.gutter.background": "#0e1018",
+        "terminal.background": "#0e1018",
+        "terminal.foreground": "#c8d0e0",
+        "syntax.comment": "#586478",
+        "syntax.keyword": "#c792ea",
+        "syntax.string": "#a6e3a1",
+        "syntax.number": "#f9c74f",
+        "syntax.type": "#f2b880",
+        "syntax.function": "#75d1ff",
+        "syntax.method": "#4fd1c5",
+        "syntax.class": "#ffb86c",
+        "syntax.interface": "#f5a97f",
+        "syntax.variable": "#d7deea",
+        "syntax.parameter": "#ffab70",
+        "syntax.property": "#9cdcfe",
+        "syntax.constant": "#ff7f9f",
+        "syntax.operator": "#89a4c7",
+        "syntax.bracket": "#9aa4b8",
+        "syntax.import": "#c792ea",
+        "syntax.tag": "#54d6b5",
+        "syntax.attribute": "#ffd166"
+      },
+      "monacoColors": {
+        "editor.lineHighlightBackground": "#171a24",
+        "editor.selectionBackground": "#1e243080",
+        "editorLineNumber.foreground": "#364050",
+        "editorLineNumber.activeForeground": "#80c8e0",
+        "editorCursor.foreground": "#80c8e0",
+        "editorIndentGuide.background1": "#222838",
+        "editorIndentGuide.activeBackground1": "#364050",
+        "editorWidget.background": "#14161e",
+        "editorWidget.border": "#222838",
+        "editorSuggestWidget.background": "#14161e",
+        "editorSuggestWidget.border": "#222838",
+        "editorSuggestWidget.selectedBackground": "#1e2430",
+        "editorSuggestWidget.highlightForeground": "#80c8e0",
+        "focusBorder": "#80c8e0"
+      }
+    }
+  ]
+}
