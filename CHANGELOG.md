@@ -2,6 +2,31 @@
 
 ## Next
 
+## v1.2.5
+
+- Added tabbed onboarding so the welcome experience behaves like a real editor
+  tab instead of a detached one-time panel.
+- Added sidebar docking so the file/source-control/sidebar rail can live on
+  the right side of the editor and persist as an app-wide preference.
+- Added editor font zoom shortcuts with command/shift plus and minus so text
+  size can be adjusted from the keyboard.
+- Improved the `axon` terminal composer with a fuller text box, multiline
+  input, Escape interruption, and a cleaner local-command flow.
+- Hardened `axon .` and terminal workspace handoff so CLI-opened folders route
+  through the same workspace loading path as the folder picker.
+- Added built-in One and Solarized theme families and moved built-in theme
+  source assets under `editor/public/assets/themes`.
+- Removed unused React starter SVG assets from the renderer bundle.
+- Made more editor chrome theme-aware, including sidebar hover/active states,
+  workspace root headers, tab surfaces, markdown preview, errors, modals, and
+  the AI sidebar.
+- Fixed folder picker/open modal readability on light themes by replacing
+  hard-coded dark colors with Axon theme tokens.
+- Reduced gitignored sidebar dimming so ignored files and folders stay readable
+  while still looking muted.
+- Fixed expanded sidebar folders after external disk moves by refreshing their
+  lazy child caches when the workspace watcher publishes a fresh tree.
+
 ## v1.2.4
 
 - Added interactive `axon` terminal sessions so running `axon` without
