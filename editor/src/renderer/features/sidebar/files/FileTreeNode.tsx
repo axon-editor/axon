@@ -37,6 +37,7 @@ interface Props {
   ignoredPaths?: Set<string>;
   inlineCreate?: InlineCreateTarget | null;
   operation?: FileTreeOperation | null;
+  refreshNonce?: number;
   onInlineCreateCancel?: () => void;
   onInlineCreateCreated?: (path: string, isDir: boolean) => void | Promise<void>;
   depth?: number;
@@ -156,6 +157,7 @@ export default function FileTreeNode({
   ignoredPaths,
   inlineCreate,
   operation,
+  refreshNonce = 0,
   onInlineCreateCancel,
   onInlineCreateCreated,
   depth = 0,
@@ -217,13 +219,16 @@ export default function FileTreeNode({
   }, [inlineCreate?.parentPath, node.is_dir, node.path]);
 
   useEffect(() => {
-    if (!node.is_dir || !expanded || children !== undefined) return;
+    if (!node.is_dir || !expanded) return;
 
+    // Expanded folders keep a local child cache so they can stay open while the
+    // root tree refreshes. Disk watcher refreshes need to invalidate that cache
+    // too; otherwise a folder moved in from Finder can update Git decorations
+    // while the visible tree still shows the old children until a remount.
     let cancelled = false;
     getTree(node.path)
       .then((tree) => {
-        if (cancelled) return;
-        setChildren(tree.children ?? []);
+        if (!cancelled) setChildren(tree.children ?? []);
       })
       .catch(() => {
         if (!cancelled) setChildren([]);
@@ -232,7 +237,7 @@ export default function FileTreeNode({
     return () => {
       cancelled = true;
     };
-  }, [children, expanded, node.is_dir, node.path]);
+  }, [expanded, node.is_dir, node.path, refreshNonce]);
 
   useEffect(() => {
     if (!operation || !node.is_dir) return;
@@ -557,6 +562,7 @@ export default function FileTreeNode({
               ignoredPaths={ignoredPaths}
               inlineCreate={inlineCreate}
               operation={operation}
+              refreshNonce={refreshNonce}
               onInlineCreateCancel={onInlineCreateCancel}
               onInlineCreateCreated={onInlineCreateCreated}
               depth={depth + 1}

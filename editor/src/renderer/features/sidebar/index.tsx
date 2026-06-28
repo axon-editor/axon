@@ -462,6 +462,7 @@ export default function Sidebar({
   const [rootDragOver, setRootDragOver] = useState(false);
   const [treeOperation, setTreeOperation] =
     useState<FileTreeOperation | null>(null);
+  const [treeRefreshNonce, setTreeRefreshNonce] = useState(0);
   const [revokeTrustConfirmOpen, setRevokeTrustConfirmOpen] = useState(false);
   const [trustNonce, setTrustNonce] = useState(0);
   const [recentNonce, setRecentNonce] = useState(0);
@@ -475,6 +476,7 @@ export default function Sidebar({
     // external changes, like a new tests/ folder created by another editor,
     // appear without requiring a full Axon restart.
     setTree(treeProp);
+    setTreeRefreshNonce((nonce) => nonce + 1);
   }, [treeProp]);
 
   const gitDecorations = useMemo(
@@ -855,6 +857,7 @@ export default function Sidebar({
                 ignoredPaths={ignoredPaths}
                 inlineCreate={inlineCreate}
                 operation={treeOperation}
+                refreshNonce={treeRefreshNonce}
                 onOpenFolderPicker={onOpenFolderPicker}
                 onOpenDroppedWorkspace={handleOpenDroppedWorkspace}
                 onRootContextMenu={handleRootContextMenu}

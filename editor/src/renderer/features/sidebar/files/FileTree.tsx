@@ -26,6 +26,7 @@ interface FileTreeProps {
   ignoredPaths: Set<string>;
   inlineCreate: InlineCreateTarget | null;
   operation: FileTreeOperation | null;
+  refreshNonce: number;
   onOpenFolderPicker: () => void;
   onOpenDroppedWorkspace: (path: string) => void | Promise<void>;
   onRootContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -57,6 +58,7 @@ export default function FileTree({
   ignoredPaths,
   inlineCreate,
   operation,
+  refreshNonce,
   onOpenFolderPicker,
   onOpenDroppedWorkspace,
   onRootContextMenu,
@@ -174,8 +176,9 @@ export default function FileTree({
           revealPath={revealPath}
           gitDecorations={gitDecorations}
           ignoredPaths={ignoredPaths}
-              inlineCreate={inlineCreate}
-              operation={operation}
+          inlineCreate={inlineCreate}
+          operation={operation}
+          refreshNonce={refreshNonce}
           onInlineCreateCancel={onInlineCreateCancel}
           onInlineCreateCreated={onInlineCreateCreated}
         />
