@@ -39,7 +39,7 @@ export default function FolderPicker({
           onClick={() => {
             onOpenNew();
           }}
-          className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2.5 text-[12px] text-[#80c8e0] transition-colors hover:bg-[var(--axon-sidebar-hover-background)]"
+          className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2.5 text-[12px] text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-sidebar-hover-background)]"
         >
           <FolderOpen size={14} className="shrink-0" />
           <span>browse for folder...</span>
@@ -47,9 +47,12 @@ export default function FolderPicker({
 
         {workspaceRoots.length > 0 && (
           <>
-            <div className="flex items-center gap-2 px-3 py-2 mt-1">
-              <FolderOpen size={11} className="text-[#364050]" />
-              <span className="text-[10px] text-[#364050] uppercase tracking-widest">
+            <div className="mt-1 flex items-center gap-2 px-3 py-2">
+              <FolderOpen
+                size={11}
+                className="text-[var(--axon-editor-foreground)] opacity-45"
+              />
+              <span className="text-[10px] uppercase tracking-widest text-[var(--axon-editor-foreground)] opacity-45">
                 workspace roots
               </span>
             </div>
@@ -66,17 +69,17 @@ export default function FolderPicker({
                   }}
                   className={`flex w-full min-w-0 cursor-pointer items-center gap-3 rounded px-3 py-2 text-left transition-colors ${
                     active
-                      ? "bg-[#142a36] text-[#dff7ff]"
-                      : "text-[#c8d0e0] hover:bg-[var(--axon-sidebar-hover-background)]"
+                      ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
+                      : "text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-sidebar-hover-background)]"
                   }`}
                 >
                   <FolderOpen
                     size={14}
-                    className={`shrink-0 ${active ? "text-[#80c8e0]" : "text-[#586478]"}`}
+                    className={`shrink-0 ${active ? "text-[var(--axon-syntax-function)]" : "text-[var(--axon-editor-foreground)] opacity-55"}`}
                   />
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate text-[12px]">{root.name}</span>
-                    <span className="truncate text-[10px] text-[#586478]">
+                    <span className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
                       {parent}
                     </span>
                   </div>
@@ -88,15 +91,18 @@ export default function FolderPicker({
 
         {recentFolders.length > 0 && (
           <>
-            <div className="flex items-center gap-2 px-3 py-2 mt-1">
-              <Clock size={11} className="text-[#364050]" />
-              <span className="text-[10px] text-[#364050] uppercase tracking-widest">
+            <div className="mt-1 flex items-center gap-2 px-3 py-2">
+              <Clock
+                size={11}
+                className="text-[var(--axon-editor-foreground)] opacity-45"
+              />
+              <span className="text-[10px] uppercase tracking-widest text-[var(--axon-editor-foreground)] opacity-45">
                 recent
               </span>
               <button
                 type="button"
                 onClick={onClearRecent}
-                className="ml-auto flex h-6 cursor-pointer items-center gap-1 rounded px-2 text-[10px] text-[#586478] transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72]"
+                className="ml-auto flex h-6 cursor-pointer items-center gap-1 rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#ff7b72] hover:opacity-100"
               >
                 <Trash2 size={11} />
                 clear
@@ -121,13 +127,13 @@ export default function FolderPicker({
                   >
                     <FolderOpen
                       size={14}
-                      className="shrink-0 text-[#586478] transition-colors group-hover:text-[#80c8e0]"
+                      className="shrink-0 text-[var(--axon-editor-foreground)] opacity-55 transition-colors group-hover:text-[var(--axon-syntax-function)] group-hover:opacity-100"
                     />
                     <div className="flex min-w-0 flex-col">
-                      <span className="truncate text-[12px] text-[#c8d0e0]">
+                      <span className="truncate text-[12px] text-[var(--axon-editor-foreground)]">
                         {name}
                       </span>
-                      <span className="truncate text-[10px] text-[#364050]">
+                      <span className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                         {parent}
                       </span>
                     </div>
@@ -136,7 +142,7 @@ export default function FolderPicker({
                     type="button"
                     onClick={() => onRemoveRecent(folder)}
                     aria-label={`Remove ${name} from recent folders`}
-                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-[#364050] opacity-0 transition-all hover:bg-[#2a1517] hover:text-[#ff7b72] group-hover:opacity-100"
+                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition-all hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#ff7b72] group-hover:opacity-55"
                   >
                     <X size={12} />
                   </button>
@@ -147,7 +153,7 @@ export default function FolderPicker({
         )}
 
         {recentFolders.length === 0 && (
-          <div className="px-3 py-4 text-[12px] text-[#364050] text-center">
+          <div className="px-3 py-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
             no recent folders
           </div>
         )}
@@ -158,7 +164,10 @@ export default function FolderPicker({
             onClick={onClearSession}
             className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2 text-left text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
           >
-            <Trash2 size={13} className="shrink-0 text-[#586478]" />
+            <Trash2
+              size={13}
+              className="shrink-0 text-[var(--axon-editor-foreground)] opacity-55"
+            />
             <span>clear saved workspace session</span>
           </button>
         </div>

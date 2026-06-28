@@ -86,6 +86,8 @@ const gitDecorationColors: Record<GitTreeDecoration["tone"], string> = {
   mixed: "#80c8e0",
 };
 
+const ignoredEntryColor = "color-mix(in srgb, var(--axon-editor-foreground) 56%, transparent)";
+
 function normalizeTreePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }
@@ -458,7 +460,7 @@ export default function FileTreeNode({
   const gitColor = gitDecoration
     ? gitDecorationColors[gitDecoration.tone]
     : undefined;
-  const entryColor = gitColor ?? (ignored ? "#4b5568" : undefined);
+  const entryColor = gitColor ?? (ignored ? ignoredEntryColor : undefined);
 
   if (node.is_dir) {
     const isHighlighted = dragOver || isBlinkOn;
@@ -480,7 +482,7 @@ export default function FileTreeNode({
               isHighlighted
                 ? "text-[var(--axon-editor-foreground)]"
                 : ignored
-                  ? "text-[var(--axon-editor-foreground)] opacity-35 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-55"
+                  ? "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-90"
                   : "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
             }`}
           style={{
@@ -579,7 +581,7 @@ export default function FileTreeNode({
           activeFile === node.path
             ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
             : ignored
-              ? "text-[var(--axon-editor-foreground)] opacity-35 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-55"
+              ? "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-90"
               : "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
         }`}
       style={{
