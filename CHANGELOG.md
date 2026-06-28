@@ -26,6 +26,9 @@
   while still looking muted.
 - Fixed expanded sidebar folders after external disk moves by refreshing their
   lazy child caches when the workspace watcher publishes a fresh tree.
+- Added a dedicated fixes section to the release notes so the shipped
+  regression fixes and UI corrections are easy to scan separately from the
+  feature work.
 
 ## v1.2.4
 
