@@ -7,6 +7,10 @@ export const BUILT_IN_THEME_IDS = [
   "ayu-dark",
   "ayu-light",
   "ayu-mirage",
+  "one-dark",
+  "one-light",
+  "solarized-dark",
+  "solarized-light",
 ] as const;
 
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
@@ -107,6 +111,10 @@ export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "ayu-dark": "Ayu Dark",
   "ayu-light": "Ayu Light",
   "ayu-mirage": "Ayu Mirage",
+  "one-dark": "One Dark",
+  "one-light": "One Light",
+  "solarized-dark": "Solarized Dark",
+  "solarized-light": "Solarized Light",
 };
 
 export const THEME_COLOR_TOKENS = [

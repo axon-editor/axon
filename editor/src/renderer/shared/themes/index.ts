@@ -10,6 +10,8 @@ import { axonDarkTheme } from "./axonDark";
 import { axonMoonlightTheme } from "./axonMoonlight";
 import { ayuDarkTheme, ayuLightTheme, ayuMirageTheme } from "./ayuDark";
 import { catppuccinMochaTheme } from "./catppuccinMocha";
+import { oneThemes } from "./one";
+import { solarizedThemes } from "./solarized";
 import { soraTheme } from "./sora";
 import { zedDarkTheme } from "./zedDark";
 import {
@@ -37,6 +39,10 @@ export const BUILT_IN_THEMES: Record<BuiltInThemeId, AxonThemeDefinition> = {
   "ayu-dark": ayuDarkTheme,
   "ayu-light": ayuLightTheme,
   "ayu-mirage": ayuMirageTheme,
+  "one-dark": oneThemes[0],
+  "one-light": oneThemes[1],
+  "solarized-dark": solarizedThemes[0],
+  "solarized-light": solarizedThemes[1],
 };
 
 export function getThemeDefinition(themeId: ThemeId) {
