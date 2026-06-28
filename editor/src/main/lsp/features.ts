@@ -429,6 +429,9 @@ export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   if (normalizedLanguageId === "html") {
     return "html" satisfies LanguageServerDefinition["id"];
   }
+  if (normalizedLanguageId === "astro") {
+    return "astro" satisfies LanguageServerDefinition["id"];
+  }
   if (
     normalizedLanguageId === "css" ||
     normalizedLanguageId === "scss" ||
@@ -454,6 +457,7 @@ function shouldAttachTailwindLanguageServer(languageId: string) {
   return (
     normalizedLanguageId === "typescriptreact" ||
     normalizedLanguageId === "javascriptreact" ||
+    normalizedLanguageId === "astro" ||
     normalizedLanguageId === "html" ||
     normalizedLanguageId === "css" ||
     normalizedLanguageId === "scss" ||
@@ -546,6 +550,7 @@ function normalizeDocumentLanguageId(filePath: string, languageId: string) {
   const extension = path.extname(filePath).toLowerCase();
   if (extension === ".tsx") return "typescriptreact";
   if (extension === ".jsx") return "javascriptreact";
+  if (extension === ".astro") return "astro";
   return languageId === "cpp" ? "cpp" : languageId;
 }
 

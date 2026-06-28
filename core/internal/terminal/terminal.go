@@ -44,15 +44,18 @@ type terminalSession struct {
 }
 
 type terminalClient struct {
-	ws *websocket.Conn
-	mu sync.Mutex
+	ws        *websocket.Conn
+	send      chan []byte
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 const (
-	maxScrollbackBytes = 96 << 20
-	websocketPongWait  = 70 * time.Second
-	websocketPingEvery = 25 * time.Second
-	websocketWriteWait = 30 * time.Second
+	maxScrollbackBytes      = 96 << 20
+	terminalClientQueueSize = 4096
+	websocketPongWait       = 70 * time.Second
+	websocketPingEvery      = 25 * time.Second
+	websocketWriteWait      = 30 * time.Second
 )
 
 var terminalSessions = struct {
@@ -126,11 +129,11 @@ func createSession(id string, cwd string) (*terminalSession, error) {
 		clients: map[*terminalClient]bool{},
 	}
 
-	// I keep the PTY reader attached to the session instead of to a single
-	// websocket because the UI can disappear independently of the shell. This
-	// lets Axon behave like mature editors: a renderer reload, sleep/wake, or
-	// temporary socket drop detaches the view but does not destroy the running
-	// command unless the user explicitly closes the terminal tab.
+	// The PTY reader belongs to the session instead of a single websocket
+	// because the UI can disappear independently of the shell. This lets Axon
+	// behave like mature editors: a renderer reload, sleep/wake, or temporary
+	// socket drop detaches the view but does not destroy the running command
+	// unless the user explicitly closes the terminal tab.
 	go func() {
 		buf := make([]byte, 4096)
 		for {
@@ -174,7 +177,7 @@ func (session *terminalSession) addClient(ws *websocket.Conn, replayFrom int64) 
 	if session.closed {
 		return nil, nil
 	}
-	client := &terminalClient{ws: ws}
+	client := newTerminalClient(ws)
 	session.clients[client] = true
 
 	if replayFrom >= session.totalBytes {
@@ -196,34 +199,69 @@ func (session *terminalSession) removeClient(client *terminalClient) {
 	session.mu.Unlock()
 }
 
-func (client *terminalClient) write(data []byte) error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
-	return client.ws.WriteMessage(websocket.BinaryMessage, data)
+func newTerminalClient(ws *websocket.Conn) *terminalClient {
+	return &terminalClient{
+		ws:   ws,
+		send: make(chan []byte, terminalClientQueueSize),
+		done: make(chan struct{}),
+	}
 }
 
-func (client *terminalClient) startKeepAlive() func() {
-	done := make(chan struct{})
+func (client *terminalClient) enqueue(data []byte) bool {
+	// PTY output is read from a reusable buffer, so each websocket client gets
+	// its own copy before the next read mutates that backing array. The send is
+	// intentionally non-blocking: if the renderer cannot keep up with a chatty
+	// agent, Axon drops that view connection and lets it reconnect from
+	// scrollback instead of blocking the PTY reader and freezing the real shell.
+	chunk := append([]byte(nil), data...)
+	select {
+	case <-client.done:
+		return false
+	default:
+	}
+	select {
+	case client.send <- chunk:
+		return true
+	case <-client.done:
+		return false
+	default:
+		return false
+	}
+}
+
+func (client *terminalClient) close() {
+	client.closeOnce.Do(func() {
+		close(client.done)
+		_ = client.ws.Close()
+	})
+}
+
+func (client *terminalClient) startWriter(onError func()) func() {
 	ticker := time.NewTicker(websocketPingEvery)
 
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-done:
+			case <-client.done:
 				return
+			case data := <-client.send:
+				_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
+				if err := client.ws.WriteMessage(websocket.BinaryMessage, data); err != nil {
+					client.close()
+					onError()
+					return
+				}
 			case <-ticker.C:
-				client.mu.Lock()
 				_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
 				err := client.ws.WriteControl(
 					websocket.PingMessage,
 					nil,
 					time.Now().Add(websocketWriteWait),
 				)
-				client.mu.Unlock()
 				if err != nil {
-					_ = client.ws.Close()
+					client.close()
+					onError()
 					return
 				}
 			}
@@ -231,7 +269,7 @@ func (client *terminalClient) startKeepAlive() func() {
 	}()
 
 	return func() {
-		close(done)
+		client.close()
 	}
 }
 
@@ -244,10 +282,10 @@ func (session *terminalSession) broadcast(data []byte) {
 	session.scrollback = append(session.scrollback, data...)
 	session.totalBytes += int64(len(data))
 	if len(session.scrollback) > maxScrollbackBytes {
-		// I keep a byte replay window in core so the renderer can reconnect
-		// without killing the shell. The window has to be large enough for
-		// chatty tools because trimming while the browser is still catching up
-		// means the next reconnect cannot recover missing output.
+		// Core keeps a byte replay window so the renderer can reconnect without
+		// killing the shell. The window has to be large enough for chatty tools
+		// because trimming while the browser is still catching up means the next
+		// reconnect cannot recover missing output.
 		trimmedBytes := len(session.scrollback) - maxScrollbackBytes
 		session.scrollback = session.scrollback[trimmedBytes:]
 		session.baseOffset += int64(trimmedBytes)
@@ -259,9 +297,9 @@ func (session *terminalSession) broadcast(data []byte) {
 	session.mu.Unlock()
 
 	for _, client := range clients {
-		if err := client.write(data); err != nil {
+		if !client.enqueue(data) {
 			session.removeClient(client)
-			_ = client.ws.Close()
+			client.close()
 		}
 	}
 }
@@ -290,7 +328,7 @@ func (session *terminalSession) finish() {
 	}
 	_ = session.cmd.Wait()
 	for _, client := range clients {
-		_ = client.ws.Close()
+		client.close()
 	}
 }
 
@@ -348,10 +386,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if client == nil {
 		return
 	}
-	stopKeepAlive := client.startKeepAlive()
-	defer stopKeepAlive()
+	stopWriter := client.startWriter(func() {
+		session.removeClient(client)
+	})
+	defer stopWriter()
 	if len(scrollback) > 0 {
-		if err := client.write(scrollback); err != nil {
+		if !client.enqueue(scrollback) {
 			session.removeClient(client)
 			return
 		}
@@ -404,11 +444,11 @@ func shellStartupArgs(shellPath string) []string {
 }
 
 func terminalEnvironment() []string {
-	// I still add a conservative PATH fallback before the shell reads profile
-	// files because packaged desktop apps often inherit a tiny launchd PATH.
-	// Profile files can add nvm/asdf-specific paths afterward, but this baseline
-	// covers common Homebrew, Go, Cargo, Bun, and local-bin installs so basic
-	// commands are not missing before the user's shell customizations run.
+	// A conservative PATH fallback is added before the shell reads profile files
+	// because packaged desktop apps often inherit a tiny launchd PATH. Profile
+	// files can add nvm/asdf-specific paths afterward, but this baseline covers
+	// common Homebrew, Go, Cargo, Bun, and local-bin installs so basic commands
+	// are not missing before the user's shell customizations run.
 	env := os.Environ()
 	pathValue := os.Getenv("PATH")
 	if pathValue == "" {

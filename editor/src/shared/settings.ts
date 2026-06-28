@@ -5,6 +5,8 @@ export const BUILT_IN_THEME_IDS = [
   "zed-dark",
   "catppuccin-mocha",
   "ayu-dark",
+  "ayu-light",
+  "ayu-mirage",
 ] as const;
 
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
@@ -103,6 +105,8 @@ export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "zed-dark": "Zed Dark",
   "catppuccin-mocha": "Catppuccin Mocha",
   "ayu-dark": "Ayu Dark",
+  "ayu-light": "Ayu Light",
+  "ayu-mirage": "Ayu Mirage",
 };
 
 export const THEME_COLOR_TOKENS = [

@@ -9,7 +9,6 @@ import DiffModal from "../features/git/DiffModal";
 import EditorToolbar from "../features/editor/EditorToolbar";
 import SettingsModal from "../features/settings";
 import ExtensionsModal from "../features/extensions";
-import SplashScreen from "../shared/components/SplashScreen";
 import AboutModal from "../shared/components/AboutModal";
 import SourceControlModal from "../features/git/SourceControlModal";
 import TaskRunnerModal from "../features/tasks/TaskRunnerModal";
@@ -104,8 +103,6 @@ export function AxonAppView(props: Record<string, any>) {
     sidebarView,
     sidebarWidth,
     sourceControlOpen,
-    splashLeaving,
-    splashVisible,
     spotifyActions,
     spotifyPlayerOpen,
     spotifyState,
@@ -724,9 +721,8 @@ export function AxonAppView(props: Record<string, any>) {
         </div>
       )}
 
-      {loading && !splashVisible && <WorkspaceLoadingOverlay />}
+      {loading && <WorkspaceLoadingOverlay />}
       <CliToolInstallPrompt prompt={cliToolInstallPrompt} />
-      {splashVisible && <SplashScreen leaving={splashLeaving} />}
     </div>
   );
 }

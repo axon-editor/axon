@@ -130,6 +130,7 @@ export function detectLanguageServerLanguage(path: string): string {
   // TypeScript syntax and floods Problems with false parser errors.
   if (ext === "tsx") return "typescriptreact";
   if (ext === "jsx") return "javascriptreact";
+  if (ext === "astro") return "astro";
 
   return detectLanguage(path);
 }

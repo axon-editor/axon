@@ -8,7 +8,7 @@ import {
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import { axonDarkTheme } from "./axonDark";
 import { axonMoonlightTheme } from "./axonMoonlight";
-import { ayuDarkTheme } from "./ayuDark";
+import { ayuDarkTheme, ayuLightTheme, ayuMirageTheme } from "./ayuDark";
 import { catppuccinMochaTheme } from "./catppuccinMocha";
 import { soraTheme } from "./sora";
 import { zedDarkTheme } from "./zedDark";
@@ -35,6 +35,8 @@ export const BUILT_IN_THEMES: Record<BuiltInThemeId, AxonThemeDefinition> = {
   "zed-dark": zedDarkTheme,
   "catppuccin-mocha": catppuccinMochaTheme,
   "ayu-dark": ayuDarkTheme,
+  "ayu-light": ayuLightTheme,
+  "ayu-mirage": ayuMirageTheme,
 };
 
 export function getThemeDefinition(themeId: ThemeId) {

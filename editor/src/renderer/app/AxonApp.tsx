@@ -1,9 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { AxonAppView } from "./AxonAppView";
-import {
-  writeFile,
-  type FileNode,
-} from "../shared/lib/api";
+import { writeFile, type FileNode } from "../shared/lib/api";
 import {
   clearLanguageServerDiagnosticsFromMonaco,
   collectEditorDiagnostics,
@@ -56,10 +53,7 @@ import { type WorkspaceRoot } from "../shared/lib/workspaceRoots";
 import "../App.css";
 import { useCliToolInstallPrompt } from "../features/cli/useCliToolInstallPrompt";
 import { useSpotify } from "../features/spotify/lib/useSpotify";
-import {
-  detectLanguageServerLanguage,
-  getModel,
-} from "../features/editor/lib/monacoModels";
+import { detectLanguageServerLanguage, getModel } from "../features/editor/lib/monacoModels";
 import {
   hasSeenAxonOnboarding,
   markAxonOnboardingSeen,
@@ -73,7 +67,7 @@ function formatOutputTime(date = new Date()) {
   });
 }
 
-function App() {
+export default function App() {
   const shouldShowOnboardingRef = useRef(!hasSeenAxonOnboarding());
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [workspaceRoots, setWorkspaceRoots] = useState<WorkspaceRoot[]>([]);
@@ -149,8 +143,6 @@ function App() {
     diff: GitCommitDiffResult;
   } | null>(null);
   const platform = window.axon.platform;
-  const [splashVisible, setSplashVisible] = useState(true);
-  const [splashLeaving, setSplashLeaving] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);
   const allowSessionPersistenceRef = useRef(true);
@@ -834,7 +826,6 @@ function App() {
     handleOpenNavigationTarget,
     handleSettingsSave,
     layout,
-    loading,
     lspDiagnosticsByFile,
     refreshExtensions,
     refreshGitStatus,
@@ -859,8 +850,6 @@ function App() {
     setSessionReady,
     setSettings,
     setSettingsHydrated,
-    setSplashLeaving,
-    setSplashVisible,
     setTaskRunnerOpen,
     setTerminalOpen,
     setTree,
@@ -947,8 +936,6 @@ function App() {
       sidebarView,
       sidebarWidth,
       sourceControlOpen,
-      splashLeaving,
-      splashVisible,
       spotifyActions,
       spotifyPlayerOpen,
       spotifyState,
@@ -1006,5 +993,3 @@ function App() {
     />
   );
 }
-
-export default App;

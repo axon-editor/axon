@@ -10,7 +10,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
+import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import {
@@ -23,8 +23,7 @@ import {
   Trash2,
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
-import type { BuiltInThemeId, EditorSettings } from "../../../shared/settings";
-import { editorFontStack } from "../../shared/lib/fonts";
+import type { EditorSettings } from "../../../shared/settings";
 import { type EditorDiagnostic } from "../diagnostics/lib/diagnostics";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { getCoreWebSocketUrl, waitForCoreBackend } from "../../shared/lib/coreBackend";
@@ -35,6 +34,7 @@ import {
   type OutputEntry,
   type BottomPanelTab,
 } from "./BottomPanel";
+import { getTerminalOptions } from "./lib/terminalTheme";
 
 interface Props {
   open: boolean;
@@ -75,7 +75,11 @@ interface TerminalSession {
   outputQueue: TerminalOutputChunk[];
   outputWriting: boolean;
   queuedBytes: number;
+  inputQueue: string[];
+  queuedInputBytes: number;
   scrollLine: number;
+  atBottom: boolean;
+  refreshFrame: number | null;
   disposed: boolean;
   terminating: boolean;
 }
@@ -87,124 +91,7 @@ interface TerminalOutputChunk {
 
 const DEFAULT_TERMINAL_HEIGHT = 280;
 const MIN_TERMINAL_HEIGHT = 180;
-
-const terminalThemes: Record<BuiltInThemeId, ITheme> = {
-  "axon-dark": {
-    background: "#0e1018",
-    foreground: "#c8d0e0",
-    cursor: "#80c8e0",
-    cursorAccent: "#0e1018",
-    selectionBackground: "#1e243080",
-    black: "#0a0c12",
-    brightBlack: "#364050",
-    red: "#d0909c",
-    brightRed: "#d0909c",
-    green: "#90c8a0",
-    brightGreen: "#90c8a0",
-    yellow: "#d4b878",
-    brightYellow: "#d4b878",
-    blue: "#b0a0d8",
-    brightBlue: "#b0a0d8",
-    magenta: "#d0a888",
-    brightMagenta: "#d0a888",
-    cyan: "#80c8e0",
-    brightCyan: "#80c8e0",
-    white: "#c8d0e0",
-    brightWhite: "#dce4f0",
-  },
-  sora: {
-    background: "#10131a",
-    foreground: "#d4dae7",
-    cursor: "#7cc7d8",
-    cursorAccent: "#10131a",
-    selectionBackground: "#28304488",
-    black: "#0a0d12",
-    brightBlack: "#4b5565",
-    red: "#f08c92",
-    brightRed: "#ffadb1",
-    green: "#8bd49c",
-    brightGreen: "#a6e3b4",
-    yellow: "#e5c07b",
-    brightYellow: "#f2d69b",
-    blue: "#8fb7ff",
-    brightBlue: "#abc8ff",
-    magenta: "#d7a3ff",
-    brightMagenta: "#e4bdff",
-    cyan: "#7cc7d8",
-    brightCyan: "#9ee0ec",
-    white: "#d4dae7",
-    brightWhite: "#f0f4fb",
-  },
-  "catppuccin-mocha": {
-    background: "#1e1e2e",
-    foreground: "#cdd6f4",
-    cursor: "#f5e0dc",
-    cursorAccent: "#1e1e2e",
-    selectionBackground: "#585b7088",
-    black: "#11111b",
-    brightBlack: "#585b70",
-    red: "#f38ba8",
-    brightRed: "#f38ba8",
-    green: "#a6e3a1",
-    brightGreen: "#a6e3a1",
-    yellow: "#f9e2af",
-    brightYellow: "#f9e2af",
-    blue: "#89b4fa",
-    brightBlue: "#89b4fa",
-    magenta: "#cba6f7",
-    brightMagenta: "#cba6f7",
-    cyan: "#94e2d5",
-    brightCyan: "#94e2d5",
-    white: "#cdd6f4",
-    brightWhite: "#f5e0dc",
-  },
-  "zed-dark": {
-    background: "#111316",
-    foreground: "#d6d9df",
-    cursor: "#7cc7e8",
-    cursorAccent: "#111316",
-    selectionBackground: "#2f3a4588",
-    black: "#0d0f12",
-    brightBlack: "#4d5562",
-    red: "#ff9aa2",
-    brightRed: "#ffb2b8",
-    green: "#9fd68b",
-    brightGreen: "#b7e8a6",
-    yellow: "#e7c07a",
-    brightYellow: "#f3d394",
-    blue: "#7cc7e8",
-    brightBlue: "#99d7f2",
-    magenta: "#d7b7ff",
-    brightMagenta: "#e2c8ff",
-    cyan: "#72d0c9",
-    brightCyan: "#95e3dd",
-    white: "#d6d9df",
-    brightWhite: "#f3f5f8",
-  },
-  "ayu-dark": {
-    background: "#0b0e14",
-    foreground: "#b3b1ad",
-    cursor: "#ffcc66",
-    cursorAccent: "#0b0e14",
-    selectionBackground: "#27374788",
-    black: "#01060e",
-    brightBlack: "#5c6773",
-    red: "#ea6c73",
-    brightRed: "#f07178",
-    green: "#aad94c",
-    brightGreen: "#c2d94c",
-    yellow: "#ffb454",
-    brightYellow: "#ffcc66",
-    blue: "#59c2ff",
-    brightBlue: "#73d0ff",
-    magenta: "#d2a6ff",
-    brightMagenta: "#dfbfff",
-    cyan: "#5ccfe6",
-    brightCyan: "#95e6cb",
-    white: "#b3b1ad",
-    brightWhite: "#ffffff",
-  },
-};
+const MAX_RECONNECT_INPUT_BYTES = 64 * 1024;
 
 function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -253,6 +140,57 @@ function sendWorkspaceCd(session: TerminalSession) {
   session.cwdSynced = true;
 }
 
+function isTerminalAtBottom(term: XTerm) {
+  const buffer = term.buffer.active;
+  return buffer.viewportY >= buffer.baseY - 1;
+}
+
+function scheduleTerminalRefresh(session: TerminalSession) {
+  // xterm usually repaints after write callbacks, but heavy TUI output can
+  // leave the DOM behind until a later resize/fit forces a refresh. Scheduling
+  // one frame after each drained chunk keeps long-running agents visible while
+  // still batching repaint work through requestAnimationFrame.
+  if (!session.term || session.refreshFrame !== null) return;
+
+  session.refreshFrame = window.requestAnimationFrame(() => {
+    session.refreshFrame = null;
+    if (!session.term || session.disposed) return;
+    session.term.refresh(0, Math.max(0, session.term.rows - 1));
+  });
+}
+
+function sendOrQueueTerminalInput(session: TerminalSession, data: string) {
+  // Keystrokes should survive a short websocket reconnect. Without this small
+  // buffer, typing during a backend blink silently drops input, which feels
+  // like the terminal is eating commands even though the shell is still alive.
+  if (session.ws?.readyState === WebSocket.OPEN) {
+    session.ws.send(data);
+    return;
+  }
+
+  const byteLength = getOutputByteLength(data);
+  if (session.queuedInputBytes + byteLength > MAX_RECONNECT_INPUT_BYTES) {
+    return;
+  }
+  session.inputQueue.push(data);
+  session.queuedInputBytes += byteLength;
+}
+
+function flushQueuedTerminalInput(session: TerminalSession) {
+  // Input is flushed only after the replacement websocket is open. This keeps
+  // the PTY stream ordered: reconnect first, restore dimensions/cwd, then send
+  // the user input collected while the view was detached.
+  if (!session.ws || session.ws.readyState !== WebSocket.OPEN) return;
+  while (session.inputQueue.length > 0) {
+    const data = session.inputQueue.shift() ?? "";
+    session.queuedInputBytes = Math.max(
+      0,
+      session.queuedInputBytes - getOutputByteLength(data),
+    );
+    session.ws.send(data);
+  }
+}
+
 function sendTerminate(ws: WebSocket) {
   if (ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({ type: "terminate" }));
@@ -277,9 +215,14 @@ function drainTerminalOutput(session: TerminalSession) {
   // reconnects to replay from the wrong offset and drop or duplicate output.
 
   session.outputWriting = true;
+  session.atBottom = isTerminalAtBottom(session.term);
   session.term.write(chunk.data, () => {
     session.receivedBytes += chunk.byteLength;
-    session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength); 
+    session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength);
+    if (session.term && session.atBottom) {
+      session.term.scrollToBottom();
+    }
+    scheduleTerminalRefresh(session);
     session.outputWriting = false;
     drainTerminalOutput(session);
   });
@@ -321,27 +264,6 @@ function terminateDetachedSession(
   ws.onerror = () => {
     window.clearTimeout(closeTimer);
     ws.close();
-  };
-}
-
-function getTerminalOptions(
-  editorSettings: EditorSettings,
-  themeTokens: ResolvedThemeTokens,
-) {
-  return {
-    theme: {
-      ...(terminalThemes[editorSettings.themeId as BuiltInThemeId] ??
-        terminalThemes["axon-dark"]),
-      background: themeTokens["terminal.background"],
-      foreground: themeTokens["terminal.foreground"],
-    },
-    fontFamily: editorFontStack(editorSettings.fontFamily),
-    fontWeight: editorSettings.fontWeight,
-    fontSize: Math.max(10, editorSettings.fontSize - 1),
-    lineHeight: Math.max(
-      1,
-      editorSettings.lineHeight / editorSettings.fontSize,
-    ),
   };
 }
 
@@ -387,12 +309,19 @@ export default function Terminal({
     if (!session?.fitAddon || !session.ws) return;
     if (!isVisibleTerminalContainer(session.container)) return;
 
+    const wasAtBottom = session.term ? isTerminalAtBottom(session.term) : true;
     session.fitAddon.fit();
     const dims = session.fitAddon.proposeDimensions();
     if (dims && session.ws.readyState === WebSocket.OPEN) {
       session.ws.send(
         JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }),
       );
+    }
+    if (session.term) {
+      if (wasAtBottom || session.atBottom) {
+        session.term.scrollToBottom();
+      }
+      scheduleTerminalRefresh(session);
     }
   }, []);
 
@@ -415,6 +344,10 @@ export default function Terminal({
     if (session?.reconnectTimer) {
       window.clearTimeout(session.reconnectTimer);
       session.reconnectTimer = null;
+    }
+    if (session?.refreshFrame !== null && session?.refreshFrame !== undefined) {
+      window.cancelAnimationFrame(session.refreshFrame);
+      session.refreshFrame = null;
     }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
@@ -476,7 +409,11 @@ export default function Terminal({
       outputQueue: [],
       outputWriting: false,
       queuedBytes: 0,
+      inputQueue: [],
+      queuedInputBytes: 0,
       scrollLine: 0,
+      atBottom: true,
+      refreshFrame: null,
       disposed: false,
       terminating: false,
     };
@@ -603,6 +540,7 @@ export default function Terminal({
           updateTabConnection(id, true);
           sendResize(id);
           sendWorkspaceCd(latestSession);
+          flushQueuedTerminalInput(latestSession);
         };
 
         ws.onmessage = (event) => {
@@ -696,8 +634,8 @@ export default function Terminal({
         bracketedPasteMode: true,
         // Long-running AI sessions can produce far more output than a normal
         // shell command. A small scrollback makes xterm discard earlier lines,
-        // which looks like the terminal randomly removed text while I am still
-        // reading or responding. Keeping a large scrollback makes Axon's
+        // which looks like the terminal randomly removed text while the user is
+        // still reading or responding. Keeping a large scrollback makes Axon's
         // terminal behave closer to Zed/VS Code for chatty TUI tools.
         scrollback: 50000,
       });
@@ -724,6 +662,7 @@ export default function Terminal({
       session.fitAddon = fitAddon;
       session.scrollDisposable = term.onScroll((line) => {
         session.scrollLine = line;
+        session.atBottom = isTerminalAtBottom(term);
       });
       connectSession(id);
       const handleMultilineKeydown = (event: KeyboardEvent) => {
@@ -780,9 +719,7 @@ export default function Terminal({
       // websocket per tab lets every terminal have its own shell process,
       // which is why a new tab does not overwrite or steal another tab's work.
       session.dataDisposable = term.onData((data) => {
-        if (session.ws?.readyState === WebSocket.OPEN) {
-          session.ws.send(data);
-        }
+        sendOrQueueTerminalInput(session, data);
       });
 
       // Resize messages are sent only after fitting xterm to the visible
@@ -851,7 +788,13 @@ export default function Terminal({
 
     window.requestAnimationFrame(() => {
       sendResize(activeTabId);
-      session.term?.scrollToLine(session.scrollLine);
+      if (session.term && session.atBottom) {
+        session.term.scrollToBottom();
+      } else if (session.term) {
+        session.term.scrollToLine(
+          Math.max(0, Math.min(session.scrollLine, session.term.buffer.active.baseY)),
+        );
+      }
     });
   }, [activeTabId, sendResize, terminalVisible]);
 

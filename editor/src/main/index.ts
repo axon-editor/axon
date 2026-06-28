@@ -1,7 +1,6 @@
 import { app, BrowserWindow, protocol } from "electron";
 import fs from "fs";
 import path from "path";
-import url from "url";
 
 let bootSplashWindow: BrowserWindow | null = null;
 
@@ -15,7 +14,7 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-function bootSplashImageUrl() {
+function bootSplashImageDataUrl() {
   const candidates = [
     path.join(__dirname, "../renderer/axon.png"),
     path.join(app.getAppPath(), "dist", "renderer", "axon.png"),
@@ -23,7 +22,15 @@ function bootSplashImageUrl() {
     path.join(app.getAppPath(), "build", "axon.png"),
   ];
   const imagePath = candidates.find((candidate) => fs.existsSync(candidate));
-  return imagePath ? url.pathToFileURL(imagePath).toString() : "";
+  if (!imagePath) return "";
+
+  try {
+    const image = fs.readFileSync(imagePath);
+    return `data:image/png;base64,${image.toString("base64")}`;
+  } catch (err) {
+    console.error("failed to read Axon boot splash image:", err);
+    return "";
+  }
 }
 
 function bootSplashHtml(imageUrl: string) {
@@ -149,13 +156,13 @@ function bootSplashHtml(imageUrl: string) {
 </html>`;
 }
 
-function createBootSplashWindow() {
+async function createBootSplashWindow() {
   // This is the real editor window during its boot phase, not a second splash
-  // window. It starts by showing a tiny data-URL splash so the user does not
-  // stare at a blank native surface while appMain imports the heavier editor
-  // services. appMain later adopts this exact BrowserWindow and navigates it to
-  // Vite/the packaged renderer, which avoids the old "small window plus big
-  // window" launch behavior.
+  // window. The important detail is that the window is not shown until the
+  // tiny splash document has loaded. If the BrowserWindow is shown first,
+  // Chromium paints the empty native background for a moment, then React shows
+  // what looks like a fake loader later. Loading the boot document first makes
+  // the splash the first visible frame of the app.
   bootSplashWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -163,7 +170,7 @@ function createBootSplashWindow() {
     minHeight: 600,
     resizable: true,
     movable: true,
-    show: true,
+    show: false,
     frame: false,
     title: "Axon",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
@@ -178,12 +185,22 @@ function createBootSplashWindow() {
     },
   });
 
-  void bootSplashWindow.loadURL(
-    `data:text/html;charset=utf-8,${encodeURIComponent(bootSplashHtml(bootSplashImageUrl()))}`,
-  );
+  const splashWindow = bootSplashWindow;
   bootSplashWindow.on("closed", () => {
     bootSplashWindow = null;
   });
+
+  try {
+    await splashWindow.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(bootSplashHtml(bootSplashImageDataUrl()))}`,
+    );
+  } catch (err) {
+    console.error("failed to load Axon boot splash:", err);
+  }
+
+  if (!splashWindow.isDestroyed()) {
+    splashWindow.show();
+  }
 }
 
 function closeBootSplashWindow() {
@@ -207,8 +224,8 @@ function closeBootSplashWindow() {
   return splashWindow && !splashWindow.isDestroyed() ? splashWindow : null;
 };
 
-app.whenReady().then(() => {
-  createBootSplashWindow();
+app.whenReady().then(async () => {
+  await createBootSplashWindow();
 
   // Load the real main process only after the boot splash exists. `require`
   // stays inside this callback on purpose: a static import would put the heavy

@@ -31,7 +31,6 @@ interface AxonAppEffectsOptions {
   handleOpenNavigationTarget: any;
   handleSettingsSave: any;
   layout: any;
-  loading: any;
   lspDiagnosticsByFile: any;
   refreshExtensions: any;
   refreshGitStatus: any;
@@ -56,8 +55,6 @@ interface AxonAppEffectsOptions {
   setSessionReady: any;
   setSettings: any;
   setSettingsHydrated: any;
-  setSplashLeaving: any;
-  setSplashVisible: any;
   setTaskRunnerOpen: any;
   setTerminalOpen: any;
   setTree: any;
@@ -94,7 +91,6 @@ export function useAxonAppEffects({
   handleOpenNavigationTarget,
   handleSettingsSave,
   layout,
-  loading,
   lspDiagnosticsByFile,
   refreshExtensions,
   refreshGitStatus,
@@ -119,8 +115,6 @@ export function useAxonAppEffects({
   setSessionReady,
   setSettings,
   setSettingsHydrated,
-  setSplashLeaving,
-  setSplashVisible,
   setTaskRunnerOpen,
   setTerminalOpen,
   setTree,
@@ -276,21 +270,6 @@ export function useAxonAppEffects({
     settings.lsp.enabled,
     workspaceTrusted,
   ]);
-
-  useEffect(() => {
-    if (!settingsHydrated || !sessionReady || loading) return;
-
-    // The splash should protect startup work, not run as a decorative timer.
-    // It stays visible while settings and session restore are still resolving,
-    // then exits as soon as the app can show the real editor shell.
-    const leaveTimer = window.setTimeout(() => setSplashLeaving(true), 90);
-    const removeTimer = window.setTimeout(() => setSplashVisible(false), 610);
-
-    return () => {
-      window.clearTimeout(leaveTimer);
-      window.clearTimeout(removeTimer);
-    };
-  }, [loading, sessionReady, settingsHydrated]);
 
   useEffect(() => {
     window.axon
