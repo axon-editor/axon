@@ -109,7 +109,11 @@ export function sanitizeRestoredLayout(
 
   const filePaths = collectFilePaths(tree);
   const isRestorableTab = (tab: string) => {
-    if (isWelcomeTabPath(tab)) return true;
+    // Welcome/onboarding is app-aware, not workspace-aware. Old sessions may
+    // contain the virtual welcome tab from the period where it was used as the
+    // generic initial layout; restoring that tab would make every folder switch
+    // feel like first launch again, so workspace restore intentionally drops it.
+    if (isWelcomeTabPath(tab)) return false;
     if (isVirtualTabPath(tab)) return filePaths.has(getTabFilePath(tab));
     return filePaths.has(tab);
   };

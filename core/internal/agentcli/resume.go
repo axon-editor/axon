@@ -28,7 +28,23 @@ func runResume(args []string) int {
 	}
 
 	if conversationID == "" {
-		return printSessionList(workspace)
+		sessions, err := workspaceSessions(workspace)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, red(err.Error()))
+			return 1
+		}
+		if len(sessions) == 0 {
+			return printSessionList(workspace)
+		}
+		selected, ok, err := selectResumeSessionPrompt(sessions)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, red(err.Error()))
+			return 1
+		}
+		if !ok || selected == nil {
+			return printSessionList(workspace)
+		}
+		return runLoadedSession(workspace, *selected)
 	}
 
 	session, err := findWorkspaceSession(workspace, conversationID)
@@ -41,6 +57,10 @@ func runResume(args []string) int {
 		return printSessionList(workspace)
 	}
 
+	return runLoadedSession(workspace, *session)
+}
+
+func runLoadedSession(workspace string, session agentSessionRecord) int {
 	loaded := newAgentTerminalSession(
 		workspace,
 		append([]ai.ConversationMessage(nil), session.Conversation...),

@@ -10,10 +10,9 @@ import (
 )
 
 // Run is the small command router for the shipped `axon` binary.
-// I keep this intentionally lightweight instead of pulling in a CLI framework
-// because M1 only needs open, ask, commit, and help. That keeps startup fast
-// and makes the binary safer to ship beside axon-core without adding another
-// dependency surface.
+// This stays intentionally lightweight instead of pulling in a CLI framework:
+// startup stays fast, and the binary remains safe to ship beside axon-core
+// without adding another dependency surface.
 func Run(args []string) int {
 	if len(args) == 0 {
 		return runSession(nil)

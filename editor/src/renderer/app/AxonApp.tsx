@@ -16,6 +16,7 @@ import {
   type LspDiagnosticsByFile,
 } from "../features/diagnostics/lib/diagnosticCache";
 import {
+  createWelcomeLayout,
   createInitialLayout,
   openFileInPane,
   closeTabInPane,
@@ -59,6 +60,10 @@ import {
   detectLanguageServerLanguage,
   getModel,
 } from "../features/editor/lib/monacoModels";
+import {
+  hasSeenAxonOnboarding,
+  markAxonOnboardingSeen,
+} from "../features/onboarding/lib/welcomeTab";
 
 function formatOutputTime(date = new Date()) {
   return date.toLocaleTimeString([], {
@@ -69,12 +74,20 @@ function formatOutputTime(date = new Date()) {
 }
 
 function App() {
+  const shouldShowOnboardingRef = useRef(!hasSeenAxonOnboarding());
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [workspaceRoots, setWorkspaceRoots] = useState<WorkspaceRoot[]>([]);
   const [activeRootId, setActiveRootId] = useState<string | null>(null);
   const [tree, setTree] = useState<FileNode | null>(null);
   const [loading, setLoading] = useState(false);
-  const [layout, setLayout] = useState<Layout>(createInitialLayout);
+  const [layout, setLayout] = useState<Layout>(() => {
+    if (!shouldShowOnboardingRef.current) {
+      return createInitialLayout();
+    }
+
+    markAxonOnboardingSeen();
+    return createWelcomeLayout();
+  });
   const [cursorInfo, setCursorInfo] = useState({ line: 1, col: 1 });
   const [language, setLanguage] = useState("plaintext");
   const [terminalOpen, setTerminalOpen] = useState(false);

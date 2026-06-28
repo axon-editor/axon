@@ -290,13 +290,13 @@ func runTerminalSession(workspace string, session *agentTerminalSession) int {
 		fmt.Println(dim("Session: " + currentSession.id))
 	}
 	fmt.Println(dim("Type /help for local commands. Press Ctrl-D or type /exit to leave."))
+	promptHistory := userPromptHistory(currentSession.conversation)
 
 	for {
-		// I read input through a dedicated prompt renderer instead of plain
-		// bufio line input because the Axon CLI should behave like a small
-		// command surface, not a generic stdin pipe. Raw key handling is what
-		// lets slash commands filter live while the user types.
-		prompt, err := readAgentPrompt()
+		// A dedicated prompt renderer is used instead of plain bufio line input
+		// because the Axon CLI behaves like a small command surface, not generic
+		// stdin. Raw key handling lets slash commands filter live while typing.
+		prompt, err := readAgentPrompt(promptHistory)
 		if err != nil {
 			if err == io.EOF {
 				fmt.Println()
@@ -322,6 +322,7 @@ func runTerminalSession(workspace string, session *agentTerminalSession) int {
 
 		history := append([]ai.ConversationMessage(nil), currentSession.conversation...)
 		currentSession.appendUserTurn(prompt)
+		promptHistory = appendPromptHistory(promptHistory, prompt)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		response, err := streamAgentRequest(ctx, streamRequestInput{
@@ -342,6 +343,27 @@ func runTerminalSession(workspace string, session *agentTerminalSession) int {
 
 		currentSession.appendAssistantTurn(response)
 	}
+}
+
+func userPromptHistory(conversation []ai.ConversationMessage) []string {
+	prompts := make([]string, 0, len(conversation))
+	for _, message := range conversation {
+		if message.Role == "user" {
+			prompts = append(prompts, message.Content)
+		}
+	}
+	return promptHistoryFromConversation(prompts)
+}
+
+func appendPromptHistory(history []string, prompt string) []string {
+	trimmed := strings.TrimSpace(prompt)
+	if trimmed == "" {
+		return history
+	}
+	if len(history) > 0 && history[len(history)-1] == trimmed {
+		return history
+	}
+	return append(history, trimmed)
 }
 
 func runOneShotSession(workspace, prompt string) int {

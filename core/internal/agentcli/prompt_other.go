@@ -11,7 +11,7 @@ import (
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
 
-func readAgentPrompt() (string, error) {
+func readAgentPrompt(history []string) (string, error) {
 	fmt.Fprint(os.Stdout, interactivePromptLine)
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && len(strings.TrimSpace(line)) == 0 {

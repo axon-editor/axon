@@ -48,3 +48,28 @@ func TestBuildMessagesRejectsWorkspaceClaimsWithoutProjectContext(t *testing.T) 
 		t.Fatalf("system prompt should guard workspace visibility without context\n%s", systemPrompt)
 	}
 }
+
+func TestBuildMessagesSendsConversationAsModelTurns(t *testing.T) {
+	request := ChatRequest{
+		Action: "ask",
+		Prompt: "What about the second file?",
+		Conversation: []ConversationMessage{
+			{Role: "user", Content: "Read editor/src/main/appMain.ts"},
+			{Role: "assistant", Content: "The file owns Electron startup."},
+		},
+	}
+
+	messages := BuildMessages(request)
+	if len(messages) != 4 {
+		t.Fatalf("BuildMessages returned %d messages, want system + 2 history + current", len(messages))
+	}
+	if messages[1].Role != "user" || !strings.Contains(messages[1].Content, "appMain.ts") {
+		t.Fatalf("first history message not preserved as user turn: %#v", messages[1])
+	}
+	if messages[2].Role != "assistant" || !strings.Contains(messages[2].Content, "Electron startup") {
+		t.Fatalf("second history message not preserved as assistant turn: %#v", messages[2])
+	}
+	if messages[3].Role != "user" || !strings.Contains(messages[3].Content, "What about the second file?") {
+		t.Fatalf("current prompt should remain the final user turn: %#v", messages[3])
+	}
+}

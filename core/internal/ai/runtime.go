@@ -62,9 +62,9 @@ func RuntimeBinaryPath() (string, bool) {
 	}
 
 	// Packaged macOS apps do not inherit the same PATH as an interactive shell,
-	// so exec.LookPath can miss a perfectly valid Homebrew install. I check the
-	// common install locations explicitly so opening Axon from Finder can still
-	// start the local Axon models runtime without asking the user to run a
+	// so exec.LookPath can miss a perfectly valid Homebrew install. Common
+	// install locations are checked explicitly so opening Axon from Finder can
+	// still start the local Axon models runtime without asking the user to run a
 	// terminal command first.
 	for _, candidate := range []string{
 		"/opt/homebrew/bin/ollama",

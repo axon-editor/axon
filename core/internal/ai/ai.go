@@ -289,7 +289,7 @@ func catalogModelInfo(installedRuntimeModels map[string]bool) []ModelInfo {
 }
 
 func BuildMessages(request ChatRequest) []modelMessage {
-	return []modelMessage{
+	messages := []modelMessage{
 		{
 			Role: "system",
 			Content: strings.Join([]string{
@@ -308,16 +308,57 @@ func BuildMessages(request ChatRequest) []modelMessage {
 				editProposalInstruction(request.Action),
 			}, "\n"),
 		},
-		{
-			Role: "user",
-			Content: strings.Join([]string{
-				"Action: " + request.Action,
-				"Instruction: " + actionInstruction(request.Action),
-				"User prompt: " + fallback(request.Prompt, "(no extra prompt)"),
-				"Context:",
-				buildContext(request),
-			}, "\n\n"),
-		},
+	}
+
+	messages = append(messages, priorConversationMessages(request.Conversation)...)
+	messages = append(messages, modelMessage{
+		Role: "user",
+		Content: strings.Join([]string{
+			"Action: " + request.Action,
+			"Instruction: " + actionInstruction(request.Action),
+			"User prompt: " + fallback(request.Prompt, "(no extra prompt)"),
+			"Context:",
+			buildContext(request),
+		}, "\n\n"),
+	})
+	return messages
+}
+
+func priorConversationMessages(conversation []ConversationMessage) []modelMessage {
+	if len(conversation) == 0 {
+		return nil
+	}
+
+	// Conversation history must be real model turns, not a flattened paragraph
+	// inside the latest prompt. Local models use role boundaries to understand
+	// follow-up questions, so resumed CLI sessions keep the last turns while the
+	// current user prompt is always appended separately by BuildMessages.
+	start := len(conversation) - 20
+	if start < 0 {
+		start = 0
+	}
+
+	messages := make([]modelMessage, 0, len(conversation)-start)
+	for _, message := range conversation[start:] {
+		role := normalizedConversationRole(message.Role)
+		content := strings.TrimSpace(message.Content)
+		if content == "" {
+			continue
+		}
+		messages = append(messages, modelMessage{
+			Role:    role,
+			Content: trimForPrompt(content, 4000),
+		})
+	}
+	return messages
+}
+
+func normalizedConversationRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "assistant", "tool":
+		return strings.ToLower(strings.TrimSpace(role))
+	default:
+		return "user"
 	}
 }
 
@@ -656,21 +697,6 @@ func buildContext(request ChatRequest) string {
 
 	if request.ProjectContext != nil {
 		parts = append(parts, formatProjectContextForPrompt(*request.ProjectContext))
-	}
-
-	if len(request.Conversation) > 0 {
-		lines := []string{"Recent conversation:"}
-		for index, message := range request.Conversation {
-			if index >= 12 {
-				break
-			}
-			role := strings.TrimSpace(message.Role)
-			if role == "" {
-				role = "message"
-			}
-			lines = append(lines, fmt.Sprintf("- %s: %s", role, trimForPrompt(message.Content, 1200)))
-		}
-		parts = append(parts, strings.Join(lines, "\n"))
 	}
 
 	for index, file := range request.Files {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -30,7 +31,7 @@ func runFix(args []string) int {
 
 	response, err := streamAgentRequest(ctx, streamRequestInput{
 		Action:      "fix-problem",
-		Prompt:      "Fix the most important current diagnostic. Return an editProposal JSON block with full replacement file content for every changed file.",
+		Prompt:      fixPrompt(snapshot),
 		FolderPath:  snapshot.Workspace,
 		Diagnostics: snapshot.Diagnostics,
 	})
@@ -51,4 +52,21 @@ func runFix(args []string) int {
 
 	fmt.Fprintf(os.Stderr, "%s\n", dim("Done. Axon will refresh diagnostics from the changed files."))
 	return 0
+}
+
+func fixPrompt(snapshot diagnosticsSnapshot) string {
+	lines := []string{
+		"Fix the current Axon Problems for this workspace.",
+		"Return an editProposal JSON block with full replacement file content for every changed file.",
+		"Do not include files outside the workspace.",
+		"Diagnostics:",
+	}
+	for index, diagnostic := range snapshot.Diagnostics {
+		if index >= 25 {
+			lines = append(lines, fmt.Sprintf("[diagnostics truncated, %d more]", len(snapshot.Diagnostics)-index))
+			break
+		}
+		lines = append(lines, fmt.Sprintf("- %s:%d:%d [%s] %s", diagnostic.Path, diagnostic.Line, diagnostic.Column, diagnostic.Severity, diagnostic.Message))
+	}
+	return strings.Join(lines, "\n")
 }

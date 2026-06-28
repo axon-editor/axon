@@ -51,10 +51,10 @@ type projectContextCandidate struct {
 // same project awareness a serious editor needs: a workspace tree plus the
 // highest-value source, config, and documentation files.
 //
-// I still cap the final payload because local models have real context windows
-// even when there is no API bill. Without these limits, generated folders,
-// caches, lockfiles, or binaries can push useful code out of the prompt and
-// make answers worse while also making the editor feel slow.
+// The final payload is still capped because local models have real context
+// windows even when there is no API bill. Without these limits, generated
+// folders, caches, lockfiles, or binaries can push useful code out of the
+// prompt and make answers worse while also making the editor feel slow.
 func BuildProjectContext(ctx context.Context, root string) (ProjectContext, error) {
 	cleanRoot, err := validateProjectContextRoot(root)
 	if err != nil {

@@ -82,6 +82,20 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		Model:        defaultModelID(),
 	}
 
+	if toolContext := buildCliToolContext(streamCtx, streamRequestInput{
+		Action:       input.Action,
+		Prompt:       input.Prompt,
+		FolderPath:   folderPath,
+		Diagnostics:  input.Diagnostics,
+		GitDiff:      input.GitDiff,
+		Conversation: input.Conversation,
+	}); strings.TrimSpace(toolContext) != "" {
+		request.Conversation = append(request.Conversation, ai.ConversationMessage{
+			Role:    "user",
+			Content: toolContext,
+		})
+	}
+
 	if shouldFetchProjectContext(input) {
 		// Project context is best-effort here because the useful behavior is
 		// still to answer from the current workspace path and backend tools if a

@@ -68,3 +68,35 @@ func readDiagnosticsSnapshotForCurrentWorkspace() (diagnosticsSnapshot, error) {
 	snapshot.Workspace = workspacePath
 	return snapshot, nil
 }
+
+func readDiagnosticsSnapshotForWorkspace(workspace string) (diagnosticsSnapshot, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return diagnosticsSnapshot{}, err
+	}
+
+	rawSnapshot, err := os.ReadFile(filepath.Join(home, ".axon", "diagnostics.json"))
+	if err != nil {
+		return diagnosticsSnapshot{}, err
+	}
+
+	var snapshot diagnosticsSnapshot
+	if err := json.Unmarshal(rawSnapshot, &snapshot); err != nil {
+		return diagnosticsSnapshot{}, err
+	}
+
+	workspacePath, err := filepath.Abs(workspace)
+	if err != nil {
+		return diagnosticsSnapshot{}, err
+	}
+	snapshotWorkspace, err := filepath.Abs(snapshot.Workspace)
+	if err != nil {
+		return diagnosticsSnapshot{}, err
+	}
+	if snapshotWorkspace != workspacePath {
+		return diagnosticsSnapshot{}, fmt.Errorf("diagnostics belong to %s, not %s", snapshotWorkspace, workspacePath)
+	}
+
+	snapshot.Workspace = snapshotWorkspace
+	return snapshot, nil
+}

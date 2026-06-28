@@ -34,8 +34,25 @@ export function createPane(activeFile?: string): Pane {
   };
 }
 
-// createInitialLayout creates the default single pane layout
+// createInitialLayout creates the normal empty editor layout. This must not
+// open onboarding by default because workspace switching, CLI folder opens, and
+// invalid session recovery all use the initial layout as a safe fallback. If
+// onboarding lived here, every new workspace would feel like a first-run app
+// launch instead of a normal project switch.
 export function createInitialLayout(): Layout {
+  const pane = createPane();
+  return {
+    panes: [pane],
+    activePaneId: pane.id,
+    splitDirection: "horizontal",
+  };
+}
+
+// createWelcomeLayout is the explicit first-run/onboarding layout. Keeping it
+// separate from createInitialLayout makes the product rule clear: welcome is a
+// deliberate app-level experience, not the default state for every workspace
+// that has no restored tabs yet.
+export function createWelcomeLayout(): Layout {
   const pane = createPane(AXON_WELCOME_TAB_PATH);
   return {
     panes: [pane],

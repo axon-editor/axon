@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func readAgentPrompt() (string, error) {
+func readAgentPrompt(history []string) (string, error) {
 	if !isInteractiveTTY() {
 		return readLinePrompt()
 	}
@@ -57,7 +57,15 @@ func readAgentPrompt() (string, error) {
 	cursor := 0
 	notice := ""
 	selectedSuggestion := 0
+	historyIndex := len(history)
+	draftBeforeHistory := []rune{}
 	renderedLines := 0
+	replaceBuffer := func(next []rune) {
+		buffer = append(buffer[:0], next...)
+		cursor = len(buffer)
+		selectedSuggestion = 0
+		notice = ""
+	}
 	render := func() {
 		selectedSuggestion = clampSuggestionIndex(promptSuggestions(string(buffer)), selectedSuggestion)
 		renderedLines = renderAgentPromptWithNotice(os.Stdout, buffer, cursor, selectedSuggestion, notice, renderedLines)
@@ -121,11 +129,28 @@ func readAgentPrompt() (string, error) {
 			case "up":
 				if suggestions := promptSuggestions(string(buffer)); len(suggestions) > 0 {
 					selectedSuggestion = (selectedSuggestion - 1 + len(suggestions)) % len(suggestions)
+				} else if promptHasMultipleLines(buffer) {
+					cursor = movePromptCursorVertically(buffer, cursor, -1)
+				} else if len(history) > 0 && historyIndex > 0 {
+					if historyIndex == len(history) {
+						draftBeforeHistory = append([]rune(nil), buffer...)
+					}
+					historyIndex--
+					replaceBuffer([]rune(history[historyIndex]))
 				}
 				render()
 			case "down":
 				if suggestions := promptSuggestions(string(buffer)); len(suggestions) > 0 {
 					selectedSuggestion = (selectedSuggestion + 1) % len(suggestions)
+				} else if promptHasMultipleLines(buffer) {
+					cursor = movePromptCursorVertically(buffer, cursor, 1)
+				} else if len(history) > 0 && historyIndex < len(history) {
+					historyIndex++
+					if historyIndex == len(history) {
+						replaceBuffer(draftBeforeHistory)
+					} else {
+						replaceBuffer([]rune(history[historyIndex]))
+					}
 				}
 				render()
 			case "left":
@@ -157,6 +182,7 @@ func readAgentPrompt() (string, error) {
 			}
 			notice = ""
 			selectedSuggestion = 0
+			historyIndex = len(history)
 			buffer = append(buffer[:cursor], append([]rune{rune(key)}, buffer[cursor:]...)...)
 			cursor++
 			render()

@@ -669,7 +669,7 @@ export function useAxonAppEffects({
     if (!sessionReady) return;
     if (!folderPath && !allowSessionPersistenceRef.current) return;
 
-    // I persist only UI/navigation state here, never dirty editor contents.
+    // Only UI/navigation state is persisted here, never dirty editor contents.
     // Restoring unsaved buffers would require a separate crash-safe draft store;
     // until that exists, saving paths/tabs/panels gives useful continuity
     // without pretending unsaved edits are protected.

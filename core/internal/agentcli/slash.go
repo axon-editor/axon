@@ -27,6 +27,10 @@ func slashCommandsCatalog() []slashCommandDefinition {
 			Summary: "choose the Axon model for this terminal",
 			Aliases: []string{"models"},
 		},
+		{
+			Name:    "tools",
+			Summary: "show deterministic project tools used by the CLI",
+		},
 	}
 }
 
@@ -56,6 +60,9 @@ func runSlashCommand(prompt string) (bool, int) {
 	switch commandName {
 	case "model", "models":
 		return true, runModelSlashCommand()
+	case "tools":
+		printToolsHelp()
+		return true, 0
 	case "help":
 		printSlashHelp()
 		return true, 0
@@ -114,7 +121,17 @@ func statusColor(installed bool) string {
 func printSlashHelp() {
 	fmt.Println("Local Axon commands")
 	fmt.Println("  /models   choose the Axon model for this terminal")
+	fmt.Println("  /tools    show deterministic project tools used by the CLI")
 	fmt.Println("  /help     show local slash commands")
+}
+
+func printToolsHelp() {
+	fmt.Println("Axon CLI project tools")
+	fmt.Println("  list_files       attaches workspace structure for project/codebase questions")
+	fmt.Println("  read_file        attaches mentioned source files by path")
+	fmt.Println("  search_project   searches symbols/text for where/find/search prompts")
+	fmt.Println("  problems         attaches current Axon Problems for this workspace")
+	fmt.Println("  git_diff         attaches Git diff summaries for change/review prompts")
 }
 
 func resolveSlashCommandName(input string) (string, bool) {
@@ -241,8 +258,8 @@ func commandSlashAliasMatch(command slashCommandDefinition, value string, match 
 
 // slashFuzzyMatch is intentionally simple subsequence matching. It is enough
 // for a tiny local command catalog, keeps the CLI dependency-free, and still
-// gives the important "I typed /mdl and got /model" behavior from larger TUI
-// command palettes.
+// gives the important "/mdl resolves to /model" behavior from larger TUI
+// command palettes without needing a ranking library.
 func slashFuzzyMatch(candidate string, query string) bool {
 	if query == "" {
 		return true
