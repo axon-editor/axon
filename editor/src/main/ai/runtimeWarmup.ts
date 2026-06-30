@@ -1,7 +1,7 @@
 import { readSettingsForFolder } from "../settings/io";
 
 export async function warmUpAiRuntime(input: { axonCorePort: string }) {
-  const settings = readSettingsForFolder(null);
+  const settings = await readSettingsForFolder(null);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 7000);
 

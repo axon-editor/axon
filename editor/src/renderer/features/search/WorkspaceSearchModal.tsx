@@ -209,7 +209,8 @@ export default function WorkspaceSearchModal({
     const file = await readFile(filePath);
     const updated = file.content.replaceAll(searchText, nextText);
     if (updated === file.content) return false;
-    await writeFile(filePath, updated);
+    if (!rootPath) return false;
+    await writeFile(filePath, updated, rootPath);
     return true;
   };
 

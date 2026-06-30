@@ -60,6 +60,8 @@ const WORKSPACE_MARKER_IGNORED_DIRECTORIES = new Set([
   "vendor",
   "__pycache__",
 ]);
+const resolvedCommandPathCache = new Map<string, string>();
+const commandAvailabilityCache = new Map<string, boolean>();
 
 function directoryHasFileWithExtension(
   folderPath: string,
@@ -167,8 +169,8 @@ export function detectPythonVirtualEnvForWorkspace(folderPath: string) {
   return { virtualEnvPath: "", interpreterPath: "" };
 }
 
-export function getPythonLanguageServerSettings(folderPath: string) {
-  const settings = readSettingsForFolder(folderPath);
+export async function getPythonLanguageServerSettings(folderPath: string) {
+  const settings = await readSettingsForFolder(folderPath);
   const hasWorkspaceSettings =
     Boolean(folderPath) && fs.existsSync(getWorkspaceSettingsPath(folderPath));
   const detectedVirtualEnv = detectPythonVirtualEnvForWorkspace(folderPath);
@@ -249,7 +251,7 @@ function resolveTypeScriptSdkPath(folderPath: string) {
   return null;
 }
 
-export function getLanguageServerInitializationOptions(
+export async function getLanguageServerInitializationOptions(
   session: LanguageServerSession,
 ) {
   if (session.id === "typescript") {
@@ -279,7 +281,7 @@ export function getLanguageServerInitializationOptions(
   }
 
   if (session.id !== "python") return undefined;
-  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  const pythonSettings = await getPythonLanguageServerSettings(session.folderPath);
   if (!pythonSettings) return undefined;
 
   return {
@@ -310,7 +312,7 @@ export function notifyLanguageServer(
   });
 }
 
-export function notifyLanguageServerConfiguration(
+export async function notifyLanguageServerConfiguration(
   session: LanguageServerSession,
   notifyLanguageServer: (
     session: LanguageServerSession,
@@ -366,7 +368,7 @@ export function notifyLanguageServerConfiguration(
   }
 
   if (session.id !== "python") return;
-  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  const pythonSettings = await getPythonLanguageServerSettings(session.folderPath);
   if (!pythonSettings) return;
 
   notifyLanguageServer(session, "workspace/didChangeConfiguration", {
@@ -580,6 +582,9 @@ export function getExecutableSearchDirectories() {
 }
 
 export function resolveCommandPath(command: string) {
+  const cached = resolvedCommandPathCache.get(command);
+  if (cached) return cached;
+
   if (path.isAbsolute(command) && fs.existsSync(command)) return command;
 
   const commandVariants =
@@ -591,16 +596,20 @@ export function resolveCommandPath(command: string) {
     for (const candidate of commandVariants) {
       const resolved = path.join(dir, candidate);
       if (fs.existsSync(resolved)) {
+        resolvedCommandPathCache.set(command, resolved);
         return resolved;
       }
     }
   }
 
+  resolvedCommandPathCache.set(command, command);
   return command;
 }
 
 export async function canRunCommand(command: string, _args: string[]) {
   const resolvedCommand = resolveCommandPath(command);
+  const cached = commandAvailabilityCache.get(resolvedCommand);
+  if (cached !== undefined) return cached;
   // Settings refresh should be a read-only check. The previous implementation
   // executed `--version` for every language server, but the bundled TypeScript
   // server is launched through Electron's own binary in Node mode. Probing that
@@ -608,7 +617,9 @@ export async function canRunCommand(command: string, _args: string[]) {
   // before the process exits, which makes the LSP buttons look like they reload
   // Axon. Existence is enough here; the real start path still owns process
   // spawn errors and reports them as lifecycle messages.
-  return path.isAbsolute(resolvedCommand) && fs.existsSync(resolvedCommand);
+  const available = path.isAbsolute(resolvedCommand) && fs.existsSync(resolvedCommand);
+  commandAvailabilityCache.set(resolvedCommand, available);
+  return available;
 }
 
 export function writeLanguageServerMessage(

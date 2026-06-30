@@ -427,7 +427,9 @@ export function configureLspNavigation(
         request as Parameters<typeof window.axon.executeLanguageServerCommand>[0],
       );
       if (!result.ok) return;
-      await applyWorkspaceEdits(result.edits, monacoInstance);
+      const folderPath = window.axonCompletionWorkspacePath;
+      if (!folderPath) return;
+      await applyWorkspaceEdits(result.edits, folderPath, monacoInstance);
     },
   );
 }

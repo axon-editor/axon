@@ -22,13 +22,23 @@ export function createBundledCoreController(
 
   function waitForAxonCore(timeoutMs = 5000) {
     const startedAt = Date.now();
+    let pollInterval = 30;
 
     return new Promise<boolean>((resolve) => {
+      let settled = false;
+
+      const settle = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+
       const check = () => {
+        if (settled) return;
         const request = http.get(getAxonCoreHealthUrl(), (response) => {
           response.resume();
           if (response.statusCode && response.statusCode >= 200 && response.statusCode < 500) {
-            resolve(true);
+            settle(true);
             return;
           }
           retry();
@@ -42,14 +52,40 @@ export function createBundledCoreController(
       };
 
       const retry = () => {
+        if (settled) return;
         if (Date.now() - startedAt >= timeoutMs) {
-          resolve(false);
+          settle(false);
           return;
         }
-        setTimeout(check, 150);
+        setTimeout(check, pollInterval);
+        pollInterval = Math.min(Math.floor(pollInterval * 1.5), 200);
       };
 
       check();
+    });
+  }
+
+  function probeAxonCoreOnce(timeoutMs = 150) {
+    // Packaged launches normally own the bundled core process, so a long
+    // pre-spawn poll only adds dead time. This single probe is just enough to
+    // detect an orphaned/already-running core from a previous session without
+    // delaying the common cold-start path.
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const settle = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      const request = http.get(getAxonCoreHealthUrl(), (response) => {
+        response.resume();
+        settle(Boolean(response.statusCode && response.statusCode >= 200 && response.statusCode < 500));
+      });
+      request.once("error", () => settle(false));
+      request.setTimeout(timeoutMs, () => {
+        request.destroy();
+        settle(false);
+      });
     });
   }
 
@@ -61,7 +97,7 @@ export function createBundledCoreController(
   async function startBundledAxonCore() {
     if (deps.isDev || bundledCoreProcess) return;
 
-    if (await waitForAxonCore(400)) return;
+    if (await probeAxonCoreOnce(150)) return;
 
     const corePath = getBundledCorePath();
     if (!fs.existsSync(corePath)) {

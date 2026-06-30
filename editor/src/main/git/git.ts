@@ -24,12 +24,22 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+function gitCommandTimeout(args: string[]) {
+  // Cheap metadata commands should fail fast. A stuck credential helper or
+  // broken repository should not make a settings/status refresh wait behind
+  // the same timeout budget as expensive diff/show operations.
+  const command = args[0] ?? "";
+  if (command === "rev-parse" || command === "branch") return 5000;
+  if (command === "status" || command === "ls-files") return 10000;
+  return 30000;
+}
+
 async function runGit(
   folderPath: string,
   args: string[],
 ): Promise<{ stdout: string; stderr: string }> {
   const result = await execFileAsync("git", ["-C", folderPath, ...args], {
-    timeout: 30000,
+    timeout: gitCommandTimeout(args),
     maxBuffer: 1024 * 1024 * 8,
   });
 
@@ -905,12 +915,11 @@ export async function runGitStashAction(
 
 export async function getGitWatchPaths(folderPath: string): Promise<string[]> {
   try {
-    const gitDirResult = await runGit(folderPath, ["rev-parse", "--git-dir"]);
-    const commonDirResult = await runGit(folderPath, [
-      "rev-parse",
-      "--git-common-dir",
+    const [gitDirResult, commonDirResult, status] = await Promise.all([
+      runGit(folderPath, ["rev-parse", "--git-dir"]),
+      runGit(folderPath, ["rev-parse", "--git-common-dir"]),
+      getGitStatus(folderPath),
     ]);
-    const status = await getGitStatus(folderPath);
     const root = status.root ?? folderPath;
 
     const resolveGitPath = (value: string) =>

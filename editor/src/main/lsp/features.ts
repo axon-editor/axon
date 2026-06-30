@@ -69,6 +69,16 @@ const activeLanguageServerFailures = new Map<
   string,
   { message: string; timestamp: number }
 >();
+const diagnosticsDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingDiagnosticsByFile = new Map<
+  string,
+  {
+    folderPath: string;
+    filePath: string;
+    serverId: string;
+    diagnostics: EditorDiagnostic[];
+  }
+>();
 const stoppingLanguageServerKeys = new Set<string>();
 const warmingLanguageServerKeys = new Set<string>();
 const LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS = 120_000;
@@ -77,6 +87,24 @@ const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 8_000;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
 let loginShellEnvironmentPromise: Promise<NodeJS.ProcessEnv> | null = null;
+
+function diagnosticsPendingKey(input: {
+  folderPath: string;
+  serverId: string;
+  filePath: string;
+}) {
+  return `${input.folderPath}::${input.serverId}::${input.filePath}`;
+}
+
+function clearPendingDiagnosticsForSession(session: LanguageServerSession) {
+  const prefix = `${session.folderPath}::${session.id}::`;
+  for (const [key, timer] of diagnosticsDebounceTimers) {
+    if (!key.startsWith(prefix)) continue;
+    clearTimeout(timer);
+    diagnosticsDebounceTimers.delete(key);
+    pendingDiagnosticsByFile.delete(key);
+  }
+}
 
 function parseEnvironmentOutput(output: string) {
   const parsed: NodeJS.ProcessEnv = {};
@@ -601,7 +629,7 @@ function handleLanguageServerPayload(
   }
 
   if (message.method && typeof message.id === "number") {
-    handleLanguageServerRequest(
+    void handleLanguageServerRequest(
       session,
       message.id,
       message.method,
@@ -640,7 +668,7 @@ function writeLanguageServerResponse(
   });
 }
 
-function getConfigurationValueForSection(
+async function getConfigurationValueForSection(
   session: LanguageServerSession,
   section: string,
 ) {
@@ -682,7 +710,7 @@ function getConfigurationValueForSection(
     return null;
   }
 
-  const pythonSettings = getPythonLanguageServerSettings(session.folderPath);
+  const pythonSettings = await getPythonLanguageServerSettings(session.folderPath);
   if (!pythonSettings) return null;
 
   if (!section) return pythonSettings;
@@ -699,7 +727,7 @@ function getConfigurationValueForSection(
   return null;
 }
 
-function getLanguageServerConfigurationResponse(
+async function getLanguageServerConfigurationResponse(
   session: LanguageServerSession,
   params: unknown,
 ) {
@@ -710,15 +738,15 @@ function getLanguageServerConfigurationResponse(
   };
   const items = Array.isArray(request?.items) ? request.items : [];
 
-  return items.map((item) =>
+  return Promise.all(items.map((item) =>
     getConfigurationValueForSection(
       session,
       typeof item.section === "string" ? item.section : "",
     ),
-  );
+  ));
 }
 
-function handleLanguageServerRequest(
+async function handleLanguageServerRequest(
   session: LanguageServerSession,
   id: number,
   method: unknown,
@@ -733,7 +761,7 @@ function handleLanguageServerRequest(
     writeLanguageServerResponse(
       session,
       id,
-      getLanguageServerConfigurationResponse(session, params),
+      await getLanguageServerConfigurationResponse(session, params),
     );
     return;
   }
@@ -848,21 +876,44 @@ function publishLanguageServerDiagnostics(
       (diagnostic): diagnostic is EditorDiagnostic => diagnostic !== null,
     );
 
-  for (const window of BrowserWindow.getAllWindows()) {
+  const pendingKey = diagnosticsPendingKey({
+    folderPath: session.folderPath,
+    serverId: session.id,
+    filePath,
+  });
+  // Language servers can publish diagnostics on nearly every keystroke. I keep
+  // only the latest payload per server/file pair and send it after a short
+  // debounce so Monaco marker updates do not compete with typing and document
+  // sync while the user is mid-edit.
+  pendingDiagnosticsByFile.set(pendingKey, {
+    folderPath: session.folderPath,
+    filePath,
+    serverId: session.id,
+    diagnostics,
+  });
+  const existingTimer = diagnosticsDebounceTimers.get(pendingKey);
+  if (existingTimer) clearTimeout(existingTimer);
+
+  diagnosticsDebounceTimers.set(pendingKey, setTimeout(() => {
+    diagnosticsDebounceTimers.delete(pendingKey);
+    const latest = pendingDiagnosticsByFile.get(pendingKey);
+    pendingDiagnosticsByFile.delete(pendingKey);
+    if (!latest) return;
+
+    // Fan-out still happens to every live BrowserWindow because Axon can have
+    // multiple windows open, but the fan-out is now paid once per debounce
+    // window instead of once per raw LSP publish.
+    for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
       try {
-        window.webContents.send("lsp:diagnostics", {
-          folderPath: session.folderPath,
-          filePath,
-          serverId: session.id,
-          diagnostics,
-        });
+        window.webContents.send("lsp:diagnostics", latest);
       } catch {
         // Diagnostics can arrive while the app is closing. Dropping one late
         // publish is safe; letting it crash the main process is not.
       }
     }
-  }
+    }
+  }, 80));
 }
 
 function normalizeLanguageServerDiagnosticSeverity(
@@ -948,13 +999,14 @@ function requestLanguageServer(
 
 function disposeLanguageServerSession(session: LanguageServerSession) {
   session.disposed = true;
+  clearPendingDiagnosticsForSession(session);
   if (session.initializeRetryTimer) {
     clearTimeout(session.initializeRetryTimer);
     session.initializeRetryTimer = null;
   }
 }
 
-function initializeLanguageServer(session: LanguageServerSession) {
+async function initializeLanguageServer(session: LanguageServerSession) {
   if (
     session.disposed ||
     session.process.killed ||
@@ -974,7 +1026,7 @@ function initializeLanguageServer(session: LanguageServerSession) {
     {
       processId: process.pid,
       rootUri: url.pathToFileURL(session.folderPath).toString(),
-      initializationOptions: getLanguageServerInitializationOptions(session),
+      initializationOptions: await getLanguageServerInitializationOptions(session),
       workspaceFolders: [
         {
           uri: url.pathToFileURL(session.folderPath).toString(),
@@ -1072,7 +1124,7 @@ function initializeLanguageServer(session: LanguageServerSession) {
       console.log("[LSP SPAWN OK]", session.id);
       if (session.disposed) return;
       notifyLanguageServer(session, "initialized", {});
-      notifyLanguageServerConfiguration(session, notifyLanguageServer);
+      void notifyLanguageServerConfiguration(session, notifyLanguageServer);
       console.log("[LSP INIT OK]", session.id);
       session.initialized = true;
       session.initializeRetryCount = 0;
@@ -1104,7 +1156,7 @@ function initializeLanguageServer(session: LanguageServerSession) {
       // stale retries after a manual stop or crash.
       session.initializeRetryTimer = setTimeout(() => {
         session.initializeRetryTimer = null;
-        initializeLanguageServer(session);
+        void initializeLanguageServer(session);
       }, LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS);
     });
 }
@@ -1230,7 +1282,7 @@ function startLanguageServerDefinition(
               activeLanguageServers.delete(key);
             });
 
-            initializeLanguageServer(session);
+            void initializeLanguageServer(session);
 
             return {
               label: definition.label,
@@ -1498,10 +1550,13 @@ export function getLanguageServerStatus(
       const running = activeLanguageServers.has(sessionKey);
       const lastFailure = activeLanguageServerFailures.get(sessionKey);
       const failed = Boolean(lastFailure && !running);
+      const pythonSettings =
+        definition.id === "python"
+          ? await getPythonLanguageServerSettings(folderPath)
+          : null;
       const pythonInterpreter =
         definition.id === "python"
-          ? getPythonLanguageServerSettings(folderPath)?.python
-              .defaultInterpreterPath
+          ? pythonSettings?.python.defaultInterpreterPath
           : "";
       const status = running
         ? "running"

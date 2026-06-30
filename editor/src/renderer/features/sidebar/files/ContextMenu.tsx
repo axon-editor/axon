@@ -24,6 +24,7 @@ import { type InlineCreateKind } from "./InlineCreateRow";
 
 interface Props {
   menu: { x: number; y: number; node: FileNode; isRoot?: boolean };
+  rootPath: string;
   existingNames: string[];
   onClose: () => void;
   onRefresh: () => void | Promise<void>;
@@ -38,6 +39,7 @@ interface Props {
 
 export default function ContextMenu({
   menu,
+  rootPath,
   existingNames,
   onClose,
   onRefresh,
@@ -133,7 +135,7 @@ export default function ContextMenu({
   };
 
   const handleDelete = async () => {
-    await deleteEntry(menu.node.path);
+    await deleteEntry(menu.node.path, rootPath);
     onEntryDeleted?.(menu.node.path);
     await onRefresh();
     onClose();

@@ -422,12 +422,13 @@ export default function App() {
 
   const handleApplyAgentEdit = useCallback(
     async (filePath: string, content: string) => {
-      await writeFile(filePath, content);
+      if (!folderPath) return;
+      await writeFile(filePath, content, folderPath);
       handleFileSelect(filePath);
       await handleRefresh();
       appendOutput("ai", `Applied Axon edit to ${filePath}`, "success");
     },
-    [appendOutput],
+    [appendOutput, folderPath],
   );
 
   const handleSettingsSave = useCallback(async (
@@ -608,7 +609,8 @@ export default function App() {
         }
       }
 
-      await writeFile(filePath, model.getValue());
+      if (!folderPath) return false;
+      await writeFile(filePath, model.getValue(), folderPath);
       if (folderPath && workspaceTrusted) {
         if (languageId !== "plaintext") {
           try {

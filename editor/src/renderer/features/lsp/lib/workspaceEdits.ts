@@ -50,6 +50,7 @@ function toMonacoRange(edit: LanguageServerTextEdit) {
 
 export async function applyWorkspaceEdits(
   editsByFile: Record<string, LanguageServerTextEdit[]>,
+  folderPath: string,
   monacoInstance: typeof monaco = monaco,
 ) {
   const failures: string[] = [];
@@ -80,7 +81,7 @@ export async function applyWorkspaceEdits(
       const file = await readFile(filePath);
       const nextContent = applyTextEditsToString(file.content, edits);
       if (nextContent !== file.content) {
-        await writeFile(filePath, nextContent);
+        await writeFile(filePath, nextContent, folderPath);
         updateModel(filePath, nextContent);
       }
     } catch (err) {

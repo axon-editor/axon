@@ -90,10 +90,11 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		GitDiff:      input.GitDiff,
 		Conversation: input.Conversation,
 	}); strings.TrimSpace(toolContext) != "" {
-		request.Conversation = append(request.Conversation, ai.ConversationMessage{
-			Role:    "user",
-			Content: toolContext,
-		})
+		request.Prompt = strings.Join([]string{
+			strings.TrimSpace(input.Prompt),
+			"CLI tool context:",
+			toolContext,
+		}, "\n\n")
 	}
 
 	if shouldFetchProjectContext(input) {
@@ -221,29 +222,7 @@ func shouldFetchProjectContext(input streamRequestInput) bool {
 }
 
 func promptNeedsProjectContext(prompt string) bool {
-	normalizedPrompt := strings.ToLower(strings.TrimSpace(prompt))
-	if normalizedPrompt == "" {
-		return false
-	}
-	greetings := map[string]bool{
-		"hi": true, "hey": true, "hello": true, "yo": true,
-		"hi axon": true, "hey axon": true, "hello axon": true,
-	}
-	if greetings[normalizedPrompt] {
-		return false
-	}
-
-	projectTerms := []string{
-		"file", "folder", "project", "workspace", "repo", "code", "codebase", "code base", "function",
-		"method", "class", "component", "where", "find", "search", "read",
-		"implement", "fix", "bug", "error", "diagnostic", "git", "diff", "see my",
-	}
-	for _, term := range projectTerms {
-		if strings.Contains(normalizedPrompt, term) {
-			return true
-		}
-	}
-	return len(strings.Fields(normalizedPrompt)) > 6
+	return ai.PromptNeedsProjectContext(prompt)
 }
 
 type streamSpinner struct {

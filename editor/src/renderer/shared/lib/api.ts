@@ -60,11 +60,15 @@ export async function readFile(path: string): Promise<FileContent> {
 }
 
 // writeFile saves content to a file at the given path
-export async function writeFile(path: string, content: string): Promise<void> {
+export async function writeFile(
+  path: string,
+  content: string,
+  root: string,
+): Promise<void> {
   await request("/fs/file", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, content }),
+    body: JSON.stringify({ path, content, root }),
   });
 }
 
@@ -84,10 +88,13 @@ export async function createDir(path: string): Promise<void> {
   });
 }
 
-export async function deleteEntry(path: string): Promise<void> {
-  await request(`/fs/delete?path=${encodeURIComponent(path)}`, {
-    method: "DELETE",
-  });
+export async function deleteEntry(path: string, root: string): Promise<void> {
+  await request(
+    `/fs/delete?path=${encodeURIComponent(path)}&root=${encodeURIComponent(root)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function moveEntry(

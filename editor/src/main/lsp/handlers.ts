@@ -74,7 +74,7 @@ export function registerLspHandlers() {
         };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) {
         return {
           ok: true,
@@ -112,7 +112,7 @@ export function registerLspHandlers() {
         return { ok: true, items: [] };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) {
         return { ok: true, items: [] };
       }
@@ -126,7 +126,7 @@ export function registerLspHandlers() {
     async (_event, request: LanguageServerDocumentSyncRequest): Promise<void> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) return;
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return;
 
       await syncDocumentWithLanguageServer(request);
@@ -143,7 +143,7 @@ export function registerLspHandlers() {
         return { ok: true, contents: [] };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, contents: [] };
 
       return getLanguageServerHover(request);
@@ -160,7 +160,7 @@ export function registerLspHandlers() {
         return { ok: true, locations: [] };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, locations: [] };
 
       return getLanguageServerDefinitions(request);
@@ -177,7 +177,7 @@ export function registerLspHandlers() {
         return { ok: true, locations: [] };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, locations: [] };
 
       return getLanguageServerReferences(request);
@@ -194,7 +194,7 @@ export function registerLspHandlers() {
         return { ok: true, edits: {} };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, edits: {} };
 
       return renameLanguageServerSymbol(request);
@@ -211,7 +211,7 @@ export function registerLspHandlers() {
         return { ok: true, edits: [] };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, edits: [] };
 
       return formatLanguageServerDocument(request);
@@ -228,7 +228,7 @@ export function registerLspHandlers() {
         return { ok: true, signatures: [] };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, signatures: [] };
 
       return getLanguageServerSignatureHelp(request);
@@ -245,7 +245,7 @@ export function registerLspHandlers() {
         return { ok: true, actions: [] };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, actions: [] };
 
       return getLanguageServerCodeActions(request);
@@ -262,7 +262,7 @@ export function registerLspHandlers() {
         return { ok: true, edits: {} };
       }
 
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, edits: {} };
 
       return executeLanguageServerCommand(request);

@@ -65,6 +65,7 @@ interface TerminalSession {
   fitAddon: FitAddon | null;
   ws: WebSocket | null;
   reconnectTimer: number | null;
+  resizeDebounceTimer: number | null;
   resizeObserver: ResizeObserver | null;
   dataDisposable: { dispose: () => void } | null;
   multilineDisposable: { dispose: () => void } | null;
@@ -79,6 +80,8 @@ interface TerminalSession {
   queuedInputBytes: number;
   scrollLine: number;
   atBottom: boolean;
+  lastResizeCols: number | null;
+  lastResizeRows: number | null;
   refreshFrame: number | null;
   disposed: boolean;
   terminating: boolean;
@@ -127,7 +130,11 @@ function sendWorkspaceCd(session: TerminalSession) {
 
   const commands: string[] = [];
   if (session.workingDirectory) {
-    commands.push(`cd -- ${quoteShellPath(session.workingDirectory)}`);
+    // Prefixing with a space is intentional. Shells configured with
+    // HISTCONTROL=ignorespace or the equivalent zsh HISTIGNORE pattern will
+    // skip Axon's automatic workspace cd, so reconnect/setup noise is less
+    // likely to pollute the user's real command history.
+    commands.push(` cd -- ${quoteShellPath(session.workingDirectory)}`);
   }
 
   // Axon should not inject command-specific shell setup here. The backend
@@ -135,7 +142,7 @@ function sendWorkspaceCd(session: TerminalSession) {
   // version managers, and installed commands come from the user's own shell
   // files. This renderer only keeps the prompt visually clean after choosing
   // the workspace directory.
-  commands.push("clear");
+  commands.push(" clear");
   session.ws.send(`${commands.join("; ")}\r`);
   session.cwdSynced = true;
 }
@@ -198,7 +205,26 @@ function sendTerminate(ws: WebSocket) {
 
 function getOutputByteLength(data: unknown) {
   if (typeof data === "string") {
-    return new TextEncoder().encode(data).length;
+    // Terminal input/output is overwhelmingly ASCII, but reconnect replay must
+    // count real UTF-8 bytes because the backend scrollback offsets are byte
+    // based. Walking code points avoids allocating a TextEncoder result on
+    // every keystroke while still keeping emoji and non-Latin text aligned with
+    // the server's replay cursor.
+    let byteLength = 0;
+    for (let index = 0; index < data.length; index += 1) {
+      const codePoint = data.codePointAt(index) ?? 0;
+      if (codePoint > 0xffff) index += 1;
+      if (codePoint < 0x80) {
+        byteLength += 1;
+      } else if (codePoint < 0x800) {
+        byteLength += 2;
+      } else if (codePoint < 0x10000) {
+        byteLength += 3;
+      } else {
+        byteLength += 4;
+      }
+    }
+    return byteLength;
   }
   if (data instanceof ArrayBuffer) return data.byteLength;
   if (data instanceof Blob) return data.size;
@@ -312,7 +338,13 @@ export default function Terminal({
     const wasAtBottom = session.term ? isTerminalAtBottom(session.term) : true;
     session.fitAddon.fit();
     const dims = session.fitAddon.proposeDimensions();
-    if (dims && session.ws.readyState === WebSocket.OPEN) {
+    if (
+      dims &&
+      session.ws.readyState === WebSocket.OPEN &&
+      (dims.cols !== session.lastResizeCols || dims.rows !== session.lastResizeRows)
+    ) {
+      session.lastResizeCols = dims.cols;
+      session.lastResizeRows = dims.rows;
       session.ws.send(
         JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }),
       );
@@ -336,6 +368,20 @@ export default function Terminal({
     window.requestAnimationFrame(() => sendResize(activeTabId));
   }, [activeTabId, sendResize]);
 
+  const scheduleReconnect = useCallback(
+    (session: TerminalSession, callback: () => void, delayMs: number) => {
+      // A terminal websocket can close while output is still draining and while
+      // a previous retry is already queued. Clearing the old timer here keeps
+      // reconnect attempts single-file per session instead of stacking several
+      // delayed `connectSession` calls against the same PTY.
+      if (session.reconnectTimer) {
+        window.clearTimeout(session.reconnectTimer);
+      }
+      session.reconnectTimer = window.setTimeout(callback, delayMs);
+    },
+    [],
+  );
+
   const disposeSession = useCallback((id: string, terminate = true) => {
     const session = sessionsRef.current[id];
 
@@ -344,6 +390,10 @@ export default function Terminal({
     if (session?.reconnectTimer) {
       window.clearTimeout(session.reconnectTimer);
       session.reconnectTimer = null;
+    }
+    if (session?.resizeDebounceTimer) {
+      window.clearTimeout(session.resizeDebounceTimer);
+      session.resizeDebounceTimer = null;
     }
     if (session?.refreshFrame !== null && session?.refreshFrame !== undefined) {
       window.cancelAnimationFrame(session.refreshFrame);
@@ -399,6 +449,7 @@ export default function Terminal({
       fitAddon: null,
       ws: null,
       reconnectTimer: null,
+      resizeDebounceTimer: null,
       resizeObserver: null,
       dataDisposable: null,
       multilineDisposable: null,
@@ -413,6 +464,8 @@ export default function Terminal({
       queuedInputBytes: 0,
       scrollLine: 0,
       atBottom: true,
+      lastResizeCols: null,
+      lastResizeRows: null,
       refreshFrame: null,
       disposed: false,
       terminating: false,
@@ -516,10 +569,7 @@ export default function Terminal({
           currentSession.term.write(
             "\r\n\x1b[31mterminal backend is not reachable. Axon will retry shortly.\x1b[0m\r\n",
           );
-          currentSession.reconnectTimer = window.setTimeout(
-            () => connectSession(id),
-            1500,
-          );
+          scheduleReconnect(currentSession, () => connectSession(id), 1500);
           return;
         }
 
@@ -587,20 +637,23 @@ export default function Terminal({
             }
 
             if (hasPendingTerminalOutput(settledSession)) {
-              settledSession.reconnectTimer = window.setTimeout(
+              scheduleReconnect(
+                settledSession,
                 reconnectWhenOutputIsSettled,
                 80,
               );
               return;
             }
 
-            settledSession.reconnectTimer = window.setTimeout(
+            scheduleReconnect(
+              settledSession,
               () => connectSession(id),
               250,
             );
           };
 
-          latestSession.reconnectTimer = window.setTimeout(
+          scheduleReconnect(
+            latestSession,
             reconnectWhenOutputIsSettled,
             80,
           );
@@ -616,7 +669,7 @@ export default function Terminal({
         };
       });
     },
-    [sendResize, updateTabConnection],
+    [scheduleReconnect, sendResize, updateTabConnection],
   );
 
   const attachContainer = useCallback(
@@ -725,7 +778,18 @@ export default function Terminal({
       // Resize messages are sent only after fitting xterm to the visible
       // container. Without this, shells can render with stale dimensions after
       // toggling the panel, switching tabs, or dragging the window size.
-      session.resizeObserver = new ResizeObserver(() => sendResize(id));
+      session.resizeObserver = new ResizeObserver(() => {
+        if (session.resizeDebounceTimer) {
+          window.clearTimeout(session.resizeDebounceTimer);
+        }
+        // ResizeObserver can fire several times during one React/layout pass.
+        // Debouncing keeps xterm from repeatedly fitting, shrinking rows, and
+        // shifting the viewport while agent output is still being written.
+        session.resizeDebounceTimer = window.setTimeout(() => {
+          session.resizeDebounceTimer = null;
+          sendResize(id);
+        }, 80);
+      });
       session.resizeObserver.observe(container);
     },
     [connectSession, sendResize, terminalOptions],

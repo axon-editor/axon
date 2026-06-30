@@ -49,6 +49,23 @@ function parseCoreStreamLine(line: string): CoreStreamEvent {
   return envelope.data;
 }
 
+function parseCoreStreamLineSafely(line: string): CoreStreamEvent | null {
+  try {
+    return parseCoreStreamLine(line);
+  } catch (err) {
+    // A malformed NDJSON line should not kill a long-running chat stream after
+    // useful tokens have already arrived. Proper error envelopes still flow
+    // through parseCoreStreamLine; this catch only skips data that is not valid
+    // stream JSON at all and leaves a bounded log sample for debugging.
+    console.warn(
+      "skipped malformed AI stream line:",
+      line.slice(0, 500),
+      err,
+    );
+    return null;
+  }
+}
+
 function toChatStreamEvent(
   event: CoreStreamEvent,
 ): Omit<AiChatStreamEvent, "requestId"> {
@@ -106,14 +123,17 @@ export function startCoreAiStream(input: {
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          const event = parseCoreStreamLine(trimmed);
+          const event = parseCoreStreamLineSafely(trimmed);
+          if (!event) continue;
           input.send({ requestId, ...toChatStreamEvent(event) });
         }
       }
 
       if (pending.trim()) {
-        const event = parseCoreStreamLine(pending.trim());
-        input.send({ requestId, ...toChatStreamEvent(event) });
+        const event = parseCoreStreamLineSafely(pending.trim());
+        if (event) {
+          input.send({ requestId, ...toChatStreamEvent(event) });
+        }
       }
       input.send({ requestId, type: "done", done: true });
     } catch (err) {
@@ -182,7 +202,8 @@ export function startCoreModelPullStream(input: {
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          const event = parseCoreStreamLine(trimmed);
+          const event = parseCoreStreamLineSafely(trimmed);
+          if (!event) continue;
           input.send({
             requestId,
             type: event.type as AiPullEvent["type"],

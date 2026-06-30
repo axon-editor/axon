@@ -136,11 +136,12 @@ func shouldSkipSearchFile(path string) bool {
 
 func trimSearchPreview(line string) string {
 	preview := strings.TrimSpace(line)
-	if len(preview) <= 220 {
+	runes := []rune(preview)
+	if len(runes) <= 220 {
 		return preview
 	}
 
-	return preview[:220]
+	return string(runes[:220])
 }
 
 func isBinaryContent(data []byte) bool {
@@ -373,6 +374,10 @@ func SearchWorkspaceContext(ctx context.Context, rootPath string, query string, 
 		if isBinaryContent(sample[:sampleSize]) {
 			return nil
 		}
+		// The deferred close above still runs when this WalkDir callback
+		// returns, including this seek-error branch. Keeping the close lifetime
+		// tied to the callback avoids leaking descriptors while making the early
+		// skip paths cheap and easy to follow.
 		if _, err := file.Seek(0, 0); err != nil {
 			return nil
 		}

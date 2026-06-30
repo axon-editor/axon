@@ -6,13 +6,16 @@ interface FileWatcherDependencies {
   shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => boolean;
   sendToRenderer: (channel: string, payload?: unknown) => void;
   getGitWatchPaths: (folderPath: string) => Promise<string[]>;
-  stopAllLanguageServers: () => void;
+  stopAllLanguageServers: () => void | Promise<void>;
 }
 
 export class FileWatcherManager {
   private activeWatcher: FSWatcher | null = null;
   private folderWatcher: FSWatcher | null = null;
   private gitWatcher: FSWatcher | null = null;
+  private activeFileDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly deps: FileWatcherDependencies) {}
 
@@ -62,18 +65,30 @@ export class FileWatcherManager {
   }
 
   async closeActiveWatcher() {
+    if (this.activeFileDebounceTimer) {
+      clearTimeout(this.activeFileDebounceTimer);
+      this.activeFileDebounceTimer = null;
+    }
     if (!this.activeWatcher) return;
     await this.activeWatcher.close();
     this.activeWatcher = null;
   }
 
   async closeFolderWatcher() {
+    if (this.folderDebounceTimer) {
+      clearTimeout(this.folderDebounceTimer);
+      this.folderDebounceTimer = null;
+    }
     if (!this.folderWatcher) return;
     await this.folderWatcher.close();
     this.folderWatcher = null;
   }
 
   async closeGitWatcher() {
+    if (this.gitDebounceTimer) {
+      clearTimeout(this.gitDebounceTimer);
+      this.gitDebounceTimer = null;
+    }
     if (!this.gitWatcher) return;
     await this.gitWatcher.close();
     this.gitWatcher = null;
@@ -82,14 +97,13 @@ export class FileWatcherManager {
   async watchFile(filePath: string) {
     await this.closeActiveWatcher();
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
     this.activeWatcher = chokidar.watch(filePath, this.buildWatcherOptions());
 
     this.activeWatcher.on("change", () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (this.activeFileDebounceTimer) clearTimeout(this.activeFileDebounceTimer);
 
-      debounceTimer = setTimeout(() => {
+      this.activeFileDebounceTimer = setTimeout(() => {
+        this.activeFileDebounceTimer = null;
         try {
           const content = fs.readFileSync(filePath, "utf-8");
           // The file watcher can still fire during reload/close. Sending through
@@ -134,55 +148,77 @@ export class FileWatcherManager {
   async watchFolder(folderPath: string) {
     await this.closeFolderWatcher();
     await this.closeGitWatcher();
-    this.deps.stopAllLanguageServers();
+    // Stopping language servers belongs before the new watcher is installed:
+    // diagnostics and file sync from the old workspace should not race with
+    // filesystem events from the folder the user just opened.
+    await Promise.resolve(this.deps.stopAllLanguageServers());
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-    this.folderWatcher = chokidar.watch(folderPath, {
-      ...this.buildWatcherOptions(),
-      ignored: this.deps.shouldIgnoreWorkspaceWatchPath,
-      depth: 8,
-    });
-
-    const notify = (changedPath: string) => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        this.deps.sendToRenderer("fs:folderChanged", { path: changedPath });
-        // New untracked files and deleted files do not always mutate the small
-        // set of .git paths we watch quickly enough for the sidebar colors to
-        // feel live. I refresh Git status from the normal folder watcher too so
-        // the tree and Git decorations move together after creates, imports,
-        // edits, and deletes.
-        this.deps.sendToRenderer("git:changed");
-      }, 90);
-    };
-
-    this.folderWatcher.on("add", notify);
-    this.folderWatcher.on("change", notify);
-    this.folderWatcher.on("unlink", notify);
-    this.folderWatcher.on("addDir", notify);
-    this.folderWatcher.on("unlinkDir", notify);
-
-    const gitWatchPaths = await this.deps.getGitWatchPaths(folderPath);
-    if (gitWatchPaths.length > 0) {
-      this.gitWatcher = chokidar.watch(gitWatchPaths, {
+    try {
+      this.folderWatcher = chokidar.watch(folderPath, {
         ...this.buildWatcherOptions(),
-        depth: 4,
+        ignored: this.deps.shouldIgnoreWorkspaceWatchPath,
+        depth: 8,
       });
 
-      const notifyGit = () => {
-        if (gitDebounceTimer) clearTimeout(gitDebounceTimer);
-        gitDebounceTimer = setTimeout(() => {
+      const notify = (changedPath: string) => {
+        if (this.folderDebounceTimer) clearTimeout(this.folderDebounceTimer);
+        // The timer is stored on the manager, not as a local closure variable,
+        // because workspace switches close the watcher before the last debounce
+        // may have fired. closeFolderWatcher can now cancel this pending send
+        // and prevent a stale tree refresh for a folder that is no longer open.
+        this.folderDebounceTimer = setTimeout(() => {
+          this.folderDebounceTimer = null;
+          this.deps.sendToRenderer("fs:folderChanged", { path: changedPath });
+          // New untracked files and deleted files do not always mutate the small
+          // set of .git paths we watch quickly enough for the sidebar colors to
+          // feel live. I refresh Git status from the normal folder watcher too so
+          // the tree and Git decorations move together after creates, imports,
+          // edits, and deletes.
           this.deps.sendToRenderer("git:changed");
         }, 90);
       };
 
-      this.gitWatcher.on("add", notifyGit);
-      this.gitWatcher.on("change", notifyGit);
-      this.gitWatcher.on("unlink", notifyGit);
-      this.gitWatcher.on("addDir", notifyGit);
-      this.gitWatcher.on("unlinkDir", notifyGit);
+      this.folderWatcher.on("add", notify);
+      this.folderWatcher.on("change", notify);
+      this.folderWatcher.on("unlink", notify);
+      this.folderWatcher.on("addDir", notify);
+      this.folderWatcher.on("unlinkDir", notify);
+
+      const gitWatchPaths = await this.deps.getGitWatchPaths(folderPath);
+      if (gitWatchPaths.length > 0) {
+        this.gitWatcher = chokidar.watch(gitWatchPaths, {
+          ...this.buildWatcherOptions(),
+          // Git watch paths are intentionally narrow (`HEAD`, `index`, `refs`,
+          // etc). A shallow depth keeps rebase/fetch updates visible without
+          // walking deep object directories on repositories with many refs.
+          depth: 2,
+        });
+
+        const notifyGit = () => {
+          if (this.gitDebounceTimer) clearTimeout(this.gitDebounceTimer);
+          // This timer is also instance-owned so closeGitWatcher can cancel it
+          // during rapid workspace changes. Otherwise a delayed git:changed
+          // event can repaint source-control state for the wrong workspace.
+          this.gitDebounceTimer = setTimeout(() => {
+            this.gitDebounceTimer = null;
+            this.deps.sendToRenderer("git:changed");
+          }, 90);
+        };
+
+        this.gitWatcher.on("add", notifyGit);
+        this.gitWatcher.on("change", notifyGit);
+        this.gitWatcher.on("unlink", notifyGit);
+        this.gitWatcher.on("addDir", notifyGit);
+        this.gitWatcher.on("unlinkDir", notifyGit);
+      }
+    } catch (err) {
+      // If git path discovery or watcher setup fails halfway through, the app
+      // should not keep a partially initialized watcher around. Closing both
+      // sides here returns the manager to a clean state so the next folder open
+      // starts from known lifecycle boundaries.
+      await this.closeFolderWatcher();
+      await this.closeGitWatcher();
+      throw err;
     }
   }
 

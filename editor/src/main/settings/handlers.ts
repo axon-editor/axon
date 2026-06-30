@@ -125,7 +125,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
   );
 
   ipcMain.handle("settings:get", async (_event, folderPath?: string | null) => {
-    const settings = readSettingsForFolder(folderPath);
+    const settings = await readSettingsForFolder(folderPath);
     const settingsPath = getSettingsPath(folderPath);
     const hasWorkspaceSettings =
       Boolean(folderPath) && fs.existsSync(settingsPath);
@@ -210,7 +210,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       if (fs.existsSync(pathForSettings)) return pathForSettings;
       if (!folderPath) return pathForSettings;
 
-      const nextSettings = settings ?? readSettingsForFolder(folderPath);
+      const nextSettings = settings ?? (await readSettingsForFolder(folderPath));
       writeSettingsToDisk(nextSettings, pathForSettings);
       return pathForSettings;
     },

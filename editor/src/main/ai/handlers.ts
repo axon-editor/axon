@@ -78,7 +78,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
   ipcMain.handle(
     "ai:getRuntimeStatus",
     async (_event, folderPath?: string | null): Promise<AiRuntimeStatus> => {
-      const settings = readSettingsForFolder(folderPath);
+      const settings = await readSettingsForFolder(folderPath);
       return getCoreAiRuntimeStatus({
         axonCorePort: deps.axonCorePort,
         model: settings.ai.model,
@@ -89,7 +89,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
   ipcMain.handle(
     "ai:listModels",
     async (_event, folderPath?: string | null): Promise<AiModelInfo[]> => {
-      const settings = readSettingsForFolder(folderPath);
+      const settings = await readSettingsForFolder(folderPath);
       return listCoreAiModels({
         axonCorePort: deps.axonCorePort,
         model: settings.ai.model,
@@ -114,7 +114,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
       // credentials, and provider routing are privileged integration details.
       // The renderer sends user intent and prepared context; the main process
       // decides which provider can execute it and returns a safe result shape.
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       return runLocalAiChat(request, settings);
     },
   );
@@ -122,7 +122,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
   ipcMain.handle(
     "ai:chatStream",
     async (event, request: AiChatRequest): Promise<AiChatStreamStarted> => {
-      const settings = readSettingsForFolder(request.folderPath);
+      const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.ai.enabled) {
         return {
           success: false,

@@ -176,6 +176,11 @@ func trimProjectContextToTokenBudget(contextPack *ProjectContext, maxTokens int)
 	if contextPack == nil {
 		return
 	}
+	// This intentionally mutates the request-owned context pack before prompt
+	// assembly. The caller has already attached the snapshot to a single chat
+	// request, and trimming in place avoids carrying a second copy of large file
+	// contents while making IncludedFiles/SkippedFiles match what the model
+	// actually receives.
 	budget := maxTokens * bytesPerToken
 	used := 0
 	kept := contextPack.Files[:0]

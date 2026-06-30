@@ -448,7 +448,7 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 	}
 
 	for round := 0; round < 4; round++ {
-		if err := emit(StreamEvent{Type: "status", Status: "Reading project context..."}); err != nil {
+		if err := emit(StreamEvent{Type: "status", Status: fmt.Sprintf("Reading project context (step %d of 4)...", round+1)}); err != nil {
 			return nil, err
 		}
 
@@ -502,32 +502,41 @@ func shouldUseProjectTools(request ChatRequest) bool {
 	if request.Action != "ask" {
 		return true
 	}
-	prompt := strings.ToLower(strings.TrimSpace(request.Prompt))
-	if prompt == "" {
+	return PromptNeedsProjectContext(request.Prompt)
+}
+
+func PromptNeedsProjectContext(prompt string) bool {
+	normalizedPrompt := strings.ToLower(strings.TrimSpace(prompt))
+	if normalizedPrompt == "" {
 		return false
 	}
 	greetings := map[string]bool{
 		"hi": true, "hey": true, "hello": true, "yo": true,
 		"hi axon": true, "hey axon": true, "hello axon": true,
 	}
-	if greetings[prompt] {
+	if greetings[normalizedPrompt] {
 		return false
 	}
 
 	projectTerms := []string{
-		"file", "folder", "project", "workspace", "repo", "code", "function",
+		"file", "folder", "project", "workspace", "repo", "code", "codebase", "code base", "function",
 		"method", "class", "component", "where", "find", "search", "read",
-		"implement", "fix", "bug", "error", "diagnostic", "git", "diff",
+		"implement", "fix", "bug", "error", "diagnostic", "git", "diff", "see my",
 	}
 	for _, term := range projectTerms {
-		if strings.Contains(prompt, term) {
+		if strings.Contains(normalizedPrompt, term) {
 			return true
 		}
 	}
-	return len(strings.Fields(prompt)) > 6
+	return len(strings.Fields(normalizedPrompt)) > 6
 }
 
 func callChatOnce(ctx context.Context, request ChatRequest, messages []modelMessage, withTools bool) (modelChatResponse, error) {
+	// Tool planning intentionally uses a non-streaming chat call because this
+	// path needs one complete structured response before it can decide which
+	// project tools to run. Streaming partial JSON would reduce perceived
+	// latency on slow local models, but it would make tool-call parsing fragile
+	// and could execute a half-emitted function call with incomplete arguments.
 	payload := chatPayload(request, messages, false)
 	if withTools {
 		payload["tools"] = ProjectToolDefinitions()

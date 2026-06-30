@@ -10,12 +10,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/ai"
 	"github.com/GordenArcher/axon-core/internal/fs"
 	"github.com/GordenArcher/axon-core/internal/terminal"
-	"github.com/google/uuid"
 )
 
 // Server is the core HTTP server struct.
@@ -47,13 +49,94 @@ type Response struct {
 	Timestamp string `json:"timestamp"`
 }
 
+const maxJSONRequestBodyBytes = 32 << 20
+
+var responseIDCounter uint64
+
+func newResponseID() string {
+	// Health checks and tiny filesystem responses are on hot startup paths, so
+	// request IDs should not pay for crypto randomness on every response. The
+	// counter still gives each local response a useful correlation ID without
+	// making `/health` polling depend on `crypto/rand`.
+	return "core-" + strconv.FormatUint(atomic.AddUint64(&responseIDCounter, 1), 36)
+}
+
+func limitRequestBody(w http.ResponseWriter, r *http.Request) {
+	// axon-core is local-only, but every JSON decoder below still reads from an
+	// HTTP body. Capping the body here prevents a malformed renderer request or
+	// local script from forcing the process to allocate an unbounded payload
+	// before validation has a chance to reject it.
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONRequestBodyBytes)
+}
+
+func pathInsideWorkspace(rootPath string, candidatePath string) (bool, error) {
+	// Destructive file operations must be checked against the workspace root in
+	// core, not only in the renderer. The renderer is a UI boundary; this
+	// server owns the final filesystem boundary, so it must reject escaped paths
+	// even if a bug or crafted IPC call sends an absolute path outside the
+	// project.
+	cleanRoot, err := filepath.Abs(filepath.Clean(rootPath))
+	if err != nil {
+		return false, err
+	}
+	if resolvedRoot, err := filepath.EvalSymlinks(cleanRoot); err == nil {
+		cleanRoot = resolvedRoot
+	}
+
+	cleanCandidate, err := filepath.Abs(filepath.Clean(candidatePath))
+	if err != nil {
+		return false, err
+	}
+	if resolvedCandidate, err := filepath.EvalSymlinks(cleanCandidate); err == nil {
+		cleanCandidate = resolvedCandidate
+	} else if os.IsNotExist(err) {
+		// New files do not have a target inode yet, so EvalSymlinks cannot
+		// resolve the full path. Resolving the parent catches the important case:
+		// a workspace symlink that points outside the root and would otherwise
+		// let a save create or overwrite a file somewhere else.
+		resolvedParent, parentErr := filepath.EvalSymlinks(filepath.Dir(cleanCandidate))
+		if parentErr == nil {
+			cleanCandidate = filepath.Join(resolvedParent, filepath.Base(cleanCandidate))
+		}
+	}
+	relativePath, err := filepath.Rel(cleanRoot, cleanCandidate)
+	if err != nil {
+		return false, err
+	}
+	if relativePath == "." {
+		return true, nil
+	}
+	return relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)), nil
+}
+
+func validateWorkspacePath(rootPath string, candidatePath string) error {
+	// The renderer sends the active workspace root with every write/delete.
+	// Requiring it makes the contract explicit: core will not mutate arbitrary
+	// absolute paths unless the caller proves the path belongs to the active
+	// project boundary.
+	if rootPath == "" {
+		return errors.New("workspace root is required")
+	}
+	if candidatePath == "" {
+		return errors.New("path is required")
+	}
+	inside, err := pathInsideWorkspace(rootPath, candidatePath)
+	if err != nil {
+		return err
+	}
+	if !inside {
+		return errors.New("path is outside the workspace")
+	}
+	return nil
+}
+
 // writeJSON serializes a Response to JSON and writes it to the ResponseWriter.
 // Always sets Content-Type to application/json.
 // Injects a unique request_id and timestamp into every response automatically
 // so callers don't have to think about it.
 func writeJSON(w http.ResponseWriter, status int, payload Response) {
 	// inject request ID and timestamp on every response
-	payload.RequestID = uuid.New().String()
+	payload.RequestID = newResponseID()
 	payload.Timestamp = time.Now().UTC().Format(time.RFC3339)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -136,6 +219,7 @@ func (s *Server) handleAIChatStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request ai.ChatRequest
+	limitRequestBody(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAIJSON(w, http.StatusBadRequest, aiErrorEnvelope("", http.StatusBadRequest, ai.ErrorDetail{
 			Field:   "body",
@@ -230,6 +314,7 @@ func (s *Server) handleAIModelPullStream(w http.ResponseWriter, r *http.Request)
 	}
 
 	var request ai.PullRequest
+	limitRequestBody(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		writeAIJSON(w, http.StatusBadRequest, aiErrorEnvelope("", http.StatusBadRequest, ai.ErrorDetail{
 			Field:   "body",
@@ -336,8 +421,10 @@ func (s *Server) handleFSFile(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Path    string `json:"path"`
 			Content string `json:"content"`
+			Root    string `json:"root"`
 		}
 
+		limitRequestBody(w, r)
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, Response{
 				Status: "error",
@@ -346,10 +433,14 @@ func (s *Server) handleFSFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if body.Path == "" {
-			writeJSON(w, http.StatusBadRequest, Response{
+		if err := validateWorkspacePath(body.Root, body.Path); err != nil {
+			status := http.StatusBadRequest
+			if err.Error() == "path is outside the workspace" {
+				status = http.StatusForbidden
+			}
+			writeJSON(w, status, Response{
 				Status: "error",
-				Error:  "path is required in request body",
+				Error:  err.Error(),
 			})
 			return
 		}
@@ -390,6 +481,7 @@ func (s *Server) handleFSCreate(w http.ResponseWriter, r *http.Request) {
 		IsDir bool   `json:"is_dir"`
 	}
 
+	limitRequestBody(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "invalid request body"})
 		return
@@ -434,8 +526,13 @@ func (s *Server) handleFSDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := r.URL.Query().Get("path")
-	if path == "" {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "path is required"})
+	root := r.URL.Query().Get("root")
+	if err := validateWorkspacePath(root, path); err != nil {
+		status := http.StatusBadRequest
+		if err.Error() == "path is outside the workspace" {
+			status = http.StatusForbidden
+		}
+		writeJSON(w, status, Response{Status: "error", Error: err.Error()})
 		return
 	}
 
@@ -461,6 +558,7 @@ func (s *Server) handleFSMove(w http.ResponseWriter, r *http.Request) {
 		TargetDir string `json:"target_dir"`
 	}
 
+	limitRequestBody(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "invalid request body"})
 		return
@@ -495,6 +593,7 @@ func (s *Server) handleFSRename(w http.ResponseWriter, r *http.Request) {
 		NewName string `json:"new_name"`
 	}
 
+	limitRequestBody(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "invalid request body"})
 		return

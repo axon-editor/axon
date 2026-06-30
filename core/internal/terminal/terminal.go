@@ -68,11 +68,6 @@ var terminalSessions = struct {
 // resolveWorkingDirectory decides where a new terminal session should start.
 // The renderer sends the currently opened Axon folder as cwd, which is the
 // most accurate source because it matches what the user is editing.
-//
-// During local development the Go server is often launched from core/, so the
-// fallback walks one level up when that directory shape is detected. Without
-// this fallback, opening Axon from the repo root still drops shells into core/,
-// which makes the terminal feel detached from the project.
 func resolveWorkingDirectory(requested string) string {
 	if requested != "" {
 		if info, err := os.Stat(requested); err == nil && info.IsDir() {
@@ -83,13 +78,6 @@ func resolveWorkingDirectory(requested string) string {
 	current, err := os.Getwd()
 	if err != nil {
 		return ""
-	}
-
-	if filepath.Base(current) == "core" {
-		parent := filepath.Dir(current)
-		if info, err := os.Stat(parent); err == nil && info.IsDir() {
-			return parent
-		}
 	}
 
 	return current
@@ -135,7 +123,7 @@ func createSession(id string, cwd string) (*terminalSession, error) {
 	// socket drop detaches the view but does not destroy the running command
 	// unless the user explicitly closes the terminal tab.
 	go func() {
-		buf := make([]byte, 4096)
+		buf := make([]byte, 32*1024)
 		for {
 			n, err := ptmx.Read(buf)
 			if err != nil {

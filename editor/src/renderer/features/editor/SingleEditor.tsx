@@ -643,6 +643,7 @@ export default function SingleEditor({
     const path = filePathRef.current;
     if (!path || saving) return;
     const editor = editorRef.current;
+    if (!editor || editor.getModel()?.isDisposed()) return;
     setSaving(true);
     try {
       const languageId = detectLanguageServerLanguage(path);
@@ -680,8 +681,8 @@ export default function SingleEditor({
         }
       }
 
-      const currentContent = editor?.getValue() ?? "";
-      await writeFile(path, currentContent);
+      const currentContent = editor.getValue();
+      await writeFile(path, currentContent, folderPath ?? path);
       diskContentRef.current = currentContent;
       onDirtyChange(path, false);
       window.dispatchEvent(

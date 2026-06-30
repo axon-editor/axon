@@ -28,7 +28,7 @@ import { registerTestHandlers } from "./tests/handlers";
 import { TestManager } from "./tests/tests";
 import { HtmlPreviewServer } from "./htmlPreview/server";
 import { createWindow } from "./window/createWindow";
-import { readSettingsForFolder, readSettingsFromDisk } from "./settings/io";
+import { readSettingsFromDisk } from "./settings/io";
 import { getAxonIconPath } from "./fonts/fonts";
 import { registerSettingsHandlers } from "./settings/handlers";
 import { registerUpdateHandlers } from "./updates/handlers";
@@ -155,7 +155,9 @@ const fileWatcherManager = new FileWatcherManager({
   },
   sendToRenderer,
   getGitWatchPaths,
-  stopAllLanguageServers,
+  stopAllLanguageServers: async () => {
+    await stopAllLanguageServers();
+  },
 });
 const updateManager = new UpdateManager({
   sendToRenderer,
@@ -189,7 +191,7 @@ registerSettingsHandlers({
         path.resolve(candidate.folderPath) === path.resolve(folderPath),
     );
     if (session)
-      notifyLanguageServerConfiguration(session, notifyLanguageServer);
+      void notifyLanguageServerConfiguration(session, notifyLanguageServer);
   },
   startPythonLanguageServerForFolder: async (folderPath) => {
     await startLanguageServerForLanguage(folderPath, "python");

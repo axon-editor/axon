@@ -75,7 +75,11 @@ func saveAgentSessionStore(store agentSessionStore) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o644)
+	tempPath := path + ".tmp"
+	if err := os.WriteFile(tempPath, raw, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tempPath, path)
 }
 
 func normalizeWorkspacePath(folderPath string) (string, error) {
@@ -107,40 +111,81 @@ func sessionTitle(messages []ai.ConversationMessage) string {
 		if trimmed == "" {
 			continue
 		}
-		if len(trimmed) > 60 {
-			return trimmed[:57] + "..."
+		// Session titles are shown in terminal lists, so truncation has to be
+		// rune-aware. Slicing the Go string directly can split a multi-byte
+		// character and leave replacement glyphs in the session picker.
+		runes := []rune(trimmed)
+		if len(runes) > 60 {
+			return string(runes[:57]) + "..."
 		}
 		return trimmed
 	}
 	return "New conversation"
 }
 
-func saveSessionRecord(record agentSessionRecord) error {
-	store, err := loadAgentSessionStore()
+func withAgentSessionStoreLock(fn func() error) error {
+	// The session store is a shared JSON file that can be updated by multiple
+	// `axon ask` or `axon resume` processes at the same time. I take a small
+	// companion lock before the read-modify-write cycle so one process cannot
+	// read stale JSON and overwrite a session record another process just saved.
+	path, err := sessionStorePath()
 	if err != nil {
 		return err
 	}
-
-	updated := false
-	for index := range store.Sessions {
-		if store.Sessions[index].ID == record.ID && store.Sessions[index].Workspace == record.Workspace {
-			store.Sessions[index] = record
-			updated = true
-			break
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	lockPath := path + ".lock"
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err == nil {
+			// The pid is only diagnostic. The atomic create is the lock; writing
+			// the pid makes a stale lock easier to inspect if a CLI process is
+			// killed between acquisition and cleanup.
+			_, _ = fmt.Fprintf(file, "%d\n", os.Getpid())
+			_ = file.Close()
+			defer os.Remove(lockPath)
+			return fn()
 		}
+		if !os.IsExist(err) {
+			return err
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out waiting for agent session store lock")
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
-	if !updated {
-		store.Sessions = append(store.Sessions, record)
-	}
-	sort.SliceStable(store.Sessions, func(left, right int) bool {
-		leftTime, _ := time.Parse(time.RFC3339, store.Sessions[left].UpdatedAt)
-		rightTime, _ := time.Parse(time.RFC3339, store.Sessions[right].UpdatedAt)
-		return leftTime.After(rightTime)
+}
+
+func saveSessionRecord(record agentSessionRecord) error {
+	return withAgentSessionStoreLock(func() error {
+		store, err := loadAgentSessionStore()
+		if err != nil {
+			return err
+		}
+
+		updated := false
+		for index := range store.Sessions {
+			if store.Sessions[index].ID == record.ID && store.Sessions[index].Workspace == record.Workspace {
+				store.Sessions[index] = record
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			store.Sessions = append(store.Sessions, record)
+		}
+		sort.SliceStable(store.Sessions, func(left, right int) bool {
+			leftTime, _ := time.Parse(time.RFC3339, store.Sessions[left].UpdatedAt)
+			rightTime, _ := time.Parse(time.RFC3339, store.Sessions[right].UpdatedAt)
+			return leftTime.After(rightTime)
+		})
+		if len(store.Sessions) > 100 {
+			store.Sessions = store.Sessions[:100]
+		}
+		return saveAgentSessionStore(store)
 	})
-	if len(store.Sessions) > 100 {
-		store.Sessions = store.Sessions[:100]
-	}
-	return saveAgentSessionStore(store)
 }
 
 func workspaceSessions(workspace string) ([]agentSessionRecord, error) {
@@ -275,6 +320,15 @@ func messageCountLabel(count int) string {
 	return fmt.Sprintf("%d turns", count)
 }
 
+func agentStreamTimeout() time.Duration {
+	if raw := strings.TrimSpace(os.Getenv("AXON_STREAM_TIMEOUT")); raw != "" {
+		if duration, err := time.ParseDuration(raw); err == nil && duration > 0 {
+			return duration
+		}
+	}
+	return 30 * time.Minute
+}
+
 func runTerminalSession(workspace string, session *agentTerminalSession) int {
 	currentSession := session
 	if currentSession == nil {
@@ -324,7 +378,7 @@ func runTerminalSession(workspace string, session *agentTerminalSession) int {
 		currentSession.appendUserTurn(prompt)
 		promptHistory = appendPromptHistory(promptHistory, prompt)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), agentStreamTimeout())
 		response, err := streamAgentRequest(ctx, streamRequestInput{
 			Action:       "ask",
 			Prompt:       prompt,

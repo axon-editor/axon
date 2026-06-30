@@ -9,6 +9,10 @@ const refCounts = new Map<string, number>();
 const disposalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function detectLanguage(path: string): string {
+  return detectMonacoLanguage(path);
+}
+
+export function detectMonacoLanguage(path: string): string {
   const fileName = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   const ext = path.split(".").pop()?.toLowerCase();
 
@@ -132,7 +136,7 @@ export function detectLanguageServerLanguage(path: string): string {
   if (ext === "jsx") return "javascriptreact";
   if (ext === "astro") return "astro";
 
-  return detectLanguage(path);
+  return detectMonacoLanguage(path);
 }
 
 // acquireModel increments the ref count and returns the model.
@@ -211,6 +215,8 @@ export function releaseModel(filePath: string) {
         !model.isDisposed()
       ) {
         model.dispose();
+      }
+      if ((refCounts.get(filePath) ?? 0) <= 0 && models.get(filePath) === model) {
         models.delete(filePath);
         refCounts.delete(filePath);
       }
