@@ -29,9 +29,30 @@ export default function EditorFindWidget({
         value={findQuery}
         onChange={(event) => onChangeQuery(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
+          if (
+            (event.metaKey || event.ctrlKey) &&
+            !event.shiftKey &&
+            event.key.toLowerCase() === "f"
+          ) {
+            // The find input is already the search surface. Keeping Cmd/Ctrl+F
+            // local here prevents the app-level shortcut and Monaco's hidden
+            // textarea from reopening find or moving focus in a way that makes
+            // the widget look unreliable.
+            event.preventDefault();
+            event.stopPropagation();
+            findInputRef.current?.select();
+            return;
+          }
+
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+            return;
+          }
           if (event.key === "Enter") {
             event.preventDefault();
+            event.stopPropagation();
             onMoveSelection(event.shiftKey ? -1 : 1);
           }
         }}

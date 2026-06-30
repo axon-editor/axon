@@ -590,7 +590,7 @@ export default function SettingsModal({
       width="w-[min(1080px,calc(100vw-2rem))]"
       bodyClassName="min-h-0 overflow-hidden"
     >
-      <div className="grid h-[min(760px,calc(100vh-7.5rem))] min-h-0 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
+      <div className="grid h-[min(760px,calc(100vh-4rem))] min-h-0 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
         <aside className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)] bg-[var(--axon-sidebar-background)]">
           <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-4">
             <div className="flex items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 py-2">

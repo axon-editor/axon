@@ -187,7 +187,9 @@ export function registerAppHandlers({
 
   ipcMain.handle("shell:openExternal", async (_event, href: string) => {
     if (!isExternalHandlerUrl(href)) {
-      throw new Error("Only external web, mail, and phone links can be opened.");
+      throw new Error(
+        "Only external web, mail, and phone links can be opened.",
+      );
     }
 
     await shell.openExternal(href);

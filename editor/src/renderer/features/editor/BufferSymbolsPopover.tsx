@@ -50,7 +50,7 @@ export default function BufferSymbolsPopover({
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return symbols;
     return symbols.filter((symbol) =>
-      [symbol.name, symbol.kind, symbol.preview]
+      [symbol.name, symbol.kind]
         .join(" ")
         .toLowerCase()
         .includes(normalizedQuery),
@@ -65,7 +65,10 @@ export default function BufferSymbolsPopover({
     <div className="absolute left-3 top-[42px] z-40 w-[min(560px,calc(100%-24px))] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_20px_54px_rgba(0,0,0,0.48)]">
       <div className="border-b border-[var(--axon-panel-border)] px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <FileCode2 size={14} className="shrink-0 text-[var(--axon-syntax-function)]" />
+          <FileCode2
+            size={14}
+            className="shrink-0 text-[var(--axon-syntax-function)]"
+          />
           <span className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
             {fileName}
           </span>
@@ -85,7 +88,9 @@ export default function BufferSymbolsPopover({
             >
               {segment}
               {index < breadcrumbSegments.length - 1 ? (
-                <span className="px-1 text-[var(--axon-editor-foreground)] opacity-25">/</span>
+                <span className="px-1 text-[var(--axon-editor-foreground)] opacity-25">
+                  /
+                </span>
               ) : null}
             </span>
           ))}
@@ -95,7 +100,10 @@ export default function BufferSymbolsPopover({
         </div>
       </div>
       <div className="flex h-9 items-center gap-2 border-b border-[var(--axon-panel-border)] px-2">
-        <Search size={13} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
+        <Search
+          size={13}
+          className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45"
+        />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -115,11 +123,10 @@ export default function BufferSymbolsPopover({
                 key={symbol.id}
                 type="button"
                 onClick={() => onSelect(symbol)}
-                className={`grid w-full cursor-pointer grid-cols-[76px_minmax(0,1fr)_64px] gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${
-                  symbol.id === activeSymbolId
+                className={`grid w-full cursor-pointer grid-cols-[76px_minmax(0,1fr)_64px] items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${symbol.id === activeSymbolId
                     ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
                     : "text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
-                }`}
+                  }`}
               >
                 <span className="truncate rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-syntax-function)]">
                   {symbol.kind}
@@ -127,9 +134,6 @@ export default function BufferSymbolsPopover({
                 <span className="min-w-0">
                   <span className="block truncate font-medium">
                     {symbol.name}
-                  </span>
-                  <span className="block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                    {symbol.preview}
                   </span>
                 </span>
                 <span className="text-right text-[10px] text-[var(--axon-editor-foreground)] opacity-45">

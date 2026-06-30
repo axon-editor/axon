@@ -10,8 +10,7 @@ import {
   type PointerEvent,
 } from "react";
 import { Pin, X } from "lucide-react";
-import Tooltip from "../../shared/components/Tooltip";
-
+import Tooltip from "../../shared/components/Tooltip.tsx";
 interface Props extends HTMLAttributes<HTMLDivElement> {
   label: string;
   active: boolean;
@@ -49,8 +48,8 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
 
   const stateClass = deleted
     ? active
-      ? "border-[var(--axon-panel-border)] bg-[var(--axon-tab-active-background)] text-[#ff9aa2] before:bg-[#ff7b72]"
-      : "border-transparent bg-transparent text-[#d36b72] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#ff9aa2] before:bg-transparent"
+      ? "border-[var(--axon-panel-border)] bg-[var(--axon-tab-active-background)] text-[var(--axon-syntax-method)] before:bg-[var(--axon-syntax-method)]"
+      : "border-transparent bg-transparent text-[var(--axon-syntax-method)] opacity-70 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-95 before:bg-transparent"
     : active
       ? "border-[var(--axon-panel-border)] bg-[var(--axon-tab-active-background)] text-[var(--axon-editor-foreground)] before:bg-[var(--axon-syntax-function)]"
       : "border-transparent bg-transparent text-[var(--axon-editor-foreground)] opacity-58 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-95 before:bg-transparent";
@@ -62,7 +61,10 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
       className={`group relative flex h-9 w-fit min-w-[92px] max-w-[220px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden border-r px-2.5 pl-3 text-[12px] transition-colors before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-r ${stateClass} ${className}`}
     >
       {pinned ? (
-        <Pin size={12} className="shrink-0 text-[var(--axon-syntax-function)]" />
+        <Pin
+          size={12}
+          className="shrink-0 text-[var(--axon-syntax-function)]"
+        />
       ) : null}
 
       {tooltipLabel ? (
@@ -77,7 +79,9 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
           </span>
         </Tooltip>
       ) : (
-        <span className={`min-w-0 flex-auto truncate ${deleted ? "line-through" : ""}`}>
+        <span
+          className={`min-w-0 flex-auto truncate ${deleted ? "line-through" : ""}`}
+        >
           {label}
         </span>
       )}
@@ -85,9 +89,8 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
       {dirty ? (
         <span
           aria-label="Unsaved changes"
-          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-            deleted ? "bg-[#ff7b72]" : "bg-[var(--axon-syntax-function)]"
-          }`}
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${deleted ? "bg-[var(--axon-syntax-method)]" : "bg-[var(--axon-syntax-function)]"
+            }`}
         />
       ) : null}
 

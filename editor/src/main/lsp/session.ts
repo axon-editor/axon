@@ -291,7 +291,11 @@ export async function getLanguageServerInitializationOptions(
 
 export function getTypeScriptLanguageServerPreferences() {
   return {
-    includePackageJsonAutoImports: "auto",
+    // Axon should behave like VS Code/Zed for installed packages: if a package
+    // is present in package.json/node_modules, exported symbols such as Lucide
+    // icons or React components should appear as auto-import completions even
+    // before the user has imported that module in the current file.
+    includePackageJsonAutoImports: "on",
     includeCompletionsForModuleExports: true,
     includeCompletionsForImportStatements: true,
     includeCompletionsWithInsertText: true,
@@ -343,6 +347,7 @@ export async function notifyLanguageServerConfiguration(
           suggest: {
             includeCompletionsForModuleExports: true,
             includeCompletionsForImportStatements: true,
+            includePackageJsonAutoImports: "on",
             autoImports: true,
           },
         },
@@ -359,6 +364,7 @@ export async function notifyLanguageServerConfiguration(
           suggest: {
             includeCompletionsForModuleExports: true,
             includeCompletionsForImportStatements: true,
+            includePackageJsonAutoImports: "on",
             autoImports: true,
           },
         },

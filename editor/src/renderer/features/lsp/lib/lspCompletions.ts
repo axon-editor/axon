@@ -90,6 +90,13 @@ const webTagSnippets = [
   },
 ];
 
+const htmlDocumentSnippet = {
+  label: "!",
+  insertText:
+    "<!doctype html>\n<html lang=\"${1:en}\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n  <title>${2:Document}</title>\n</head>\n<body>\n  $0\n</body>\n</html>",
+  detail: "HTML document template",
+};
+
 const emmetVoidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
 
 const dockerfileSnippets = [
@@ -333,6 +340,8 @@ function isTagSnippetCompletionContext(
     return false;
   }
 
+  if (linePrefix.trim() === "!") return true;
+
   // HTML/JSX element snippets should feel eager after `<`, but they should not
   // pollute normal string and attribute completions. This check allows
   // `<d`, `return d`, and a line-leading `d` while blocking `className="d"` and
@@ -446,29 +455,66 @@ function registerLocalSymbolProvider(monacoInstance: typeof monaco) {
 function registerWebTagSnippets(monacoInstance: typeof monaco) {
   for (const languageId of webTagLanguages) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
-      triggerCharacters: ["<", "d", "s", "m", "b", "i", "f"],
+      triggerCharacters: ["!", "<", "d", "s", "m", "b", "i", "f"],
       provideCompletionItems: (model, position) => {
         if (!snippetsEnabled()) return { suggestions: [] };
         if (!isTagSnippetCompletionContext(model, position)) {
           return { suggestions: [] };
         }
 
-        const range = getWordReplaceRange(model, position);
+        const linePrefix = getLinePrefix(model, position);
         const word = model.getWordUntilPosition(position).word.toLowerCase();
-        const suggestions = webTagSnippets
-          .filter((snippet) => !word || snippet.label.startsWith(word))
-          .map((snippet) => ({
-            label: snippet.label,
-            kind: monacoInstance.languages.CompletionItemKind.Snippet,
-            insertText: snippet.insertText,
-            insertTextRules:
-              monacoInstance.languages.CompletionItemInsertTextRule
-                .InsertAsSnippet,
-            detail: snippet.detail,
-            documentation:
-              "Axon web snippet. Works in HTML and JSX/TSX so common tags appear as soon as you type.",
-            range,
-          }));
+        const isHtmlDocumentSnippetContext =
+          languageId === "html" &&
+          linePrefix.trim() === "!" &&
+          model.getValueInRange(
+            new monacoInstance.Range(1, 1, position.lineNumber, position.column),
+          ).trim() === "!";
+        const range = isHtmlDocumentSnippetContext
+          ? new monacoInstance.Range(
+              position.lineNumber,
+              Math.max(1, position.column - 1),
+              position.lineNumber,
+              position.column,
+            )
+          : getWordReplaceRange(model, position);
+        const suggestions = [
+          ...(isHtmlDocumentSnippetContext
+            ? [
+                {
+                  label: htmlDocumentSnippet.label,
+                  kind: monacoInstance.languages.CompletionItemKind.Snippet,
+                  insertText: htmlDocumentSnippet.insertText,
+                  insertTextRules:
+                    monacoInstance.languages.CompletionItemInsertTextRule
+                      .InsertAsSnippet,
+                  detail: htmlDocumentSnippet.detail,
+                  documentation:
+                    "Creates a complete HTML document skeleton for a new HTML file.",
+                  range,
+                  sortText: "0000",
+                },
+              ]
+            : []),
+          ...webTagSnippets
+            .filter(
+              (snippet) =>
+                !isHtmlDocumentSnippetContext &&
+                (!word || snippet.label.startsWith(word)),
+            )
+            .map((snippet) => ({
+              label: snippet.label,
+              kind: monacoInstance.languages.CompletionItemKind.Snippet,
+              insertText: snippet.insertText,
+              insertTextRules:
+                monacoInstance.languages.CompletionItemInsertTextRule
+                  .InsertAsSnippet,
+              detail: snippet.detail,
+              documentation:
+                "Axon web snippet. Works in HTML and JSX/TSX so common tags appear as soon as you type.",
+              range,
+            })),
+        ];
 
         return {
           suggestions,
@@ -723,19 +769,24 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
 
         const range = getWordReplaceRange(model, position);
         return {
-          suggestions: result.items
-            .filter(
-              (item) => snippetsEnabled() || item.insertTextFormat !== 2,
-            )
-            .map((item) => {
+          suggestions: result.items.map((item) => {
             const textEditRange = toMonacoRange(item.textEdit?.range);
-            const insertText = item.textEdit?.newText ?? item.insertText ?? item.label;
+            const insertText =
+              item.textEdit?.newText ?? item.insertText ?? item.label;
 
             // Monaco already owns the same suggest-widget interaction model
             // users know from VS Code: keyboard navigation, mouse selection,
             // filtering by the typed prefix, commit characters, and snippet
             // tab stops. The important part here is preserving the LSP fields
             // instead of flattening everything into plain text suggestions.
+            //
+            // I intentionally do not hide LSP snippet insertText values behind
+            // the user's local-snippets setting. Language servers use snippet
+            // formatting for real semantic completions too, including React
+            // components, functions, and package exports that also carry
+            // additionalTextEdits for auto-imports. Filtering those items here
+            // makes installed libraries like lucide-react look invisible even
+            // though TypeScript returned the correct completion.
             return {
               label: item.label,
               kind:

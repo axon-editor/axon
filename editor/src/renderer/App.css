@@ -301,15 +301,27 @@
 }
 
 .axon-git-line--added {
-  background: rgba(126, 231, 135, 0.055);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 94%,
+    #7ee787
+  );
 }
 
 .axon-git-line--modified {
-  background: rgba(242, 204, 96, 0.06);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 94%,
+    #f2cc60
+  );
 }
 
 .axon-git-line--deleted {
-  background: rgba(255, 123, 114, 0.06);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 94%,
+    #ff7b72
+  );
 }
 
 .axon-git-gutter {

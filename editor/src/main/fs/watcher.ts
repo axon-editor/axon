@@ -7,6 +7,11 @@ interface FileWatcherDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
   getGitWatchPaths: (folderPath: string) => Promise<string[]>;
   stopAllLanguageServers: () => void | Promise<void>;
+  notifyLanguageServersOfFileChange: (
+    folderPath: string,
+    filePath: string,
+    changeType: "create" | "change" | "delete",
+  ) => void;
 }
 
 export class FileWatcherManager {
@@ -178,9 +183,34 @@ export class FileWatcherManager {
         }, 90);
       };
 
-      this.folderWatcher.on("add", notify);
-      this.folderWatcher.on("change", notify);
-      this.folderWatcher.on("unlink", notify);
+      this.folderWatcher.on("add", (changedPath) => {
+        // LSP file-watch notifications intentionally bypass the debounced tree
+        // refresh path. Language servers maintain incremental workspace
+        // indexes, so they need the concrete create/change/delete event for
+        // each unopened file as soon as chokidar observes it.
+        this.deps.notifyLanguageServersOfFileChange(
+          folderPath,
+          changedPath,
+          "create",
+        );
+        notify(changedPath);
+      });
+      this.folderWatcher.on("change", (changedPath) => {
+        this.deps.notifyLanguageServersOfFileChange(
+          folderPath,
+          changedPath,
+          "change",
+        );
+        notify(changedPath);
+      });
+      this.folderWatcher.on("unlink", (changedPath) => {
+        this.deps.notifyLanguageServersOfFileChange(
+          folderPath,
+          changedPath,
+          "delete",
+        );
+        notify(changedPath);
+      });
       this.folderWatcher.on("addDir", notify);
       this.folderWatcher.on("unlinkDir", notify);
 

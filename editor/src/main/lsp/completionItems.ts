@@ -208,5 +208,8 @@ export function normalizeLanguageServerCompletionItems(
       };
     })
     .filter((item): item is LanguageServerCompletionItem => item !== null)
-    .slice(0, 200);
+    // TypeScript can return a large list when package auto-imports are enabled.
+    // Capping at 200 was enough for local symbols but could cut off third-party
+    // exports such as icon components before the renderer ever saw them.
+    .slice(0, 1000);
 }

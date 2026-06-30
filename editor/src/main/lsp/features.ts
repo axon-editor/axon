@@ -88,6 +88,12 @@ const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 8_000;
 const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
 let loginShellEnvironmentPromise: Promise<NodeJS.ProcessEnv> | null = null;
 
+const lspWatchedFileChangeTypes = {
+  create: 1,
+  change: 2,
+  delete: 3,
+} as const;
+
 function diagnosticsPendingKey(input: {
   folderPath: string;
   serverId: string;
@@ -103,6 +109,45 @@ function clearPendingDiagnosticsForSession(session: LanguageServerSession) {
     clearTimeout(timer);
     diagnosticsDebounceTimers.delete(key);
     pendingDiagnosticsByFile.delete(key);
+  }
+}
+
+function isPathInsideWorkspace(filePath: string, folderPath: string) {
+  const normalizedFile = path.resolve(filePath);
+  const normalizedFolder = path.resolve(folderPath);
+  const relativePath = path.relative(normalizedFolder, normalizedFile);
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+  );
+}
+
+export function notifyLanguageServersOfFileChange(
+  folderPath: string,
+  filePath: string,
+  changeType: keyof typeof lspWatchedFileChangeTypes,
+) {
+  if (!isPathInsideWorkspace(filePath, folderPath)) return;
+
+  const uri = url.pathToFileURL(filePath).toString();
+  for (const session of activeLanguageServers.values()) {
+    if (session.folderPath !== folderPath) continue;
+    if (!session.initialized || session.disposed) continue;
+
+    // Files already opened in Monaco are synchronized through didOpen/didChange
+    // with full document contents. Sending a watched-file notification for the
+    // same URI can make some language servers process the same edit twice, so
+    // this path is only for unopened files and external workspace changes.
+    if (session.syncedDocuments.has(uri)) continue;
+
+    notifyLanguageServer(session, "workspace/didChangeWatchedFiles", {
+      changes: [
+        {
+          uri,
+          type: lspWatchedFileChangeTypes[changeType],
+        },
+      ],
+    });
   }
 }
 
@@ -677,6 +722,7 @@ async function getConfigurationValueForSection(
     const suggest = {
       includeCompletionsForModuleExports: true,
       includeCompletionsForImportStatements: true,
+      includePackageJsonAutoImports: "on",
       autoImports: true,
     };
 
@@ -965,6 +1011,53 @@ function getReadyLanguageServerSession(request: {
   return { ok: true as const, message: "", session };
 }
 
+async function getReadyOrWarmLanguageServerSession(request: {
+  folderPath: string;
+  languageId: string;
+}) {
+  const ready = getReadyLanguageServerSession(request);
+  if (ready.ok && ready.session) return ready;
+
+  const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
+  if (!serverId) return ready;
+
+  const sessionKey = getLanguageServerSessionKey(request.folderPath, serverId);
+  let session = activeLanguageServers.get(sessionKey);
+
+  if (!session) {
+    const definition = LANGUAGE_SERVER_DEFINITIONS.find(
+      (candidate) => candidate.id === serverId,
+    );
+    if (!definition) return ready;
+
+    const resolved = resolveLanguageServerCommand(
+      definition,
+      request.folderPath,
+    );
+    const available = await canRunCommand(resolved.command, resolved.args);
+    if (!available || !resolved.startable) return ready;
+
+    if (!warmingLanguageServerKeys.has(sessionKey)) {
+      warmingLanguageServerKeys.add(sessionKey);
+      void startLanguageServerDefinition(
+        request.folderPath,
+        definition,
+      ).finally(() => warmingLanguageServerKeys.delete(sessionKey));
+    }
+  }
+
+  // Definition is triggered by direct user intent: Ctrl/Cmd-click, F12, or the
+  // command palette. Returning an empty location list while the server is still
+  // initializing makes navigation look broken even though the same server may
+  // become ready a moment later. I wait for the existing or just-started
+  // session using the same bounded warm-up window as completion, then let the
+  // caller decide how to report a true failure.
+  session = await waitForReadyLanguageServerSession(sessionKey);
+  if (!session) return ready;
+
+  return { ok: true as const, message: "", session };
+}
+
 function requestLanguageServer(
   session: LanguageServerSession,
   method: string,
@@ -1115,6 +1208,13 @@ async function initializeLanguageServer(session: LanguageServerSession) {
         workspace: {
           configuration: true,
           workspaceFolders: true,
+          // The folder watcher below sends didChangeWatchedFiles for files that
+          // are not open in Monaco. Advertising the capability keeps language
+          // servers such as gopls, tsserver, and clangd aware that Axon can
+          // report external file creates/changes/deletes for workspace indexing.
+          didChangeWatchedFiles: {
+            dynamicRegistration: true,
+          },
         },
       },
     },
@@ -1718,11 +1818,18 @@ async function resolveTypeScriptCompletionItems(
   session: LanguageServerSession,
   items: ReturnType<typeof normalizeLanguageServerCompletionItems>,
 ) {
-  const resolveLimit = 80;
-  const resolvedItems = await Promise.all(
-    items.slice(0, resolveLimit).map(async (item) => {
-      if (!item.data) return item;
+  const resolveLimit = 1_000;
+  const resolveConcurrency = 24;
+  const resolvedItems = [...items];
+  const itemsToResolve = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.data)
+    .slice(0, resolveLimit);
 
+  let nextItemIndex = 0;
+  async function resolveWorker() {
+    while (nextItemIndex < itemsToResolve.length) {
+      const { item, index } = itemsToResolve[nextItemIndex++];
       try {
         const resolved = await requestLanguageServer(
           session,
@@ -1731,14 +1838,27 @@ async function resolveTypeScriptCompletionItems(
           2500,
         );
         const normalized = normalizeLanguageServerCompletionItems([resolved]);
-        return normalized[0] ?? item;
+        resolvedItems[index] = normalized[0] ?? item;
       } catch {
-        return item;
+        // TypeScript keeps the expensive auto-import data behind
+        // completionItem/resolve so the initial suggest list can stay fast.
+        // If an individual resolve request times out or fails, I keep the
+        // original item instead of failing the whole autocomplete request.
+        // That gives the user every completion the server returned while still
+        // enriching as many package/local export items as possible with the
+        // additionalTextEdits that insert the import statement.
       }
-    }),
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(resolveConcurrency, itemsToResolve.length) },
+      () => resolveWorker(),
+    ),
   );
 
-  return [...resolvedItems, ...items.slice(resolveLimit)];
+  return resolvedItems;
 }
 
 export async function getLanguageServerHover(
@@ -1842,7 +1962,7 @@ export async function getLanguageServerHover(
 export async function getLanguageServerDefinitions(
   request: LanguageServerDefinitionRequest,
 ): Promise<LanguageServerDefinitionResult> {
-  const ready = getReadyLanguageServerSession(request);
+  const ready = await getReadyOrWarmLanguageServerSession(request);
   if (!ready.ok || !ready.session) {
     return { ok: false, message: ready.message, locations: [] };
   }

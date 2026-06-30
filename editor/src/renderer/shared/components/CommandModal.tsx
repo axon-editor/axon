@@ -60,13 +60,13 @@ export default function CommandModal({
 
   return (
     <div
-      className={`axon-modal-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/35 px-4 pt-24 backdrop-blur-[2px] ${
+      className={`axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6 backdrop-blur-[2px] ${
         closing ? "axon-modal-overlay--leaving" : ""
       }`}
     >
       <div
         ref={ref}
-        className={`axon-modal-panel ${width} flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03] ${
+        className={`axon-modal-panel ${width} flex max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03] ${
           closing ? "axon-modal-panel--leaving" : ""
         }`}
       >

@@ -101,6 +101,7 @@ export default function SingleEditor({
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const findInputRef = useRef<HTMLInputElement | null>(null);
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
+  const shouldRevealFindMatchRef = useRef(false);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
@@ -116,7 +117,11 @@ export default function SingleEditor({
   );
 
   const updateFindDecorations = useCallback(
-    (query: string, nextIndex = findIndex) => {
+    (
+      query: string,
+      nextIndex = findIndex,
+      options: { revealActiveMatch?: boolean } = {},
+    ) => {
       const editor = editorRef.current;
       const model = editor?.getModel();
       if (!editor || !model || !query.trim()) {
@@ -159,22 +164,42 @@ export default function SingleEditor({
           },
         })),
       );
-      editor.setSelection(matches[clampedIndex].range);
-      editor.revealRangeInCenter(
-        matches[clampedIndex].range,
-        monaco.editor.ScrollType.Smooth,
-      );
+
+      if (options.revealActiveMatch) {
+        // Typing in the find input should update highlights without taking the
+        // user's editor cursor away from the place they were editing. Navigation
+        // is a separate intent: Enter, Shift+Enter, or the next/previous buttons
+        // set this flag so only those actions move the Monaco selection and
+        // reveal the active match.
+        editor.setSelection(matches[clampedIndex].range);
+        editor.revealRangeInCenter(
+          matches[clampedIndex].range,
+          monaco.editor.ScrollType.Smooth,
+        );
+      }
     },
     [findIndex],
   );
 
   const openFind = useCallback(() => {
     setPreviewMode("editor");
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    const selection = editor?.getSelection();
+
+    if (model && selection && !selection.isEmpty()) {
+      const selectedText = model.getValueInRange(selection);
+      if (selectedText && !selectedText.includes("\n")) {
+        setFindQuery(selectedText);
+        setFindIndex(0);
+      }
+    }
+
     setFindOpen(true);
-    window.setTimeout(() => {
+    window.requestAnimationFrame(() => {
       findInputRef.current?.focus();
       findInputRef.current?.select();
-    }, 0);
+    });
   }, []);
 
   const closeFind = useCallback(() => {
@@ -211,11 +236,23 @@ export default function SingleEditor({
   const moveFindSelection = useCallback(
     (direction: 1 | -1) => {
       if (findMatchCount === 0) return;
+      shouldRevealFindMatchRef.current = true;
       setFindIndex(
-        (index) => (index + direction + findMatchCount) % findMatchCount,
+        (index) => {
+          const nextIndex =
+            (index + direction + findMatchCount) % findMatchCount;
+          if (nextIndex === index) {
+            window.requestAnimationFrame(() => {
+              updateFindDecorations(findQuery, nextIndex, {
+                revealActiveMatch: true,
+              });
+            });
+          }
+          return nextIndex;
+        },
       );
     },
-    [findMatchCount],
+    [findMatchCount, findQuery, updateFindDecorations],
   );
 
   const jumpToDefinition = useCallback(async () => {
@@ -374,6 +411,35 @@ export default function SingleEditor({
     filePathRef.current = filePath;
   }, [filePath]);
 
+  useEffect(() => {
+    return () => {
+      if (suggestTimerRef.current) {
+        window.clearTimeout(suggestTimerRef.current);
+        suggestTimerRef.current = null;
+      }
+      if (lspSyncTimerRef.current) {
+        window.clearTimeout(lspSyncTimerRef.current);
+        lspSyncTimerRef.current = null;
+      }
+
+      // Monaco decoration collections are tied to the editor widget, not to
+      // React's state lifetime. I clear them explicitly when this editor
+      // instance unmounts so transient surfaces such as split panes, markdown
+      // preview switches, and quick file changes cannot leave stale Git/find
+      // overlays attached to the old model. Without this cleanup, repeated
+      // edits around the same line can make translucent change colors appear to
+      // stack darker than a single added/modified/deleted marker should.
+      navigationDecorationsRef.current?.clear();
+      gitDecorationsRef.current?.clear();
+      goSyntaxDecorationsRef.current?.clear();
+      findDecorationsRef.current?.clear();
+
+      editorOpenerRef.current?.dispose();
+      editorOpenerRef.current = null;
+      editorRef.current = null;
+    };
+  }, []);
+
   const revealNavigationTarget = useCallback(
     (target: EditorNavigationTarget) => {
       const editor = editorRef.current;
@@ -524,8 +590,30 @@ export default function SingleEditor({
       return;
     }
 
-    updateFindDecorations(findQuery, findIndex);
+    const revealActiveMatch = shouldRevealFindMatchRef.current;
+    shouldRevealFindMatchRef.current = false;
+    updateFindDecorations(findQuery, findIndex, { revealActiveMatch });
   }, [findIndex, findOpen, findQuery, liveContent, updateFindDecorations]);
+
+  useEffect(() => {
+    const handleOpenFind = (event: Event) => {
+      const findEvent = event as CustomEvent<{ path?: string }>;
+      if (!visible || loading) return;
+      if (findEvent.detail?.path && findEvent.detail.path !== filePathRef.current) {
+        return;
+      }
+
+      // The global shortcut layer cannot know which Monaco instance owns the
+      // active file, especially with split panes and preview/editor toggles.
+      // The visible SingleEditor handles the event locally so Cmd/Ctrl+F works
+      // from toolbar/sidebar focus without opening duplicate find widgets in
+      // hidden panes.
+      openFind();
+    };
+
+    window.addEventListener("axon:openFind", handleOpenFind);
+    return () => window.removeEventListener("axon:openFind", handleOpenFind);
+  }, [loading, openFind, visible]);
 
   useEffect(() => {
     const handleEditorAction = (event: Event) => {
@@ -656,6 +744,13 @@ export default function SingleEditor({
         try {
           const model = editor.getModel();
           const modelOptions = model?.getOptions();
+          // Formatting edits are computed against the exact text snapshot we
+          // send to the language server. If the user keeps typing while the IPC
+          // and LSP round trip is in flight, those returned line/column ranges
+          // no longer point at the same code in the live Monaco model. Capturing
+          // the model version here lets us discard stale edits instead of
+          // applying them to the wrong text and corrupting the file.
+          const versionBeforeFormat = model?.getVersionId();
           const result = await window.axon.formatLanguageServerDocument({
             folderPath,
             filePath: path,
@@ -665,7 +760,16 @@ export default function SingleEditor({
             insertSpaces: modelOptions?.insertSpaces ?? true,
           });
 
-          if (result.ok && result.edits.length > 0) {
+          const versionAfterFormat = model?.getVersionId();
+          const modelChangedDuringFormat =
+            !model ||
+            model.isDisposed() ||
+            versionBeforeFormat === undefined ||
+            versionAfterFormat === undefined ||
+            versionBeforeFormat !== versionAfterFormat;
+
+          if (result.ok && result.edits.length > 0 && !modelChangedDuringFormat) {
+            const viewStateBeforeFormat = editor.saveViewState();
             // I format the Monaco model before writing to disk so every split
             // attached to this shared model updates immediately. Writing a
             // formatted string directly would save the file but leave the
@@ -674,6 +778,27 @@ export default function SingleEditor({
               [],
               result.edits.map(toMonacoEdit),
               () => null,
+            );
+            // Formatting can apply edits far away from the viewport. Monaco may
+            // reveal the last touched range after those edits, which makes save
+            // feel like it scrolled to the bottom of the file. Restoring the
+            // pre-format view state keeps save non-navigational: the user's
+            // cursor and viewport stay where they were before formatting ran.
+            if (viewStateBeforeFormat && !model?.isDisposed()) {
+              editor.restoreViewState(viewStateBeforeFormat);
+            }
+          } else if (
+            result.ok &&
+            result.edits.length > 0 &&
+            modelChangedDuringFormat
+          ) {
+            // Skipping formatting here is intentional. The save below still
+            // writes the user's latest text to disk, and the next save can
+            // format a fresh snapshot. Applying stale ranges would be worse
+            // because it can delete or overwrite code typed during the format
+            // request.
+            console.warn(
+              "skipped format-on-save edits: model changed during LSP round trip",
             );
           }
         } catch (err) {
@@ -699,12 +824,13 @@ export default function SingleEditor({
     const handleMenuSave = (event: Event) => {
       const saveEvent = event as CustomEvent<{ path?: string }>;
       if (saveEvent.detail?.path !== filePathRef.current) return;
+      if (!visible) return;
       void handleSave();
     };
 
     window.addEventListener("axon:saveFile", handleMenuSave);
     return () => window.removeEventListener("axon:saveFile", handleMenuSave);
-  }, [handleSave]);
+  }, [handleSave, visible]);
 
   useEffect(() => {
     const handleExternalSave = (event: Event) => {
@@ -788,6 +914,27 @@ export default function SingleEditor({
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () =>
       openFind(),
     );
+
+    editor.onMouseDown((event) => {
+      const browserEvent = event.event.browserEvent;
+      const position = event.target.position;
+      if (!position) return;
+      if (event.target.type !== monaco.editor.MouseTargetType.CONTENT_TEXT) {
+        return;
+      }
+      if (!(browserEvent.metaKey || browserEvent.ctrlKey)) return;
+
+      // Monaco's built-in modifier-click path prefers its peek widget for some
+      // cross-file results. Axon owns tabs and panes, so an actual modifier
+      // click should go through the same direct LSP jump path as F12 instead of
+      // leaving the user in an intermediate peek surface. I only intercept the
+      // real click path here; the normal definition provider still returns
+      // locations so Monaco can show link styling while the modifier is held.
+      event.event.preventDefault();
+      event.event.stopPropagation();
+      editor.setPosition(position);
+      void jumpToDefinition();
+    });
 
     editor.onDidChangeModelContent((event) => {
       const current = editor.getValue();
@@ -893,7 +1040,6 @@ export default function SingleEditor({
       filePath={filePath}
       open={bufferSymbolsOpen}
       symbols={breadcrumbSymbols}
-      onJumpToSymbol={jumpToBreadcrumbSymbol}
       onSelectSymbol={jumpToBufferSymbol}
       onToggleOpen={() => setBufferSymbolsOpen((open) => !open)}
       onClose={() => setBufferSymbolsOpen(false)}
@@ -901,7 +1047,10 @@ export default function SingleEditor({
   ) : null;
 
   const editorNode = (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+      data-axon-editor-path={filePath}
+    >
       {breadcrumbNode}
       <MonacoEditorSurface
         editorBackgroundImageFit={editorSettings.backgroundImageFit}

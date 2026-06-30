@@ -27,6 +27,8 @@ const lspNavigationLanguages = [
   "shell",
 ];
 
+const monacoNativeHoverLanguages = new Set(["typescript", "javascript"]);
+
 function isFileInsideWorkspace(filePath: string, folderPath: string) {
   const normalizedFile = filePath.replace(/\\/g, "/");
   const normalizedFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -77,29 +79,9 @@ function toMonacoLocation(location: {
   };
 }
 
-function dispatchAxonNavigation(location: {
-  filePath: string;
-  range: {
-    start: { line: number; character: number };
-    end: { line: number; character: number };
-  };
-}) {
-  window.dispatchEvent(
-    new CustomEvent("axon:navigateToFile", {
-      detail: {
-        path: location.filePath,
-        line: location.range.start.line + 1,
-        column: location.range.start.character + 1,
-        length: Math.max(
-          1,
-          location.range.end.character - location.range.start.character,
-        ),
-      },
-    }),
-  );
-}
-
 function registerHoverProvider(monacoInstance: typeof monaco, languageId: string) {
+  if (monacoNativeHoverLanguages.has(languageId)) return;
+
   monacoInstance.languages.registerHoverProvider(languageId, {
     provideHover: async (model, position, token) => {
       const base = toLspRequestBase(model, languageId);
@@ -142,16 +124,14 @@ function registerDefinitionProvider(
       });
       if (token.isCancellationRequested || !result.ok) return [];
 
-      const firstLocation = result.locations[0];
-      if (!firstLocation) return [];
-
-      // Axon's pane model should behave like a direct editor jump here. Monaco
-      // can otherwise stop at its peek widget, which makes a normal command or
-      // Cmd-click feel like it needs a second confirmation. Routing the first
-      // LSP target through Axon's navigation event mounts unopened files and
-      // reveals the symbol immediately.
-      dispatchAxonNavigation(firstLocation);
-      return [];
+      // A definition provider must be pure from Monaco's point of view. Monaco
+      // calls this while it is only checking whether a word should become a
+      // Ctrl/Cmd-clickable link, so navigating as a side effect makes the editor
+      // jump when the user merely holds the modifier over a symbol. Returning
+      // real locations lets Monaco decide the correct UX: modifier hover shows
+      // the link affordance, modifier-click performs the jump, and the editor
+      // opener below still routes cross-file opens through Axon's tab model.
+      return result.locations.map(toMonacoLocation);
     },
   });
 }

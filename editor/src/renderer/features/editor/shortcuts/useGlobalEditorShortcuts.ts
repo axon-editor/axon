@@ -14,6 +14,23 @@ interface GlobalEditorShortcutsOptions {
   onSetZenMode: (enabled: boolean) => void;
 }
 
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.closest(".monaco-editor")) return false;
+
+  return Boolean(
+    target.closest(
+      "input, textarea, select, [contenteditable='true'], [contenteditable='']",
+    ),
+  );
+}
+
+function getEditorShortcutPath(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return undefined;
+  return target.closest<HTMLElement>("[data-axon-editor-path]")?.dataset
+    .axonEditorPath;
+}
+
 export function useGlobalEditorShortcuts({
   settings,
   zenMode,
@@ -63,8 +80,20 @@ export function useGlobalEditorShortcuts({
         !event.shiftKey &&
         event.key.toLowerCase() === "f"
       ) {
+        if (isEditableShortcutTarget(event.target)) return;
+
+        // Cmd/Ctrl+F should open Axon's editor find from the editor surface and
+        // other non-text chrome, but it should not steal the shortcut from an
+        // already-focused input such as the find box, command palette, settings
+        // search, or any text field. The Monaco editor is the exception because
+        // its hidden textarea is implementation detail; there we route to the
+        // visible editor's find widget deliberately.
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent("axon:openFind"));
+        window.dispatchEvent(
+          new CustomEvent("axon:openFind", {
+            detail: { path: getEditorShortcutPath(event.target) },
+          }),
+        );
         return;
       }
       if (

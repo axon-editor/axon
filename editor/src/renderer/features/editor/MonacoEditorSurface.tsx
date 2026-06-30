@@ -185,6 +185,9 @@ export default function MonacoEditorSurface({
             suggest: {
               showSnippets: editorSettings.snippetsEnabled,
               snippetsPreventQuickSuggestions: false,
+              showInlineDetails: true,
+              showStatusBar: true,
+              preview: true,
             },
             tabCompletion: editorSettings.snippetsEnabled ? "on" : "off",
             renderLineHighlight: "line",

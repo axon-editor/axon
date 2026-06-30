@@ -6,6 +6,7 @@ import { promisify } from "util";
 import { registerLspHandlers } from "./lsp/handlers";
 import {
   getActiveLanguageServerSessions,
+  notifyLanguageServersOfFileChange,
   startLanguageServerForLanguage,
   stopAllLanguageServers,
 } from "./lsp/features";
@@ -158,6 +159,7 @@ const fileWatcherManager = new FileWatcherManager({
   stopAllLanguageServers: async () => {
     await stopAllLanguageServers();
   },
+  notifyLanguageServersOfFileChange,
 });
 const updateManager = new UpdateManager({
   sendToRenderer,

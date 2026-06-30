@@ -1,7 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import {
-  type FileSymbol,
-} from "../sidebar/files/lib/fileSymbols";
+import { type FileSymbol } from "../sidebar/files/lib/fileSymbols";
 import BufferSymbolsPopover from "./BufferSymbolsPopover";
 
 interface Props {
@@ -10,7 +8,6 @@ interface Props {
   filePath: string;
   open: boolean;
   symbols: FileSymbol[];
-  onJumpToSymbol: (line: number, column: number) => void;
   onSelectSymbol: (symbol: FileSymbol) => void;
   onToggleOpen: () => void;
   onClose: () => void;
@@ -22,14 +19,13 @@ export default function EditorBreadcrumbs({
   filePath,
   open,
   symbols,
-  onJumpToSymbol,
   onSelectSymbol,
   onToggleOpen,
   onClose,
 }: Props) {
   return (
     <div
-      className="relative flex h-11 min-w-0 shrink-0 items-center gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-70"
+      className="relative z-30 flex h-11 min-w-0 shrink-0 items-center gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)]"
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}
@@ -50,8 +46,8 @@ export default function EditorBreadcrumbs({
             disabled={index !== breadcrumbSegments.length - 1}
             className={
               index === breadcrumbSegments.length - 1
-                ? "max-w-[260px] cursor-pointer truncate rounded px-1.5 py-1 text-[var(--axon-editor-foreground)] opacity-90 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
-                : "max-w-[180px] truncate px-1.5 py-1 text-left"
+                ? "max-w-[260px] cursor-pointer truncate rounded px-1.5 py-1 text-[var(--axon-editor-foreground)] opacity-75 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                : "max-w-[180px] truncate px-1.5 py-1 text-left opacity-55"
             }
           >
             {segment}
@@ -63,7 +59,7 @@ export default function EditorBreadcrumbs({
           <ChevronRight size={12} className="shrink-0 opacity-35" />
           <button
             type="button"
-            onClick={() => onJumpToSymbol(activeSymbol.line, activeSymbol.column)}
+            onClick={onToggleOpen}
             className="min-w-0 cursor-pointer truncate rounded px-1.5 py-1 text-left text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
           >
             {activeSymbol.name}

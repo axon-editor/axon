@@ -167,8 +167,11 @@ function ContextMenu({
 
   return createPortal(
     <div
-      className="fixed z-[200] min-w-48 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-1 shadow-2xl"
-      style={{ left: menu.x, top: menu.y }}
+      className="fixed z-[200] min-w-48 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-1 text-[var(--axon-editor-foreground)] shadow-[0_18px_48px_rgba(0,0,0,0.38)] ring-1 ring-white/[0.03]"
+      style={{
+        left: `min(${menu.x}px, calc(100vw - 13rem))`,
+        top: `min(${menu.y}px, calc(100vh - 17rem))`,
+      }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >

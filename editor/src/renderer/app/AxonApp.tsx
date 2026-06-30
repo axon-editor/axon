@@ -578,6 +578,7 @@ export default function App() {
       ) {
         try {
           const modelOptions = model.getOptions();
+          const versionBeforeFormat = model.getVersionId();
           const result = await window.axon.formatLanguageServerDocument({
             folderPath,
             filePath,
@@ -587,7 +588,10 @@ export default function App() {
             insertSpaces: modelOptions.insertSpaces,
           });
 
-          if (result.ok && result.edits.length > 0) {
+          const modelChangedDuringFormat =
+            model.isDisposed() || versionBeforeFormat !== model.getVersionId();
+
+          if (result.ok && result.edits.length > 0 && !modelChangedDuringFormat) {
             // Format-on-save works on the shared Monaco model before the disk
             // write so every split showing this file receives the same edits.
             // Formatting a detached string instead would let the saved text and
@@ -596,6 +600,16 @@ export default function App() {
               [],
               result.edits.map(toMonacoEdit),
               () => null,
+            );
+          } else if (
+            result.ok &&
+            result.edits.length > 0 &&
+            modelChangedDuringFormat
+          ) {
+            appendOutput(
+              "lsp",
+              "Skipped format-on-save because the file changed while formatting.",
+              "warning",
             );
           } else if (!result.ok && result.message) {
             appendOutput("lsp", result.message, "warning");
@@ -656,12 +670,18 @@ export default function App() {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return;
 
-    // Save has to work from the native menu, the global keyboard listener, and
-    // Monaco itself. Dispatching an event to a mounted SingleEditor is fragile
-    // because the active file can be in a pane whose listener is not the
-    // current focus target. The shared Monaco model is the source of truth for
-    // dirty buffers, so writing it directly here makes Cmd/Ctrl+S behave like
-    // a real editor command no matter where focus currently is.
+    const model = getModel(activeFile);
+    if (model && !model.isDisposed()) {
+      // Active file saves should go through the mounted SingleEditor when
+      // possible because that component owns Monaco view state. Formatting from
+      // the app shell can mutate the shared model without an editor instance to
+      // restore scroll, which made Save jump to the bottom on large files.
+      window.dispatchEvent(
+        new CustomEvent("axon:saveFile", { detail: { path: activeFile } }),
+      );
+      return;
+    }
+
     void saveFileFromModel(activeFile).then((saved) => {
       if (!saved) {
         appendOutput("file", "Could not find editor buffer to save.", "error");

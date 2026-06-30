@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @keyframes axonContextIn {
@@ -33,6 +32,8 @@
   border-radius: 10px !important;
   overflow: hidden !important;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34) !important;
+  min-width: min(520px, calc(100vw - 40px)) !important;
+  max-width: min(620px, calc(100vw - 40px)) !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list {
@@ -49,6 +50,7 @@
   border-radius: 7px !important;
   margin: 2px 5px !important;
   width: calc(100% - 10px) !important;
+  min-height: 24px !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list-row.focused {
@@ -57,7 +59,15 @@
 }
 
 .monaco-editor .suggest-widget .monaco-list-row .contents {
-  padding-inline: 2px !important;
+  padding-inline: 6px !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .main {
+  gap: 8px !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .readMore {
+  opacity: 0.8 !important;
 }
 
 .monaco-editor .suggest-widget .details {
