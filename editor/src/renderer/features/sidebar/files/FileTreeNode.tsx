@@ -482,7 +482,7 @@ export default function FileTreeNode({
         <div
           onClick={() => setExpanded((p) => !p)}
           onContextMenu={(e) => onContextMenu(e, node)}
-          className={`flex items-center gap-1.5 py-0.5 text-[12px] cursor-pointer transition-colors select-none relative
+          className={`relative flex min-w-max items-center gap-1.5 whitespace-nowrap py-0.5 text-[12px] cursor-pointer transition-colors select-none
             ${
               isHighlighted
                 ? "text-[var(--axon-editor-foreground)]"
@@ -513,7 +513,7 @@ export default function FileTreeNode({
           >
             {getFolderIcon(node.name, expanded)}
           </span>
-          <span className="relative z-10 truncate" style={{ color: entryColor }}>
+          <span className="relative z-10" style={{ color: entryColor }}>
             {node.name}
           </span>
 
@@ -582,7 +582,7 @@ export default function FileTreeNode({
       onDrop={handleDrop}
       onClick={() => onFileSelect(node.path)}
       onContextMenu={(e) => onContextMenu(e, node)}
-      className={`relative flex items-center gap-1.5 py-1 text-[12px] cursor-pointer transition-colors truncate
+      className={`relative flex min-w-max items-center gap-1.5 whitespace-nowrap py-1 text-[12px] cursor-pointer transition-colors
         ${
           activeFile === node.path
             ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
@@ -605,7 +605,7 @@ export default function FileTreeNode({
       >
         {getFileIcon(node.name)}
       </span>
-      <span className="relative z-10 truncate" style={{ color: entryColor }}>
+      <span className="relative z-10" style={{ color: entryColor }}>
         {node.name}
       </span>
       {gitDecoration && (

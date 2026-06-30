@@ -7,7 +7,7 @@ import CommandPalette from "../features/search/CommandPalette";
 import WorkspaceSearchModal from "../features/search/WorkspaceSearchModal";
 import DiffModal from "../features/git/DiffModal";
 import EditorToolbar from "../features/editor/EditorToolbar";
-import SettingsModal from "../features/settings";
+import SettingsModal from "../features/settings/SettingsModal";
 import ExtensionsModal from "../features/extensions";
 import AboutModal from "../shared/components/AboutModal";
 import SourceControlModal from "../features/git/SourceControlModal";

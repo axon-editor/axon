@@ -223,6 +223,7 @@
 
 .axon-modal-overlay--leaving {
   animation: axonModalOverlayOut 160ms ease-in both;
+  pointer-events: none;
 }
 
 .axon-modal-panel {

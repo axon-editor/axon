@@ -13,6 +13,7 @@ interface Props {
   children: React.ReactNode;
   width?: string;
   bodyClassName?: string;
+  blurOverlay?: boolean;
 }
 
 export default function CommandModal({
@@ -21,11 +22,17 @@ export default function CommandModal({
   children,
   width = "w-[560px]",
   bodyClassName = "min-h-0 overflow-auto",
+  blurOverlay = true,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const closingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
   const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const requestClose = useCallback(() => {
     if (closingRef.current) return;
@@ -35,10 +42,14 @@ export default function CommandModal({
     // The modal has to stay mounted long enough for the leave animation to
     // play. Without this small handoff React removes the overlay immediately,
     // which makes close feel abrupt even when the enter motion is polished.
+    // I call the latest onClose through a ref because search and command
+    // surfaces often update while they are closing. If this timeout is tied to
+    // a callback identity from the previous render, React can run the cleanup,
+    // clear the timer, and leave an invisible fixed overlay mounted forever.
     closeTimerRef.current = window.setTimeout(() => {
-      onClose();
+      onCloseRef.current();
     }, 170);
-  }, [onClose]);
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -60,7 +71,9 @@ export default function CommandModal({
 
   return (
     <div
-      className={`axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6 backdrop-blur-[2px] ${
+      className={`axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6 ${
+        blurOverlay ? "backdrop-blur-[2px]" : ""
+      } ${
         closing ? "axon-modal-overlay--leaving" : ""
       }`}
     >

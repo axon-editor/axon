@@ -295,7 +295,7 @@ export default function TabBar({
       items={openTabs.map((path) => getTabDragId(paneId, path))}
       strategy={horizontalListSortingStrategy}
     >
-      <div className="flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] scrollbar-none">
+      <div className="flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)]">
         {openTabs.map((path) => (
           <SortableTab
             key={path}

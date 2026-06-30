@@ -124,11 +124,7 @@ export default function SpotifyPlaylists({
           </div>
         </div>
 
-        <div
-          className="overflow-y-auto flex-1"
-          style={{ scrollbarWidth: "none" }}
-          onScroll={handleTracksScroll}
-        >
+        <div className="overflow-y-auto flex-1" onScroll={handleTracksScroll}>
           {loadingTracks ? (
             <div className="px-3 py-3 text-[11px] text-[#3a4050]">
               Loading tracks...
@@ -228,7 +224,7 @@ export default function SpotifyPlaylists({
           Playlists
         </span>
       </div>
-      <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "none" }}>
+      <div className="overflow-y-auto flex-1">
         {playlists.length === 0 ? (
           <div className="px-3 py-3 text-[11px] text-[#3a4050]">
             No playlists found

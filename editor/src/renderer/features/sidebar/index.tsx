@@ -820,7 +820,7 @@ export default function Sidebar({
             className={`flex-1 ${
               view === "history" || view === "spotify"
                 ? "overflow-hidden flex flex-col"
-                : "overflow-y-auto py-1"
+                : "overflow-auto py-1"
             }`}
             onContextMenu={handleRootContextMenu}
             onDragEnter={view === "files" ? handleRootDragOver : undefined}

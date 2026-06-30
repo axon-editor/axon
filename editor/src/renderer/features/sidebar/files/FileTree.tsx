@@ -154,7 +154,7 @@ export default function FileTree({
   if (!tree) return null;
 
   return (
-    <>
+    <div className="min-w-max pb-1">
       {inlineCreate?.parentPath === tree.path && (
         <InlineCreateRow
           target={inlineCreate}
@@ -183,6 +183,6 @@ export default function FileTree({
           onInlineCreateCreated={onInlineCreateCreated}
         />
       ))}
-    </>
+    </div>
   );
 }

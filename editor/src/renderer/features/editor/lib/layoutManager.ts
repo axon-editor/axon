@@ -144,6 +144,19 @@ export function openFileInPane(
   paneId: string,
   filePath: string,
 ): Layout {
+  const targetPane = layout.panes.find((pane) => pane.id === paneId);
+  if (
+    targetPane?.activeFile === filePath &&
+    targetPane.openTabs.includes(filePath) &&
+    layout.activePaneId === paneId
+  ) {
+    // Selecting the file that is already active should be a real no-op. If I
+    // return a freshly cloned layout here, React still walks the editor tree and
+    // Monaco can briefly redraw, which looks like the editor flashed even
+    // though the user did not ask to change files.
+    return layout;
+  }
+
   return {
     ...layout,
     activePaneId: paneId,

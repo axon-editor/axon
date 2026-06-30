@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { getWorkspaceTrustState } from "../../features/sidebar";
 import { isDiagnosticInWorkspace } from "../../features/diagnostics/lib/diagnosticCache";
 import { getModel } from "../../features/editor/lib/monacoModels";
@@ -137,6 +137,35 @@ export function useAppDerivedState({
     themeCssVariables,
     themeTokens,
   ]);
+
+  useEffect(() => {
+    const roots = [document.documentElement, document.body].filter(Boolean);
+    const variableEntries = Object.entries(appThemeCssVariables).filter(
+      (entry): entry is [string, string] =>
+        entry[0].startsWith("--axon-") && typeof entry[1] === "string",
+    );
+
+    // Some UI pieces, such as tab context menus and command-style popups, are
+    // mounted into document.body with React portals so they can escape clipped
+    // editor panes. Those nodes do not inherit CSS variables from the Axon app
+    // container, so I mirror the resolved theme variables onto the document
+    // roots. Without this bridge, dark themes can render portal menus with
+    // browser-default black text, transparent backgrounds, and unreadable
+    // borders even though the in-tree editor chrome is themed correctly.
+    roots.forEach((root) => {
+      variableEntries.forEach(([name, value]) => {
+        root.style.setProperty(name, value);
+      });
+    });
+
+    return () => {
+      roots.forEach((root) => {
+        variableEntries.forEach(([name]) => {
+          root.style.removeProperty(name);
+        });
+      });
+    };
+  }, [appThemeCssVariables]);
 
   const diagnostics = useMemo(() => {
     const mergedDiagnostics = [
