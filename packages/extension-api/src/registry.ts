@@ -1,4 +1,8 @@
-import { type ExtensionContributions, type ExtensionKind } from "./manifest";
+import {
+  type ExtensionContributions,
+  type ExtensionKind,
+  type ExtensionThemeSyntaxStyle,
+} from "./manifest";
 
 export type ExtensionSource = "workspace" | "user" | "internal";
 
@@ -9,7 +13,7 @@ export interface ResolvedExtensionTheme {
   extensionName: string;
   appearance: "dark" | "light";
   tokens: Record<string, string>;
-  syntax: Record<string, { color?: string; fontStyle?: string }>;
+  syntax: Record<string, ExtensionThemeSyntaxStyle>;
   terminal: Record<string, string>;
   monaco: Record<string, string>;
 }

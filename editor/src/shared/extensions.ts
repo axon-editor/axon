@@ -3,12 +3,29 @@ import {
   type ThemeOverride,
 } from "./settings";
 
+// This file is a compatibility mirror of packages/extension-api for the current
+// Electron app layout. The main-process TypeScript build emits from editor/src,
+// so importing package source directly pulls files outside rootDir and breaks
+// production builds. During the migration we keep the renderer IPC contract
+// here, but new fields should stay aligned with packages/extension-api until
+// Axon has a real workspace package build/link step.
 export const AXON_EXTENSION_SCHEMA =
   "https://axoneditor.com/schemas/extension/v0.1.0.json";
 export const AXON_THEME_SCHEMA =
   "https://axoneditor.com/schemas/theme/v0.1.0.json";
 
 export type ExtensionSource = "workspace" | "user" | "internal";
+
+export interface ExtensionRepository {
+  type?: "git" | string;
+  url: string;
+}
+
+export interface ExtensionAuthor {
+  name: string;
+  email?: string;
+  url?: string;
+}
 
 export interface ExtensionManifest {
   $schema?: string;
@@ -17,12 +34,13 @@ export interface ExtensionManifest {
   publisher: string;
   version: string;
   description?: string;
-  repository?: string | { type?: string; url: string };
+  repository?: string | ExtensionRepository;
   homepage?: string;
   kind?: ExtensionKind;
-  author?: string | { name: string; email?: string; url?: string };
+  author?: string | ExtensionAuthor;
   categories?: string[];
   activationEvents?: string[];
+  main?: string;
   contributes?: ExtensionContributions;
 }
 
@@ -32,15 +50,20 @@ export type ExtensionKind =
   | "language"
   | "tool"
   | "view"
+  | "agent"
+  | "terminal"
   | "mixed";
 
 export interface ExtensionContributions {
   commands?: ExtensionCommandContribution[];
   themes?: ExtensionThemeContribution[];
+  iconThemes?: ExtensionIconThemeContribution[];
   languages?: ExtensionLanguageContribution[];
   snippets?: ExtensionSnippetContribution[];
-  icons?: ExtensionIconContribution[];
+  icons?: ExtensionIconThemeContribution[];
   views?: ExtensionViewContribution[];
+  agents?: ExtensionAgentContribution[];
+  terminalProfiles?: ExtensionTerminalProfileContribution[];
   taskProviders?: ExtensionTaskProviderContribution[];
   debuggerProviders?: ExtensionDebuggerProviderContribution[];
   languagePacks?: ExtensionLanguagePackContribution[];
@@ -51,6 +74,7 @@ export interface ExtensionCommandContribution {
   title: string;
   category?: string;
   description?: string;
+  icon?: string | { light?: string; dark?: string };
 }
 
 export interface ExtensionThemeContribution {
@@ -58,6 +82,14 @@ export interface ExtensionThemeContribution {
   label: string;
   path: string;
 }
+
+export interface ExtensionIconThemeContribution {
+  id?: string;
+  label?: string;
+  path: string;
+}
+
+export type ExtensionIconContribution = ExtensionIconThemeContribution;
 
 export interface ExtensionLanguageContribution {
   id: string;
@@ -73,15 +105,28 @@ export interface ExtensionSnippetContribution {
   path: string;
 }
 
-export interface ExtensionIconContribution {
-  path: string;
-}
-
 export interface ExtensionViewContribution {
   id: string;
   title: string;
   location?: "sidebar" | "panel" | "modal";
   when?: string;
+}
+
+export interface ExtensionAgentContribution {
+  id: string;
+  title: string;
+  description?: string;
+  view?: string;
+  activationEvent?: `onAgent:${string}`;
+}
+
+export interface ExtensionTerminalProfileContribution {
+  id: string;
+  title: string;
+  command?: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
 }
 
 export interface ExtensionTaskProviderContribution {
@@ -162,7 +207,7 @@ export interface ExtensionState {
   userExtensionsPath: string;
   workspaceExtensionsPath: string | null;
   hostStatus: {
-    mode: "declarative";
+    mode: "declarative" | "isolated-process";
     safeMode: boolean;
     message: string;
   };

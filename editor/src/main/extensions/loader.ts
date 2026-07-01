@@ -26,10 +26,13 @@ function emptyContributions(): Required<ExtensionContributions> {
   return {
     commands: [],
     themes: [],
+    iconThemes: [],
     languages: [],
     snippets: [],
     icons: [],
     views: [],
+    agents: [],
+    terminalProfiles: [],
     taskProviders: [],
     debuggerProviders: [],
     languagePacks: [],
@@ -65,13 +68,24 @@ function writeEnablementState(state: ExtensionEnablementState) {
 function normalizeContributions(
   contributes: ExtensionManifest["contributes"],
 ): Required<ExtensionContributions> {
+  // Manifests come from local folders and future downloaded packages, so this
+  // normalization is the loader's trust boundary. Every contribution point gets
+  // an array even when the manifest omits it, which lets the renderer and
+  // marketplace count features without defensive optional checks everywhere.
   return {
     commands: Array.isArray(contributes?.commands) ? contributes.commands : [],
     themes: Array.isArray(contributes?.themes) ? contributes.themes : [],
+    iconThemes: Array.isArray(contributes?.iconThemes)
+      ? contributes.iconThemes
+      : [],
     languages: Array.isArray(contributes?.languages) ? contributes.languages : [],
     snippets: Array.isArray(contributes?.snippets) ? contributes.snippets : [],
     icons: Array.isArray(contributes?.icons) ? contributes.icons : [],
     views: Array.isArray(contributes?.views) ? contributes.views : [],
+    agents: Array.isArray(contributes?.agents) ? contributes.agents : [],
+    terminalProfiles: Array.isArray(contributes?.terminalProfiles)
+      ? contributes.terminalProfiles
+      : [],
     taskProviders: Array.isArray(contributes?.taskProviders)
       ? contributes.taskProviders
       : [],
@@ -134,6 +148,8 @@ function isExtensionKind(value: unknown): value is ExtensionKind {
     value === "language" ||
     value === "tool" ||
     value === "view" ||
+    value === "agent" ||
+    value === "terminal" ||
     value === "mixed"
   );
 }
@@ -151,11 +167,15 @@ function inferExtensionKind(
 
   const kinds = new Set<ExtensionKind>();
   if (contributes.themes.length > 0) kinds.add("theme");
-  if (contributes.icons.length > 0) kinds.add("icon-theme");
+  if (contributes.iconThemes.length > 0 || contributes.icons.length > 0) {
+    kinds.add("icon-theme");
+  }
   if (contributes.languages.length > 0 || contributes.snippets.length > 0) {
     kinds.add("language");
   }
   if (contributes.views.length > 0) kinds.add("view");
+  if (contributes.agents.length > 0) kinds.add("agent");
+  if (contributes.terminalProfiles.length > 0) kinds.add("terminal");
   if (
     contributes.commands.length > 0 ||
     contributes.taskProviders.length > 0 ||
@@ -319,6 +339,8 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
       "onLanguage",
       "onWorkspaceContains",
       "onView",
+      "onAgent",
+      "onTerminalProfile",
       "onTaskType",
       "onDebugType",
     ],

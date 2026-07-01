@@ -97,6 +97,8 @@ function isExtensionKind(value: unknown): value is ExtensionKind {
     value === "language" ||
     value === "tool" ||
     value === "view" ||
+    value === "agent" ||
+    value === "terminal" ||
     value === "mixed"
   );
 }
@@ -139,11 +141,14 @@ function toMarketplaceItem(
   const contributes = manifest.contributes ?? {};
   const contributionLabels = [
     ["themes", contributes.themes?.length ?? 0],
+    ["icon themes", contributes.iconThemes?.length ?? 0],
     ["icons", contributes.icons?.length ?? 0],
     ["languages", contributes.languages?.length ?? 0],
     ["snippets", contributes.snippets?.length ?? 0],
     ["commands", contributes.commands?.length ?? 0],
     ["views", contributes.views?.length ?? 0],
+    ["agents", contributes.agents?.length ?? 0],
+    ["terminal profiles", contributes.terminalProfiles?.length ?? 0],
     ["tasks", contributes.taskProviders?.length ?? 0],
     ["debuggers", contributes.debuggerProviders?.length ?? 0],
   ].flatMap(([label, count]) => (Number(count) > 0 ? [`${count} ${label}`] : []));
@@ -171,7 +176,12 @@ function inferCatalogKind(manifest: ExtensionManifest): ExtensionKind {
   const contributes = manifest.contributes ?? {};
   const kinds = new Set<ExtensionKind>();
   if ((contributes.themes?.length ?? 0) > 0) kinds.add("theme");
-  if ((contributes.icons?.length ?? 0) > 0) kinds.add("icon-theme");
+  if (
+    (contributes.iconThemes?.length ?? 0) > 0 ||
+    (contributes.icons?.length ?? 0) > 0
+  ) {
+    kinds.add("icon-theme");
+  }
   if (
     (contributes.languages?.length ?? 0) > 0 ||
     (contributes.snippets?.length ?? 0) > 0
@@ -179,6 +189,8 @@ function inferCatalogKind(manifest: ExtensionManifest): ExtensionKind {
     kinds.add("language");
   }
   if ((contributes.views?.length ?? 0) > 0) kinds.add("view");
+  if ((contributes.agents?.length ?? 0) > 0) kinds.add("agent");
+  if ((contributes.terminalProfiles?.length ?? 0) > 0) kinds.add("terminal");
   if (
     (contributes.commands?.length ?? 0) > 0 ||
     (contributes.taskProviders?.length ?? 0) > 0 ||
