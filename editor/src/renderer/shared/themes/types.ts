@@ -1,5 +1,5 @@
 import { type editor } from "monaco-editor";
-import { type BuiltInThemeId, type ThemeColorToken } from "../../../shared/settings";
+import { type ThemeColorToken } from "../../../shared/settings";
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import {
   AxonSyntaxTheme,
@@ -10,7 +10,7 @@ import {
 export type ThemeTokenMap = Record<ThemeColorToken, string>;
 
 export interface AxonThemeDefinition {
-  id: BuiltInThemeId;
+  id: string;
   label: string;
   base: editor.BuiltinTheme;
   tokens: ThemeTokenMap;

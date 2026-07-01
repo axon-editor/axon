@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.terminal",
+  "name": "Terminal",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in PTY-backed terminal panels and persistent shell sessions.",
+  "author": "Axon",
+  "categories": ["Terminal"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "views": [
+      {
+        "id": "axon.terminal",
+        "title": "Terminal",
+        "location": "panel"
+      }
+    ]
+  }
+}

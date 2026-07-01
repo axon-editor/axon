@@ -1,0 +1,18 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.catppuccin-icons",
+  "name": "Catppuccin Icons",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Bundled file and folder icons used by Axon's sidebar, search results, and file pickers.",
+  "author": "Axon",
+  "categories": ["Icons"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "icons": [
+      {
+        "path": "./assets"
+      }
+    ]
+  }
+}

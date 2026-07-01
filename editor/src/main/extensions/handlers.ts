@@ -2,9 +2,16 @@ import fs from "fs";
 import { ipcMain, shell } from "electron";
 import {
   type ExtensionActionResult,
+  type ExtensionMarketplaceState,
   type ExtensionState,
 } from "../../shared/extensions";
 import { getExtensionState, setExtensionEnabled } from "./loader";
+import {
+  getExtensionMarketplaceState,
+  getThemeMarketplaceState,
+  installExtensionPackage,
+  installThemeExtension,
+} from "./marketplace";
 import { getUserExtensionsPath } from "./paths";
 
 export function registerExtensionHandlers() {
@@ -46,6 +53,42 @@ export function registerExtensionHandlers() {
         message: "Reloaded extensions.",
         state: getExtensionState(folderPath),
       };
+    },
+  );
+
+  ipcMain.handle(
+    "extensions:marketplace",
+    async (): Promise<ExtensionMarketplaceState> => {
+      return getExtensionMarketplaceState();
+    },
+  );
+
+  ipcMain.handle(
+    "extensions:themeMarketplace",
+    async (): Promise<ExtensionMarketplaceState> => {
+      return getThemeMarketplaceState();
+    },
+  );
+
+  ipcMain.handle(
+    "extensions:install",
+    async (
+      _event,
+      extensionId: string,
+      folderPath?: string | null,
+    ): Promise<ExtensionActionResult> => {
+      return installExtensionPackage(extensionId, folderPath);
+    },
+  );
+
+  ipcMain.handle(
+    "extensions:installTheme",
+    async (
+      _event,
+      extensionId: string,
+      folderPath?: string | null,
+    ): Promise<ExtensionActionResult> => {
+      return installThemeExtension(extensionId, folderPath);
     },
   );
 

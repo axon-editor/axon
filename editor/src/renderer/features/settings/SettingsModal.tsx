@@ -7,7 +7,6 @@ import CommandModal from "../../shared/components/CommandModal";
 import {
   EDITOR_FONT_ITEMS,
   SETTINGS_SECTIONS,
-  THEME_ITEMS,
   UI_FONT_ITEMS,
   type SettingsSectionId,
 } from "./lib/settingsData";
@@ -113,14 +112,12 @@ export default function SettingsModal({
     [extensionState],
   );
   const themeItems = useMemo(
-    () => [
-      ...THEME_ITEMS,
-      ...extensionThemes.map((theme) => ({
+    () =>
+      extensionThemes.map((theme) => ({
         value: theme.id,
         label: theme.label,
         description: `${theme.extensionName} extension`,
       })),
-    ],
     [extensionThemes],
   );
   const activeSectionMeta =

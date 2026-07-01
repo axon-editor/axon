@@ -1,8 +1,8 @@
-import { publicAsset } from "../../../../shared/lib/assets";
 import {
   resolveFileIcon,
   resolveFolderIcon,
 } from "./catppuccinIconMappings";
+import { getCatppuccinIconAsset } from "./iconAssetPaths";
 
 function SvgIcon({ src, size = 16 }: { src: string; size?: number }) {
   return (
@@ -19,14 +19,17 @@ function SvgIcon({ src, size = 16 }: { src: string; size?: number }) {
   );
 }
 
-const base = publicAsset("icons/");
-
 export function getFileIcon(filename: string, size = 16) {
-  return <SvgIcon src={`${base}${resolveFileIcon(filename)}`} size={size} />;
+  return (
+    <SvgIcon src={getCatppuccinIconAsset(resolveFileIcon(filename))} size={size} />
+  );
 }
 
 export function getFolderIcon(name: string, expanded: boolean, size = 16) {
   return (
-    <SvgIcon src={`${base}${resolveFolderIcon(name, expanded)}`} size={size} />
+    <SvgIcon
+      src={getCatppuccinIconAsset(resolveFolderIcon(name, expanded))}
+      size={size}
+    />
   );
 }

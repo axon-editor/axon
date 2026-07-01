@@ -1,0 +1,27 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.testing",
+  "name": "Testing",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in test discovery, run orchestration, and result surfaces.",
+  "author": "Axon",
+  "categories": ["Testing"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "views": [
+      {
+        "id": "axon.tests",
+        "title": "Tests",
+        "location": "sidebar"
+      }
+    ],
+    "taskProviders": [
+      {
+        "type": "test",
+        "label": "Axon Tests",
+        "description": "Runs tests through Axon's built-in test surface."
+      }
+    ]
+  }
+}

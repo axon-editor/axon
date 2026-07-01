@@ -87,6 +87,7 @@ function normalizeAxonTheme(
   const tokens: ThemeOverride = {};
   const syntax: Record<string, ExtensionThemeSyntaxStyle> = {};
   const terminal: Record<string, string> = {};
+  const monaco: Record<string, string> = {};
 
   for (const token of THEME_COLOR_TOKENS) {
     const color = rawTheme.ui?.[token];
@@ -105,6 +106,10 @@ function normalizeAxonTheme(
     if (isHexColor(value)) terminal[key] = value;
   }
 
+  for (const [key, value] of Object.entries(rawTheme.monaco ?? {})) {
+    if (isHexColor(value)) monaco[key] = value;
+  }
+
   return {
     id: rawTheme.id ?? contributionId,
     label: rawTheme.name ?? contributionLabel,
@@ -114,6 +119,7 @@ function normalizeAxonTheme(
     tokens,
     syntax,
     terminal,
+    monaco,
   };
 }
 
@@ -130,6 +136,7 @@ function normalizeZedTheme(
   const tokens: ThemeOverride = {};
   const syntax: Record<string, ExtensionThemeSyntaxStyle> = {};
   const terminal: Record<string, string> = {};
+  const monaco: Record<string, string> = {};
 
   for (const [zedToken, axonToken] of Object.entries(zedToAxonTokenMap)) {
     const color = style[zedToken];
@@ -164,6 +171,7 @@ function normalizeZedTheme(
     tokens,
     syntax,
     terminal,
+    monaco,
   };
 }
 

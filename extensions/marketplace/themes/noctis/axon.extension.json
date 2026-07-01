@@ -1,0 +1,24 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "marketplace.noctis-theme",
+  "name": "Noctis Theme",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "A balanced dark theme package used to verify Axon's theme download and user-extension install flow.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GordenArcher/axon"
+  },
+  "kind": "theme",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "noctis-dark",
+        "label": "Noctis Dark",
+        "path": "themes/noctis-dark.json"
+      }
+    ]
+  }
+}

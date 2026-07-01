@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.one-theme",
+  "name": "One",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in One Dark and One Light themes.",
+  "author": "Axon",
+  "categories": [
+    "Themes"
+  ],
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "id": "one-dark",
+        "label": "One Dark",
+        "path": "./themes/one-dark.json"
+      },
+      {
+        "id": "one-light",
+        "label": "One Light",
+        "path": "./themes/one-light.json"
+      }
+    ]
+  }
+}

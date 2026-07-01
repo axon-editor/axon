@@ -1,16 +1,13 @@
 import {
   AI_PROVIDER_IDS,
-  BUILT_IN_THEME_IDS,
   EDITOR_FONT_FAMILIES,
   EDITOR_CURSOR_BLINKING,
   EDITOR_CURSOR_STYLES,
   EDITOR_BACKGROUND_IMAGE_FITS,
   EDITOR_MULTI_CURSOR_MODIFIERS,
   FONT_PRESET_IDS,
-  THEME_LABELS,
   UI_FONT_FAMILIES,
   type AiProviderId,
-  type BuiltInThemeId,
   type EditorSidebarSide,
   type EditorFontFamily,
   type EditorCursorBlinking,
@@ -72,12 +69,6 @@ export const SETTINGS_SECTIONS: Array<{
     description: "Provider defaults for later",
   },
 ];
-
-export const THEME_ITEMS: SearchSelectItem<BuiltInThemeId>[] =
-  BUILT_IN_THEME_IDS.map((themeId) => ({
-    value: themeId,
-    label: THEME_LABELS[themeId],
-  }));
 
 export const UI_FONT_ITEMS: SearchSelectItem<UiFontFamily>[] =
   UI_FONT_FAMILIES.map((fontFamily) => ({
@@ -183,5 +174,3 @@ export const EDITOR_SIDEBAR_SIDE_ITEMS: SearchSelectItem<EditorSidebarSide>[] = 
   { value: "left", label: "Left" },
   { value: "right", label: "Right" },
 ];
-
-export { THEME_LABELS };

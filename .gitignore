@@ -5,6 +5,7 @@ NerdFonts/
 Variable Fonts/
 editor/.language-server-downloads/
 editor/build/language-servers/*/
+editor/public/extensions/
 architectureNotes.md
 editor/src/main/generated/buildConfig.ts
 docs/.vitepress/cache/
@@ -14,4 +15,5 @@ docs/.next/
 docs/build/
 docs/out/
 AXON_FEATURES_AND_WORK.md
+pr.md
 .env

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.problems",
+  "name": "Problems",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in diagnostics aggregation for Monaco, language servers, and project checks.",
+  "author": "Axon",
+  "categories": ["Diagnostics"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "views": [
+      {
+        "id": "axon.problems",
+        "title": "Problems",
+        "location": "panel"
+      }
+    ]
+  }
+}

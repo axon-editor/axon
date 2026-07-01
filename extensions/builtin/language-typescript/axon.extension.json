@@ -1,0 +1,27 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-typescript",
+  "name": "TypeScript and JavaScript",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in JavaScript, TypeScript, JSX, and TSX language metadata and server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:typescript", "onLanguage:javascript"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "javascript",
+        "label": "JavaScript",
+        "extensions": [".js", ".jsx", ".mjs", ".cjs"],
+        "aliases": ["JavaScript", "javascript", "js"]
+      },
+      {
+        "id": "typescript",
+        "label": "TypeScript",
+        "extensions": [".ts", ".tsx", ".mts", ".cts"],
+        "aliases": ["TypeScript", "typescript", "ts"]
+      }
+    ]
+  }
+}

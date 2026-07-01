@@ -1,15 +1,28 @@
 import { app } from "electron";
+import fs from "fs";
 import path from "path";
 
 export const EXTENSION_MANIFEST_FILE = "axon.extension.json";
 
+function getRepositoryExtensionsRootPath() {
+  const packagedPath = path.join(app.getAppPath(), "extensions");
+  const workspaceRootPath = path.resolve(app.getAppPath(), "..", "extensions");
+
+  // Source builds keep bundled extensions at the repository root so the app can
+  // grow toward the apps/services/packages/extensions layout without burying
+  // product packages inside the Electron app folder. Packaged builds still copy
+  // that root folder into the Electron app bundle as app/extensions, so the
+  // loader checks the source-tree location first and then falls back to the
+  // packaged location.
+  return fs.existsSync(workspaceRootPath) ? workspaceRootPath : packagedPath;
+}
+
 export function getBundledExtensionsPath() {
-  // Bundled extensions live beside package.json so Electron can resolve them
-  // from app.getAppPath() in both development and packaged builds. Keeping
-  // shipped themes in this normal extension shape prevents the loader from
-  // needing a second theme path and makes future bundled extensions follow the
-  // same rules as user-installed extensions.
-  return path.join(app.getAppPath(), "extensions");
+  return path.join(getRepositoryExtensionsRootPath(), "builtin");
+}
+
+export function getMarketplaceExtensionsPath() {
+  return path.join(getRepositoryExtensionsRootPath(), "marketplace");
 }
 
 export function getUserExtensionsPath() {

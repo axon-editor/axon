@@ -5,7 +5,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useRef, useState } from "react";
 import {
-  type BuiltInThemeId,
   type EditorSettings,
   type ThemeId,
 } from "../../../shared/settings";
@@ -34,7 +33,7 @@ import MarkdownPreviewTab from "../preview/MarkdownPreviewTab";
 import SingleEditor from "./SingleEditor";
 import EmptyPane from "./EmptyPane";
 import WorkspaceBlankPane from "./WorkspaceBlankPane";
-import WelcomeTab from "../onboarding/WelcomeTab";
+import WelcomeTab, { type WelcomeThemeItem } from "../onboarding/WelcomeTab";
 
 interface Props {
   pane: Pane;
@@ -50,7 +49,8 @@ interface Props {
   onOpenFile?: (filePath: string) => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
-  onSelectTheme: (themeId: BuiltInThemeId) => void;
+  onSelectTheme: (themeId: ThemeId) => void;
+  themeItems: WelcomeThemeItem[];
   onOpenNavigationTarget?: (
     target: Omit<EditorNavigationTarget, "id">,
   ) => void;
@@ -83,6 +83,7 @@ export default function PaneInstance({
   onOpenSettings,
   onOpenTerminal,
   onSelectTheme,
+  themeItems,
   onOpenNavigationTarget,
   onDirtyChange,
   onCursorChange,
@@ -227,6 +228,7 @@ export default function PaneInstance({
                   onOpenSettings={onOpenSettings}
                   onOpenTerminal={onOpenTerminal}
                   onSelectTheme={onSelectTheme}
+                  themes={themeItems}
                 />
               ) : isHtmlPreviewTabPath(path) ? (
                 <HtmlPreview

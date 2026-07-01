@@ -1,0 +1,24 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.catppuccin-theme",
+  "name": "Catppuccin",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in Catppuccin Mocha theme.",
+  "author": "Axon",
+  "categories": [
+    "Themes"
+  ],
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "id": "catppuccin-mocha",
+        "label": "Catppuccin Mocha",
+        "path": "./themes/catppuccin-mocha.json"
+      }
+    ]
+  }
+}

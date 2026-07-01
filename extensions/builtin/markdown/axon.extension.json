@@ -1,0 +1,21 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.markdown",
+  "name": "Markdown",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in Markdown editing and preview support.",
+  "author": "Axon",
+  "categories": ["Markdown", "Languages"],
+  "activationEvents": ["onLanguage:markdown"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "markdown",
+        "label": "Markdown",
+        "extensions": [".md", ".markdown", ".mdx"],
+        "aliases": ["Markdown", "md"]
+      }
+    ]
+  }
+}

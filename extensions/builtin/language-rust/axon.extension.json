@@ -1,0 +1,21 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-rust",
+  "name": "Rust",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in Rust language metadata and server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:rust"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "rust",
+        "label": "Rust",
+        "extensions": [".rs"],
+        "aliases": ["Rust", "rust"]
+      }
+    ]
+  }
+}

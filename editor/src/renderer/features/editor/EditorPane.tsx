@@ -16,7 +16,6 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import {
-  type BuiltInThemeId,
   type EditorSettings,
   type ThemeId,
 } from "../../../shared/settings";
@@ -25,6 +24,7 @@ import { type Layout } from "./lib/types";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import PaneInstance from "./PaneInstance";
+import { type WelcomeThemeItem } from "../onboarding/WelcomeTab";
 import PaneDivider from "./PaneDivider";
 import { type DragTabData, type PaneDropData } from "./TabBar";
 import { getTree, type FileNode } from "../../shared/lib/api";
@@ -43,7 +43,8 @@ interface Props {
   onOpenFile?: (filePath: string) => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
-  onSelectTheme: (themeId: BuiltInThemeId) => void;
+  onSelectTheme: (themeId: ThemeId) => void;
+  themeItems: WelcomeThemeItem[];
   onOpenNavigationTarget?: (
     target: Omit<EditorNavigationTarget, "id">,
   ) => void;
@@ -111,6 +112,7 @@ export default function EditorPane({
   onOpenSettings,
   onOpenTerminal,
   onSelectTheme,
+  themeItems,
   onOpenNavigationTarget,
   onReorderTabs,
   onDirtyChange,
@@ -249,6 +251,7 @@ export default function EditorPane({
               onOpenSettings={onOpenSettings}
               onOpenTerminal={onOpenTerminal}
               onSelectTheme={onSelectTheme}
+              themeItems={themeItems}
               onOpenNavigationTarget={onOpenNavigationTarget}
               onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}
               onCursorChange={onCursorChange}

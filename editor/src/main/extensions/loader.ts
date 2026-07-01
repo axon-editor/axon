@@ -4,6 +4,7 @@ import {
   type ExtensionActionResult,
   type ExtensionContributions,
   type ExtensionInfo,
+  type ExtensionKind,
   type ExtensionManifest,
   type ExtensionState,
 } from "../../shared/extensions";
@@ -102,6 +103,12 @@ function normalizeManifest(raw: unknown): ExtensionManifest | null {
     version: raw.version,
     description:
       typeof raw.description === "string" ? raw.description : undefined,
+    repository:
+      typeof raw.repository === "string" || isRecord(raw.repository)
+        ? (raw.repository as ExtensionManifest["repository"])
+        : undefined,
+    homepage: typeof raw.homepage === "string" ? raw.homepage : undefined,
+    kind: isExtensionKind(raw.kind) ? raw.kind : undefined,
     author:
       typeof raw.author === "string" || isRecord(raw.author)
         ? (raw.author as ExtensionManifest["author"])
@@ -120,15 +127,70 @@ function normalizeManifest(raw: unknown): ExtensionManifest | null {
   };
 }
 
+function isExtensionKind(value: unknown): value is ExtensionKind {
+  return (
+    value === "theme" ||
+    value === "icon-theme" ||
+    value === "language" ||
+    value === "tool" ||
+    value === "view" ||
+    value === "mixed"
+  );
+}
+
+function getRepositoryUrl(repository: ExtensionManifest["repository"]) {
+  if (typeof repository === "string") return repository;
+  return typeof repository?.url === "string" ? repository.url : null;
+}
+
+function inferExtensionKind(
+  manifest: ExtensionManifest,
+  contributes: Required<ExtensionContributions>,
+): ExtensionKind {
+  if (manifest.kind) return manifest.kind;
+
+  const kinds = new Set<ExtensionKind>();
+  if (contributes.themes.length > 0) kinds.add("theme");
+  if (contributes.icons.length > 0) kinds.add("icon-theme");
+  if (contributes.languages.length > 0 || contributes.snippets.length > 0) {
+    kinds.add("language");
+  }
+  if (contributes.views.length > 0) kinds.add("view");
+  if (
+    contributes.commands.length > 0 ||
+    contributes.taskProviders.length > 0 ||
+    contributes.debuggerProviders.length > 0
+  ) {
+    kinds.add("tool");
+  }
+
+  return kinds.size === 1 ? [...kinds][0] : kinds.size > 1 ? "mixed" : "tool";
+}
+
 function findExtensionDirectories(rootPath: string | null) {
   if (!rootPath || !fs.existsSync(rootPath)) return [];
-  return fs
-    .readdirSync(rootPath, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(rootPath, entry.name))
-    .filter((extensionPath) =>
-      fs.existsSync(path.join(extensionPath, EXTENSION_MANIFEST_FILE)),
-    );
+
+  const extensionDirectories: string[] = [];
+  const visit = (currentPath: string) => {
+    const manifestPath = path.join(currentPath, EXTENSION_MANIFEST_FILE);
+    if (fs.existsSync(manifestPath)) {
+      extensionDirectories.push(currentPath);
+      return;
+    }
+
+    for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      visit(path.join(currentPath, entry.name));
+    }
+  };
+
+  // Built-in extensions are now grouped by category, for example
+  // extensions/builtin/themes/* and extensions/builtin/icons/*. User and
+  // workspace extensions can still live directly under their extension root.
+  // Recursing until a manifest is found lets both layouts work while avoiding
+  // accidental nested extension ownership below a real package.
+  visit(rootPath);
+  return extensionDirectories;
 }
 
 function loadExtensionFromPath(
@@ -168,6 +230,9 @@ function loadExtensionFromPath(
     publisher: manifest.publisher,
     version: manifest.version,
     description: manifest.description ?? "",
+    repositoryUrl: getRepositoryUrl(manifest.repository),
+    homepageUrl: manifest.homepage ?? null,
+    kind: inferExtensionKind(manifest, contributes),
     source,
     path: extensionPath,
     enabled,
@@ -197,6 +262,9 @@ function createInternalExtension(): ExtensionInfo {
     version: "1.0.0",
     description:
       "Built-in themes, file icons, language metadata, snippets, and commands that ship with Axon.",
+    repositoryUrl: null,
+    homepageUrl: null,
+    kind: "mixed",
     source: "internal",
     path: "app://axon/builtin",
     enabled: true,

@@ -58,7 +58,9 @@ import {
   hasSeenAxonOnboarding,
   markAxonOnboardingSeen,
 } from "../features/onboarding/lib/welcomeTab";
-
+interface AppProps {
+  initialExtensionState: ExtensionState;
+}
 function formatOutputTime(date = new Date()) {
   return date.toLocaleTimeString([], {
     hour: "2-digit",
@@ -66,8 +68,7 @@ function formatOutputTime(date = new Date()) {
     second: "2-digit",
   });
 }
-
-export default function App() {
+export default function App({ initialExtensionState }: AppProps) {
   const shouldShowOnboardingRef = useRef(!hasSeenAxonOnboarding());
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [workspaceRoots, setWorkspaceRoots] = useState<WorkspaceRoot[]>([]);
@@ -78,7 +79,6 @@ export default function App() {
     if (!shouldShowOnboardingRef.current) {
       return createInitialLayout();
     }
-
     markAxonOnboardingSeen();
     return createWelcomeLayout();
   });
@@ -117,8 +117,8 @@ export default function App() {
   const [settingsHydrated, setSettingsHydrated] = useState(false);
   const [settingsJsonPath, setSettingsJsonPath] = useState<string | null>(null);
   const [availableFonts, setAvailableFonts] = useState<CustomFont[]>([]);
-  const [extensionState, setExtensionState] = useState<ExtensionState | null>(
-    null,
+  const [extensionState, setExtensionState] = useState<ExtensionState>(
+    initialExtensionState,
   );
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
     EditorDiagnostic[]
@@ -161,12 +161,8 @@ export default function App() {
   } | null>(null);
   const cliToolInstallPrompt = useCliToolInstallPrompt();
   const [workspaceTrustNonce, setWorkspaceTrustNonce] = useState(0);
-
   const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
   const [spotifyState, spotifyActions] = useSpotify(sidebarSpotifyVisible);
-
-
-
   const {
     activeFileContent,
     activeFileSymbols,
@@ -190,7 +186,6 @@ export default function App() {
     settings,
     workspaceTrustNonce,
   });
-
   const handleOpenNavigationTarget = useCallback(
     (target: Omit<EditorNavigationTarget, "id">) => {
       // Navigation is intentionally owned by the app shell even though the
@@ -206,23 +201,15 @@ export default function App() {
         const existingPane = prev.panes.find((pane) =>
           pane.openTabs.includes(target.path),
         );
-
         if (existingPane) {
           return openFileInPane(prev, existingPane.id, target.path);
         }
-
         return openFileInPane(prev, prev.activePaneId, target.path);
       });
     },
     [],
   );
-
   useAgentDiagnosticsExport({ folderPath, diagnostics });
-
-
-
-
-
   const appendOutput = useCallback(
     (source: string, message: string, level: OutputEntryLevel = "info") => {
       setOutputEntries((entries) =>
@@ -240,7 +227,6 @@ export default function App() {
     },
     [],
   );
-
   const clearOutputEntries = useCallback(() => {
     // Clearing output should feel intentional, but the panel should not become
     // visually dead afterward. I leave a single timestamped marker so it is
@@ -256,11 +242,9 @@ export default function App() {
       },
     ]);
   }, []);
-
   const requireTrustedWorkspace = useCallback(
     (feature: string) => {
       if (workspaceTrusted) return true;
-
       appendOutput(
         "workspace",
         `${feature} is disabled until this workspace is trusted.`,
@@ -271,30 +255,23 @@ export default function App() {
     },
     [appendOutput, folderPath, workspaceTrusted],
   );
-
-
-
   const handleOpenUpdatePage = useCallback(() => {
     void window.axon.openUpdatePage(updateInfo?.releaseUrl);
   }, [updateInfo?.releaseUrl]);
-
   const handleDownloadUpdate = useCallback(async () => {
     const result = await window.axon.downloadUpdate();
     appendOutput("update", result.message, result.ok ? "success" : "error");
   }, [appendOutput]);
-
   const handleInstallUpdate = useCallback(async () => {
     const result = await window.axon.installUpdate();
     appendOutput("update", result.message, result.ok ? "success" : "error");
   }, [appendOutput]);
-
   const refreshGitStatus = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!folderPath) {
         setGitStatus(null);
         return;
       }
-
       try {
         const nextStatus = await window.axon.getGitStatus(folderPath);
         setGitStatus(nextStatus);
@@ -315,18 +292,15 @@ export default function App() {
     },
     [appendOutput, folderPath],
   );
-
   const refreshProjectDiagnostics = useCallback(async () => {
     setProjectDiagnostics([]);
     setLspDiagnosticsByFile({});
     clearLanguageServerDiagnosticsFromMonaco();
     setMonacoDiagnostics(collectEditorDiagnostics());
-
     if (!folderPath) {
       appendOutput("diagnostics", "Skipped project diagnostics: no workspace.");
       return;
     }
-
     appendOutput("diagnostics", `Checking ${folderPath}`);
     try {
       const nextDiagnostics =
@@ -347,9 +321,6 @@ export default function App() {
       setProjectDiagnostics([]);
     }
   }, [appendOutput, folderPath]);
-
-
-
   const refreshExtensions = useCallback(async () => {
     try {
       const nextExtensionState = await window.axon.listExtensions(folderPath);
@@ -359,9 +330,6 @@ export default function App() {
       appendOutput("extensions", "Failed to load extensions.", "error");
     }
   }, [appendOutput, folderPath]);
-
-
-
   const {
     handleFileSelect,
     handleFolderChange,
@@ -396,11 +364,6 @@ export default function App() {
     terminalOpen,
     workspaceRoots,
   });
-
-
-
-
-
   const {
     handleNewTerminal,
     handleOpenHtmlPreview,
@@ -419,7 +382,6 @@ export default function App() {
     setTerminalCreateWorkingDirectory,
     setTerminalOpen,
   });
-
   const handleApplyAgentEdit = useCallback(
     async (filePath: string, content: string) => {
       if (!folderPath) return;
@@ -430,14 +392,12 @@ export default function App() {
     },
     [appendOutput, folderPath],
   );
-
   const handleSettingsSave = useCallback(async (
     nextSettings: AxonSettings,
     options: { announce?: boolean } = { announce: true },
   ) => {
     const normalizedSettings = normalizeSettings(nextSettings);
     setSettings(normalizedSettings);
-
     try {
       const savedSettings = await window.axon.updateSettings(
         normalizedSettings,
@@ -452,7 +412,6 @@ export default function App() {
       appendOutput("settings", "Failed to save settings.", "error");
     }
   }, [appendOutput]);
-
   const handleSettingsPreview = useCallback((nextSettings: AxonSettings) => {
     // SettingsModal owns the editable draft, but App owns the live theme and
     // editor options. Previewing through this callback keeps the shell, Monaco,
@@ -460,7 +419,6 @@ export default function App() {
     // slider movement or color keystroke to the app settings file.
     setSettings(normalizeSettings(nextSettings));
   }, []);
-
   const handleOpenSettingsJson = async () => {
     try {
       const settingsPath = await window.axon.ensureSettingsFile(null, settings);
@@ -472,7 +430,6 @@ export default function App() {
       appendOutput("settings", "Failed to open settings JSON.", "error");
     }
   };
-
   const handleOpenDiagnostic = (diagnostic: EditorDiagnostic) => {
     handleOpenNavigationTarget({
       path: diagnostic.path,
@@ -484,7 +441,6 @@ export default function App() {
       ),
     });
   };
-
   const navigateDiagnostic = useCallback(
     (direction: 1 | -1) => {
       if (diagnostics.length === 0) {
@@ -493,13 +449,11 @@ export default function App() {
         setTerminalOpen(false);
         return;
       }
-
       const orderedDiagnostics = [...diagnostics].sort((a, b) => {
         if (a.path !== b.path) return a.path.localeCompare(b.path);
         if (a.line !== b.line) return a.line - b.line;
         return a.column - b.column;
       });
-
       const activeFile = activePane?.activeFile;
       const anchor = activeFile
         ? {
@@ -508,7 +462,6 @@ export default function App() {
             column: cursorInfo.col,
           }
         : null;
-
       const compareWithAnchor = (diagnostic: EditorDiagnostic) => {
         if (!anchor) return direction;
         if (diagnostic.path !== anchor.path) {
@@ -519,7 +472,6 @@ export default function App() {
         }
         return diagnostic.column - anchor.column;
       };
-
       const nextDiagnostic =
         direction === 1
           ? (orderedDiagnostics.find(
@@ -529,7 +481,6 @@ export default function App() {
               .reverse()
               .find((diagnostic) => compareWithAnchor(diagnostic) < 0) ??
             orderedDiagnostics[orderedDiagnostics.length - 1]);
-
       // Problem navigation is intentionally based on the merged diagnostics
       // store instead of the currently mounted Monaco model. That lets F8 walk
       // into unopened files from LSP/project diagnostics, which is the behavior
@@ -540,13 +491,9 @@ export default function App() {
     },
     [activePane?.activeFile, cursorInfo.col, cursorInfo.line, diagnostics],
   );
-
-
-
   const handleRunWorkspaceTask = async (task: WorkspaceTask) => {
     if (!folderPath) return;
     if (!requireTrustedWorkspace("Tasks")) return;
-
     // Task output belongs in the Output panel, not in the terminal tabs. The
     // task runner is non-interactive and project-scoped, so opening Output here
     // gives a predictable place for build/test logs while preserving terminal
@@ -555,7 +502,6 @@ export default function App() {
     setBottomPanelTab("output");
     setBottomPanelOpen(true);
     appendOutput("task", `Starting ${task.label}.`);
-
     try {
       await window.axon.runWorkspaceTask(folderPath, task.id);
     } catch (err) {
@@ -563,13 +509,11 @@ export default function App() {
       appendOutput("task", `Failed to start ${task.label}.`, "error");
     }
   };
-
   const saveFileFromModel = useCallback(
     async (filePath: string) => {
       const model = getModel(filePath);
       if (!model || model.isDisposed()) return false;
       const languageId = detectLanguageServerLanguage(filePath);
-
       if (
         settings.editor.formatOnSave &&
         folderPath &&
@@ -587,10 +531,8 @@ export default function App() {
             tabSize: modelOptions.tabSize,
             insertSpaces: modelOptions.insertSpaces,
           });
-
           const modelChangedDuringFormat =
             model.isDisposed() || versionBeforeFormat !== model.getVersionId();
-
           if (result.ok && result.edits.length > 0 && !modelChangedDuringFormat) {
             // Format-on-save works on the shared Monaco model before the disk
             // write so every split showing this file receives the same edits.
@@ -622,7 +564,6 @@ export default function App() {
           );
         }
       }
-
       if (!folderPath) return false;
       await writeFile(filePath, model.getValue(), folderPath);
       if (folderPath && workspaceTrusted) {
@@ -665,11 +606,9 @@ export default function App() {
     },
     [appendOutput, folderPath, settings.editor.formatOnSave],
   );
-
   const handleSaveActiveFile = useCallback(() => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return;
-
     const model = getModel(activeFile);
     if (model && !model.isDisposed()) {
       // Active file saves should go through the mounted SingleEditor when
@@ -681,19 +620,16 @@ export default function App() {
       );
       return;
     }
-
     void saveFileFromModel(activeFile).then((saved) => {
       if (!saved) {
         appendOutput("file", "Could not find editor buffer to save.", "error");
       }
     });
   }, [activePane?.activeFile, appendOutput, saveFileFromModel]);
-
   const requestCloseTab = useCallback(
     async (paneId: string, filePath: string) => {
       const pane = layout.panes.find((candidate) => candidate.id === paneId);
       const isDirty = pane?.dirtyFiles[filePath] === true;
-
       if (isDirty) {
         // This is intentionally a close-time guard instead of a tab-button-only
         // guard. Tabs can close from the keyboard, command palette, context menu,
@@ -701,7 +637,6 @@ export default function App() {
         const shouldSave = window.confirm(
           `Save changes to ${filePath.split(/[\\/]/).pop() ?? filePath} before closing?\n\nOK saves. Cancel closes without saving.`,
         );
-
         if (shouldSave) {
           try {
             const saved = await saveFileFromModel(filePath);
@@ -720,23 +655,19 @@ export default function App() {
           }
         }
       }
-
       setLayout((prev) => closeTabInPane(prev, paneId, filePath));
     },
     [appendOutput, layout.panes, saveFileFromModel],
   );
-
   const handleCloseActiveTab = () => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return;
     void requestCloseTab(layout.activePaneId, activeFile);
   };
-
   const runEditorAction = useCallback(
     (action: "definition" | "references" | "rename" | "format") => {
       const activeFile = activePane?.activeFile;
       if (!activeFile) return;
-
       // App owns global commands, but SingleEditor owns Monaco. Keeping this
       // as a small typed browser event lets the command palette, shortcuts,
       // and future menu items trigger editor-native behavior without leaking
@@ -751,7 +682,6 @@ export default function App() {
     },
     [activePane?.activeFile],
   );
-
   const runCommand = useAppCommandRunner({
     activeFilePath: activePane?.activeFile ?? null,
     appendOutput,
@@ -794,7 +724,6 @@ export default function App() {
     setWorkspaceSearchOpen,
     setZenMode,
   });
-
   const paletteCommands = useMemo(
     () =>
       buildAppPaletteCommands({
@@ -828,8 +757,6 @@ export default function App() {
       zenMode,
     ],
   );
-
-
   useAxonAppEffects({
     activeLanguageServerStartRef,
     activePane,
@@ -889,7 +816,6 @@ export default function App() {
     workspaceTrustNonce,
     zenMode,
   });
-
   return (
     <AxonAppView
       {...{
@@ -913,6 +839,7 @@ export default function App() {
       diffFilePath,
       diffOpen,
       extensionState,
+      extensionThemes,
       extensionsOpen,
       fileOutlineOpen,
       folderPath,

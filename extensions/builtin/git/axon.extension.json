@@ -1,0 +1,25 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.git",
+  "name": "Git",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in source-control surfaces for status, diffs, history, branches, stashes, worktrees, and merge conflicts.",
+  "author": "Axon",
+  "categories": ["Source Control"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "views": [
+      {
+        "id": "axon.sourceControl",
+        "title": "Source Control",
+        "location": "sidebar"
+      },
+      {
+        "id": "axon.history",
+        "title": "History",
+        "location": "sidebar"
+      }
+    ]
+  }
+}

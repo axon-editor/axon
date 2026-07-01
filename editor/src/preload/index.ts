@@ -87,6 +87,7 @@ import {
 } from "../shared/htmlPreview";
 import {
   type ExtensionActionResult,
+  type ExtensionMarketplaceState,
   type ExtensionState,
 } from "../shared/extensions";
 import type {
@@ -364,6 +365,20 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
     ipcRenderer.invoke("extensions:openFolder", folderPath),
+  listExtensionMarketplace: (): Promise<ExtensionMarketplaceState> =>
+    ipcRenderer.invoke("extensions:marketplace"),
+  installExtension: (
+    extensionId: string,
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> =>
+    ipcRenderer.invoke("extensions:install", extensionId, folderPath),
+  listThemeMarketplace: (): Promise<ExtensionMarketplaceState> =>
+    ipcRenderer.invoke("extensions:themeMarketplace"),
+  installThemeExtension: (
+    extensionId: string,
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> =>
+    ipcRenderer.invoke("extensions:installTheme", extensionId, folderPath),
   shouldRestoreSession: (): Promise<boolean> =>
     ipcRenderer.invoke("app:shouldRestoreSession"),
   consumeCliOpenFolder: (): Promise<string | null> =>

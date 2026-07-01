@@ -17,11 +17,22 @@ export interface ExtensionManifest {
   publisher: string;
   version: string;
   description?: string;
+  repository?: string | { type?: string; url: string };
+  homepage?: string;
+  kind?: ExtensionKind;
   author?: string | { name: string; email?: string; url?: string };
   categories?: string[];
   activationEvents?: string[];
   contributes?: ExtensionContributions;
 }
+
+export type ExtensionKind =
+  | "theme"
+  | "icon-theme"
+  | "language"
+  | "tool"
+  | "view"
+  | "mixed";
 
 export interface ExtensionContributions {
   commands?: ExtensionCommandContribution[];
@@ -107,6 +118,7 @@ export interface ExtensionThemeDefinition {
   ui?: Partial<Record<ThemeColorToken | string, string | null>>;
   syntax?: Record<string, ExtensionThemeSyntaxStyle | string | null>;
   terminal?: Record<string, string | null>;
+  monaco?: Record<string, string | null>;
 }
 
 export interface ResolvedExtensionTheme {
@@ -118,6 +130,7 @@ export interface ResolvedExtensionTheme {
   tokens: ThemeOverride;
   syntax: Record<string, ExtensionThemeSyntaxStyle>;
   terminal: Record<string, string>;
+  monaco: Record<string, string>;
 }
 
 export interface ExtensionInfo {
@@ -126,6 +139,9 @@ export interface ExtensionInfo {
   publisher: string;
   version: string;
   description: string;
+  repositoryUrl: string | null;
+  homepageUrl: string | null;
+  kind: ExtensionKind;
   source: ExtensionSource;
   path: string;
   enabled: boolean;
@@ -157,4 +173,28 @@ export interface ExtensionActionResult {
   ok: boolean;
   message: string;
   state: ExtensionState;
+}
+
+export interface ExtensionMarketplaceTheme {
+  id: string;
+  label: string;
+}
+
+export interface ExtensionMarketplaceItem {
+  id: string;
+  name: string;
+  publisher: string;
+  version: string;
+  description: string;
+  repositoryUrl: string | null;
+  homepageUrl: string | null;
+  categories: string[];
+  kind: ExtensionKind;
+  themes: ExtensionMarketplaceTheme[];
+  contributionLabels: string[];
+  installed: boolean;
+}
+
+export interface ExtensionMarketplaceState {
+  items: ExtensionMarketplaceItem[];
 }

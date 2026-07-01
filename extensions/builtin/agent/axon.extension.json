@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.agent",
+  "name": "Axon Agent",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in local-first AI agent surfaces, project context tools, and terminal companion flows.",
+  "author": "Axon",
+  "categories": ["AI"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "views": [
+      {
+        "id": "axon.agent",
+        "title": "Axon Agent",
+        "location": "sidebar"
+      }
+    ]
+  }
+}

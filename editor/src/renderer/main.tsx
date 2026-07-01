@@ -12,6 +12,7 @@ import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { configureMonacoDiagnostics } from "./features/lsp/lib/monacoDiagnostics";
 import { configureLspCompletions } from "./features/lsp/lib/lspCompletions";
 import { configureLspNavigation } from "./features/lsp/lib/lspNavigation";
+import { type ExtensionState } from "../shared/extensions";
 
 loader.config({ monaco });
 
@@ -39,11 +40,6 @@ loader.config({ monaco });
   },
 };
 
-// I register the Axon theme against the same Monaco instance that the React
-// wrapper will use. Without loader.config, @monaco-editor/react can initialize
-// a separate Monaco instance, which makes the app call setTheme("axon") before
-// that instance knows the custom theme exists.
-registerAxonTheme(monaco);
 configureMonacoDiagnostics(monaco);
 configureLspCompletions(monaco);
 configureLspNavigation(monaco);
@@ -54,7 +50,51 @@ configureLspNavigation(monaco);
 // out of the hit-test path so it cannot block editor controls.
 document.body.classList.add("axon-react-ready");
 
-// StrictMode is disabled because it double-invokes effects in development
-// which causes Monaco's InstantiationService to be disposed and crash
-// on the second mount. Not a concern in production.
-ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
+function getEnabledExtensionThemes(extensionState: ExtensionState) {
+  return extensionState.extensions.flatMap((extension) =>
+    extension.enabled ? extension.themes : [],
+  );
+}
+
+function renderStartupFailure(err: unknown) {
+  const message = err instanceof Error ? err.message : "Unknown startup error.";
+  document.getElementById("root")!.innerHTML = `
+    <div style="display:flex;min-height:100vh;align-items:center;justify-content:center;background:#0d1016;color:#d8dee9;font:13px system-ui,sans-serif;padding:24px;">
+      <div style="max-width:560px;border:1px solid #2d2f34;background:#1f2127;padding:18px;">
+        <div style="font-weight:600;margin-bottom:8px;">Axon could not load built-in extensions</div>
+        <div style="opacity:.75;line-height:1.5;">${message.replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char] ?? char)}</div>
+      </div>
+    </div>
+  `;
+}
+
+async function boot() {
+  try {
+    const initialExtensionState = await window.axon.listExtensions(null);
+    const extensionThemes = getEnabledExtensionThemes(initialExtensionState);
+
+    // Monaco must know the built-in extension themes before React mounts the
+    // first editor. This makes extensions/builtin/themes the real startup
+    // registry instead of painting once with a hard-coded renderer fallback and
+    // replacing it later after IPC completes.
+    registerAxonTheme(monaco, "axon-dark", undefined, extensionThemes);
+
+    // StrictMode is disabled because it double-invokes effects in development
+    // which causes Monaco's InstantiationService to be disposed and crash
+    // on the second mount. Not a concern in production.
+    ReactDOM.createRoot(document.getElementById("root")!).render(
+      <App initialExtensionState={initialExtensionState} />,
+    );
+  } catch (err) {
+    console.error("failed to boot Axon:", err);
+    renderStartupFailure(err);
+  }
+}
+
+void boot();

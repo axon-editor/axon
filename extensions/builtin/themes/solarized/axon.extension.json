@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.solarized-theme",
+  "name": "Solarized",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in Solarized Dark and Solarized Light themes.",
+  "author": "Axon",
+  "categories": [
+    "Themes"
+  ],
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "id": "solarized-dark",
+        "label": "Solarized Dark",
+        "path": "./themes/solarized-dark.json"
+      },
+      {
+        "id": "solarized-light",
+        "label": "Solarized Light",
+        "path": "./themes/solarized-light.json"
+      }
+    ]
+  }
+}

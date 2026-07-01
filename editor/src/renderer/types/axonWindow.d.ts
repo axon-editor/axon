@@ -7,6 +7,7 @@ import type {
 import type { EditorDiagnostic } from "../features/diagnostics/lib/diagnostics";
 import type {
   ExtensionActionResult,
+  ExtensionMarketplaceState,
   ExtensionState,
 } from "../../shared/extensions";
 import type {
@@ -271,6 +272,16 @@ declare global {
         folderPath?: string | null,
       ) => Promise<ExtensionActionResult>;
       openExtensionsFolder: (
+        folderPath?: string | null,
+      ) => Promise<ExtensionActionResult>;
+      listExtensionMarketplace: () => Promise<ExtensionMarketplaceState>;
+      installExtension: (
+        extensionId: string,
+        folderPath?: string | null,
+      ) => Promise<ExtensionActionResult>;
+      listThemeMarketplace: () => Promise<ExtensionMarketplaceState>;
+      installThemeExtension: (
+        extensionId: string,
         folderPath?: string | null,
       ) => Promise<ExtensionActionResult>;
       shouldRestoreSession: () => Promise<boolean>;

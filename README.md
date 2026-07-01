@@ -96,14 +96,15 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 
 ```text
 axon/
-├── core/                         # Go backend
-│   ├── cmd/axon/                 # backend entry point
-│   ├── cmd/axon-agent/           # terminal agent command installed as axon
-│   └── internal/
-│       ├── fs/                   # file tree, text reads, writes, search
-│       ├── server/               # HTTP routes
-│       ├── terminal/             # PTY + websocket bridge
-│       └── ai/                   # future AI backend surface
+├── services/
+│   └── core/                     # Go backend
+│       ├── cmd/axon/             # backend entry point
+│       ├── cmd/axon-agent/       # terminal agent command installed as axon
+│       └── internal/
+│           ├── fs/               # file tree, text reads, writes, search
+│           ├── server/           # HTTP routes
+│           ├── terminal/         # PTY + websocket bridge
+│           └── ai/               # future AI backend surface
 ├── editor/                       # Electron + React app
 │   └── src/
 │       ├── main/                 # Electron main process, IPC, updater, LSP
@@ -115,7 +116,7 @@ axon/
 ## Run Locally
 
 ```bash
-cd core
+cd services/core
 go run cmd/axon/main.go
 ```
 

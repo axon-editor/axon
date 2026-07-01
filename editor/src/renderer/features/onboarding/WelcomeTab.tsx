@@ -8,12 +8,15 @@ import {
   Terminal,
 } from "lucide-react";
 import {
-  BUILT_IN_THEME_IDS,
-  THEME_LABELS,
-  type BuiltInThemeId,
   type ThemeId,
 } from "../../../shared/settings";
 import { publicAsset } from "../../shared/lib/assets";
+
+export interface WelcomeThemeItem {
+  id: ThemeId;
+  label: string;
+  source: string;
+}
 
 interface Props {
   currentThemeId: ThemeId;
@@ -21,7 +24,8 @@ interface Props {
   onOpenFolder: () => void;
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
-  onSelectTheme: (themeId: BuiltInThemeId) => void;
+  onSelectTheme: (themeId: ThemeId) => void;
+  themes: WelcomeThemeItem[];
 }
 
 interface Action {
@@ -69,6 +73,7 @@ export default function WelcomeTab({
   onOpenSettings,
   onOpenTerminal,
   onSelectTheme,
+  themes,
 }: Props) {
   const actions: Action[] = [
     {
@@ -222,13 +227,13 @@ export default function WelcomeTab({
                   "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
               }}
             >
-              {BUILT_IN_THEME_IDS.map((themeId) => {
-                const selected = currentThemeId === themeId;
+              {themes.map((theme) => {
+                const selected = currentThemeId === theme.id;
                 return (
                   <button
-                    key={themeId}
+                    key={theme.id}
                     type="button"
-                    onClick={() => onSelectTheme(themeId)}
+                    onClick={() => onSelectTheme(theme.id)}
                     className={`group flex cursor-pointer items-center gap-3 bg-[var(--axon-editor-background)] p-3 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)] ${
                       selected
                         ? "text-[var(--axon-editor-foreground)]"
@@ -246,10 +251,10 @@ export default function WelcomeTab({
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate font-medium">
-                        {THEME_LABELS[themeId]}
+                        {theme.label}
                       </span>
                       <span className="mt-0.5 block truncate text-[var(--axon-editor-foreground)] opacity-45">
-                        Built into Axon
+                        {theme.source}
                       </span>
                     </span>
                   </button>

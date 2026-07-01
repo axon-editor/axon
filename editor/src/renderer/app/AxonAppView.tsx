@@ -23,7 +23,7 @@ import SpotifyFloatingPlayer from "../features/spotify/SpotifyFloatingPlayer";
 import AxonAgentSidebar from "../features/agent/AxonAgentSidebar";
 import CliToolInstallPrompt from "../features/cli/CliToolInstallPrompt";
 import { AXON_COMMANDS } from "../../shared/commands";
-import { type BuiltInThemeId } from "../../shared/settings";
+import { type ThemeId } from "../../shared/settings";
 import {
   closePane,
   moveTabBetweenPanes,
@@ -60,6 +60,7 @@ export function AxonAppView(props: Record<string, any>) {
     diffFilePath,
     diffOpen,
     extensionState,
+    extensionThemes,
     extensionsOpen,
     fileOutlineOpen,
     folderPath,
@@ -159,6 +160,19 @@ export function AxonAppView(props: Record<string, any>) {
     setCursorInfo,
     setZenMode
   } = props;
+  const welcomeThemeItems = React.useMemo(
+    () =>
+      (extensionState?.extensions ?? [])
+        .filter((extension: any) => extension.source === "internal")
+        .flatMap((extension: any) => extension.themes ?? [])
+        .slice(0, 10)
+        .map((theme: any) => ({
+          id: theme.id,
+          label: theme.label,
+          source: theme.extensionName,
+        })),
+    [extensionState],
+  );
   const [agentSidebarWidth, setAgentSidebarWidth] = React.useState(460);
   const mainSidebarSide =
     settings.editor.sidebarSide === "right" ? "right" : "left";
@@ -401,7 +415,7 @@ export function AxonAppView(props: Record<string, any>) {
                 setBottomPanelOpen(false);
                 setTerminalOpen(true);
               }}
-              onSelectTheme={(themeId: BuiltInThemeId) => {
+              onSelectTheme={(themeId: ThemeId) => {
                 void handleSettingsSave(
                   {
                     ...settings,
@@ -416,6 +430,7 @@ export function AxonAppView(props: Record<string, any>) {
               onOpenNavigationTarget={handleOpenNavigationTarget}
               editorSettings={settings.editor}
               currentThemeId={settings.editor.themeId}
+              themeItems={welcomeThemeItems}
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitStatus?.changes ?? []}

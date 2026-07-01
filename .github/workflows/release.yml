@@ -62,8 +62,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: core/go.mod
-          cache-dependency-path: core/go.sum
+          go-version-file: services/core/go.mod
+          cache-dependency-path: services/core/go.sum
 
       - name: Install editor dependencies
         run: npm ci

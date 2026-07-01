@@ -1,19 +1,11 @@
 import * as monaco from "monaco-editor";
 import {
-  THEME_LABELS,
+  THEME_COLOR_TOKENS,
   type AxonSettings,
-  type BuiltInThemeId,
+  type ThemeColorToken,
   type ThemeId,
 } from "../../../shared/settings";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
-import { axonDarkTheme } from "./axonDark";
-import { axonMoonlightTheme } from "./axonMoonlight";
-import { ayuDarkTheme, ayuLightTheme, ayuMirageTheme } from "./ayuDark";
-import { catppuccinMochaTheme } from "./catppuccinMocha";
-import { oneThemes } from "./one";
-import { solarizedThemes } from "./solarized";
-import { soraTheme } from "./sora";
-import { zedDarkTheme } from "./zedDark";
 import {
   createExtensionSyntaxRules,
   createSemanticTokenColors,
@@ -24,30 +16,11 @@ import {
 
 export type { ThemeTokenMap } from "./types";
 
-export const AXON_MONACO_THEME: BuiltInThemeId = "axon-dark";
+export const AXON_MONACO_THEME = "axon-dark";
 
 type MonacoInstance = typeof monaco;
 
 const registeredMonacos = new WeakSet<MonacoInstance>();
-
-export const BUILT_IN_THEMES: Record<BuiltInThemeId, AxonThemeDefinition> = {
-  "axon-dark": axonDarkTheme,
-  "axon-moonlight": axonMoonlightTheme,
-  sora: soraTheme,
-  "zed-dark": zedDarkTheme,
-  "catppuccin-mocha": catppuccinMochaTheme,
-  "ayu-dark": ayuDarkTheme,
-  "ayu-light": ayuLightTheme,
-  "ayu-mirage": ayuMirageTheme,
-  "one-dark": oneThemes[0],
-  "one-light": oneThemes[1],
-  "solarized-dark": solarizedThemes[0],
-  "solarized-light": solarizedThemes[1],
-};
-
-export function getThemeDefinition(themeId: ThemeId) {
-  return BUILT_IN_THEMES[themeId as BuiltInThemeId] ?? BUILT_IN_THEMES["axon-dark"];
-}
 
 function getExtensionTheme(
   themeId: ThemeId,
@@ -56,32 +29,137 @@ function getExtensionTheme(
   return extensionThemes.find((theme) => theme.id === themeId);
 }
 
+function getRequiredTheme(
+  themeId: ThemeId,
+  extensionThemes: ResolvedExtensionTheme[],
+) {
+  const selectedTheme = getExtensionTheme(themeId, extensionThemes);
+  if (selectedTheme) return selectedTheme;
+
+  throw new Error(
+    `Theme registry is not ready. Missing selected extension theme "${themeId}".`,
+  );
+}
+
 export function getThemeLabel(
   themeId: ThemeId,
   extensionThemes: ResolvedExtensionTheme[] = [],
 ) {
-  return getExtensionTheme(themeId, extensionThemes)?.label ??
-    THEME_LABELS[themeId as BuiltInThemeId] ??
-    themeId;
+  return getExtensionTheme(themeId, extensionThemes)?.label ?? themeId;
+}
+
+function firstThemeColor(
+  extensionTheme: ResolvedExtensionTheme,
+  keys: ThemeColorToken[],
+  fallback = "#0d1016",
+) {
+  for (const key of keys) {
+    const value = extensionTheme.tokens[key];
+    if (value) return value;
+  }
+  return fallback;
+}
+
+function completeThemeTokens(extensionTheme: ResolvedExtensionTheme): ThemeTokenMap {
+  const editorBackground = firstThemeColor(extensionTheme, [
+    "editor.background",
+    "background",
+    "terminal.background",
+  ]);
+  const foreground = firstThemeColor(
+    extensionTheme,
+    ["editor.foreground", "terminal.foreground"],
+    "#d8dee9",
+  );
+  const panelBackground = firstThemeColor(
+    extensionTheme,
+    ["panel.background", "sidebar.background", "background"],
+    editorBackground,
+  );
+  const panelBorder = firstThemeColor(
+    extensionTheme,
+    ["panel.border", "sidebar.border", "panel.overlay_hover"],
+    panelBackground,
+  );
+  const syntaxForeground = {
+    "syntax.comment": "#6f7682",
+    "syntax.keyword": foreground,
+    "syntax.string": foreground,
+    "syntax.number": foreground,
+    "syntax.type": foreground,
+    "syntax.function": foreground,
+    "syntax.method": foreground,
+    "syntax.class": foreground,
+    "syntax.interface": foreground,
+    "syntax.variable": foreground,
+    "syntax.parameter": foreground,
+    "syntax.property": foreground,
+    "syntax.constant": foreground,
+    "syntax.operator": foreground,
+    "syntax.bracket": foreground,
+    "syntax.import": foreground,
+    "syntax.tag": foreground,
+    "syntax.attribute": foreground,
+  } satisfies Partial<ThemeTokenMap>;
+
+  const completed = {
+    background: extensionTheme.tokens.background ?? editorBackground,
+    "status_bar.background":
+      extensionTheme.tokens["status_bar.background"] ?? panelBackground,
+    "title_bar.background":
+      extensionTheme.tokens["title_bar.background"] ?? panelBackground,
+    "toolbar.background":
+      extensionTheme.tokens["toolbar.background"] ?? panelBackground,
+    "sidebar.background":
+      extensionTheme.tokens["sidebar.background"] ?? panelBackground,
+    "sidebar.hover_background":
+      extensionTheme.tokens["sidebar.hover_background"] ??
+      extensionTheme.tokens["panel.overlay_hover"] ??
+      panelBorder,
+    "sidebar.border": extensionTheme.tokens["sidebar.border"] ?? panelBorder,
+    "tab.active_background":
+      extensionTheme.tokens["tab.active_background"] ?? editorBackground,
+    "panel.background":
+      extensionTheme.tokens["panel.background"] ?? panelBackground,
+    "panel.border": extensionTheme.tokens["panel.border"] ?? panelBorder,
+    "panel.overlay_hover":
+      extensionTheme.tokens["panel.overlay_hover"] ?? panelBorder,
+    "editor.foreground":
+      extensionTheme.tokens["editor.foreground"] ?? foreground,
+    "editor.background":
+      extensionTheme.tokens["editor.background"] ?? editorBackground,
+    "editor.gutter.background":
+      extensionTheme.tokens["editor.gutter.background"] ?? editorBackground,
+    "terminal.background":
+      extensionTheme.tokens["terminal.background"] ?? editorBackground,
+    "terminal.foreground":
+      extensionTheme.tokens["terminal.foreground"] ?? foreground,
+    ...syntaxForeground,
+    ...extensionTheme.tokens,
+  } satisfies Partial<ThemeTokenMap>;
+
+  for (const token of THEME_COLOR_TOKENS) {
+    if (!completed[token]) {
+      throw new Error(
+        `Theme "${extensionTheme.id}" is missing required token "${token}".`,
+      );
+    }
+  }
+
+  return completed as ThemeTokenMap;
 }
 
 export function resolveThemeTokens(
   settings: AxonSettings,
   extensionThemes: ResolvedExtensionTheme[] = [],
 ): ThemeTokenMap {
-  const extensionTheme = getExtensionTheme(settings.editor.themeId, extensionThemes);
-  const theme = getThemeDefinition(settings.editor.themeId);
-  const themeLabel = getThemeLabel(settings.editor.themeId, extensionThemes);
-  const overrides =
-    settings.theme_overrides[themeLabel] ??
-    settings.theme_overrides[settings.editor.themeId] ??
-    {};
+  const extensionTheme = getRequiredTheme(settings.editor.themeId, extensionThemes);
 
-  return {
-    ...theme.tokens,
-    ...(extensionTheme?.tokens ?? {}),
-    ...overrides,
-  };
+  // Theme colors are now owned by extension packages. Keeping runtime override
+  // layering here would make the same built-in theme render differently from
+  // its JSON contribution, which is exactly the drift the extension-host
+  // migration is meant to remove.
+  return completeThemeTokens(extensionTheme);
 }
 
 function buildMonacoTheme(
@@ -108,6 +186,7 @@ function buildMonacoTheme(
       "terminal.background": tokens["terminal.background"],
       "terminal.foreground": tokens["terminal.foreground"],
       ...theme.monacoColors,
+      ...(extensionTheme?.monaco ?? {}),
     },
   };
 
@@ -133,23 +212,17 @@ function defineAllThemes(
   activeTokens?: ThemeTokenMap,
   extensionThemes: ResolvedExtensionTheme[] = [],
 ) {
-  for (const theme of Object.values(BUILT_IN_THEMES)) {
-    const tokens = theme.id === activeThemeId && activeTokens
-      ? activeTokens
-      : theme.tokens;
-    monacoInstance.editor.defineTheme(theme.id, buildMonacoTheme(theme, tokens));
-  }
-
   for (const extensionTheme of extensionThemes) {
-    const baseTheme = extensionTheme.appearance === "light"
-      ? BUILT_IN_THEMES["axon-dark"]
-      : BUILT_IN_THEMES["axon-dark"];
     const tokens = extensionTheme.id === activeThemeId && activeTokens
       ? activeTokens
-      : {
-          ...baseTheme.tokens,
-          ...extensionTheme.tokens,
-        };
+      : completeThemeTokens(extensionTheme);
+    const themeDefinition: AxonThemeDefinition = {
+      id: extensionTheme.id,
+      label: extensionTheme.label,
+      base: extensionTheme.appearance === "light" ? "vs" : "vs-dark",
+      tokens,
+      monacoColors: extensionTheme.monaco,
+    };
     try {
       // Extension themes come from local packages, and the first extension
       // host intentionally accepts Zed-compatible JSON. If a contributed
@@ -158,7 +231,7 @@ function defineAllThemes(
       // Reload Extensions crash the whole renderer.
       monacoInstance.editor.defineTheme(
         extensionTheme.id,
-        buildMonacoTheme(baseTheme, tokens, extensionTheme),
+        buildMonacoTheme(themeDefinition, tokens, extensionTheme),
       );
     } catch (err) {
       console.error(`failed to register extension theme ${extensionTheme.id}:`, err);
@@ -177,16 +250,15 @@ export function registerAxonTheme(
   extensionThemes: ResolvedExtensionTheme[] = [],
 ) {
   // Every Monaco instance used by @monaco-editor/react must receive the same
-  // theme definitions. The active theme can include live user overrides, while
-  // inactive built-ins stay clean so switching themes never copies old override
-  // values into the next theme.
+  // extension-provided theme definitions. The renderer no longer has a private
+  // TypeScript fallback registry, so a missing definition should surface as a
+  // real extension-loading problem instead of being hidden by another source.
   defineAllThemes(monacoInstance, themeId, themeTokens, extensionThemes);
   registeredMonacos.add(monacoInstance);
   try {
     monacoInstance.editor.setTheme(getMonacoThemeId(themeId));
   } catch (err) {
     console.error(`failed to activate theme ${themeId}:`, err);
-    monacoInstance.editor.setTheme(AXON_MONACO_THEME);
   }
 }
 

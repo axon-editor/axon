@@ -1,0 +1,24 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.zed-theme",
+  "name": "Zed Theme",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in Zed-inspired dark theme.",
+  "author": "Axon",
+  "categories": [
+    "Themes"
+  ],
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "id": "zed-dark",
+        "label": "Zed Dark",
+        "path": "./themes/zed-dark.json"
+      }
+    ]
+  }
+}

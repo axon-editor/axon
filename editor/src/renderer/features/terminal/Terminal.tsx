@@ -26,7 +26,7 @@ import "@xterm/xterm/css/xterm.css";
 import type { EditorSettings } from "../../../shared/settings";
 import { type EditorDiagnostic } from "../diagnostics/lib/diagnostics";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
-import { getCoreWebSocketUrl, waitForCoreBackend } from "../../shared/lib/coreBackend";
+import { waitForCoreBackend } from "../../shared/lib/coreBackend";
 import ChromeTab from "../editor/ChromeTab";
 import Tooltip from "../../shared/components/Tooltip";
 import {
@@ -35,6 +35,19 @@ import {
   type BottomPanelTab,
 } from "./BottomPanel";
 import { getTerminalOptions } from "./lib/terminalTheme";
+import {
+  DEFAULT_TERMINAL_HEIGHT,
+  MAX_RECONNECT_INPUT_BYTES,
+  MIN_TERMINAL_HEIGHT,
+  createTerminalId,
+  getFolderName,
+  getOutputByteLength,
+  getTerminalBackendUrl,
+  quoteShellPath,
+  sendTerminalAck,
+  sendTerminate,
+  type TerminalSession,
+} from "./lib/terminalProtocol";
 
 interface Props {
   open: boolean;
@@ -57,70 +70,6 @@ interface TerminalTab {
   id: string;
   title: string;
   connected: boolean;
-}
-
-interface TerminalSession {
-  container: HTMLDivElement | null;
-  term: XTerm | null;
-  fitAddon: FitAddon | null;
-  ws: WebSocket | null;
-  reconnectTimer: number | null;
-  resizeDebounceTimer: number | null;
-  resizeObserver: ResizeObserver | null;
-  dataDisposable: { dispose: () => void } | null;
-  multilineDisposable: { dispose: () => void } | null;
-  scrollDisposable: { dispose: () => void } | null;
-  workingDirectory: string | null;
-  cwdSynced: boolean;
-  receivedBytes: number;
-  outputQueue: TerminalOutputChunk[];
-  outputWriting: boolean;
-  queuedBytes: number;
-  inputQueue: string[];
-  queuedInputBytes: number;
-  scrollLine: number;
-  atBottom: boolean;
-  lastResizeCols: number | null;
-  lastResizeRows: number | null;
-  refreshFrame: number | null;
-  disposed: boolean;
-  terminating: boolean;
-}
-
-interface TerminalOutputChunk {
-  data: string | Uint8Array;
-  byteLength: number;
-}
-
-const DEFAULT_TERMINAL_HEIGHT = 280;
-const MIN_TERMINAL_HEIGHT = 180;
-const MAX_RECONNECT_INPUT_BYTES = 64 * 1024;
-
-function createTerminalId() {
-  return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function getFolderName(path: string | null) {
-  if (!path) return "terminal";
-  return path.split(/[\\/]/).filter(Boolean).pop() ?? "terminal";
-}
-
-function getTerminalBackendUrl(
-  workingDirectory: string | null,
-  sessionId: string,
-  replayFrom = 0,
-) {
-  const backendUrl = getCoreWebSocketUrl("/terminal");
-  backendUrl.searchParams.set("sessionId", sessionId);
-  backendUrl.searchParams.set("replayFrom", String(replayFrom));
-  if (workingDirectory) {
-    backendUrl.searchParams.set("cwd", workingDirectory);
-  }
-  return backendUrl.toString();
-}
-
-function quoteShellPath(path: string) {
-  return `'${path.replaceAll("'", "'\\''")}'`;
 }
 
 function sendWorkspaceCd(session: TerminalSession) {
@@ -198,39 +147,6 @@ function flushQueuedTerminalInput(session: TerminalSession) {
   }
 }
 
-function sendTerminate(ws: WebSocket) {
-  if (ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: "terminate" }));
-}
-
-function getOutputByteLength(data: unknown) {
-  if (typeof data === "string") {
-    // Terminal input/output is overwhelmingly ASCII, but reconnect replay must
-    // count real UTF-8 bytes because the backend scrollback offsets are byte
-    // based. Walking code points avoids allocating a TextEncoder result on
-    // every keystroke while still keeping emoji and non-Latin text aligned with
-    // the server's replay cursor.
-    let byteLength = 0;
-    for (let index = 0; index < data.length; index += 1) {
-      const codePoint = data.codePointAt(index) ?? 0;
-      if (codePoint > 0xffff) index += 1;
-      if (codePoint < 0x80) {
-        byteLength += 1;
-      } else if (codePoint < 0x800) {
-        byteLength += 2;
-      } else if (codePoint < 0x10000) {
-        byteLength += 3;
-      } else {
-        byteLength += 4;
-      }
-    }
-    return byteLength;
-  }
-  if (data instanceof ArrayBuffer) return data.byteLength;
-  if (data instanceof Blob) return data.size;
-  return 0;
-}
-
 function drainTerminalOutput(session: TerminalSession) {
   if (session.outputWriting) return;
   const chunk = session.outputQueue.shift();
@@ -245,6 +161,7 @@ function drainTerminalOutput(session: TerminalSession) {
   session.term.write(chunk.data, () => {
     session.receivedBytes += chunk.byteLength;
     session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength);
+    sendTerminalAck(session);
     if (session.term && session.atBottom) {
       session.term.scrollToBottom();
     }
@@ -395,6 +312,10 @@ export default function Terminal({
       window.clearTimeout(session.resizeDebounceTimer);
       session.resizeDebounceTimer = null;
     }
+    if (session?.ackTimer !== null && session?.ackTimer !== undefined) {
+      window.clearTimeout(session.ackTimer);
+      session.ackTimer = null;
+    }
     if (session?.refreshFrame !== null && session?.refreshFrame !== undefined) {
       window.cancelAnimationFrame(session.refreshFrame);
       session.refreshFrame = null;
@@ -457,6 +378,8 @@ export default function Terminal({
       workingDirectory: sessionWorkingDirectory,
       cwdSynced: false,
       receivedBytes: 0,
+      lastAckedBytes: 0,
+      ackTimer: null,
       outputQueue: [],
       outputWriting: false,
       queuedBytes: 0,
@@ -591,6 +514,7 @@ export default function Terminal({
           sendResize(id);
           sendWorkspaceCd(latestSession);
           flushQueuedTerminalInput(latestSession);
+          sendTerminalAck(latestSession, true);
         };
 
         ws.onmessage = (event) => {
