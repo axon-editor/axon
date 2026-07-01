@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const editorRoot = process.cwd();
-const workspaceRoot = path.resolve(editorRoot, "..");
+const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const iconExtensionAssets = path.resolve(
   workspaceRoot,
   "extensions/builtin/icons/catppuccin/assets",

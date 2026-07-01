@@ -6,7 +6,7 @@ export const EXTENSION_MANIFEST_FILE = "axon.extension.json";
 
 function getRepositoryExtensionsRootPath() {
   const packagedPath = path.join(app.getAppPath(), "extensions");
-  const workspaceRootPath = path.resolve(app.getAppPath(), "..", "extensions");
+  const workspaceRootPath = path.resolve(app.getAppPath(), "..", "..", "extensions");
 
   // Source builds keep bundled extensions at the repository root so the app can
   // grow toward the apps/services/packages/extensions layout without burying

@@ -450,7 +450,7 @@ export function getManagedLanguageServerPlatformKeys() {
 export function getManagedLanguageServerRoots() {
   // Packaged builds receive managed native/runtime-backed servers through
   // Electron's extraResources directory. Development builds use the same shape
-  // under editor/build/language-servers so the resolver can be tested locally
+  // under apps/editor/build/language-servers so the resolver can be tested locally
   // before release packaging.
   return [
     path.join(process.resourcesPath, "language-servers"),

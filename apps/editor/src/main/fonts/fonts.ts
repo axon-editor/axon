@@ -104,7 +104,7 @@ export function importCustomFontFile(sourcePath: string): CustomFont {
 
 export function listAvailableLocalFonts(): CustomFont[] {
   const candidateRoots = [
-    path.resolve(app.getAppPath(), "..", "NerdFonts"),
+    path.resolve(app.getAppPath(), "..", "..", "NerdFonts"),
     path.resolve(process.resourcesPath, "NerdFonts"),
   ];
   return candidateRoots
@@ -115,7 +115,7 @@ export function listAvailableLocalFonts(): CustomFont[] {
 
 export function getAxonIconPath(isDev: boolean) {
   if (isDev) {
-    // Vite now packages static renderer assets from editor/public so the app
+    // Vite now packages static renderer assets from apps/editor/public so the app
     // icon, splash logo, and file-tree assets all come from the same source of
     // truth. I still keep the old renderer-local path as a fallback because
     // older working trees may have the image there while someone is moving

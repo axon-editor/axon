@@ -1,7 +1,7 @@
 # Axon
 
 <p align="center">
-  <img src="editor/src/renderer/public/axon.png" width="80" height="80" alt="Axon" />
+  <img src="apps/editor/src/renderer/public/axon.png" width="80" height="80" alt="Axon" />
 </p>
 
 Axon is a personal AI-powered code editor built with Electron, React, TypeScript,
@@ -111,11 +111,12 @@ axon/
 ├── extensions/                   # built-in and marketplace extension packages
 │   ├── builtin/
 │   └── marketplace/
-├── editor/                       # Electron + React app
-│   └── src/
-│       ├── main/                 # Electron main process, IPC, updater, LSP
-│       ├── preload/              # safe contextBridge API
-│       └── renderer/             # Axon UI
+├── apps/
+│   └── editor/                   # Electron + React app
+│       └── src/
+│           ├── main/             # Electron main process, IPC, updater, LSP
+│           ├── preload/          # safe contextBridge API
+│           └── renderer/         # Axon UI
 └── docs/                         # release, update, and LSP notes
 ```
 
@@ -145,7 +146,7 @@ npm --workspace axon run dist:win
 npm --workspace axon run dist:linux
 ```
 
-Build output goes to `editor/release/`.
+Build output goes to `apps/editor/release/`.
 
 ## Downloads
 

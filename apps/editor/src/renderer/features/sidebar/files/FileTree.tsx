@@ -3,6 +3,7 @@ import { type FileNode } from "../../../shared/lib/api";
 import { publicAsset } from "../../../shared/lib/assets";
 import { type GitTreeDecoration } from "..";
 import FileTreeNode from "./FileTreeNode";
+import FileTreeLoading from "./FileTreeLoading";
 import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
 
 export interface ImportedExternalEntry {
@@ -106,9 +107,7 @@ export default function FileTree({
   };
 
   if (loading) {
-    return (
-      <div className="px-4 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-35">loading...</div>
-    );
+    return <FileTreeLoading />;
   }
 
   if (showEmptySidebar) {

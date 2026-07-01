@@ -4,12 +4,12 @@ node_modules/
 .axon/
 NerdFonts/
 Variable Fonts/
-editor/.language-server-downloads/
-editor/build/language-servers/*/
-editor/public/extensions/
+apps/editor/.language-server-downloads/
+apps/editor/build/language-servers/*/
+apps/editor/public/extensions/
 packages/*/dist/
 architectureNotes.md
-editor/src/main/generated/buildConfig.ts
+apps/editor/src/main/generated/buildConfig.ts
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 docs/.docusaurus/

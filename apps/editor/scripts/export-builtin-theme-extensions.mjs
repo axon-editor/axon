@@ -3,7 +3,7 @@ import path from "node:path";
 import { createJiti } from "jiti";
 
 const editorRoot = process.cwd();
-const workspaceRoot = path.resolve(editorRoot, "..");
+const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const jiti = createJiti(import.meta.url);
 
 const { axonDarkTheme } = jiti("../src/renderer/shared/themes/axonDark.ts");

@@ -39,7 +39,7 @@ async function firstExistingPath(candidates: string[]) {
       return candidate;
     } catch {
       // Candidate probing is expected to fail in one of the two modes. A dev
-      // checkout looks under editor/build/core, while a packaged app looks in
+      // checkout looks under apps/editor/build/core, while a packaged app looks in
       // Electron's resources directory. We only need the first executable hit.
     }
   }

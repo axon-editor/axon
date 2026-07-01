@@ -3,7 +3,7 @@
   "version": "1.2.5",
   "private": true,
   "workspaces": [
-    "editor",
+    "apps/editor",
     "packages/*"
   ],
   "scripts": {
