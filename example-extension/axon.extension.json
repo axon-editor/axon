@@ -1,0 +1,60 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.example-extension",
+  "name": "Example Extension",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "A reference Axon extension package showing manifest contributions for themes, icons, commands, views, and terminal profiles.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GordenArcher/axon/tree/main/example-extension"
+  },
+  "kind": "mixed",
+  "categories": ["Themes", "Icon Themes", "Views", "Terminal"],
+  "activationEvents": [
+    "onStartup",
+    "onCommand:axon.example.sayHello",
+    "onView:axon.example.panel",
+    "onTerminalProfile:axon.example.shell"
+  ],
+  "main": "src/extension.ts",
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.example.sayHello",
+        "title": "Say Hello",
+        "category": "Example",
+        "description": "Demonstrates a command contribution declared by an Axon extension."
+      }
+    ],
+    "themes": [
+      {
+        "id": "axon-example-dark",
+        "label": "Axon Example Dark",
+        "path": "themes/example-dark.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "axon-example-icons",
+        "label": "Axon Example Icons",
+        "path": "icons/example-icons.json"
+      }
+    ],
+    "views": [
+      {
+        "id": "axon.example.panel",
+        "title": "Example",
+        "location": "sidebar"
+      }
+    ],
+    "terminalProfiles": [
+      {
+        "id": "axon.example.shell",
+        "title": "Example Shell",
+        "command": "sh",
+        "args": ["-l"]
+      }
+    ]
+  }
+}

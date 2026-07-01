@@ -1,0 +1,23 @@
+{
+  "$schema": "https://axoneditor.com/schemas/icon-theme/v0.1.0.json",
+  "name": "Axon Example Icons",
+  "appearance": "dark",
+  "assets": {
+    "basePath": "icons/assets"
+  },
+  "defaults": {
+    "file": "file.svg",
+    "folder": "folder.svg",
+    "folderOpen": "folder-open.svg"
+  },
+  "fileExtensions": {
+    "axon": "axon.svg",
+    "ts": "typescript.svg",
+    "tsx": "typescript.svg",
+    "json": "json.svg"
+  },
+  "folderNames": {
+    "extensions": "extensions-folder.svg",
+    "packages": "packages-folder.svg"
+  }
+}

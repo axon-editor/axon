@@ -6,6 +6,7 @@ Variable Fonts/
 editor/.language-server-downloads/
 editor/build/language-servers/*/
 editor/public/extensions/
+packages/*/dist/
 architectureNotes.md
 editor/src/main/generated/buildConfig.ts
 docs/.vitepress/cache/

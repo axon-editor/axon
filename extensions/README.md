@@ -13,3 +13,9 @@ Renderer and core code may still own the implementation for a built-in feature
 while that feature's manifest lives here. That is intentional during migration:
 the manifest establishes feature ownership first, then the implementation can
 move behind that boundary in smaller, reviewable steps.
+
+The public contract for these packages starts in
+`packages/extension-api`. New contribution points should be added there first,
+then wired into the editor or service that consumes them. That keeps built-ins
+and third-party packages speaking the same API instead of importing private
+workbench files directly.

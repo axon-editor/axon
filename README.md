@@ -105,6 +105,11 @@ axon/
 │           ├── server/           # HTTP routes
 │           ├── terminal/         # PTY + websocket bridge
 │           └── ai/               # future AI backend surface
+├── packages/
+│   └── extension-api/            # manifest, registry, and runtime extension contracts
+├── extensions/                   # built-in and marketplace extension packages
+│   ├── builtin/
+│   └── marketplace/
 ├── editor/                       # Electron + React app
 │   └── src/
 │       ├── main/                 # Electron main process, IPC, updater, LSP
