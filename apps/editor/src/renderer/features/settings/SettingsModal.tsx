@@ -415,7 +415,6 @@ export default function SettingsModal({
       onClose={close}
       width="w-[min(1080px,calc(100vw-2rem))]"
       bodyClassName="min-h-0 overflow-hidden"
-      blurOverlay={false}
     >
       <div className="grid h-[min(760px,calc(100vh-4rem))] min-h-0 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
         <SettingsModalSidebar

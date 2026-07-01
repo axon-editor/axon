@@ -13,6 +13,10 @@ import { configureMonacoDiagnostics } from "./features/lsp/lib/monacoDiagnostics
 import { configureLspCompletions } from "./features/lsp/lib/lspCompletions";
 import { configureLspNavigation } from "./features/lsp/lib/lspNavigation";
 import { type ExtensionState } from "../shared/extensions";
+import {
+  markAxonPerformance,
+  measureAxonPerformance,
+} from "./shared/lib/performanceMarks";
 
 loader.config({ monaco });
 
@@ -76,6 +80,7 @@ function renderStartupFailure(err: unknown) {
 
 async function boot() {
   try {
+    markAxonPerformance("axon.renderer.boot.start");
     const axonApi = window.axon;
     if (!axonApi) {
       throw new Error(
@@ -83,7 +88,16 @@ async function boot() {
       );
     }
 
+    markAxonPerformance("axon.extensions.initialList.start");
     const initialExtensionState = await axonApi.listExtensions(null);
+    markAxonPerformance("axon.extensions.initialList.end", {
+      count: initialExtensionState.extensions.length,
+    });
+    measureAxonPerformance(
+      "axon.extensions.initialList",
+      "axon.extensions.initialList.start",
+      "axon.extensions.initialList.end",
+    );
     const extensionThemes = getEnabledExtensionThemes(initialExtensionState);
 
     // Monaco must know the built-in extension themes before React mounts the
@@ -97,6 +111,12 @@ async function boot() {
     // on the second mount. Not a concern in production.
     ReactDOM.createRoot(document.getElementById("root")!).render(
       <App initialExtensionState={initialExtensionState} />,
+    );
+    markAxonPerformance("axon.renderer.react.rendered");
+    measureAxonPerformance(
+      "axon.renderer.boot",
+      "axon.renderer.boot.start",
+      "axon.renderer.react.rendered",
     );
   } catch (err) {
     console.error("failed to boot Axon:", err);

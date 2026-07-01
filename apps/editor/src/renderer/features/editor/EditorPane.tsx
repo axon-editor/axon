@@ -67,6 +67,10 @@ interface Props {
   handleOpenFolder: () => void;
   handleNewFile: () => void;
   handleFolderChange: (path: string, fileTree: FileNode) => void;
+  nativeControlInset?: {
+    start: number;
+    end: number;
+  };
 }
 
 function isDragTabData(data: unknown): data is DragTabData {
@@ -129,6 +133,7 @@ export default function EditorPane({
   handleOpenFolder,
   handleNewFile,
   handleFolderChange,
+  nativeControlInset,
 }: Props) {
   const [draggingTab, setDraggingTab] = useState<DragTabData | null>(null);
 
@@ -269,6 +274,7 @@ export default function EditorPane({
                 addRecentFolder(path);
                 handleFolderChange(path, fileTree);
               }}
+              nativeControlInset={index === 0 ? nativeControlInset : undefined}
             />
             {index < layout.panes.length - 1 && (
               <PaneDivider

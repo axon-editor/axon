@@ -2,61 +2,14 @@ package agentcli
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/configstore"
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
-
-type agentCliConfig struct {
-	SelectedModel string `json:"selectedModel"`
-}
-
-func agentConfigPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".axon", "agent-config.json"), nil
-}
-
-func loadAgentCliConfig() agentCliConfig {
-	path, err := agentConfigPath()
-	if err != nil {
-		return agentCliConfig{}
-	}
-
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return agentCliConfig{}
-	}
-
-	var config agentCliConfig
-	if err := json.Unmarshal(raw, &config); err != nil {
-		return agentCliConfig{}
-	}
-	return config
-}
-
-func saveAgentCliConfig(config agentCliConfig) error {
-	path, err := agentConfigPath()
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-
-	raw, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, raw, 0o644)
-}
 
 func selectedModelID() string {
 	// The CLI needs its own selected-model preference because it can run without
@@ -67,7 +20,7 @@ func selectedModelID() string {
 		return modelID
 	}
 
-	config := loadAgentCliConfig()
+	config := configstore.Load()
 	if strings.TrimSpace(config.SelectedModel) != "" {
 		return strings.TrimSpace(config.SelectedModel)
 	}

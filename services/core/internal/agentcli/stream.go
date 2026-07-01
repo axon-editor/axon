@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
 
@@ -55,7 +56,7 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 	interruptState := startStreamInterrupt(cancelStream)
 	defer interruptState.Stop()
 	defer cancelStream()
-	cursorState := hideTerminalCursorDuringStream()
+	cursorState := terminalui.HideCursorDuringStream()
 	defer cursorState.Restore()
 
 	port := resolveCorePort()
@@ -240,7 +241,7 @@ func startStreamSpinner(label string) *streamSpinner {
 		output: os.Stderr,
 		done:   make(chan struct{}),
 		label:  label,
-		active: isTerminalOutput(os.Stderr),
+		active: terminalui.IsTerminalOutput(os.Stderr),
 		width:  terminalStatusWidth(),
 	}
 	if !spinner.active {
@@ -356,11 +357,6 @@ func streamStatusLabel(status string) string {
 	default:
 		return "Axon is thinking"
 	}
-}
-
-func isTerminalOutput(file *os.File) bool {
-	info, err := file.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 func terminalStatusWidth() int {

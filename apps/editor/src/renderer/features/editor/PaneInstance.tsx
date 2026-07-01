@@ -66,6 +66,10 @@ interface Props {
   onOpenFolder: () => void;
   onNewFile: () => void;
   onSelectRecentFolder: (path: string) => void;
+  nativeControlInset?: {
+    start: number;
+    end: number;
+  };
 }
 
 export default function PaneInstance({
@@ -97,6 +101,7 @@ export default function PaneInstance({
   onOpenFolder,
   onNewFile,
   onSelectRecentFolder,
+  nativeControlInset,
 }: Props) {
   const [fileDragOver, setFileDragOver] = useState(false);
   const nativeDragDepth = useRef(0);
@@ -198,6 +203,7 @@ export default function PaneInstance({
         onOpenInTerminal={onOpenTabInTerminal}
         paneId={pane.id}
         pinnedTabs={pane.pinnedTabs ?? []}
+        nativeControlInset={nativeControlInset}
       />
 
       <div className="flex-1 overflow-hidden relative">

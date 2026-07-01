@@ -464,7 +464,6 @@ export default function ExtensionsModal({
       onClose={onClose}
       width="w-[min(860px,calc(100vw-2rem))]"
       bodyClassName="flex min-h-0 flex-1 overflow-hidden"
-      blurOverlay={false}
       panelStyle={{
         height: "min(720px, calc(100vh - 3rem))",
         minHeight: "min(560px, calc(100vh - 3rem))",

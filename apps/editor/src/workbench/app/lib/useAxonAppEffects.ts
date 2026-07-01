@@ -6,6 +6,10 @@ import { detectLanguageServerLanguage, getModel, updateModel } from "../../../re
 import { useGlobalEditorShortcuts } from "../../../renderer/features/editor/shortcuts/useGlobalEditorShortcuts";
 import { getTree, readFile } from "../../../renderer/shared/lib/api";
 import { createBundledFontFaces } from "../../../renderer/shared/lib/bundledFonts";
+import {
+  markAxonPerformance,
+  measureAxonPerformance,
+} from "../../../renderer/shared/lib/performanceMarks";
 import { registerAxonTheme } from "../../../renderer/shared/lib/soraTheme";
 import { loadWorkspaceSession, saveWorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
 import { normalizeSettings } from "../../../shared/settings";
@@ -611,13 +615,35 @@ export function useAxonAppEffects({
         }
 
         setLoading(true);
+        markAxonPerformance("axon.workspace.restore.start", {
+          source: "session",
+        });
+        markAxonPerformance("axon.workspace.tree.start", {
+          source: "session",
+        });
         getTree(session.folderPath)
           .then(async (fileTree) => {
+            markAxonPerformance("axon.workspace.tree.end", {
+              source: "session",
+            });
+            measureAxonPerformance(
+              "axon.workspace.tree",
+              "axon.workspace.tree.start",
+              "axon.workspace.tree.end",
+            );
             addRecentFolder(session.folderPath as string);
             await handleFolderChange(
               session.folderPath as string,
               fileTree,
               session,
+            );
+            markAxonPerformance("axon.workspace.restore.end", {
+              source: "session",
+            });
+            measureAxonPerformance(
+              "axon.workspace.restore",
+              "axon.workspace.restore.start",
+              "axon.workspace.restore.end",
             );
             appendOutput(
               "workspace",
@@ -706,10 +732,24 @@ export function useAxonAppEffects({
       handledCliFolders.add(nextFolderPath);
       setLoading(true);
       appendOutput("workspace", `Opening ${nextFolderPath}`);
+      markAxonPerformance("axon.workspace.cliOpen.start", { source: "cli" });
+      markAxonPerformance("axon.workspace.tree.start", { source: "cli" });
       getTree(nextFolderPath)
         .then(async (fileTree) => {
+          markAxonPerformance("axon.workspace.tree.end", { source: "cli" });
+          measureAxonPerformance(
+            "axon.workspace.tree",
+            "axon.workspace.tree.start",
+            "axon.workspace.tree.end",
+          );
           addRecentFolder(nextFolderPath);
           await handleFolderChange(nextFolderPath, fileTree);
+          markAxonPerformance("axon.workspace.cliOpen.end", { source: "cli" });
+          measureAxonPerformance(
+            "axon.workspace.cliOpen",
+            "axon.workspace.cliOpen.start",
+            "axon.workspace.cliOpen.end",
+          );
           appendOutput("workspace", `Opened ${nextFolderPath}`, "success");
         })
         .catch((err) => {

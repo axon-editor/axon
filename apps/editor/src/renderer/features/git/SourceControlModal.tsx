@@ -376,7 +376,7 @@ export default function SourceControlModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#05070c]/35 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 bg-[var(--axon-editor-background)]"
       onMouseDown={(event) => {
         if (panelRef.current?.contains(event.target as Node)) return;
         onClose();
@@ -384,7 +384,7 @@ export default function SourceControlModal({
     >
       <div
         ref={panelRef}
-        className="absolute bottom-8 left-1/2 top-20 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
+        className="axon-modal-panel absolute bottom-8 left-1/2 top-20 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
       >
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4">
           <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-65">

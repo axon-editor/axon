@@ -9,8 +9,10 @@
   "categories": ["Icons"],
   "activationEvents": ["onStartup"],
   "contributes": {
-    "icons": [
+    "iconThemes": [
       {
+        "id": "catppuccin-icons",
+        "label": "Catppuccin Icons",
         "path": "./assets"
       }
     ]

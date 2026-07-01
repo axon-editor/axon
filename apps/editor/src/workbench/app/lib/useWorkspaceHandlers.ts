@@ -1,6 +1,10 @@
 import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
 import { createInitialLayout, openFileInPane } from "../../../renderer/features/editor/lib/layoutManager";
 import { getTree, createFile, type FileNode } from "../../../renderer/shared/lib/api";
+import {
+  markAxonPerformance,
+  measureAxonPerformance,
+} from "../../../renderer/shared/lib/performanceMarks";
 import { sanitizeRestoredLayout, type WorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
 import { createWorkspaceRoot, upsertWorkspaceRoot } from "../../../renderer/shared/lib/workspaceRoots";
 import { normalizeSettings } from "../../../shared/settings";
@@ -64,11 +68,25 @@ export function useWorkspaceHandlers({
     try {
       const path = await window.axon.openFolder();
       if (!path) return;
+      markAxonPerformance("axon.workspace.open.start", { source: "picker" });
       setLoading(true);
       appendOutput("workspace", `Opening ${path}`);
+      markAxonPerformance("axon.workspace.tree.start", { source: "picker" });
       const fileTree = await getTree(path);
+      markAxonPerformance("axon.workspace.tree.end", { source: "picker" });
+      measureAxonPerformance(
+        "axon.workspace.tree",
+        "axon.workspace.tree.start",
+        "axon.workspace.tree.end",
+      );
       addRecentFolder(path);
       await handleFolderChange(path, fileTree);
+      markAxonPerformance("axon.workspace.open.end", { source: "picker" });
+      measureAxonPerformance(
+        "axon.workspace.open",
+        "axon.workspace.open.start",
+        "axon.workspace.open.end",
+      );
       appendOutput("workspace", `Opened ${path}`, "success");
     } catch (err) {
       console.error("failed to load tree:", err);
@@ -88,7 +106,15 @@ export function useWorkspaceHandlers({
     try {
       setLoading(true);
       appendOutput("workspace", `Switching to ${path}`);
+      markAxonPerformance("axon.workspace.switch.start", { source: "root" });
+      markAxonPerformance("axon.workspace.tree.start", { source: "root" });
       const fileTree = await getTree(path);
+      markAxonPerformance("axon.workspace.tree.end", { source: "root" });
+      measureAxonPerformance(
+        "axon.workspace.tree",
+        "axon.workspace.tree.start",
+        "axon.workspace.tree.end",
+      );
       addRecentFolder(path);
       await handleFolderChange(path, fileTree, {
         folderPath: path,
@@ -102,6 +128,12 @@ export function useWorkspaceHandlers({
         bottomPanelOpen,
         bottomPanelTab,
       });
+      markAxonPerformance("axon.workspace.switch.end", { source: "root" });
+      measureAxonPerformance(
+        "axon.workspace.switch",
+        "axon.workspace.switch.start",
+        "axon.workspace.switch.end",
+      );
       appendOutput("workspace", `Switched to ${path}`, "success");
     } catch (err) {
       console.error("failed to switch workspace root:", err);
@@ -118,6 +150,9 @@ export function useWorkspaceHandlers({
     fileTree: FileNode,
     restoredSession?: WorkspaceSession | null,
   ) => {
+    markAxonPerformance("axon.workspace.apply.start", {
+      restored: restoredSession ? true : false,
+    });
     allowSessionPersistenceRef.current = true;
     const restoredRoots =
       restoredSession?.roots && restoredSession.roots.length > 0
@@ -175,6 +210,14 @@ export function useWorkspaceHandlers({
       .catch(() => {
         setGitStatus(null);
       });
+    markAxonPerformance("axon.workspace.apply.end", {
+      restored: restoredSession ? true : false,
+    });
+    measureAxonPerformance(
+      "axon.workspace.apply",
+      "axon.workspace.apply.start",
+      "axon.workspace.apply.end",
+    );
   };
 
   const handleRefresh = async () => {

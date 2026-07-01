@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/configstore"
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
 
@@ -102,7 +103,7 @@ func runModelSlashCommand() int {
 		return 0
 	}
 
-	if err := saveAgentCliConfig(agentCliConfig{SelectedModel: nextModel}); err != nil {
+	if err := configstore.Save(configstore.Config{SelectedModel: nextModel}); err != nil {
 		fmt.Fprintln(os.Stderr, red(err.Error()))
 		return 1
 	}

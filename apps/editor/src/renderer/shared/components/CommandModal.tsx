@@ -12,6 +12,14 @@ import {
 } from "react";
 import { X } from "lucide-react";
 import Tooltip from "./Tooltip";
+import {
+  markAxonPerformance,
+  measureAxonPerformance,
+} from "../lib/performanceMarks";
+
+function getModalPerformanceName(title: string | undefined) {
+  return (title ?? "untitled").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
 
 interface Props {
   title?: string;
@@ -19,7 +27,6 @@ interface Props {
   children: React.ReactNode;
   width?: string;
   bodyClassName?: string;
-  blurOverlay?: boolean;
   animate?: boolean;
   closeDelayMs?: number;
   overlayClassName?: string;
@@ -32,10 +39,9 @@ export default function CommandModal({
   children,
   width = "w-[560px]",
   bodyClassName = "min-h-0 overflow-auto",
-  blurOverlay = true,
   animate = true,
   closeDelayMs = 170,
-  overlayClassName = "bg-black/35",
+  overlayClassName = "bg-[var(--axon-editor-background)]",
   panelStyle,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -43,6 +49,8 @@ export default function CommandModal({
   const closingRef = useRef(false);
   const onCloseRef = useRef(onClose);
   const [closing, setClosing] = useState(false);
+  const modalName = title ?? "untitled";
+  const modalPerformanceName = getModalPerformanceName(title);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -51,6 +59,9 @@ export default function CommandModal({
   const requestClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
+    markAxonPerformance(`axon.modal.${modalPerformanceName}.close.request`, {
+      modal: modalName,
+    });
 
     if (!animate || closeDelayMs <= 0) {
       onCloseRef.current();
@@ -69,9 +80,18 @@ export default function CommandModal({
     closeTimerRef.current = window.setTimeout(() => {
       onCloseRef.current();
     }, closeDelayMs);
-  }, [animate, closeDelayMs]);
+  }, [animate, closeDelayMs, modalName, modalPerformanceName]);
 
   useEffect(() => {
+    markAxonPerformance(`axon.modal.${modalPerformanceName}.open`, {
+      modal: modalName,
+    });
+    measureAxonPerformance(
+      `axon.modal.${modalPerformanceName}.fromRendererBoot`,
+      "axon.renderer.boot.start",
+      `axon.modal.${modalPerformanceName}.open`,
+    );
+
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) requestClose();
     };
@@ -86,16 +106,17 @@ export default function CommandModal({
       if (closeTimerRef.current) {
         window.clearTimeout(closeTimerRef.current);
       }
+      markAxonPerformance(`axon.modal.${modalPerformanceName}.unmount`, {
+        modal: modalName,
+      });
     };
-  }, [requestClose]);
+  }, [modalName, modalPerformanceName, requestClose]);
 
   return (
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center px-4 py-6 ${
         animate ? "axon-modal-overlay" : ""
       } ${overlayClassName} ${
-        blurOverlay ? "backdrop-blur-[2px]" : ""
-      } ${
         closing && animate ? "axon-modal-overlay--leaving" : ""
       }`}
     >

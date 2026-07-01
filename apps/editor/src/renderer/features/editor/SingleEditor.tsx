@@ -31,6 +31,7 @@ import {
   detectLanguageServerLanguage,
 } from "./lib/monacoModels";
 import { collectFileSymbols } from "../sidebar/files/lib/fileSymbols";
+import { useEditorFind } from "./lib/useEditorFind";
 import {
   encodeLocalPath,
   goCallExclusions,
@@ -38,6 +39,7 @@ import {
   normalizePath,
   toMonacoEdit,
 } from "./lib/editorDocumentHelpers";
+import { markEditorMounted } from "./lib/editorPerformance";
 
 interface Props {
   filePath: string;
@@ -81,10 +83,6 @@ export default function SingleEditor({
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("editor");
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
-  const [findOpen, setFindOpen] = useState(false);
-  const [findQuery, setFindQuery] = useState("");
-  const [findIndex, setFindIndex] = useState(0);
-  const [findMatchCount, setFindMatchCount] = useState(0);
   const [bufferSymbolsOpen, setBufferSymbolsOpen] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
 
@@ -97,11 +95,7 @@ export default function SingleEditor({
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const goSyntaxDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
-  const findDecorationsRef =
-    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
-  const findInputRef = useRef<HTMLInputElement | null>(null);
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
-  const shouldRevealFindMatchRef = useRef(false);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
@@ -116,97 +110,25 @@ export default function SingleEditor({
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
   );
 
-  const updateFindDecorations = useCallback(
-    (
-      query: string,
-      nextIndex = findIndex,
-      options: { revealActiveMatch?: boolean } = {},
-    ) => {
-      const editor = editorRef.current;
-      const model = editor?.getModel();
-      if (!editor || !model || !query.trim()) {
-        findDecorationsRef.current?.clear();
-        setFindMatchCount(0);
-        setFindIndex(0);
-        return;
-      }
-
-      const matches = model.findMatches(
-        query,
-        true,
-        false,
-        false,
-        null,
-        true,
-      );
-      setFindMatchCount(matches.length);
-      if (matches.length === 0) {
-        findDecorationsRef.current?.clear();
-        setFindIndex(0);
-        return;
-      }
-
-      const clampedIndex = Math.max(0, Math.min(nextIndex, matches.length - 1));
-      setFindIndex(clampedIndex);
-      findDecorationsRef.current ??= editor.createDecorationsCollection();
-      findDecorationsRef.current.set(
-        matches.map((match, index) => ({
-          range: match.range,
-          options: {
-            className:
-              index === clampedIndex
-                ? "axon-find-match axon-find-match--active"
-                : "axon-find-match",
-            inlineClassName:
-              index === clampedIndex
-                ? "axon-find-match-inline axon-find-match-inline--active"
-                : "axon-find-match-inline",
-          },
-        })),
-      );
-
-      if (options.revealActiveMatch) {
-        // Typing in the find input should update highlights without taking the
-        // user's editor cursor away from the place they were editing. Navigation
-        // is a separate intent: Enter, Shift+Enter, or the next/previous buttons
-        // set this flag so only those actions move the Monaco selection and
-        // reveal the active match.
-        editor.setSelection(matches[clampedIndex].range);
-        editor.revealRangeInCenter(
-          matches[clampedIndex].range,
-          monaco.editor.ScrollType.Smooth,
-        );
-      }
-    },
-    [findIndex],
-  );
-
-  const openFind = useCallback(() => {
-    setPreviewMode("editor");
-    const editor = editorRef.current;
-    const model = editor?.getModel();
-    const selection = editor?.getSelection();
-
-    if (model && selection && !selection.isEmpty()) {
-      const selectedText = model.getValueInRange(selection);
-      if (selectedText && !selectedText.includes("\n")) {
-        setFindQuery(selectedText);
-        setFindIndex(0);
-      }
-    }
-
-    setFindOpen(true);
-    window.requestAnimationFrame(() => {
-      findInputRef.current?.focus();
-      findInputRef.current?.select();
-    });
-  }, []);
-
-  const closeFind = useCallback(() => {
-    setFindOpen(false);
-    findDecorationsRef.current?.clear();
-    editorRef.current?.focus();
-  }, []);
+  const {
+    changeFindQuery,
+    clearFindDecorations,
+    closeFind,
+    findIndex,
+    findInputRef,
+    findMatchCount,
+    findOpen,
+    findQuery,
+    moveFindSelection,
+    openFind,
+  } = useEditorFind({
+    editorRef,
+    filePathRef,
+    liveContent,
+    loading,
+    visible,
+    setPreviewMode,
+  });
 
   const jumpToBreadcrumbSymbol = useCallback((line: number, column: number) => {
     const editor = editorRef.current;
@@ -231,28 +153,6 @@ export default function SingleEditor({
       jumpToBreadcrumbSymbol(symbol.line, symbol.column);
     },
     [jumpToBreadcrumbSymbol],
-  );
-
-  const moveFindSelection = useCallback(
-    (direction: 1 | -1) => {
-      if (findMatchCount === 0) return;
-      shouldRevealFindMatchRef.current = true;
-      setFindIndex(
-        (index) => {
-          const nextIndex =
-            (index + direction + findMatchCount) % findMatchCount;
-          if (nextIndex === index) {
-            window.requestAnimationFrame(() => {
-              updateFindDecorations(findQuery, nextIndex, {
-                revealActiveMatch: true,
-              });
-            });
-          }
-          return nextIndex;
-        },
-      );
-    },
-    [findMatchCount, findQuery, updateFindDecorations],
   );
 
   const jumpToDefinition = useCallback(async () => {
@@ -432,13 +332,13 @@ export default function SingleEditor({
       navigationDecorationsRef.current?.clear();
       gitDecorationsRef.current?.clear();
       goSyntaxDecorationsRef.current?.clear();
-      findDecorationsRef.current?.clear();
+      clearFindDecorations();
 
       editorOpenerRef.current?.dispose();
       editorOpenerRef.current = null;
       editorRef.current = null;
     };
-  }, []);
+  }, [clearFindDecorations]);
 
   const revealNavigationTarget = useCallback(
     (target: EditorNavigationTarget) => {
@@ -583,37 +483,6 @@ export default function SingleEditor({
     revealNavigationTarget,
     visible,
   ]);
-
-  useEffect(() => {
-    if (!findOpen) {
-      findDecorationsRef.current?.clear();
-      return;
-    }
-
-    const revealActiveMatch = shouldRevealFindMatchRef.current;
-    shouldRevealFindMatchRef.current = false;
-    updateFindDecorations(findQuery, findIndex, { revealActiveMatch });
-  }, [findIndex, findOpen, findQuery, liveContent, updateFindDecorations]);
-
-  useEffect(() => {
-    const handleOpenFind = (event: Event) => {
-      const findEvent = event as CustomEvent<{ path?: string }>;
-      if (!visible || loading) return;
-      if (findEvent.detail?.path && findEvent.detail.path !== filePathRef.current) {
-        return;
-      }
-
-      // The global shortcut layer cannot know which Monaco instance owns the
-      // active file, especially with split panes and preview/editor toggles.
-      // The visible SingleEditor handles the event locally so Cmd/Ctrl+F works
-      // from toolbar/sidebar focus without opening duplicate find widgets in
-      // hidden panes.
-      openFind();
-    };
-
-    window.addEventListener("axon:openFind", handleOpenFind);
-    return () => window.removeEventListener("axon:openFind", handleOpenFind);
-  }, [loading, openFind, visible]);
 
   useEffect(() => {
     const handleEditorAction = (event: Event) => {
@@ -855,6 +724,7 @@ export default function SingleEditor({
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
     setEditorReadyNonce((nonce) => nonce + 1);
+    markEditorMounted(filePath);
 
     registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
 
@@ -1056,10 +926,7 @@ export default function SingleEditor({
         saving={saving}
         shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}
         themeTokens={themeTokens}
-        onChangeFindQuery={(query) => {
-          setFindQuery(query);
-          setFindIndex(0);
-        }}
+        onChangeFindQuery={changeFindQuery}
         onCloseFind={closeFind}
         onMount={handleEditorMount}
         onMoveFindSelection={moveFindSelection}

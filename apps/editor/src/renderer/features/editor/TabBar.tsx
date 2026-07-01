@@ -49,6 +49,10 @@ interface Props {
   onPinTab: (path: string, pinned: boolean) => void;
   onOpenInTerminal?: (path: string) => void;
   paneId: string;
+  nativeControlInset?: {
+    start: number;
+    end: number;
+  };
 }
 
 interface ContextMenuState {
@@ -263,6 +267,7 @@ export default function TabBar({
   onPinTab,
   onOpenInTerminal,
   paneId,
+  nativeControlInset = { start: 0, end: 0 },
 }: Props) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
@@ -284,7 +289,17 @@ export default function TabBar({
 
   if (openTabs.length === 0) {
     return (
-      <div className="flex h-9 items-center border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3">
+      <div
+        className="flex h-9 items-center border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3"
+        style={{
+          paddingLeft: nativeControlInset.start
+            ? `calc(0.75rem + ${nativeControlInset.start}px)`
+            : undefined,
+          paddingRight: nativeControlInset.end
+            ? `calc(0.75rem + ${nativeControlInset.end}px)`
+            : undefined,
+        }}
+      >
         <span className="text-[11px] text-[var(--axon-editor-foreground)] opacity-35">no file open</span>
       </div>
     );
@@ -295,7 +310,18 @@ export default function TabBar({
       items={openTabs.map((path) => getTabDragId(paneId, path))}
       strategy={horizontalListSortingStrategy}
     >
-      <div className="flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)]">
+      <div
+        className="flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)]"
+        style={{
+          // Zen mode hides the sidebar and toolbar, so the tab strip becomes
+          // the first UI under Electron's hidden titlebar. macOS owns the left
+          // traffic-light area and Windows owns the right caption-button area;
+          // padding the scroll container keeps tabs clickable without shifting
+          // editor content in normal mode.
+          paddingLeft: nativeControlInset.start || undefined,
+          paddingRight: nativeControlInset.end || undefined,
+        }}
+      >
         {openTabs.map((path) => (
           <SortableTab
             key={path}

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/configstore"
 	"github.com/GordenArcher/axon-core/internal/ai"
 	"golang.org/x/sys/unix"
 )
@@ -619,7 +620,7 @@ func runModelPickerInsidePrompt(reader *bufio.Reader, renderedLines *int) string
 		switch key {
 		case '\r', '\n':
 			nextModel := models[selectedIndex].ID
-			if err := saveAgentCliConfig(agentCliConfig{SelectedModel: nextModel}); err != nil {
+			if err := configstore.Save(configstore.Config{SelectedModel: nextModel}); err != nil {
 				return red(err.Error())
 			}
 			return green("Selected " + modelLabel(models, nextModel))

@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "description": "Built-in local-first AI agent surfaces, project context tools, and terminal companion flows.",
   "author": "Axon",
+  "kind": "agent",
   "categories": ["AI"],
   "activationEvents": ["onStartup"],
   "contributes": {
@@ -24,14 +25,14 @@
     "views": [
       {
         "id": "axon.agent",
-        "title": "Axon Agent",
+        "title": "Axon Agent Sidebar",
         "location": "sidebar"
       }
     ],
     "agents": [
       {
         "id": "axon.agent.local",
-        "title": "Axon Agent",
+        "title": "Axon Local Agent",
         "description": "Local project assistant backed by Axon's core service.",
         "view": "axon.agent",
         "activationEvent": "onAgent:axon.agent.local"

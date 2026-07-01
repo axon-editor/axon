@@ -50,10 +50,9 @@ export default function FolderPicker({
       title="open folder"
       onClose={onClose}
       width="w-[480px]"
-      blurOverlay={false}
       animate={false}
       closeDelayMs={0}
-      overlayClassName="bg-transparent"
+      overlayClassName="bg-[var(--axon-editor-background)]"
     >
       <div className="p-2">
         <button
