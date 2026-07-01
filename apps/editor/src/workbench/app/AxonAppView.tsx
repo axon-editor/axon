@@ -1,27 +1,27 @@
 import * as React from "react";
-import Sidebar, { setWorkspaceTrusted } from "../features/sidebar";
-import EditorPane from "../features/editor/EditorPane";
-import StatusBar from "../shared/components/StatusBar";
-import Terminal from "../features/terminal/Terminal";
-import CommandPalette from "../features/search/CommandPalette";
-import WorkspaceSearchModal from "../features/search/WorkspaceSearchModal";
-import DiffModal from "../features/git/DiffModal";
-import EditorToolbar from "../features/editor/EditorToolbar";
-import SettingsModal from "../features/settings/SettingsModal";
-import ExtensionsModal from "../features/extensions";
-import AboutModal from "../shared/components/AboutModal";
-import SourceControlModal from "../features/git/SourceControlModal";
-import TaskRunnerModal from "../features/tasks/TaskRunnerModal";
-import TestExplorerModal from "../features/tests/TestExplorerModal";
-import WorkspaceOverviewModal from "../features/workspace/WorkspaceOverviewModal";
-import LanguageToolsModal from "../features/lsp/LanguageToolsModal";
-import FileOutlineModal from "../features/search/FileOutlineModal";
-import UpdateModal from "../features/updates/UpdateModal";
-import GitHistoryEditor from "../features/git/GitHistoryEditor";
-import WorkspaceLoadingOverlay from "../shared/components/WorkspaceLoadingOverlay";
-import SpotifyFloatingPlayer from "../features/spotify/SpotifyFloatingPlayer";
-import AxonAgentSidebar from "../features/agent/AxonAgentSidebar";
-import CliToolInstallPrompt from "../features/cli/CliToolInstallPrompt";
+import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
+import EditorPane from "../../renderer/features/editor/EditorPane";
+import StatusBar from "../../renderer/shared/components/StatusBar";
+import Terminal from "../contrib/terminal/Terminal";
+import CommandPalette from "../../renderer/features/search/CommandPalette";
+import WorkspaceSearchModal from "../../renderer/features/search/WorkspaceSearchModal";
+import DiffModal from "../../renderer/features/git/DiffModal";
+import EditorToolbar from "../../renderer/features/editor/EditorToolbar";
+import SettingsModal from "../../renderer/features/settings/SettingsModal";
+import ExtensionsModal from "../contrib/extensions";
+import AboutModal from "../../renderer/shared/components/AboutModal";
+import SourceControlModal from "../../renderer/features/git/SourceControlModal";
+import TaskRunnerModal from "../../renderer/features/tasks/TaskRunnerModal";
+import TestExplorerModal from "../../renderer/features/tests/TestExplorerModal";
+import WorkspaceOverviewModal from "../../renderer/features/workspace/WorkspaceOverviewModal";
+import LanguageToolsModal from "../../renderer/features/lsp/LanguageToolsModal";
+import FileOutlineModal from "../../renderer/features/search/FileOutlineModal";
+import UpdateModal from "../../renderer/features/updates/UpdateModal";
+import GitHistoryEditor from "../../renderer/features/git/GitHistoryEditor";
+import WorkspaceLoadingOverlay from "../../renderer/shared/components/WorkspaceLoadingOverlay";
+import SpotifyFloatingPlayer from "../../renderer/features/spotify/SpotifyFloatingPlayer";
+import AxonAgentSidebar from "../../renderer/features/agent/AxonAgentSidebar";
+import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallPrompt";
 import { AXON_COMMANDS } from "../../shared/commands";
 import { type ThemeId } from "../../shared/settings";
 import {
@@ -33,9 +33,9 @@ import {
   replacePathInLayout,
   setDirtyInPane,
   setPinnedInPane,
-} from "../features/editor/lib/layoutManager";
-import { detectLanguage } from "../features/editor/lib/monacoModels";
-import { fontStack } from "../shared/lib/fonts";
+} from "../../renderer/features/editor/lib/layoutManager";
+import { detectLanguage } from "../../renderer/features/editor/lib/monacoModels";
+import { fontStack } from "../../renderer/shared/lib/fonts";
 import { getPathBasename } from "./lib/appPath";
 
 export function AxonAppView(props: Record<string, any>) {

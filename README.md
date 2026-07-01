@@ -94,9 +94,14 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 
 ## Project Structure
 
+See [architecture.md](architecture.md) for the full repository architecture,
+ownership boundaries, and migration direction.
+
 ```text
 axon/
 ├── package.json                  # npm workspace root for editor and shared packages
+├── build/                        # repo-level build orchestration
+├── tools/                        # repo maintenance and guardrail scripts
 ├── services/
 │   └── core/                     # Go backend
 │       ├── cmd/axon/             # backend entry point
@@ -107,7 +112,10 @@ axon/
 │           ├── terminal/         # PTY + websocket bridge
 │           └── ai/               # future AI backend surface
 ├── packages/
-│   └── extension-api/            # manifest, registry, and runtime extension contracts
+│   ├── extension-api/            # manifest, registry, and runtime extension contracts
+│   ├── protocol/                 # shared wire protocol contracts
+│   ├── ipc/                      # shared IPC channel contracts
+│   └── config/                   # shared repository and extension path conventions
 ├── extensions/                   # built-in and marketplace extension packages
 │   ├── builtin/
 │   └── marketplace/
@@ -115,8 +123,10 @@ axon/
 │   └── editor/                   # Electron + React app
 │       └── src/
 │           ├── main/             # Electron main process, IPC, updater, LSP
+│           ├── platform/         # reusable renderer/client services
 │           ├── preload/          # safe contextBridge API
-│           └── renderer/         # Axon UI
+│           ├── workbench/        # editor shell and built-in UI contributions
+│           └── renderer/         # remaining renderer modules being migrated
 └── docs/                         # release, update, and LSP notes
 ```
 

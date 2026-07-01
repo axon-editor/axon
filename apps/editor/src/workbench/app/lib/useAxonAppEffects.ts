@@ -1,17 +1,17 @@
 import { useEffect } from "react";
-import { addRecentFolder, getWorkspaceTrustState } from "../../features/sidebar";
-import { clearLanguageServerDiagnosticsFromMonaco, collectEditorDiagnostics, onEditorDiagnosticsChanged, syncLanguageServerDiagnosticsToMonaco, type EditorDiagnostic } from "../../features/diagnostics/lib/diagnostics";
-import { updateLspDiagnosticCache } from "../../features/diagnostics/lib/diagnosticCache";
-import { detectLanguageServerLanguage, getModel, updateModel } from "../../features/editor/lib/monacoModels";
-import { useGlobalEditorShortcuts } from "../../features/editor/shortcuts/useGlobalEditorShortcuts";
-import { getTree, readFile } from "../../shared/lib/api";
-import { createBundledFontFaces } from "../../shared/lib/bundledFonts";
-import { registerAxonTheme } from "../../shared/lib/soraTheme";
-import { loadWorkspaceSession, saveWorkspaceSession } from "../../shared/lib/workspaceSession";
+import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
+import { clearLanguageServerDiagnosticsFromMonaco, collectEditorDiagnostics, onEditorDiagnosticsChanged, syncLanguageServerDiagnosticsToMonaco, type EditorDiagnostic } from "../../../renderer/features/diagnostics/lib/diagnostics";
+import { updateLspDiagnosticCache } from "../../../renderer/features/diagnostics/lib/diagnosticCache";
+import { detectLanguageServerLanguage, getModel, updateModel } from "../../../renderer/features/editor/lib/monacoModels";
+import { useGlobalEditorShortcuts } from "../../../renderer/features/editor/shortcuts/useGlobalEditorShortcuts";
+import { getTree, readFile } from "../../../renderer/shared/lib/api";
+import { createBundledFontFaces } from "../../../renderer/shared/lib/bundledFonts";
+import { registerAxonTheme } from "../../../renderer/shared/lib/soraTheme";
+import { loadWorkspaceSession, saveWorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
 import { normalizeSettings } from "../../../shared/settings";
 import * as monaco from "monaco-editor";
 import { escapeCssString } from "./appPath";
-import type { EditorNavigationTarget } from "../../features/editor/lib/navigation";
+import type { EditorNavigationTarget } from "../../../renderer/features/editor/lib/navigation";
 
 interface AxonAppEffectsOptions {
   activeLanguageServerStartRef: any;

@@ -1,7 +1,7 @@
 import type { Terminal as XTerm } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_PROTOCOL, TERMINAL_REPLAY } from "@axon/protocol";
-import { getCoreWebSocketUrl } from "../../../shared/lib/coreBackend";
+import { getCoreWebSocketUrl } from "../../renderer/shared/lib/coreBackend";
 
 export interface TerminalSession {
   container: HTMLDivElement | null;

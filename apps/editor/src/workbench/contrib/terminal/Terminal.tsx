@@ -25,17 +25,17 @@ import {
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 import type { EditorSettings } from "../../../shared/settings";
-import { type EditorDiagnostic } from "../diagnostics/lib/diagnostics";
-import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
-import { waitForCoreBackend } from "../../shared/lib/coreBackend";
-import ChromeTab from "../editor/ChromeTab";
-import Tooltip from "../../shared/components/Tooltip";
+import { type EditorDiagnostic } from "../../../renderer/features/diagnostics/lib/diagnostics";
+import { type ResolvedThemeTokens } from "../../../renderer/shared/lib/themeTokens";
+import { waitForCoreBackend } from "../../../renderer/shared/lib/coreBackend";
+import ChromeTab from "../../../renderer/features/editor/ChromeTab";
+import Tooltip from "../../../renderer/shared/components/Tooltip";
 import {
   BottomPanelContent,
   type OutputEntry,
   type BottomPanelTab,
 } from "./BottomPanel";
-import { getTerminalOptions } from "./lib/terminalTheme";
+import { getTerminalOptions } from "../../../platform/terminal/terminalTheme";
 import {
   DEFAULT_TERMINAL_HEIGHT,
   MAX_RECONNECT_INPUT_BYTES,
@@ -48,7 +48,7 @@ import {
   sendTerminalAck,
   sendTerminate,
   type TerminalSession,
-} from "./lib/terminalProtocol";
+} from "../../../platform/terminal/terminalProtocol";
 
 interface Props {
   open: boolean;

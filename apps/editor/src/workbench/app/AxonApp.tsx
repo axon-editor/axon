@@ -1,24 +1,24 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { AxonAppView } from "./AxonAppView";
-import { writeFile, type FileNode } from "../shared/lib/api";
+import { writeFile, type FileNode } from "../../renderer/shared/lib/api";
 import {
   clearLanguageServerDiagnosticsFromMonaco,
   collectEditorDiagnostics,
   type EditorDiagnostic,
-} from "../features/diagnostics/lib/diagnostics";
-import { useAgentDiagnosticsExport } from "../features/diagnostics/lib/useAgentDiagnosticsExport";
+} from "../../renderer/features/diagnostics/lib/diagnostics";
+import { useAgentDiagnosticsExport } from "../../renderer/features/diagnostics/lib/useAgentDiagnosticsExport";
 import {
   capDiagnostics,
   MAX_PROJECT_DIAGNOSTICS,
   type LspDiagnosticsByFile,
-} from "../features/diagnostics/lib/diagnosticCache";
+} from "../../renderer/features/diagnostics/lib/diagnosticCache";
 import {
   createWelcomeLayout,
   createInitialLayout,
   openFileInPane,
   closeTabInPane,
-} from "../features/editor/lib/layoutManager";
-import { type Layout } from "../features/editor/lib/types";
+} from "../../renderer/features/editor/lib/layoutManager";
+import { type Layout } from "../../renderer/features/editor/lib/types";
 import {
   DEFAULT_SETTINGS,
   normalizeSettings,
@@ -36,12 +36,12 @@ import { type WorkspaceTask } from "../../shared/tasks";
 import { type UpdateInfo, type UpdateInstallState } from "../../shared/updates";
 import { type ExtensionState } from "../../shared/extensions";
 import { type AgentResumeRequest } from "../../shared/app";
-import { type EditorNavigationTarget } from "../features/editor/lib/navigation";
+import { type EditorNavigationTarget } from "../../renderer/features/editor/lib/navigation";
 import {
   type BottomPanelTab,
   type OutputEntry,
   type OutputEntryLevel,
-} from "../features/terminal/BottomPanel";
+} from "../contrib/terminal/BottomPanel";
 import { buildAppPaletteCommands } from "./lib/appCommandPalette";
 import { useAppDerivedState } from "./lib/useAppDerivedState";
 import { useAxonAppEffects } from "./lib/useAxonAppEffects";
@@ -49,15 +49,15 @@ import { useAppCommandRunner } from "./lib/useAppCommandRunner";
 import { useWorkspaceHandlers } from "./lib/useWorkspaceHandlers";
 import { useEditorSurfaceHandlers } from "./lib/useEditorSurfaceHandlers";
 import { toMonacoEdit } from "./lib/monacoEdit";
-import { type WorkspaceRoot } from "../shared/lib/workspaceRoots";
-import "../App.css";
-import { useCliToolInstallPrompt } from "../features/cli/useCliToolInstallPrompt";
-import { useSpotify } from "../features/spotify/lib/useSpotify";
-import { detectLanguageServerLanguage, getModel } from "../features/editor/lib/monacoModels";
+import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
+import "../../renderer/App.css";
+import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolInstallPrompt";
+import { useSpotify } from "../../renderer/features/spotify/lib/useSpotify";
+import { detectLanguageServerLanguage, getModel } from "../../renderer/features/editor/lib/monacoModels";
 import {
   hasSeenAxonOnboarding,
   markAxonOnboardingSeen,
-} from "../features/onboarding/lib/welcomeTab";
+} from "../../renderer/features/onboarding/lib/welcomeTab";
 interface AppProps {
   initialExtensionState: ExtensionState;
 }

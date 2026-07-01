@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from "react";
-import { getWorkspaceTrustState } from "../../features/sidebar";
-import { isDiagnosticInWorkspace } from "../../features/diagnostics/lib/diagnosticCache";
-import { getModel } from "../../features/editor/lib/monacoModels";
-import { collectFileSymbols } from "../../features/sidebar/files/lib/fileSymbols";
-import { createThemeCssVariables, resolveThemeTokens } from "../../shared/lib/themeTokens";
-import type { FileSymbol } from "../../features/sidebar/files/lib/fileSymbols";
+import { getWorkspaceTrustState } from "../../../renderer/features/sidebar";
+import { isDiagnosticInWorkspace } from "../../../renderer/features/diagnostics/lib/diagnosticCache";
+import { getModel } from "../../../renderer/features/editor/lib/monacoModels";
+import { collectFileSymbols } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
+import { createThemeCssVariables, resolveThemeTokens } from "../../../renderer/shared/lib/themeTokens";
+import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 
 function colorWithAlpha(color: string, alpha: number) {
   const normalizedColor = color.trim();

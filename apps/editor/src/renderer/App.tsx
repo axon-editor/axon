@@ -1,3 +1,3 @@
-import App from "./app/AxonApp";
+import App from "../workbench/app/AxonApp";
 
 export default App;

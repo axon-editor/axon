@@ -1,8 +1,8 @@
-import { addRecentFolder, getWorkspaceTrustState } from "../../features/sidebar";
-import { createInitialLayout, openFileInPane } from "../../features/editor/lib/layoutManager";
-import { getTree, createFile, type FileNode } from "../../shared/lib/api";
-import { sanitizeRestoredLayout, type WorkspaceSession } from "../../shared/lib/workspaceSession";
-import { createWorkspaceRoot, upsertWorkspaceRoot } from "../../shared/lib/workspaceRoots";
+import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
+import { createInitialLayout, openFileInPane } from "../../../renderer/features/editor/lib/layoutManager";
+import { getTree, createFile, type FileNode } from "../../../renderer/shared/lib/api";
+import { sanitizeRestoredLayout, type WorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
+import { createWorkspaceRoot, upsertWorkspaceRoot } from "../../../renderer/shared/lib/workspaceRoots";
 import { normalizeSettings } from "../../../shared/settings";
 
 interface WorkspaceHandlersOptions {

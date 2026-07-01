@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { AXON_COMMANDS, type AxonCommand } from "../../../shared/commands";
-import { isHtmlFile } from "../../features/preview/lib/htmlPreviewTabs";
+import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
 
 interface AppCommandRunnerOptions {
   activeFilePath: any;

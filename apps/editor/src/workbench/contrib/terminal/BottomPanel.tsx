@@ -11,8 +11,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type EditorDiagnostic } from "../diagnostics/lib/diagnostics";
-import Tooltip from "../../shared/components/Tooltip";
+import { type EditorDiagnostic } from "../../../renderer/features/diagnostics/lib/diagnostics";
+import Tooltip from "../../../renderer/shared/components/Tooltip";
 
 export type BottomPanelTab = "problems" | "output";
 export type OutputEntryLevel = "info" | "success" | "warning" | "error";

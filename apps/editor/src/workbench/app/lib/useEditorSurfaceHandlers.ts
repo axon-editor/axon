@@ -1,7 +1,7 @@
-import { openFileInPane, splitPane } from "../../features/editor/lib/layoutManager";
-import type { SplitDirection } from "../../features/editor/lib/types";
-import { createHtmlPreviewTabPath } from "../../features/preview/lib/htmlPreviewTabs";
-import type { WorkspaceSearchResult } from "../../shared/lib/api";
+import { openFileInPane, splitPane } from "../../../renderer/features/editor/lib/layoutManager";
+import type { SplitDirection } from "../../../renderer/features/editor/lib/types";
+import { createHtmlPreviewTabPath } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
+import type { WorkspaceSearchResult } from "../../../renderer/shared/lib/api";
 
 interface EditorSurfaceHandlersOptions {
   appendOutput: any;

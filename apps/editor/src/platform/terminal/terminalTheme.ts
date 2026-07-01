@@ -1,7 +1,7 @@
 import { type ITheme } from "@xterm/xterm";
-import type { BuiltInThemeId, EditorSettings } from "../../../../shared/settings";
-import { editorFontStack } from "../../../shared/lib/fonts";
-import { type ResolvedThemeTokens } from "../../../shared/lib/themeTokens";
+import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
+import { editorFontStack } from "../../renderer/shared/lib/fonts";
+import { type ResolvedThemeTokens } from "../../renderer/shared/lib/themeTokens";
 
 const terminalThemes: Record<BuiltInThemeId, ITheme> = {
   "axon-dark": {

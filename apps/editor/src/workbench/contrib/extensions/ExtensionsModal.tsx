@@ -16,7 +16,7 @@ import {
   type ExtensionMarketplaceState,
   type ExtensionState,
 } from "../../../shared/extensions";
-import CommandModal from "../../shared/components/CommandModal";
+import CommandModal from "../../../renderer/shared/components/CommandModal";
 
 interface Props {
   folderPath: string | null;

@@ -54,8 +54,8 @@ npm run dist:win
 npm run dist:linux
 ```
 
-Packaged output is written to `editor/release/`. Release builds include the Go
-core binary and start it automatically when Axon opens.
+Packaged output is written to `apps/editor/release/`. Release builds include the
+Go core binary and start it automatically when Axon opens.
 
 ## Download Guide
 
