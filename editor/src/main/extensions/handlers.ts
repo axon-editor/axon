@@ -5,20 +5,14 @@ import {
   type ExtensionMarketplaceState,
   type ExtensionState,
 } from "../../shared/extensions";
-import { getExtensionState, setExtensionEnabled } from "./loader";
-import {
-  getExtensionMarketplaceState,
-  getThemeMarketplaceState,
-  installExtensionPackage,
-  installThemeExtension,
-} from "./marketplace";
+import { extensionHostService } from "./host/service";
 import { getUserExtensionsPath } from "./paths";
 
 export function registerExtensionHandlers() {
   ipcMain.handle(
     "extensions:list",
     async (_event, folderPath?: string | null): Promise<ExtensionState> => {
-      return getExtensionState(folderPath);
+      return extensionHostService.getState(folderPath);
     },
   );
 
@@ -34,11 +28,11 @@ export function registerExtensionHandlers() {
         return {
           ok: false,
           message: "Built-in extensions cannot be disabled.",
-          state: getExtensionState(folderPath),
+          state: extensionHostService.getState(folderPath),
         };
       }
 
-      return setExtensionEnabled(extensionId, enabled, folderPath);
+      return extensionHostService.setEnabled(extensionId, enabled, folderPath);
     },
   );
 
@@ -48,25 +42,21 @@ export function registerExtensionHandlers() {
       _event,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return {
-        ok: true,
-        message: "Reloaded extensions.",
-        state: getExtensionState(folderPath),
-      };
+      return extensionHostService.reload(folderPath);
     },
   );
 
   ipcMain.handle(
     "extensions:marketplace",
     async (): Promise<ExtensionMarketplaceState> => {
-      return getExtensionMarketplaceState();
+      return extensionHostService.getMarketplaceState();
     },
   );
 
   ipcMain.handle(
     "extensions:themeMarketplace",
     async (): Promise<ExtensionMarketplaceState> => {
-      return getThemeMarketplaceState();
+      return extensionHostService.getMarketplaceState();
     },
   );
 
@@ -77,7 +67,7 @@ export function registerExtensionHandlers() {
       extensionId: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return installExtensionPackage(extensionId, folderPath);
+      return extensionHostService.install(extensionId, folderPath);
     },
   );
 
@@ -88,7 +78,7 @@ export function registerExtensionHandlers() {
       extensionId: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return installThemeExtension(extensionId, folderPath);
+      return extensionHostService.install(extensionId, folderPath);
     },
   );
 
@@ -110,14 +100,14 @@ export function registerExtensionHandlers() {
         return {
           ok: false,
           message: openError,
-          state: getExtensionState(workspacePath),
+          state: extensionHostService.getState(workspacePath),
         };
       }
 
       return {
         ok: true,
         message: "Opened user extensions folder.",
-        state: getExtensionState(workspacePath),
+        state: extensionHostService.getState(workspacePath),
       };
     },
   );
