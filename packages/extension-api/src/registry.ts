@@ -44,6 +44,7 @@ export interface ExtensionInfo {
 
 export interface ExtensionState {
   extensions: ExtensionInfo[];
+  contributionRegistry: ExtensionContributionRegistry;
   userExtensionsPath: string;
   workspaceExtensionsPath: string | null;
   hostStatus: {
@@ -52,6 +53,49 @@ export interface ExtensionState {
     message: string;
   };
   availableActivationEvents: string[];
+}
+
+export interface ExtensionContributionRecord<T> {
+  extensionId: string;
+  extensionName: string;
+  source: ExtensionSource;
+  contribution: T;
+}
+
+export interface ExtensionContributionRegistry {
+  commands: ExtensionContributionRecord<
+    ExtensionContributions["commands"] extends Array<infer T> ? T : never
+  >[];
+  themes: ExtensionContributionRecord<
+    ExtensionContributions["themes"] extends Array<infer T> ? T : never
+  >[];
+  iconThemes: ExtensionContributionRecord<
+    ExtensionContributions["iconThemes"] extends Array<infer T> ? T : never
+  >[];
+  languages: ExtensionContributionRecord<
+    ExtensionContributions["languages"] extends Array<infer T> ? T : never
+  >[];
+  snippets: ExtensionContributionRecord<
+    ExtensionContributions["snippets"] extends Array<infer T> ? T : never
+  >[];
+  views: ExtensionContributionRecord<
+    ExtensionContributions["views"] extends Array<infer T> ? T : never
+  >[];
+  agents: ExtensionContributionRecord<
+    ExtensionContributions["agents"] extends Array<infer T> ? T : never
+  >[];
+  terminalProfiles: ExtensionContributionRecord<
+    ExtensionContributions["terminalProfiles"] extends Array<infer T> ? T : never
+  >[];
+  taskProviders: ExtensionContributionRecord<
+    ExtensionContributions["taskProviders"] extends Array<infer T> ? T : never
+  >[];
+  debuggerProviders: ExtensionContributionRecord<
+    ExtensionContributions["debuggerProviders"] extends Array<infer T> ? T : never
+  >[];
+  languagePacks: ExtensionContributionRecord<
+    ExtensionContributions["languagePacks"] extends Array<infer T> ? T : never
+  >[];
 }
 
 export interface ExtensionActionResult {

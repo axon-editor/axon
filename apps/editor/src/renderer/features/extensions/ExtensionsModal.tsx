@@ -65,7 +65,10 @@ function getContributionCount(extension: ExtensionInfo) {
     extension.contributes.languages.length +
     extension.contributes.snippets.length +
     extension.contributes.icons.length +
+    extension.contributes.iconThemes.length +
     extension.contributes.views.length +
+    extension.contributes.agents.length +
+    extension.contributes.terminalProfiles.length +
     extension.contributes.taskProviders.length +
     extension.contributes.debuggerProviders.length +
     extension.contributes.languagePacks.length
@@ -332,7 +335,7 @@ export default function ExtensionsModal({
     setMessageTone(ok ? "info" : "error");
   };
 
-  const reloadThemeMarketplace = async () => {
+  const reloadExtensionMarketplace = async () => {
     if (!hasThemeMarketplaceApi()) {
       setMarketplaceState({ items: [] });
       setActionMessage(
@@ -347,7 +350,7 @@ export default function ExtensionsModal({
         window.axon.listExtensionMarketplace ?? window.axon.listThemeMarketplace;
       setMarketplaceState(await listMarketplace());
     } catch (err) {
-      console.error("failed to load theme marketplace:", err);
+      console.error("failed to load extension marketplace:", err);
       setActionMessage(
         `Failed to load extension downloads. ${getErrorMessage(err)}`,
         false,
@@ -362,7 +365,7 @@ export default function ExtensionsModal({
       const result = await window.axon.reloadExtensions(folderPath);
       onExtensionsChanged(result.state);
       setActionMessage(result.message, result.ok);
-      if (activeTab === "downloads") await reloadThemeMarketplace();
+      if (activeTab === "downloads") await reloadExtensionMarketplace();
     } catch (err) {
       console.error("failed to reload extensions:", err);
       setActionMessage(`Failed to reload extensions. ${getErrorMessage(err)}`, false);
@@ -411,7 +414,7 @@ export default function ExtensionsModal({
     }
   };
 
-  const installThemeExtension = async (extensionId: string) => {
+  const installExtensionPackage = async (extensionId: string) => {
     if (!hasThemeMarketplaceApi()) {
       setActionMessage(
         "Extension downloads need the latest preload API. Restart Axon after this build so the install command is available.",
@@ -428,9 +431,9 @@ export default function ExtensionsModal({
       const result = await installExtension(extensionId, folderPath);
       onExtensionsChanged(result.state);
       setActionMessage(result.message, result.ok);
-      await reloadThemeMarketplace();
+      await reloadExtensionMarketplace();
     } catch (err) {
-      console.error("failed to install theme extension:", err);
+      console.error("failed to install extension:", err);
       setActionMessage(`Failed to install extension. ${getErrorMessage(err)}`, false);
     } finally {
       setBusyAction(null);
@@ -439,9 +442,21 @@ export default function ExtensionsModal({
 
   useEffect(() => {
     if (activeTab === "downloads" && !marketplaceState) {
-      void reloadThemeMarketplace();
+      void reloadExtensionMarketplace();
     }
   }, [activeTab, marketplaceState]);
+
+  const registry = extensionState?.contributionRegistry;
+  const registrySummary = registry
+    ? [
+        ["commands", registry.commands.length],
+        ["views", registry.views.length],
+        ["themes", registry.themes.length],
+        ["icons", registry.iconThemes.length],
+        ["languages", registry.languages.length],
+        ["terminals", registry.terminalProfiles.length],
+      ].filter(([, count]) => Number(count) > 0)
+    : [];
 
   return (
     <CommandModal
@@ -468,6 +483,14 @@ export default function ExtensionsModal({
                 <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[var(--axon-editor-foreground)] opacity-55">
                   {installedExtensions.length} installed
                 </span>
+                {registrySummary.slice(0, 4).map(([label, count]) => (
+                  <span
+                    key={label}
+                    className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[var(--axon-editor-foreground)] opacity-55"
+                  >
+                    {count} {label}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -551,11 +574,11 @@ export default function ExtensionsModal({
             )
           ) : !marketplaceState ? (
             <div className="px-4 py-8 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
-              Loading theme downloads.
+              Loading extension downloads.
             </div>
           ) : marketplaceState.items.length === 0 ? (
             <div className="px-4 py-8 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
-              No downloadable themes are available in this build.
+              No downloadable extensions are available in this build.
             </div>
           ) : (
             marketplaceState.items.map((item) => (
@@ -563,7 +586,7 @@ export default function ExtensionsModal({
                 key={item.id}
                 item={item}
                 busyAction={busyAction}
-                onInstall={(extensionId) => void installThemeExtension(extensionId)}
+                onInstall={(extensionId) => void installExtensionPackage(extensionId)}
               />
             ))
           )}

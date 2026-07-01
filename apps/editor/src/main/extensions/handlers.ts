@@ -1,5 +1,6 @@
 import fs from "fs";
 import { ipcMain, shell } from "electron";
+import { EXTENSION_IPC_CHANNELS } from "@axon/ipc";
 import {
   type ExtensionActionResult,
   type ExtensionMarketplaceState,
@@ -10,14 +11,14 @@ import { getUserExtensionsPath } from "./paths";
 
 export function registerExtensionHandlers() {
   ipcMain.handle(
-    "extensions:list",
+    EXTENSION_IPC_CHANNELS.list,
     async (_event, folderPath?: string | null): Promise<ExtensionState> => {
       return extensionHostService.getState(folderPath);
     },
   );
 
   ipcMain.handle(
-    "extensions:setEnabled",
+    EXTENSION_IPC_CHANNELS.setEnabled,
     async (
       _event,
       extensionId: string,
@@ -37,7 +38,7 @@ export function registerExtensionHandlers() {
   );
 
   ipcMain.handle(
-    "extensions:reload",
+    EXTENSION_IPC_CHANNELS.reload,
     async (
       _event,
       folderPath?: string | null,
@@ -47,21 +48,21 @@ export function registerExtensionHandlers() {
   );
 
   ipcMain.handle(
-    "extensions:marketplace",
+    EXTENSION_IPC_CHANNELS.marketplace,
     async (): Promise<ExtensionMarketplaceState> => {
       return extensionHostService.getMarketplaceState();
     },
   );
 
   ipcMain.handle(
-    "extensions:themeMarketplace",
+    EXTENSION_IPC_CHANNELS.themeMarketplace,
     async (): Promise<ExtensionMarketplaceState> => {
       return extensionHostService.getMarketplaceState();
     },
   );
 
   ipcMain.handle(
-    "extensions:install",
+    EXTENSION_IPC_CHANNELS.install,
     async (
       _event,
       extensionId: string,
@@ -72,7 +73,7 @@ export function registerExtensionHandlers() {
   );
 
   ipcMain.handle(
-    "extensions:installTheme",
+    EXTENSION_IPC_CHANNELS.installTheme,
     async (
       _event,
       extensionId: string,
@@ -83,7 +84,7 @@ export function registerExtensionHandlers() {
   );
 
   ipcMain.handle(
-    "extensions:openFolder",
+    EXTENSION_IPC_CHANNELS.openFolder,
     async (
       _event,
       workspacePath?: string | null,

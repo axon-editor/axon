@@ -63,8 +63,7 @@ type terminalClient struct {
 const (
 	maxScrollbackBytes            = 96 << 20
 	terminalClientQueueSize       = 16384
-	terminalClientMaxPendingBytes = 64 << 20
-	terminalClientQueueWait       = 250 * time.Millisecond
+	terminalClientBackpressureLog = 3 * time.Second
 	terminalReplayProtectionTTL   = 5 * time.Minute
 	websocketPongWait             = 70 * time.Second
 	websocketPingEvery            = 25 * time.Second
@@ -243,25 +242,21 @@ func (client *terminalClient) enqueue(data []byte) bool {
 	// PTY output is read from a reusable buffer, so each websocket client gets
 	// its own copy before the next read mutates that backing array.
 	//
-	// The important detail is that this queue is byte-limited, not just
-	// message-limited. Long-running agents can emit many small chunks or a few
-	// huge chunks depending on the shell and PTY scheduler. A tiny fixed message
-	// queue made Axon detach the renderer during normal high-volume output, then
-	// rely on replay to repair the view. That replay path is useful for real
-	// reconnects, but it should not be the normal pressure valve while the
-	// browser is still connected and actively draining xterm writes.
+	// The important detail is that Axon does not drop or forcibly detach a live
+	// client just because a long-running agent writes faster than xterm can
+	// paint. The older byte-cap path closed the websocket once pending output got
+	// large, which made reconnect/replay the normal pressure valve. That is risky
+	// for terminal integrity because replay cursors depend on renderer acks and a
+	// busy browser can be behind exactly when the backend decides to reconnect.
+	//
+	// Blocking here is intentional backpressure. If the renderer is alive, the
+	// writer goroutine drains the queue and this send continues. If the renderer
+	// is gone, ping/read failure closes client.done and this function returns.
+	// The shell may slow down while the PTY buffer fills, but slowing a process
+	// is safer than pretending bytes were delivered and losing agent output.
 	chunk := append([]byte(nil), data...)
 
 	client.mu.Lock()
-	if client.pendingBytes+int64(len(chunk)) > terminalClientMaxPendingBytes {
-		client.mu.Unlock()
-		log.Printf(
-			"terminal websocket client is %d bytes behind; reconnecting from acknowledged offset %d",
-			client.pendingBytes,
-			client.acknowledgedOffset,
-		)
-		return false
-	}
 	client.pendingBytes += int64(len(chunk))
 	client.mu.Unlock()
 
@@ -271,28 +266,23 @@ func (client *terminalClient) enqueue(data []byte) bool {
 		return false
 	default:
 	}
-	select {
-	case client.send <- chunk:
-		return true
-	case <-client.done:
-		client.releasePendingBytes(len(chunk))
-		return false
-	case <-time.After(terminalClientQueueWait):
-		// A saturated queue does not automatically mean the terminal process is
-		// broken. xterm can briefly fall behind while parsing heavy ANSI output,
-		// and a websocket write can pause behind the browser event loop. Waiting
-		// a short, bounded interval gives the writer a chance to catch up before
-		// Axon falls back to reconnect/replay. The wait is intentionally capped
-		// so a dead renderer cannot block the PTY reader forever.
+	logTimer := time.NewTimer(terminalClientBackpressureLog)
+	defer logTimer.Stop()
+
+	for {
 		select {
 		case client.send <- chunk:
 			return true
 		case <-client.done:
 			client.releasePendingBytes(len(chunk))
 			return false
-		default:
-			client.releasePendingBytes(len(chunk))
-			return false
+		case <-logTimer.C:
+			log.Printf(
+				"terminal websocket client is %d bytes behind; applying PTY backpressure from acknowledged offset %d",
+				client.pendingBytes,
+				client.acknowledged(),
+			)
+			logTimer.Reset(terminalClientBackpressureLog)
 		}
 	}
 }

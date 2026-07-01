@@ -8,8 +8,12 @@
   ],
   "scripts": {
     "dev": "npm run build:extension-api && npm --workspace axon run dev",
-    "build": "npm run build:extension-api && npm --workspace axon run build",
+    "build": "npm run build:packages && npm --workspace axon run build",
+    "build:packages": "npm run build:extension-api && npm run build:protocol && npm run build:ipc && npm run build:config",
     "build:extension-api": "npm --workspace @axon/extension-api run build",
+    "build:protocol": "npm --workspace @axon/protocol run build",
+    "build:ipc": "npm --workspace @axon/ipc run build",
+    "build:config": "npm --workspace @axon/config run build",
     "build:editor-main": "npm --workspace axon run build:main",
     "build:editor-renderer": "npm --workspace axon run build:renderer"
   }

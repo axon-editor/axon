@@ -9,6 +9,18 @@
   "categories": ["Testing"],
   "activationEvents": ["onStartup"],
   "contributes": {
+    "commands": [
+      {
+        "id": "axon.testing.open",
+        "title": "Open Test Explorer",
+        "category": "Testing"
+      },
+      {
+        "id": "axon.testing.refresh",
+        "title": "Refresh Tests",
+        "category": "Testing"
+      }
+    ],
     "views": [
       {
         "id": "axon.tests",

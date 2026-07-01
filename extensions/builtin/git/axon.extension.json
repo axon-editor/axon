@@ -9,6 +9,23 @@
   "categories": ["Source Control"],
   "activationEvents": ["onStartup"],
   "contributes": {
+    "commands": [
+      {
+        "id": "axon.git.openSourceControl",
+        "title": "Open Source Control",
+        "category": "Git"
+      },
+      {
+        "id": "axon.git.openHistory",
+        "title": "Open Git History",
+        "category": "Git"
+      },
+      {
+        "id": "axon.git.refresh",
+        "title": "Refresh Git Status",
+        "category": "Git"
+      }
+    ],
     "views": [
       {
         "id": "axon.sourceControl",

@@ -9,11 +9,32 @@
   "categories": ["AI"],
   "activationEvents": ["onStartup"],
   "contributes": {
+    "commands": [
+      {
+        "id": "axon.agent.open",
+        "title": "Open Axon Agent",
+        "category": "Agent"
+      },
+      {
+        "id": "axon.agent.fixProblems",
+        "title": "Fix Problems with Axon Agent",
+        "category": "Agent"
+      }
+    ],
     "views": [
       {
         "id": "axon.agent",
         "title": "Axon Agent",
         "location": "sidebar"
+      }
+    ],
+    "agents": [
+      {
+        "id": "axon.agent.local",
+        "title": "Axon Agent",
+        "description": "Local project assistant backed by Axon's core service.",
+        "view": "axon.agent",
+        "activationEvent": "onAgent:axon.agent.local"
       }
     ]
   }

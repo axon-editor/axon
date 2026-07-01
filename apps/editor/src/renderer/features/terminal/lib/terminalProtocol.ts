@@ -1,5 +1,6 @@
 import type { Terminal as XTerm } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
+import { TERMINAL_PROTOCOL, TERMINAL_REPLAY } from "@axon/protocol";
 import { getCoreWebSocketUrl } from "../../../shared/lib/coreBackend";
 
 export interface TerminalSession {
@@ -39,9 +40,10 @@ export interface TerminalOutputChunk {
 
 export const DEFAULT_TERMINAL_HEIGHT = 280;
 export const MIN_TERMINAL_HEIGHT = 180;
-export const MAX_RECONNECT_INPUT_BYTES = 64 * 1024;
-export const TERMINAL_ACK_BYTE_THRESHOLD = 8 * 1024;
-export const TERMINAL_ACK_DEBOUNCE_MS = 50;
+export const MAX_RECONNECT_INPUT_BYTES =
+  TERMINAL_REPLAY.maxReconnectInputBytes;
+export const TERMINAL_ACK_BYTE_THRESHOLD = TERMINAL_REPLAY.ackByteThreshold;
+export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
 
 export function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -57,11 +59,14 @@ export function getTerminalBackendUrl(
   sessionId: string,
   replayFrom = 0,
 ) {
-  const backendUrl = getCoreWebSocketUrl("/terminal");
-  backendUrl.searchParams.set("sessionId", sessionId);
-  backendUrl.searchParams.set("replayFrom", String(replayFrom));
+  const backendUrl = getCoreWebSocketUrl(TERMINAL_PROTOCOL.endpoint);
+  backendUrl.searchParams.set(TERMINAL_PROTOCOL.query.sessionId, sessionId);
+  backendUrl.searchParams.set(
+    TERMINAL_PROTOCOL.query.replayFrom,
+    String(replayFrom),
+  );
   if (workingDirectory) {
-    backendUrl.searchParams.set("cwd", workingDirectory);
+    backendUrl.searchParams.set(TERMINAL_PROTOCOL.query.cwd, workingDirectory);
   }
   return backendUrl.toString();
 }
@@ -72,7 +77,7 @@ export function quoteShellPath(path: string) {
 
 export function sendTerminate(ws: WebSocket) {
   if (ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: "terminate" }));
+  ws.send(JSON.stringify({ type: TERMINAL_PROTOCOL.control.terminate }));
 }
 
 export function sendTerminalAck(session: TerminalSession, force = false) {
@@ -100,7 +105,12 @@ export function sendTerminalAck(session: TerminalSession, force = false) {
   // applying line wraps, or updating scrollback. Acknowledging at receipt time
   // would let core trim/replay from bytes the terminal view has not actually
   // committed yet, which is exactly how long agent streams appear to lose text.
-  session.ws.send(JSON.stringify({ type: "ack", offset: session.receivedBytes }));
+  session.ws.send(
+    JSON.stringify({
+      type: TERMINAL_PROTOCOL.control.ack,
+      offset: session.receivedBytes,
+    }),
+  );
   session.lastAckedBytes = session.receivedBytes;
 }
 

@@ -21,6 +21,7 @@ import {
   getExtensionHostKind,
   getExtensionLifecycle,
 } from "./activation";
+import { createExtensionContributionRegistry } from "./contributionRegistry";
 import { findExtensionDirectories } from "./discovery";
 import { readDisabledExtensionIds } from "./enablement";
 import { readJsonFile } from "./json";
@@ -148,9 +149,11 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
     ...userExtensions,
   ].filter((extension): extension is ExtensionInfo => extension !== null);
   const runtime = summarizeExtensionRuntime(extensions);
+  const contributionRegistry = createExtensionContributionRegistry(extensions);
 
   return {
     extensions,
+    contributionRegistry,
     userExtensionsPath,
     workspaceExtensionsPath,
     hostStatus: {

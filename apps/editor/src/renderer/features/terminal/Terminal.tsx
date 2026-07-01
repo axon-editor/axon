@@ -13,6 +13,7 @@ import {
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { TERMINAL_PROTOCOL } from "@axon/protocol";
 import {
   Maximize2,
   Minimize2,
@@ -263,7 +264,11 @@ export default function Terminal({
       session.lastResizeCols = dims.cols;
       session.lastResizeRows = dims.rows;
       session.ws.send(
-        JSON.stringify({ type: "resize", cols: dims.cols, rows: dims.rows }),
+        JSON.stringify({
+          type: TERMINAL_PROTOCOL.control.resize,
+          cols: dims.cols,
+          rows: dims.rows,
+        }),
       );
     }
     if (session.term) {

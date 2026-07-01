@@ -9,6 +9,18 @@
   "categories": ["Diagnostics"],
   "activationEvents": ["onStartup"],
   "contributes": {
+    "commands": [
+      {
+        "id": "axon.problems.open",
+        "title": "Open Problems",
+        "category": "Problems"
+      },
+      {
+        "id": "axon.problems.refresh",
+        "title": "Refresh Problems",
+        "category": "Problems"
+      }
+    ],
     "views": [
       {
         "id": "axon.problems",

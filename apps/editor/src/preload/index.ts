@@ -4,6 +4,7 @@
 // can push file change events to the renderer without polling.
 
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { EXTENSION_IPC_CHANNELS } from "@axon/ipc";
 import { type AxonSettings, type CustomFont } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import {
@@ -345,14 +346,14 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("git:graph", folderPath),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   listExtensions: (folderPath?: string | null): Promise<ExtensionState> =>
-    ipcRenderer.invoke("extensions:list", folderPath),
+    ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.list, folderPath),
   setExtensionEnabled: (
     extensionId: string,
     enabled: boolean,
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
     ipcRenderer.invoke(
-      "extensions:setEnabled",
+      EXTENSION_IPC_CHANNELS.setEnabled,
       extensionId,
       enabled,
       folderPath,
@@ -360,25 +361,29 @@ contextBridge.exposeInMainWorld("axon", {
   reloadExtensions: (
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
-    ipcRenderer.invoke("extensions:reload", folderPath),
+    ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.reload, folderPath),
   openExtensionsFolder: (
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
-    ipcRenderer.invoke("extensions:openFolder", folderPath),
+    ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.openFolder, folderPath),
   listExtensionMarketplace: (): Promise<ExtensionMarketplaceState> =>
-    ipcRenderer.invoke("extensions:marketplace"),
+    ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.marketplace),
   installExtension: (
     extensionId: string,
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
-    ipcRenderer.invoke("extensions:install", extensionId, folderPath),
+    ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.install, extensionId, folderPath),
   listThemeMarketplace: (): Promise<ExtensionMarketplaceState> =>
-    ipcRenderer.invoke("extensions:themeMarketplace"),
+    ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.themeMarketplace),
   installThemeExtension: (
     extensionId: string,
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
-    ipcRenderer.invoke("extensions:installTheme", extensionId, folderPath),
+    ipcRenderer.invoke(
+      EXTENSION_IPC_CHANNELS.installTheme,
+      extensionId,
+      folderPath,
+    ),
   shouldRestoreSession: (): Promise<boolean> =>
     ipcRenderer.invoke("app:shouldRestoreSession"),
   consumeCliOpenFolder: (): Promise<string | null> =>

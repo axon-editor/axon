@@ -9,11 +9,29 @@
   "categories": ["Terminal"],
   "activationEvents": ["onStartup"],
   "contributes": {
+    "commands": [
+      {
+        "id": "axon.terminal.toggle",
+        "title": "Toggle Terminal",
+        "category": "Terminal"
+      },
+      {
+        "id": "axon.terminal.new",
+        "title": "New Terminal",
+        "category": "Terminal"
+      }
+    ],
     "views": [
       {
         "id": "axon.terminal",
         "title": "Terminal",
         "location": "panel"
+      }
+    ],
+    "terminalProfiles": [
+      {
+        "id": "axon.terminal.default",
+        "title": "Default Shell"
       }
     ]
   }

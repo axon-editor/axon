@@ -1,12 +1,18 @@
 import { app } from "electron";
+import { AXON_EXTENSION_PATHS } from "@axon/config";
 import fs from "fs";
 import path from "path";
 
-export const EXTENSION_MANIFEST_FILE = "axon.extension.json";
+export const EXTENSION_MANIFEST_FILE = AXON_EXTENSION_PATHS.manifestFile;
 
 function getRepositoryExtensionsRootPath() {
   const packagedPath = path.join(app.getAppPath(), "extensions");
-  const workspaceRootPath = path.resolve(app.getAppPath(), "..", "..", "extensions");
+  const workspaceRootPath = path.resolve(
+    app.getAppPath(),
+    "..",
+    "..",
+    "extensions",
+  );
 
   // Source builds keep bundled extensions at the repository root so the app can
   // grow toward the apps/services/packages/extensions layout without burying
@@ -18,19 +24,27 @@ function getRepositoryExtensionsRootPath() {
 }
 
 export function getBundledExtensionsPath() {
-  return path.join(getRepositoryExtensionsRootPath(), "builtin");
+  return path.join(
+    getRepositoryExtensionsRootPath(),
+    path.basename(AXON_EXTENSION_PATHS.builtinRoot),
+  );
 }
 
 export function getMarketplaceExtensionsPath() {
-  return path.join(getRepositoryExtensionsRootPath(), "marketplace");
+  return path.join(
+    getRepositoryExtensionsRootPath(),
+    path.basename(AXON_EXTENSION_PATHS.marketplaceRoot),
+  );
 }
 
 export function getUserExtensionsPath() {
-  return path.join(app.getPath("userData"), "extensions");
+  return path.join(app.getPath("userData"), AXON_EXTENSION_PATHS.userFolderName);
 }
 
 export function getWorkspaceExtensionsPath(folderPath?: string | null) {
-  return folderPath ? path.join(folderPath, ".axon", "extensions") : null;
+  return folderPath
+    ? path.join(folderPath, AXON_EXTENSION_PATHS.workspaceFolderName)
+    : null;
 }
 
 export function getExtensionStatePath() {
