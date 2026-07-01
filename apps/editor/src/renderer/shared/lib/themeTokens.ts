@@ -40,5 +40,6 @@ export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
     "--axon-terminal-foreground": tokens["terminal.foreground"],
     "--axon-syntax-function": tokens["syntax.function"],
     "--axon-syntax-method": tokens["syntax.method"],
+    "--axon-danger-foreground": tokens["syntax.keyword"],
   } as CSSProperties;
 }

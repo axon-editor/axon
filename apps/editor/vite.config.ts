@@ -12,6 +12,18 @@ export default defineConfig({
   base: "./",
   plugins: [react(), tailwindcss()],
   root: "src/renderer",
+  server: {
+    fs: {
+      // The renderer entry still lives in src/renderer because index.html and
+      // browser-only assets are rooted there, but production IDE modules now
+      // live beside it in src/workbench and src/platform. Vite's dev server
+      // enforces a filesystem allow-list when serving transformed modules, so
+      // without allowing src as a whole the Electron window can load the static
+      // splash while the imported workbench module is refused before React
+      // mounts.
+      allow: [path.resolve(__dirname, "src")],
+    },
+  },
   // The renderer lives under src/renderer, but Axon's static assets live at
   // editor/public so they can be shared by the app icon, release packaging, and
   // the file-tree icon system. Without this explicit publicDir, Vite looks for

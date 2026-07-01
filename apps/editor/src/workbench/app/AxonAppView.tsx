@@ -204,7 +204,7 @@ export function AxonAppView(props: Record<string, any>) {
 
   return (
     <div
-      className="axon-app-root flex flex-col h-screen w-screen overflow-hidden relative"
+      className="axon-app-root relative flex h-full w-full flex-col overflow-hidden"
       style={{
         ...appThemeCssVariables,
         background: "var(--axon-background)",

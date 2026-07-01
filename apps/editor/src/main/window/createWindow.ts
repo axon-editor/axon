@@ -109,6 +109,7 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
           icon: axonIconPath,
           webPreferences: {
             preload: path.join(__dirname, "../../preload/index.js"),
+            contextIsolation: true,
             nodeIntegration: false,
           },
         });

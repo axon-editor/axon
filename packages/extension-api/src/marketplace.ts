@@ -1,4 +1,4 @@
-import { type ExtensionKind } from "./manifest";
+import { type ExtensionKind } from "./manifest.js";
 
 export type ExtensionRegistrySource = "builtin" | "marketplace" | "user" | "workspace";
 

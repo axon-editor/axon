@@ -4,7 +4,6 @@
 // can push file change events to the renderer without polling.
 
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { EXTENSION_IPC_CHANNELS } from "@axon/ipc";
 import { type AxonSettings, type CustomFont } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import {
@@ -100,6 +99,17 @@ import type {
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
 } from "../shared/spotify";
+
+const EXTENSION_IPC_CHANNELS = {
+  list: "extensions:list",
+  setEnabled: "extensions:setEnabled",
+  reload: "extensions:reload",
+  marketplace: "extensions:marketplace",
+  themeMarketplace: "extensions:themeMarketplace",
+  install: "extensions:install",
+  installTheme: "extensions:installTheme",
+  openFolder: "extensions:openFolder",
+} as const;
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,

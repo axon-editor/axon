@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run build:extension-api && npm --workspace axon run dev",
+    "dev": "npm --workspace axon run dev",
     "build": "npm run build:packages && npm --workspace axon run build",
     "build:packages": "node build/build-packages.mjs",
     "build:extension-api": "npm --workspace @axon/extension-api run build",

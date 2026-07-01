@@ -2,7 +2,7 @@ import {
   type ExtensionContributions,
   type ExtensionKind,
   type ExtensionManifest,
-} from "./manifest";
+} from "./manifest.js";
 
 export function isExtensionKind(value: unknown): value is ExtensionKind {
   return (

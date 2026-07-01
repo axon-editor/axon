@@ -61,7 +61,7 @@ function renderStartupFailure(err: unknown) {
   document.getElementById("root")!.innerHTML = `
     <div style="display:flex;min-height:100vh;align-items:center;justify-content:center;background:#0d1016;color:#d8dee9;font:13px system-ui,sans-serif;padding:24px;">
       <div style="max-width:560px;border:1px solid #2d2f34;background:#1f2127;padding:18px;">
-        <div style="font-weight:600;margin-bottom:8px;">Axon could not load built-in extensions</div>
+        <div style="font-weight:600;margin-bottom:8px;">Axon could not finish startup</div>
         <div style="opacity:.75;line-height:1.5;">${message.replace(/[&<>"']/g, (char) => ({
           "&": "&amp;",
           "<": "&lt;",
@@ -76,7 +76,14 @@ function renderStartupFailure(err: unknown) {
 
 async function boot() {
   try {
-    const initialExtensionState = await window.axon.listExtensions(null);
+    const axonApi = window.axon;
+    if (!axonApi) {
+      throw new Error(
+        "The Electron preload API is not available. Start Axon through the desktop dev command, not the raw Vite browser URL. If this is the Electron window, restart npm run dev so dist/main and dist/preload are rebuilt.",
+      );
+    }
+
+    const initialExtensionState = await axonApi.listExtensions(null);
     const extensionThemes = getEnabledExtensionThemes(initialExtensionState);
 
     // Monaco must know the built-in extension themes before React mounts the

@@ -114,9 +114,12 @@ export default function ContextMenu({
         (mode !== "rename" || trimmedName !== menu.node.name),
     );
   const itemClassName =
-    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-75 transition-all duration-150 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100";
+    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-75 transition-all duration-150 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100";
   const destructiveItemClassName =
-    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-red-400 transition-all duration-150 hover:bg-[#241820] hover:text-red-300";
+    "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[var(--axon-danger-foreground)] text-[12px] transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--axon-danger-foreground)_14%,transparent)] hover:text-[var(--axon-danger-foreground)]";
+  const dividerClassName = "my-1 border-t border-[var(--axon-panel-border)]";
+  const mutedIconClassName = "text-[var(--axon-editor-foreground)] opacity-55";
+  const accentIconClassName = "text-[var(--axon-syntax-function)]";
 
   const beginRename = () => {
     setInputValue(menu.node.name);
@@ -151,8 +154,16 @@ export default function ContextMenu({
   return (
     <div
       ref={ref}
-      className="axon-context-menu fixed z-50 min-w-56 origin-top-left overflow-hidden rounded-lg border border-[#30384b] bg-[#0d1018]/95 p-1.5 opacity-100 shadow-[0_18px_54px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.04] backdrop-blur-md animate-[axonContextIn_120ms_ease-out]"
-      style={{ top: position.y, left: position.x }}
+      className="axon-context-menu fixed z-50 min-w-56 origin-top-left overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1.5 text-[var(--axon-editor-foreground)] opacity-100 shadow-[0_18px_54px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.03] animate-[axonContextIn_120ms_ease-out]"
+      style={{
+        top: position.y,
+        left: position.x,
+        // The menu is mounted directly under the renderer document instead of
+        // inside the sidebar tree. Keeping every color on shared theme tokens
+        // makes the menu follow Ayu, One, and downloaded themes without needing
+        // a separate sidebar-specific palette for floating UI.
+        backdropFilter: "blur(12px)",
+      }}
     >
       {mode === "menu" && (
         <div className="axon-context-menu__panel space-y-0.5">
@@ -163,7 +174,7 @@ export default function ContextMenu({
             }}
             className={itemClassName}
           >
-            <FilePlus size={13} className="text-[#80c8e0]" />
+            <FilePlus size={13} className={accentIconClassName} />
             new file
           </button>
           <button
@@ -173,10 +184,10 @@ export default function ContextMenu({
             }}
             className={itemClassName}
           >
-            <FolderPlus size={13} className="text-[#80c8e0]" />
+            <FolderPlus size={13} className={accentIconClassName} />
             new folder
           </button>
-          <div className="my-1 border-t border-[#222838]" />
+          <div className={dividerClassName} />
           {onOpenInTerminal && (
             <button
               onClick={() => {
@@ -185,7 +196,7 @@ export default function ContextMenu({
               }}
               className={itemClassName}
             >
-              <TerminalIcon size={13} className="text-[#9aa4b8]" />
+              <TerminalIcon size={13} className={mutedIconClassName} />
               open in terminal
             </button>
           )}
@@ -197,7 +208,7 @@ export default function ContextMenu({
               }}
               className={itemClassName}
             >
-              <MonitorPlay size={13} className="text-[#9aa4b8]" />
+              <MonitorPlay size={13} className={mutedIconClassName} />
               preview html
             </button>
           )}
@@ -208,7 +219,7 @@ export default function ContextMenu({
             }}
             className={itemClassName}
           >
-            <Copy size={13} className="text-[#9aa4b8]" />
+            <Copy size={13} className={mutedIconClassName} />
             copy path
           </button>
           {!menu.isRoot && (
@@ -216,13 +227,13 @@ export default function ContextMenu({
               onClick={beginRename}
               className={itemClassName}
             >
-              <Pencil size={13} className="text-[#9aa4b8]" />
+              <Pencil size={13} className={mutedIconClassName} />
               rename
             </button>
           )}
           {onSplitFile && !menu.node.is_dir && (
             <>
-              <div className="my-1 border-t border-[#222838]" />
+              <div className={dividerClassName} />
               <button
                 onClick={() => {
                   onSplitFile(menu.node.path);
@@ -230,12 +241,12 @@ export default function ContextMenu({
                 }}
                 className={itemClassName}
               >
-                <Columns2 size={13} className="text-[#9aa4b8]" />
+                <Columns2 size={13} className={mutedIconClassName} />
                 split right
               </button>
             </>
           )}
-          <div className="my-1 border-t border-[#222838]" />
+          <div className={dividerClassName} />
           {!menu.isRoot && (
             <button
               onClick={() => setMode("delete")}
@@ -282,7 +293,7 @@ export default function ContextMenu({
             <button
               onClick={() => void handleConfirmRename()}
               disabled={!trimmedName || isDuplicateName}
-              className="h-7 px-3 rounded bg-[#80c8e0] text-[11px] font-medium text-[#0e1018] hover:bg-[#9dd4e8] cursor-pointer disabled:cursor-default disabled:opacity-50 transition-colors"
+              className="h-7 cursor-pointer rounded border border-[var(--axon-syntax-function)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[11px] font-medium text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-default disabled:border-[var(--axon-panel-border)] disabled:opacity-50"
             >
               rename
             </button>
@@ -304,7 +315,7 @@ export default function ContextMenu({
             </button>
             <button
               onClick={handleDelete}
-              className="h-7 px-3 rounded bg-red-500 text-[11px] text-white hover:bg-red-400 cursor-pointer transition-colors"
+              className="h-7 cursor-pointer rounded border border-[var(--axon-danger-foreground)] bg-[color-mix(in_srgb,var(--axon-danger-foreground)_18%,transparent)] px-3 text-[11px] text-[var(--axon-danger-foreground)] transition-colors hover:bg-[color-mix(in_srgb,var(--axon-danger-foreground)_26%,transparent)]"
             >
               delete
             </button>

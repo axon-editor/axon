@@ -32,13 +32,32 @@ export default function FolderPicker({
   onClearSession,
   onClose,
 }: Props) {
+  const openNativeFolderPicker = () => {
+    onClose();
+
+    // The native folder dialog is outside React, so keeping Axon's picker
+    // mounted while Electron starts that dialog only adds an extra overlay and
+    // animation frame to the slowest path. Closing first keeps the renderer
+    // idle before the OS sheet appears and prevents the picker from feeling
+    // sticky on slower machines.
+    window.requestAnimationFrame(() => {
+      onOpenNew();
+    });
+  };
+
   return (
-    <CommandModal title="open folder" onClose={onClose} width="w-[480px]">
+    <CommandModal
+      title="open folder"
+      onClose={onClose}
+      width="w-[480px]"
+      blurOverlay={false}
+      animate={false}
+      closeDelayMs={0}
+      overlayClassName="bg-transparent"
+    >
       <div className="p-2">
         <button
-          onClick={() => {
-            onOpenNew();
-          }}
+          onClick={openNativeFolderPicker}
           className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-2.5 text-[12px] text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-sidebar-hover-background)]"
         >
           <FolderOpen size={14} className="shrink-0" />

@@ -176,9 +176,9 @@ function InstalledExtensionRow({
   onToggle: (extensionId: string, enabled: boolean) => void;
 }) {
   return (
-    <div className="border-b border-[var(--axon-panel-border)] px-4 py-3 last:border-b-0">
+    <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-[13px] font-medium text-[var(--axon-editor-foreground)]">
               {extension.name}
@@ -261,9 +261,9 @@ function DownloadRow({
   const installing = busyAction === `download:${item.id}`;
 
   return (
-    <div className="border-b border-[var(--axon-panel-border)] px-4 py-3 last:border-b-0">
+    <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">
               {item.name}
@@ -463,10 +463,14 @@ export default function ExtensionsModal({
       title="extensions"
       onClose={onClose}
       width="w-[min(860px,calc(100vw-2rem))]"
-      bodyClassName="min-h-0 overflow-hidden"
+      bodyClassName="flex min-h-0 flex-1 overflow-hidden"
       blurOverlay={false}
+      panelStyle={{
+        height: "min(720px, calc(100vh - 3rem))",
+        minHeight: "min(560px, calc(100vh - 3rem))",
+      }}
     >
-      <div className="flex h-[min(640px,calc(100vh-7rem))] min-h-0 flex-col bg-[var(--axon-panel-background)]">
+      <div className="flex h-full min-h-0 w-full flex-col bg-[var(--axon-panel-background)]">
         <div className="border-b border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
@@ -554,7 +558,7 @@ export default function ExtensionsModal({
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {activeTab === "installed" ? (
             installedExtensions.length === 0 ? (
               <div className="px-4 py-8 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">

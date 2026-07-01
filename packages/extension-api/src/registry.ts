@@ -2,7 +2,7 @@ import {
   type ExtensionContributions,
   type ExtensionKind,
   type ExtensionThemeSyntaxStyle,
-} from "./manifest";
+} from "./manifest.js";
 
 export type ExtensionSource = "workspace" | "user" | "internal";
 

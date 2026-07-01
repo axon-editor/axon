@@ -1001,14 +1001,6 @@ export default function SingleEditor({
     .reverse()
     .find((symbol) => symbol.line <= cursorPosition.line);
 
-  if (loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-[var(--axon-editor-background)] text-[13px] text-[var(--axon-editor-foreground)] opacity-35">
-        loading...
-      </div>
-    );
-  }
-
   if (error) {
     const fileName = filePath.split("/").pop() ?? filePath;
 

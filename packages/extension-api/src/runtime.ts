@@ -1,3 +1,5 @@
+/// <reference lib="es2022" />
+
 export interface Disposable {
   dispose(): void;
 }

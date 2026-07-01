@@ -3,7 +3,13 @@
 // Axon theme variables so every empty, error, and search message inside these
 // modals follows the selected theme instead of inheriting a hard-coded dark UI.
 // Closes on outside click or Escape key.
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { X } from "lucide-react";
 import Tooltip from "./Tooltip";
 
@@ -14,6 +20,10 @@ interface Props {
   width?: string;
   bodyClassName?: string;
   blurOverlay?: boolean;
+  animate?: boolean;
+  closeDelayMs?: number;
+  overlayClassName?: string;
+  panelStyle?: CSSProperties;
 }
 
 export default function CommandModal({
@@ -23,6 +33,10 @@ export default function CommandModal({
   width = "w-[560px]",
   bodyClassName = "min-h-0 overflow-auto",
   blurOverlay = true,
+  animate = true,
+  closeDelayMs = 170,
+  overlayClassName = "bg-black/35",
+  panelStyle,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<number | null>(null);
@@ -37,6 +51,12 @@ export default function CommandModal({
   const requestClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
+
+    if (!animate || closeDelayMs <= 0) {
+      onCloseRef.current();
+      return;
+    }
+
     setClosing(true);
 
     // The modal has to stay mounted long enough for the leave animation to
@@ -48,8 +68,8 @@ export default function CommandModal({
     // clear the timer, and leave an invisible fixed overlay mounted forever.
     closeTimerRef.current = window.setTimeout(() => {
       onCloseRef.current();
-    }, 170);
-  }, []);
+    }, closeDelayMs);
+  }, [animate, closeDelayMs]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -71,17 +91,20 @@ export default function CommandModal({
 
   return (
     <div
-      className={`axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center px-4 py-6 ${
+        animate ? "axon-modal-overlay" : ""
+      } ${overlayClassName} ${
         blurOverlay ? "backdrop-blur-[2px]" : ""
       } ${
-        closing ? "axon-modal-overlay--leaving" : ""
+        closing && animate ? "axon-modal-overlay--leaving" : ""
       }`}
     >
       <div
         ref={ref}
-        className={`axon-modal-panel ${width} flex max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03] ${
-          closing ? "axon-modal-panel--leaving" : ""
+        className={`${animate ? "axon-modal-panel" : ""} ${width} flex max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03] ${
+          closing && animate ? "axon-modal-panel--leaving" : ""
         }`}
+        style={panelStyle}
       >
         {title && (
           <div className="flex items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4 py-3">
