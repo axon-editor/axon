@@ -1,0 +1,16 @@
+{
+  "name": "axon-workspace",
+  "version": "1.2.5",
+  "private": true,
+  "workspaces": [
+    "editor",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build:extension-api && npm --workspace axon run dev",
+    "build": "npm run build:extension-api && npm --workspace axon run build",
+    "build:extension-api": "npm --workspace @axon/extension-api run build",
+    "build:editor-main": "npm --workspace axon run build:main",
+    "build:editor-renderer": "npm --workspace axon run build:renderer"
+  }
+}

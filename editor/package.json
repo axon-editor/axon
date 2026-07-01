@@ -11,14 +11,17 @@
   },
   "main": "dist/main/index.js",
   "scripts": {
+    "predev": "npm --prefix .. run build:extension-api",
     "dev": "npm run sync:builtin && npm run check:language-servers && concurrently -k -n core,renderer,electron \"cross-env AXON_CORE_PORT=17777 go -C ../services/core run cmd/axon/main.go\" \"cross-env NODE_ENV=development VITE_AXON_CORE_URL=http://127.0.0.1:17777 vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:17777/health http://127.0.0.1:5173 && cross-env NODE_ENV=development AXON_CORE_PORT=17777 AXON_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "check:language-servers": "node scripts/check-language-servers.mjs",
     "build:language-servers": "node scripts/download-language-servers.mjs",
     "build:core": "node scripts/build-core.mjs",
+    "prebuild:main": "npm --prefix .. run build:extension-api",
     "build:main": "node scripts/write-build-config.mjs && tsc -p tsconfig.main.json",
     "sync:builtin-assets": "node scripts/sync-builtin-assets.mjs",
     "sync:builtin-themes": "node scripts/export-builtin-theme-extensions.mjs",
     "sync:builtin": "npm run sync:builtin-themes && npm run sync:builtin-assets",
+    "prebuild:renderer": "npm --prefix .. run build:extension-api",
     "build:renderer": "npm run sync:builtin && vite build",
     "build": "npm run sync:builtin && npm run patch:language-servers && npm run build:core && npm run build:main && npm run build:renderer",
     "preview": "electron .",
@@ -773,6 +776,7 @@
     }
   },
   "dependencies": {
+    "@axon/extension-api": "file:../packages/extension-api",
     "@astrojs/language-server": "^2.16.10",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

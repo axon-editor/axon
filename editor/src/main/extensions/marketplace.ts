@@ -63,6 +63,18 @@ function normalizeCatalogManifest(raw: unknown): ExtensionManifest | null {
     return null;
   }
 
+  // Marketplace manifests are still plain JSON when they enter this function.
+  // I filter to strings before casting to the public activation-event type so
+  // malformed package metadata cannot leak numbers/objects into the renderer,
+  // while valid future event strings can still be surfaced by the registry.
+  const activationEvents = (
+    Array.isArray(raw.activationEvents)
+      ? raw.activationEvents.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : []
+  ) as NonNullable<ExtensionManifest["activationEvents"]>;
+
   return {
     id: raw.id,
     name: raw.name,
@@ -79,11 +91,7 @@ function normalizeCatalogManifest(raw: unknown): ExtensionManifest | null {
     categories: Array.isArray(raw.categories)
       ? raw.categories.filter((item): item is string => typeof item === "string")
       : [],
-    activationEvents: Array.isArray(raw.activationEvents)
-      ? raw.activationEvents.filter(
-          (item): item is string => typeof item === "string",
-        )
-      : [],
+    activationEvents,
     contributes: isRecord(raw.contributes)
       ? (raw.contributes as ExtensionManifest["contributes"])
       : {},

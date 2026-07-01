@@ -96,6 +96,7 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 
 ```text
 axon/
+├── package.json                  # npm workspace root for editor and shared packages
 ├── services/
 │   └── core/                     # Go backend
 │       ├── cmd/axon/             # backend entry point
@@ -121,35 +122,27 @@ axon/
 ## Run Locally
 
 ```bash
-cd services/core
-go run cmd/axon/main.go
-```
-
-```bash
-cd editor
 npm install
-npm run build:main
 npm run dev
 ```
 
-In development, the Electron app expects the Go core to be running on
-`localhost:7777`. Packaged builds include the Go core binary and start it
+In development, `npm run dev` starts the Go core, Vite renderer, and Electron
+shell together. Packaged builds include the Go core binary and start it
 automatically.
 
 ## Build
 
 ```bash
-cd editor
 npm run build
-npm run pack
+npm --workspace axon run pack
 ```
 
 Platform packages:
 
 ```bash
-npm run dist:mac
-npm run dist:win
-npm run dist:linux
+npm --workspace axon run dist:mac
+npm --workspace axon run dist:win
+npm --workspace axon run dist:linux
 ```
 
 Build output goes to `editor/release/`.

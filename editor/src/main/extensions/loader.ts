@@ -109,6 +109,19 @@ function normalizeManifest(raw: unknown): ExtensionManifest | null {
     return null;
   }
 
+  // The public API gives activation events a template-literal type so extension
+  // authors get autocomplete for `onCommand:*`, `onLanguage:*`, and the other
+  // supported activation families. JSON parsing can only prove that values are
+  // strings, so the loader narrows at the trust boundary after filtering out
+  // non-string entries from untrusted manifests.
+  const activationEvents = (
+    Array.isArray(raw.activationEvents)
+      ? raw.activationEvents.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : []
+  ) as NonNullable<ExtensionManifest["activationEvents"]>;
+
   return {
     $schema: typeof raw.$schema === "string" ? raw.$schema : undefined,
     id: raw.id,
@@ -130,11 +143,7 @@ function normalizeManifest(raw: unknown): ExtensionManifest | null {
     categories: Array.isArray(raw.categories)
       ? raw.categories.filter((item): item is string => typeof item === "string")
       : [],
-    activationEvents: Array.isArray(raw.activationEvents)
-      ? raw.activationEvents.filter(
-          (item): item is string => typeof item === "string",
-        )
-      : [],
+    activationEvents,
     contributes: isRecord(raw.contributes)
       ? (raw.contributes as ExtensionContributions)
       : {},

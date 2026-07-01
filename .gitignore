@@ -1,5 +1,6 @@
 .DS_Store
 .gocache/
+node_modules/
 .axon/
 NerdFonts/
 Variable Fonts/
