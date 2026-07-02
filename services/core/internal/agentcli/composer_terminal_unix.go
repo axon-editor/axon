@@ -50,20 +50,6 @@ func terminalPromptWidth() int {
 	return int(ws.Col)
 }
 
-// terminalPromptSurfaceWidth returns the visible width Axon can safely own for
-// its composer surface. The prompt should feel full-width, but terminal emulators
-// often wrap when the final printable cell is filled exactly, especially once
-// ANSI reset sequences are involved. Reserving one column avoids ghost lines
-// without going back to the narrow boxed prompt.
-func terminalPromptSurfaceWidth() int {
-	width := terminalPromptWidth()
-	if width < 52 {
-		return 52
-	}
-
-	return width - 1
-}
-
 func clipPromptLine(text string, limit int) string {
 	trimmed := strings.TrimSpace(text)
 	if limit <= 0 || len(trimmed) <= limit {

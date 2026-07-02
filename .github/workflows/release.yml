@@ -64,6 +64,9 @@ jobs:
       - name: Install editor dependencies
         run: npm ci
 
+      - name: Ensure native build binding
+        run: node apps/editor/scripts/ensure-native-build-binding.mjs
+
       - name: Bundle managed language servers
         run: npm --workspace axon run build:language-servers
         env:

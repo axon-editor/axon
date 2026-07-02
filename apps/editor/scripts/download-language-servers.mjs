@@ -13,6 +13,9 @@ const downloadRoot = path.join(editorRoot, ".language-server-downloads");
 
 const currentPlatformKey = `${process.platform}-${process.arch}`;
 const githubToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+const networkRetryCount = 4;
+const networkRetryBaseDelayMs = 1_000;
+const networkRequestTimeoutMs = 45_000;
 
 const bundles = [
   {
@@ -134,6 +137,69 @@ function run(command, args, options = {}) {
   });
 }
 
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isRetryableFetchError(error) {
+  const status = error?.status;
+  if (status === 408 || status === 425 || status === 429) return true;
+  if (typeof status === "number" && status >= 500) return true;
+
+  const code = error?.cause?.code || error?.cause?.name || error?.code;
+  return [
+    "ABORT_ERR",
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_SOCKET",
+  ].includes(code);
+}
+
+async function fetchWithRetry(url, options = {}) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= networkRetryCount; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, networkRequestTimeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const error = new Error(`failed to fetch ${url}: ${response.status}`);
+        error.status = response.status;
+        throw error;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt === networkRetryCount || !isRetryableFetchError(error)) {
+        throw error;
+      }
+
+      const waitMs = networkRetryBaseDelayMs * 2 ** (attempt - 1);
+      console.warn(
+        `network retry ${attempt}/${networkRetryCount - 1} for ${url}: ${error.message}`,
+      );
+      await delay(waitMs);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError;
+}
+
 async function fetchJson(url) {
   const isGitHubApi = url.startsWith("https://api.github.com/");
   const headers = {
@@ -145,13 +211,9 @@ async function fetchJson(url) {
     headers.Authorization = `Bearer ${githubToken}`;
   }
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers,
   });
-
-  if (!response.ok) {
-    throw new Error(`failed to fetch ${url}: ${response.status}`);
-  }
 
   return response.json();
 }
@@ -165,12 +227,12 @@ async function downloadFile(url, destination) {
     headers.Authorization = `Bearer ${githubToken}`;
   }
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers,
   });
 
-  if (!response.ok || !response.body) {
-    throw new Error(`failed to download ${url}: ${response.status}`);
+  if (!response.body) {
+    throw new Error(`failed to download ${url}: response body was empty`);
   }
 
   await fs.mkdir(path.dirname(destination), { recursive: true });
