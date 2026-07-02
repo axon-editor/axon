@@ -1,12 +1,17 @@
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
 import { type CommandPaletteCommand } from "@axon-builtin-search/CommandPalette";
+import {
+  type ExtensionCommandContribution,
+  type ExtensionContributionRecord,
+  type ExtensionState,
+} from "../../../shared/extensions";
 
 interface BuildAppPaletteCommandsOptions {
   activeFilePath: string | null;
   activeFileSymbolCount: number;
   diagnosticsCount: number;
-  extensionState: any;
+  extensionState: ExtensionState | null;
   folderPath: string | null;
   gitChangeCount: number;
   language: string;
@@ -33,22 +38,24 @@ export function buildAppPaletteCommands({
   workspaceTrusted,
   zenMode,
 }: BuildAppPaletteCommandsOptions): CommandPaletteCommand[] {
-    const extensionCommands =
-      extensionState?.extensions.flatMap((extension: any) =>
-        extension.enabled
-          ? extension.contributes.commands.map((command: any) => ({
-              id: `extension:${command.id}` as const,
-              title: command.title,
-              group: command.category ?? "Extensions",
-              subtitle: !workspaceTrusted
-                ? "Trust this workspace before running extension commands"
-                : (command.description ??
-                  `${extension.name} command contribution`),
-              keywords: [extension.name, extension.publisher, command.id],
-              disabled: !workspaceTrusted,
-            }))
-          : [],
-      ) ?? [];
+    const commandRecords =
+      (extensionState?.contributionRegistry.commands ??
+        []) as ExtensionContributionRecord<ExtensionCommandContribution>[];
+    const extensionCommands = commandRecords.map((record) => ({
+      id: `extension:${record.contribution.id}` as const,
+      title: record.contribution.title,
+      group: record.contribution.category ?? "Extensions",
+      subtitle: !workspaceTrusted
+        ? "Trust this workspace before running extension commands"
+        : (record.contribution.description ??
+          `${record.extensionName} command contribution`),
+      keywords: [
+        record.extensionName,
+        record.extensionId,
+        record.contribution.id,
+      ],
+      disabled: !workspaceTrusted,
+    }));
 
     return [
       {

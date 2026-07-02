@@ -6,10 +6,13 @@ import { resolveAgentWorkbenchContribution } from "@axon-builtin-agent/lib/contr
 import CommandPalette from "@axon-builtin-search/CommandPalette";
 import WorkspaceSearchModal from "@axon-builtin-search/WorkspaceSearchModal";
 import FileOutlineModal from "@axon-builtin-search/FileOutlineModal";
+import { resolveSearchWorkbenchContribution } from "@axon-builtin-search/lib/contribution";
 import DiffModal from "@axon-builtin-git/git/DiffModal";
 import SourceControlModal from "@axon-builtin-git/git/SourceControlModal";
 import GitHistoryEditor from "@axon-builtin-git/git/GitHistoryEditor";
+import { resolveGitWorkbenchContribution } from "@axon-builtin-git/lib/contribution";
 import SettingsModal from "@axon-builtin-settings/settings/SettingsModal";
+import { resolveSettingsWorkbenchContribution } from "@axon-builtin-settings/lib/contribution";
 import TestExplorerModal from "@axon-builtin-testing/TestExplorerModal";
 import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
 import EditorPane from "../../renderer/features/editor/EditorPane";
@@ -181,6 +184,18 @@ export function AxonAppView(props: Record<string, any>) {
   );
   const agentContribution = React.useMemo(
     () => resolveAgentWorkbenchContribution(extensionState),
+    [extensionState],
+  );
+  const searchContribution = React.useMemo(
+    () => resolveSearchWorkbenchContribution(extensionState),
+    [extensionState],
+  );
+  const settingsContribution = React.useMemo(
+    () => resolveSettingsWorkbenchContribution(extensionState),
+    [extensionState],
+  );
+  const gitContribution = React.useMemo(
+    () => resolveGitWorkbenchContribution(extensionState),
     [extensionState],
   );
   const mainSidebarSide =
@@ -385,7 +400,7 @@ export function AxonAppView(props: Record<string, any>) {
             </div>
           )}
 
-          {gitHistoryEditor ? (
+          {gitHistoryEditor && gitContribution ? (
             <GitHistoryEditor
               commit={gitHistoryEditor.commit}
               file={gitHistoryEditor.file}
@@ -560,12 +575,14 @@ export function AxonAppView(props: Record<string, any>) {
         onCommandSelect={runCommand}
       />
 
-      <WorkspaceSearchModal
-        rootPath={folderPath}
-        open={workspaceSearchOpen}
-        onClose={() => setWorkspaceSearchOpen(false)}
-        onResultSelect={handleWorkspaceSearchResult}
-      />
+      {searchContribution && (
+        <WorkspaceSearchModal
+          rootPath={folderPath}
+          open={workspaceSearchOpen}
+          onClose={() => setWorkspaceSearchOpen(false)}
+          onResultSelect={handleWorkspaceSearchResult}
+        />
+      )}
 
       <WorkspaceOverviewModal
         open={workspaceOverviewOpen}
@@ -632,7 +649,7 @@ export function AxonAppView(props: Record<string, any>) {
         }}
       />
 
-      {settingsOpen && (
+      {settingsOpen && settingsContribution && (
         <SettingsModal
           folderPath={folderPath}
           workspaceTrusted={workspaceTrusted}
@@ -692,22 +709,24 @@ export function AxonAppView(props: Record<string, any>) {
         />
       )}
 
-      <SourceControlModal
-        folderPath={folderPath}
-        open={sourceControlOpen}
-        onClose={() => setSourceControlOpen(false)}
-        onOpenFile={handleFileSelect}
-        onOpenDiff={(path) => {
-          setDiffFilePath(path);
-          setDiffOpen(true);
-        }}
-        onGitStatusChanged={() => void refreshGitStatus({ silent: true })}
-        editorSettings={settings.editor}
-        themeTokens={themeTokens}
-        onOutput={(message, level = "info") =>
-          appendOutput("git", message, level)
-        }
-      />
+      {gitContribution && (
+        <SourceControlModal
+          folderPath={folderPath}
+          open={sourceControlOpen}
+          onClose={() => setSourceControlOpen(false)}
+          onOpenFile={handleFileSelect}
+          onOpenDiff={(path) => {
+            setDiffFilePath(path);
+            setDiffOpen(true);
+          }}
+          onGitStatusChanged={() => void refreshGitStatus({ silent: true })}
+          editorSettings={settings.editor}
+          themeTokens={themeTokens}
+          onOutput={(message, level = "info") =>
+            appendOutput("git", message, level)
+          }
+        />
+      )}
 
       {workspaceTrustPromptPath && (
         <div className="axon-modal-overlay fixed inset-0 z-[80] flex items-center justify-center px-4">
