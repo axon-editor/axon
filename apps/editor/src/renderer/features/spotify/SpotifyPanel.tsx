@@ -48,7 +48,7 @@ interface Props {
 }
 
 export default function SpotifyPanel({
-  visible,
+  visible: _visible,
   playerOpen,
   onTogglePlayer,
   spotifyState: state,

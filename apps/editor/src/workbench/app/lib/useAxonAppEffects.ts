@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
-import { clearLanguageServerDiagnosticsFromMonaco, collectEditorDiagnostics, onEditorDiagnosticsChanged, syncLanguageServerDiagnosticsToMonaco, type EditorDiagnostic } from "../../../renderer/features/diagnostics/lib/diagnostics";
-import { updateLspDiagnosticCache } from "../../../renderer/features/diagnostics/lib/diagnosticCache";
+import { clearLanguageServerDiagnosticsFromMonaco, collectEditorDiagnostics, onEditorDiagnosticsChanged, syncLanguageServerDiagnosticsToMonaco, type EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
+import { updateLspDiagnosticCache } from "@axon-builtin-problems/lib/diagnosticCache";
 import { detectLanguageServerLanguage, getModel, updateModel } from "../../../renderer/features/editor/lib/monacoModels";
 import { useGlobalEditorShortcuts } from "../../../renderer/features/editor/shortcuts/useGlobalEditorShortcuts";
 import { getTree, readFile } from "../../../renderer/shared/lib/api";
@@ -43,7 +43,6 @@ interface AxonAppEffectsOptions {
   runCommand: any;
   sessionReady: any;
   settings: any;
-  settingsHydrated: any;
   settingsJsonPath: any;
   sidebarCollapsed: any;
   sidebarWidth: any;
@@ -103,7 +102,6 @@ export function useAxonAppEffects({
   runCommand,
   sessionReady,
   settings,
-  settingsHydrated,
   settingsJsonPath,
   sidebarCollapsed,
   sidebarWidth,

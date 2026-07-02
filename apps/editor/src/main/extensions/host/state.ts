@@ -36,6 +36,10 @@ import {
   normalizeExtensionManifest,
 } from "./manifest";
 import { summarizeExtensionRuntime } from "./runtime";
+import {
+  markExtensionHostTiming,
+  startExtensionHostTiming,
+} from "./lib/diagnostics";
 
 function readThemes(
   extensionPath: string,
@@ -135,21 +139,45 @@ function createInternalExtension(): ExtensionInfo {
 }
 
 export function getExtensionState(folderPath?: string | null): ExtensionState {
+  const stateStartedAt = startExtensionHostTiming();
   const bundledExtensionsPath = getBundledExtensionsPath();
   const userExtensionsPath = getUserExtensionsPath();
   const workspaceExtensionsPath = getWorkspaceExtensionsPath(folderPath);
   fs.mkdirSync(userExtensionsPath, { recursive: true });
 
+  const disabledStartedAt = startExtensionHostTiming();
   const disabledIds = new Set(readDisabledExtensionIds());
+  markExtensionHostTiming("read-disabled", disabledStartedAt, {
+    count: disabledIds.size,
+  });
+
+  const bundledStartedAt = startExtensionHostTiming();
   const bundledExtensions = findExtensionDirectories(bundledExtensionsPath).map(
     (extensionPath) => loadExtensionFromPath(extensionPath, "internal", disabledIds),
   );
+  markExtensionHostTiming("discover-bundled", bundledStartedAt, {
+    count: bundledExtensions.length,
+    source: "internal",
+  });
+
+  const workspaceStartedAt = startExtensionHostTiming();
   const workspaceExtensions = findExtensionDirectories(workspaceExtensionsPath).map(
     (extensionPath) => loadExtensionFromPath(extensionPath, "workspace", disabledIds),
   );
+  markExtensionHostTiming("discover-workspace", workspaceStartedAt, {
+    count: workspaceExtensions.length,
+    source: "workspace",
+    folderPath,
+  });
+
+  const userStartedAt = startExtensionHostTiming();
   const userExtensions = findExtensionDirectories(userExtensionsPath).map(
     (extensionPath) => loadExtensionFromPath(extensionPath, "user", disabledIds),
   );
+  markExtensionHostTiming("discover-user", userStartedAt, {
+    count: userExtensions.length,
+    source: "user",
+  });
 
   const extensions = [
     createInternalExtension(),
@@ -163,6 +191,10 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   const contributionRegistry =
     createExtensionContributionRegistry(activatedExtensions);
   const activationRecords = getExtensionActivationRecords();
+  markExtensionHostTiming("state", stateStartedAt, {
+    count: activatedExtensions.length,
+    folderPath,
+  });
 
   return {
     extensions: activatedExtensions,

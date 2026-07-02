@@ -4,7 +4,7 @@
 import { RefreshCw, Speaker } from "lucide-react";
 import type { SpotifyDevice } from "../../../shared/spotify";
 import Tooltip from "../../shared/components/Tooltip";
-import SearchSelect, { type SearchSelectItem } from "../search/SearchSelect";
+import SearchSelect, { type SearchSelectItem } from "../../../base/components/SearchSelect";
 
 interface Props {
   devices: SpotifyDevice[];

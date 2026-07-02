@@ -24,9 +24,8 @@ import {
   type BottomPanelTab,
   type OutputEntry,
 } from "@axon-editor/platform/panel/bottomPanel";
-import { type EditorDiagnostic } from "@axon-editor/renderer/features/diagnostics/lib/diagnostics";
+import { type EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import { waitForCoreBackend } from "@axon-editor/renderer/shared/lib/coreBackend";
 import ChromeTab from "@axon-editor/renderer/features/editor/ChromeTab";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import {

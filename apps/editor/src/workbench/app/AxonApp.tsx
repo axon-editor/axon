@@ -5,13 +5,13 @@ import {
   clearLanguageServerDiagnosticsFromMonaco,
   collectEditorDiagnostics,
   type EditorDiagnostic,
-} from "../../renderer/features/diagnostics/lib/diagnostics";
-import { useAgentDiagnosticsExport } from "../../renderer/features/diagnostics/lib/useAgentDiagnosticsExport";
+} from "@axon-builtin-problems/lib/diagnostics";
+import { useAgentDiagnosticsExport } from "@axon-builtin-problems/lib/useAgentDiagnosticsExport";
 import {
   capDiagnostics,
   MAX_PROJECT_DIAGNOSTICS,
   type LspDiagnosticsByFile,
-} from "../../renderer/features/diagnostics/lib/diagnosticCache";
+} from "@axon-builtin-problems/lib/diagnosticCache";
 import {
   createWelcomeLayout,
   createInitialLayout,
@@ -785,7 +785,6 @@ export default function App({ initialExtensionState }: AppProps) {
     runCommand,
     sessionReady,
     settings,
-    settingsHydrated,
     settingsJsonPath,
     sidebarCollapsed,
     sidebarWidth,

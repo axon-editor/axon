@@ -1,5 +1,3 @@
-type IconFamily = "file" | "folder";
-
 const FALLBACK_FILE_ICON = "_file.svg";
 const FALLBACK_FOLDER_ICON = "_folder.svg";
 const FALLBACK_FOLDER_OPEN_ICON = "_folder_open.svg";

@@ -2,6 +2,24 @@ import * as monaco from "monaco-editor";
 
 type MonacoInstance = typeof monaco;
 
+type MonacoWithLanguageDefaults = MonacoInstance & {
+  languages: MonacoInstance["languages"] & {
+    typescript: {
+      typescriptDefaults: {
+        setDiagnosticsOptions(options: Record<string, unknown>): void;
+      };
+      javascriptDefaults: {
+        setDiagnosticsOptions(options: Record<string, unknown>): void;
+      };
+    };
+    json: {
+      jsonDefaults: {
+        setDiagnosticsOptions(options: Record<string, unknown>): void;
+      };
+    };
+  };
+};
+
 const configuredMonacos = new WeakSet<MonacoInstance>();
 
 export function configureMonacoDiagnostics(
@@ -9,6 +27,7 @@ export function configureMonacoDiagnostics(
 ) {
   if (configuredMonacos.has(monacoInstance)) return;
   configuredMonacos.add(monacoInstance);
+  const languageDefaults = monacoInstance as MonacoWithLanguageDefaults;
 
   // Axon now uses project language servers for TypeScript and JavaScript, so
   // Monaco's standalone worker should not produce editor diagnostics for those
@@ -17,12 +36,12 @@ export function configureMonacoDiagnostics(
   // the same module graph the LSP sees, so it can show errors in Axon that do
   // not exist in Zed/VS Code. LSP remains the source of truth for Problems,
   // squiggles, hover, and quick fixes.
-  monacoInstance.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+  languageDefaults.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
     noSyntaxValidation: true,
     noSemanticValidation: true,
     noSuggestionDiagnostics: true,
   });
-  monacoInstance.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+  languageDefaults.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
     noSyntaxValidation: true,
     noSemanticValidation: true,
     noSuggestionDiagnostics: true,
@@ -33,7 +52,7 @@ export function configureMonacoDiagnostics(
   // full per-file schema registry, this avoids the misleading "comments are not
   // permitted in JSON" error that other editors usually suppress for config
   // files.
-  monacoInstance.languages.json.jsonDefaults.setDiagnosticsOptions({
+  languageDefaults.languages.json.jsonDefaults.setDiagnosticsOptions({
     validate: true,
     allowComments: true,
     trailingCommas: "ignore",

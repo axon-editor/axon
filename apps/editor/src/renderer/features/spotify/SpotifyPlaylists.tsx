@@ -6,7 +6,7 @@ import type {
   SpotifyPlaylist,
   SpotifyPlayTrackRequest,
   SpotifyTrack,
-} from "../../../../shared/spotify";
+} from "../../../shared/spotify";
 
 function formatMs(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -192,7 +192,7 @@ export default function SpotifyPlaylists({
                         className="truncate"
                         style={{ fontSize: 9, color: "#3a4050" }}
                       >
-                        {track.artists.map((a) => a.name).join(", ")}
+                        {track.artists.map((artist) => artist.name).join(", ")}
                       </div>
                     </div>
                     <div style={{ fontSize: 9, color: "#333", flexShrink: 0 }}>

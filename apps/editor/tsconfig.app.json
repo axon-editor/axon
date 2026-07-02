@@ -4,7 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -24,6 +24,21 @@
       "@axon-builtin-agent/*": [
         "../../extensions/builtin/agent/workbench/*"
       ],
+      "@axon-builtin-search/*": [
+        "../../extensions/builtin/search/workbench/*"
+      ],
+      "@axon-builtin-settings/*": [
+        "../../extensions/builtin/settings/workbench/*"
+      ],
+      "@axon-builtin-git/*": [
+        "../../extensions/builtin/git/workbench/*"
+      ],
+      "@axon-builtin-testing/*": [
+        "../../extensions/builtin/testing/workbench/*"
+      ],
+      "@axon-builtin-problems/*": [
+        "../../extensions/builtin/problems/workbench/*"
+      ],
       "@axon/protocol": ["../../node_modules/@axon/protocol/dist/index.d.ts"],
       "@xterm/addon-fit": [
         "node_modules/@xterm/addon-fit/typings/addon-fit.d.ts"
@@ -32,6 +47,10 @@
         "node_modules/@xterm/addon-web-links/typings/addon-web-links.d.ts"
       ],
       "@xterm/xterm": ["node_modules/@xterm/xterm/typings/xterm.d.ts"],
+      "@monaco-editor/react": [
+        "node_modules/@monaco-editor/react/dist/index.d.ts"
+      ],
+      "monaco-editor": ["node_modules/monaco-editor/esm/vs/editor/editor.api.d.ts"],
       "lucide-react": ["node_modules/lucide-react/dist/lucide-react.d.ts"],
       "react": ["node_modules/@types/react/index.d.ts"],
       "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"],
@@ -46,8 +65,17 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": [
-    "src",
+    "src/base/**/*",
+    "src/platform/**/*",
+    "src/renderer/**/*",
+    "src/shared/**/*",
+    "src/workbench/**/*",
     "../../extensions/builtin/terminal/workbench/**/*",
-    "../../extensions/builtin/agent/workbench/**/*"
+    "../../extensions/builtin/agent/workbench/**/*",
+    "../../extensions/builtin/search/workbench/**/*",
+    "../../extensions/builtin/settings/workbench/**/*",
+    "../../extensions/builtin/git/workbench/**/*",
+    "../../extensions/builtin/testing/workbench/**/*",
+    "../../extensions/builtin/problems/workbench/**/*"
   ]
 }

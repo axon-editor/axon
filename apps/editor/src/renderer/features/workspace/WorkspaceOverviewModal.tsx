@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, FolderKanban, GitBranch, Play, X } from "lucide-react";
-import { type EditorDiagnostic } from "../diagnostics/lib/diagnostics";
+import { type EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import { type WorkspaceRoot } from "../../shared/lib/workspaceRoots";
 
 interface RootSummary {

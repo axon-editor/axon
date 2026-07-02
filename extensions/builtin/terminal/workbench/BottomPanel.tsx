@@ -16,7 +16,7 @@ import {
   type OutputEntry,
   type OutputEntryLevel,
 } from "@axon-editor/platform/panel/bottomPanel";
-import { type EditorDiagnostic } from "@axon-editor/renderer/features/diagnostics/lib/diagnostics";
+import { type EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {

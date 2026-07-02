@@ -95,11 +95,6 @@ export default function ContextMenu({
     return parts.join(separator);
   };
 
-  const joinPath = (parentPath: string, name: string) => {
-    const separator = parentPath.includes("\\") ? "\\" : "/";
-    return `${parentPath.replace(/[\\/]+$/, "")}${separator}${name}`;
-  };
-
   const basePath = menu.node.is_dir
     ? menu.node.path
     : getParentPath(menu.node.path);

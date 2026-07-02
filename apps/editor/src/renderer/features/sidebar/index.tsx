@@ -884,7 +884,7 @@ export default function Sidebar({
       {contextMenu && (
         <ContextMenu
           menu={contextMenu}
-          rootPath={tree.path}
+          rootPath={tree?.path ?? ""}
           onClose={() => setContextMenu(null)}
           existingNames={contextMenu.existingNames}
           onRefresh={() => undefined}

@@ -9,6 +9,7 @@ import {
   Replace,
   Sparkles,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { type LanguageServerStatus } from "../../../shared/lsp";
 import { type FileSymbol } from "../sidebar/files/lib/fileSymbols";
@@ -109,21 +110,21 @@ export default function LanguageToolsModal({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {[
+              {([
                 ["definition", LocateFixed, onGoToDefinition],
                 ["references", GitPullRequestArrow, onFindReferences],
                 ["rename", Replace, onRename],
                 ["format", Braces, onFormat],
-              ].map(([label, Icon, action]) => (
+              ] satisfies Array<[string, LucideIcon, () => void]>).map(([label, Icon, action]) => (
                 <button
-                  key={label as string}
+                  key={label}
                   type="button"
                   disabled={!activeFile}
-                  onClick={action as () => void}
+                  onClick={action}
                   className="flex h-9 cursor-pointer items-center gap-2 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-65 hover:border-[var(--axon-syntax-function)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   <Icon size={13} />
-                  {label as string}
+                  {label}
                 </button>
               ))}
             </div>

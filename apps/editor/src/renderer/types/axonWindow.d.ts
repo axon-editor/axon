@@ -4,7 +4,7 @@ import type {
   CliToolInstallResult,
   CliToolStatus,
 } from "../../shared/app";
-import type { EditorDiagnostic } from "../features/diagnostics/lib/diagnostics";
+import type { EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import type {
   ExtensionActionResult,
   ExtensionMarketplaceState,

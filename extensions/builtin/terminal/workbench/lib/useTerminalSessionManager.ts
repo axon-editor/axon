@@ -48,7 +48,6 @@ interface UseTerminalSessionManagerOptions {
 }
 
 export function useTerminalSessionManager({
-  activePanelTab,
   createNonce,
   createWorkingDirectory,
   open,

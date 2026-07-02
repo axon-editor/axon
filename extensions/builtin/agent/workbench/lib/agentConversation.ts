@@ -226,7 +226,10 @@ export function clearAgentConversation(
 
 export function conversationContext(messages: AgentMessage[]): AiConversationMessage[] {
   return messages
-    .filter((message) => message.role === "user" || message.role === "assistant")
+    .filter(
+      (message): message is AgentMessage & { role: "user" | "assistant" } =>
+        message.role === "user" || message.role === "assistant",
+    )
     .filter((message) => message.content.trim())
     .slice(-12)
     .map((message) => ({

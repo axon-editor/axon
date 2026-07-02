@@ -38,10 +38,7 @@ function isFileInsideWorkspace(filePath: string, folderPath: string) {
   );
 }
 
-function toLspRequestBase(
-  model: monaco.editor.ITextModel,
-  languageId: string,
-) {
+function toLspRequestBase(model: monaco.editor.ITextModel) {
   const folderPath = window.axonCompletionWorkspacePath;
   const filePath = model.uri.fsPath;
   if (!folderPath || !isFileInsideWorkspace(filePath, folderPath)) return null;
@@ -84,7 +81,7 @@ function registerHoverProvider(monacoInstance: typeof monaco, languageId: string
 
   monacoInstance.languages.registerHoverProvider(languageId, {
     provideHover: async (model, position, token) => {
-      const base = toLspRequestBase(model, languageId);
+      const base = toLspRequestBase(model);
       if (!base) return null;
 
       const result = await window.axon.getLanguageServerHover({
@@ -114,7 +111,7 @@ function registerDefinitionProvider(
 ) {
   monacoInstance.languages.registerDefinitionProvider(languageId, {
     provideDefinition: async (model, position, token) => {
-      const base = toLspRequestBase(model, languageId);
+      const base = toLspRequestBase(model);
       if (!base) return [];
 
       const result = await window.axon.getLanguageServerDefinitions({
@@ -142,7 +139,7 @@ function registerReferenceProvider(
 ) {
   monacoInstance.languages.registerReferenceProvider(languageId, {
     provideReferences: async (model, position, _context, token) => {
-      const base = toLspRequestBase(model, languageId);
+      const base = toLspRequestBase(model);
       if (!base) return [];
 
       const result = await window.axon.getLanguageServerReferences({
@@ -161,7 +158,7 @@ function registerReferenceProvider(
 function registerRenameProvider(monacoInstance: typeof monaco, languageId: string) {
   monacoInstance.languages.registerRenameProvider(languageId, {
     provideRenameEdits: async (model, position, newName, token) => {
-      const base = toLspRequestBase(model, languageId);
+      const base = toLspRequestBase(model);
       if (!base) {
         return {
           edits: [],
@@ -186,7 +183,8 @@ function registerRenameProvider(monacoInstance: typeof monaco, languageId: strin
       const edits = Object.entries(result.edits).flatMap(([filePath, fileEdits]) =>
         fileEdits.map((edit) => ({
           resource: monaco.Uri.file(filePath),
-          edit: {
+          versionId: undefined,
+          textEdit: {
             range: toMonacoRange(edit.range),
             text: edit.newText,
             forceMoveMarkers: true,
@@ -202,7 +200,7 @@ function registerRenameProvider(monacoInstance: typeof monaco, languageId: strin
 function registerFormatProvider(monacoInstance: typeof monaco, languageId: string) {
   monacoInstance.languages.registerDocumentFormattingEditProvider(languageId, {
     provideDocumentFormattingEdits: async (model, options, token) => {
-      const base = toLspRequestBase(model, languageId);
+      const base = toLspRequestBase(model);
       if (!base) return [];
 
       const result = await window.axon.formatLanguageServerDocument({
@@ -228,7 +226,7 @@ function registerSignatureHelpProvider(
     signatureHelpTriggerCharacters: ["(", ",", "<"],
     signatureHelpRetriggerCharacters: [",", ")"],
     provideSignatureHelp: async (model, position, token, context) => {
-      const base = toLspRequestBase(model, languageId);
+      const base = toLspRequestBase(model);
       if (!base) {
         return {
           value: { signatures: [], activeSignature: 0, activeParameter: 0 },
@@ -274,7 +272,7 @@ function registerCodeActionProvider(
 ) {
   monacoInstance.languages.registerCodeActionProvider(languageId, {
     provideCodeActions: async (model, range, _context, token) => {
-      const base = toLspRequestBase(model, languageId);
+      const base = toLspRequestBase(model);
       if (!base) return { actions: [], dispose: () => undefined };
 
       const diagnostics = monacoInstance.editor
@@ -346,7 +344,8 @@ function registerCodeActionProvider(
           edits: Object.entries(action.edits).flatMap(([filePath, edits]) =>
             edits.map((edit) => ({
               resource: monaco.Uri.file(filePath),
-              edit: {
+              versionId: undefined,
+              textEdit: {
                 range: toMonacoRange(edit.range),
                 text: edit.newText,
                 forceMoveMarkers: true,

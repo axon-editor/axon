@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { getWorkspaceTrustState } from "../../../renderer/features/sidebar";
-import { isDiagnosticInWorkspace } from "../../../renderer/features/diagnostics/lib/diagnosticCache";
+import { isDiagnosticInWorkspace } from "@axon-builtin-problems/lib/diagnosticCache";
 import { getModel } from "../../../renderer/features/editor/lib/monacoModels";
 import { collectFileSymbols } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { createThemeCssVariables, resolveThemeTokens } from "../../../renderer/shared/lib/themeTokens";

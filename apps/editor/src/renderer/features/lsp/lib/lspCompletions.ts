@@ -546,7 +546,6 @@ function parseEmmetAbbreviation(rawWord: string) {
 
 function buildEmmetSnippet(
   abbreviation: ReturnType<typeof parseEmmetAbbreviation>,
-  languageId: string,
   filePath: string,
 ) {
   if (!abbreviation) return "";
@@ -584,7 +583,6 @@ function registerEmmetAbbreviationProvider(monacoInstance: typeof monaco) {
         const abbreviation = parseEmmetAbbreviation(match[0]);
         const insertText = buildEmmetSnippet(
           abbreviation,
-          languageId,
           model.uri.fsPath,
         );
         if (!abbreviation || !insertText) return { suggestions: [] };

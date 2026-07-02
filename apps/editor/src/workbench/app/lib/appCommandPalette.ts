@@ -1,6 +1,6 @@
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
-import { type CommandPaletteCommand } from "../../../renderer/features/search/CommandPalette";
+import { type CommandPaletteCommand } from "@axon-builtin-search/CommandPalette";
 
 interface BuildAppPaletteCommandsOptions {
   activeFilePath: string | null;

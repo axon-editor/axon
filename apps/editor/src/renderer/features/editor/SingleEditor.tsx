@@ -17,7 +17,7 @@ import { readFile, writeFile } from "../../shared/lib/api";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { registerAxonTheme } from "../../shared/lib/soraTheme";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
-import { parseGitDiffLineDecorations } from "../git/lib/gitDiffDecorations";
+import { parseGitDiffLineDecorations } from "@axon-builtin-git/git/lib/gitDiffDecorations";
 import Tooltip from "../../shared/components/Tooltip";
 import MarkdownPreview from "../preview/MarkdownPreview";
 import EditorBreadcrumbs from "./EditorBreadcrumbs";

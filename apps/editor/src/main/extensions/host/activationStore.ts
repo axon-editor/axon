@@ -3,6 +3,10 @@ import {
   type ExtensionInfo,
 } from "@axon/extension-api";
 import { extensionMatchesActivationEvent } from "./activation";
+import {
+  markExtensionHostTiming,
+  startExtensionHostTiming,
+} from "./lib/diagnostics";
 
 const activationRecords = new Map<string, ExtensionActivationRecord[]>();
 
@@ -32,6 +36,7 @@ export function activateExtensionsForEvent(
   event: string,
   reason = event,
 ) {
+  const startedAt = startExtensionHostTiming();
   const activated: ExtensionActivationRecord[] = [];
 
   for (const extension of extensions) {
@@ -50,6 +55,10 @@ export function activateExtensionsForEvent(
     if (latest) activated.push(latest);
   }
 
+  markExtensionHostTiming("activation", startedAt, {
+    event,
+    count: activated.length,
+  });
   return activated;
 }
 

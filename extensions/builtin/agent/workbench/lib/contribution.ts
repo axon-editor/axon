@@ -55,6 +55,6 @@ export function resolveAgentWorkbenchContribution(
     viewTitle: viewRecord.contribution.title,
     agentId: agentRecord.contribution.id,
     agentTitle: agentRecord.contribution.title,
-    agentDescription: agentRecord.contribution.description,
+    agentDescription: agentRecord.contribution.description ?? "",
   };
 }
