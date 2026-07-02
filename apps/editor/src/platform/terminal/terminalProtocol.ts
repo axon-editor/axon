@@ -44,6 +44,7 @@ export const MAX_RECONNECT_INPUT_BYTES =
   TERMINAL_REPLAY.maxReconnectInputBytes;
 export const TERMINAL_ACK_BYTE_THRESHOLD = TERMINAL_REPLAY.ackByteThreshold;
 export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
+export const TERMINAL_SCROLLBACK_LINES = 200_000;
 
 export function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;

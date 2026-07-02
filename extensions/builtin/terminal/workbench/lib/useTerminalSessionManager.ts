@@ -15,6 +15,7 @@ import {
   getTerminalBackendUrl,
   sendTerminalAck,
   sendTerminate,
+  TERMINAL_SCROLLBACK_LINES,
   type TerminalSession,
 } from "@axon-editor/platform/terminal/terminalProtocol";
 import { type getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
@@ -28,7 +29,7 @@ import {
   sendWorkspaceCd,
   terminateDetachedSession,
   writeTerminalOutput,
-} from "./terminalSessionIo";
+} from "@axon-editor/platform/terminal/terminalSessionIo";
 
 export interface TerminalTab {
   id: string;
@@ -371,7 +372,12 @@ export function useTerminalSessionManager({
         cursorBlink: true,
         cursorStyle: "block",
         ignoreBracketedPasteMode: false,
-        scrollback: 50000,
+        // Long-running local agents can produce far more output than a normal
+        // shell session. Core keeps a large byte replay window, but xterm also
+        // has its own line-based buffer. If this stays too small, output looks
+        // "eaten" even though the backend still has the bytes, because older
+        // rendered rows have already fallen out of the visible terminal buffer.
+        scrollback: TERMINAL_SCROLLBACK_LINES,
       });
       const fitAddon = new FitAddon();
       const webLinksAddon = new WebLinksAddon((event, uri) => {
