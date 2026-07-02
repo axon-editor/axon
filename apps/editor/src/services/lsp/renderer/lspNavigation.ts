@@ -1,6 +1,6 @@
 import * as monaco from "monaco-editor";
 import { applyWorkspaceEdits } from "./workspaceEdits";
-import { detectLanguageServerLanguage } from "../../editor/lib/monacoModels";
+import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 

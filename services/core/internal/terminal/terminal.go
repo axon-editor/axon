@@ -42,6 +42,10 @@ type terminalSession struct {
 	totalBytes        int64
 	replayProtections []terminalReplayProtection
 	closed            bool
+	createdAt         time.Time
+	lastOutputAt      time.Time
+	detachedClients   int64
+	droppedClients    int64
 	mu                sync.Mutex
 }
 
@@ -58,6 +62,25 @@ type terminalClient struct {
 	acknowledgedOffset int64
 	mu                 sync.Mutex
 	closeOnce          sync.Once
+}
+
+type terminalHealthSnapshot struct {
+	SessionCount int                     `json:"sessionCount"`
+	Sessions     []terminalSessionHealth `json:"sessions"`
+}
+
+type terminalSessionHealth struct {
+	ID                string `json:"id"`
+	ClientCount       int    `json:"clientCount"`
+	ScrollbackBytes   int    `json:"scrollbackBytes"`
+	BaseOffset        int64  `json:"baseOffset"`
+	TotalBytes        int64  `json:"totalBytes"`
+	ReplayProtections int    `json:"replayProtections"`
+	DetachedClients   int64  `json:"detachedClients"`
+	DroppedClients    int64  `json:"droppedClients"`
+	CreatedAt         string `json:"createdAt"`
+	LastOutputAt      string `json:"lastOutputAt"`
+	Closed            bool   `json:"closed"`
 }
 
 const (
@@ -124,10 +147,12 @@ func createSession(id string, cwd string) (*terminalSession, error) {
 	}
 
 	session := &terminalSession{
-		id:      id,
-		cmd:     cmd,
-		ptmx:    ptmx,
-		clients: map[*terminalClient]bool{},
+		id:           id,
+		cmd:          cmd,
+		ptmx:         ptmx,
+		clients:      map[*terminalClient]bool{},
+		createdAt:    time.Now(),
+		lastOutputAt: time.Now(),
 	}
 
 	// The PTY reader belongs to the session instead of a single websocket
@@ -356,6 +381,7 @@ func (session *terminalSession) broadcast(data []byte) {
 	}
 	session.scrollback = append(session.scrollback, data...)
 	session.totalBytes += int64(len(data))
+	session.lastOutputAt = time.Now()
 	now := time.Now()
 	if len(session.scrollback) > maxScrollbackBytes {
 		session.dropExpiredReplayProtections(now)
@@ -402,6 +428,7 @@ func (session *terminalSession) broadcast(data []byte) {
 			// from the last painted byte once its local xterm queue is settled.
 			session.protectReplayOffsetLocked(acknowledged, now)
 			delete(session.clients, client)
+			session.detachedClients++
 			detachedClients = append(detachedClients, client)
 			continue
 		}
@@ -416,8 +443,67 @@ func (session *terminalSession) broadcast(data []byte) {
 	for _, client := range clients {
 		if !client.enqueue(data) {
 			session.removeClient(client)
+			session.mu.Lock()
+			session.droppedClients++
+			session.mu.Unlock()
 			client.close()
 		}
+	}
+}
+
+func (session *terminalSession) health() terminalSessionHealth {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
+	return terminalSessionHealth{
+		ID:                session.id,
+		ClientCount:       len(session.clients),
+		ScrollbackBytes:   len(session.scrollback),
+		BaseOffset:        session.baseOffset,
+		TotalBytes:        session.totalBytes,
+		ReplayProtections: len(session.replayProtections),
+		DetachedClients:   session.detachedClients,
+		DroppedClients:    session.droppedClients,
+		CreatedAt:         session.createdAt.Format(time.RFC3339Nano),
+		LastOutputAt:      session.lastOutputAt.Format(time.RFC3339Nano),
+		Closed:            session.closed,
+	}
+}
+
+// HealthSnapshot copies the current terminal session pointers under the global
+// session lock and then reads each session under its own lock.
+//
+// I keep the global lock held only long enough to copy the session list because
+// terminal output can be hot while a long-running agent is streaming. Holding
+// the global registry lock while formatting every session would make unrelated
+// terminal creation/lookup wait behind diagnostics, which is exactly the kind
+// of back pressure this endpoint is meant to help detect.
+func HealthSnapshot() terminalHealthSnapshot {
+	terminalSessions.Lock()
+	sessions := make([]*terminalSession, 0, len(terminalSessions.items))
+	for _, session := range terminalSessions.items {
+		sessions = append(sessions, session)
+	}
+	terminalSessions.Unlock()
+
+	snapshot := terminalHealthSnapshot{
+		SessionCount: len(sessions),
+		Sessions:     make([]terminalSessionHealth, 0, len(sessions)),
+	}
+	for _, session := range sessions {
+		snapshot.Sessions = append(snapshot.Sessions, session.health())
+	}
+	return snapshot
+}
+
+// HealthHandler exposes a small JSON snapshot for renderer/startup diagnostics.
+// The terminal eating bug is timing-sensitive, so the UI needs cheap visibility
+// into detached clients, dropped clients, scrollback growth, and last output
+// time without attaching another websocket reader that could change behavior.
+func HealthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(HealthSnapshot()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 

@@ -52,10 +52,25 @@ export interface ExtensionActivationRecord {
   hostKind: "declarative" | "isolated-process";
 }
 
+export interface ExtensionRuntimeRegistration {
+  extensionId: string;
+  extensionName: string;
+  hostKind: "declarative" | "isolated-process";
+  commands: string[];
+  views: string[];
+  terminalProfiles: string[];
+  agents: string[];
+  activatedEvents: string[];
+  lastActivatedAt: string | null;
+  status: "registered" | "waiting" | "error";
+  message: string;
+}
+
 export interface ExtensionState {
   extensions: ExtensionInfo[];
   contributionRegistry: ExtensionContributionRegistry;
   activationRecords: ExtensionActivationRecord[];
+  runtimeRegistrations: ExtensionRuntimeRegistration[];
   userExtensionsPath: string;
   workspaceExtensionsPath: string | null;
   hostStatus: {

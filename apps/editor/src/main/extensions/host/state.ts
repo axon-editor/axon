@@ -35,7 +35,10 @@ import {
   normalizeExtensionContributions,
   normalizeExtensionManifest,
 } from "./manifest";
-import { summarizeExtensionRuntime } from "./runtime";
+import {
+  createExtensionRuntimeRegistrations,
+  summarizeExtensionRuntime,
+} from "./runtime";
 import {
   markExtensionHostTiming,
   startExtensionHostTiming,
@@ -188,6 +191,8 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   activateStartupExtensions(extensions);
   const activatedExtensions = extensions.map(applyActivationState);
   const runtime = summarizeExtensionRuntime(activatedExtensions);
+  const runtimeRegistrations =
+    createExtensionRuntimeRegistrations(activatedExtensions);
   const contributionRegistry =
     createExtensionContributionRegistry(activatedExtensions);
   const activationRecords = getExtensionActivationRecords();
@@ -200,6 +205,7 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
     extensions: activatedExtensions,
     contributionRegistry,
     activationRecords,
+    runtimeRegistrations,
     userExtensionsPath,
     workspaceExtensionsPath,
     hostStatus: {

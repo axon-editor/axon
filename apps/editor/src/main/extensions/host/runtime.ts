@@ -1,4 +1,7 @@
-import { type ExtensionInfo } from "@axon/extension-api";
+import {
+  type ExtensionInfo,
+  type ExtensionRuntimeRegistration,
+} from "@axon/extension-api";
 
 export interface ExtensionRuntimeSummary {
   executableCount: number;
@@ -31,4 +34,53 @@ export function summarizeExtensionRuntime(
         ? `${executableCount} executable extension package${executableCount === 1 ? "" : "s"} registered for isolated activation.`
         : "Declarative extension contributions are active.",
   };
+}
+
+export function createExtensionRuntimeRegistrations(
+  extensions: ExtensionInfo[],
+): ExtensionRuntimeRegistration[] {
+  return extensions
+    .filter((extension) => extension.enabled)
+    .map((extension) => {
+      const contributes = extension.contributes;
+      const commandIds = contributes.commands.map((command) => command.id);
+      const viewIds = contributes.views.map((view) => view.id);
+      const terminalProfileIds = contributes.terminalProfiles.map(
+        (profile) => profile.id,
+      );
+      const agentIds = contributes.agents.map((agent) => agent.id);
+      const contributionCount =
+        commandIds.length +
+        viewIds.length +
+        terminalProfileIds.length +
+        agentIds.length;
+
+      // This runtime registration is the bridge between today's declarative
+      // manifests and the isolated activate() host. It gives the workbench a
+      // single place to inspect which runtime-owned entry points exist without
+      // pretending that executable extension code is already running.
+      return {
+        extensionId: extension.id,
+        extensionName: extension.name,
+        hostKind: extension.hostKind,
+        commands: commandIds,
+        views: viewIds,
+        terminalProfiles: terminalProfileIds,
+        agents: agentIds,
+        activatedEvents: extension.activatedEvents,
+        lastActivatedAt: extension.lastActivatedAt,
+        status:
+          extension.errors.length > 0
+            ? "error"
+            : extension.hostKind === "isolated-process" &&
+                extension.activatedEvents.length === 0
+              ? "waiting"
+              : "registered",
+        message:
+          extension.errors[0] ??
+          (contributionCount > 0
+            ? `${contributionCount} runtime contribution${contributionCount === 1 ? "" : "s"} registered.`
+            : "No runtime contributions declared."),
+      } satisfies ExtensionRuntimeRegistration;
+    });
 }

@@ -68,6 +68,7 @@
     "src/base/**/*",
     "src/platform/**/*",
     "src/renderer/**/*",
+    "src/services/**/*",
     "src/shared/**/*",
     "src/workbench/**/*",
     "../../extensions/builtin/terminal/workbench/**/*",

@@ -110,4 +110,47 @@ func TestTerminalBroadcastDetachesAckLaggingClient(t *testing.T) {
 	default:
 		t.Fatalf("expected detached client to be closed")
 	}
+
+	snapshot := session.health()
+	if snapshot.DetachedClients != 1 {
+		t.Fatalf("expected one detached client in health snapshot, got %d", snapshot.DetachedClients)
+	}
+	if snapshot.TotalBytes == 0 {
+		t.Fatalf("expected health snapshot to include terminal byte count")
+	}
+}
+
+func TestTerminalHealthSnapshotIncludesSessions(t *testing.T) {
+	session := &terminalSession{
+		id:           "health-test",
+		clients:      map[*terminalClient]bool{},
+		scrollback:   []byte("hello"),
+		totalBytes:   5,
+		createdAt:    time.Now(),
+		lastOutputAt: time.Now(),
+	}
+
+	terminalSessions.Lock()
+	terminalSessions.items[session.id] = session
+	terminalSessions.Unlock()
+	defer func() {
+		terminalSessions.Lock()
+		delete(terminalSessions.items, session.id)
+		terminalSessions.Unlock()
+	}()
+
+	snapshot := HealthSnapshot()
+	found := false
+	for _, item := range snapshot.Sessions {
+		if item.ID != session.id {
+			continue
+		}
+		found = true
+		if item.ScrollbackBytes != 5 || item.TotalBytes != 5 {
+			t.Fatalf("unexpected health byte counts: %+v", item)
+		}
+	}
+	if !found {
+		t.Fatalf("expected health snapshot to include %q", session.id)
+	}
 }

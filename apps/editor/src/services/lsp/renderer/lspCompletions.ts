@@ -1,5 +1,5 @@
 import * as monaco from "monaco-editor";
-import { detectLanguageServerLanguage } from "../../editor/lib/monacoModels";
+import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -26,6 +26,63 @@ const lspCompletionLanguages = [
 ];
 
 const webTagLanguages = ["html", "javascript", "typescript"];
+const identifierTriggerCharacters = [
+  "a",
+  "b",
+  "c",
+  "d",
+  "e",
+  "f",
+  "g",
+  "h",
+  "i",
+  "j",
+  "k",
+  "l",
+  "m",
+  "n",
+  "o",
+  "p",
+  "q",
+  "r",
+  "s",
+  "t",
+  "u",
+  "v",
+  "w",
+  "x",
+  "y",
+  "z",
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+  "M",
+  "N",
+  "O",
+  "P",
+  "Q",
+  "R",
+  "S",
+  "T",
+  "U",
+  "V",
+  "W",
+  "X",
+  "Y",
+  "Z",
+  "_",
+  "$",
+];
+const packageExportCompletionLanguages = new Set(["typescript", "javascript"]);
 const tailwindUtilityLanguages = [
   "html",
   "css",
@@ -740,7 +797,20 @@ function registerTailwindUtilityProvider(monacoInstance: typeof monaco) {
 function registerExternalLspProvider(monacoInstance: typeof monaco) {
   for (const languageId of lspCompletionLanguages) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
-      triggerCharacters: [".", ":", "/", "\"", "'", "<", "@", "#", "("],
+      triggerCharacters: [
+        ".",
+        ":",
+        "/",
+        "\"",
+        "'",
+        "<",
+        "@",
+        "#",
+        "(",
+        ...(packageExportCompletionLanguages.has(languageId)
+          ? identifierTriggerCharacters
+          : []),
+      ],
       provideCompletionItems: async (model, position, context, token) => {
         const folderPath = window.axonCompletionWorkspacePath;
         const filePath = model.uri.fsPath;
@@ -748,6 +818,15 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
           return { suggestions: [] };
         }
 
+        // TypeScript only exposes package export completions such as Lucide
+        // icons, React components, and exported helper functions after the
+        // language server sees an identifier-shaped request. Monaco's default
+        // trigger characters are punctuation-focused, so a user typing
+        // `Camera` in TSX could get only local symbols until they manually
+        // opened completion. Letting TS/JS request completions on identifier
+        // characters keeps the behavior close to production IDEs while the
+        // workspace/path guard above prevents unrelated files from spamming the
+        // main process.
         const result = await window.axon.getLanguageServerCompletions({
           folderPath,
           filePath,

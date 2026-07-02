@@ -173,6 +173,7 @@ func (s *Server) Router() http.Handler {
 	// terminal WebSocket endpoint
 	// each connection spawns a real shell attached to a PTY
 	mux.HandleFunc("/terminal", terminal.Handler)
+	mux.HandleFunc("/terminal/health", terminal.HealthHandler)
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed

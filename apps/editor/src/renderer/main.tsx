@@ -9,9 +9,9 @@ import TsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker"
 import App from "./App";
 import "./index.css";
 import { registerAxonTheme } from "./shared/lib/soraTheme";
-import { configureMonacoDiagnostics } from "./features/lsp/lib/monacoDiagnostics";
-import { configureLspCompletions } from "./features/lsp/lib/lspCompletions";
-import { configureLspNavigation } from "./features/lsp/lib/lspNavigation";
+import { configureMonacoDiagnostics } from "../services/lsp/renderer/monacoDiagnostics";
+import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions";
+import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
 import { type ExtensionState } from "../shared/extensions";
 import {
   markAxonPerformance,
