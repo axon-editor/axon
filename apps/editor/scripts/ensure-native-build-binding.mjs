@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const editorRoot = path.resolve(__dirname, "..");
+const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const requireFromEditor = createRequire(path.join(editorRoot, "package.json"));
+const packageLockPath = path.join(workspaceRoot, "package-lock.json");
+const packageLock = JSON.parse(await fs.readFile(packageLockPath, "utf8"));
 
 const nativePackageGroups = [
   {
@@ -115,6 +118,26 @@ function nodeModulesPackagePath(packageName) {
   return path.join(editorRoot, "node_modules", ...packageName.split("/"));
 }
 
+function lockPackagePath(packageName) {
+  return `apps/editor/node_modules/${packageName}`;
+}
+
+function optionalDependencyVersion(ownerPackageName, bindingPackage) {
+  const ownerPackagePath = resolvePackage(ownerPackageName);
+  if (ownerPackagePath) {
+    const ownerPackage = requireFromEditor(ownerPackagePath);
+    const version = ownerPackage.optionalDependencies?.[bindingPackage];
+    if (version) return version;
+  }
+
+  // CI can install a valid workspace tree where a build-time package is not
+  // resolvable from this helper yet, but the lockfile still records the exact
+  // optional native package version that Vite will need later. Reading the
+  // lockfile keeps the repair deterministic and avoids hard-coding versions.
+  const lockedOwner = packageLock.packages?.[lockPackagePath(ownerPackageName)];
+  return lockedOwner?.optionalDependencies?.[bindingPackage] ?? null;
+}
+
 async function installPackedPackage(packageSpec) {
   const tempRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), "axon-native-binding-"),
@@ -180,14 +203,7 @@ for (const group of nativePackageGroups) {
     );
   }
 
-  const owningPackagePath = resolvePackage(group.packageName);
-  if (!owningPackagePath) {
-    console.log(`${group.packageName} is not installed; skipping ${group.name}.`);
-    continue;
-  }
-
-  const owningPackage = requireFromEditor(owningPackagePath);
-  const bindingVersion = owningPackage.optionalDependencies?.[bindingPackage];
+  const bindingVersion = optionalDependencyVersion(group.packageName, bindingPackage);
   if (!bindingVersion) {
     throw new Error(
       `${group.name} does not declare ${bindingPackage} as an optional dependency.`,
