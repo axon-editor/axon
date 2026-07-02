@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -46,12 +48,13 @@ const nativePackageGroups = [
   },
 ];
 
-function run(command, args) {
+function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: path.resolve(editorRoot, "..", ".."),
       shell: process.platform === "win32",
       stdio: "inherit",
+      ...options,
     });
 
     child.on("error", reject);
@@ -66,11 +69,85 @@ function run(command, args) {
   });
 }
 
+function runCapture(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: path.resolve(editorRoot, "..", ".."),
+      shell: process.platform === "win32",
+      stdio: ["ignore", "pipe", "inherit"],
+      ...options,
+    });
+
+    let stdout = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+        return;
+      }
+
+      reject(new Error(`${command} ${args.join(" ")} exited with code ${code}`));
+    });
+  });
+}
+
 function resolvePackage(packageName) {
   try {
     return requireFromEditor.resolve(`${packageName}/package.json`);
   } catch {
     return null;
+  }
+}
+
+function nodeModulesPackagePath(packageName) {
+  return path.join(editorRoot, "node_modules", ...packageName.split("/"));
+}
+
+async function installPackedPackage(packageSpec) {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "axon-native-binding-"),
+  );
+
+  try {
+    const packOutput = await runCapture("npm", [
+      "pack",
+      "--silent",
+      "--pack-destination",
+      tempRoot,
+      packageSpec,
+    ]);
+    const archiveName = packOutput.split(/\r?\n/).filter(Boolean).at(-1);
+    if (!archiveName) {
+      throw new Error(`npm pack did not report an archive for ${packageSpec}`);
+    }
+
+    const archivePath = path.isAbsolute(archiveName)
+      ? archiveName
+      : path.join(tempRoot, archiveName);
+    const extractRoot = path.join(tempRoot, "extract");
+    await fs.mkdir(extractRoot, { recursive: true });
+    await run("tar", ["-xzf", archivePath, "-C", extractRoot]);
+
+    const packageName = packageSpec.replace(/@[^@]+$/, "");
+    const sourcePath = path.join(extractRoot, "package");
+    const destinationPath = nodeModulesPackagePath(packageName);
+
+    // I avoid `npm install` here because the release workflow has already run
+    // `npm ci` for the full workspace. Running another install inside one
+    // workspace lets npm recalculate hoisting and prune app dependencies, which
+    // is exactly how the Linux and arm64 jobs lost normal packages like React.
+    // Packing and extracting the missing native package is deliberately narrow:
+    // it places the required .node binding where the owning package expects it
+    // without touching the rest of node_modules or the lockfile.
+    await fs.rm(destinationPath, { recursive: true, force: true });
+    await fs.mkdir(path.dirname(destinationPath), { recursive: true });
+    await fs.cp(sourcePath, destinationPath, { recursive: true });
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 }
 
@@ -114,15 +191,7 @@ if (packagesToInstall.length === 0) {
 // npm's lockfile can miss optional native packages for platforms that were not
 // present when the lock was created. CI builds every Axon platform from the same
 // checkout, so this step repairs only the runner's native build dependencies.
-// `--package-lock=false` keeps the release job from rewriting the lockfile while
-// still placing the missing native .node files into node_modules for Vite.
 console.log(`Installing missing native build bindings: ${packagesToInstall.join(", ")}`);
-await run("npm", [
-  "install",
-  "--workspace",
-  "axon",
-  "--no-save",
-  "--package-lock=false",
-  "--include=optional",
-  ...packagesToInstall,
-]);
+for (const packageSpec of packagesToInstall) {
+  await installPackedPackage(packageSpec);
+}
