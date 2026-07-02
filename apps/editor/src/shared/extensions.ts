@@ -4,6 +4,7 @@ import {
 } from "./settings";
 import {
   type ExtensionActionResult as ApiExtensionActionResult,
+  type ExtensionAgentContribution,
   type ExtensionAuthor,
   type ExtensionCommandContribution,
   type ExtensionContributions,
@@ -37,6 +38,7 @@ export const AXON_THEME_SCHEMA =
   "https://axoneditor.com/schemas/theme/v0.1.0.json";
 
 export type {
+  ExtensionAgentContribution,
   ExtensionAuthor,
   ExtensionCommandContribution,
   ExtensionContributions,

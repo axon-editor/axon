@@ -3,7 +3,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type PointerEvent,
 } from "react";
 import {
   ChevronDown,
@@ -15,9 +14,6 @@ import {
 import {
   type AiActionId,
   type AiEditFileProposal,
-  type AiModelInfo,
-  type AiPullEvent,
-  type AiRuntimeStatus,
 } from "@axon-editor/shared/ai";
 import { type EditorDiagnostic } from "@axon-editor/shared/diagnostics";
 import { type GitChange } from "@axon-editor/shared/git";
@@ -44,14 +40,13 @@ import {
 } from "./lib/agentConversation";
 import { resolveProposalPath } from "./lib/agentProposalPaths";
 import {
-  actionCanApplyEdits,
   buildContextFile,
-  chooseModel,
   collectGitDiffForAgent,
-  parseEditProposal,
-  stripEditProposalJson,
   summarizeContext,
 } from "./lib/agentWorkbenchHelpers";
+import { useAgentChatStream } from "./lib/useAgentChatStream";
+import { useAgentModelRuntime } from "./lib/useAgentModelRuntime";
+import { useAgentSidebarResize } from "./lib/useAgentSidebarResize";
 
 interface Props {
   activeFileContent: string;
@@ -79,36 +74,52 @@ export default function AxonAgentSidebar(props: Props) {
   );
   const [prompt, setPrompt] = useState("");
   const [action, setAction] = useState<AiActionId>("ask");
-  const [busy, setBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [modelStatus, setModelStatus] = useState("Checking Axon models...");
-  const [models, setModels] = useState<AiModelInfo[]>([]);
-  const [selectedModel, setSelectedModel] = useState("axon-code");
-  const [runtimeStatus, setRuntimeStatus] = useState<AiRuntimeStatus | null>(
-    null,
-  );
-  const [runtimeLoading, setRuntimeLoading] = useState(true);
-  const [pulling, setPulling] = useState(false);
-  const [pullEvent, setPullEvent] = useState<AiPullEvent | null>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [actionPickerOpen, setActionPickerOpen] = useState(false);
   const [conversationPickerOpen, setConversationPickerOpen] = useState(false);
   const [clearConversationId, setClearConversationId] = useState<string | null>(
     null,
   );
-  const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
-  const pullRef = useRef<{ requestId: string; model: string } | null>(null);
-  const streamRef = useRef<{ requestId: string; messageId: number } | null>(
-    null,
-  );
   const resumeRequestHandledRef = useRef<string | null>(null);
   const contextSummary = useMemo(() => summarizeContext(props), [props]);
   const activeConversation = activeAgentConversation(conversationState);
-  const resizeStateRef = useRef<{
-    startX: number;
-    startWidth: number;
-  } | null>(null);
+  const {
+    activeStreamId,
+    beginStream,
+    busy,
+    cancelActiveStream,
+    clearStream,
+    setBusy,
+  } = useAgentChatStream({ setMessages });
+  const {
+    canChat,
+    canManageModels,
+    cancelPull,
+    modelStatus,
+    models,
+    pulling,
+    pullEvent,
+    pullPercent,
+    pullSelectedModel,
+    runtimeLoading,
+    runtimeStatus,
+    selectedModel,
+    selectedModelInfo,
+    selectedModelInstalled,
+    selectedModelLabel,
+    setSelectedModel,
+  } = useAgentModelRuntime(props.folderPath);
+  const {
+    resize,
+    startResize,
+    stopResize,
+  } = useAgentSidebarResize({
+    side: props.side,
+    width: props.width,
+    onWidthChange: props.onWidthChange,
+  });
 
   useEffect(() => {
     const resumeConversationId = props.resumeConversationId;
@@ -178,166 +189,6 @@ export default function AxonAgentSidebar(props: Props) {
       behavior: busy ? "smooth" : "auto",
     });
   }, [busy, messages]);
-
-  useEffect(() => {
-    return window.axon.onAiChatStreamEvent((event) => {
-      const stream = streamRef.current;
-      if (!stream || event.requestId !== stream.requestId) return;
-
-      if (event.type === "delta" && event.delta) {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === stream.messageId
-              ? { ...message, content: message.content + event.delta }
-              : message,
-          ),
-        );
-        return;
-      }
-
-      if (event.type === "status") {
-        return;
-      }
-
-      if (event.type === "error") {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === stream.messageId
-              ? {
-                  ...message,
-                  content:
-                    message.content ||
-                    event.error ||
-                    "Axon Agent stream failed.",
-                }
-              : message,
-          ),
-        );
-        streamRef.current = null;
-        setActiveStreamId(null);
-        setBusy(false);
-        return;
-      }
-
-      if (event.type === "cancelled") {
-        setMessages((current) =>
-          current.map((message) =>
-            message.id === stream.messageId
-              ? {
-                  ...message,
-                  content:
-                    message.content.trim() ||
-                    "Request cancelled before Axon returned content.",
-                }
-              : message,
-          ),
-        );
-        streamRef.current = null;
-        setActiveStreamId(null);
-        setBusy(false);
-        return;
-      }
-
-      if (event.type === "done") {
-        setMessages((current) =>
-          current.map((message) => {
-            if (message.id !== stream.messageId) return message;
-            const editProposal = parseEditProposal(message.content);
-            const canApplyEdits = actionCanApplyEdits(message.action);
-            const strippedContent = stripEditProposalJson(message.content);
-            return {
-              ...message,
-              content: canApplyEdits
-                ? strippedContent || message.content
-                : strippedContent ||
-                  "I should not propose file edits for this action. Ask a project question or choose an edit action when you want code changes.",
-              result: editProposal && canApplyEdits
-                ? {
-                    success: true,
-                    message: message.content,
-                    modelLabel: "Axon model",
-                    providerLabel: "Axon models",
-                    editProposal,
-                  }
-                : message.result,
-            };
-          }),
-        );
-        streamRef.current = null;
-        setActiveStreamId(null);
-        setBusy(false);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    return window.axon.onAiPullEvent((event) => {
-      const pull = pullRef.current;
-      if (!pull || pull.requestId !== event.requestId) return;
-      setPullEvent(event);
-      if (
-        event.type === "done" ||
-        event.type === "error" ||
-        event.type === "cancelled"
-      ) {
-        setPulling(false);
-        pullRef.current = null;
-        void refreshRuntimeStatus(event.model);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const refreshRuntimeStatus = async (nextSelectedModel = selectedModel) => {
-    setRuntimeLoading(true);
-    try {
-      const status = await window.axon.getAiRuntimeStatus(props.folderPath);
-      setRuntimeStatus(status);
-      setModels(status.models);
-      const nextModel = chooseModel(status.models, nextSelectedModel);
-      setSelectedModel(nextModel);
-      setModelStatus(status.detail);
-    } catch (err) {
-      setRuntimeStatus({
-        installed: false,
-        running: false,
-        startedByAxon: false,
-        providerLabel: "Axon models",
-        selectedModel: nextSelectedModel,
-        selectedModelInstalled: false,
-        models: [],
-        detail:
-          err instanceof Error
-            ? err.message
-            : "Axon models status could not be loaded.",
-        installHint: "Restart Axon and try again.",
-      });
-      setModels([]);
-      setModelStatus("Axon models not reachable");
-    } finally {
-      setRuntimeLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void refreshRuntimeStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.folderPath]);
-
-  useEffect(() => {
-    if (!runtimeStatus?.models.length) return;
-    setRuntimeStatus((current) =>
-      current
-        ? {
-            ...current,
-            selectedModel,
-            selectedModelInstalled: current.models.some(
-              (model) => model.id === selectedModel && model.available,
-            ),
-          }
-        : current,
-    );
-  }, [runtimeStatus?.models, selectedModel]);
 
   const runAgent = async (nextAction = action, nextPrompt = prompt) => {
     const finalPrompt = nextPrompt.trim() || defaultPromptForAction(nextAction);
@@ -412,26 +263,14 @@ export default function AxonAgentSidebar(props: Props) {
       return;
     }
 
-    streamRef.current = {
-      requestId: started.requestId,
-      messageId: assistantMessageId,
-    };
-    setActiveStreamId(started.requestId);
-  };
-
-  const cancelActiveStream = async () => {
-    const stream = streamRef.current;
-    if (!stream) return;
-    await window.axon.cancelAiChatStream(stream.requestId);
+    beginStream(started.requestId, assistantMessageId);
   };
 
   const startNewConversation = async () => {
     if (activeStreamId) {
       await cancelActiveStream();
     }
-    streamRef.current = null;
-    setActiveStreamId(null);
-    setBusy(false);
+    clearStream();
     setConversationState((current) =>
       startAgentConversation(props.folderPath, current),
     );
@@ -453,9 +292,7 @@ export default function AxonAgentSidebar(props: Props) {
       setMessages(activeAgentConversation(nextState).messages);
       return nextState;
     });
-    streamRef.current = null;
-    setActiveStreamId(null);
-    setBusy(false);
+    clearStream();
     setConversationPickerOpen(false);
   };
 
@@ -473,9 +310,7 @@ export default function AxonAgentSidebar(props: Props) {
       setMessages(activeAgentConversation(nextState).messages);
       return nextState;
     });
-    streamRef.current = null;
-    setActiveStreamId(null);
-    setBusy(false);
+    clearStream();
     setClearConversationId(null);
     setConversationPickerOpen(false);
   };
@@ -514,101 +349,6 @@ export default function AxonAgentSidebar(props: Props) {
         content: `Applied ${resolvedPath}`,
       },
     ]);
-  };
-
-  const selectedModelInstalled =
-    runtimeStatus?.models.some(
-      (model) => model.id === selectedModel && model.available,
-    ) ?? false;
-  const selectedModelInfo = models.find((model) => model.id === selectedModel);
-  const selectedModelLabel =
-    selectedModelInfo?.label ??
-    (selectedModel === "axon-code-fast"
-      ? "Axon Code Fast"
-      : selectedModel === "axon-code"
-        ? "Axon Code"
-        : "Axon model");
-  const canChat =
-    runtimeStatus?.installed === true &&
-    runtimeStatus.running === true &&
-    selectedModelInstalled &&
-    !pulling;
-  const canManageModels =
-    runtimeStatus?.installed === true && runtimeStatus.running === true;
-  const pullPercent =
-    pullEvent?.total && pullEvent.total > 0
-      ? Math.min(100, Math.round(((pullEvent.completed ?? 0) / pullEvent.total) * 100))
-      : 0;
-
-  const handlePullSelectedModel = async () => {
-    if (!selectedModel || pulling) return;
-    setPulling(true);
-    setPullEvent({
-      requestId: "",
-      type: "progress",
-      model: selectedModel,
-      status: "Starting model download...",
-    });
-    const started = await window.axon.pullAiModel(selectedModel);
-    if (!started.success) {
-      setPulling(false);
-      setPullEvent({
-        requestId: "",
-        type: "error",
-        model: selectedModel,
-        error: started.message ?? "Model download could not start.",
-      });
-      return;
-    }
-    pullRef.current = {
-      requestId: started.requestId,
-      model: selectedModel,
-    };
-  };
-
-  const cancelPull = async () => {
-    const currentPull = pullRef.current;
-    if (!currentPull) return;
-    await window.axon.cancelAiModelPull(currentPull.requestId);
-    setPulling(false);
-    setPullEvent({
-      requestId: currentPull.requestId,
-      type: "cancelled",
-      model: currentPull.model,
-      error: "Model download cancelled.",
-    });
-    pullRef.current = null;
-  };
-
-  const startResize = (event: PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    resizeStateRef.current = {
-      startX: event.clientX,
-      startWidth: props.width,
-    };
-  };
-
-  const resize = (event: PointerEvent<HTMLDivElement>) => {
-    const resizeState = resizeStateRef.current;
-    if (!resizeState) return;
-
-    const delta =
-      props.side === "right"
-        ? resizeState.startX - event.clientX
-        : event.clientX - resizeState.startX;
-    const nextWidth = Math.min(
-      720,
-      Math.max(340, resizeState.startWidth + delta),
-    );
-    props.onWidthChange(nextWidth);
-  };
-
-  const stopResize = (event: PointerEvent<HTMLDivElement>) => {
-    if (resizeStateRef.current) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    resizeStateRef.current = null;
   };
 
   return (
@@ -694,7 +434,7 @@ export default function AxonAgentSidebar(props: Props) {
             selectedModelInstalled={selectedModelInstalled}
             selectedModelLabel={selectedModelLabel}
             onCancelPull={() => void cancelPull()}
-            onPullSelectedModel={() => void handlePullSelectedModel()}
+            onPullSelectedModel={() => void pullSelectedModel()}
           />
         ) : null}
         {messages.length === 0 && canChat ? (

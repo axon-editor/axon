@@ -1,7 +1,8 @@
 import * as React from "react";
 import Terminal from "@axon-builtin-terminal/Terminal";
-import { resolveTerminalWorkbenchContribution } from "@axon-builtin-terminal/contribution";
+import { resolveTerminalWorkbenchContribution } from "@axon-builtin-terminal/lib/contribution";
 import AxonAgentSidebar from "@axon-builtin-agent/AxonAgentSidebar";
+import { resolveAgentWorkbenchContribution } from "@axon-builtin-agent/lib/contribution";
 import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
 import EditorPane from "../../renderer/features/editor/EditorPane";
 import StatusBar from "../../renderer/shared/components/StatusBar";
@@ -174,14 +175,18 @@ export function AxonAppView(props: Record<string, any>) {
     [extensionState],
   );
   const [agentSidebarWidth, setAgentSidebarWidth] = React.useState(460);
-  const mainSidebarSide =
-    settings.editor.sidebarSide === "right" ? "right" : "left";
-  const shouldShowAgentSidebar =
-    !zenMode && settings.ai.enabled && agentSidebarOpen;
   const terminalContribution = React.useMemo(
     () => resolveTerminalWorkbenchContribution(extensionState),
     [extensionState],
   );
+  const agentContribution = React.useMemo(
+    () => resolveAgentWorkbenchContribution(extensionState),
+    [extensionState],
+  );
+  const mainSidebarSide =
+    settings.editor.sidebarSide === "right" ? "right" : "left";
+  const shouldShowAgentSidebar =
+    !zenMode && settings.ai.enabled && agentSidebarOpen && !!agentContribution;
   const agentSidebarNode = shouldShowAgentSidebar ? (
     <AxonAgentSidebar
       activeFileContent={activeFileContent}

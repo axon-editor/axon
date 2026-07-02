@@ -32,14 +32,14 @@ import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import {
   BottomPanelContent,
 } from "./BottomPanel";
-import { type TerminalWorkbenchContribution } from "./contribution";
+import { type TerminalWorkbenchContribution } from "./lib/contribution";
 import { getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
 import {
   DEFAULT_TERMINAL_HEIGHT,
   MIN_TERMINAL_HEIGHT,
   getFolderName,
 } from "@axon-editor/platform/terminal/terminalProtocol";
-import { useTerminalSessionManager } from "./useTerminalSessionManager";
+import { useTerminalSessionManager } from "./lib/useTerminalSessionManager";
 
 interface Props {
   open: boolean;
