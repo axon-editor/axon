@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmExecPath = process.env.npm_execpath;
 
 const packageBuilds = [
   ["@axon/extension-api", "extension API"],
@@ -14,9 +14,19 @@ for (const [workspace, label] of packageBuilds) {
   // consumed by both Electron and future extension tooling. Keeping the order
   // here avoids hiding cross-package dependencies inside the editor app, which
   // is exactly what the repository split is meant to prevent.
+  //
+  // I run npm through Node's current executable instead of spawning `npm` or
+  // `npm.cmd` directly. Windows CI can reject command-shim spawning with EINVAL,
+  // while npm exposes its real JS entrypoint through npm_execpath whenever this
+  // script is launched from an npm lifecycle. Falling back to `npm` keeps direct
+  // local execution useful, but release builds take the shim-free path.
+  const command = npmExecPath ? process.execPath : "npm";
+  const args = npmExecPath
+    ? [npmExecPath, "--workspace", workspace, "run", "build"]
+    : ["--workspace", workspace, "run", "build"];
   const result = spawnSync(
-    npmCommand,
-    ["--workspace", workspace, "run", "build"],
+    command,
+    args,
     { stdio: "inherit" },
   );
 
