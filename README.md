@@ -198,15 +198,17 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Workspace search with jump-to-line and binary/cache exclusions
 - Cmd+P project file search with file-first results and `>` command search
 - Source control modal, diffs, Git gutter markers, branch/stash workflows,
-  conflict helpers, worktree management, and commit graph preview
+  conflict helpers, worktree management, and a full commit graph view
 - Problems panel with project-aware LSP diagnostics and copy actions
 - Test explorer with provider discovery, target runs, and inline output
 - Integrated terminal with tabs
+- Built-in terminal workbench contribution loaded from the extension-oriented
+  architecture
 - Interactive `axon` terminal sessions with workspace context, saved
-  conversations, `axon resume`, slash commands, model selection, and streaming
-  responses
+  conversations, `axon resume`, slash commands, model selection, animated CLI
+  header, and streaming responses
 - Settings UI and settings JSON
-- Custom themes, theme overrides, and imported fonts
+- Extension-backed built-in themes, custom themes, and imported fonts
 - Splash screen and custom app icon/name
 - LSP completion and diagnostics for TypeScript/JavaScript, TSX/JSX, Go,
   Python, Rust, C/C++, Java, C#, Kotlin, PHP, Lua, Docker, and Tailwind CSS

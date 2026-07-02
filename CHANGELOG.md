@@ -2,6 +2,56 @@
 
 ## Next
 
+## v1.2.6
+
+- Fixed the code-review findings from the Axon review pass, including editor,
+  file, save, LSP, formatting, and UI edge cases that were called out in the
+  root review notes.
+- Stabilized editor save and dirty-file behavior so saving a file no longer
+  jumps the editor to the bottom of the buffer.
+- Improved Monaco decorations so repeated edits no longer stack deeper yellow,
+  green, or red paint on the same changed range.
+- Restored command/control-click definition navigation while keeping Monaco
+  peek from stealing Axon's tab and pane navigation flow.
+- Improved editor find behavior so selected text seeds search, focus stays in
+  the find field while editing the query, and Monaco's native behavior is not
+  broken by the custom shell.
+- Reworked breadcrumbs so symbol popovers open again and snippet labels are not
+  shown as breadcrumb symbols.
+- Improved HTML, JSX, and TSX syntax/completion behavior, including HTML
+  template completion support in `.html` files.
+- Split slow settings surfaces into smaller theme-aware components and removed
+  color override controls that made the modal heavier than it needed to be.
+- Made modal overlays theme-aware without full opaque black screens, and
+  removed expensive blur so Electron modals stay responsive.
+- Added a full Source Control graph view with branch lanes, refs, hashes,
+  authors, dates, lazy loading, and a right-pane close action that closes only
+  the active file or graph view.
+- Collapsed advanced Git workflow controls by default so Source Control opens
+  quickly and only loads branch, stash, conflict, and worktree details on
+  demand.
+- Split the oversized LSP feature module into a facade plus lifecycle and
+  request modules, keeping every source file below the repository's size guard.
+- Introduced the shared extension architecture with `packages/extension-api`,
+  protocol/config/ipc packages, root-level `extensions/`, marketplace metadata,
+  and example extension scaffolding.
+- Moved built-in theme assets and terminal workbench code under the new
+  extension-oriented layout so new implementation work lands in the migration
+  architecture instead of the older app-only structure.
+- Added built-in theme loading from extension manifests and removed the old
+  fallback theme path so the app registry matches the built-in extension source.
+- Improved the Extensions modal performance and marketplace/install UI,
+  including installed/downloaded theme visibility and GitHub metadata links.
+- Refactored the terminal workbench contribution so the app resolves terminal
+  panel/profile metadata from the extension registry before mounting the UI.
+- Refactored the `axon` CLI agent into focused composer, prompt, model picker,
+  terminal helper, and banner modules.
+- Added a full-width Axon terminal header, animated tagline, polished slash
+  command picker, and repo-local dev CLI rebuild during `npm run dev`.
+- Updated architecture documentation to describe the current production IDE
+  structure and the migration from the previous app-centric layout.
+- Bumped the welcome tab theme picker to show twelve built-in internal themes.
+
 ## v1.2.5
 
 - Added tabbed onboarding so the welcome experience behaves like a real editor
