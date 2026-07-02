@@ -41,7 +41,7 @@ export default function CommandModal({
   bodyClassName = "min-h-0 overflow-auto",
   animate = true,
   closeDelayMs = 170,
-  overlayClassName = "bg-[var(--axon-editor-background)]",
+  overlayClassName = "",
   panelStyle,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);

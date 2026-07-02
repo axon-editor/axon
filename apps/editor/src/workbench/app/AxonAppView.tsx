@@ -702,7 +702,7 @@ export function AxonAppView(props: Record<string, any>) {
       />
 
       {workspaceTrustPromptPath && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--axon-editor-background)] px-4">
+        <div className="axon-modal-overlay fixed inset-0 z-[80] flex items-center justify-center px-4">
           <div className="axon-modal-panel w-full max-w-md rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.48)]">
             <div className="text-[14px] font-medium text-[var(--axon-editor-foreground)]">
               Trust this workspace?

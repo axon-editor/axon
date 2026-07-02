@@ -7,7 +7,7 @@ interface Props {
 
 export default function ClearConversationConfirmModal(props: Props) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[var(--axon-editor-background)] px-4">
+    <div className="axon-modal-overlay fixed inset-0 z-[120] flex items-center justify-center px-4">
       <div className="axon-modal-panel w-full max-w-sm rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 shadow-2xl">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[#2a1720] text-[#ff8f8f]">

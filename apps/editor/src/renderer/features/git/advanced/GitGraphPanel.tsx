@@ -1,30 +1,77 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GitGraph, RefreshCw } from "lucide-react";
-import { type GitGraphResult } from "../../../../shared/git";
+import { type GitGraphCommit, type GitGraphResult } from "../../../../shared/git";
 import Tooltip from "../../../shared/components/Tooltip";
 
 interface Props {
   folderPath: string | null;
+  variant?: "compact" | "full";
 }
 
 const laneColors = [
   "#80c8e0",
-  "#ffcc66",
-  "#90c8a0",
-  "#d6a3ff",
-  "#ea6c73",
-  "#9aa4b8",
+  "#ffc777",
+  "#32bb99",
+  "#9d90fc",
+  "#ff757f",
+  "#7dcfff",
 ];
 
-export default function GitGraphPanel({ folderPath }: Props) {
+function GraphLane({ commit, laneCount }: { commit: GitGraphCommit; laneCount: number }) {
+  const laneWidth = 18;
+  const width = Math.max(laneCount, 1) * laneWidth;
+  const x = commit.lane * laneWidth + laneWidth / 2;
+  const color = laneColors[commit.lane % laneColors.length];
+
+  return (
+    <svg width={width} height="42" viewBox={`0 0 ${width} 42`} aria-hidden="true">
+      {Array.from({ length: laneCount }).map((_, lane) => {
+        const laneX = lane * laneWidth + laneWidth / 2;
+        return (
+          <line
+            key={lane}
+            x1={laneX}
+            y1="0"
+            x2={laneX}
+            y2="42"
+            stroke={laneColors[lane % laneColors.length]}
+            strokeOpacity={lane === commit.lane ? 0.55 : 0.22}
+            strokeWidth="1.5"
+          />
+        );
+      })}
+      {commit.parents.slice(0, 2).map((_, index) => (
+        <path
+          key={index}
+          d={`M ${x} 21 C ${x + 8 + index * 6} 24, ${x + 8 + index * 6} 32, ${x + 18 + index * 6} 42`}
+          fill="none"
+          stroke={color}
+          strokeOpacity="0.42"
+          strokeWidth="1.5"
+        />
+      ))}
+      <circle cx={x} cy="21" r="4.2" fill={color} />
+      <circle cx={x} cy="21" r="7" fill={color} opacity="0.14" />
+    </svg>
+  );
+}
+
+export default function GitGraphPanel({ folderPath, variant = "compact" }: Props) {
   const [graph, setGraph] = useState<GitGraphResult | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const refresh = async () => {
     if (!folderPath) {
       setGraph(null);
       return;
     }
-    setGraph(await window.axon.getGitGraph(folderPath));
+
+    setLoading(true);
+    try {
+      setGraph(await window.axon.getGitGraph(folderPath));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -34,15 +81,30 @@ export default function GitGraphPanel({ folderPath }: Props) {
   }, [folderPath]);
 
   const commits = graph?.commits ?? [];
+  const visibleCommits = variant === "full" ? commits : commits.slice(0, 30);
+  const laneCount = useMemo(
+    () =>
+      Math.min(
+        6,
+        Math.max(1, ...visibleCommits.map((commit) => commit.lane + 1)),
+      ),
+    [visibleCommits],
+  );
 
   return (
-    <section className="space-y-2 rounded border border-[#1b2130] bg-[#090c12] p-2">
-      <div className="flex items-center justify-between">
-        <div className="flex min-w-0 items-center gap-2 text-[11px] font-medium uppercase text-[#7a8498]">
+    <section
+      className={
+        variant === "full"
+          ? "flex h-full min-h-0 flex-col bg-[var(--axon-editor-background)]"
+          : "space-y-2 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-2"
+      }
+    >
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
+        <div className="flex min-w-0 items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-65">
           <GitGraph size={12} />
           Graph
           {graph?.branch ? (
-            <span className="truncate rounded bg-[#142a36] px-1.5 text-[10px] text-[#80c8e0]">
+            <span className="max-w-36 truncate rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-[var(--axon-syntax-function)]">
               {graph.branch}
             </span>
           ) : null}
@@ -52,49 +114,56 @@ export default function GitGraphPanel({ folderPath }: Props) {
             type="button"
             aria-label="Refresh commit graph"
             onClick={() => void refresh()}
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] hover:bg-[#151923] hover:text-white"
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
           >
-            <RefreshCw size={12} />
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
           </button>
         </Tooltip>
       </div>
 
-      <div className="max-h-40 overflow-y-auto rounded border border-[#151923]">
-        {commits.slice(0, 40).map((commit) => {
-          const color = laneColors[commit.lane % laneColors.length];
-          return (
-            <div
-              key={commit.hash}
-              className="grid grid-cols-[28px_minmax(0,1fr)] gap-2 border-b border-[#151923] px-2 py-1.5 last:border-b-0"
-            >
-              <div className="relative flex justify-center">
-                <span
-                  className="mt-1 h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
+      <div
+        className={
+          variant === "full"
+            ? "min-h-0 flex-1 overflow-auto"
+            : "max-h-48 overflow-y-auto rounded border border-[var(--axon-panel-border)]"
+        }
+      >
+        {visibleCommits.map((commit) => (
+          <div
+            key={commit.hash}
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[var(--axon-panel-border)] px-3 py-2 last:border-b-0"
+          >
+            <GraphLane commit={commit} laneCount={laneCount} />
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
+                {commit.subject}
               </div>
-              <div className="min-w-0">
-                <div className="truncate text-[11px] text-[#c8d0e0]">
-                  {commit.subject}
-                </div>
-                <div className="flex min-w-0 gap-1 text-[10px] text-[#586478]">
-                  <span>{commit.shortHash}</span>
-                  <span>{commit.relativeDate}</span>
-                  {commit.refs.slice(0, 2).map((ref) => (
-                    <span
-                      key={ref}
-                      className="max-w-20 truncate rounded bg-[#151923] px-1 text-[#7a8498]"
-                    >
-                      {ref}
-                    </span>
-                  ))}
-                </div>
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
+                <span>{commit.shortHash}</span>
+                <span>{commit.authorName}</span>
+                <span>{commit.relativeDate}</span>
+                {commit.refs.slice(0, variant === "full" ? 4 : 2).map((ref) => (
+                  <span
+                    key={ref}
+                    className="max-w-44 truncate rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-1 text-[var(--axon-editor-foreground)] opacity-80"
+                  >
+                    {ref}
+                  </span>
+                ))}
               </div>
             </div>
-          );
-        })}
-        {commits.length === 0 ? (
-          <div className="px-2 py-2 text-[11px] text-[#465166]">no commits</div>
+            {variant === "full" ? (
+              <div className="hidden text-[10px] text-[var(--axon-editor-foreground)] opacity-35 md:block">
+                {commit.parents.length} parent{commit.parents.length === 1 ? "" : "s"}
+              </div>
+            ) : null}
+          </div>
+        ))}
+
+        {visibleCommits.length === 0 ? (
+          <div className="px-3 py-8 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
+            {graph?.ok === false ? graph.message : "No commits found."}
+          </div>
         ) : null}
       </div>
     </section>

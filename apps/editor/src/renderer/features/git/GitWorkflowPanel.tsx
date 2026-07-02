@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { GitBranch, Plus, RefreshCw, Trash2, Archive } from "lucide-react";
+import { Archive, ChevronDown, GitBranch, Plus, RefreshCw, Trash2 } from "lucide-react";
 import {
   type GitBranchListResult,
   type GitStashListResult,
 } from "../../../shared/git";
 import Tooltip from "../../shared/components/Tooltip";
 import GitConflictPanel from "./advanced/GitConflictPanel";
-import GitGraphPanel from "./advanced/GitGraphPanel";
 import GitWorktreePanel from "./advanced/GitWorktreePanel";
 
 interface Props {
@@ -28,6 +27,7 @@ export default function GitWorkflowPanel({
   const [newBranchName, setNewBranchName] = useState("");
   const [stashMessage, setStashMessage] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const refresh = async () => {
     if (!folderPath) {
@@ -45,10 +45,11 @@ export default function GitWorkflowPanel({
   };
 
   useEffect(() => {
+    if (!expanded) return;
     void refresh().catch((err) => {
       console.error("failed to load Git workflows:", err);
     });
-  }, [folderPath]);
+  }, [expanded, folderPath]);
 
   const runBranchCheckout = async (name: string) => {
     if (!folderPath) return;
@@ -131,23 +132,34 @@ export default function GitWorkflowPanel({
 
   return (
     <div className="border-b border-[var(--axon-panel-border)] px-3 py-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-45">
+      <div className={`${expanded ? "mb-2" : ""} flex items-center justify-between`}>
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="flex min-w-0 cursor-pointer items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-55 transition-opacity hover:opacity-100"
+        >
+          <ChevronDown
+            size={12}
+            className={`transition-transform ${expanded ? "rotate-0" : "-rotate-90"}`}
+          />
           <GitBranch size={12} />
           Git workflow
-        </div>
-        <Tooltip label="Refresh branches and stashes" side="bottom">
-          <button
-            type="button"
-            aria-label="Refresh branches and stashes"
-            onClick={() => void refresh()}
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
-          >
-            <RefreshCw size={12} />
           </button>
-        </Tooltip>
+        {expanded ? (
+          <Tooltip label="Refresh branches and stashes" side="bottom">
+            <button
+              type="button"
+              aria-label="Refresh branches and stashes"
+              onClick={() => void refresh()}
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
+            >
+              <RefreshCw size={12} />
+            </button>
+          </Tooltip>
+        ) : null}
       </div>
 
+      {expanded ? (
       <div className="space-y-2">
         <div className="flex gap-2">
           <input
@@ -274,9 +286,8 @@ export default function GitWorkflowPanel({
           onChanged={onChanged}
           onOutput={onOutput}
         />
-
-        <GitGraphPanel folderPath={folderPath} />
       </div>
+      ) : null}
     </div>
   );
 }

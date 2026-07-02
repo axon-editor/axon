@@ -218,6 +218,11 @@
 }
 
 .axon-modal-overlay {
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 72%,
+    transparent
+  );
   animation: none;
 }
 

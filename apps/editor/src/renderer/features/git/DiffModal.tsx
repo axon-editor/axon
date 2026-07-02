@@ -83,7 +83,7 @@ export default function DiffModal({
   }, [filePath, folderPath]);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--axon-editor-background)] px-6 py-6">
+    <div className="axon-modal-overlay fixed inset-0 z-[70] flex items-center justify-center px-6 py-6">
       <div className="axon-modal-panel flex h-full max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
           <div className="min-w-0">

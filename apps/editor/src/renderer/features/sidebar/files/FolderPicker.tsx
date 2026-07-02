@@ -52,7 +52,6 @@ export default function FolderPicker({
       width="w-[480px]"
       animate={false}
       closeDelayMs={0}
-      overlayClassName="bg-[var(--axon-editor-background)]"
     >
       <div className="p-2">
         <button
