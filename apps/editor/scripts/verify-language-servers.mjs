@@ -12,7 +12,7 @@ const languageServerRoot = path.join(
   platformKey,
 );
 const packageJsonPath = path.join(editorRoot, "package.json");
-const packageLockPath = path.join(editorRoot, "package-lock.json");
+const packageLockPath = path.join(editorRoot, "..", "..", "package-lock.json");
 
 const nodeBackedLanguageServerPackages = [
   "@astrojs/language-server",
@@ -109,6 +109,12 @@ function resolvePackageLockDependency(packages, dependencyName, fromPackagePath)
   }
 }
 
+function toEditorPackagePattern(packageLockPath) {
+  return packageLockPath.startsWith("apps/editor/")
+    ? packageLockPath.slice("apps/editor/".length)
+    : packageLockPath;
+}
+
 function collectNodeBackedLanguageServerPackages(packageLock) {
   const packages = packageLock.packages ?? {};
   const seen = new Set();
@@ -133,10 +139,18 @@ function collectNodeBackedLanguageServerPackages(packageLock) {
   }
 
   for (const packageName of nodeBackedLanguageServerPackages) {
+    // The repository now uses one root package-lock for npm workspaces. Editor
+    // dependencies are therefore recorded under apps/editor/node_modules in
+    // the lockfile, while electron-builder still sees them as node_modules
+    // relative to apps/editor. I walk the workspace path first and normalize it
+    // back to the editor-relative package pattern before checking build.files.
+    walk(`apps/editor/node_modules/${packageName}`);
     walk(`node_modules/${packageName}`);
   }
 
-  return [...seen].sort((left, right) => left.localeCompare(right));
+  return [...seen]
+    .map(toEditorPackagePattern)
+    .sort((left, right) => left.localeCompare(right));
 }
 
 async function verifyNodeBackedLanguageServerPackaging() {
