@@ -7,14 +7,44 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const editorRoot = path.resolve(__dirname, "..");
 const requireFromEditor = createRequire(path.join(editorRoot, "package.json"));
 
-const bindingByPlatform = {
-  "darwin-arm64": "@rolldown/binding-darwin-arm64",
-  "darwin-x64": "@rolldown/binding-darwin-x64",
-  "linux-arm64": "@rolldown/binding-linux-arm64-gnu",
-  "linux-x64": "@rolldown/binding-linux-x64-gnu",
-  "win32-arm64": "@rolldown/binding-win32-arm64-msvc",
-  "win32-x64": "@rolldown/binding-win32-x64-msvc",
-};
+const nativePackageGroups = [
+  {
+    name: "Rolldown",
+    packageName: "rolldown",
+    bindingByPlatform: {
+      "darwin-arm64": "@rolldown/binding-darwin-arm64",
+      "darwin-x64": "@rolldown/binding-darwin-x64",
+      "linux-arm64": "@rolldown/binding-linux-arm64-gnu",
+      "linux-x64": "@rolldown/binding-linux-x64-gnu",
+      "win32-arm64": "@rolldown/binding-win32-arm64-msvc",
+      "win32-x64": "@rolldown/binding-win32-x64-msvc",
+    },
+  },
+  {
+    name: "Lightning CSS",
+    packageName: "lightningcss",
+    bindingByPlatform: {
+      "darwin-arm64": "lightningcss-darwin-arm64",
+      "darwin-x64": "lightningcss-darwin-x64",
+      "linux-arm64": "lightningcss-linux-arm64-gnu",
+      "linux-x64": "lightningcss-linux-x64-gnu",
+      "win32-arm64": "lightningcss-win32-arm64-msvc",
+      "win32-x64": "lightningcss-win32-x64-msvc",
+    },
+  },
+  {
+    name: "Tailwind Oxide",
+    packageName: "@tailwindcss/oxide",
+    bindingByPlatform: {
+      "darwin-arm64": "@tailwindcss/oxide-darwin-arm64",
+      "darwin-x64": "@tailwindcss/oxide-darwin-x64",
+      "linux-arm64": "@tailwindcss/oxide-linux-arm64-gnu",
+      "linux-x64": "@tailwindcss/oxide-linux-x64-gnu",
+      "win32-arm64": "@tailwindcss/oxide-win32-arm64-msvc",
+      "win32-x64": "@tailwindcss/oxide-win32-x64-msvc",
+    },
+  },
+];
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
@@ -45,41 +75,54 @@ function resolvePackage(packageName) {
 }
 
 const platformKey = `${process.platform}-${process.arch}`;
-const bindingPackage = bindingByPlatform[platformKey];
+const packagesToInstall = [];
 
-if (!bindingPackage) {
-  console.log(`No Rolldown native binding is mapped for ${platformKey}.`);
+for (const group of nativePackageGroups) {
+  const bindingPackage = group.bindingByPlatform[platformKey];
+  if (!bindingPackage) {
+    console.log(`No ${group.name} native binding is mapped for ${platformKey}.`);
+    continue;
+  }
+
+  if (resolvePackage(bindingPackage)) {
+    console.log(`${bindingPackage} is already installed.`);
+    continue;
+  }
+
+  const owningPackagePath = resolvePackage(group.packageName);
+  if (!owningPackagePath) {
+    console.log(`${group.packageName} is not installed; skipping ${group.name}.`);
+    continue;
+  }
+
+  const owningPackage = requireFromEditor(owningPackagePath);
+  const bindingVersion = owningPackage.optionalDependencies?.[bindingPackage];
+  if (!bindingVersion) {
+    throw new Error(
+      `${group.name} does not declare ${bindingPackage} as an optional dependency.`,
+    );
+  }
+
+  packagesToInstall.push(`${bindingPackage}@${bindingVersion}`);
+}
+
+if (packagesToInstall.length === 0) {
+  console.log(`All native build bindings are present for ${platformKey}.`);
   process.exit(0);
-}
-
-if (resolvePackage(bindingPackage)) {
-  console.log(`${bindingPackage} is already installed.`);
-  process.exit(0);
-}
-
-const rolldownPackagePath = resolvePackage("rolldown");
-if (!rolldownPackagePath) {
-  throw new Error("Cannot locate rolldown; run npm ci before this script.");
-}
-
-const rolldownPackage = requireFromEditor(rolldownPackagePath);
-const bindingVersion = rolldownPackage.optionalDependencies?.[bindingPackage];
-if (!bindingVersion) {
-  throw new Error(
-    `Rolldown does not declare ${bindingPackage} as an optional dependency.`,
-  );
 }
 
 // npm's lockfile can miss optional native packages for platforms that were not
-// present when the lock was created. CI builds all Axon platforms from the same
-// checkout, so this step repairs only the runner's native binding without
-// changing package.json or package-lock.json.
-console.log(`Installing missing native build binding ${bindingPackage}@${bindingVersion}`);
+// present when the lock was created. CI builds every Axon platform from the same
+// checkout, so this step repairs only the runner's native build dependencies.
+// `--package-lock=false` keeps the release job from rewriting the lockfile while
+// still placing the missing native .node files into node_modules for Vite.
+console.log(`Installing missing native build bindings: ${packagesToInstall.join(", ")}`);
 await run("npm", [
   "install",
   "--workspace",
   "axon",
   "--no-save",
+  "--package-lock=false",
   "--include=optional",
-  `${bindingPackage}@${bindingVersion}`,
+  ...packagesToInstall,
 ]);
