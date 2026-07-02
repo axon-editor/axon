@@ -103,6 +103,14 @@ function resolvePackage(packageName) {
   }
 }
 
+function resolvePackageEntrypoint(packageName) {
+  try {
+    return requireFromEditor.resolve(packageName);
+  } catch {
+    return null;
+  }
+}
+
 function nodeModulesPackagePath(packageName) {
   return path.join(editorRoot, "node_modules", ...packageName.split("/"));
 }
@@ -161,9 +169,15 @@ for (const group of nativePackageGroups) {
     continue;
   }
 
-  if (resolvePackage(bindingPackage)) {
+  if (resolvePackageEntrypoint(bindingPackage)) {
     console.log(`${bindingPackage} is already installed.`);
     continue;
+  }
+
+  if (resolvePackage(bindingPackage)) {
+    console.log(
+      `${bindingPackage} has a manifest but its native entrypoint is missing; reinstalling it.`,
+    );
   }
 
   const owningPackagePath = resolvePackage(group.packageName);
