@@ -3,7 +3,7 @@ import {
   type AiModelInfo,
   type AiPullEvent,
   type AiRuntimeStatus,
-} from "../../../shared/ai";
+} from "@axon-editor/shared/ai";
 
 interface Props {
   diagnosticsCount: number;

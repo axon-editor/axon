@@ -21,6 +21,9 @@
       "@axon-builtin-terminal/*": [
         "../../extensions/builtin/terminal/workbench/*"
       ],
+      "@axon-builtin-agent/*": [
+        "../../extensions/builtin/agent/workbench/*"
+      ],
       "@axon/protocol": ["../../node_modules/@axon/protocol/dist/index.d.ts"],
       "@xterm/addon-fit": [
         "node_modules/@xterm/addon-fit/typings/addon-fit.d.ts"
@@ -31,7 +34,9 @@
       "@xterm/xterm": ["node_modules/@xterm/xterm/typings/xterm.d.ts"],
       "lucide-react": ["node_modules/lucide-react/dist/lucide-react.d.ts"],
       "react": ["node_modules/@types/react/index.d.ts"],
-      "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"]
+      "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"],
+      "react-markdown": ["node_modules/react-markdown/index.d.ts"],
+      "remark-gfm": ["node_modules/remark-gfm/index.d.ts"]
     },
 
     /* Linting */
@@ -40,5 +45,9 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "../../extensions/builtin/terminal/workbench/**/*"]
+  "include": [
+    "src",
+    "../../extensions/builtin/terminal/workbench/**/*",
+    "../../extensions/builtin/agent/workbench/**/*"
+  ]
 }

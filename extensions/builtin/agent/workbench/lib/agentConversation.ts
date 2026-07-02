@@ -2,7 +2,7 @@ import {
   type AiActionId,
   type AiChatResult,
   type AiConversationMessage,
-} from "../../../shared/ai";
+} from "@axon-editor/shared/ai";
 
 export interface AgentMessage {
   id: number;

@@ -1,6 +1,6 @@
 import { ChevronDown, Trash2 } from "lucide-react";
-import Tooltip from "../../shared/components/Tooltip";
-import { type AgentConversationState } from "./agentConversation";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import { type AgentConversationState } from "./lib/agentConversation";
 
 interface Props {
   activeTitle: string;

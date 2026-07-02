@@ -1,6 +1,7 @@
 import * as React from "react";
 import Terminal from "@axon-builtin-terminal/Terminal";
 import { resolveTerminalWorkbenchContribution } from "@axon-builtin-terminal/contribution";
+import AxonAgentSidebar from "@axon-builtin-agent/AxonAgentSidebar";
 import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
 import EditorPane from "../../renderer/features/editor/EditorPane";
 import StatusBar from "../../renderer/shared/components/StatusBar";
@@ -21,7 +22,6 @@ import UpdateModal from "../../renderer/features/updates/UpdateModal";
 import GitHistoryEditor from "../../renderer/features/git/GitHistoryEditor";
 import WorkspaceLoadingOverlay from "../../renderer/shared/components/WorkspaceLoadingOverlay";
 import SpotifyFloatingPlayer from "../../renderer/features/spotify/SpotifyFloatingPlayer";
-import AxonAgentSidebar from "../../renderer/features/agent/AxonAgentSidebar";
 import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallPrompt";
 import { AXON_COMMANDS } from "../../shared/commands";
 import { type ThemeId } from "../../shared/settings";

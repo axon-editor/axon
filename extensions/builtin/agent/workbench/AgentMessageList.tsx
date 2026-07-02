@@ -1,8 +1,8 @@
 import { Check, Copy, FilePenLine } from "lucide-react";
-import { type AiEditFileProposal } from "../../../shared/ai";
+import { type AiEditFileProposal } from "@axon-editor/shared/ai";
 import AssistantMarkdown from "./AssistantMarkdown";
 import StreamingIndicator from "./StreamingIndicator";
-import { type AgentMessage } from "./agentConversation";
+import { type AgentMessage } from "./lib/agentConversation";
 
 interface Props {
   copiedId: number | null;

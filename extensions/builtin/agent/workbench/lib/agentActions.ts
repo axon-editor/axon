@@ -1,4 +1,4 @@
-import { type AiActionId } from "../../../shared/ai";
+import { type AiActionId } from "@axon-editor/shared/ai";
 
 export const agentActionLabels: Record<AiActionId, string> = {
   ask: "Ask",
