@@ -6,8 +6,14 @@
   "version": "1.0.0",
   "description": "Built-in PTY-backed terminal panels and persistent shell sessions.",
   "author": "Axon",
+  "kind": "terminal",
   "categories": ["Terminal"],
-  "activationEvents": ["onStartup"],
+  "activationEvents": [
+    "onStartup",
+    "onCommand:axon.terminal.toggle",
+    "onCommand:axon.terminal.new",
+    "onTerminalProfile:axon.terminal.default"
+  ],
   "contributes": {
     "commands": [
       {

@@ -41,7 +41,7 @@ import {
   type BottomPanelTab,
   type OutputEntry,
   type OutputEntryLevel,
-} from "../contrib/terminal/BottomPanel";
+} from "../../platform/panel/bottomPanel";
 import { buildAppPaletteCommands } from "./lib/appCommandPalette";
 import { useAppDerivedState } from "./lib/useAppDerivedState";
 import { useAxonAppEffects } from "./lib/useAxonAppEffects";

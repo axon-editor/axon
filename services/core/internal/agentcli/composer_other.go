@@ -8,11 +8,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/prompt"
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
 
 func readAgentPrompt(history []string) (string, error) {
-	fmt.Fprint(os.Stdout, interactivePromptLine)
+	fmt.Fprint(os.Stdout, prompt.Line)
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && len(strings.TrimSpace(line)) == 0 {
 		return "", err

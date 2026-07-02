@@ -12,25 +12,29 @@ import (
 )
 
 type slashCommandDefinition struct {
-	Name    string
-	Summary string
-	Aliases []string
+	Name     string
+	Summary  string
+	Shortcut string
+	Aliases  []string
 }
 
 func slashCommandsCatalog() []slashCommandDefinition {
 	return []slashCommandDefinition{
 		{
-			Name:    "help",
-			Summary: "show local slash commands",
+			Name:     "help",
+			Summary:  "show local slash commands",
+			Shortcut: "?",
 		},
 		{
-			Name:    "model",
-			Summary: "choose the Axon model for this terminal",
-			Aliases: []string{"models"},
+			Name:     "model",
+			Summary:  "choose the Axon model for this terminal",
+			Shortcut: "ctrl+x m",
+			Aliases:  []string{"models"},
 		},
 		{
-			Name:    "tools",
-			Summary: "show deterministic project tools used by the CLI",
+			Name:     "tools",
+			Summary:  "show deterministic project tools used by the CLI",
+			Shortcut: "ctrl+x t",
 		},
 	}
 }

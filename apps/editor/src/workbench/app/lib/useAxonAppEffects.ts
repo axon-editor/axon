@@ -762,8 +762,9 @@ export function useAxonAppEffects({
     };
 
     // Pull first, then subscribe. This handles the cold-start path where macOS
-    // sent `open-file` before React mounted. The live event below handles the
-    // already-running path where `axon .` targets an existing Axon window.
+    // sent `open-file` before React mounted. Already-running CLI opens are now
+    // delivered into a fresh managed window, but this renderer still consumes
+    // the request the same way once that window is ready.
     window.axon
       .consumeCliOpenFolder()
       .then((nextFolderPath) => {

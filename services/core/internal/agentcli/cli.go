@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
 
@@ -20,17 +21,25 @@ func Run(args []string) int {
 
 	switch args[0] {
 	case "help", "--help", "-h":
+		printCommandBanner(args)
 		printHelp()
 		return 0
 	case "ask":
+		if len(args) > 1 {
+			printCommandBanner(args)
+		}
 		return runAsk(args[1:])
 	case "resume":
+		printCommandBanner(args)
 		return runResume(args[1:])
 	case "commit":
+		printCommandBanner(args)
 		return runCommit(args[1:])
 	case "fix":
+		printCommandBanner(args)
 		return runFix(args[1:])
 	default:
+		printCommandBanner(args)
 		// Any unknown first argument is treated as a path, matching the expected
 		// `axon .` and `axon /path/to/project` workflow. This makes opening a
 		// folder the shortest path through the command instead of hiding it
@@ -82,6 +91,39 @@ func runSession(args []string) int {
 	}
 
 	return runTerminalSession(workspace, nil)
+}
+
+func printCommandBanner(args []string) {
+	mode := "Local agent ready"
+	if len(args) > 0 {
+		switch args[0] {
+		case "help", "--help", "-h":
+			mode = "Command reference"
+		case "ask":
+			mode = "One-shot agent request"
+			if len(args) == 1 {
+				mode = "Local agent ready"
+			}
+		case "resume":
+			mode = "Resume an agent session"
+		case "commit":
+			mode = "Draft a commit from the staged diff"
+		case "fix":
+			mode = "Fix current Axon Problems"
+		default:
+			mode = "Opening workspace in Axon"
+		}
+	}
+
+	workspace, err := os.Getwd()
+	if err != nil {
+		terminalui.PrintStartupBanner(os.Stdout, terminalui.BannerOptions{Mode: mode})
+		return
+	}
+	terminalui.PrintStartupBanner(os.Stdout, terminalui.BannerOptions{
+		Mode:      mode,
+		Workspace: workspace,
+	})
 }
 
 // runAsk joins the remaining arguments into one prompt so users can type the

@@ -116,6 +116,27 @@ function consumePendingCliOpenFolder() {
   pendingCliOpenFolderPath = null;
   return folderPath;
 }
+
+// Queue a CLI folder open and decide which window should own it. A cold start
+// cannot create a window from `open-file` because Electron may emit that event
+// before `app.whenReady()`. In that case the normal startup window pulls the
+// queued path after React mounts. Once Axon is already running, though, `axon .`
+// should behave like a new IDE session instead of stealing the current editor,
+// so I create a fresh managed window and let its `did-finish-load` handler
+// deliver the queued folder.
+function queueCliOpenFolder(filePath: string) {
+  pendingCliOpenFolderPath = filePath;
+
+  const hasLiveWindow = BrowserWindow.getAllWindows().some(
+    (window) => !window.isDestroyed(),
+  );
+  if (app.isReady() && hasLiveWindow && mainWindowReadyForCliOpen) {
+    createManagedWindow({ restoreSession: false });
+    return;
+  }
+
+  deliverPendingCliOpenFolder();
+}
 const bundledCore = createBundledCoreController({
   isDev,
   axonCorePort,
@@ -370,8 +391,7 @@ app.on("second-instance", async (_event, argv) => {
 // the wrong folder.
 app.on("open-file", (event, filePath) => {
   event.preventDefault();
-  pendingCliOpenFolderPath = filePath;
-  deliverPendingCliOpenFolder();
+  queueCliOpenFolder(filePath);
 });
 
 app.whenReady().then(async () => {

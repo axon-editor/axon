@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/prompt"
+	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
 	"github.com/GordenArcher/axon-core/internal/ai"
 )
 
@@ -336,14 +338,7 @@ func runTerminalSession(workspace string, session *agentTerminalSession) int {
 		currentSession = &fresh
 	}
 
-	fmt.Println("Axon")
-	fmt.Println(dim("Workspace: " + workspace))
-	if currentSession.title != "" && currentSession.title != "New conversation" {
-		fmt.Println(dim("Session: " + currentSession.id + " • " + currentSession.title))
-	} else {
-		fmt.Println(dim("Session: " + currentSession.id))
-	}
-	fmt.Println(dim("Type /help for local commands. Press Ctrl-D or type /exit to leave."))
+	printTerminalSessionHeader(workspace, currentSession)
 	promptHistory := userPromptHistory(currentSession.conversation)
 
 	for {
@@ -406,7 +401,7 @@ func userPromptHistory(conversation []ai.ConversationMessage) []string {
 			prompts = append(prompts, message.Content)
 		}
 	}
-	return promptHistoryFromConversation(prompts)
+	return prompt.HistoryFromConversation(prompts)
 }
 
 func appendPromptHistory(history []string, prompt string) []string {
@@ -424,6 +419,8 @@ func runOneShotSession(workspace, prompt string) int {
 	session := newAgentTerminalSession(workspace, nil, "")
 	history := append([]ai.ConversationMessage(nil), session.conversation...)
 	session.appendUserTurn(prompt)
+	terminalui.PrintChatRole(os.Stdout, "You")
+	fmt.Println(prompt)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()

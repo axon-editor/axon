@@ -14,6 +14,25 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@axon-editor/*": ["src/*"],
+      "@axon-builtin-terminal/*": [
+        "../../extensions/builtin/terminal/workbench/*"
+      ],
+      "@axon/protocol": ["../../node_modules/@axon/protocol/dist/index.d.ts"],
+      "@xterm/addon-fit": [
+        "node_modules/@xterm/addon-fit/typings/addon-fit.d.ts"
+      ],
+      "@xterm/addon-web-links": [
+        "node_modules/@xterm/addon-web-links/typings/addon-web-links.d.ts"
+      ],
+      "@xterm/xterm": ["node_modules/@xterm/xterm/typings/xterm.d.ts"],
+      "lucide-react": ["node_modules/lucide-react/dist/lucide-react.d.ts"],
+      "react": ["node_modules/@types/react/index.d.ts"],
+      "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"]
+    },
 
     /* Linting */
     "noUnusedLocals": true,
@@ -21,5 +40,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "../../extensions/builtin/terminal/workbench/**/*"]
 }

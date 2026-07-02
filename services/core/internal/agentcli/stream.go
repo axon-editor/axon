@@ -143,6 +143,7 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 	var fullResponse strings.Builder
 	scanner := bufio.NewScanner(response.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	hasPrintedAssistantHeader := false
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -173,6 +174,10 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		}
 		if event.Type == "delta" && event.Delta != "" {
 			spinner.Stop()
+			if !hasPrintedAssistantHeader {
+				terminalui.PrintChatRole(os.Stdout, "Axon")
+				hasPrintedAssistantHeader = true
+			}
 			fmt.Print(white(event.Delta))
 			fullResponse.WriteString(event.Delta)
 		}

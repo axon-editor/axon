@@ -12,6 +12,67 @@ export default defineConfig({
   base: "./",
   plugins: [react(), tailwindcss()],
   root: "src/renderer",
+  resolve: {
+    alias: {
+      "@axon-editor": path.resolve(__dirname, "src"),
+      "@axon-builtin-terminal": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "terminal",
+        "workbench",
+      ),
+      "@axon/protocol": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "node_modules",
+        "@axon",
+        "protocol",
+        "dist",
+        "index.js",
+      ),
+      "@xterm/addon-fit": path.resolve(
+        __dirname,
+        "node_modules",
+        "@xterm",
+        "addon-fit",
+        "lib",
+        "addon-fit.js",
+      ),
+      "@xterm/addon-web-links": path.resolve(
+        __dirname,
+        "node_modules",
+        "@xterm",
+        "addon-web-links",
+        "lib",
+        "addon-web-links.js",
+      ),
+      "@xterm/xterm": path.resolve(
+        __dirname,
+        "node_modules",
+        "@xterm",
+        "xterm",
+      ),
+      "lucide-react": path.resolve(
+        __dirname,
+        "node_modules",
+        "lucide-react",
+        "dist",
+        "esm",
+        "lucide-react.mjs",
+      ),
+      react: path.resolve(__dirname, "node_modules", "react"),
+      "react/jsx-runtime": path.resolve(
+        __dirname,
+        "node_modules",
+        "react",
+        "jsx-runtime.js",
+      ),
+    },
+  },
   server: {
     fs: {
       // The renderer entry still lives in src/renderer because index.html and
@@ -21,7 +82,10 @@ export default defineConfig({
       // without allowing src as a whole the Electron window can load the static
       // splash while the imported workbench module is refused before React
       // mounts.
-      allow: [path.resolve(__dirname, "src")],
+      allow: [
+        path.resolve(__dirname, "src"),
+        path.resolve(__dirname, "..", "..", "extensions", "builtin"),
+      ],
     },
   },
   // The renderer lives under src/renderer, but Axon's static assets live at

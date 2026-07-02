@@ -219,3 +219,26 @@ toward `packages/*`, not deeper into `apps/editor`.
 
 The final shape should make it obvious where a change belongs before a developer
 opens a file. That is the standard this migration is aiming for.
+
+## Built-In Terminal Migration
+
+The terminal feature is now split by production ownership instead of being
+treated as a single renderer folder:
+
+- `extensions/builtin/terminal/axon.extension.json` declares the terminal
+  commands, panel view, activation events, and default profile.
+- `extensions/builtin/terminal/workbench` owns the built-in terminal workbench
+  implementation that renders the panel contribution.
+- `apps/editor/src/workbench` hosts contributed workbench surfaces and reads the
+  extension contribution registry before mounting the terminal.
+- `apps/editor/src/platform/terminal` owns reusable terminal protocol, theme,
+  websocket, and xterm integration helpers that are shared by the workbench
+  contribution.
+- `services/core/internal/terminal` remains the backend owner of PTY process
+  lifecycle, replay, acknowledgements, and websocket transport.
+
+This is the boundary Axon should keep using for built-in IDE features. The app
+shell can host and coordinate, but new feature implementation should move under
+its built-in extension when the feature has a clear product boundary. Shared
+contracts stay in `packages/*` or `apps/editor/src/platform/*`; backend runtime
+stays in `services/core`.

@@ -14,7 +14,7 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
-import { type BottomPanelTab } from "../../../workbench/contrib/terminal/BottomPanel";
+import { type BottomPanelTab } from "../../../platform/panel/bottomPanel";
 import { type ResolvedThemeTokens } from "../lib/themeTokens";
 
 type view = "files" | "history" | "spotify";

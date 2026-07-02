@@ -24,31 +24,42 @@ import {
   Trash2,
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
-import type { EditorSettings } from "../../../shared/settings";
-import { type EditorDiagnostic } from "../../../renderer/features/diagnostics/lib/diagnostics";
-import { type ResolvedThemeTokens } from "../../../renderer/shared/lib/themeTokens";
-import { waitForCoreBackend } from "../../../renderer/shared/lib/coreBackend";
-import ChromeTab from "../../../renderer/features/editor/ChromeTab";
-import Tooltip from "../../../renderer/shared/components/Tooltip";
+import type { EditorSettings } from "@axon-editor/shared/settings";
+import {
+  type BottomPanelTab,
+  type OutputEntry,
+} from "@axon-editor/platform/panel/bottomPanel";
+import { type EditorDiagnostic } from "@axon-editor/renderer/features/diagnostics/lib/diagnostics";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+import { waitForCoreBackend } from "@axon-editor/renderer/shared/lib/coreBackend";
+import ChromeTab from "@axon-editor/renderer/features/editor/ChromeTab";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import {
   BottomPanelContent,
-  type OutputEntry,
-  type BottomPanelTab,
 } from "./BottomPanel";
-import { getTerminalOptions } from "../../../platform/terminal/terminalTheme";
+import { type TerminalWorkbenchContribution } from "./contribution";
+import { getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
 import {
   DEFAULT_TERMINAL_HEIGHT,
-  MAX_RECONNECT_INPUT_BYTES,
   MIN_TERMINAL_HEIGHT,
   createTerminalId,
   getFolderName,
-  getOutputByteLength,
   getTerminalBackendUrl,
-  quoteShellPath,
   sendTerminalAck,
   sendTerminate,
   type TerminalSession,
-} from "../../../platform/terminal/terminalProtocol";
+} from "@axon-editor/platform/terminal/terminalProtocol";
+import {
+  flushQueuedTerminalInput,
+  hasPendingTerminalOutput,
+  isTerminalAtBottom,
+  isVisibleTerminalContainer,
+  scheduleTerminalRefresh,
+  sendOrQueueTerminalInput,
+  sendWorkspaceCd,
+  terminateDetachedSession,
+  writeTerminalOutput,
+} from "./terminalSessionIo";
 
 interface Props {
   open: boolean;
@@ -60,6 +71,7 @@ interface Props {
   activePanelTab: "terminal" | BottomPanelTab;
   diagnostics: EditorDiagnostic[];
   outputEntries: OutputEntry[];
+  contribution: TerminalWorkbenchContribution;
   onActivePanelTabChange: (tab: "terminal" | BottomPanelTab) => void;
   onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
   onRefreshDiagnostics: () => void;
@@ -73,144 +85,6 @@ interface TerminalTab {
   connected: boolean;
 }
 
-function sendWorkspaceCd(session: TerminalSession) {
-  if (!session.ws) return;
-  if (session.ws.readyState !== WebSocket.OPEN) return;
-  if (session.cwdSynced) return;
-
-  const commands: string[] = [];
-  if (session.workingDirectory) {
-    // Prefixing with a space is intentional. Shells configured with
-    // HISTCONTROL=ignorespace or the equivalent zsh HISTIGNORE pattern will
-    // skip Axon's automatic workspace cd, so reconnect/setup noise is less
-    // likely to pollute the user's real command history.
-    commands.push(` cd -- ${quoteShellPath(session.workingDirectory)}`);
-  }
-
-  // Axon should not inject command-specific shell setup here. The backend
-  // starts the user's real login interactive shell so aliases, functions,
-  // version managers, and installed commands come from the user's own shell
-  // files. This renderer only keeps the prompt visually clean after choosing
-  // the workspace directory.
-  commands.push(" clear");
-  session.ws.send(`${commands.join("; ")}\r`);
-  session.cwdSynced = true;
-}
-
-function isTerminalAtBottom(term: XTerm) {
-  const buffer = term.buffer.active;
-  return buffer.viewportY >= buffer.baseY - 1;
-}
-
-function scheduleTerminalRefresh(session: TerminalSession) {
-  // xterm usually repaints after write callbacks, but heavy TUI output can
-  // leave the DOM behind until a later resize/fit forces a refresh. Scheduling
-  // one frame after each drained chunk keeps long-running agents visible while
-  // still batching repaint work through requestAnimationFrame.
-  if (!session.term || session.refreshFrame !== null) return;
-
-  session.refreshFrame = window.requestAnimationFrame(() => {
-    session.refreshFrame = null;
-    if (!session.term || session.disposed) return;
-    session.term.refresh(0, Math.max(0, session.term.rows - 1));
-  });
-}
-
-function sendOrQueueTerminalInput(session: TerminalSession, data: string) {
-  // Keystrokes should survive a short websocket reconnect. Without this small
-  // buffer, typing during a backend blink silently drops input, which feels
-  // like the terminal is eating commands even though the shell is still alive.
-  if (session.ws?.readyState === WebSocket.OPEN) {
-    session.ws.send(data);
-    return;
-  }
-
-  const byteLength = getOutputByteLength(data);
-  if (session.queuedInputBytes + byteLength > MAX_RECONNECT_INPUT_BYTES) {
-    return;
-  }
-  session.inputQueue.push(data);
-  session.queuedInputBytes += byteLength;
-}
-
-function flushQueuedTerminalInput(session: TerminalSession) {
-  // Input is flushed only after the replacement websocket is open. This keeps
-  // the PTY stream ordered: reconnect first, restore dimensions/cwd, then send
-  // the user input collected while the view was detached.
-  if (!session.ws || session.ws.readyState !== WebSocket.OPEN) return;
-  while (session.inputQueue.length > 0) {
-    const data = session.inputQueue.shift() ?? "";
-    session.queuedInputBytes = Math.max(
-      0,
-      session.queuedInputBytes - getOutputByteLength(data),
-    );
-    session.ws.send(data);
-  }
-}
-
-function drainTerminalOutput(session: TerminalSession) {
-  if (session.outputWriting) return;
-  const chunk = session.outputQueue.shift();
-  if (!chunk || !session.term || session.disposed) return;
-  // Don't decrement queuedBytes here -- xterm hasn't processed it yet.
-  // Decrementing early makes hasPendingTerminalOutput return false while
-  // bytes are still inside xterm's internal write queue, which causes
-  // reconnects to replay from the wrong offset and drop or duplicate output.
-
-  session.outputWriting = true;
-  session.atBottom = isTerminalAtBottom(session.term);
-  session.term.write(chunk.data, () => {
-    session.receivedBytes += chunk.byteLength;
-    session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength);
-    sendTerminalAck(session);
-    if (session.term && session.atBottom) {
-      session.term.scrollToBottom();
-    }
-    scheduleTerminalRefresh(session);
-    session.outputWriting = false;
-    drainTerminalOutput(session);
-  });
-}
-
-function writeTerminalOutput(session: TerminalSession, data: string | ArrayBuffer) {
-  const chunk = {
-    data: data instanceof ArrayBuffer ? new Uint8Array(data) : data,
-    byteLength: getOutputByteLength(data),
-  };
-  session.outputQueue.push(chunk);
-  session.queuedBytes += chunk.byteLength;
-  drainTerminalOutput(session);
-}
-
-function hasPendingTerminalOutput(session: TerminalSession) {
-  return session.outputWriting || session.queuedBytes > 0;
-}
-
-function isVisibleTerminalContainer(container: HTMLDivElement | null) {
-  if (!container) return false;
-  const rect = container.getBoundingClientRect();
-  return rect.width > 0 && rect.height > 0;
-}
-
-function terminateDetachedSession(
-  workingDirectory: string | null,
-  sessionId: string,
-) {
-  const ws = new WebSocket(getTerminalBackendUrl(workingDirectory, sessionId));
-  ws.binaryType = "arraybuffer";
-  const closeTimer = window.setTimeout(() => ws.close(), 1500);
-
-  ws.onopen = () => {
-    sendTerminate(ws);
-    window.clearTimeout(closeTimer);
-    ws.close();
-  };
-  ws.onerror = () => {
-    window.clearTimeout(closeTimer);
-    ws.close();
-  };
-}
-
 export default function Terminal({
   open,
   createNonce,
@@ -221,6 +95,7 @@ export default function Terminal({
   activePanelTab,
   diagnostics,
   outputEntries,
+  contribution,
   onActivePanelTabChange,
   onOpenDiagnostic,
   onRefreshDiagnostics,
@@ -613,7 +488,7 @@ export default function Terminal({
         ...terminalOptions,
         cursorBlink: true,
         cursorStyle: "block",
-        bracketedPasteMode: true,
+        ignoreBracketedPasteMode: false,
         // Long-running AI sessions can produce far more output than a normal
         // shell command. A small scrollback makes xterm discard earlier lines,
         // which looks like the terminal randomly removed text while the user is
@@ -848,7 +723,10 @@ export default function Terminal({
         <div className="flex min-w-0 flex-1 items-stretch gap-3 overflow-hidden">
           <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[#647086]">
             <SquareTerminal size={13} />
-            <span>{terminalTitle}</span>
+            <span>{contribution.viewTitle}</span>
+            <span className="max-w-[180px] truncate normal-case tracking-normal text-[10px] opacity-70">
+              {terminalTitle}
+            </span>
           </div>
           <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-hidden">
             {tabs.map((tab) => (

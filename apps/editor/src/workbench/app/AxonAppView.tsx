@@ -1,8 +1,9 @@
 import * as React from "react";
+import Terminal from "@axon-builtin-terminal/Terminal";
+import { resolveTerminalWorkbenchContribution } from "@axon-builtin-terminal/contribution";
 import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
 import EditorPane from "../../renderer/features/editor/EditorPane";
 import StatusBar from "../../renderer/shared/components/StatusBar";
-import Terminal from "../contrib/terminal/Terminal";
 import CommandPalette from "../../renderer/features/search/CommandPalette";
 import WorkspaceSearchModal from "../../renderer/features/search/WorkspaceSearchModal";
 import DiffModal from "../../renderer/features/git/DiffModal";
@@ -60,7 +61,6 @@ export function AxonAppView(props: Record<string, any>) {
     diffFilePath,
     diffOpen,
     extensionState,
-    extensionThemes,
     extensionsOpen,
     fileOutlineOpen,
     folderPath,
@@ -165,7 +165,7 @@ export function AxonAppView(props: Record<string, any>) {
       (extensionState?.extensions ?? [])
         .filter((extension: any) => extension.source === "internal")
         .flatMap((extension: any) => extension.themes ?? [])
-        .slice(0, 10)
+        .slice(0, 12)
         .map((theme: any) => ({
           id: theme.id,
           label: theme.label,
@@ -178,6 +178,10 @@ export function AxonAppView(props: Record<string, any>) {
     settings.editor.sidebarSide === "right" ? "right" : "left";
   const shouldShowAgentSidebar =
     !zenMode && settings.ai.enabled && agentSidebarOpen;
+  const terminalContribution = React.useMemo(
+    () => resolveTerminalWorkbenchContribution(extensionState),
+    [extensionState],
+  );
   const agentSidebarNode = shouldShowAgentSidebar ? (
     <AxonAgentSidebar
       activeFileContent={activeFileContent}
@@ -452,7 +456,7 @@ export function AxonAppView(props: Record<string, any>) {
             </div>
           )}
 
-          {workspaceTrusted ? (
+          {workspaceTrusted && terminalContribution ? (
             <Terminal
               open={terminalOpen && !zenMode}
               createNonce={terminalCreateNonce}
@@ -465,6 +469,7 @@ export function AxonAppView(props: Record<string, any>) {
               }
               diagnostics={diagnostics}
               outputEntries={outputEntries}
+              contribution={terminalContribution}
               onActivePanelTabChange={(tab) => {
                 if (tab === "terminal") {
                   setBottomPanelOpen(false);

@@ -6,7 +6,7 @@ import {
   isVirtualTabPath,
 } from "../../features/editor/lib/tabIdentity";
 import { isWelcomeTabPath } from "../../features/onboarding/lib/welcomeTab";
-import { type BottomPanelTab } from "../../../workbench/contrib/terminal/BottomPanel";
+import { type BottomPanelTab } from "../../../platform/panel/bottomPanel";
 import {
   createWorkspaceRoot,
   normalizeWorkspaceRoots,

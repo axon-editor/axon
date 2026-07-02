@@ -5,15 +5,12 @@ package agentcli
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/GordenArcher/axon-core/internal/agentcli/configstore"
-	"github.com/GordenArcher/axon-core/internal/ai"
+	"github.com/GordenArcher/axon-core/internal/agentcli/prompt"
 	"golang.org/x/sys/unix"
 )
 
@@ -130,8 +127,8 @@ func readAgentPrompt(history []string) (string, error) {
 			case "up":
 				if suggestions := promptSuggestions(string(buffer)); len(suggestions) > 0 {
 					selectedSuggestion = (selectedSuggestion - 1 + len(suggestions)) % len(suggestions)
-				} else if promptHasMultipleLines(buffer) {
-					cursor = movePromptCursorVertically(buffer, cursor, -1)
+				} else if prompt.HasMultipleLines(buffer) {
+					cursor = prompt.MoveCursorVertically(buffer, cursor, -1)
 				} else if len(history) > 0 && historyIndex > 0 {
 					if historyIndex == len(history) {
 						draftBeforeHistory = append([]rune(nil), buffer...)
@@ -143,8 +140,8 @@ func readAgentPrompt(history []string) (string, error) {
 			case "down":
 				if suggestions := promptSuggestions(string(buffer)); len(suggestions) > 0 {
 					selectedSuggestion = (selectedSuggestion + 1) % len(suggestions)
-				} else if promptHasMultipleLines(buffer) {
-					cursor = movePromptCursorVertically(buffer, cursor, 1)
+				} else if prompt.HasMultipleLines(buffer) {
+					cursor = prompt.MoveCursorVertically(buffer, cursor, 1)
 				} else if len(history) > 0 && historyIndex < len(history) {
 					historyIndex++
 					if historyIndex == len(history) {
@@ -192,7 +189,7 @@ func readAgentPrompt(history []string) (string, error) {
 }
 
 func readLinePrompt() (string, error) {
-	fmt.Fprint(os.Stdout, interactivePromptLine)
+	fmt.Fprint(os.Stdout, prompt.Line)
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && len(strings.TrimSpace(line)) == 0 {
 		return "", err
@@ -244,19 +241,25 @@ func renderAgentPromptSurface(output io.Writer, value []rune, cursor int, select
 	suggestions := promptSuggestions(string(value))
 	selectedSuggestion = clampSuggestionIndex(suggestions, selectedSuggestion)
 	width := terminalPromptSurfaceWidth()
-	innerWidth := width - 4
+	innerWidth := width - 6
 	if innerWidth < 20 {
 		innerWidth = 20
 	}
 
 	var lines bytes.Buffer
+	lines.WriteString(inputSurface("╭" + strings.Repeat("─", width-2) + "╮"))
+	lines.WriteString("\r\n")
 	inputLines := renderPromptInputLines(value, cursor, innerWidth, showCaret)
 	// The composer height comes from the actual prompt content. Forced blank
 	// padding rows looked like separate input boxes, especially before the user
 	// typed anything. Keeping only content rows makes multiline input read as
 	// one textbox where text flows to the next line.
-	for _, inputLine := range inputLines {
-		lines.WriteString(inputSurface(padPromptLine("  "+inputLine, width)))
+	for index, inputLine := range inputLines {
+		prefix := "> "
+		if index > 0 {
+			prefix = "  "
+		}
+		lines.WriteString(composerRow(prefix+inputLine, width, false))
 		lines.WriteString("\r\n")
 	}
 
@@ -265,45 +268,78 @@ func renderAgentPromptSurface(output io.Writer, value []rune, cursor int, select
 		// color is not decoration; it communicates the command that will run if
 		// the user submits the current partial slash command.
 		visible := suggestions
-		if len(visible) > maxPromptSuggestions {
-			visible = visible[:maxPromptSuggestions]
+		if len(visible) > prompt.MaxSuggestions {
+			visible = visible[:prompt.MaxSuggestions]
 		}
+		lines.WriteString(inputSurface("├" + strings.Repeat("─", width-2) + "┤"))
+		lines.WriteString("\r\n")
 		for index, command := range visible {
 			// The popup rows are padded to the same width as the input row so the
 			// whole control feels like one block. If only the command text is
 			// colored, the UI falls back to the broken "printed help under a
 			// prompt" look that made the earlier version feel unfinished.
-			row := "   /" + command.Name + "  " + clipPromptLine(command.Summary, width-9-len(command.Name))
-			if index == selectedSuggestion {
-				lines.WriteString(activeRow(padPromptLine(row, width)))
-				lines.WriteString("\r\n")
-				continue
-			}
-			lines.WriteString(inputSurface(padPromptLine(row, width)))
+			row := formatSlashPickerRow(command, width-4)
+			lines.WriteString(composerRow(row, width, index == selectedSuggestion))
 			lines.WriteString("\r\n")
 		}
-		lines.WriteString(inputSurface(padPromptLine("   ↑/↓ selects. Enter accepts highlighted command.", width)))
+		lines.WriteString(composerRow("↑/↓ select  enter accept  esc keep typing", width, false))
 		lines.WriteString("\r\n")
 	}
 	if strings.TrimSpace(notice) != "" {
-		lines.WriteString("  ")
-		lines.WriteString(notice)
+		lines.WriteString(inputSurface("├" + strings.Repeat("─", width-2) + "┤"))
+		lines.WriteString("\r\n")
+		lines.WriteString(composerRow(notice, width, false))
 		lines.WriteString("\r\n")
 	}
+	lines.WriteString(inputSurface("╰" + strings.Repeat("─", width-2) + "╯"))
+	lines.WriteString("\r\n")
+	lines.WriteString(hint(" enter send  ctrl+k newline  / commands  ctrl+d exit"))
+	lines.WriteString("\r\n")
 
 	_, _ = output.Write(lines.Bytes())
-	rendered := len(inputLines)
+	rendered := len(inputLines) + 3
 	if len(suggestions) > 0 {
 		visible := len(suggestions)
-		if visible > maxPromptSuggestions {
-			visible = maxPromptSuggestions
+		if visible > prompt.MaxSuggestions {
+			visible = prompt.MaxSuggestions
 		}
-		rendered += visible + 1
+		rendered += visible + 2
 	}
 	if strings.TrimSpace(notice) != "" {
-		rendered++
+		rendered += 2
 	}
 	return rendered
+}
+
+func composerRow(content string, width int, active bool) string {
+	innerWidth := width - 4
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
+	clipped := clipPromptLine(content, innerWidth)
+	row := "│ " + padPromptLine(clipped, innerWidth) + " │"
+	if active {
+		return activeRow(row)
+	}
+	return inputSurface(row)
+}
+
+func formatSlashPickerRow(command slashCommandDefinition, width int) string {
+	name := "/" + command.Name
+	shortcut := strings.TrimSpace(command.Shortcut)
+	if shortcut == "" {
+		shortcut = "enter"
+	}
+	nameWidth := 14
+	shortcutWidth := 10
+	summaryWidth := width - nameWidth - shortcutWidth - 4
+	if summaryWidth < 12 {
+		summaryWidth = 12
+	}
+	return padPromptLine(name, nameWidth) +
+		clipPromptLine(command.Summary, summaryWidth) +
+		"  " +
+		clipPromptLine(shortcut, shortcutWidth)
 }
 
 // renderPromptInputLines returns the visible rows for the multiline composer.
@@ -333,22 +369,22 @@ func renderPromptInputLines(value []rune, cursor int, innerWidth int, showCaret 
 	}
 
 	start := 0
-	if len(rawLines) > maxPromptInputRows {
-		start = lineIndex - maxPromptInputRows/2
+	if len(rawLines) > prompt.MaxInputRows {
+		start = lineIndex - prompt.MaxInputRows/2
 		if start < 0 {
 			start = 0
 		}
-		maxStart := len(rawLines) - maxPromptInputRows
+		maxStart := len(rawLines) - prompt.MaxInputRows
 		if start > maxStart {
 			start = maxStart
 		}
 	}
-	end := start + maxPromptInputRows
+	end := start + prompt.MaxInputRows
 	if end > len(rawLines) {
 		end = len(rawLines)
 	}
 
-	rendered := make([]string, 0, maxPromptInputRows)
+	rendered := make([]string, 0, prompt.MaxInputRows)
 	for index := start; index < end; index++ {
 		line := []rune(rawLines[index])
 		if index == lineIndex {
@@ -517,304 +553,4 @@ func padPromptLine(text string, width int) string {
 		return string(runes[:width])
 	}
 	return text + strings.Repeat(" ", width-len(runes))
-}
-
-func selectModelPrompt(models []ai.ModelInfo, selectedModel string) (string, bool, error) {
-	if !isInteractiveTTY() {
-		return selectModelLinePrompt(models, selectedModel)
-	}
-
-	fd := int(os.Stdin.Fd())
-	oldState, err := unix.IoctlGetTermios(fd, ioctlReadTermios)
-	if err != nil {
-		return selectModelLinePrompt(models, selectedModel)
-	}
-
-	// The picker uses the same raw-mode strategy as the main prompt because model
-	// selection should feel like part of the agent shell, not a separate printed
-	// report. Arrow keys move the active row and Enter returns the selected Axon
-	// model id to the caller, which then persists it for future chat requests.
-	rawState := *oldState
-	rawState.Lflag &^= unix.ECHO | unix.ICANON | unix.ISIG | unix.IEXTEN
-	rawState.Iflag &^= unix.ICRNL | unix.IXON | unix.BRKINT | unix.INPCK | unix.ISTRIP
-	rawState.Cflag |= unix.CS8
-	rawState.Cc[unix.VMIN] = 1
-	rawState.Cc[unix.VTIME] = 0
-
-	if err := unix.IoctlSetTermios(fd, ioctlWriteTermios, &rawState); err != nil {
-		return selectModelLinePrompt(models, selectedModel)
-	}
-	defer func() {
-		_ = unix.IoctlSetTermios(fd, ioctlWriteTermios, oldState)
-		fmt.Fprint(os.Stdout, "\x1b[?25h")
-	}()
-	fmt.Fprint(os.Stdout, "\x1b[?25l")
-
-	selectedIndex := selectedModelIndex(models, selectedModel)
-	renderedLines := 0
-	reader := bufio.NewReader(os.Stdin)
-	render := func() {
-		renderedLines = renderModelPicker(os.Stdout, models, selectedIndex, selectedModel, renderedLines)
-	}
-	render()
-
-	for {
-		key, err := reader.ReadByte()
-		if err != nil {
-			return "", false, err
-		}
-
-		switch key {
-		case '\r', '\n':
-			fmt.Fprint(os.Stdout, "\r\n")
-			if len(models) == 0 {
-				return "", false, nil
-			}
-			return models[selectedIndex].ID, true, nil
-		case 3, 4:
-			fmt.Fprint(os.Stdout, "\r\n")
-			return "", false, nil
-		case 27:
-			if next, err := reader.ReadByte(); err == nil && next == '[' {
-				if sequence, err := reader.ReadByte(); err == nil {
-					switch sequence {
-					case 'A':
-						if selectedIndex > 0 {
-							selectedIndex--
-							render()
-						}
-					case 'B':
-						if selectedIndex < len(models)-1 {
-							selectedIndex++
-							render()
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-func runModelPickerInsidePrompt(reader *bufio.Reader, renderedLines *int) string {
-	models, err := loadInstalledModelsForPrompt()
-	if err != nil {
-		return red(err.Error())
-	}
-	if len(models) == 0 {
-		return red("No Axon models are installed locally.")
-	}
-
-	selectedModel := defaultModelID()
-	selectedIndex := selectedModelIndex(models, selectedModel)
-	render := func() {
-		*renderedLines = renderInlineModelPicker(os.Stdout, models, selectedIndex, selectedModel, *renderedLines)
-	}
-	render()
-
-	for {
-		key, err := reader.ReadByte()
-		if err != nil {
-			return red(err.Error())
-		}
-
-		switch key {
-		case '\r', '\n':
-			nextModel := models[selectedIndex].ID
-			if err := configstore.Save(configstore.Config{SelectedModel: nextModel}); err != nil {
-				return red(err.Error())
-			}
-			return green("Selected " + modelLabel(models, nextModel))
-		case 3, 4:
-			return dim("Model selection cancelled.")
-		case 27:
-			if next, err := reader.ReadByte(); err == nil && next == '[' {
-				if sequence, err := reader.ReadByte(); err == nil {
-					switch sequence {
-					case 'A':
-						if selectedIndex > 0 {
-							selectedIndex--
-							render()
-						}
-					case 'B':
-						if selectedIndex < len(models)-1 {
-							selectedIndex++
-							render()
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-func loadInstalledModelsForPrompt() ([]ai.ModelInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	models, err := ai.ListModels(ctx, defaultModelID())
-	if err != nil {
-		return nil, err
-	}
-	return installedModels(models), nil
-}
-
-func renderInlineModelPicker(output io.Writer, models []ai.ModelInfo, selectedIndex int, selectedModel string, previousLines int) int {
-	if previousLines > 0 {
-		fmt.Fprintf(output, "\x1b[%dF\x1b[0J", previousLines)
-	}
-
-	width := terminalPromptSurfaceWidth()
-
-	var lines bytes.Buffer
-	lines.WriteString(inputSurface(padPromptLine("", width)))
-	lines.WriteString("\r\n")
-	lines.WriteString(inputSurface(padPromptLine("  /model", width)))
-	lines.WriteString("\r\n")
-	lines.WriteString(inputSurface(padPromptLine("  Choose a local Axon model. Use ↑/↓ and Enter. Ctrl-D cancels.", width)))
-	lines.WriteString("\r\n")
-
-	for index, model := range models {
-		current := ""
-		if model.ID == selectedModel {
-			current = " " + dim("selected")
-		}
-		row := fmt.Sprintf("  %s  %s%s", model.Label, green("ready"), current)
-		if index == selectedIndex {
-			lines.WriteString(activeRow(padPromptLine(row, width)))
-			lines.WriteString("\r\n")
-			lines.WriteString(inputSurface(padPromptLine("  "+clipPromptLine(model.Description, width-2), width)))
-			lines.WriteString("\r\n")
-			continue
-		}
-		lines.WriteString(inputSurface(padPromptLine(row, width)))
-		lines.WriteString("\r\n")
-	}
-
-	_, _ = output.Write(lines.Bytes())
-	return len(models) + 4
-}
-
-func renderModelPicker(output io.Writer, models []ai.ModelInfo, selectedIndex int, selectedModel string, previousLines int) int {
-	if previousLines > 0 {
-		fmt.Fprintf(output, "\x1b[%dF\x1b[0J", previousLines)
-	}
-
-	width := terminalPromptWidth()
-	if width < 52 {
-		width = 52
-	}
-	if width > 92 {
-		width = 92
-	}
-
-	var lines bytes.Buffer
-	lines.WriteString(accent("Axon models"))
-	lines.WriteString(dim("  Use ↑/↓ and Enter. Ctrl-D cancels."))
-	lines.WriteString("\r\n")
-
-	for index, model := range models {
-		// Only installed models are passed into the picker, but the ready label is
-		// still rendered so the list reads like an availability decision instead
-		// of a mysterious set of names. Raw runtime model names stay hidden here;
-		// users select Axon product names only.
-		status := red("missing")
-		if model.Available {
-			status = green("ready")
-		}
-		current := ""
-		if model.ID == selectedModel {
-			current = " " + dim("selected")
-		}
-		row := fmt.Sprintf("  %s  %s%s", model.Label, status, current)
-		if index == selectedIndex {
-			lines.WriteString(activeRow(padPromptLine(row, width)))
-			lines.WriteString("\r\n")
-			lines.WriteString("    ")
-			lines.WriteString(muted(clipPromptLine(model.Description, width-4)))
-			lines.WriteString("\r\n")
-			continue
-		}
-		lines.WriteString(row)
-		lines.WriteString("\r\n")
-	}
-
-	_, _ = output.Write(lines.Bytes())
-	return len(models) + 2
-}
-
-func selectedModelIndex(models []ai.ModelInfo, selectedModel string) int {
-	for index, model := range models {
-		if model.ID == selectedModel {
-			return index
-		}
-	}
-	return 0
-}
-
-func readPromptEscapeSequence(reader *bufio.Reader) string {
-	next, err := reader.ReadByte()
-	if err != nil || next != '[' {
-		return ""
-	}
-
-	sequence, err := reader.ReadByte()
-	if err != nil {
-		return ""
-	}
-
-	switch sequence {
-	case 'A':
-		return "up"
-	case 'B':
-		return "down"
-	case 'D':
-		return "left"
-	case 'C':
-		return "right"
-	case 'H':
-		return "home"
-	case 'F':
-		return "end"
-	case '3':
-		_, _ = reader.ReadByte()
-		return "delete"
-	default:
-		return ""
-	}
-}
-
-func terminalPromptWidth() int {
-	ws, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
-	if err != nil || ws == nil || ws.Col == 0 {
-		return 80
-	}
-	return int(ws.Col)
-}
-
-// terminalPromptSurfaceWidth returns the visible width Axon can safely own for
-// its composer surface. The prompt should feel full-width, but terminal emulators
-// often wrap when the final printable cell is filled exactly, especially once
-// ANSI reset sequences are involved. Reserving one column avoids ghost lines
-// without going back to the narrow boxed prompt.
-func terminalPromptSurfaceWidth() int {
-	width := terminalPromptWidth()
-	if width < 52 {
-		return 52
-	}
-
-	return width - 1
-}
-
-func clipPromptLine(text string, limit int) string {
-	trimmed := strings.TrimSpace(text)
-	if limit <= 0 || len(trimmed) <= limit {
-		return trimmed
-	}
-	if limit <= 1 {
-		return trimmed[:1]
-	}
-	if limit <= 3 {
-		return trimmed[:limit]
-	}
-	return trimmed[:limit-3] + "..."
 }

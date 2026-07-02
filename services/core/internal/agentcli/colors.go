@@ -14,6 +14,9 @@ const (
 	ansiInputBg     = "\033[48;2;16;22;32m"
 	ansiActiveRow   = "\033[48;2;20;42;54m\033[38;2;223;247;255m"
 	ansiPromptCaret = "\033[48;2;223;247;255m\033[38;2;16;22;32m"
+	ansiPanelBorder = "\033[38;2;54;66;86m"
+	ansiBrand       = "\033[38;2;128;200;224m\033[1m"
+	ansiHint        = "\033[38;2;112;124;148m"
 )
 
 // dim is used for progress and confirmation prompts. Those messages should be
@@ -59,4 +62,16 @@ func activeRow(text string) string {
 
 func promptCaret(text string) string {
 	return ansiPromptCaret + text + ansiReset + ansiInputBg
+}
+
+func panelBorder(text string) string {
+	return ansiPanelBorder + text + ansiReset
+}
+
+func brand(text string) string {
+	return ansiBrand + text + ansiReset
+}
+
+func hint(text string) string {
+	return ansiHint + text + ansiReset
 }

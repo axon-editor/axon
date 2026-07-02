@@ -11,19 +11,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type EditorDiagnostic } from "../../../renderer/features/diagnostics/lib/diagnostics";
-import Tooltip from "../../../renderer/shared/components/Tooltip";
-
-export type BottomPanelTab = "problems" | "output";
-export type OutputEntryLevel = "info" | "success" | "warning" | "error";
-
-export interface OutputEntry {
-  id: number;
-  time: string;
-  level: OutputEntryLevel;
-  source: string;
-  message: string;
-}
+import {
+  type BottomPanelTab,
+  type OutputEntry,
+  type OutputEntryLevel,
+} from "@axon-editor/platform/panel/bottomPanel";
+import { type EditorDiagnostic } from "@axon-editor/renderer/features/diagnostics/lib/diagnostics";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
   open: boolean;
