@@ -167,6 +167,16 @@ export default defineConfig({
       ],
     },
   },
+  optimizeDeps: {
+    // Monaco worker entrypoints are not normal ESM dependencies in Axon. The
+    // renderer imports them with `?worker` so Vite returns a Worker constructor
+    // as the default export. If dev pre-bundling optimizes Monaco into
+    // node_modules/.vite/deps first, Chromium receives the optimized worker
+    // module directly and startup fails with "does not provide an export named
+    // default", leaving Electron on the boot splash. Excluding Monaco keeps the
+    // worker plugin in control of those imports.
+    exclude: ["monaco-editor"],
+  },
   // The renderer lives under src/renderer, but Axon's static assets live at
   // editor/public so they can be shared by the app icon, release packaging, and
   // the file-tree icon system. Without this explicit publicDir, Vite looks for

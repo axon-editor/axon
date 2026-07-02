@@ -27,6 +27,8 @@ export function markExtensionHostTiming(
   startedAt: number,
   detail?: ExtensionHostTimingDetail,
 ) {
+  if (process.env.AXON_EXTENSION_TIMINGS !== "1") return;
+
   const durationMs = Math.max(0, performance.now() - startedAt);
   console.info(
     `[extensions] ${phase} ${durationMs.toFixed(1)}ms${formatDetail(detail)}`,

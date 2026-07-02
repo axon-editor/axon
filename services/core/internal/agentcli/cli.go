@@ -39,11 +39,17 @@ func Run(args []string) int {
 		printCommandBanner(args)
 		return runFix(args[1:])
 	default:
-		printCommandBanner(args)
 		// Any unknown first argument is treated as a path, matching the expected
 		// `axon .` and `axon /path/to/project` workflow. This makes opening a
 		// folder the shortest path through the command instead of hiding it
 		// behind a subcommand users have to remember.
+		//
+		// I intentionally keep this path quiet on success. `axon .` is closer to
+		// `code .` than an agent conversation: the terminal command is only a
+		// handoff into the desktop app, so printing the animated agent banner and
+		// workspace path makes normal project opening feel noisy without adding
+		// useful information. Errors still print below, where the user can act on
+		// them.
 		if err := openInEditor(args[0]); err != nil {
 			fmt.Fprintln(os.Stderr, red(err.Error()))
 			return 1
