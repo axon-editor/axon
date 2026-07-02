@@ -28,7 +28,7 @@ jobs:
             # available for older MacBooks instead of leaving the release job
             # stuck forever waiting for a deprecated runner pool.
             runner: macos-15-intel
-            command: npm run dist:mac:x64
+            command: npm --workspace axon run dist:mac:x64
           - name: macOS arm64
             # Keep this on the explicit Apple Silicon runner label so the
             # language-server bundler sees process.arch=arm64. If this job ran
@@ -36,17 +36,13 @@ jobs:
             # the app could accidentally ship x64 managed server binaries in an
             # arm64 DMG.
             runner: macos-15
-            command: npm run dist:mac:arm64
+            command: npm --workspace axon run dist:mac:arm64
           - name: Windows
             runner: windows-latest
-            command: npm run dist:win
+            command: npm --workspace axon run dist:win
           - name: Linux
             runner: ubuntu-latest
-            command: npm run dist:linux
-
-    defaults:
-      run:
-        working-directory: editor
+            command: npm --workspace axon run dist:linux
 
     steps:
       - name: Check out repository
@@ -57,7 +53,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: editor/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -69,12 +65,12 @@ jobs:
         run: npm ci
 
       - name: Bundle managed language servers
-        run: npm run build:language-servers
+        run: npm --workspace axon run build:language-servers
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Verify managed language server bundles
-        run: node scripts/verify-language-servers.mjs
+        run: node apps/editor/scripts/verify-language-servers.mjs
 
       - name: Build packaged desktop target
         run: ${{ matrix.platform.command }}
@@ -98,10 +94,10 @@ jobs:
           overwrite_files: true
           fail_on_unmatched_files: false
           files: |
-            editor/release/*.dmg
-            editor/release/*.zip
-            editor/release/*.exe
-            editor/release/*.AppImage
-            editor/release/*.deb
-            editor/release/*.blockmap
-            editor/release/*.yml
+            apps/editor/release/*.dmg
+            apps/editor/release/*.zip
+            apps/editor/release/*.exe
+            apps/editor/release/*.AppImage
+            apps/editor/release/*.deb
+            apps/editor/release/*.blockmap
+            apps/editor/release/*.yml
