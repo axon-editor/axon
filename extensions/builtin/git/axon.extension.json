@@ -7,7 +7,14 @@
   "description": "Built-in source-control surfaces for status, diffs, history, branches, stashes, worktrees, and merge conflicts.",
   "author": "Axon",
   "categories": ["Source Control"],
-  "activationEvents": ["onStartup"],
+  "activationEvents": [
+    "onStartup",
+    "onCommand:axon.git.openSourceControl",
+    "onCommand:axon.git.openHistory",
+    "onCommand:axon.git.refresh",
+    "onView:axon.sourceControl",
+    "onView:axon.history"
+  ],
   "contributes": {
     "commands": [
       {

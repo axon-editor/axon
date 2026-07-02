@@ -37,7 +37,7 @@ export function buildAppPaletteCommands({
       extensionState?.extensions.flatMap((extension: any) =>
         extension.enabled
           ? extension.contributes.commands.map((command: any) => ({
-              id: `extension:${extension.id}.${command.id}` as const,
+              id: `extension:${command.id}` as const,
               title: command.title,
               group: command.category ?? "Extensions",
               subtitle: !workspaceTrusted

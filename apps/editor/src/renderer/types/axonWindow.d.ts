@@ -263,6 +263,10 @@ declare global {
       getGitGraph: (folderPath: string) => Promise<GitGraphResult>;
       getAppInfo: () => Promise<AppInfo>;
       listExtensions: (folderPath?: string | null) => Promise<ExtensionState>;
+      activateExtensionEvent: (
+        activationEvent: string,
+        folderPath?: string | null,
+      ) => Promise<ExtensionActionResult>;
       setExtensionEnabled: (
         extensionId: string,
         enabled: boolean,

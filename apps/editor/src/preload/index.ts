@@ -102,6 +102,7 @@ import type {
 
 const EXTENSION_IPC_CHANNELS = {
   list: "extensions:list",
+  activate: "extensions:activate",
   setEnabled: "extensions:setEnabled",
   reload: "extensions:reload",
   marketplace: "extensions:marketplace",
@@ -357,6 +358,15 @@ contextBridge.exposeInMainWorld("axon", {
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   listExtensions: (folderPath?: string | null): Promise<ExtensionState> =>
     ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.list, folderPath),
+  activateExtensionEvent: (
+    activationEvent: string,
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> =>
+    ipcRenderer.invoke(
+      EXTENSION_IPC_CHANNELS.activate,
+      activationEvent,
+      folderPath,
+    ),
   setExtensionEnabled: (
     extensionId: string,
     enabled: boolean,

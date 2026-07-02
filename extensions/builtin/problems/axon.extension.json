@@ -7,7 +7,12 @@
   "description": "Built-in diagnostics aggregation for Monaco, language servers, and project checks.",
   "author": "Axon",
   "categories": ["Diagnostics"],
-  "activationEvents": ["onStartup"],
+  "activationEvents": [
+    "onStartup",
+    "onCommand:axon.problems.open",
+    "onCommand:axon.problems.refresh",
+    "onView:axon.problems"
+  ],
   "contributes": {
     "commands": [
       {

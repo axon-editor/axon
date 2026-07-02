@@ -2,6 +2,23 @@ import { useCallback } from "react";
 import { AXON_COMMANDS, type AxonCommand } from "../../../shared/commands";
 import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
 
+const CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = {
+  "axon.agent.fixProblems": AXON_COMMANDS.AI_FIX_PROBLEM,
+  "axon.agent.open": AXON_COMMANDS.ASK_AXON,
+  "axon.git.openHistory": AXON_COMMANDS.OPEN_GIT_HISTORY,
+  "axon.git.openSourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
+  "axon.git.refresh": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
+  "axon.problems.open": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
+  "axon.problems.refresh": AXON_COMMANDS.REFRESH_DIAGNOSTICS,
+  "axon.search.openWorkspace": AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
+  "axon.settings.open": AXON_COMMANDS.OPEN_SETTINGS,
+  "axon.settings.openJson": AXON_COMMANDS.OPEN_SETTINGS_JSON,
+  "axon.terminal.new": AXON_COMMANDS.NEW_TERMINAL,
+  "axon.terminal.toggle": AXON_COMMANDS.TOGGLE_TERMINAL,
+  "axon.testing.open": AXON_COMMANDS.OPEN_TEST_EXPLORER,
+  "axon.testing.refresh": AXON_COMMANDS.OPEN_TEST_EXPLORER,
+};
+
 interface AppCommandRunnerOptions {
   activeFilePath: any;
   appendOutput: any;
@@ -18,7 +35,9 @@ interface AppCommandRunnerOptions {
   refreshProjectDiagnostics: any;
   requireTrustedWorkspace: any;
   runEditorAction: any;
+  folderPath: string | null;
   settings: any;
+  setExtensionState: any;
   terminalOpen: any;
   updateAvailable: any;
   setAboutOpen: any;
@@ -61,7 +80,9 @@ export function useAppCommandRunner({
   refreshProjectDiagnostics,
   requireTrustedWorkspace,
   runEditorAction,
+  folderPath,
   settings,
+  setExtensionState,
   terminalOpen,
   updateAvailable,
   setAboutOpen,
@@ -87,21 +108,54 @@ export function useAppCommandRunner({
   setWorkspaceSearchOpen,
   setZenMode,
 }: AppCommandRunnerOptions) {
+  const activateExtensionEvent = useCallback(
+    (activationEvent: string, reportSuccess = false) => {
+      void window.axon
+        .activateExtensionEvent(activationEvent, folderPath)
+        .then((result) => {
+          setExtensionState(result.state);
+          if (reportSuccess || !result.ok) {
+            appendOutput(
+              "extensions",
+              result.message,
+              result.ok ? "info" : "warning",
+            );
+          }
+        })
+        .catch((err) => {
+          appendOutput(
+            "extensions",
+            `Failed to activate '${activationEvent}': ${
+              err instanceof Error ? err.message : "unknown extension host error"
+            }`,
+            "error",
+          );
+        });
+    },
+    [appendOutput, folderPath, setExtensionState],
+  );
+
   return useCallback(
-(command: AxonCommand) => {
+    (command: AxonCommand) => {
+      let runnableCommand = command;
+
       if (command.startsWith("extension:")) {
         if (!requireTrustedWorkspace("Extension commands")) return;
 
         const commandId = command.slice("extension:".length);
-        appendOutput(
-          "extensions",
-          `Extension command '${commandId}' is registered. Executable extension hosts are intentionally disabled until the sandbox API is expanded.`,
-          "warning",
-        );
-        return;
+        activateExtensionEvent(`onCommand:${commandId}`, true);
+        const aliasedCommand = CONTRIBUTED_COMMAND_ALIASES[commandId];
+        if (!aliasedCommand) return;
+
+        // Built-in workbench contributions are exposed through the same command
+        // registry as user extensions, so the command palette should not stop
+        // at "activation happened". This alias bridge lets a contributed
+        // manifest command open the existing React surface today while keeping
+        // the command identity stable for the future executable extension host.
+        runnableCommand = aliasedCommand;
       }
 
-      switch (command) {
+      switch (runnableCommand) {
         case AXON_COMMANDS.ABOUT:
           setAboutOpen(true);
           break;
@@ -124,6 +178,8 @@ export function useAppCommandRunner({
           setWorkspaceOverviewOpen(true);
           break;
         case AXON_COMMANDS.OPEN_WORKSPACE_SEARCH:
+          activateExtensionEvent("onCommand:axon.search.openWorkspace");
+          activateExtensionEvent("onView:axon.search.workspace");
           setWorkspaceSearchOpen((prev: boolean) => !prev);
           break;
         case AXON_COMMANDS.OPEN_TASK_RUNNER:
@@ -132,6 +188,8 @@ export function useAppCommandRunner({
           break;
         case AXON_COMMANDS.OPEN_TEST_EXPLORER:
           if (!requireTrustedWorkspace("Tests")) break;
+          activateExtensionEvent("onCommand:axon.testing.open");
+          activateExtensionEvent("onView:axon.tests");
           setTestExplorerOpen(true);
           break;
         case AXON_COMMANDS.OPEN_FILE_OUTLINE:
@@ -162,6 +220,8 @@ export function useAppCommandRunner({
           }
           break;
         case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
+          activateExtensionEvent("onCommand:axon.problems.open");
+          activateExtensionEvent("onView:axon.problems");
           setBottomPanelTab("problems");
           setBottomPanelOpen(true);
           setTerminalOpen(false);
@@ -175,6 +235,7 @@ export function useAppCommandRunner({
           break;
         case AXON_COMMANDS.REFRESH_DIAGNOSTICS:
           if (!requireTrustedWorkspace("Language server diagnostics")) break;
+          activateExtensionEvent("onCommand:axon.problems.refresh");
           setBottomPanelTab("problems");
           setBottomPanelOpen(true);
           setTerminalOpen(false);
@@ -199,16 +260,22 @@ export function useAppCommandRunner({
           }
           break;
         case AXON_COMMANDS.OPEN_SOURCE_CONTROL:
+          activateExtensionEvent("onCommand:axon.git.openSourceControl");
+          activateExtensionEvent("onView:axon.sourceControl");
           setSourceControlOpen(true);
           void refreshGitStatus();
           break;
         case AXON_COMMANDS.OPEN_GIT_HISTORY:
+          activateExtensionEvent("onCommand:axon.git.openHistory");
+          activateExtensionEvent("onView:axon.history");
           setSidebarCollapsed(false);
           setSidebarView("history");
           void refreshGitStatus({ silent: true });
           break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           if (!requireTrustedWorkspace("Terminal")) break;
+          activateExtensionEvent("onCommand:axon.terminal.toggle");
+          activateExtensionEvent("onTerminalProfile:axon.terminal.default");
           setBottomPanelOpen(false);
           setTerminalOpen((prev: boolean) => !prev);
           appendOutput(
@@ -217,6 +284,8 @@ export function useAppCommandRunner({
           );
           break;
         case AXON_COMMANDS.OPEN_SETTINGS:
+          activateExtensionEvent("onCommand:axon.settings.open");
+          activateExtensionEvent("onView:axon.settings");
           setSettingsOpen(true);
           break;
         case AXON_COMMANDS.OPEN_EXTENSIONS:
@@ -224,6 +293,7 @@ export function useAppCommandRunner({
           setExtensionsOpen(true);
           break;
         case AXON_COMMANDS.OPEN_SETTINGS_JSON:
+          activateExtensionEvent("onCommand:axon.settings.openJson");
           void handleOpenSettingsJson();
           break;
         case AXON_COMMANDS.OPEN_UPDATE_NOTES:
@@ -233,6 +303,9 @@ export function useAppCommandRunner({
           break;
         case AXON_COMMANDS.ASK_AXON:
           if (!requireTrustedWorkspace("Ask Axon")) break;
+          activateExtensionEvent("onCommand:axon.agent.open");
+          activateExtensionEvent("onView:axon.agent");
+          activateExtensionEvent("onAgent:axon.agent.local");
           setAgentSidebarOpen(true);
           setAgentActionRequest({ action: "ask", nonce: Date.now() });
           break;
@@ -246,6 +319,9 @@ export function useAppCommandRunner({
           break;
         case AXON_COMMANDS.AI_FIX_PROBLEM:
           if (!requireTrustedWorkspace("Ask Axon")) break;
+          activateExtensionEvent("onCommand:axon.agent.fixProblems");
+          activateExtensionEvent("onView:axon.agent");
+          activateExtensionEvent("onAgent:axon.agent.local");
           setAgentSidebarOpen(true);
           setAgentActionRequest({ action: "fix-problem", nonce: Date.now() });
           break;
@@ -285,12 +361,15 @@ export function useAppCommandRunner({
           setZenMode((prev: boolean) => !prev);
           break;
         case AXON_COMMANDS.NEW_TERMINAL:
+          activateExtensionEvent("onCommand:axon.terminal.new");
+          activateExtensionEvent("onTerminalProfile:axon.terminal.default");
           handleNewTerminal();
           break;
       }
     },
     [
       activeFilePath,
+      activateExtensionEvent,
       appendOutput,
       clearOutputEntries,
       handleCloseActiveTab,

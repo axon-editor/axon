@@ -21,6 +21,11 @@ import {
   getExtensionHostKind,
   getExtensionLifecycle,
 } from "./activation";
+import {
+  activateStartupExtensions,
+  applyActivationState,
+  getExtensionActivationRecords,
+} from "./activationStore";
 import { createExtensionContributionRegistry } from "./contributionRegistry";
 import { findExtensionDirectories } from "./discovery";
 import { readDisabledExtensionIds } from "./enablement";
@@ -92,6 +97,8 @@ export function loadExtensionFromPath(
     themes,
     errors,
     active: enabled && errors.length === 0,
+    activatedEvents: [],
+    lastActivatedAt: null,
     activationReason: getExtensionActivationReason(manifest, enabled),
     hostKind: getExtensionHostKind(manifest),
     lifecycle: getExtensionLifecycle(enabled, errors),
@@ -119,6 +126,8 @@ function createInternalExtension(): ExtensionInfo {
     themes: [],
     errors: [],
     active: true,
+    activatedEvents: [],
+    lastActivatedAt: null,
     activationReason: "onStartup",
     hostKind: "declarative",
     lifecycle: "active",
@@ -148,12 +157,17 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
     ...workspaceExtensions,
     ...userExtensions,
   ].filter((extension): extension is ExtensionInfo => extension !== null);
-  const runtime = summarizeExtensionRuntime(extensions);
-  const contributionRegistry = createExtensionContributionRegistry(extensions);
+  activateStartupExtensions(extensions);
+  const activatedExtensions = extensions.map(applyActivationState);
+  const runtime = summarizeExtensionRuntime(activatedExtensions);
+  const contributionRegistry =
+    createExtensionContributionRegistry(activatedExtensions);
+  const activationRecords = getExtensionActivationRecords();
 
   return {
-    extensions,
+    extensions: activatedExtensions,
     contributionRegistry,
+    activationRecords,
     userExtensionsPath,
     workspaceExtensionsPath,
     hostStatus: {

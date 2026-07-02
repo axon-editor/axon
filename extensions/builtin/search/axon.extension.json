@@ -1,0 +1,32 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.search",
+  "name": "Search",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in workspace search surfaces and search command contributions.",
+  "author": "Axon",
+  "kind": "view",
+  "categories": ["Search"],
+  "activationEvents": [
+    "onStartup",
+    "onCommand:axon.search.openWorkspace",
+    "onView:axon.search.workspace"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.search.openWorkspace",
+        "title": "Search Workspace",
+        "category": "Search"
+      }
+    ],
+    "views": [
+      {
+        "id": "axon.search.workspace",
+        "title": "Workspace Search",
+        "location": "modal"
+      }
+    ]
+  }
+}

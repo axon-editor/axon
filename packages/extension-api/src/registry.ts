@@ -37,14 +37,25 @@ export interface ExtensionInfo {
   themes: ResolvedExtensionTheme[];
   errors: string[];
   active: boolean;
+  activatedEvents: string[];
+  lastActivatedAt: string | null;
   activationReason: string;
   hostKind: "declarative" | "isolated-process";
   lifecycle: "active" | "inactive" | "disabled" | "error";
 }
 
+export interface ExtensionActivationRecord {
+  extensionId: string;
+  event: string;
+  reason: string;
+  activatedAt: string;
+  hostKind: "declarative" | "isolated-process";
+}
+
 export interface ExtensionState {
   extensions: ExtensionInfo[];
   contributionRegistry: ExtensionContributionRegistry;
+  activationRecords: ExtensionActivationRecord[];
   userExtensionsPath: string;
   workspaceExtensionsPath: string | null;
   hostStatus: {

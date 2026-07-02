@@ -1,0 +1,38 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.settings",
+  "name": "Settings",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in settings UI, settings JSON entry points, and workbench configuration sections.",
+  "author": "Axon",
+  "kind": "view",
+  "categories": ["Settings"],
+  "activationEvents": [
+    "onStartup",
+    "onCommand:axon.settings.open",
+    "onCommand:axon.settings.openJson",
+    "onView:axon.settings"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.settings.open",
+        "title": "Open Settings",
+        "category": "Settings"
+      },
+      {
+        "id": "axon.settings.openJson",
+        "title": "Open Settings JSON",
+        "category": "Settings"
+      }
+    ],
+    "views": [
+      {
+        "id": "axon.settings",
+        "title": "Settings",
+        "location": "modal"
+      }
+    ]
+  }
+}

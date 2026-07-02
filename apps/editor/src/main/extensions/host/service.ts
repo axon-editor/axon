@@ -3,6 +3,7 @@ import { readDisabledExtensionIds, writeDisabledExtensionIds } from "./enablemen
 import { getExtensionMarketplaceState } from "./marketplace";
 import { installExtensionPackage } from "./install";
 import { getExtensionState } from "./state";
+import { activateExtensionsForEvent } from "./activationStore";
 
 export class ExtensionHostService {
   getState(folderPath?: string | null) {
@@ -21,6 +22,19 @@ export class ExtensionHostService {
     return {
       ok: true,
       message: "Reloaded extensions.",
+      state: this.getState(folderPath),
+    };
+  }
+
+  activate(event: string, folderPath?: string | null): ExtensionActionResult {
+    const state = this.getState(folderPath);
+    const activated = activateExtensionsForEvent(state.extensions, event);
+    return {
+      ok: true,
+      message:
+        activated.length > 0
+          ? `Activated ${activated.length} extension${activated.length === 1 ? "" : "s"} for ${event}.`
+          : `No extensions activated for ${event}.`,
       state: this.getState(folderPath),
     };
   }

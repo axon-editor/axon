@@ -7,7 +7,12 @@
   "description": "Built-in test discovery, run orchestration, and result surfaces.",
   "author": "Axon",
   "categories": ["Testing"],
-  "activationEvents": ["onStartup"],
+  "activationEvents": [
+    "onStartup",
+    "onCommand:axon.testing.open",
+    "onCommand:axon.testing.refresh",
+    "onView:axon.tests"
+  ],
   "contributes": {
     "commands": [
       {

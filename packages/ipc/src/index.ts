@@ -1,5 +1,6 @@
 export const EXTENSION_IPC_CHANNELS = {
   list: "extensions:list",
+  activate: "extensions:activate",
   setEnabled: "extensions:setEnabled",
   reload: "extensions:reload",
   marketplace: "extensions:marketplace",

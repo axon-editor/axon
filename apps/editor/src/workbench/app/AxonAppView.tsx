@@ -364,7 +364,7 @@ export function AxonAppView(props: Record<string, any>) {
                   onSplit={handleSplit}
                   onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
                   onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
-                  onExtensions={() => setExtensionsOpen(true)}
+                  onExtensions={() => runCommand(AXON_COMMANDS.OPEN_EXTENSIONS)}
                   onAbout={() => setAboutOpen(true)}
                   updateInfo={updateInfo}
                   updateInstallState={updateInstallState}
@@ -417,13 +417,12 @@ export function AxonAppView(props: Record<string, any>) {
               onClosePane={(paneId) =>
                 setLayout((prev: any) => closePane(prev, paneId))
               }
-              onOpenAgent={() => setAgentSidebarOpen(true)}
+              onOpenAgent={() => runCommand(AXON_COMMANDS.ASK_AXON)}
               onOpenTabInTerminal={handleOpenTabInTerminal}
               onOpenFile={handleFileSelect}
-              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
               onOpenTerminal={() => {
-                setBottomPanelOpen(false);
-                setTerminalOpen(true);
+                runCommand(AXON_COMMANDS.TOGGLE_TERMINAL);
               }}
               onSelectTheme={(themeId: ThemeId) => {
                 void handleSettingsSave(
@@ -536,7 +535,11 @@ export function AxonAppView(props: Record<string, any>) {
           }
           view={sidebarView}
           onViewChange={(nextView) => {
-            setSidebarView(nextView);
+            if (nextView === "history") {
+              runCommand(AXON_COMMANDS.OPEN_GIT_HISTORY);
+            } else {
+              setSidebarView(nextView);
+            }
             setSidebarCollapsed(false);
           }}
         />
@@ -570,7 +573,7 @@ export function AxonAppView(props: Record<string, any>) {
         }}
         onOpenTests={() => {
           setWorkspaceOverviewOpen(false);
-          setTestExplorerOpen(true);
+          runCommand(AXON_COMMANDS.OPEN_TEST_EXPLORER);
         }}
       />
 

@@ -18,6 +18,17 @@ export function registerExtensionHandlers() {
   );
 
   ipcMain.handle(
+    EXTENSION_IPC_CHANNELS.activate,
+    async (
+      _event,
+      activationEvent: string,
+      folderPath?: string | null,
+    ): Promise<ExtensionActionResult> => {
+      return extensionHostService.activate(activationEvent, folderPath);
+    },
+  );
+
+  ipcMain.handle(
     EXTENSION_IPC_CHANNELS.setEnabled,
     async (
       _event,
