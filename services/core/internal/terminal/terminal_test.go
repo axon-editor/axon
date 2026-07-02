@@ -85,3 +85,29 @@ func TestTerminalHighVolumeOutputIsDelivered(t *testing.T) {
 
 	_ = conn.WriteJSON(terminalControlMessage{Type: "terminate"})
 }
+
+func TestTerminalBroadcastDetachesAckLaggingClient(t *testing.T) {
+	client := &terminalClient{
+		send: make(chan []byte, 1),
+		done: make(chan struct{}),
+	}
+	session := &terminalSession{
+		id:         "ack-lag-test",
+		clients:    map[*terminalClient]bool{client: true},
+		totalBytes: terminalClientMaxAckLagBytes + 1,
+	}
+
+	session.broadcast([]byte("x"))
+
+	if len(session.clients) != 0 {
+		t.Fatalf("expected ack-lagging client to be detached, got %d clients", len(session.clients))
+	}
+	if len(session.replayProtections) != 1 {
+		t.Fatalf("expected detached client replay offset to be protected")
+	}
+	select {
+	case <-client.done:
+	default:
+		t.Fatalf("expected detached client to be closed")
+	}
+}

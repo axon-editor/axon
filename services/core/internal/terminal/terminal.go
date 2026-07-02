@@ -63,7 +63,8 @@ type terminalClient struct {
 const (
 	maxScrollbackBytes            = 96 << 20
 	terminalClientQueueSize       = 16384
-	terminalClientBackpressureLog = 3 * time.Second
+	terminalClientMaxAckLagBytes  = 48 << 20
+	terminalClientMaxPendingBytes = 24 << 20
 	terminalReplayProtectionTTL   = 5 * time.Minute
 	websocketPongWait             = 70 * time.Second
 	websocketPingEvery            = 25 * time.Second
@@ -241,49 +242,33 @@ func newTerminalClient(ws *websocket.Conn, acknowledgedOffset int64) *terminalCl
 func (client *terminalClient) enqueue(data []byte) bool {
 	// PTY output is read from a reusable buffer, so each websocket client gets
 	// its own copy before the next read mutates that backing array.
-	//
-	// The important detail is that Axon does not drop or forcibly detach a live
-	// client just because a long-running agent writes faster than xterm can
-	// paint. The older byte-cap path closed the websocket once pending output got
-	// large, which made reconnect/replay the normal pressure valve. That is risky
-	// for terminal integrity because replay cursors depend on renderer acks and a
-	// busy browser can be behind exactly when the backend decides to reconnect.
-	//
-	// Blocking here is intentional backpressure. If the renderer is alive, the
-	// writer goroutine drains the queue and this send continues. If the renderer
-	// is gone, ping/read failure closes client.done and this function returns.
-	// The shell may slow down while the PTY buffer fills, but slowing a process
-	// is safer than pretending bytes were delivered and losing agent output.
 	chunk := append([]byte(nil), data...)
 
 	client.mu.Lock()
+	if client.pendingBytes+int64(len(chunk)) > terminalClientMaxPendingBytes {
+		client.mu.Unlock()
+		log.Printf(
+			"terminal websocket client has %d pending bytes; detaching view for replay",
+			client.pendingBytes,
+		)
+		return false
+	}
 	client.pendingBytes += int64(len(chunk))
 	client.mu.Unlock()
 
 	select {
+	case client.send <- chunk:
+		return true
 	case <-client.done:
 		client.releasePendingBytes(len(chunk))
 		return false
 	default:
-	}
-	logTimer := time.NewTimer(terminalClientBackpressureLog)
-	defer logTimer.Stop()
-
-	for {
-		select {
-		case client.send <- chunk:
-			return true
-		case <-client.done:
-			client.releasePendingBytes(len(chunk))
-			return false
-		case <-logTimer.C:
-			log.Printf(
-				"terminal websocket client is %d bytes behind; applying PTY backpressure from acknowledged offset %d",
-				client.pendingBytes,
-				client.acknowledged(),
-			)
-			logTimer.Reset(terminalClientBackpressureLog)
-		}
+		client.releasePendingBytes(len(chunk))
+		log.Printf(
+			"terminal websocket client queue is full; detaching view from acknowledged offset %d",
+			client.acknowledged(),
+		)
+		return false
 	}
 }
 
@@ -319,7 +304,9 @@ func (client *terminalClient) acknowledged() int64 {
 func (client *terminalClient) close() {
 	client.closeOnce.Do(func() {
 		close(client.done)
-		_ = client.ws.Close()
+		if client.ws != nil {
+			_ = client.ws.Close()
+		}
 	})
 }
 
@@ -369,8 +356,8 @@ func (session *terminalSession) broadcast(data []byte) {
 	}
 	session.scrollback = append(session.scrollback, data...)
 	session.totalBytes += int64(len(data))
+	now := time.Now()
 	if len(session.scrollback) > maxScrollbackBytes {
-		now := time.Now()
 		session.dropExpiredReplayProtections(now)
 		trimTo := session.totalBytes - maxScrollbackBytes
 		for client := range session.clients {
@@ -401,10 +388,30 @@ func (session *terminalSession) broadcast(data []byte) {
 		}
 	}
 	clients := make([]*terminalClient, 0, len(session.clients))
+	detachedClients := make([]*terminalClient, 0)
 	for client := range session.clients {
+		acknowledged := client.acknowledged()
+		if session.totalBytes-acknowledged > terminalClientMaxAckLagBytes {
+			// The renderer acknowledges bytes only after xterm has finished its
+			// async write callback. A long-running agent can make the websocket
+			// writer look healthy while the terminal view is actually tens of MB
+			// behind. Keeping that client attached lets the browser keep falling
+			// behind until the user sees missing or frozen output. Detaching here
+			// protects the acknowledged replay cursor, lets the PTY reader keep
+			// draining into session scrollback, and lets the renderer reconnect
+			// from the last painted byte once its local xterm queue is settled.
+			session.protectReplayOffsetLocked(acknowledged, now)
+			delete(session.clients, client)
+			detachedClients = append(detachedClients, client)
+			continue
+		}
 		clients = append(clients, client)
 	}
 	session.mu.Unlock()
+
+	for _, client := range detachedClients {
+		client.close()
+	}
 
 	for _, client := range clients {
 		if !client.enqueue(data) {
