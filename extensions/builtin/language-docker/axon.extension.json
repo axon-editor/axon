@@ -1,0 +1,22 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-docker",
+  "name": "Docker",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in Dockerfile and Docker Compose language metadata and server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:dockerfile"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "dockerfile",
+        "label": "Dockerfile",
+        "extensions": [".dockerfile"],
+        "filenames": ["Dockerfile", ".dockerignore"],
+        "aliases": ["Dockerfile", "dockerfile", "docker"]
+      }
+    ]
+  }
+}

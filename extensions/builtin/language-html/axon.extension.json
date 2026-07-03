@@ -1,0 +1,21 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-html",
+  "name": "HTML",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in HTML language metadata and HTML language server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:html"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "html",
+        "label": "HTML",
+        "extensions": [".html", ".htm"],
+        "aliases": ["HTML", "html"]
+      }
+    ]
+  }
+}

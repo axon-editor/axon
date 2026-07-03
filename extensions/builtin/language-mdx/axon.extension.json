@@ -1,0 +1,21 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-mdx",
+  "name": "MDX",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in MDX language metadata and MDX language server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:mdx"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "mdx",
+        "label": "MDX",
+        "extensions": [".mdx"],
+        "aliases": ["MDX", "mdx"]
+      }
+    ]
+  }
+}

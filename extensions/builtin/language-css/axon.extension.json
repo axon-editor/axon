@@ -1,0 +1,33 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-css",
+  "name": "CSS, SCSS, and Less",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in CSS, SCSS, and Less language metadata and CSS language server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:css", "onLanguage:scss", "onLanguage:less"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "css",
+        "label": "CSS",
+        "extensions": [".css"],
+        "aliases": ["CSS", "css"]
+      },
+      {
+        "id": "scss",
+        "label": "SCSS",
+        "extensions": [".scss", ".sass"],
+        "aliases": ["SCSS", "scss", "sass"]
+      },
+      {
+        "id": "less",
+        "label": "Less",
+        "extensions": [".less"],
+        "aliases": ["Less", "less"]
+      }
+    ]
+  }
+}

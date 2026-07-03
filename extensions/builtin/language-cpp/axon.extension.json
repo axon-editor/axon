@@ -1,0 +1,27 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-cpp",
+  "name": "C and C++",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in C and C++ language metadata and clangd server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:c", "onLanguage:cpp"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "c",
+        "label": "C",
+        "extensions": [".c", ".h"],
+        "aliases": ["C", "c"]
+      },
+      {
+        "id": "cpp",
+        "label": "C++",
+        "extensions": [".cc", ".cpp", ".cxx", ".hpp", ".hh", ".hxx"],
+        "aliases": ["C++", "cpp", "c++"]
+      }
+    ]
+  }
+}

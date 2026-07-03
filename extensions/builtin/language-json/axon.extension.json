@@ -1,0 +1,27 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-json",
+  "name": "JSON",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in JSON and JSONC language metadata and JSON language server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:json"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "json",
+        "label": "JSON",
+        "extensions": [".json"],
+        "aliases": ["JSON", "json"]
+      },
+      {
+        "id": "jsonc",
+        "label": "JSON with Comments",
+        "extensions": [".jsonc"],
+        "aliases": ["JSONC", "jsonc"]
+      }
+    ]
+  }
+}

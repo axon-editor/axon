@@ -1,0 +1,22 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-bash",
+  "name": "Bash",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in shell script language metadata and Bash language server ownership.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:shell"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "shell",
+        "label": "Shell Script",
+        "extensions": [".sh", ".bash", ".zsh"],
+        "filenames": [".bashrc", ".bash_profile", ".zshrc"],
+        "aliases": ["Shell Script", "shell", "bash", "sh"]
+      }
+    ]
+  }
+}
