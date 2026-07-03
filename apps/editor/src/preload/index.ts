@@ -51,6 +51,7 @@ import {
   type TestFinishedEvent,
   type TestOutputEvent,
   type TestRunResult,
+  type TestStopResult,
 } from "../shared/tests";
 import {
   type LanguageServerCodeActionRequest,
@@ -295,6 +296,7 @@ contextBridge.exposeInMainWorld("axon", {
     targetId?: string | null,
   ): Promise<TestRunResult> =>
     ipcRenderer.invoke("tests:run", folderPath, providerId, targetId),
+  stopTests: (): Promise<TestStopResult> => ipcRenderer.invoke("tests:stopAll"),
   getGitDiff: (
     folderPath: string,
     filePath: string,

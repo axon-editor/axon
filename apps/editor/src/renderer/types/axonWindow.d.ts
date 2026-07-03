@@ -77,6 +77,7 @@ import type {
   TestFinishedEvent,
   TestOutputEvent,
   TestRunResult,
+  TestStopResult,
 } from "../../shared/tests";
 import type {
   UpdateActionResult,
@@ -214,6 +215,7 @@ declare global {
         providerId: string,
         targetId?: string | null,
       ) => Promise<TestRunResult>;
+      stopTests: () => Promise<TestStopResult>;
       getGitStatus: (folderPath: string) => Promise<GitStatusResult>;
       getGitDiff: (
         folderPath: string,

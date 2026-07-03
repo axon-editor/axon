@@ -5,6 +5,7 @@ import {
   AlertCircle,
   FileCode,
   Files,
+  FlaskConical,
   GitBranch,
   ListChecks,
   Music4,
@@ -41,6 +42,7 @@ interface Props {
   onToggleAgentSidebar: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
   onOpenSourceControl: () => void;
+  onOpenTests: () => void;
   onViewChange: (view: view) => void;
   view: view;
 }
@@ -68,6 +70,7 @@ export default function StatusBar({
   onToggleAgentSidebar,
   onOpenBottomPanel,
   onOpenSourceControl,
+  onOpenTests,
   onViewChange,
   view,
 }: Props) {
@@ -234,6 +237,16 @@ export default function StatusBar({
                 ${bottomPanelOpen && bottomPanelTab === "output" ? "text-[#54d6b5]" : "text-[#586478] hover:text-[#54d6b5]"}`}
               >
                 <ListChecks size={13} />
+              </button>
+            </Tooltip>
+
+            <Tooltip label="Test Explorer" side="top">
+              <button
+                onClick={onOpenTests}
+                aria-label="Test Explorer"
+                className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#54d6b5]"
+              >
+                <FlaskConical size={13} />
               </button>
             </Tooltip>
 

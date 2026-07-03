@@ -4,6 +4,7 @@ import { type TestManager } from "./tests";
 import {
   type TestDiscoveryResult,
   type TestRunResult,
+  type TestStopResult,
 } from "../../shared/tests";
 
 export function registerTestHandlers(testManager: TestManager) {
@@ -44,4 +45,8 @@ export function registerTestHandlers(testManager: TestManager) {
       return testManager.run(folderPath, providerId, targetId);
     },
   );
+
+  ipcMain.handle("tests:stopAll", async (): Promise<TestStopResult> => {
+    return testManager.stopAll();
+  });
 }

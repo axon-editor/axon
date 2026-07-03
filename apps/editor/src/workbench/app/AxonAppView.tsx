@@ -556,6 +556,7 @@ export function AxonAppView(props: Record<string, any>) {
           onOpenSourceControl={() =>
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
+          onOpenTests={() => runCommand(AXON_COMMANDS.OPEN_TEST_EXPLORER)}
           view={sidebarView}
           onViewChange={(nextView) => {
             if (nextView === "history") {
