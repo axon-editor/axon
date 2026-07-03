@@ -87,6 +87,7 @@ import {
 } from "../shared/htmlPreview";
 import {
   type ExtensionActionResult,
+  type ExtensionCommandExecutionResult,
   type ExtensionMarketplaceState,
   type ExtensionState,
 } from "../shared/extensions";
@@ -110,6 +111,7 @@ const EXTENSION_IPC_CHANNELS = {
   install: "extensions:install",
   installTheme: "extensions:installTheme",
   openFolder: "extensions:openFolder",
+  executeCommand: "extensions:executeCommand",
 } as const;
 
 contextBridge.exposeInMainWorld("axon", {
@@ -365,6 +367,17 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke(
       EXTENSION_IPC_CHANNELS.activate,
       activationEvent,
+      folderPath,
+    ),
+  executeExtensionCommand: (
+    commandId: string,
+    args?: unknown[],
+    folderPath?: string | null,
+  ): Promise<ExtensionCommandExecutionResult> =>
+    ipcRenderer.invoke(
+      EXTENSION_IPC_CHANNELS.executeCommand,
+      commandId,
+      args ?? [],
       folderPath,
     ),
   setExtensionEnabled: (

@@ -2,6 +2,7 @@ import {
   type ExtensionInfo,
   type ExtensionRuntimeRegistration,
 } from "@axon/extension-api";
+import { getRuntimeDiagnostics } from "./runtimeHost";
 
 export interface ExtensionRuntimeSummary {
   executableCount: number;
@@ -42,12 +43,26 @@ export function createExtensionRuntimeRegistrations(
   return extensions
     .filter((extension) => extension.enabled)
     .map((extension) => {
+      const runtimeDiagnostics = getRuntimeDiagnostics(extension);
       const contributes = extension.contributes;
-      const commandIds = contributes.commands.map((command) => command.id);
-      const viewIds = contributes.views.map((view) => view.id);
-      const terminalProfileIds = contributes.terminalProfiles.map(
-        (profile) => profile.id,
-      );
+      const commandIds = [
+        ...new Set([
+          ...contributes.commands.map((command) => command.id),
+          ...runtimeDiagnostics.commands,
+        ]),
+      ];
+      const viewIds = [
+        ...new Set([
+          ...contributes.views.map((view) => view.id),
+          ...runtimeDiagnostics.views,
+        ]),
+      ];
+      const terminalProfileIds = [
+        ...new Set([
+          ...contributes.terminalProfiles.map((profile) => profile.id),
+          ...runtimeDiagnostics.terminalProfiles,
+        ]),
+      ];
       const agentIds = contributes.agents.map((agent) => agent.id);
       const contributionCount =
         commandIds.length +
@@ -70,14 +85,20 @@ export function createExtensionRuntimeRegistrations(
         activatedEvents: extension.activatedEvents,
         lastActivatedAt: extension.lastActivatedAt,
         status:
-          extension.errors.length > 0
+          extension.errors.length > 0 || runtimeDiagnostics.errors.length > 0
             ? "error"
+            : runtimeDiagnostics.activated
+              ? "registered"
             : extension.hostKind === "isolated-process" &&
                 extension.activatedEvents.length === 0
               ? "waiting"
               : "registered",
         message:
           extension.errors[0] ??
+          runtimeDiagnostics.errors[0] ??
+          (runtimeDiagnostics.activated
+            ? `Runtime activated with ${runtimeDiagnostics.commands.length} command${runtimeDiagnostics.commands.length === 1 ? "" : "s"}.`
+            : undefined) ??
           (contributionCount > 0
             ? `${contributionCount} runtime contribution${contributionCount === 1 ? "" : "s"} registered.`
             : "No runtime contributions declared."),

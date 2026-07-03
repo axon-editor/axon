@@ -3,6 +3,7 @@ import { ipcMain, shell } from "electron";
 import { EXTENSION_IPC_CHANNELS } from "@axon/ipc";
 import {
   type ExtensionActionResult,
+  type ExtensionCommandExecutionResult,
   type ExtensionMarketplaceState,
   type ExtensionState,
 } from "../../shared/extensions";
@@ -25,6 +26,18 @@ export function registerExtensionHandlers() {
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
       return extensionHostService.activate(activationEvent, folderPath);
+    },
+  );
+
+  ipcMain.handle(
+    EXTENSION_IPC_CHANNELS.executeCommand,
+    async (
+      _event,
+      commandId: string,
+      args: unknown[] = [],
+      folderPath?: string | null,
+    ): Promise<ExtensionCommandExecutionResult> => {
+      return extensionHostService.executeCommand(commandId, args, folderPath);
     },
   );
 

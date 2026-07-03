@@ -39,6 +39,7 @@ import {
   createExtensionRuntimeRegistrations,
   summarizeExtensionRuntime,
 } from "./runtime";
+import { getRuntimeDiagnostics } from "./runtimeHost";
 import {
   markExtensionHostTiming,
   startExtensionHostTiming,
@@ -96,6 +97,7 @@ export function loadExtensionFromPath(
     kind: inferExtensionKind(manifest, contributes),
     source,
     path: extensionPath,
+    main: manifest.main ?? null,
     enabled,
     builtin: source === "internal",
     categories: manifest.categories ?? [],
@@ -125,6 +127,7 @@ function createInternalExtension(): ExtensionInfo {
     kind: "mixed",
     source: "internal",
     path: "app://axon/builtin",
+    main: null,
     enabled: true,
     builtin: true,
     categories: ["Themes", "Icons", "Languages", "Snippets"],
@@ -189,7 +192,28 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
     ...userExtensions,
   ].filter((extension): extension is ExtensionInfo => extension !== null);
   activateStartupExtensions(extensions);
-  const activatedExtensions = extensions.map(applyActivationState);
+  const activatedExtensions = extensions.map((extension) => {
+    const activatedExtension = applyActivationState(extension);
+    const runtimeDiagnostics = getRuntimeDiagnostics(activatedExtension);
+    const runtimeErrors = runtimeDiagnostics.errors.filter(
+      (error) => !activatedExtension.errors.includes(error),
+    );
+
+    if (runtimeErrors.length === 0 && !runtimeDiagnostics.activatedAt) {
+      return activatedExtension;
+    }
+
+    return {
+      ...activatedExtension,
+      errors: [...activatedExtension.errors, ...runtimeErrors],
+      lastActivatedAt:
+        runtimeDiagnostics.activatedAt ?? activatedExtension.lastActivatedAt,
+      lifecycle:
+        runtimeErrors.length > 0
+          ? "error"
+          : activatedExtension.lifecycle,
+    } satisfies ExtensionInfo;
+  });
   const runtime = summarizeExtensionRuntime(activatedExtensions);
   const runtimeRegistrations =
     createExtensionRuntimeRegistrations(activatedExtensions);

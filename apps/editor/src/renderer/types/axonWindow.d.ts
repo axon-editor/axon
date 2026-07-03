@@ -7,6 +7,7 @@ import type {
 import type { EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import type {
   ExtensionActionResult,
+  ExtensionCommandExecutionResult,
   ExtensionMarketplaceState,
   ExtensionState,
 } from "../../shared/extensions";
@@ -267,6 +268,11 @@ declare global {
         activationEvent: string,
         folderPath?: string | null,
       ) => Promise<ExtensionActionResult>;
+      executeExtensionCommand: (
+        commandId: string,
+        args?: unknown[],
+        folderPath?: string | null,
+      ) => Promise<ExtensionCommandExecutionResult>;
       setExtensionEnabled: (
         extensionId: string,
         enabled: boolean,

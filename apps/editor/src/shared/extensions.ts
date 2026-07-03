@@ -6,6 +6,7 @@ import {
   type ExtensionActionResult as ApiExtensionActionResult,
   type ExtensionAgentContribution,
   type ExtensionAuthor,
+  type ExtensionCommandExecutionResult as ApiExtensionCommandExecutionResult,
   type ExtensionCommandContribution,
   type ExtensionContributions,
   type ExtensionContributionRecord,
@@ -86,5 +87,10 @@ export interface ExtensionState extends Omit<ApiExtensionState, "extensions"> {
 
 export interface ExtensionActionResult
   extends Omit<ApiExtensionActionResult, "state"> {
+  state: ExtensionState;
+}
+
+export interface ExtensionCommandExecutionResult
+  extends Omit<ApiExtensionCommandExecutionResult, "state"> {
   state: ExtensionState;
 }

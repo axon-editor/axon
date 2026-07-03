@@ -143,7 +143,32 @@ export function useAppCommandRunner({
         if (!requireTrustedWorkspace("Extension commands")) return;
 
         const commandId = command.slice("extension:".length);
-        activateExtensionEvent(`onCommand:${commandId}`, true);
+        void window.axon
+          .activateExtensionEvent(`onCommand:${commandId}`, folderPath)
+          .then((activationResult) => {
+            setExtensionState(activationResult.state);
+            appendOutput(
+              "extensions",
+              activationResult.message,
+              activationResult.ok ? "info" : "warning",
+            );
+            return window.axon.executeExtensionCommand(commandId, [], folderPath);
+          })
+          .then((result) => {
+            setExtensionState(result.state);
+            if (result.ok) return;
+            if (CONTRIBUTED_COMMAND_ALIASES[commandId]) return;
+            appendOutput("extensions", result.message, "warning");
+          })
+          .catch((err) => {
+            appendOutput(
+              "extensions",
+              `Failed to execute '${commandId}': ${
+                err instanceof Error ? err.message : "unknown extension host error"
+              }`,
+              "error",
+            );
+          });
         const aliasedCommand = CONTRIBUTED_COMMAND_ALIASES[commandId];
         if (!aliasedCommand) return;
 

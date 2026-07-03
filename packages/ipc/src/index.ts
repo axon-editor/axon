@@ -8,6 +8,7 @@ export const EXTENSION_IPC_CHANNELS = {
   install: "extensions:install",
   installTheme: "extensions:installTheme",
   openFolder: "extensions:openFolder",
+  executeCommand: "extensions:executeCommand",
 } as const;
 
 export type ExtensionIpcChannel =

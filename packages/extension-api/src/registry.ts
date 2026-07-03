@@ -29,6 +29,7 @@ export interface ExtensionInfo {
   kind: ExtensionKind;
   source: ExtensionSource;
   path: string;
+  main: string | null;
   enabled: boolean;
   builtin: boolean;
   categories: string[];
@@ -127,6 +128,13 @@ export interface ExtensionContributionRegistry {
 export interface ExtensionActionResult {
   ok: boolean;
   message: string;
+  state: ExtensionState;
+}
+
+export interface ExtensionCommandExecutionResult {
+  ok: boolean;
+  message: string;
+  result?: unknown;
   state: ExtensionState;
 }
 

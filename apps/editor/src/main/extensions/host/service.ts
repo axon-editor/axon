@@ -1,9 +1,16 @@
-import { type ExtensionActionResult } from "@axon/extension-api";
+import {
+  type ExtensionActionResult,
+  type ExtensionCommandExecutionResult,
+} from "@axon/extension-api";
 import { readDisabledExtensionIds, writeDisabledExtensionIds } from "./enablement";
 import { getExtensionMarketplaceState } from "./marketplace";
 import { installExtensionPackage } from "./install";
 import { getExtensionState } from "./state";
 import { activateExtensionsForEvent } from "./activationStore";
+import {
+  activateRuntimeExtension,
+  executeRuntimeCommand,
+} from "./runtimeHost";
 
 export class ExtensionHostService {
   getState(folderPath?: string | null) {
@@ -26,17 +33,65 @@ export class ExtensionHostService {
     };
   }
 
-  activate(event: string, folderPath?: string | null): ExtensionActionResult {
+  async activate(
+    event: string,
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> {
     const state = this.getState(folderPath);
     const activated = activateExtensionsForEvent(state.extensions, event);
+    const runtimeErrors: string[] = [];
+
+    for (const record of activated) {
+      const extension = state.extensions.find(
+        (candidate) => candidate.id === record.extensionId,
+      );
+      if (!extension) continue;
+      try {
+        await activateRuntimeExtension(extension, folderPath);
+      } catch (err) {
+        runtimeErrors.push(
+          `${extension.name}: ${
+            err instanceof Error ? err.message : "activation failed"
+          }`,
+        );
+      }
+    }
+
     return {
-      ok: true,
+      ok: runtimeErrors.length === 0,
       message:
-        activated.length > 0
+        runtimeErrors.length > 0
+          ? runtimeErrors.join("\n")
+          : activated.length > 0
           ? `Activated ${activated.length} extension${activated.length === 1 ? "" : "s"} for ${event}.`
           : `No extensions activated for ${event}.`,
       state: this.getState(folderPath),
     };
+  }
+
+  async executeCommand(
+    commandId: string,
+    args: unknown[],
+    folderPath?: string | null,
+  ): Promise<ExtensionCommandExecutionResult> {
+    try {
+      const result = await executeRuntimeCommand(commandId, args);
+      return {
+        ok: true,
+        message: `Executed ${commandId}.`,
+        result,
+        state: this.getState(folderPath),
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        message:
+          err instanceof Error
+            ? err.message
+            : `Failed to execute ${commandId}.`,
+        state: this.getState(folderPath),
+      };
+    }
   }
 
   setEnabled(
