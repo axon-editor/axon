@@ -1,6 +1,6 @@
 import { openFileInPane, splitPane } from "../../../renderer/features/editor/lib/layoutManager";
 import type { SplitDirection } from "../../../renderer/features/editor/lib/types";
-import { createHtmlPreviewTabPath } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
+import { createHtmlPreviewTabPath } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import type { WorkspaceSearchResult } from "../../../renderer/shared/lib/api";
 
 interface EditorSurfaceHandlersOptions {

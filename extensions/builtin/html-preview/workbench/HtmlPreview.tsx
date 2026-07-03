@@ -10,8 +10,8 @@ import {
 import {
   type HtmlPreviewConsoleEvent,
   type HtmlPreviewTarget,
-} from "../../../shared/htmlPreview";
-import Tooltip from "../../shared/components/Tooltip";
+} from "@axon-editor/shared/htmlPreview";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
   filePath: string;

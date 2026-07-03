@@ -1,5 +1,5 @@
 import { AXON_COMMANDS } from "../../../shared/commands";
-import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
+import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import { type CommandPaletteCommand } from "@axon-builtin-search/CommandPalette";
 import {
   type ExtensionCommandContribution,

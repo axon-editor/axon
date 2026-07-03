@@ -21,6 +21,7 @@ export const BUILTIN_CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = 
   "axon.git.openHistory": AXON_COMMANDS.OPEN_GIT_HISTORY,
   "axon.git.openSourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
   "axon.git.refresh": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
+  "axon.preview.openHtml": AXON_COMMANDS.OPEN_HTML_PREVIEW,
   "axon.problems.open": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
   "axon.problems.refresh": AXON_COMMANDS.REFRESH_DIAGNOSTICS,
   "axon.search.openWorkspace": AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
@@ -65,6 +66,10 @@ export const BUILTIN_WORKBENCH_CONTRIBUTIONS = {
     extensionId: "axon.search",
     views: [{ id: "axon.search.workspace", location: "modal" }],
     commands: ["axon.search.openWorkspace"],
+  },
+  htmlPreview: {
+    extensionId: "axon.htmlPreview",
+    commands: ["axon.preview.openHtml"],
   },
   settings: {
     extensionId: "axon.settings",

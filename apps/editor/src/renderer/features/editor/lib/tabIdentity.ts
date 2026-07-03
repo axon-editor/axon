@@ -1,7 +1,7 @@
 import {
   getHtmlPreviewFilePath,
   isHtmlPreviewTabPath,
-} from "../../preview/lib/htmlPreviewTabs";
+} from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import {
   getMarkdownPreviewFilePath,
   isMarkdownPreviewTabPath,

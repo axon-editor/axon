@@ -31,6 +31,9 @@
       "@axon-builtin-markdown/*": [
         "../../extensions/builtin/markdown/workbench/*"
       ],
+      "@axon-builtin-html-preview/*": [
+        "../../extensions/builtin/html-preview/workbench/*"
+      ],
       "@axon-builtin-settings/*": [
         "../../extensions/builtin/settings/workbench/*"
       ],
@@ -80,6 +83,7 @@
     "../../extensions/builtin/agent/workbench/**/*",
     "../../extensions/builtin/search/workbench/**/*",
     "../../extensions/builtin/markdown/workbench/**/*",
+    "../../extensions/builtin/html-preview/workbench/**/*",
     "../../extensions/builtin/settings/workbench/**/*",
     "../../extensions/builtin/git/workbench/**/*",
     "../../extensions/builtin/testing/workbench/**/*",

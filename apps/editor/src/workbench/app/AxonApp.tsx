@@ -151,6 +151,7 @@ export default function App({ initialExtensionState }: AppProps) {
   const allowSessionPersistenceRef = useRef(true);
   const folderRefreshTimerRef = useRef<number | null>(null);
   const folderRefreshRequestRef = useRef(0);
+  const lastSlowGitRefreshOutputRef = useRef(0);
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
@@ -276,8 +277,25 @@ export default function App({ initialExtensionState }: AppProps) {
         return;
       }
       try {
+        const refreshStartedAt = performance.now();
         const nextStatus = await window.axon.getGitStatus(folderPath);
+        const refreshDurationMs = Math.round(performance.now() - refreshStartedAt);
         setGitStatus(nextStatus);
+        if (
+          refreshDurationMs > 1200 &&
+          Date.now() - lastSlowGitRefreshOutputRef.current > 10000
+        ) {
+          // Git refreshes often come from file-system watcher events while the
+          // user is saving, switching roots, or staging files. I only surface
+          // slow refreshes and throttle the warning so Output gives us a stale
+          // watcher signal without flooding normal background refresh traffic.
+          lastSlowGitRefreshOutputRef.current = Date.now();
+          appendOutput(
+            "git",
+            `Git status refresh took ${refreshDurationMs}ms. Watcher updates may be catching up.`,
+            "warning",
+          );
+        }
         if (!options?.silent) {
           appendOutput(
             "git",

@@ -1,0 +1,19 @@
+{
+  "id": "axon.htmlPreview",
+  "name": "HTML Preview",
+  "description": "Live HTML previews with device presets, reload controls, browser handoff, and console capture.",
+  "version": "0.1.0",
+  "publisher": "Axon",
+  "kind": "builtin",
+  "category": "Preview",
+  "activationEvents": ["onCommand:axon.preview.openHtml", "onLanguage:html"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.preview.openHtml",
+        "title": "Open HTML Preview",
+        "category": "Preview"
+      }
+    ]
+  }
+}

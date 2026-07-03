@@ -5,7 +5,7 @@ import { type Layout, type Pane, type SplitDirection } from "./types";
 import {
   createHtmlPreviewTabPath,
   isHtmlPreviewTabPath,
-} from "../../preview/lib/htmlPreviewTabs";
+} from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import {
   createMarkdownPreviewTabPath,
   isMarkdownPreviewTabPath,

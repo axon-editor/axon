@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { AXON_COMMANDS, type AxonCommand } from "../../../shared/commands";
-import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
+import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import { parseExtensionViewCommandId } from "../../contrib/extensions/lib/extensionViews";
 import {
   getBuiltinCommandAlias,

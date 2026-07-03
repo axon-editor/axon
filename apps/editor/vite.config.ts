@@ -51,6 +51,15 @@ export default defineConfig({
         "markdown",
         "workbench",
       ),
+      "@axon-builtin-html-preview": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "html-preview",
+        "workbench",
+      ),
       "@axon-builtin-settings": path.resolve(
         __dirname,
         "..",

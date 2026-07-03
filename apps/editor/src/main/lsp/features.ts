@@ -630,7 +630,11 @@ function normalizeDocumentLanguageId(filePath: string, languageId: string) {
 export async function syncDocumentWithLanguageServer(
   request: LanguageServerDocumentSyncRequest,
 ) {
-  const serverIds = resolveDocumentSyncServerIds(request.languageId);
+  const normalizedLanguageId = normalizeDocumentLanguageId(
+    request.filePath,
+    request.languageId,
+  );
+  const serverIds = resolveDocumentSyncServerIds(normalizedLanguageId);
   if (serverIds.length === 0) return;
 
   for (const serverId of serverIds) {
@@ -639,7 +643,16 @@ export async function syncDocumentWithLanguageServer(
     );
     if (!session?.initialized) continue;
 
-    syncLanguageServerDocument(session, request);
+    // Session selection and didOpen must use the same protocol language id.
+    // If a caller sends Monaco's stale "typescript" for a .tsx file, the old
+    // flow would sync the text to TypeScript but skip Tailwind and other
+    // JSX-aware companions because server selection happened before extension
+    // normalization. Passing the normalized value through keeps server routing
+    // and document parser mode in lockstep.
+    syncLanguageServerDocument(session, {
+      ...request,
+      languageId: normalizedLanguageId,
+    });
   }
 }
 

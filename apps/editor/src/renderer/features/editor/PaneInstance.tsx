@@ -20,7 +20,7 @@ import TabBar, { getPaneDropId, type PaneDropData } from "./TabBar";
 import {
   getHtmlPreviewFilePath,
   isHtmlPreviewTabPath,
-} from "../preview/lib/htmlPreviewTabs";
+} from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import {
   createMarkdownPreviewTabPath,
   getMarkdownPreviewFilePath,
@@ -28,7 +28,7 @@ import {
 } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import { isWelcomeTabPath } from "../onboarding/lib/welcomeTab";
 import MediaPreview, { isMediaFile } from "../preview/MediaPreview";
-import HtmlPreview from "../preview/HtmlPreview";
+import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import SingleEditor from "./SingleEditor";
 import EmptyPane from "./EmptyPane";

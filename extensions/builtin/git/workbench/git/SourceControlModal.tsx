@@ -27,6 +27,15 @@ import MediaPreview, {
 import GitDiffEditorView from "./GitDiffEditorView";
 import GitWorkflowPanel from "./GitWorkflowPanel";
 import GitGraphPanel from "./advanced/GitGraphPanel";
+import {
+  commitSourceControlChanges,
+  copyGitText,
+  loadSourceControlDiff,
+  loadSourceControlStatus,
+  runSourceControlAction,
+  runSourceControlBatchAction,
+  type GitMutationAction,
+} from "./lib/sourceControlApi";
 
 interface Props {
   folderPath: string | null;
@@ -137,7 +146,7 @@ export default function SourceControlModal({
 
     setLoadingStatus(true);
     try {
-      const nextStatus = await window.axon.getGitStatus(folderPath);
+      const nextStatus = await loadSourceControlStatus(folderPath);
       setStatus(nextStatus);
       setSelectedChange((currentChange) => {
         if (!currentChange) return nextStatus.changes[0] ?? null;
@@ -165,7 +174,7 @@ export default function SourceControlModal({
 
   const runAction = async (
     change: GitChange,
-    action: "stage" | "unstage" | "discard",
+    action: GitMutationAction,
   ) => {
     if (!folderPath) return;
     // Discard is destructive, so the renderer confirms before it asks the main
@@ -184,11 +193,7 @@ export default function SourceControlModal({
     const actionId = `${action}:${change.path}`;
     setRunningAction(actionId);
     try {
-      const result = await window.axon.runGitAction(
-        folderPath,
-        change.path,
-        action,
-      );
+      const result = await runSourceControlAction(folderPath, change, action);
       onOutput(result.message, result.ok ? "success" : "error");
       await loadStatus();
       onGitStatusChanged();
@@ -202,7 +207,7 @@ export default function SourceControlModal({
 
   const runBatchAction = async (
     changes: GitChange[],
-    action: "stage" | "unstage" | "discard",
+    action: GitMutationAction,
   ) => {
     if (!folderPath || changes.length === 0) return;
     if (
@@ -216,18 +221,11 @@ export default function SourceControlModal({
 
     setRunningAction(`${action}:all`);
     try {
-      // Batch actions deliberately reuse the single-file IPC instead of adding
-      // a broad "git add ." command. That keeps every mutation path-scoped,
-      // which is slower for many files but safer for an editor UI where users
-      // expect exactly the visible files to be affected.
-      const actionableChanges = changes.filter((change) => {
-        if (action === "stage") return change.unstaged;
-        if (action === "unstage") return change.staged;
-        return change.unstaged;
-      });
-      for (const change of actionableChanges) {
-        await window.axon.runGitAction(folderPath, change.path, action);
-      }
+      const actionableChanges = await runSourceControlBatchAction(
+        folderPath,
+        changes,
+        action,
+      );
       onOutput(
         `${action === "stage" ? "Staged" : action === "unstage" ? "Unstaged" : "Discarded"} ${actionableChanges.length} file${actionableChanges.length === 1 ? "" : "s"}.`,
         "success",
@@ -246,10 +244,7 @@ export default function SourceControlModal({
     if (!folderPath) return;
     setCommitting(true);
     try {
-      const result = await window.axon.commitGitChanges(
-        folderPath,
-        commitMessage,
-      );
+      const result = await commitSourceControlChanges(folderPath, commitMessage);
       onOutput(result.message, result.ok ? "success" : "error");
       if (result.ok) {
         setCommitMessage("");
@@ -297,7 +292,7 @@ export default function SourceControlModal({
     ].join("\n");
 
     try {
-      await window.axon.copyText(context);
+      await copyGitText(context);
       markCopied("selected");
       onOutput(`Copied diff context for ${selectedChange.path}.`, "success");
     } catch (err) {
@@ -315,12 +310,7 @@ export default function SourceControlModal({
     try {
       const sections = await Promise.all(
         status.changes.map(async (change) => {
-          const result = await window.axon.getGitDiff(
-            folderPath,
-            change.path,
-            change.staged,
-            change.indexState === "untracked",
-          );
+          const result = await loadSourceControlDiff(folderPath, change);
 
           return [
             `File: ${change.path}`,
@@ -333,7 +323,7 @@ export default function SourceControlModal({
         }),
       );
 
-      await window.axon.copyText(
+      await copyGitText(
         [
           "Axon Workspace Git Context",
           `Branch: ${status.branch ?? "unknown"}`,
@@ -377,13 +367,7 @@ export default function SourceControlModal({
     }
 
     setLoadingDiff(true);
-    window.axon
-      .getGitDiff(
-        folderPath,
-        selectedChange.path,
-        selectedChange.staged,
-        selectedChange.indexState === "untracked",
-      )
+    loadSourceControlDiff(folderPath, selectedChange)
       .then(setDiff)
       .catch((err) => {
         console.error("failed to load git diff:", err);

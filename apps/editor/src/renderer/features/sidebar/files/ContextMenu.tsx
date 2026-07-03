@@ -19,7 +19,7 @@ import {
   deleteEntry,
   renameEntry,
 } from "../../../shared/lib/api";
-import { isHtmlFile } from "../../preview/lib/htmlPreviewTabs";
+import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import { type InlineCreateKind } from "./InlineCreateRow";
 
 interface Props {
