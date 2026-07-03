@@ -276,3 +276,42 @@ the replay cursor for bytes the visible terminal has not actually painted yet.
 The terminal workbench owns display and input buffering; `services/core` owns
 PTY lifetime, scrollback, replay windows, and client detachment when a view
 falls too far behind.
+
+## Built-In Contribution Routing
+
+Built-in workbench features now resolve through a shared contribution contract
+before the React shell mounts them:
+
+- `apps/editor/src/workbench/contrib/extensions/lib/builtinWorkbenchContributions.ts`
+  owns the required view and command declarations for first-party workbench
+  surfaces.
+- Search, Settings, Git, Terminal, Agent, and Testing use manifest contribution
+  records instead of each feature re-parsing the extension registry in its own
+  shape.
+- Command palette entries still expose contributed command ids, but the
+  workbench alias layer maps known built-in commands and views to the current
+  React surfaces while the executable extension host continues to mature.
+- The Test Explorer is now gated by the Testing extension contribution just like
+  Search, Settings, Git, Terminal, and Agent.
+
+This keeps built-ins on the same activation path as future installable
+extensions. If a built-in manifest is missing, disabled, or invalid, the
+workbench should stop mounting that surface instead of silently importing it.
+
+## Diagnostics And Observability
+
+Axon now has diagnostics at three levels:
+
+- Extension-host discovery and activation timing can be emitted from the main
+  process with structured phase names.
+- Renderer command activation records slow activation calls in the Output panel
+  so a sluggish contributed view or command is visible without flooding normal
+  logs.
+- Terminal tabs expose session health in their tooltip: received bytes,
+  acknowledged bytes, pending bytes, queued bytes, peak queue size, drained
+  chunks, reconnect count, and the last websocket close code.
+
+Build scripts now print phase-specific failure summaries for shared package and
+core binary builds. The goal is that CI and local release failures point at the
+failing layer first, then leave the original tool output intact for the detailed
+cause.

@@ -24,6 +24,10 @@ export interface TerminalSession {
   queuedBytes: number;
   maxQueuedBytes: number;
   drainedChunks: number;
+  reconnectCount: number;
+  lastCloseCode: number | null;
+  lastCloseReason: string;
+  lastHealthUpdatedAt: number;
   inputQueue: string[];
   queuedInputBytes: number;
   scrollLine: number;

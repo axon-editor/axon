@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { summarizeSpawnFailure } from "./build-diagnostics.mjs";
 
 const npmExecPath = process.env.npm_execpath;
 
@@ -31,10 +32,12 @@ for (const [workspace, label] of packageBuilds) {
   );
 
   if (result.error) {
+    summarizeSpawnFailure({ label, result });
     throw result.error;
   }
 
   if (result.status !== 0) {
+    summarizeSpawnFailure({ label, result });
     throw new Error(`Failed to build ${label}.`);
   }
 }

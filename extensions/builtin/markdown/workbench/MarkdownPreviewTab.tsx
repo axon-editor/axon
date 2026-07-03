@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { readFile } from "../../shared/lib/api";
-import { getModel } from "../editor/lib/monacoModels";
+import { readFile } from "@axon-editor/renderer/shared/lib/api";
+import { getModel } from "@axon-editor/renderer/features/editor/lib/monacoModels";
 import MarkdownPreview from "./MarkdownPreview";
 
 interface Props {

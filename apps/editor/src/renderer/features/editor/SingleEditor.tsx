@@ -19,7 +19,7 @@ import { registerAxonTheme } from "../../shared/lib/soraTheme";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { parseGitDiffLineDecorations } from "@axon-builtin-git/git/lib/gitDiffDecorations";
 import Tooltip from "../../shared/components/Tooltip";
-import MarkdownPreview from "../preview/MarkdownPreview";
+import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import EditorBreadcrumbs from "./EditorBreadcrumbs";
 import MonacoEditorSurface from "./MonacoEditorSurface";
 import {

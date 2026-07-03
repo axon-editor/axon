@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { summarizeSpawnFailure } from "../../../build/build-diagnostics.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const editorRoot = path.resolve(__dirname, "..");
@@ -35,11 +36,12 @@ for (const build of builds) {
   });
 
   if (result.error) {
-    console.error(result.error.message);
+    summarizeSpawnFailure({ label: `core binary ${build.outputName}`, result });
     process.exit(1);
   }
 
   if (result.status !== 0) {
+    summarizeSpawnFailure({ label: `core binary ${build.outputName}`, result });
     process.exit(result.status ?? 1);
   }
 }

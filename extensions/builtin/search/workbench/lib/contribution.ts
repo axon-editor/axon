@@ -1,9 +1,8 @@
 import {
-  type ExtensionCommandContribution,
-  type ExtensionContributionRecord,
-  type ExtensionState,
-  type ExtensionViewContribution,
-} from "@axon-editor/shared/extensions";
+  BUILTIN_WORKBENCH_CONTRIBUTIONS,
+  resolveRequiredWorkbenchContribution,
+} from "@axon-editor/workbench/contrib/extensions/lib/builtinWorkbenchContributions";
+import { type ExtensionState } from "@axon-editor/shared/extensions";
 
 export const AXON_SEARCH_EXTENSION_ID = "axon.search";
 export const AXON_SEARCH_WORKSPACE_VIEW_ID = "axon.search.workspace";
@@ -26,33 +25,19 @@ export interface SearchWorkbenchContribution {
 export function resolveSearchWorkbenchContribution(
   extensionState: ExtensionState | null | undefined,
 ): SearchWorkbenchContribution | null {
-  const registry = extensionState?.contributionRegistry;
-  if (!registry) return null;
-
-  const viewRecords =
-    registry.views as ExtensionContributionRecord<ExtensionViewContribution>[];
-  const commandRecords =
-    registry.commands as ExtensionContributionRecord<ExtensionCommandContribution>[];
-
-  const viewRecord = viewRecords.find(
-    (record) =>
-      record.extensionId === AXON_SEARCH_EXTENSION_ID &&
-      record.contribution.id === AXON_SEARCH_WORKSPACE_VIEW_ID &&
-      record.contribution.location === "modal",
+  const resolved = resolveRequiredWorkbenchContribution(
+    extensionState,
+    BUILTIN_WORKBENCH_CONTRIBUTIONS.search,
   );
-  const commandRecord = commandRecords.find(
-    (record) =>
-      record.extensionId === AXON_SEARCH_EXTENSION_ID &&
-      record.contribution.id === AXON_SEARCH_OPEN_COMMAND_ID,
-  );
-
-  if (!viewRecord || !commandRecord) return null;
+  if (!resolved) return null;
 
   return {
     extensionId: AXON_SEARCH_EXTENSION_ID,
-    workspaceViewId: viewRecord.contribution.id,
-    workspaceViewTitle: viewRecord.contribution.title,
-    openCommandId: commandRecord.contribution.id,
-    openCommandTitle: commandRecord.contribution.title,
+    workspaceViewId: AXON_SEARCH_WORKSPACE_VIEW_ID,
+    workspaceViewTitle:
+      resolved.views[AXON_SEARCH_WORKSPACE_VIEW_ID]?.title ?? "Workspace Search",
+    openCommandId: AXON_SEARCH_OPEN_COMMAND_ID,
+    openCommandTitle:
+      resolved.commands[AXON_SEARCH_OPEN_COMMAND_ID]?.title ?? "Search Workspace",
   };
 }

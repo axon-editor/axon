@@ -1,9 +1,8 @@
 import {
-  type ExtensionCommandContribution,
-  type ExtensionContributionRecord,
-  type ExtensionState,
-  type ExtensionViewContribution,
-} from "@axon-editor/shared/extensions";
+  BUILTIN_WORKBENCH_CONTRIBUTIONS,
+  resolveRequiredWorkbenchContribution,
+} from "@axon-editor/workbench/contrib/extensions/lib/builtinWorkbenchContributions";
+import { type ExtensionState } from "@axon-editor/shared/extensions";
 
 export const AXON_GIT_EXTENSION_ID = "axon.git";
 export const AXON_GIT_SOURCE_CONTROL_VIEW_ID = "axon.sourceControl";
@@ -30,53 +29,21 @@ export interface GitWorkbenchContribution {
 export function resolveGitWorkbenchContribution(
   extensionState: ExtensionState | null | undefined,
 ): GitWorkbenchContribution | null {
-  const registry = extensionState?.contributionRegistry;
-  if (!registry) return null;
-
-  const viewRecords =
-    registry.views as ExtensionContributionRecord<ExtensionViewContribution>[];
-  const commandRecords =
-    registry.commands as ExtensionContributionRecord<ExtensionCommandContribution>[];
-
-  const sourceControlView = viewRecords.find(
-    (record) =>
-      record.extensionId === AXON_GIT_EXTENSION_ID &&
-      record.contribution.id === AXON_GIT_SOURCE_CONTROL_VIEW_ID &&
-      record.contribution.location === "sidebar",
+  const resolved = resolveRequiredWorkbenchContribution(
+    extensionState,
+    BUILTIN_WORKBENCH_CONTRIBUTIONS.git,
   );
-  const historyView = viewRecords.find(
-    (record) =>
-      record.extensionId === AXON_GIT_EXTENSION_ID &&
-      record.contribution.id === AXON_GIT_HISTORY_VIEW_ID &&
-      record.contribution.location === "sidebar",
-  );
-  const openSourceControlCommand = commandRecords.find(
-    (record) =>
-      record.extensionId === AXON_GIT_EXTENSION_ID &&
-      record.contribution.id === AXON_GIT_OPEN_SOURCE_CONTROL_COMMAND_ID,
-  );
-  const openHistoryCommand = commandRecords.find(
-    (record) =>
-      record.extensionId === AXON_GIT_EXTENSION_ID &&
-      record.contribution.id === AXON_GIT_OPEN_HISTORY_COMMAND_ID,
-  );
-
-  if (
-    !sourceControlView ||
-    !historyView ||
-    !openSourceControlCommand ||
-    !openHistoryCommand
-  ) {
-    return null;
-  }
+  if (!resolved) return null;
 
   return {
     extensionId: AXON_GIT_EXTENSION_ID,
-    sourceControlViewId: sourceControlView.contribution.id,
-    sourceControlViewTitle: sourceControlView.contribution.title,
-    historyViewId: historyView.contribution.id,
-    historyViewTitle: historyView.contribution.title,
-    openSourceControlCommandId: openSourceControlCommand.contribution.id,
-    openHistoryCommandId: openHistoryCommand.contribution.id,
+    sourceControlViewId: AXON_GIT_SOURCE_CONTROL_VIEW_ID,
+    sourceControlViewTitle:
+      resolved.views[AXON_GIT_SOURCE_CONTROL_VIEW_ID]?.title ??
+      "Source Control",
+    historyViewId: AXON_GIT_HISTORY_VIEW_ID,
+    historyViewTitle: resolved.views[AXON_GIT_HISTORY_VIEW_ID]?.title ?? "History",
+    openSourceControlCommandId: AXON_GIT_OPEN_SOURCE_CONTROL_COMMAND_ID,
+    openHistoryCommandId: AXON_GIT_OPEN_HISTORY_COMMAND_ID,
   };
 }

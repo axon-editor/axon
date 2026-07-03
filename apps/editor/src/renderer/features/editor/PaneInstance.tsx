@@ -25,11 +25,11 @@ import {
   createMarkdownPreviewTabPath,
   getMarkdownPreviewFilePath,
   isMarkdownPreviewTabPath,
-} from "../preview/lib/markdownPreviewTabs";
+} from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import { isWelcomeTabPath } from "../onboarding/lib/welcomeTab";
 import MediaPreview, { isMediaFile } from "../preview/MediaPreview";
 import HtmlPreview from "../preview/HtmlPreview";
-import MarkdownPreviewTab from "../preview/MarkdownPreviewTab";
+import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import SingleEditor from "./SingleEditor";
 import EmptyPane from "./EmptyPane";
 import WorkspaceBlankPane from "./WorkspaceBlankPane";

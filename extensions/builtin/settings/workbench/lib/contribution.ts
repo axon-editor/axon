@@ -1,9 +1,8 @@
 import {
-  type ExtensionCommandContribution,
-  type ExtensionContributionRecord,
-  type ExtensionState,
-  type ExtensionViewContribution,
-} from "@axon-editor/shared/extensions";
+  BUILTIN_WORKBENCH_CONTRIBUTIONS,
+  resolveRequiredWorkbenchContribution,
+} from "@axon-editor/workbench/contrib/extensions/lib/builtinWorkbenchContributions";
+import { type ExtensionState } from "@axon-editor/shared/extensions";
 
 export const AXON_SETTINGS_EXTENSION_ID = "axon.settings";
 export const AXON_SETTINGS_VIEW_ID = "axon.settings";
@@ -26,38 +25,17 @@ export interface SettingsWorkbenchContribution {
 export function resolveSettingsWorkbenchContribution(
   extensionState: ExtensionState | null | undefined,
 ): SettingsWorkbenchContribution | null {
-  const registry = extensionState?.contributionRegistry;
-  if (!registry) return null;
-
-  const viewRecords =
-    registry.views as ExtensionContributionRecord<ExtensionViewContribution>[];
-  const commandRecords =
-    registry.commands as ExtensionContributionRecord<ExtensionCommandContribution>[];
-
-  const viewRecord = viewRecords.find(
-    (record) =>
-      record.extensionId === AXON_SETTINGS_EXTENSION_ID &&
-      record.contribution.id === AXON_SETTINGS_VIEW_ID &&
-      record.contribution.location === "modal",
+  const resolved = resolveRequiredWorkbenchContribution(
+    extensionState,
+    BUILTIN_WORKBENCH_CONTRIBUTIONS.settings,
   );
-  const openCommand = commandRecords.find(
-    (record) =>
-      record.extensionId === AXON_SETTINGS_EXTENSION_ID &&
-      record.contribution.id === AXON_SETTINGS_OPEN_COMMAND_ID,
-  );
-  const openJsonCommand = commandRecords.find(
-    (record) =>
-      record.extensionId === AXON_SETTINGS_EXTENSION_ID &&
-      record.contribution.id === AXON_SETTINGS_OPEN_JSON_COMMAND_ID,
-  );
-
-  if (!viewRecord || !openCommand || !openJsonCommand) return null;
+  if (!resolved) return null;
 
   return {
     extensionId: AXON_SETTINGS_EXTENSION_ID,
-    viewId: viewRecord.contribution.id,
-    viewTitle: viewRecord.contribution.title,
-    openCommandId: openCommand.contribution.id,
-    openJsonCommandId: openJsonCommand.contribution.id,
+    viewId: AXON_SETTINGS_VIEW_ID,
+    viewTitle: resolved.views[AXON_SETTINGS_VIEW_ID]?.title ?? "Settings",
+    openCommandId: AXON_SETTINGS_OPEN_COMMAND_ID,
+    openJsonCommandId: AXON_SETTINGS_OPEN_JSON_COMMAND_ID,
   };
 }

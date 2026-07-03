@@ -14,6 +14,7 @@ import { resolveGitWorkbenchContribution } from "@axon-builtin-git/lib/contribut
 import SettingsModal from "@axon-builtin-settings/settings/SettingsModal";
 import { resolveSettingsWorkbenchContribution } from "@axon-builtin-settings/lib/contribution";
 import TestExplorerModal from "@axon-builtin-testing/TestExplorerModal";
+import { resolveTestingWorkbenchContribution } from "@axon-builtin-testing/lib/contribution";
 import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
 import EditorPane from "../../renderer/features/editor/EditorPane";
 import StatusBar from "../../renderer/shared/components/StatusBar";
@@ -199,6 +200,10 @@ export function AxonAppView(props: Record<string, any>) {
   );
   const gitContribution = React.useMemo(
     () => resolveGitWorkbenchContribution(extensionState),
+    [extensionState],
+  );
+  const testingContribution = React.useMemo(
+    () => resolveTestingWorkbenchContribution(extensionState),
     [extensionState],
   );
   const mainSidebarSide =
@@ -610,14 +615,16 @@ export function AxonAppView(props: Record<string, any>) {
         onRunTask={(task) => void handleRunWorkspaceTask(task)}
       />
 
-      <TestExplorerModal
-        folderPath={folderPath}
-        open={testExplorerOpen}
-        onClose={() => setTestExplorerOpen(false)}
-        onOutput={(message, level = "info") =>
-          appendOutput("tests", message, level)
-        }
-      />
+      {testingContribution && (
+        <TestExplorerModal
+          folderPath={folderPath}
+          open={testExplorerOpen}
+          onClose={() => setTestExplorerOpen(false)}
+          onOutput={(message, level = "info") =>
+            appendOutput("tests", message, level)
+          }
+        />
+      )}
 
       <FileOutlineModal
         open={fileOutlineOpen}

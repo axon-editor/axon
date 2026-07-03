@@ -2,34 +2,10 @@ import { useCallback } from "react";
 import { AXON_COMMANDS, type AxonCommand } from "../../../shared/commands";
 import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
 import { parseExtensionViewCommandId } from "../../contrib/extensions/lib/extensionViews";
-
-const CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = {
-  "axon.agent.fixProblems": AXON_COMMANDS.AI_FIX_PROBLEM,
-  "axon.agent.open": AXON_COMMANDS.ASK_AXON,
-  "axon.git.openHistory": AXON_COMMANDS.OPEN_GIT_HISTORY,
-  "axon.git.openSourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
-  "axon.git.refresh": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
-  "axon.problems.open": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
-  "axon.problems.refresh": AXON_COMMANDS.REFRESH_DIAGNOSTICS,
-  "axon.search.openWorkspace": AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
-  "axon.settings.open": AXON_COMMANDS.OPEN_SETTINGS,
-  "axon.settings.openJson": AXON_COMMANDS.OPEN_SETTINGS_JSON,
-  "axon.terminal.new": AXON_COMMANDS.NEW_TERMINAL,
-  "axon.terminal.toggle": AXON_COMMANDS.TOGGLE_TERMINAL,
-  "axon.testing.open": AXON_COMMANDS.OPEN_TEST_EXPLORER,
-  "axon.testing.refresh": AXON_COMMANDS.OPEN_TEST_EXPLORER,
-};
-
-const CONTRIBUTED_VIEW_ALIASES: Record<string, AxonCommand> = {
-  "axon.agent": AXON_COMMANDS.ASK_AXON,
-  "axon.history": AXON_COMMANDS.OPEN_GIT_HISTORY,
-  "axon.problems": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
-  "axon.search.workspace": AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
-  "axon.settings": AXON_COMMANDS.OPEN_SETTINGS,
-  "axon.sourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
-  "axon.terminal": AXON_COMMANDS.TOGGLE_TERMINAL,
-  "axon.tests": AXON_COMMANDS.OPEN_TEST_EXPLORER,
-};
+import {
+  getBuiltinCommandAlias,
+  getBuiltinViewAlias,
+} from "../../contrib/extensions/lib/builtinWorkbenchContributions";
 
 interface AppCommandRunnerOptions {
   activeFilePath: any;
@@ -124,6 +100,7 @@ export function useAppCommandRunner({
 }: AppCommandRunnerOptions) {
   const activateExtensionEvent = useCallback(
     (activationEvent: string, reportSuccess = false) => {
+      const startedAt = performance.now();
       void window.axon
         .activateExtensionEvent(activationEvent, folderPath)
         .then((result) => {
@@ -132,6 +109,15 @@ export function useAppCommandRunner({
             appendOutput(
               "extensions",
               result.message,
+              result.ok ? "info" : "warning",
+            );
+          }
+          if (performance.now() - startedAt > 120) {
+            appendOutput(
+              "extensions",
+              `${activationEvent} activation finished in ${Math.round(
+                performance.now() - startedAt,
+              )}ms.`,
               result.ok ? "info" : "warning",
             );
           }
@@ -158,7 +144,7 @@ export function useAppCommandRunner({
         if (!requireTrustedWorkspace("Extension views")) return;
 
         activateExtensionEvent(`onView:${extensionViewId}`, true);
-        const aliasedViewCommand = CONTRIBUTED_VIEW_ALIASES[extensionViewId];
+        const aliasedViewCommand = getBuiltinViewAlias(extensionViewId);
         if (aliasedViewCommand) {
           runnableCommand = aliasedViewCommand;
         } else {
@@ -185,7 +171,7 @@ export function useAppCommandRunner({
           .then((result) => {
             setExtensionState(result.state);
             if (result.ok) return;
-            if (CONTRIBUTED_COMMAND_ALIASES[commandId]) return;
+            if (getBuiltinCommandAlias(commandId)) return;
             appendOutput("extensions", result.message, "warning");
           })
           .catch((err) => {
@@ -197,7 +183,7 @@ export function useAppCommandRunner({
               "error",
             );
           });
-        const aliasedCommand = CONTRIBUTED_COMMAND_ALIASES[commandId];
+        const aliasedCommand = getBuiltinCommandAlias(commandId);
         if (!aliasedCommand) return;
 
         // Built-in workbench contributions are exposed through the same command

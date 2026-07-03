@@ -9,7 +9,7 @@ import {
 import {
   createMarkdownPreviewTabPath,
   isMarkdownPreviewTabPath,
-} from "../../preview/lib/markdownPreviewTabs";
+} from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import {
   AXON_WELCOME_TAB_PATH,
   isWelcomeTabPath,

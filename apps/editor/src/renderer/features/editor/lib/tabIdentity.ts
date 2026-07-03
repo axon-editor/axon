@@ -5,7 +5,7 @@ import {
 import {
   getMarkdownPreviewFilePath,
   isMarkdownPreviewTabPath,
-} from "../../preview/lib/markdownPreviewTabs";
+} from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import { isWelcomeTabPath } from "../../onboarding/lib/welcomeTab";
 
 export function getTabFilePath(tabPath: string) {

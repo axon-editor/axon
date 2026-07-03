@@ -35,6 +35,16 @@ export interface TerminalTab {
   id: string;
   title: string;
   connected: boolean;
+  health: {
+    receivedBytes: number;
+    ackedBytes: number;
+    queuedBytes: number;
+    maxQueuedBytes: number;
+    drainedChunks: number;
+    reconnectCount: number;
+    lastCloseCode: number | null;
+    lastCloseReason: string;
+  };
 }
 
 interface UseTerminalSessionManagerOptions {
@@ -101,6 +111,31 @@ export function useTerminalSessionManager({
   const updateTabConnection = useCallback((id: string, connected: boolean) => {
     setTabs((currentTabs) =>
       currentTabs.map((tab) => (tab.id === id ? { ...tab, connected } : tab)),
+    );
+  }, []);
+
+  const updateTabHealth = useCallback((id: string) => {
+    const session = sessionsRef.current[id];
+    if (!session) return;
+
+    setTabs((currentTabs) =>
+      currentTabs.map((tab) =>
+        tab.id === id
+          ? {
+              ...tab,
+              health: {
+                receivedBytes: session.receivedBytes,
+                ackedBytes: session.lastAckedBytes,
+                queuedBytes: session.queuedBytes,
+                maxQueuedBytes: session.maxQueuedBytes,
+                drainedChunks: session.drainedChunks,
+                reconnectCount: session.reconnectCount,
+                lastCloseCode: session.lastCloseCode,
+                lastCloseReason: session.lastCloseReason,
+              },
+            }
+          : tab,
+      ),
     );
   }, []);
 
@@ -180,6 +215,16 @@ export function useTerminalSessionManager({
         id,
         title,
         connected: false,
+        health: {
+          receivedBytes: 0,
+          ackedBytes: 0,
+          queuedBytes: 0,
+          maxQueuedBytes: 0,
+          drainedChunks: 0,
+          reconnectCount: 0,
+          lastCloseCode: null,
+          lastCloseReason: "",
+        },
       },
     ]);
     setActiveTabId(id);
@@ -204,6 +249,10 @@ export function useTerminalSessionManager({
       queuedBytes: 0,
       maxQueuedBytes: 0,
       drainedChunks: 0,
+      reconnectCount: 0,
+      lastCloseCode: null,
+      lastCloseReason: "",
+      lastHealthUpdatedAt: 0,
       inputQueue: [],
       queuedInputBytes: 0,
       scrollLine: 0,
@@ -294,6 +343,7 @@ export function useTerminalSessionManager({
           sendWorkspaceCd(latestSession);
           flushQueuedTerminalInput(latestSession);
           sendTerminalAck(latestSession, true);
+          updateTabHealth(id);
         };
 
         ws.onmessage = (event) => {
@@ -307,14 +357,16 @@ export function useTerminalSessionManager({
               if (!currentSession || currentSession.disposed) return;
               if (currentSession.ws !== ws) return;
               writeTerminalOutput(currentSession, buffer);
+              updateTabHealth(id);
             });
             return;
           }
 
           writeTerminalOutput(latestSession, event.data);
+          updateTabHealth(id);
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
           const latestSession = sessionsRef.current[id];
           if (!latestSession || latestSession.disposed || latestSession.terminating) {
             return;
@@ -322,7 +374,11 @@ export function useTerminalSessionManager({
           if (latestSession.ws !== ws) return;
 
           latestSession.ws = null;
+          latestSession.reconnectCount += 1;
+          latestSession.lastCloseCode = event.code;
+          latestSession.lastCloseReason = event.reason;
           updateTabConnection(id, false);
+          updateTabHealth(id);
           const reconnectWhenOutputIsSettled = () => {
             const settledSession = sessionsRef.current[id];
             if (
@@ -358,7 +414,7 @@ export function useTerminalSessionManager({
         };
       });
     },
-    [scheduleReconnect, sendResize, updateTabConnection],
+    [scheduleReconnect, sendResize, updateTabConnection, updateTabHealth],
   );
 
   const attachContainer = useCallback(
@@ -531,6 +587,22 @@ export function useTerminalSessionManager({
       }
     });
   }, [activeTabId, sendResize, terminalVisible]);
+
+  useEffect(() => {
+    if (!terminalVisible) return;
+
+    const interval = window.setInterval(() => {
+      for (const id of Object.keys(sessionsRef.current)) {
+        const session = sessionsRef.current[id];
+        if (!session.term) continue;
+        if (!hasPendingTerminalOutput(session)) continue;
+        session.lastHealthUpdatedAt = Date.now();
+        updateTabHealth(id);
+      }
+    }, 750);
+
+    return () => window.clearInterval(interval);
+  }, [terminalVisible, updateTabHealth]);
 
   useEffect(() => {
     for (const id of Object.keys(sessionsRef.current)) {

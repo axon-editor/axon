@@ -3,7 +3,7 @@ import {
   type UpdateInfo,
   type UpdateInstallState,
 } from "../../../shared/updates";
-import MarkdownPreview from "../preview/MarkdownPreview";
+import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import Tooltip from "../../shared/components/Tooltip";
 
 interface UpdateModalProps {

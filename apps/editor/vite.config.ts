@@ -42,6 +42,15 @@ export default defineConfig({
         "search",
         "workbench",
       ),
+      "@axon-builtin-markdown": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "markdown",
+        "workbench",
+      ),
       "@axon-builtin-settings": path.resolve(
         __dirname,
         "..",
@@ -142,6 +151,12 @@ export default defineConfig({
         __dirname,
         "node_modules",
         "react-markdown",
+        "index.js",
+      ),
+      "rehype-raw": path.resolve(
+        __dirname,
+        "node_modules",
+        "rehype-raw",
         "index.js",
       ),
       "remark-gfm": path.resolve(

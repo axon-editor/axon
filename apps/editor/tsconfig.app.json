@@ -18,6 +18,7 @@
     "ignoreDeprecations": "6.0",
     "paths": {
       "@axon-editor/*": ["src/*"],
+      "@axon-editor/workbench/*": ["src/workbench/*"],
       "@axon-builtin-terminal/*": [
         "../../extensions/builtin/terminal/workbench/*"
       ],
@@ -26,6 +27,9 @@
       ],
       "@axon-builtin-search/*": [
         "../../extensions/builtin/search/workbench/*"
+      ],
+      "@axon-builtin-markdown/*": [
+        "../../extensions/builtin/markdown/workbench/*"
       ],
       "@axon-builtin-settings/*": [
         "../../extensions/builtin/settings/workbench/*"
@@ -55,6 +59,7 @@
       "react": ["node_modules/@types/react/index.d.ts"],
       "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"],
       "react-markdown": ["node_modules/react-markdown/index.d.ts"],
+      "rehype-raw": ["node_modules/rehype-raw/index.d.ts"],
       "remark-gfm": ["node_modules/remark-gfm/index.d.ts"]
     },
 
@@ -74,6 +79,7 @@
     "../../extensions/builtin/terminal/workbench/**/*",
     "../../extensions/builtin/agent/workbench/**/*",
     "../../extensions/builtin/search/workbench/**/*",
+    "../../extensions/builtin/markdown/workbench/**/*",
     "../../extensions/builtin/settings/workbench/**/*",
     "../../extensions/builtin/git/workbench/**/*",
     "../../extensions/builtin/testing/workbench/**/*",
