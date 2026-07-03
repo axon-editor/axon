@@ -5,7 +5,9 @@ const configuredMonacos = new WeakSet<typeof monaco>();
 
 const lspCompletionLanguages = [
   "typescript",
+  "typescriptreact",
   "javascript",
+  "javascriptreact",
   "go",
   "rust",
   "python",
@@ -25,7 +27,13 @@ const lspCompletionLanguages = [
   "shell",
 ];
 
-const webTagLanguages = ["html", "javascript", "typescript"];
+const webTagLanguages = [
+  "html",
+  "javascript",
+  "javascriptreact",
+  "typescript",
+  "typescriptreact",
+];
 const identifierTriggerCharacters = [
   "a",
   "b",
@@ -82,16 +90,25 @@ const identifierTriggerCharacters = [
   "_",
   "$",
 ];
-const packageExportCompletionLanguages = new Set(["typescript", "javascript"]);
+const packageExportCompletionLanguages = new Set([
+  "typescript",
+  "typescriptreact",
+  "javascript",
+  "javascriptreact",
+]);
 const tailwindUtilityLanguages = [
   "html",
   "css",
   "javascript",
+  "javascriptreact",
   "typescript",
+  "typescriptreact",
 ];
 const localSymbolLanguages = [
   "typescript",
+  "typescriptreact",
   "javascript",
+  "javascriptreact",
   "go",
   "rust",
   "python",

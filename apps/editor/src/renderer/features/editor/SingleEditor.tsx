@@ -825,7 +825,9 @@ export default function SingleEditor({
       const canSuggestWebCode =
         languageId === "html" ||
         languageId === "javascript" ||
-        languageId === "typescript";
+        languageId === "javascriptreact" ||
+        languageId === "typescript" ||
+        languageId === "typescriptreact";
 
       if (!canSuggestWebCode || !insertedSuggestCharacter) return;
       if (currentWord.length === 0 && !event.changes.some((change) => change.text.includes("<"))) {

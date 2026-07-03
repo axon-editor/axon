@@ -1,30 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Circle,
-  Clock3,
-  FileCode2,
-  FolderTree,
-  ListFilter,
-  Play,
-  RefreshCw,
-  Search,
-  Square,
-  TerminalSquare,
-  X,
-  XCircle,
-} from "lucide-react";
+import { FolderTree, Play, RefreshCw, Square, X } from "lucide-react";
 import {
   type TestDiscoveryResult,
   type TestFinishedEvent,
   type TestItem,
   type TestOutputEvent,
   type TestProvider,
-  type TestRunStatus,
 } from "@axon-editor/shared/tests";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import TestExplorerDetails from "./TestExplorerDetails";
+import TestExplorerOutput from "./TestExplorerOutput";
+import { createTestingWorkbenchApi } from "./lib/testingWorkbenchApi";
+import {
+  formatDuration,
+  isEventInsideWorkspace,
+  runKeyFor,
+  type OutputFilter,
+  type RunRecord,
+} from "./TestExplorerPrimitives";
+import TestExplorerSidebar from "./TestExplorerSidebar";
+
+const testingApi = createTestingWorkbenchApi();
 
 interface Props {
   folderPath: string | null;
@@ -34,59 +30,6 @@ interface Props {
     message: string,
     level?: "info" | "success" | "warning" | "error",
   ) => void;
-}
-
-interface RunRecord {
-  runId: string;
-  providerId: string;
-  targetId: string | null;
-  label: string;
-  status: TestRunStatus;
-  startedAt: number;
-  durationMs: number | null;
-  exitCode: number | null;
-}
-
-type OutputFilter = "all" | "selected";
-
-function providerRootLabel(provider: TestProvider) {
-  return provider.rootPath.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? provider.label;
-}
-
-function statusClassName(status: TestRunStatus) {
-  if (status === "passed") return "text-[#80d991]";
-  if (status === "failed") return "text-[#ff8a8a]";
-  if (status === "stopped") return "text-[#f0c674]";
-  if (status === "running") return "text-[var(--axon-syntax-function)]";
-  return "text-[var(--axon-editor-foreground)] opacity-35";
-}
-
-function StatusIcon({ status }: { status: TestRunStatus }) {
-  if (status === "passed") return <CheckCircle2 size={13} />;
-  if (status === "failed") return <XCircle size={13} />;
-  if (status === "stopped") return <Square size={12} />;
-  if (status === "running") return <RefreshCw size={13} className="animate-spin" />;
-  return <Circle size={12} />;
-}
-
-function formatDuration(durationMs: number | null) {
-  if (durationMs === null) return "running";
-  if (durationMs < 1000) return `${durationMs}ms`;
-  return `${(durationMs / 1000).toFixed(1)}s`;
-}
-
-function normalizePathForCompare(value: string) {
-  return value.replace(/\\/g, "/").replace(/\/+$/g, "");
-}
-
-function isEventInsideWorkspace(
-  event: Pick<TestOutputEvent, "rootPath">,
-  folderPath: string | null,
-) {
-  if (!folderPath) return false;
-  const workspaceRoot = normalizePathForCompare(folderPath);
-  const eventRoot = normalizePathForCompare(event.rootPath);
-  return eventRoot === workspaceRoot || eventRoot.startsWith(`${workspaceRoot}/`);
 }
 
 export default function TestExplorerModal({
@@ -112,9 +55,6 @@ export default function TestExplorerModal({
 
   const providerItems = (provider: TestProvider): TestItem[] =>
     items.filter((item) => item.providerId === provider.id);
-
-  const runKeyFor = (providerId: string, targetId?: string | null) =>
-    targetId ?? providerId;
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
@@ -182,7 +122,7 @@ export default function TestExplorerModal({
     }
 
     setDiscovering(true);
-    const result = await window.axon.discoverTests(folderPath);
+    const result = await testingApi.discover(folderPath);
     setDiscovery(result);
     setExpandedProviders(new Set(result.providers.map((provider) => provider.id)));
     setSelectedProviderId((current) => {
@@ -217,11 +157,11 @@ export default function TestExplorerModal({
 
   useEffect(() => {
     if (!open) return;
-    const cleanupOutput = window.axon.onTestOutput((event) => {
+    const cleanupOutput = testingApi.onOutput((event) => {
       if (!isEventInsideWorkspace(event, folderPath)) return;
       setOutput((current) => [...current.slice(-499), event]);
     });
-    const cleanupFinished = window.axon.onTestFinished(
+    const cleanupFinished = testingApi.onFinished(
       (event: TestFinishedEvent) => {
         if (!isEventInsideWorkspace(event, folderPath)) return;
         setRuns((current) => {
@@ -292,7 +232,11 @@ export default function TestExplorerModal({
         exitCode: null,
       },
     }));
-    const result = await window.axon.runTests(folderPath, provider.id, target?.id ?? null);
+    const result = await testingApi.run(
+      folderPath,
+      provider.id,
+      target?.id ?? null,
+    );
     onOutput(result.message, result.ok ? "info" : "error");
     setRuns((current) => {
       if (!result.ok || !result.runId) {
@@ -313,7 +257,7 @@ export default function TestExplorerModal({
   };
 
   const stopRuns = async () => {
-    const result = await window.axon.stopTests();
+    const result = await testingApi.stopAll();
     onOutput(result.message, result.stopped > 0 ? "warning" : "info");
   };
 
@@ -392,306 +336,44 @@ export default function TestExplorerModal({
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-[360px_minmax(0,1fr)] overflow-hidden">
-          <aside className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)]">
-            <div className="shrink-0 border-b border-[var(--axon-panel-border)] p-3">
-              <div className="flex items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2.5 py-2">
-                <Search size={13} className="text-[var(--axon-editor-foreground)] opacity-35" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Filter projects, packages, scripts..."
-                  className="min-w-0 flex-1 bg-transparent text-[12px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30"
-                />
-                <ListFilter size={13} className="text-[var(--axon-editor-foreground)] opacity-25" />
-              </div>
-              <div className="mt-3 grid grid-cols-4 gap-1 text-center text-[10px]">
-                <Metric label="running" value={runStats.running} tone="text-[var(--axon-syntax-function)]" />
-                <Metric label="passed" value={runStats.passed} tone="text-[#80d991]" />
-                <Metric label="failed" value={runStats.failed} tone="text-[#ff8a8a]" />
-                <Metric label="stopped" value={runStats.stopped} tone="text-[#f0c674]" />
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-              {!folderPath ? (
-                <EmptyState title="Open a workspace" detail="Tests are discovered from project markers inside the workspace." />
-              ) : filteredProviders.length === 0 ? (
-                <EmptyState
-                  title={discovery?.message ?? "No test providers found."}
-                  detail="Axon looks for package.json scripts, go.mod, Cargo.toml, pytest.ini, pyproject.toml, and requirements.txt."
-                />
-              ) : (
-                <div className="space-y-2">
-                  {filteredProviders.map((provider) => {
-                    const expanded = expandedProviders.has(provider.id);
-                    const run = runs[runKeyFor(provider.id)];
-                    const children = providerItems(provider);
-                    const selected = selectedProvider?.id === provider.id && !selectedTarget;
-                    return (
-                      <div
-                        key={provider.id}
-                        className="overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]"
-                      >
-                        <div
-                          className={`grid grid-cols-[24px_1fr_28px] items-center gap-2 px-2 py-2 ${
-                            selected ? "bg-[var(--axon-panel-overlay-hover)]" : ""
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            aria-label={expanded ? "Collapse provider" : "Expand provider"}
-                            onClick={() => toggleProvider(provider.id)}
-                            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
-                          >
-                            {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => selectProvider(provider)}
-                            className="min-w-0 cursor-pointer text-left"
-                          >
-                            <span className="flex min-w-0 items-center gap-2">
-                              <span className={statusClassName(run?.status ?? "queued")}>
-                                <StatusIcon status={run?.status ?? "queued"} />
-                              </span>
-                              <span className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
-                                {provider.label}
-                              </span>
-                            </span>
-                            <span className="mt-0.5 block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                              {provider.kind} · {providerRootLabel(provider)}
-                            </span>
-                          </button>
-                          <Tooltip label="Run project tests" side="left">
-                            <button
-                              type="button"
-                              aria-label="Run project tests"
-                              onClick={() => void runProvider(provider)}
-                              disabled={activeRunCount > 0}
-                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-30"
-                            >
-                              <Play size={13} />
-                            </button>
-                          </Tooltip>
-                        </div>
-
-                        {expanded && children.length > 0 && (
-                          <div className="border-t border-[var(--axon-panel-border)]">
-                            {children.map((item) => {
-                              const itemRun = runs[runKeyFor(provider.id, item.id)];
-                              const itemSelected = selectedTarget?.id === item.id;
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => selectTarget(provider, item)}
-                                  onDoubleClick={() => void runProvider(provider, item)}
-                                  className={`grid w-full cursor-pointer grid-cols-[28px_1fr_54px] items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)] ${
-                                    itemSelected ? "bg-[var(--axon-panel-overlay-hover)]" : ""
-                                  }`}
-                                >
-                                  <span className={statusClassName(itemRun?.status ?? "queued")}>
-                                    <StatusIcon status={itemRun?.status ?? "queued"} />
-                                  </span>
-                                  <span className="min-w-0">
-                                    <span className="block truncate text-[11px] text-[var(--axon-editor-foreground)]">
-                                      {item.label}
-                                    </span>
-                                    <span className="block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-40">
-                                      {item.detail}
-                                    </span>
-                                  </span>
-                                  <span className="text-right text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
-                                    {item.kind}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </aside>
+          <TestExplorerSidebar
+            activeRunCount={activeRunCount}
+            discovery={discovery}
+            expandedProviders={expandedProviders}
+            filteredProviders={filteredProviders}
+            folderPath={folderPath}
+            providerItems={providerItems}
+            query={query}
+            runStats={runStats}
+            runs={runs}
+            selectedProvider={selectedProvider}
+            selectedTarget={selectedTarget}
+            onQueryChange={setQuery}
+            onRunProvider={(provider, target) => void runProvider(provider, target)}
+            onSelectProvider={selectProvider}
+            onSelectTarget={selectTarget}
+            onToggleProvider={toggleProvider}
+          />
 
           <section className="flex min-h-0 min-w-0 flex-col bg-[var(--axon-editor-background)]">
-            <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--axon-editor-foreground)]">
-                    <FileCode2 size={15} className="text-[var(--axon-syntax-function)]" />
-                    <span className="truncate">
-                      {selectedTarget?.label ?? selectedProvider?.label ?? "No test selected"}
-                    </span>
-                  </div>
-                  <div className="mt-1 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
-                    {selectedTarget?.detail ??
-                      selectedProvider?.detail ??
-                      "Select a project, package, file, or script from the explorer."}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <RunPill run={selectedRun} />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      selectedProvider && void runProvider(selectedProvider, selectedTarget)
-                    }
-                    disabled={!selectedProvider || activeRunCount > 0}
-                    className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Play size={13} />
-                    Run
-                  </button>
-                </div>
-              </div>
-            </div>
-
             <div className="grid min-h-0 flex-1 grid-rows-[180px_minmax(0,1fr)]">
-              <div className="grid grid-cols-3 gap-3 border-b border-[var(--axon-panel-border)] p-3">
-                <DetailPanel
-                  title="Project"
-                  value={selectedProvider ? providerRootLabel(selectedProvider) : "none"}
-                  detail={selectedProvider?.rootPath ?? "No provider selected."}
-                />
-                <DetailPanel
-                  title="Command"
-                  value={selectedTarget?.detail ?? selectedProvider?.detail ?? "none"}
-                  detail={selectedProvider?.kind ?? "No command available."}
-                />
-                <DetailPanel
-                  title="Last Run"
-                  value={selectedRun?.status ?? "not run"}
-                  detail={
-                    selectedRun
-                      ? `${formatDuration(selectedRun.durationMs)} · exit ${selectedRun.exitCode ?? "pending"}`
-                      : "Run this target to collect status and output."
-                  }
-                />
-              </div>
-
-              <div className="flex min-h-0 flex-col">
-                <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
-                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-60">
-                    <TerminalSquare size={13} />
-                    Output
-                  </div>
-                  <div className="flex items-center rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1">
-                    {(["selected", "all"] as OutputFilter[]).map((filter) => (
-                      <button
-                        key={filter}
-                        type="button"
-                        onClick={() => setOutputFilter(filter)}
-                        className={`h-7 cursor-pointer rounded px-2.5 text-[11px] capitalize transition-colors ${
-                          outputFilter === filter
-                            ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
-                            : "text-[var(--axon-editor-foreground)] opacity-45 hover:opacity-90"
-                        }`}
-                      >
-                        {filter}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-5">
-                  {visibleOutput.length === 0 ? (
-                    <div className="flex h-full items-center justify-center text-[var(--axon-editor-foreground)] opacity-35">
-                      no test output yet
-                    </div>
-                  ) : (
-                    visibleOutput.map((event, index) => (
-                      <div
-                        key={`${event.runId}:${index}`}
-                        className={
-                          event.stream === "stderr"
-                            ? "text-[#ff9aa2]"
-                            : event.stream === "system"
-                              ? "text-[var(--axon-syntax-function)]"
-                              : "text-[var(--axon-editor-foreground)] opacity-70"
-                        }
-                      >
-                        {event.line}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <TestExplorerDetails
+                activeRunCount={activeRunCount}
+                selectedProvider={selectedProvider}
+                selectedRun={selectedRun}
+                selectedTarget={selectedTarget}
+                onRunSelected={() =>
+                  selectedProvider && void runProvider(selectedProvider, selectedTarget)
+                }
+              />
+              <TestExplorerOutput
+                outputFilter={outputFilter}
+                visibleOutput={visibleOutput}
+                onOutputFilterChange={setOutputFilter}
+              />
             </div>
           </section>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: string;
-}) {
-  return (
-    <div className="rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 py-1.5">
-      <div className={`text-[13px] font-medium ${tone}`}>{value}</div>
-      <div className="text-[9px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-35">
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <Clock3 size={18} className="text-[var(--axon-editor-foreground)] opacity-25" />
-      <div className="mt-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65">
-        {title}
-      </div>
-      <div className="mt-1 text-[11px] leading-5 text-[var(--axon-editor-foreground)] opacity-40">
-        {detail}
-      </div>
-    </div>
-  );
-}
-
-function RunPill({ run }: { run: RunRecord | null }) {
-  const status = run?.status ?? "queued";
-  return (
-    <span
-      className={`flex h-8 items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3 text-[11px] ${statusClassName(status)}`}
-    >
-      <StatusIcon status={status} />
-      {run ? `${status} · ${formatDuration(run.durationMs)}` : "not run"}
-    </span>
-  );
-}
-
-function DetailPanel({
-  title,
-  value,
-  detail,
-}: {
-  title: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-3">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-35">
-        {title}
-      </div>
-      <div className="mt-2 truncate text-[13px] text-[var(--axon-editor-foreground)]">
-        {value}
-      </div>
-      <div className="mt-1 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
-        {detail}
       </div>
     </div>
   );

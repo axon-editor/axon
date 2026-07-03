@@ -120,6 +120,25 @@ func TestTerminalBroadcastDetachesAckLaggingClient(t *testing.T) {
 	}
 }
 
+func TestTerminalClientPendingBytesReleaseAfterWriteAccounting(t *testing.T) {
+	client := &terminalClient{
+		send: make(chan []byte, 1),
+		done: make(chan struct{}),
+	}
+
+	if !client.enqueue([]byte("hello")) {
+		t.Fatalf("expected enqueue to accept first chunk")
+	}
+	if client.pendingBytes != 5 {
+		t.Fatalf("expected pending bytes to count queued data, got %d", client.pendingBytes)
+	}
+
+	client.releasePendingBytes(5)
+	if client.pendingBytes != 0 {
+		t.Fatalf("expected pending bytes to release after write accounting, got %d", client.pendingBytes)
+	}
+}
+
 func TestTerminalHealthSnapshotIncludesSessions(t *testing.T) {
 	session := &terminalSession{
 		id:           "health-test",

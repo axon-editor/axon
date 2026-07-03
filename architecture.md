@@ -242,3 +242,37 @@ shell can host and coordinate, but new feature implementation should move under
 its built-in extension when the feature has a clear product boundary. Shared
 contracts stay in `packages/*` or `apps/editor/src/platform/*`; backend runtime
 stays in `services/core`.
+
+## Built-In Testing Migration
+
+Testing is now treated as a built-in workbench contribution instead of a small
+editor modal bolted onto the app shell:
+
+- `extensions/builtin/testing/axon.extension.json` declares the Testing command,
+  view, activation events, and task-provider contribution.
+- `extensions/builtin/testing/workbench` owns the Test Explorer surface,
+  sidebar, details panel, output panel, and workbench-facing API wrapper.
+- `apps/editor/src/main/tests` owns platform test discovery and process
+  execution. It follows real project markers such as `go.mod`, `package.json`,
+  `Cargo.toml`, `pytest.ini`, `pyproject.toml`, and `requirements.txt` instead
+  of assuming Axon's own folder names.
+- `apps/editor/src/shared/tests.ts` owns the test event and provider contract
+  that crosses the main/preload/renderer boundary.
+
+That split keeps the product UI in the Testing extension while the process
+runner stays in the Electron main process where spawning commands belongs.
+
+## Terminal Reliability Boundary
+
+The terminal no longer treats websocket delivery as the same thing as rendered
+output. Renderer-side terminal helpers only acknowledge bytes after xterm has
+finished its asynchronous write callback. The latest pass also forces an
+acknowledgement when the local output queue drains and tracks renderer queued
+byte peaks, while `services/core/internal/terminal` keeps websocket pending-byte
+accounting accurate until each write succeeds or fails.
+
+This matters for long-running agent sessions because the backend must preserve
+the replay cursor for bytes the visible terminal has not actually painted yet.
+The terminal workbench owns display and input buffering; `services/core` owns
+PTY lifetime, scrollback, replay windows, and client detachment when a view
+falls too far behind.

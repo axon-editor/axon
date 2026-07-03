@@ -202,6 +202,8 @@ export function useTerminalSessionManager({
       outputQueue: [],
       outputWriting: false,
       queuedBytes: 0,
+      maxQueuedBytes: 0,
+      drainedChunks: 0,
       inputQueue: [],
       queuedInputBytes: 0,
       scrollLine: 0,

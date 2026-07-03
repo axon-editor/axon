@@ -345,13 +345,14 @@ func (client *terminalClient) startWriter(onError func()) func() {
 			case <-client.done:
 				return
 			case data := <-client.send:
-				client.releasePendingBytes(len(data))
 				_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
 				if err := client.ws.WriteMessage(websocket.BinaryMessage, data); err != nil {
+					client.releasePendingBytes(len(data))
 					client.close()
 					onError()
 					return
 				}
+				client.releasePendingBytes(len(data))
 			case <-ticker.C:
 				_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
 				err := client.ws.WriteControl(

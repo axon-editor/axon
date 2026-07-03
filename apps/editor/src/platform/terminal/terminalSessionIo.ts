@@ -101,7 +101,8 @@ function drainTerminalOutput(session: TerminalSession) {
   session.term.write(chunk.data, () => {
     session.receivedBytes += chunk.byteLength;
     session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength);
-    sendTerminalAck(session);
+    session.drainedChunks += 1;
+    sendTerminalAck(session, session.outputQueue.length === 0);
     if (session.term && session.atBottom) {
       session.term.scrollToBottom();
     }
@@ -121,11 +122,16 @@ export function writeTerminalOutput(
   };
   session.outputQueue.push(chunk);
   session.queuedBytes += chunk.byteLength;
+  session.maxQueuedBytes = Math.max(session.maxQueuedBytes, session.queuedBytes);
   drainTerminalOutput(session);
 }
 
 export function hasPendingTerminalOutput(session: TerminalSession) {
-  return session.outputWriting || session.queuedBytes > 0;
+  return (
+    session.outputWriting ||
+    session.outputQueue.length > 0 ||
+    session.queuedBytes > 0
+  );
 }
 
 export function isVisibleTerminalContainer(container: HTMLDivElement | null) {

@@ -12,6 +12,7 @@ import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { configureMonacoDiagnostics } from "../services/lsp/renderer/monacoDiagnostics";
 import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions";
 import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
+import { registerMonacoReactLanguages } from "./features/editor/lib/monacoReactLanguages";
 import { type ExtensionState } from "../shared/extensions";
 import {
   markAxonPerformance,
@@ -37,7 +38,12 @@ loader.config({ monaco });
     if (label === "html" || label === "handlebars" || label === "razor") {
       return new HtmlWorker();
     }
-    if (label === "typescript" || label === "javascript") {
+    if (
+      label === "typescript" ||
+      label === "javascript" ||
+      label === "typescriptreact" ||
+      label === "javascriptreact"
+    ) {
       return new TsWorker();
     }
     return new EditorWorker();
@@ -45,6 +51,7 @@ loader.config({ monaco });
 };
 
 configureMonacoDiagnostics(monaco);
+registerMonacoReactLanguages(monaco);
 configureLspCompletions(monaco);
 configureLspNavigation(monaco);
 

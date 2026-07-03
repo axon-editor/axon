@@ -3,6 +3,7 @@
 // reflect instantly across all panes without saving.
 // Ref counting ensures the model is only disposed when all editors release it.
 import * as monaco from "monaco-editor";
+import { registerMonacoReactLanguages } from "./monacoReactLanguages";
 
 const models = new Map<string, monaco.editor.ITextModel>();
 const refCounts = new Map<string, number>();
@@ -72,21 +73,13 @@ export function detectMonacoLanguage(path: string): string {
     go: "go",
     rs: "rust",
     ts: "typescript",
-    // Monaco's bundled TypeScript contribution registers `.tsx` under the
-    // `typescript` language id, not `typescriptreact`. The React/TSX script
-    // kind is inferred from the model URI extension. Returning an unsupported
-    // language id makes the editor feel like plaintext because Monaco cannot
-    // attach its normal TypeScript tokenizer, bracket rules, and worker
-    // behavior.
-    tsx: "typescript",
+    tsx: "typescriptreact",
     mts: "typescript",
     cts: "typescript",
     js: "javascript",
     mjs: "javascript",
     cjs: "javascript",
-    // Same rule as TSX: Monaco uses the normal JavaScript language id and the
-    // `.jsx` extension carries the React file kind for the tooling layer.
-    jsx: "javascript",
+    jsx: "javascriptreact",
     py: "python",
     pyi: "python",
     java: "java",
@@ -127,11 +120,11 @@ export function detectMonacoLanguage(path: string): string {
 export function detectLanguageServerLanguage(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase();
 
-  // Monaco intentionally uses the normal TypeScript/JavaScript language ids for
-  // TSX and JSX so its tokenizer and worker attach correctly. Language servers
-  // need the protocol-facing React ids, though; if a `.tsx` document is opened
-  // as plain `typescript`, the server parses JSX tags like `<div>` as invalid
-  // TypeScript syntax and floods Problems with false parser errors.
+  // React documents have to keep their React language ids all the way into the
+  // protocol layer. If `.tsx` is ever collapsed back to `typescript`, the
+  // server can parse JSX tags as invalid TypeScript and features like Tailwind,
+  // package export completions, and component definitions lose the context they
+  // need to behave like a production IDE.
   if (ext === "tsx") return "typescriptreact";
   if (ext === "jsx") return "javascriptreact";
   if (ext === "astro") return "astro";
@@ -146,6 +139,8 @@ export function acquireModel(
   filePath: string,
   content: string,
 ): monaco.editor.ITextModel {
+  registerMonacoReactLanguages();
+
   const pendingDisposal = disposalTimers.get(filePath);
   if (pendingDisposal) {
     clearTimeout(pendingDisposal);

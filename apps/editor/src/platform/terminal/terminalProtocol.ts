@@ -22,6 +22,8 @@ export interface TerminalSession {
   outputQueue: TerminalOutputChunk[];
   outputWriting: boolean;
   queuedBytes: number;
+  maxQueuedBytes: number;
+  drainedChunks: number;
   inputQueue: string[];
   queuedInputBytes: number;
   scrollLine: number;
