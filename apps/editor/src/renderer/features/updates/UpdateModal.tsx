@@ -39,8 +39,8 @@ export default function UpdateModal({
   // ready, the same visual slot becomes Restart so the user does not have to
   // interpret multiple competing update buttons.
   return (
-    <div className="axon-modal-overlay fixed inset-0 z-50">
-      <div className="axon-modal-panel absolute bottom-8 left-1/2 top-16 flex w-[min(900px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]">
+    <div className="axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+      <div className="axon-modal-panel flex h-[calc(100vh-3rem)] max-h-[780px] min-h-[min(620px,calc(100vh-3rem))] w-[min(920px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]">
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4 py-3">
           <div className="min-w-0">
             <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-syntax-function)]">

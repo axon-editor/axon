@@ -413,10 +413,14 @@ export default function SettingsModal({
   return (
     <CommandModal
       onClose={close}
-      width="w-[min(1080px,calc(100vw-2rem))]"
-      bodyClassName="min-h-0 overflow-hidden"
+      width="w-[min(1120px,calc(100vw-2rem))]"
+      bodyClassName="flex min-h-0 flex-1 overflow-hidden"
+      panelStyle={{
+        height: "min(820px, calc(100vh - 3rem))",
+        minHeight: "min(680px, calc(100vh - 3rem))",
+      }}
     >
-      <div className="grid h-[min(760px,calc(100vh-4rem))] min-h-0 grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
+      <div className="grid h-full min-h-0 w-full grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
         <SettingsModalSidebar
           activeSection={activeSection}
           dirty={dirty}

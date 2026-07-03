@@ -116,17 +116,15 @@ function MiniToggle({
       className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md px-2 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
     >
       <span
-        className={`flex h-5 w-9 items-center rounded-full border p-0.5 transition-colors ${
+        className={`relative h-5 w-9 rounded-full border transition-colors ${
           checked
             ? "border-[#5f8298] bg-[#315f77]"
             : "border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]"
         }`}
       >
         <span
-          className={`h-3.5 w-3.5 rounded-full transition-transform ${
-            checked
-              ? "translate-x-4 bg-[#c8d7df]"
-              : "translate-x-0 bg-[#747982]"
+          className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.45)] transition-[left,background-color] ${
+            checked ? "left-[18px] bg-[#c8d7df]" : "left-[3px] bg-[#747982]"
           }`}
         />
       </span>

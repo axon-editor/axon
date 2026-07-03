@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@source "../base";
+@source "../platform";
+@source "../services";
+@source "../workbench";
+@source "../../../../extensions/builtin";
 
 * {
   scrollbar-width: thin;

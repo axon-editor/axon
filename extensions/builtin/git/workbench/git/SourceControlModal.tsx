@@ -21,6 +21,9 @@ import {
 import { type EditorSettings } from "@axon-editor/shared/settings";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import MediaPreview, {
+  isMediaFile,
+} from "@axon-editor/renderer/features/preview/MediaPreview";
 import GitDiffEditorView from "./GitDiffEditorView";
 import GitWorkflowPanel from "./GitWorkflowPanel";
 import GitGraphPanel from "./advanced/GitGraphPanel";
@@ -113,6 +116,12 @@ export default function SourceControlModal({
   const [committing, setCommitting] = useState(false);
   const [activeView, setActiveView] = useState<"diff" | "graph">("diff");
   const panelRef = useRef<HTMLDivElement>(null);
+  const selectedChangeIsMedia = selectedChange
+    ? isMediaFile(selectedChange.absolutePath)
+    : false;
+  const selectedChangeIsDeleted =
+    selectedChange?.indexState === "deleted" ||
+    selectedChange?.worktreeState === "deleted";
 
   const stagedChanges = useMemo(
     () => status?.changes.filter((change) => change.staged) ?? [],
@@ -361,8 +370,9 @@ export default function SourceControlModal({
   }, [onClose, open]);
 
   useEffect(() => {
-    if (!folderPath || !selectedChange) {
+    if (!folderPath || !selectedChange || selectedChangeIsMedia) {
       setDiff(null);
+      setLoadingDiff(false);
       return;
     }
 
@@ -383,13 +393,13 @@ export default function SourceControlModal({
         });
       })
       .finally(() => setLoadingDiff(false));
-  }, [folderPath, selectedChange]);
+  }, [folderPath, selectedChange, selectedChangeIsMedia]);
 
   if (!open) return null;
 
   return (
     <div
-      className="axon-modal-overlay fixed inset-0 z-50"
+      className="axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
       onMouseDown={(event) => {
         if (panelRef.current?.contains(event.target as Node)) return;
         onClose();
@@ -397,7 +407,12 @@ export default function SourceControlModal({
     >
       <div
         ref={panelRef}
-        className="axon-modal-panel absolute bottom-8 left-1/2 top-20 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
+        className="axon-modal-panel flex flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
+        style={{
+          width: "min(1180px, calc(100vw - 2rem))",
+          height: "min(900px, calc(100vh - 3rem))",
+          minHeight: "min(700px, calc(100vh - 3rem))",
+        }}
       >
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4">
           <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-65">
@@ -414,7 +429,10 @@ export default function SourceControlModal({
           </Tooltip>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] overflow-hidden">
+        <div
+          className="grid min-h-0 flex-1 overflow-hidden"
+          style={{ gridTemplateColumns: "320px minmax(0, 1fr)" }}
+        >
           <div className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)]">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -678,9 +696,18 @@ export default function SourceControlModal({
                 </div>
               )}
               {activeView === "diff" && !loadingDiff && selectedChange && (
-                diff?.diff.trim() ||
-                diff?.baseContent ||
-                diff?.currentContent ? (
+                selectedChangeIsMedia ? (
+                  selectedChangeIsDeleted ? (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
+                      This media file was deleted, so Axon cannot preview it
+                      from the current worktree.
+                    </div>
+                  ) : (
+                    <MediaPreview filePath={selectedChange.absolutePath} />
+                  )
+                ) : diff?.diff.trim() ||
+                  diff?.baseContent ||
+                  diff?.currentContent ? (
                   <GitDiffEditorView
                     filePath={selectedChange.path}
                     original={diff?.baseContent ?? ""}
