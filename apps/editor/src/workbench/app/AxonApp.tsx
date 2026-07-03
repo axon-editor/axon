@@ -104,6 +104,9 @@ export default function App({ initialExtensionState }: AppProps) {
   const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extensionsOpen, setExtensionsOpen] = useState(false);
+  const [extensionViewOpenId, setExtensionViewOpenId] = useState<string | null>(
+    null,
+  );
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
@@ -711,6 +714,7 @@ export default function App({ initialExtensionState }: AppProps) {
     setDiffFilePath,
     setDiffOpen,
     setExtensionsOpen,
+    setExtensionViewOpenId,
     setFileOutlineOpen,
     setLanguageToolsOpen,
     setPaletteOpen,
@@ -841,6 +845,7 @@ export default function App({ initialExtensionState }: AppProps) {
       diffOpen,
       extensionState,
       extensionThemes,
+      extensionViewOpenId,
       extensionsOpen,
       fileOutlineOpen,
       folderPath,
@@ -913,6 +918,7 @@ export default function App({ initialExtensionState }: AppProps) {
       setDiffOpen,
       setExtensionsOpen,
       setExtensionState,
+      setExtensionViewOpenId,
       setFileOutlineOpen,
       setFolderPickerOpen,
       setGitHistoryEditor,

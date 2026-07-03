@@ -6,6 +6,10 @@ import {
   type ExtensionContributionRecord,
   type ExtensionState,
 } from "../../../shared/extensions";
+import {
+  getWorkbenchExtensionViews,
+  toExtensionViewCommandId,
+} from "../../contrib/extensions/lib/extensionViews";
 
 interface BuildAppPaletteCommandsOptions {
   activeFilePath: string | null;
@@ -38,26 +42,38 @@ export function buildAppPaletteCommands({
   workspaceTrusted,
   zenMode,
 }: BuildAppPaletteCommandsOptions): CommandPaletteCommand[] {
-    const commandRecords =
-      (extensionState?.contributionRegistry.commands ??
-        []) as ExtensionContributionRecord<ExtensionCommandContribution>[];
-    const extensionCommands = commandRecords.map((record) => ({
-      id: `extension:${record.contribution.id}` as const,
-      title: record.contribution.title,
-      group: record.contribution.category ?? "Extensions",
+  const commandRecords =
+    (extensionState?.contributionRegistry.commands ??
+      []) as ExtensionContributionRecord<ExtensionCommandContribution>[];
+  const extensionCommands = commandRecords.map((record) => ({
+    id: `extension:${record.contribution.id}` as const,
+    title: record.contribution.title,
+    group: record.contribution.category ?? "Extensions",
+    subtitle: !workspaceTrusted
+      ? "Trust this workspace before running extension commands"
+      : (record.contribution.description ??
+        `${record.extensionName} command contribution`),
+    keywords: [
+      record.extensionName,
+      record.extensionId,
+      record.contribution.id,
+    ],
+    disabled: !workspaceTrusted,
+  }));
+  const extensionViewCommands = getWorkbenchExtensionViews(extensionState).map(
+    (view) => ({
+      id: toExtensionViewCommandId(view.id),
+      title: `Open ${view.title}`,
+      group: "Extensions",
       subtitle: !workspaceTrusted
-        ? "Trust this workspace before running extension commands"
-        : (record.contribution.description ??
-          `${record.extensionName} command contribution`),
-      keywords: [
-        record.extensionName,
-        record.extensionId,
-        record.contribution.id,
-      ],
+        ? "Trust this workspace before opening extension views"
+        : `${view.extensionName} ${view.location} view`,
+      keywords: [view.extensionName, view.extensionId, view.id, view.location],
       disabled: !workspaceTrusted,
-    }));
+    }),
+  );
 
-    return [
+  return [
       {
         id: AXON_COMMANDS.NEW_FILE,
         title: "New File",
@@ -471,5 +487,6 @@ export function buildAppPaletteCommands({
         keywords: ["version"],
       },
       ...extensionCommands,
+      ...extensionViewCommands,
     ];
 }

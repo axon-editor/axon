@@ -27,6 +27,7 @@ import UpdateModal from "../../renderer/features/updates/UpdateModal";
 import WorkspaceLoadingOverlay from "../../renderer/shared/components/WorkspaceLoadingOverlay";
 import SpotifyFloatingPlayer from "../../renderer/features/spotify/SpotifyFloatingPlayer";
 import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallPrompt";
+import ExtensionViewModal from "../contrib/extensions/views/ExtensionViewModal";
 import { AXON_COMMANDS } from "../../shared/commands";
 import { type ThemeId } from "../../shared/settings";
 import {
@@ -65,6 +66,7 @@ export function AxonAppView(props: Record<string, any>) {
     diffFilePath,
     diffOpen,
     extensionState,
+    extensionViewOpenId,
     extensionsOpen,
     fileOutlineOpen,
     folderPath,
@@ -140,6 +142,7 @@ export function AxonAppView(props: Record<string, any>) {
     setDiffOpen,
     setExtensionsOpen,
     setExtensionState,
+    setExtensionViewOpenId,
     setFileOutlineOpen,
     setFolderPickerOpen,
     setGitHistoryEditor,
@@ -676,6 +679,12 @@ export function AxonAppView(props: Record<string, any>) {
           onClose={() => setExtensionsOpen(false)}
         />
       )}
+
+      <ExtensionViewModal
+        extensionState={extensionState}
+        viewId={extensionViewOpenId}
+        onClose={() => setExtensionViewOpenId(null)}
+      />
 
       {aboutOpen && (
         <AboutModal

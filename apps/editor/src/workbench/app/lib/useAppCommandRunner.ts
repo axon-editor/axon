@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { AXON_COMMANDS, type AxonCommand } from "../../../shared/commands";
 import { isHtmlFile } from "../../../renderer/features/preview/lib/htmlPreviewTabs";
+import { parseExtensionViewCommandId } from "../../contrib/extensions/lib/extensionViews";
 
 const CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = {
   "axon.agent.fixProblems": AXON_COMMANDS.AI_FIX_PROBLEM,
@@ -17,6 +18,17 @@ const CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = {
   "axon.terminal.toggle": AXON_COMMANDS.TOGGLE_TERMINAL,
   "axon.testing.open": AXON_COMMANDS.OPEN_TEST_EXPLORER,
   "axon.testing.refresh": AXON_COMMANDS.OPEN_TEST_EXPLORER,
+};
+
+const CONTRIBUTED_VIEW_ALIASES: Record<string, AxonCommand> = {
+  "axon.agent": AXON_COMMANDS.ASK_AXON,
+  "axon.history": AXON_COMMANDS.OPEN_GIT_HISTORY,
+  "axon.problems": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
+  "axon.search.workspace": AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
+  "axon.settings": AXON_COMMANDS.OPEN_SETTINGS,
+  "axon.sourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
+  "axon.terminal": AXON_COMMANDS.TOGGLE_TERMINAL,
+  "axon.tests": AXON_COMMANDS.OPEN_TEST_EXPLORER,
 };
 
 interface AppCommandRunnerOptions {
@@ -48,6 +60,7 @@ interface AppCommandRunnerOptions {
   setDiffFilePath: any;
   setDiffOpen: any;
   setExtensionsOpen: any;
+  setExtensionViewOpenId: any;
   setFileOutlineOpen: any;
   setLanguageToolsOpen: any;
   setPaletteOpen: any;
@@ -93,6 +106,7 @@ export function useAppCommandRunner({
   setDiffFilePath,
   setDiffOpen,
   setExtensionsOpen,
+  setExtensionViewOpenId,
   setFileOutlineOpen,
   setLanguageToolsOpen,
   setPaletteOpen,
@@ -138,11 +152,25 @@ export function useAppCommandRunner({
   return useCallback(
     (command: AxonCommand) => {
       let runnableCommand = command;
+      const extensionViewId = parseExtensionViewCommandId(command);
 
-      if (command.startsWith("extension:")) {
+      if (extensionViewId) {
+        if (!requireTrustedWorkspace("Extension views")) return;
+
+        activateExtensionEvent(`onView:${extensionViewId}`, true);
+        const aliasedViewCommand = CONTRIBUTED_VIEW_ALIASES[extensionViewId];
+        if (aliasedViewCommand) {
+          runnableCommand = aliasedViewCommand;
+        } else {
+          setExtensionViewOpenId(extensionViewId);
+          return;
+        }
+      }
+
+      if (runnableCommand.startsWith("extension:")) {
         if (!requireTrustedWorkspace("Extension commands")) return;
 
-        const commandId = command.slice("extension:".length);
+        const commandId = runnableCommand.slice("extension:".length);
         void window.axon
           .activateExtensionEvent(`onCommand:${commandId}`, folderPath)
           .then((activationResult) => {
@@ -420,6 +448,7 @@ export function useAppCommandRunner({
       setDiffFilePath,
       setDiffOpen,
       setExtensionsOpen,
+      setExtensionViewOpenId,
       setFileOutlineOpen,
       setLanguageToolsOpen,
       setPaletteOpen,
