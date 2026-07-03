@@ -927,7 +927,7 @@ export async function getGitWatchPaths(folderPath: string): Promise<string[]> {
     const gitDir = resolveGitPath(gitDirResult.stdout.trim());
     const commonDir = resolveGitPath(commonDirResult.stdout.trim());
 
-    return [
+    const watchPaths = [
       path.join(gitDir, "HEAD"),
       path.join(gitDir, "index"),
       path.join(gitDir, "MERGE_HEAD"),
@@ -935,8 +935,16 @@ export async function getGitWatchPaths(folderPath: string): Promise<string[]> {
       path.join(gitDir, "REBASE_HEAD"),
       path.join(commonDir, "packed-refs"),
       path.join(commonDir, "refs"),
-    ].filter((watchPath, index, allPaths) => {
-      return fs.existsSync(watchPath) && allPaths.indexOf(watchPath) === index;
+    ];
+
+    return watchPaths.filter((watchPath, index, allPaths) => {
+      const parentPath = path.dirname(watchPath);
+      // Some Git state files are created only while an operation is active.
+      // Filtering them by current existence makes the watcher stale exactly
+      // when merge, rebase, cherry-pick, or packed-ref state changes later.
+      // Keeping paths whose parent exists lets chokidar report future `add`
+      // events while still avoiding impossible watch roots from broken repos.
+      return fs.existsSync(parentPath) && allPaths.indexOf(watchPath) === index;
     });
   } catch {
     return [];

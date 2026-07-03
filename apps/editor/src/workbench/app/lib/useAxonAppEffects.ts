@@ -563,11 +563,12 @@ export function useAxonAppEffects({
   }, [folderPath, layout.panes, refreshGitStatus]);
 
   useEffect(() => {
-    const cleanup = window.axon.onGitChanged(() => {
+    const cleanup = window.axon.onGitChanged((event) => {
+      if (event?.folderPath && event.folderPath !== folderPath) return;
       void refreshGitStatus({ silent: true });
     });
     return cleanup;
-  }, [refreshGitStatus]);
+  }, [folderPath, refreshGitStatus]);
 
   useEffect(() => {
     const cleanupOutput = window.axon.onTaskOutput((event) => {

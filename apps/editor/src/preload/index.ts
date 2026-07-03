@@ -484,8 +484,9 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.on("fs:folderChanged", handler);
     return () => ipcRenderer.removeListener("fs:folderChanged", handler);
   },
-  onGitChanged: (callback: () => void) => {
-    const handler = () => callback();
+  onGitChanged: (callback: (event?: { folderPath?: string }) => void) => {
+    const handler = (_: unknown, event?: { folderPath?: string }) =>
+      callback(event);
     ipcRenderer.on("git:changed", handler);
     return () => ipcRenderer.removeListener("git:changed", handler);
   },

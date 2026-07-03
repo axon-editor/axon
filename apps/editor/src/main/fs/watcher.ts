@@ -179,7 +179,7 @@ export class FileWatcherManager {
           // feel live. I refresh Git status from the normal folder watcher too so
           // the tree and Git decorations move together after creates, imports,
           // edits, and deletes.
-          this.deps.sendToRenderer("git:changed");
+          this.deps.sendToRenderer("git:changed", { folderPath });
         }, 90);
       };
 
@@ -231,7 +231,7 @@ export class FileWatcherManager {
           // event can repaint source-control state for the wrong workspace.
           this.gitDebounceTimer = setTimeout(() => {
             this.gitDebounceTimer = null;
-            this.deps.sendToRenderer("git:changed");
+            this.deps.sendToRenderer("git:changed", { folderPath });
           }, 90);
         };
 
