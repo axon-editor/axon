@@ -311,6 +311,11 @@ export function useAppCommandRunner({
           setSidebarView("history");
           void refreshGitStatus({ silent: true });
           break;
+        case AXON_COMMANDS.OPEN_SPOTIFY:
+          activateExtensionEvent("onView:axon.spotify");
+          setSidebarCollapsed(false);
+          setSidebarView("spotify");
+          break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           if (!requireTrustedWorkspace("Terminal")) break;
           activateExtensionEvent("onCommand:axon.terminal.toggle");

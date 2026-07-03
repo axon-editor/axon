@@ -2,9 +2,9 @@
 // Device IDs are session-scoped, so the component only displays live devices
 // from Spotify and leaves persistence to Spotify itself.
 import { RefreshCw, Speaker } from "lucide-react";
-import type { SpotifyDevice } from "../../../shared/spotify";
-import Tooltip from "../../shared/components/Tooltip";
-import SearchSelect, { type SearchSelectItem } from "../../../base/components/SearchSelect";
+import type { SpotifyDevice } from "@axon-editor/shared/spotify";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import SearchSelect, { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect";
 
 interface Props {
   devices: SpotifyDevice[];

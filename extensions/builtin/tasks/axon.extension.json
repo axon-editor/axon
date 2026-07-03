@@ -1,0 +1,26 @@
+{
+  "id": "axon.tasks",
+  "name": "Tasks",
+  "description": "Workspace task discovery and task runner UI.",
+  "version": "0.1.0",
+  "publisher": "Axon",
+  "kind": "builtin",
+  "category": "Tasks",
+  "activationEvents": ["onCommand:axon.tasks.run"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.tasks.run",
+        "title": "Run Task",
+        "category": "Tasks"
+      }
+    ],
+    "views": [
+      {
+        "id": "axon.tasks",
+        "name": "Tasks",
+        "location": "modal"
+      }
+    ]
+  }
+}

@@ -27,7 +27,7 @@ import {
   isMarkdownPreviewTabPath,
 } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import { isWelcomeTabPath } from "../onboarding/lib/welcomeTab";
-import MediaPreview, { isMediaFile } from "../preview/MediaPreview";
+import MediaPreview, { isMediaFile } from "@axon-builtin-media-preview/MediaPreview";
 import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import SingleEditor from "./SingleEditor";

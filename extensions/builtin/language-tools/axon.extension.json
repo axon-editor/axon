@@ -1,0 +1,26 @@
+{
+  "id": "axon.languageTools",
+  "name": "Language Tools",
+  "description": "Language server status, symbol navigation, formatting, references, rename, and definition commands.",
+  "version": "0.1.0",
+  "publisher": "Axon",
+  "kind": "builtin",
+  "category": "Languages",
+  "activationEvents": ["onCommand:axon.languageTools.open"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.languageTools.open",
+        "title": "Open Language Tools",
+        "category": "Languages"
+      }
+    ],
+    "views": [
+      {
+        "id": "axon.languageTools",
+        "name": "Language Tools",
+        "location": "modal"
+      }
+    ]
+  }
+}

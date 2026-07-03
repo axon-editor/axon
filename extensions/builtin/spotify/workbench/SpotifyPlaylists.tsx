@@ -6,7 +6,7 @@ import type {
   SpotifyPlaylist,
   SpotifyPlayTrackRequest,
   SpotifyTrack,
-} from "../../../shared/spotify";
+} from "@axon-editor/shared/spotify";
 
 function formatMs(ms: number): string {
   const s = Math.floor(ms / 1000);

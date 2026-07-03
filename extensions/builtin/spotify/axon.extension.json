@@ -1,0 +1,19 @@
+{
+  "id": "axon.spotify",
+  "name": "Spotify",
+  "description": "Spotify sidebar and floating now-playing controls.",
+  "version": "0.1.0",
+  "publisher": "Axon",
+  "kind": "builtin",
+  "category": "Integrations",
+  "activationEvents": ["onView:axon.spotify"],
+  "contributes": {
+    "views": [
+      {
+        "id": "axon.spotify",
+        "name": "Spotify",
+        "location": "sidebar"
+      }
+    ]
+  }
+}

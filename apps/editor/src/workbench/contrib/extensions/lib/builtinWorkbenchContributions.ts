@@ -21,6 +21,7 @@ export const BUILTIN_CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = 
   "axon.git.openHistory": AXON_COMMANDS.OPEN_GIT_HISTORY,
   "axon.git.openSourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
   "axon.git.refresh": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
+  "axon.languageTools.open": AXON_COMMANDS.OPEN_LANGUAGE_TOOLS,
   "axon.preview.openHtml": AXON_COMMANDS.OPEN_HTML_PREVIEW,
   "axon.problems.open": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
   "axon.problems.refresh": AXON_COMMANDS.REFRESH_DIAGNOSTICS,
@@ -31,6 +32,7 @@ export const BUILTIN_CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = 
   "axon.terminal.toggle": AXON_COMMANDS.TOGGLE_TERMINAL,
   "axon.testing.open": AXON_COMMANDS.OPEN_TEST_EXPLORER,
   "axon.testing.refresh": AXON_COMMANDS.OPEN_TEST_EXPLORER,
+  "axon.tasks.run": AXON_COMMANDS.OPEN_TASK_RUNNER,
 };
 
 export const BUILTIN_CONTRIBUTED_VIEW_ALIASES: Record<string, AxonCommand> = {
@@ -40,6 +42,9 @@ export const BUILTIN_CONTRIBUTED_VIEW_ALIASES: Record<string, AxonCommand> = {
   "axon.search.workspace": AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
   "axon.settings": AXON_COMMANDS.OPEN_SETTINGS,
   "axon.sourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
+  "axon.spotify": AXON_COMMANDS.OPEN_SPOTIFY,
+  "axon.languageTools": AXON_COMMANDS.OPEN_LANGUAGE_TOOLS,
+  "axon.tasks": AXON_COMMANDS.OPEN_TASK_RUNNER,
   "axon.terminal": AXON_COMMANDS.TOGGLE_TERMINAL,
   "axon.tests": AXON_COMMANDS.OPEN_TEST_EXPLORER,
 };
@@ -71,10 +76,19 @@ export const BUILTIN_WORKBENCH_CONTRIBUTIONS = {
     extensionId: "axon.htmlPreview",
     commands: ["axon.preview.openHtml"],
   },
+  languageTools: {
+    extensionId: "axon.languageTools",
+    views: [{ id: "axon.languageTools", location: "modal" }],
+    commands: ["axon.languageTools.open"],
+  },
   settings: {
     extensionId: "axon.settings",
     views: [{ id: "axon.settings", location: "modal" }],
     commands: ["axon.settings.open", "axon.settings.openJson"],
+  },
+  spotify: {
+    extensionId: "axon.spotify",
+    views: [{ id: "axon.spotify", location: "sidebar" }],
   },
   terminal: {
     extensionId: "axon.terminal",
@@ -85,6 +99,11 @@ export const BUILTIN_WORKBENCH_CONTRIBUTIONS = {
     extensionId: "axon.testing",
     views: [{ id: "axon.tests", location: "sidebar" }],
     commands: ["axon.testing.open", "axon.testing.refresh"],
+  },
+  tasks: {
+    extensionId: "axon.tasks",
+    views: [{ id: "axon.tasks", location: "modal" }],
+    commands: ["axon.tasks.run"],
   },
 } as const satisfies Record<string, RequiredWorkbenchContribution>;
 

@@ -19,7 +19,7 @@ import FileTree, {
 import ContextMenu from "./files/ContextMenu";
 import FolderPicker from "./files/FolderPicker";
 import { type InlineCreateKind, type InlineCreateTarget } from "./files/InlineCreateRow";
-import GitHistoryView from "./history/GitHistoryView";
+import GitHistoryView from "@axon-builtin-git/history/GitHistoryView";
 import {
   type GitChange,
   type GitCommitDiffResult,
@@ -27,8 +27,8 @@ import {
   type GitHistoryFile,
   type GitFileState,
 } from "../../../shared/git";
-import SpotifyPanel from "../spotify/SpotifyPanel";
-import type { SpotifyActions, SpotifyState } from "../spotify/lib/useSpotify";
+import SpotifyPanel from "@axon-builtin-spotify/SpotifyPanel";
+import type { SpotifyActions, SpotifyState } from "@axon-builtin-spotify/lib/useSpotify";
 import { clearWorkspaceSession } from "../../shared/lib/workspaceSession";
 import { type WorkspaceRoot } from "../../shared/lib/workspaceRoots";
 
@@ -177,6 +177,7 @@ interface Props {
   onCloseFolderPicker: () => void;
   platform: string;
   onWorkspaceTrustChanged?: () => void;
+  enableSpotify: boolean;
   spotifyState: SpotifyState;
   spotifyActions: SpotifyActions;
   playerOpen: boolean;
@@ -448,6 +449,7 @@ export default function Sidebar({
   onCloseFolderPicker,
   platform,
   onWorkspaceTrustChanged,
+  enableSpotify,
   playerOpen,
   onTogglePlayer,
   spotifyState,
@@ -736,6 +738,7 @@ export default function Sidebar({
   if (collapsed) return null;
 
   const hasMacTrafficLights = platform === "darwin";
+  const effectiveView = view === "spotify" && !enableSpotify ? "files" : view;
 
   return (
     <>
@@ -818,28 +821,28 @@ export default function Sidebar({
 
           <div
             className={`flex-1 ${
-              view === "history" || view === "spotify"
+              effectiveView === "history" || effectiveView === "spotify"
                 ? "overflow-hidden flex flex-col"
                 : "overflow-auto py-1"
             }`}
             onContextMenu={handleRootContextMenu}
-            onDragEnter={view === "files" ? handleRootDragOver : undefined}
-            onDragOver={view === "files" ? handleRootDragOver : undefined}
+            onDragEnter={effectiveView === "files" ? handleRootDragOver : undefined}
+            onDragOver={effectiveView === "files" ? handleRootDragOver : undefined}
             onDragLeave={
-              view === "files" ? () => setRootDragOver(false) : undefined
+              effectiveView === "files" ? () => setRootDragOver(false) : undefined
             }
-            onDrop={view === "files" ? handleRootDrop : undefined}
+            onDrop={effectiveView === "files" ? handleRootDrop : undefined}
           >
-            {view === "history" && (
+            {effectiveView === "history" && (
               <GitHistoryView
                 folderPath={folderPath}
                 onOpenCommitFile={onOpenGitHistoryFile}
               />
             )}
 
-            {view === "spotify" && (
+            {effectiveView === "spotify" && (
               <SpotifyPanel
-                visible={view === "spotify"}
+                visible={effectiveView === "spotify"}
                 playerOpen={playerOpen}
                 onTogglePlayer={onTogglePlayer}
                 spotifyState={spotifyState}
@@ -847,7 +850,7 @@ export default function Sidebar({
               />
             )}
 
-            {view === "files" && (
+            {effectiveView === "files" && (
               <FileTree
                 tree={tree}
                 loading={loading}

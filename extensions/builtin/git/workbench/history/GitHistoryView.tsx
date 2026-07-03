@@ -6,7 +6,7 @@ import {
   type GitHistoryCommit,
   type GitHistoryFile,
   type GitHistoryResult,
-} from "../../../../shared/git";
+} from "@axon-editor/shared/git";
 
 const stateLabels: Record<GitFileState, string> = {
   modified: "M",

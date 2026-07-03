@@ -11,9 +11,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { type LanguageServerStatus } from "../../../shared/lsp";
-import { type FileSymbol } from "../sidebar/files/lib/fileSymbols";
-import Tooltip from "../../shared/components/Tooltip";
+import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
+import { type FileSymbol } from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
   open: boolean;

@@ -3,7 +3,7 @@
 // local files securely without file:// restrictions.
 import { ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 import { useState } from "react";
-import Tooltip from "../../shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
   filePath: string;

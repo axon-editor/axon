@@ -52,7 +52,7 @@ import { toMonacoEdit } from "./lib/monacoEdit";
 import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
 import "../../renderer/App.css";
 import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolInstallPrompt";
-import { useSpotify } from "../../renderer/features/spotify/lib/useSpotify";
+import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
 import { detectLanguageServerLanguage, getModel } from "../../renderer/features/editor/lib/monacoModels";
 import {
   hasSeenAxonOnboarding,

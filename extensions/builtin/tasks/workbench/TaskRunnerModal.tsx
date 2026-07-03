@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Hammer, Play } from "lucide-react";
-import { type WorkspaceTask } from "../../../shared/tasks";
-import CommandModal from "../../shared/components/CommandModal";
+import { type WorkspaceTask } from "@axon-editor/shared/tasks";
+import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
 
 interface Props {
   folderPath: string | null;

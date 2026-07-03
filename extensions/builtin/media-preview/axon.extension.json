@@ -1,0 +1,19 @@
+{
+  "id": "axon.mediaPreview",
+  "name": "Media Preview",
+  "description": "Image and video previews for local workspace files.",
+  "version": "0.1.0",
+  "publisher": "Axon",
+  "kind": "builtin",
+  "category": "Preview",
+  "activationEvents": ["onFileSystem:media"],
+  "contributes": {
+    "views": [
+      {
+        "id": "axon.mediaPreview",
+        "name": "Media Preview",
+        "location": "editor"
+      }
+    ]
+  }
+}

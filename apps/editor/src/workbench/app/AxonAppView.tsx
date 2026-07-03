@@ -15,18 +15,21 @@ import SettingsModal from "@axon-builtin-settings/settings/SettingsModal";
 import { resolveSettingsWorkbenchContribution } from "@axon-builtin-settings/lib/contribution";
 import TestExplorerModal from "@axon-builtin-testing/TestExplorerModal";
 import { resolveTestingWorkbenchContribution } from "@axon-builtin-testing/lib/contribution";
+import { resolveTasksWorkbenchContribution } from "@axon-builtin-tasks/lib/contribution";
+import { resolveLanguageToolsWorkbenchContribution } from "@axon-builtin-language-tools/lib/contribution";
+import { resolveSpotifyWorkbenchContribution } from "@axon-builtin-spotify/lib/contribution";
 import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
 import EditorPane from "../../renderer/features/editor/EditorPane";
 import StatusBar from "../../renderer/shared/components/StatusBar";
 import EditorToolbar from "../../renderer/features/editor/EditorToolbar";
 import ExtensionsModal from "../contrib/extensions";
 import AboutModal from "../../renderer/shared/components/AboutModal";
-import TaskRunnerModal from "../../renderer/features/tasks/TaskRunnerModal";
+import TaskRunnerModal from "@axon-builtin-tasks/TaskRunnerModal";
 import WorkspaceOverviewModal from "../../renderer/features/workspace/WorkspaceOverviewModal";
-import LanguageToolsModal from "../../renderer/features/lsp/LanguageToolsModal";
+import LanguageToolsModal from "@axon-builtin-language-tools/LanguageToolsModal";
 import UpdateModal from "../../renderer/features/updates/UpdateModal";
 import WorkspaceLoadingOverlay from "../../renderer/shared/components/WorkspaceLoadingOverlay";
-import SpotifyFloatingPlayer from "../../renderer/features/spotify/SpotifyFloatingPlayer";
+import SpotifyFloatingPlayer from "@axon-builtin-spotify/SpotifyFloatingPlayer";
 import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallPrompt";
 import ExtensionViewModal from "../contrib/extensions/views/ExtensionViewModal";
 import { AXON_COMMANDS } from "../../shared/commands";
@@ -206,10 +209,23 @@ export function AxonAppView(props: Record<string, any>) {
     () => resolveTestingWorkbenchContribution(extensionState),
     [extensionState],
   );
+  const tasksContribution = React.useMemo(
+    () => resolveTasksWorkbenchContribution(extensionState),
+    [extensionState],
+  );
+  const languageToolsContribution = React.useMemo(
+    () => resolveLanguageToolsWorkbenchContribution(extensionState),
+    [extensionState],
+  );
+  const spotifyContribution = React.useMemo(
+    () => resolveSpotifyWorkbenchContribution(extensionState),
+    [extensionState],
+  );
   const mainSidebarSide =
     settings.editor.sidebarSide === "right" ? "right" : "left";
   const shouldShowAgentSidebar =
     !zenMode && settings.ai.enabled && agentSidebarOpen && !!agentContribution;
+  const canShowSpotify = !!spotifyContribution;
   const agentSidebarNode = shouldShowAgentSidebar ? (
     <AxonAgentSidebar
       activeFileContent={activeFileContent}
@@ -332,6 +348,7 @@ export function AxonAppView(props: Record<string, any>) {
               onOpenFolderPicker={() => setFolderPickerOpen(true)}
               onCloseFolderPicker={() => setFolderPickerOpen(false)}
               platform={platform}
+              enableSpotify={canShowSpotify}
               spotifyState={spotifyState}
               spotifyActions={spotifyActions}
               playerOpen={spotifyPlayerOpen}
@@ -343,7 +360,7 @@ export function AxonAppView(props: Record<string, any>) {
           </div>
         )}
 
-        {spotifyPlayerOpen && spotifyState.status?.connected && (
+        {spotifyPlayerOpen && canShowSpotify && spotifyState.status?.connected && (
           <SpotifyFloatingPlayer
             playback={spotifyState.playback}
             onPlay={spotifyActions.play}
@@ -608,12 +625,14 @@ export function AxonAppView(props: Record<string, any>) {
         }}
       />
 
-      <TaskRunnerModal
-        folderPath={folderPath}
-        open={taskRunnerOpen}
-        onClose={() => setTaskRunnerOpen(false)}
-        onRunTask={(task) => void handleRunWorkspaceTask(task)}
-      />
+      {tasksContribution && (
+        <TaskRunnerModal
+          folderPath={folderPath}
+          open={taskRunnerOpen}
+          onClose={() => setTaskRunnerOpen(false)}
+          onRunTask={(task) => void handleRunWorkspaceTask(task)}
+        />
+      )}
 
       {testingContribution && (
         <TestExplorerModal
@@ -643,22 +662,24 @@ export function AxonAppView(props: Record<string, any>) {
         }}
       />
 
-      <LanguageToolsModal
-        open={languageToolsOpen}
-        folderPath={folderPath}
-        activeFile={activePane?.activeFile ?? null}
-        language={language}
-        symbols={activeFileSymbols}
-        onClose={() => setLanguageToolsOpen(false)}
-        onGoToDefinition={() => runCommand(AXON_COMMANDS.GO_TO_DEFINITION)}
-        onFindReferences={() => runCommand(AXON_COMMANDS.FIND_REFERENCES)}
-        onRename={() => runCommand(AXON_COMMANDS.RENAME_SYMBOL)}
-        onFormat={() => runCommand(AXON_COMMANDS.FORMAT_DOCUMENT)}
-        onOpenOutline={() => {
-          setLanguageToolsOpen(false);
-          setFileOutlineOpen(true);
-        }}
-      />
+      {languageToolsContribution && (
+        <LanguageToolsModal
+          open={languageToolsOpen}
+          folderPath={folderPath}
+          activeFile={activePane?.activeFile ?? null}
+          language={language}
+          symbols={activeFileSymbols}
+          onClose={() => setLanguageToolsOpen(false)}
+          onGoToDefinition={() => runCommand(AXON_COMMANDS.GO_TO_DEFINITION)}
+          onFindReferences={() => runCommand(AXON_COMMANDS.FIND_REFERENCES)}
+          onRename={() => runCommand(AXON_COMMANDS.RENAME_SYMBOL)}
+          onFormat={() => runCommand(AXON_COMMANDS.FORMAT_DOCUMENT)}
+          onOpenOutline={() => {
+            setLanguageToolsOpen(false);
+            setFileOutlineOpen(true);
+          }}
+        />
+      )}
 
       {settingsOpen && settingsContribution && (
         <SettingsModal

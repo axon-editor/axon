@@ -16,7 +16,7 @@ import type {
   SpotifyDevice,
   SpotifyPlaybackState,
   SpotifyPlayTrackRequest,
-} from "../../../shared/spotify";
+} from "@axon-editor/shared/spotify";
 import { X } from "lucide-react";
 import SpotifyDeviceSelector from "./SpotifyDeviceSelector";
 

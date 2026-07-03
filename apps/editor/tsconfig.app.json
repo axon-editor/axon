@@ -34,6 +34,18 @@
       "@axon-builtin-html-preview/*": [
         "../../extensions/builtin/html-preview/workbench/*"
       ],
+      "@axon-builtin-media-preview/*": [
+        "../../extensions/builtin/media-preview/workbench/*"
+      ],
+      "@axon-builtin-tasks/*": [
+        "../../extensions/builtin/tasks/workbench/*"
+      ],
+      "@axon-builtin-spotify/*": [
+        "../../extensions/builtin/spotify/workbench/*"
+      ],
+      "@axon-builtin-language-tools/*": [
+        "../../extensions/builtin/language-tools/workbench/*"
+      ],
       "@axon-builtin-settings/*": [
         "../../extensions/builtin/settings/workbench/*"
       ],
@@ -84,6 +96,10 @@
     "../../extensions/builtin/search/workbench/**/*",
     "../../extensions/builtin/markdown/workbench/**/*",
     "../../extensions/builtin/html-preview/workbench/**/*",
+    "../../extensions/builtin/media-preview/workbench/**/*",
+    "../../extensions/builtin/tasks/workbench/**/*",
+    "../../extensions/builtin/spotify/workbench/**/*",
+    "../../extensions/builtin/language-tools/workbench/**/*",
     "../../extensions/builtin/settings/workbench/**/*",
     "../../extensions/builtin/git/workbench/**/*",
     "../../extensions/builtin/testing/workbench/**/*",

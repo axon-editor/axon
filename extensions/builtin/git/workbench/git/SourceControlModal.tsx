@@ -23,7 +23,7 @@ import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import MediaPreview, {
   isMediaFile,
-} from "@axon-editor/renderer/features/preview/MediaPreview";
+} from "@axon-builtin-media-preview/MediaPreview";
 import GitDiffEditorView from "./GitDiffEditorView";
 import GitWorkflowPanel from "./GitWorkflowPanel";
 import GitGraphPanel from "./advanced/GitGraphPanel";

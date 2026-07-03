@@ -11,7 +11,7 @@ import type {
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
   SpotifyTrack,
-} from "../../../../shared/spotify";
+} from "@axon-editor/shared/spotify";
 
 const POLL_INTERVAL_MS = 2000;
 
