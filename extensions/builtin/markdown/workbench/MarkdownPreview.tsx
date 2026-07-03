@@ -4,7 +4,9 @@ import remarkGfm from "remark-gfm";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import {
   isValidElement,
+  useCallback,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type MouseEvent,
@@ -47,6 +49,10 @@ function isExternalUrl(src: string) {
 
 function isInlineReference(src: string) {
   return /^(#|data:|blob:)/i.test(src);
+}
+
+function isHashReference(src: string) {
+  return src.startsWith("#");
 }
 
 function encodeLocalPath(path: string) {
@@ -108,6 +114,38 @@ function resolveMarkdownLinkPath(
   return pathname.startsWith("/")
     ? normalizePath(`${markdownRoot}/${pathname}`)
     : normalizePath(`${getParentPath(filePath)}/${pathname}`);
+}
+
+function createHeadingSlug(text: string) {
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function normalizeHeadingAnchor(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function getDecodedHash(hash: string) {
+  const rawHash = hash.replace(/^#/, "");
+  try {
+    return decodeURIComponent(rawHash);
+  } catch {
+    return rawHash;
+  }
 }
 
 function textFromNode(node: ReactNode): string {
@@ -262,11 +300,73 @@ export default function MarkdownPreview({
   folderPath,
   onOpenFile,
 }: MarkdownPreviewProps) {
-  const handleLinkClick = (
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const headingSlugCounts = new Map<string, number>();
+
+  const getHeadingId = (children: ReactNode, providedId?: string) => {
+    if (providedId) return providedId;
+
+    const baseSlug = createHeadingSlug(textFromNode(children));
+    if (!baseSlug) return undefined;
+
+    const count = headingSlugCounts.get(baseSlug) ?? 0;
+    headingSlugCounts.set(baseSlug, count + 1);
+    return count === 0 ? baseSlug : `${baseSlug}-${count}`;
+  };
+
+  const scrollToMarkdownHash = useCallback((hash: string) => {
+    const preview = previewRef.current;
+    if (!preview) return false;
+
+    const decodedHash = getDecodedHash(hash);
+    if (!decodedHash) {
+      preview.scrollTo({ top: 0, behavior: "smooth" });
+      return true;
+    }
+
+    const slugHash = createHeadingSlug(decodedHash);
+    const targetIds = Array.from(new Set([decodedHash, slugHash].filter(Boolean)));
+    const normalizedTargetIds = targetIds.map(normalizeHeadingAnchor);
+    const target = Array.from(preview.querySelectorAll<HTMLElement>("[id]"))
+      .find((element) => {
+        if (targetIds.includes(element.id)) return true;
+
+        // Generated tables of contents are not perfectly consistent about
+        // punctuation. A heading like "Returns immediately — no processing
+        // delay." may be linked as either `returns-immediately-no-processing-
+        // delay` or `returns-immediately--no-processing-delay` depending on
+        // whether the authoring tool removes the em dash before or after
+        // spacing is collapsed. Comparing a normalized anchor form here keeps
+        // those links working without changing the visible heading ids that
+        // existing Markdown files may already reference.
+        return normalizedTargetIds.includes(normalizeHeadingAnchor(element.id));
+      });
+
+    if (!target) return false;
+
+    // Anchor links should behave like documentation sites: a table of contents
+    // click moves the preview pane, not the whole Electron document. Scoping
+    // the lookup to this preview container also prevents split Markdown panes
+    // from stealing each other's in-page navigation.
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+    return true;
+  }, []);
+
+  const handleLinkClick = useCallback((
     event: MouseEvent<HTMLAnchorElement>,
     href: string | undefined,
   ) => {
-    if (!href || isInlineReference(href)) return;
+    if (!href) return;
+    if (isHashReference(href)) {
+      event.preventDefault();
+      scrollToMarkdownHash(href);
+      return;
+    }
+    if (isInlineReference(href)) return;
     event.preventDefault();
 
     if (isExternalUrl(href)) {
@@ -274,36 +374,61 @@ export default function MarkdownPreview({
       return;
     }
 
+    const { suffix } = splitLocalReference(href);
     const targetPath = resolveMarkdownLinkPath(href, filePath, folderPath);
+    if (
+      targetPath &&
+      normalizePath(targetPath) === normalizePath(filePath) &&
+      suffix.startsWith("#")
+    ) {
+      scrollToMarkdownHash(suffix);
+      return;
+    }
+
     if (targetPath && onOpenFile) {
       onOpenFile(targetPath);
     }
-  };
+  }, [filePath, folderPath, onOpenFile, scrollToMarkdownHash]);
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--axon-editor-background)] px-5 py-6">
+    <div
+      ref={previewRef}
+      className="h-full overflow-y-auto bg-[var(--axon-editor-background)] px-5 py-6"
+    >
       <article className="mx-auto w-full max-w-5xl text-[14px] leading-7 text-[var(--axon-editor-foreground)]">
         <ReactMarkdown
           rehypePlugins={[rehypeRaw]}
           remarkPlugins={[remarkGfm]}
           components={{
-            h1: ({ children }) => (
-              <h1 className="mb-5 border-b border-[var(--axon-panel-border)] pb-3 text-[26px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
+            h1: ({ children, id }) => (
+              <h1
+                id={getHeadingId(children, id)}
+                className="scroll-mt-4 mb-5 border-b border-[var(--axon-panel-border)] pb-3 text-[26px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+              >
                 {children}
               </h1>
             ),
-            h2: ({ children }) => (
-              <h2 className="mb-3 mt-8 border-b border-[var(--axon-panel-border)] pb-2 text-[20px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
+            h2: ({ children, id }) => (
+              <h2
+                id={getHeadingId(children, id)}
+                className="scroll-mt-4 mb-3 mt-8 border-b border-[var(--axon-panel-border)] pb-2 text-[20px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+              >
                 {children}
               </h2>
             ),
-            h3: ({ children }) => (
-              <h3 className="mb-2 mt-6 text-[16px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
+            h3: ({ children, id }) => (
+              <h3
+                id={getHeadingId(children, id)}
+                className="scroll-mt-4 mb-2 mt-6 text-[16px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+              >
                 {children}
               </h3>
             ),
-            h4: ({ children }) => (
-              <h4 className="mb-2 mt-5 text-[14px] font-semibold leading-tight text-[var(--axon-editor-foreground)]">
+            h4: ({ children, id }) => (
+              <h4
+                id={getHeadingId(children, id)}
+                className="scroll-mt-4 mb-2 mt-5 text-[14px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+              >
                 {children}
               </h4>
             ),
@@ -338,7 +463,7 @@ export default function MarkdownPreview({
               </a>
             ),
             blockquote: ({ children }) => (
-              <blockquote className="my-5 border-l-2 border-[var(--axon-syntax-function)] bg-[var(--axon-panel-background)] px-4 py-2 text-[var(--axon-editor-foreground)] opacity-75">
+              <blockquote className="my-2 border-l-[3px] border-[var(--axon-panel-border)] bg-transparent py-0.5 pl-3 pr-2 text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-55 [&>p]:my-0 [&>p+p]:mt-2">
                 {children}
               </blockquote>
             ),
