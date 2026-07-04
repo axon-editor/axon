@@ -508,6 +508,7 @@ export function AxonAppView(props: Record<string, any>) {
               editorSettings={settings.editor}
               themeTokens={themeTokens}
               workingDirectory={folderPath}
+              activeFile={activePane?.activeFile ?? null}
               activePanelTab={
                 !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
               }

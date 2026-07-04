@@ -17,13 +17,34 @@ interface TestManagerDependencies {
 
 const TEST_DISCOVERY_IGNORE = new Set([
   ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "target",
+  ".cache",
+  ".gocache",
+  ".go-cache",
+  ".gradle",
+  ".mypy_cache",
   ".next",
+  ".nyc_output",
+  ".parcel-cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".tox",
+  ".turbo",
   ".vite",
+  ".venv",
+  "__generated__",
   "__pycache__",
+  "build",
+  "coverage",
+  "dist",
+  "gen",
+  "generated",
+  "go-build",
+  "gocache",
+  "node_modules",
+  "out",
+  "target",
+  "vendor",
+  "venv",
 ]);
 const MAX_TEST_ITEMS = 250;
 const MAX_PROJECT_ROOT_SCAN_DEPTH = 6;
@@ -206,7 +227,7 @@ export class TestManager {
     try {
       return fs
         .readdirSync(parent, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && !TEST_DISCOVERY_IGNORE.has(entry.name))
+        .filter((entry) => entry.isDirectory() && !this.shouldIgnoreDiscoveryEntry(entry.name))
         .map((entry) => path.join(parent, entry.name));
     } catch {
       return [];
@@ -240,9 +261,28 @@ export class TestManager {
     }
 
     for (const entry of entries) {
-      if (!entry.isDirectory() || TEST_DISCOVERY_IGNORE.has(entry.name)) continue;
+      if (!entry.isDirectory() || this.shouldIgnoreDiscoveryEntry(entry.name)) continue;
       this.collectMarkedProjectRoots(path.join(directory, entry.name), roots, depthRemaining - 1);
     }
+  }
+
+  private shouldIgnoreDiscoveryEntry(name: string) {
+    const lowerName = name.toLowerCase();
+    if (TEST_DISCOVERY_IGNORE.has(lowerName)) return true;
+
+    // Test discovery is intentionally project-aware, not artifact-aware. Go,
+    // Python, Node, Rust, and build tools can create nested cache directories
+    // whose names vary by platform or environment. Treating those cache and
+    // generated-folder names as dead zones keeps the Test Explorer focused on
+    // source-owned tests and prevents huge generated trees from making the UI
+    // slow or showing meaningless providers.
+    return (
+      lowerName.includes("gocache") ||
+      lowerName.startsWith("go-build") ||
+      lowerName.endsWith(".cache") ||
+      lowerName === "generated" ||
+      lowerName === "__generated__"
+    );
   }
 
   private providerId(
@@ -286,7 +326,7 @@ export class TestManager {
 
       for (const entry of entries) {
         if (items.length >= MAX_TEST_ITEMS) return;
-        if (TEST_DISCOVERY_IGNORE.has(entry.name)) continue;
+        if (this.shouldIgnoreDiscoveryEntry(entry.name)) continue;
         const absolutePath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
           visit(absolutePath);
@@ -331,7 +371,7 @@ export class TestManager {
 
       for (const entry of entries) {
         if (packageDirectories.size >= MAX_TEST_ITEMS) return;
-        if (TEST_DISCOVERY_IGNORE.has(entry.name)) continue;
+        if (this.shouldIgnoreDiscoveryEntry(entry.name)) continue;
         const absolutePath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
           visit(absolutePath);

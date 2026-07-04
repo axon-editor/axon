@@ -1,6 +1,7 @@
 import { Terminal as XTerm } from "@xterm/xterm";
 import {
   MAX_RECONNECT_INPUT_BYTES,
+  TERMINAL_OUTPUT_BACKPRESSURE_BYTES,
   getOutputByteLength,
   getTerminalBackendUrl,
   quoteShellPath,
@@ -39,10 +40,11 @@ export function isTerminalAtBottom(term: XTerm) {
 }
 
 export function scheduleTerminalRefresh(session: TerminalSession) {
-  // xterm usually repaints after write callbacks, but heavy TUI output can
-  // leave the DOM behind until a later resize/fit forces a refresh. Scheduling
-  // one frame after each drained chunk keeps long-running agents visible while
-  // still batching repaint work through requestAnimationFrame.
+  // xterm already batches normal writes internally, so forcing a refresh after
+  // every streamed chunk makes long agent output feel slow. Axon only schedules
+  // this explicit repaint at idle boundaries and after resize/theme changes,
+  // which keeps the terminal responsive while still covering the rare case
+  // where the DOM misses the final rows until another layout event happens.
   if (!session.term || session.refreshFrame !== null) return;
 
   session.refreshFrame = window.requestAnimationFrame(() => {
@@ -87,6 +89,21 @@ export function flushQueuedTerminalInput(session: TerminalSession) {
   }
 }
 
+function closeTerminalForBackpressure(session: TerminalSession) {
+  if (session.backpressureClosePending) return;
+  if (!session.ws || session.ws.readyState !== WebSocket.OPEN) return;
+  if (session.queuedBytes < TERMINAL_OUTPUT_BACKPRESSURE_BYTES) return;
+
+  // The renderer is the slowest part of the terminal path during long agent
+  // streams. Once xterm is several MB behind, keeping the websocket attached
+  // only lets more data pile up in browser memory. Closing the view transport
+  // pauses delivery without killing the PTY; the session manager waits for
+  // xterm to finish this queue and reconnects from the painted byte offset.
+  session.backpressureClosePending = true;
+  session.backpressureDisconnects += 1;
+  session.ws.close(4001, "renderer-output-backpressure");
+}
+
 function drainTerminalOutput(session: TerminalSession) {
   if (session.outputWriting) return;
   const chunk = session.outputQueue.shift();
@@ -106,8 +123,13 @@ function drainTerminalOutput(session: TerminalSession) {
     if (session.term && session.atBottom) {
       session.term.scrollToBottom();
     }
-    scheduleTerminalRefresh(session);
+    if (session.outputQueue.length === 0) {
+      scheduleTerminalRefresh(session);
+    }
     session.outputWriting = false;
+    if (session.queuedBytes === 0) {
+      session.backpressureClosePending = false;
+    }
     drainTerminalOutput(session);
   });
 }
@@ -123,6 +145,7 @@ export function writeTerminalOutput(
   session.outputQueue.push(chunk);
   session.queuedBytes += chunk.byteLength;
   session.maxQueuedBytes = Math.max(session.maxQueuedBytes, session.queuedBytes);
+  closeTerminalForBackpressure(session);
   drainTerminalOutput(session);
 }
 

@@ -335,7 +335,7 @@ export default function TestExplorerModal({
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[360px_minmax(0,1fr)] overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] overflow-hidden">
           <TestExplorerSidebar
             activeRunCount={activeRunCount}
             discovery={discovery}
@@ -356,7 +356,7 @@ export default function TestExplorerModal({
           />
 
           <section className="flex min-h-0 min-w-0 flex-col bg-[var(--axon-editor-background)]">
-            <div className="grid min-h-0 flex-1 grid-rows-[180px_minmax(0,1fr)]">
+            <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)]">
               <TestExplorerDetails
                 activeRunCount={activeRunCount}
                 selectedProvider={selectedProvider}

@@ -84,9 +84,9 @@ export function Metric({
   tone: string;
 }) {
   return (
-    <div className="rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 py-1.5">
-      <div className={`text-[13px] font-medium ${tone}`}>{value}</div>
-      <div className="text-[9px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-35">
+    <div className="min-w-0 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-1.5 py-1">
+      <div className={`text-[12px] font-medium leading-4 ${tone}`}>{value}</div>
+      <div className="truncate text-[8px] uppercase text-[var(--axon-editor-foreground)] opacity-35">
         {label}
       </div>
     </div>
@@ -119,29 +119,5 @@ export function RunPill({ run }: { run: RunRecord | null }) {
       <StatusIcon status={status} />
       {run ? `${status} · ${formatDuration(run.durationMs)}` : "not run"}
     </span>
-  );
-}
-
-export function DetailPanel({
-  title,
-  value,
-  detail,
-}: {
-  title: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-3">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-35">
-        {title}
-      </div>
-      <div className="mt-2 truncate text-[13px] text-[var(--axon-editor-foreground)]">
-        {value}
-      </div>
-      <div className="mt-1 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
-        {detail}
-      </div>
-    </div>
   );
 }

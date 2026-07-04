@@ -36,4 +36,5 @@ export const TERMINAL_REPLAY = {
   maxReconnectInputBytes: 64 * 1024,
   ackByteThreshold: 8 * 1024,
   ackDebounceMs: 50,
+  outputBackpressureBytes: 32 * 1024 * 1024,
 } as const;

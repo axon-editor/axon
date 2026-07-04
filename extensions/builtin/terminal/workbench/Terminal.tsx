@@ -47,6 +47,7 @@ interface Props {
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
   workingDirectory: string | null;
+  activeFile: string | null;
   activePanelTab: "terminal" | BottomPanelTab;
   diagnostics: EditorDiagnostic[];
   outputEntries: OutputEntry[];
@@ -65,6 +66,7 @@ export default function Terminal({
   editorSettings,
   themeTokens,
   workingDirectory,
+  activeFile,
   activePanelTab,
   diagnostics,
   outputEntries,
@@ -114,6 +116,7 @@ export default function Terminal({
     maxQueuedBytes: number;
     drainedChunks: number;
     reconnectCount: number;
+    backpressureDisconnects: number;
     lastCloseCode: number | null;
     lastCloseReason: string;
   } }) => {
@@ -130,6 +133,7 @@ export default function Terminal({
       `max queue ${tab.health.maxQueuedBytes} bytes`,
       `drained ${tab.health.drainedChunks} chunks`,
       `reconnects ${tab.health.reconnectCount}`,
+      `backpressure detaches ${tab.health.backpressureDisconnects}`,
       tab.health.lastCloseCode
         ? `last close ${tab.health.lastCloseCode}${tab.health.lastCloseReason ? ` ${tab.health.lastCloseReason}` : ""}`
         : "no websocket close recorded",
@@ -333,6 +337,7 @@ export default function Terminal({
         {activePanelTab !== "terminal" && (
           <BottomPanelContent
             activeTab={activePanelTab}
+            activeFile={activeFile}
             diagnostics={diagnostics}
             outputEntries={outputEntries}
             onOpenDiagnostic={onOpenDiagnostic}

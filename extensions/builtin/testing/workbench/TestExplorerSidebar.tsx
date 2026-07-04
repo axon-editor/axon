@@ -65,8 +65,8 @@ export default function TestExplorerSidebar({
 }: Props) {
   return (
     <aside className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)]">
-      <div className="shrink-0 border-b border-[var(--axon-panel-border)] p-3">
-        <div className="flex items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2.5 py-2">
+      <div className="shrink-0 border-b border-[var(--axon-panel-border)] p-2.5">
+        <div className="flex items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2.5 py-1.5">
           <Search
             size={13}
             className="text-[var(--axon-editor-foreground)] opacity-35"
@@ -82,7 +82,7 @@ export default function TestExplorerSidebar({
             className="text-[var(--axon-editor-foreground)] opacity-25"
           />
         </div>
-        <div className="mt-3 grid grid-cols-4 gap-1 text-center text-[10px]">
+        <div className="mt-2 grid grid-cols-4 gap-1 text-center text-[10px]">
           <Metric
             label="running"
             value={runStats.running}
@@ -110,7 +110,7 @@ export default function TestExplorerSidebar({
             detail="Axon looks for package.json scripts, go.mod, Cargo.toml, pytest.ini, pyproject.toml, and requirements.txt."
           />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {filteredProviders.map((provider) => {
               const expanded = expandedProviders.has(provider.id);
               const run = runs[runKeyFor(provider.id)];
@@ -123,7 +123,7 @@ export default function TestExplorerSidebar({
                   className="overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]"
                 >
                   <div
-                    className={`grid grid-cols-[24px_1fr_28px] items-center gap-2 px-2 py-2 ${
+                    className={`grid grid-cols-[22px_1fr_26px] items-center gap-1.5 px-2 py-1.5 ${
                       selected ? "bg-[var(--axon-panel-overlay-hover)]" : ""
                     }`}
                   >
@@ -131,7 +131,7 @@ export default function TestExplorerSidebar({
                       type="button"
                       aria-label={expanded ? "Collapse provider" : "Expand provider"}
                       onClick={() => onToggleProvider(provider.id)}
-                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                      className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                     >
                       {expanded ? (
                         <ChevronDown size={13} />
@@ -144,7 +144,7 @@ export default function TestExplorerSidebar({
                       onClick={() => onSelectProvider(provider)}
                       className="min-w-0 cursor-pointer text-left"
                     >
-                      <span className="flex min-w-0 items-center gap-2">
+                      <span className="flex min-w-0 items-center gap-1.5">
                         <span className={statusClassName(run?.status ?? "queued")}>
                           <StatusIcon status={run?.status ?? "queued"} />
                         </span>
@@ -162,7 +162,7 @@ export default function TestExplorerSidebar({
                         aria-label="Run project tests"
                         onClick={() => onRunProvider(provider)}
                         disabled={activeRunCount > 0}
-                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-30"
+                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         <Play size={13} />
                       </button>
@@ -180,7 +180,7 @@ export default function TestExplorerSidebar({
                             type="button"
                             onClick={() => onSelectTarget(provider, item)}
                             onDoubleClick={() => onRunProvider(provider, item)}
-                            className={`grid w-full cursor-pointer grid-cols-[28px_1fr_54px] items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)] ${
+                            className={`grid w-full cursor-pointer grid-cols-[22px_1fr_42px] items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--axon-panel-overlay-hover)] ${
                               itemSelected
                                 ? "bg-[var(--axon-panel-overlay-hover)]"
                                 : ""

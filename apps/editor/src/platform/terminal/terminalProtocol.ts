@@ -23,6 +23,8 @@ export interface TerminalSession {
   outputWriting: boolean;
   queuedBytes: number;
   maxQueuedBytes: number;
+  backpressureDisconnects: number;
+  backpressureClosePending: boolean;
   drainedChunks: number;
   reconnectCount: number;
   lastCloseCode: number | null;
@@ -51,6 +53,8 @@ export const MAX_RECONNECT_INPUT_BYTES =
 export const TERMINAL_ACK_BYTE_THRESHOLD = TERMINAL_REPLAY.ackByteThreshold;
 export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
 export const TERMINAL_SCROLLBACK_LINES = 200_000;
+export const TERMINAL_OUTPUT_BACKPRESSURE_BYTES =
+  TERMINAL_REPLAY.outputBackpressureBytes;
 
 export function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;

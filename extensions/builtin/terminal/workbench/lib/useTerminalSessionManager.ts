@@ -42,6 +42,7 @@ export interface TerminalTab {
     maxQueuedBytes: number;
     drainedChunks: number;
     reconnectCount: number;
+    backpressureDisconnects: number;
     lastCloseCode: number | null;
     lastCloseReason: string;
   };
@@ -130,6 +131,7 @@ export function useTerminalSessionManager({
                 maxQueuedBytes: session.maxQueuedBytes,
                 drainedChunks: session.drainedChunks,
                 reconnectCount: session.reconnectCount,
+                backpressureDisconnects: session.backpressureDisconnects,
                 lastCloseCode: session.lastCloseCode,
                 lastCloseReason: session.lastCloseReason,
               },
@@ -222,6 +224,7 @@ export function useTerminalSessionManager({
           maxQueuedBytes: 0,
           drainedChunks: 0,
           reconnectCount: 0,
+          backpressureDisconnects: 0,
           lastCloseCode: null,
           lastCloseReason: "",
         },
@@ -248,6 +251,8 @@ export function useTerminalSessionManager({
       outputWriting: false,
       queuedBytes: 0,
       maxQueuedBytes: 0,
+      backpressureDisconnects: 0,
+      backpressureClosePending: false,
       drainedChunks: 0,
       reconnectCount: 0,
       lastCloseCode: null,
