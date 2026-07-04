@@ -87,6 +87,8 @@ export function createExtensionRuntimeRegistrations(
         status:
           extension.errors.length > 0 || runtimeDiagnostics.errors.length > 0
             ? "error"
+            : extension.lifecycle === "activating"
+              ? "activating"
             : runtimeDiagnostics.activated
               ? "registered"
             : extension.hostKind === "isolated-process" &&

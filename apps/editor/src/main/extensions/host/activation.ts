@@ -2,6 +2,7 @@ import { type ExtensionInfo, type ExtensionManifest } from "@axon/extension-api"
 
 export const AVAILABLE_EXTENSION_ACTIVATION_EVENTS = [
   "onStartup",
+  "onStartupFinished",
   "onCommand",
   "onLanguage",
   "onWorkspaceContains",
@@ -26,8 +27,14 @@ export function getExtensionActivationReason(
   return manifest.activationEvents?.[0] ?? (manifest.main ? "onStartup" : "declarative");
 }
 
-export function getExtensionLifecycle(enabled: boolean, errors: string[]) {
-  return !enabled ? "disabled" : errors.length > 0 ? "error" : "active";
+export function getExtensionLifecycle(
+  enabled: boolean,
+  errors: string[],
+  hostKind: ExtensionInfo["hostKind"],
+) {
+  if (!enabled) return "disabled";
+  if (errors.length > 0) return "failed";
+  return hostKind === "isolated-process" ? "inactive" : "active";
 }
 
 export function getActivationEventFamily(event: string) {

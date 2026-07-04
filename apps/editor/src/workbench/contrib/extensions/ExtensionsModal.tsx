@@ -139,8 +139,10 @@ function StatusPill({ extension }: { extension: ExtensionSummary }) {
       className={`rounded px-1.5 py-0.5 text-[10px] ${
         extension.lifecycle === "active"
           ? "bg-[#152019] text-[#8fe3a2]"
-          : extension.lifecycle === "error"
+          : extension.lifecycle === "failed"
             ? "bg-[#341b20] text-[#ff8b92]"
+            : extension.lifecycle === "activating"
+              ? "bg-[#2c2414] text-[#ffd580]"
             : "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)] opacity-55"
       }`}
     >

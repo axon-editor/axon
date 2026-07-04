@@ -15,6 +15,7 @@ export type ExtensionKind =
 
 export type ExtensionActivationEvent =
   | "onStartup"
+  | "onStartupFinished"
   | `onCommand:${string}`
   | `onLanguage:${string}`
   | `onView:${string}`

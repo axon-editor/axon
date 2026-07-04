@@ -96,7 +96,19 @@ async function boot() {
     }
 
     markAxonPerformance("axon.extensions.initialList.start");
-    const initialExtensionState = await axonApi.listExtensions(null);
+    const listedExtensionState = await axonApi.listExtensions(null);
+    const startupRuntimeActivation = await axonApi.activateExtensionEvent(
+      "onStartup",
+      null,
+    );
+    const startupActivation = await axonApi.activateExtensionEvent(
+      "onStartupFinished",
+      null,
+    );
+    const initialExtensionState =
+      startupActivation.state ??
+      startupRuntimeActivation.state ??
+      listedExtensionState;
     markAxonPerformance("axon.extensions.initialList.end", {
       count: initialExtensionState.extensions.length,
     });

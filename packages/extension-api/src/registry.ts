@@ -42,7 +42,7 @@ export interface ExtensionInfo {
   lastActivatedAt: string | null;
   activationReason: string;
   hostKind: "declarative" | "isolated-process";
-  lifecycle: "active" | "inactive" | "disabled" | "error";
+  lifecycle: "active" | "inactive" | "activating" | "disabled" | "failed";
 }
 
 export interface ExtensionActivationRecord {
@@ -51,6 +51,8 @@ export interface ExtensionActivationRecord {
   reason: string;
   activatedAt: string;
   hostKind: "declarative" | "isolated-process";
+  status: "activating" | "active" | "failed";
+  error?: string;
 }
 
 export interface ExtensionRuntimeRegistration {
@@ -63,7 +65,7 @@ export interface ExtensionRuntimeRegistration {
   agents: string[];
   activatedEvents: string[];
   lastActivatedAt: string | null;
-  status: "registered" | "waiting" | "error";
+  status: "registered" | "waiting" | "activating" | "error";
   message: string;
 }
 

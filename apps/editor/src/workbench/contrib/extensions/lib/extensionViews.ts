@@ -11,7 +11,7 @@ export interface WorkbenchExtensionView {
   extensionId: string;
   extensionName: string;
   runtimeRegistered: boolean;
-  runtimeStatus: "registered" | "waiting" | "error";
+  runtimeStatus: "registered" | "waiting" | "activating" | "error";
   runtimeMessage: string;
 }
 

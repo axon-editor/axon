@@ -84,6 +84,7 @@ export function loadExtensionFromPath(
 
   const contributes = normalizeExtensionContributions(manifest.contributes);
   const enabled = !disabledIds.has(manifest.id);
+  const hostKind = getExtensionHostKind(manifest);
   const themes = readThemes(extensionPath, manifest, contributes, enabled, errors);
 
   return {
@@ -109,8 +110,8 @@ export function loadExtensionFromPath(
     activatedEvents: [],
     lastActivatedAt: null,
     activationReason: getExtensionActivationReason(manifest, enabled),
-    hostKind: getExtensionHostKind(manifest),
-    lifecycle: getExtensionLifecycle(enabled, errors),
+    hostKind,
+    lifecycle: getExtensionLifecycle(enabled, errors, hostKind),
   };
 }
 
@@ -210,7 +211,7 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
         runtimeDiagnostics.activatedAt ?? activatedExtension.lastActivatedAt,
       lifecycle:
         runtimeErrors.length > 0
-          ? "error"
+          ? "failed"
           : activatedExtension.lifecycle,
     } satisfies ExtensionInfo;
   });

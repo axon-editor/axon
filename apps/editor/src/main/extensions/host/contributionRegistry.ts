@@ -48,12 +48,21 @@ export function createExtensionContributionRegistry(
     languagePacks: [],
   };
 
-  // The registry is built only from enabled, healthy extensions because it is
-  // the runtime contract consumed by the workbench. Disabled or broken packages
-  // still appear in the Extensions modal for diagnosis, but their commands,
-  // terminal profiles, views, and languages must not leak into active editor UI.
+  // The registry is built from enabled, non-failed extensions because
+  // activation starts from declarative contributions. An executable extension
+  // can be "inactive" before its main file has run, but its contributed command
+  // still needs to appear so the command can trigger `onCommand:*` activation.
+  // Disabled or failed packages still appear in the Extensions modal for
+  // diagnosis, but their commands, terminal profiles, views, and languages must
+  // not leak into active editor UI.
   for (const extension of extensions) {
-    if (!extension.enabled || extension.lifecycle !== "active") continue;
+    if (
+      !extension.enabled ||
+      extension.lifecycle === "disabled" ||
+      extension.lifecycle === "failed"
+    ) {
+      continue;
+    }
     if (extension.id === "axon.builtin") continue;
 
     const contributes = extension.contributes ?? empty;

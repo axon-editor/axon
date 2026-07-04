@@ -6,9 +6,15 @@ import { readDisabledExtensionIds, writeDisabledExtensionIds } from "./enablemen
 import { getExtensionMarketplaceState } from "./marketplace";
 import { installExtensionPackage } from "./install";
 import { getExtensionState } from "./state";
-import { activateExtensionsForEvent } from "./activationStore";
+import {
+  activateExtensionsForEvent,
+  clearExtensionActivationRecords,
+  markExtensionActivationActive,
+  markExtensionActivationFailed,
+} from "./activationStore";
 import {
   activateRuntimeExtension,
+  deactivateRuntimeExtension,
   executeRuntimeCommand,
 } from "./runtimeHost";
 
@@ -48,12 +54,12 @@ export class ExtensionHostService {
       if (!extension) continue;
       try {
         await activateRuntimeExtension(extension, folderPath);
+        markExtensionActivationActive(extension.id);
       } catch (err) {
-        runtimeErrors.push(
-          `${extension.name}: ${
-            err instanceof Error ? err.message : "activation failed"
-          }`,
-        );
+        const message =
+          err instanceof Error ? err.message : "activation failed";
+        markExtensionActivationFailed(extension.id, message);
+        runtimeErrors.push(`${extension.name}: ${message}`);
       }
     }
 
@@ -75,6 +81,18 @@ export class ExtensionHostService {
     folderPath?: string | null,
   ): Promise<ExtensionCommandExecutionResult> {
     try {
+      const activation = await this.activate(
+        `onCommand:${commandId}`,
+        folderPath,
+      );
+      if (!activation.ok) {
+        return {
+          ok: false,
+          message: activation.message,
+          state: activation.state,
+        };
+      }
+
       const result = await executeRuntimeCommand(commandId, args);
       return {
         ok: true,
@@ -94,16 +112,18 @@ export class ExtensionHostService {
     }
   }
 
-  setEnabled(
+  async setEnabled(
     extensionId: string,
     enabled: boolean,
     folderPath?: string | null,
-  ): ExtensionActionResult {
+  ): Promise<ExtensionActionResult> {
     const disabled = new Set(readDisabledExtensionIds());
     if (enabled) {
       disabled.delete(extensionId);
     } else {
       disabled.add(extensionId);
+      clearExtensionActivationRecords(extensionId);
+      await deactivateRuntimeExtension(extensionId);
     }
 
     writeDisabledExtensionIds(Array.from(disabled));

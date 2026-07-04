@@ -206,6 +206,47 @@ export async function activateRuntimeExtension(
   }
 }
 
+export async function deactivateRuntimeExtension(extensionId: string) {
+  const record = runtimeRecords.get(extensionId);
+  if (!record) return;
+
+  const errors: string[] = [];
+  try {
+    await record.module?.deactivate?.();
+  } catch (err) {
+    errors.push(
+      err instanceof Error ? err.message : "Extension deactivation failed.",
+    );
+  }
+
+  for (const disposable of [...record.subscriptions]) {
+    try {
+      disposable.dispose();
+    } catch (err) {
+      errors.push(
+        err instanceof Error ? err.message : "Extension disposable failed.",
+      );
+    }
+  }
+
+  for (const [commandId, registration] of commandHandlers) {
+    if (registration.extensionId === extensionId) {
+      commandHandlers.delete(commandId);
+    }
+  }
+
+  runtimeRecords.set(extensionId, {
+    extensionId,
+    activated: false,
+    activatedAt: null,
+    commands: [],
+    views: [],
+    terminalProfiles: [],
+    errors: [...record.errors, ...errors],
+    subscriptions: [],
+  });
+}
+
 export async function executeRuntimeCommand(
   commandId: string,
   args: unknown[] = [],
