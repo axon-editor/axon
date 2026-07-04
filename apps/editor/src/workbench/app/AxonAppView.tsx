@@ -34,6 +34,7 @@ import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallProm
 import ExtensionViewModal from "../contrib/extensions/views/ExtensionViewModal";
 import { AXON_COMMANDS } from "../../shared/commands";
 import { type ThemeId } from "../../shared/settings";
+import AppMenuButton from "./chrome/AppMenuButton";
 import {
   closePane,
   moveTabBetweenPanes,
@@ -83,7 +84,6 @@ export function AxonAppView(props: Record<string, any>) {
     handleFileSelect,
     handleFolderChange,
     handleNewFile,
-    handleOpenDiagnostic,
     handleOpenFolder,
     handleOpenHtmlPreview,
     handleOpenNavigationTarget,
@@ -395,6 +395,12 @@ export function AxonAppView(props: Record<string, any>) {
                 } as React.CSSProperties
               }
             >
+              {platform !== "darwin" ? (
+                <AppMenuButton
+                  hasWorkspace={!!folderPath}
+                  onCommand={runCommand}
+                />
+              ) : null}
               <div className="flex min-w-0 flex-1 overflow-hidden" />
               <div
                 style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
@@ -488,6 +494,7 @@ export function AxonAppView(props: Record<string, any>) {
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitStatus?.changes ?? []}
+              diagnostics={diagnostics}
               deletedFiles={deletedFiles}
               handleOpenFolder={handleOpenFolder}
               handleNewFile={handleNewFile}
@@ -508,11 +515,9 @@ export function AxonAppView(props: Record<string, any>) {
               editorSettings={settings.editor}
               themeTokens={themeTokens}
               workingDirectory={folderPath}
-              activeFile={activePane?.activeFile ?? null}
               activePanelTab={
                 !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
               }
-              diagnostics={diagnostics}
               outputEntries={outputEntries}
               contribution={terminalContribution}
               onActivePanelTabChange={(tab) => {
@@ -529,10 +534,6 @@ export function AxonAppView(props: Record<string, any>) {
                 setTerminalOpen(false);
                 setBottomPanelOpen(false);
               }}
-              onOpenDiagnostic={handleOpenDiagnostic}
-              onRefreshDiagnostics={() =>
-                runCommand(AXON_COMMANDS.REFRESH_DIAGNOSTICS)
-              }
               onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
             />
           ) : null}
@@ -569,11 +570,12 @@ export function AxonAppView(props: Record<string, any>) {
           }
           onToggleTerminal={() => runCommand(AXON_COMMANDS.TOGGLE_TERMINAL)}
           onToggleAgentSidebar={() => setAgentSidebarOpen((open: boolean) => !open)}
+          onOpenProblems={() => runCommand(AXON_COMMANDS.OPEN_PROBLEMS_PANEL)}
           onOpenBottomPanel={(tab) =>
             runCommand(
-              tab === "problems"
-                ? AXON_COMMANDS.OPEN_PROBLEMS_PANEL
-                : AXON_COMMANDS.OPEN_OUTPUT_PANEL,
+              tab === "output"
+                ? AXON_COMMANDS.OPEN_OUTPUT_PANEL
+                : AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
             )
           }
           onOpenSourceControl={() =>

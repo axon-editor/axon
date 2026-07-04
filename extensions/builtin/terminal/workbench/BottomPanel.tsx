@@ -1,28 +1,16 @@
-import {
-  AlertCircle,
-  ListChecks,
-  RefreshCw,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ListChecks, Trash2, X } from "lucide-react";
 import {
   type BottomPanelTab,
   type OutputEntry,
   type OutputEntryLevel,
 } from "@axon-editor/platform/panel/bottomPanel";
-import { type EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
-import ProblemsPanel from "@axon-builtin-problems/ProblemsPanel";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
   open: boolean;
   activeTab: BottomPanelTab;
-  activeFile: string | null;
-  diagnostics: EditorDiagnostic[];
   outputEntries: OutputEntry[];
   onActiveTabChange: (tab: BottomPanelTab) => void;
-  onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
-  onRefreshDiagnostics: () => void;
   onClearOutput: () => void;
   onClose: () => void;
 }
@@ -30,18 +18,15 @@ interface Props {
 const tabs: Array<{
   id: BottomPanelTab;
   label: string;
-  icon: typeof AlertCircle;
+  icon: typeof ListChecks;
 }> = [
-  { id: "problems", label: "Problems", icon: AlertCircle },
   { id: "output", label: "Output", icon: ListChecks },
 ];
 
 export function BottomPanelHeader({
   activeTab,
-  diagnostics,
   outputEntries,
   onActiveTabChange,
-  onRefreshDiagnostics,
   onClearOutput,
   onClose,
 }: Omit<Props, "open">) {
@@ -62,11 +47,6 @@ export function BottomPanelHeader({
           >
             <Icon size={13} />
             {tab.label}
-            {tab.id === "problems" && (
-              <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 text-[10px] text-[#586478]">
-                {diagnostics.length}
-              </span>
-            )}
             {tab.id === "output" && outputEntries.length > 0 && (
               <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 text-[10px] text-[#586478]">
                 {outputEntries.length}
@@ -75,18 +55,6 @@ export function BottomPanelHeader({
           </button>
         );
       })}
-
-      {activeTab === "problems" && (
-        <Tooltip label="Refresh diagnostics" side="top">
-          <button
-            onClick={onRefreshDiagnostics}
-            aria-label="Refresh diagnostics"
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-white"
-          >
-            <RefreshCw size={13} />
-          </button>
-        </Tooltip>
-      )}
 
       {activeTab === "output" && (
         <Tooltip label="Clear output" side="top">
@@ -122,27 +90,13 @@ const outputLevelStyles: Record<OutputEntryLevel, string> = {
 
 export function BottomPanelContent({
   activeTab,
-  activeFile,
-  diagnostics,
   outputEntries,
-  onOpenDiagnostic,
 }: {
   activeTab: BottomPanelTab;
-  activeFile: string | null;
-  diagnostics: EditorDiagnostic[];
   outputEntries: OutputEntry[];
-  onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
 }) {
   return (
     <>
-      {activeTab === "problems" && (
-        <ProblemsPanel
-          activeFile={activeFile}
-          diagnostics={diagnostics}
-          onOpenDiagnostic={onOpenDiagnostic}
-        />
-      )}
-
       {activeTab === "output" && outputEntries.length === 0 && (
         <div className="h-full overflow-y-auto px-4 py-3 font-mono text-[11px] leading-5 text-[#647086]">
           <div>Axon output panel ready.</div>
@@ -175,12 +129,8 @@ export function BottomPanelContent({
 export default function BottomPanel({
   open,
   activeTab,
-  activeFile,
-  diagnostics,
   outputEntries,
   onActiveTabChange,
-  onOpenDiagnostic,
-  onRefreshDiagnostics,
   onClearOutput,
   onClose,
 }: Props) {
@@ -191,12 +141,8 @@ export default function BottomPanel({
       <div className="flex h-9 items-center justify-between border-b border-[var(--axon-panel-border)] px-2">
         <BottomPanelHeader
           activeTab={activeTab}
-          activeFile={activeFile}
-          diagnostics={diagnostics}
           outputEntries={outputEntries}
           onActiveTabChange={onActiveTabChange}
-          onOpenDiagnostic={onOpenDiagnostic}
-          onRefreshDiagnostics={onRefreshDiagnostics}
           onClearOutput={onClearOutput}
           onClose={onClose}
         />
@@ -205,10 +151,7 @@ export default function BottomPanel({
       <div className="h-[calc(100%-36px)]">
         <BottomPanelContent
           activeTab={activeTab}
-          activeFile={activeFile}
-          diagnostics={diagnostics}
           outputEntries={outputEntries}
-          onOpenDiagnostic={onOpenDiagnostic}
         />
       </div>
     </div>

@@ -20,6 +20,7 @@ import {
   type ThemeId,
 } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
+import { type EditorDiagnostic } from "../../../shared/diagnostics";
 import { type Layout } from "./lib/types";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
@@ -63,6 +64,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
+  diagnostics: EditorDiagnostic[];
   deletedFiles?: Set<string>;
   handleOpenFolder: () => void;
   handleNewFile: () => void;
@@ -129,6 +131,7 @@ export default function EditorPane({
   themeTokens,
   navigationTarget,
   gitChanges,
+  diagnostics,
   deletedFiles,
   handleOpenFolder,
   handleNewFile,
@@ -266,6 +269,7 @@ export default function EditorPane({
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitChanges}
+              diagnostics={diagnostics}
               deletedFiles={deletedFiles}
               onOpenFolder={handleOpenFolder}
               onNewFile={handleNewFile}

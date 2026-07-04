@@ -40,6 +40,7 @@ interface Props {
   onOpenWorkspaceSearch: () => void;
   onToggleTerminal: () => void;
   onToggleAgentSidebar: () => void;
+  onOpenProblems: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
   onOpenSourceControl: () => void;
   onOpenTests: () => void;
@@ -68,6 +69,7 @@ export default function StatusBar({
   onOpenWorkspaceSearch,
   onToggleTerminal,
   onToggleAgentSidebar,
+  onOpenProblems,
   onOpenBottomPanel,
   onOpenSourceControl,
   onOpenTests,
@@ -208,10 +210,10 @@ export default function StatusBar({
               side="top"
             >
               <button
-                onClick={() => onOpenBottomPanel("problems")}
+                onClick={onOpenProblems}
                 aria-label="Problems"
                 className={`flex items-center gap-1 rounded px-2 h-5 transition-colors cursor-pointer
-                ${bottomPanelOpen && bottomPanelTab === "problems" ? "text-[#54d6b5]" : "text-[#586478] hover:text-[#54d6b5]"}`}
+                ${activeFile?.startsWith("axon://workbench/problems") ? "text-[#54d6b5]" : "text-[#586478] hover:text-[#54d6b5]"}`}
               >
                 <AlertCircle size={12} />
                 <span className={errorCount > 0 ? "text-[#ea6c73]" : ""}>

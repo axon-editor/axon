@@ -6,6 +6,7 @@ import {
   collectEditorDiagnostics,
   type EditorDiagnostic,
 } from "@axon-builtin-problems/lib/diagnostics";
+import { AXON_PROBLEMS_TAB_PATH } from "@axon-builtin-problems/lib/problemsTab";
 import { useAgentDiagnosticsExport } from "@axon-builtin-problems/lib/useAgentDiagnosticsExport";
 import {
   capDiagnostics,
@@ -462,12 +463,17 @@ export default function App({ initialExtensionState }: AppProps) {
       ),
     });
   };
+  const openProblemsTab = useCallback(() => {
+    setBottomPanelOpen(false);
+    setTerminalOpen(false);
+    setLayout((prev) =>
+      openFileInPane(prev, prev.activePaneId, AXON_PROBLEMS_TAB_PATH),
+    );
+  }, []);
   const navigateDiagnostic = useCallback(
     (direction: 1 | -1) => {
       if (diagnostics.length === 0) {
-        setBottomPanelTab("problems");
-        setBottomPanelOpen(true);
-        setTerminalOpen(false);
+        openProblemsTab();
         return;
       }
       const orderedDiagnostics = [...diagnostics].sort((a, b) => {
@@ -508,9 +514,14 @@ export default function App({ initialExtensionState }: AppProps) {
       // users expect from a real Problems workflow rather than a per-tab marker
       // shortcut.
       handleOpenDiagnostic(nextDiagnostic);
-      setBottomPanelTab("problems");
     },
-    [activePane?.activeFile, cursorInfo.col, cursorInfo.line, diagnostics],
+    [
+      activePane?.activeFile,
+      cursorInfo.col,
+      cursorInfo.line,
+      diagnostics,
+      openProblemsTab,
+    ],
   );
   const handleRunWorkspaceTask = async (task: WorkspaceTask) => {
     if (!folderPath) return;
@@ -715,6 +726,7 @@ export default function App({ initialExtensionState }: AppProps) {
     handleOpenSettingsJson,
     handleSaveActiveFile,
     navigateDiagnostic,
+    openProblemsTab,
     refreshGitStatus,
     refreshProjectDiagnostics,
     requireTrustedWorkspace,

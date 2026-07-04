@@ -77,8 +77,7 @@ export function loadWorkspaceSession(): WorkspaceSession | null {
           : 208,
       terminalOpen: parsed.terminalOpen === true,
       bottomPanelOpen: parsed.bottomPanelOpen === true,
-      bottomPanelTab:
-        parsed.bottomPanelTab === "output" ? "output" : "problems",
+      bottomPanelTab: "output",
     };
   } catch {
     return null;

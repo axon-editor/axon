@@ -186,7 +186,7 @@ export function useWorkspaceHandlers({
     setSidebarCollapsed(restoredSession?.sidebarCollapsed === true);
     setSidebarWidth(restoredSession?.sidebarWidth ?? 208);
     setBottomPanelOpen(restoredSession?.bottomPanelOpen === true);
-    setBottomPanelTab(restoredSession?.bottomPanelTab ?? "problems");
+    setBottomPanelTab("output");
     setTerminalCreateWorkingDirectory(null);
     appendOutput("workspace", `Loaded file tree for ${path}`);
     if (getWorkspaceTrustState(path) === null) {

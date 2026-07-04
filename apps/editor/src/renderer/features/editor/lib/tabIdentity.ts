@@ -6,6 +6,7 @@ import {
   getMarkdownPreviewFilePath,
   isMarkdownPreviewTabPath,
 } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
+import { isProblemsTabPath } from "@axon-builtin-problems/lib/problemsTab";
 import { isWelcomeTabPath } from "../../onboarding/lib/welcomeTab";
 
 export function getTabFilePath(tabPath: string) {
@@ -16,6 +17,7 @@ export function getTabFilePath(tabPath: string) {
 
 export function getTabDisplayName(tabPath: string) {
   if (isWelcomeTabPath(tabPath)) return "Welcome to Axon";
+  if (isProblemsTabPath(tabPath)) return "Problems";
 
   const filePath = getTabFilePath(tabPath);
   const name = filePath.split("/").pop() ?? filePath;
@@ -29,6 +31,7 @@ export function getTabDisplayName(tabPath: string) {
 
 export function getTabTooltipLabel(tabPath: string) {
   if (isWelcomeTabPath(tabPath)) return "Welcome to Axon";
+  if (isProblemsTabPath(tabPath)) return "Problems";
 
   const filePath = getTabFilePath(tabPath);
   if (isHtmlPreviewTabPath(tabPath)) return `HTML preview: ${filePath}`;
@@ -39,6 +42,7 @@ export function getTabTooltipLabel(tabPath: string) {
 export function isVirtualTabPath(tabPath: string) {
   return (
     isWelcomeTabPath(tabPath) ||
+    isProblemsTabPath(tabPath) ||
     isHtmlPreviewTabPath(tabPath) ||
     isMarkdownPreviewTabPath(tabPath)
   );

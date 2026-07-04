@@ -14,7 +14,6 @@ import {
   Minimize2,
   Minus,
   Plus,
-  RefreshCw,
   SquareTerminal,
   Trash2,
 } from "lucide-react";
@@ -24,7 +23,6 @@ import {
   type BottomPanelTab,
   type OutputEntry,
 } from "@axon-editor/platform/panel/bottomPanel";
-import { type EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import ChromeTab from "@axon-editor/renderer/features/editor/ChromeTab";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
@@ -47,14 +45,10 @@ interface Props {
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
   workingDirectory: string | null;
-  activeFile: string | null;
   activePanelTab: "terminal" | BottomPanelTab;
-  diagnostics: EditorDiagnostic[];
   outputEntries: OutputEntry[];
   contribution: TerminalWorkbenchContribution;
   onActivePanelTabChange: (tab: "terminal" | BottomPanelTab) => void;
-  onOpenDiagnostic: (diagnostic: EditorDiagnostic) => void;
-  onRefreshDiagnostics: () => void;
   onClearOutput: () => void;
   onHide: () => void;
 }
@@ -66,14 +60,10 @@ export default function Terminal({
   editorSettings,
   themeTokens,
   workingDirectory,
-  activeFile,
   activePanelTab,
-  diagnostics,
   outputEntries,
   contribution,
   onActivePanelTabChange,
-  onOpenDiagnostic,
-  onRefreshDiagnostics,
   onClearOutput,
   onHide,
 }: Props) {
@@ -255,49 +245,10 @@ export default function Terminal({
                 <Plus size={13} />
               </button>
             </Tooltip>
-            <button
-              onClick={() => onActivePanelTabChange("problems")}
-              className={`my-1 cursor-pointer rounded px-2 text-[12px] transition-colors ${
-                activePanelTab === "problems"
-                  ? "bg-[#1e2430] text-white"
-                  : "text-neutral-500 hover:bg-[#151923] hover:text-white"
-              }`}
-            >
-              Problems
-              <span className="ml-1 rounded bg-[#151923] px-1 text-[10px] text-[#586478]">
-                {diagnostics.length}
-              </span>
-            </button>
-            <button
-              onClick={() => onActivePanelTabChange("output")}
-              className={`my-1 cursor-pointer rounded px-2 text-[12px] transition-colors ${
-                activePanelTab === "output"
-                  ? "bg-[#1e2430] text-white"
-                  : "text-neutral-500 hover:bg-[#151923] hover:text-white"
-              }`}
-            >
-              Output
-              {outputEntries.length > 0 && (
-                <span className="ml-1 rounded bg-[#151923] px-1 text-[10px] text-[#586478]">
-                  {outputEntries.length}
-                </span>
-              )}
-            </button>
           </div>
         </div>
 
         <div className="ml-2 flex shrink-0 items-center gap-1">
-          {activePanelTab === "problems" && (
-            <Tooltip label="Refresh diagnostics" side="top">
-              <button
-                onClick={onRefreshDiagnostics}
-                aria-label="Refresh diagnostics"
-                className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
-              >
-                <RefreshCw size={13} />
-              </button>
-            </Tooltip>
-          )}
           {activePanelTab === "output" && (
             <Tooltip label="Clear output" side="top">
               <button
@@ -337,10 +288,7 @@ export default function Terminal({
         {activePanelTab !== "terminal" && (
           <BottomPanelContent
             activeTab={activePanelTab}
-            activeFile={activeFile}
-            diagnostics={diagnostics}
             outputEntries={outputEntries}
-            onOpenDiagnostic={onOpenDiagnostic}
           />
         )}
         {tabs.map((tab) => (

@@ -340,6 +340,14 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
   });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(createdWindow.menu));
+  if (!isMac) {
+    // Windows and Linux use Axon's renderer-owned titlebar menu instead of the
+    // native File/Edit/View strip. I keep the application menu installed so
+    // Electron still owns accelerators such as Cmd/Ctrl+O and Cmd/Ctrl+S, then
+    // hide the window menu bar to avoid competing with the custom chrome.
+    createdWindow.window.setMenuBarVisibility(false);
+    createdWindow.window.setAutoHideMenuBar(true);
+  }
   return createdWindow;
 }
 

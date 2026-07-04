@@ -19,6 +19,7 @@ interface AppCommandRunnerOptions {
   handleOpenSettingsJson: any;
   handleSaveActiveFile: any;
   navigateDiagnostic: any;
+  openProblemsTab: any;
   refreshGitStatus: any;
   refreshProjectDiagnostics: any;
   requireTrustedWorkspace: any;
@@ -65,6 +66,7 @@ export function useAppCommandRunner({
   handleOpenSettingsJson,
   handleSaveActiveFile,
   navigateDiagnostic,
+  openProblemsTab,
   refreshGitStatus,
   refreshProjectDiagnostics,
   requireTrustedWorkspace,
@@ -261,10 +263,8 @@ export function useAppCommandRunner({
         case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
           activateExtensionEvent("onCommand:axon.problems.open");
           activateExtensionEvent("onView:axon.problems");
-          setBottomPanelTab("problems");
-          setBottomPanelOpen(true);
-          setTerminalOpen(false);
-          appendOutput("panel", "Opened Problems panel.");
+          openProblemsTab();
+          appendOutput("panel", "Opened Problems tab.");
           break;
         case AXON_COMMANDS.OPEN_OUTPUT_PANEL:
           setBottomPanelTab("output");
@@ -275,9 +275,7 @@ export function useAppCommandRunner({
         case AXON_COMMANDS.REFRESH_DIAGNOSTICS:
           if (!requireTrustedWorkspace("Language server diagnostics")) break;
           activateExtensionEvent("onCommand:axon.problems.refresh");
-          setBottomPanelTab("problems");
-          setBottomPanelOpen(true);
-          setTerminalOpen(false);
+          openProblemsTab();
           void refreshProjectDiagnostics();
           break;
         case AXON_COMMANDS.NEXT_PROBLEM:

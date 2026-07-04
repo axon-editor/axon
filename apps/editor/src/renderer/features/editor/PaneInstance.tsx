@@ -9,6 +9,7 @@ import {
   type ThemeId,
 } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
+import { type EditorDiagnostic } from "../../../shared/diagnostics";
 import {
   decodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
@@ -27,6 +28,8 @@ import {
   isMarkdownPreviewTabPath,
 } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import { isWelcomeTabPath } from "../onboarding/lib/welcomeTab";
+import { isProblemsTabPath } from "@axon-builtin-problems/lib/problemsTab";
+import ProblemsPanel from "@axon-builtin-problems/ProblemsPanel";
 import MediaPreview, { isMediaFile } from "@axon-builtin-media-preview/MediaPreview";
 import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
@@ -62,6 +65,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
+  diagnostics: EditorDiagnostic[];
   deletedFiles?: Set<string>;
   onOpenFolder: () => void;
   onNewFile: () => void;
@@ -97,6 +101,7 @@ export default function PaneInstance({
   themeTokens,
   navigationTarget,
   gitChanges,
+  diagnostics,
   deletedFiles,
   onOpenFolder,
   onNewFile,
@@ -235,6 +240,23 @@ export default function PaneInstance({
                   onOpenTerminal={onOpenTerminal}
                   onSelectTheme={onSelectTheme}
                   themes={themeItems}
+                />
+              ) : isProblemsTabPath(path) ? (
+                <ProblemsPanel
+                  activeFile={null}
+                  diagnostics={diagnostics}
+                  onOpenDiagnostic={(diagnostic) =>
+                    onOpenNavigationTarget?.({
+                      path: diagnostic.path,
+                      line: diagnostic.line,
+                      column: diagnostic.column,
+                      length: Math.max(
+                        1,
+                        (diagnostic.endColumn ?? diagnostic.column + 1) -
+                          diagnostic.column,
+                      ),
+                    })
+                  }
                 />
               ) : isHtmlPreviewTabPath(path) ? (
                 <HtmlPreview
