@@ -75,6 +75,8 @@ type terminalSessionHealth struct {
 	ScrollbackBytes   int    `json:"scrollbackBytes"`
 	BaseOffset        int64  `json:"baseOffset"`
 	TotalBytes        int64  `json:"totalBytes"`
+	MaxAckLagBytes    int64  `json:"maxAckLagBytes"`
+	MaxPendingBytes   int64  `json:"maxPendingBytes"`
 	ReplayProtections int    `json:"replayProtections"`
 	DetachedClients   int64  `json:"detachedClients"`
 	DroppedClients    int64  `json:"droppedClients"`
@@ -326,6 +328,17 @@ func (client *terminalClient) acknowledged() int64 {
 	return client.acknowledgedOffset
 }
 
+func (client *terminalClient) healthStats(totalBytes int64) (ackLagBytes int64, pendingBytes int64) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	ackLagBytes = totalBytes - client.acknowledgedOffset
+	if ackLagBytes < 0 {
+		ackLagBytes = 0
+	}
+	return ackLagBytes, client.pendingBytes
+}
+
 func (client *terminalClient) close() {
 	client.closeOnce.Do(func() {
 		close(client.done)
@@ -456,12 +469,30 @@ func (session *terminalSession) health() terminalSessionHealth {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 
+	var maxAckLagBytes int64
+	var maxPendingBytes int64
+	for client := range session.clients {
+		// Health is the only cheap way to prove the renderer is keeping up
+		// during long agent streams. Detached/dropped counters tell us after
+		// the backend has already protected itself; these live distances show
+		// whether a healthy-looking websocket is drifting toward the same limit.
+		ackLagBytes, pendingBytes := client.healthStats(session.totalBytes)
+		if ackLagBytes > maxAckLagBytes {
+			maxAckLagBytes = ackLagBytes
+		}
+		if pendingBytes > maxPendingBytes {
+			maxPendingBytes = pendingBytes
+		}
+	}
+
 	return terminalSessionHealth{
 		ID:                session.id,
 		ClientCount:       len(session.clients),
 		ScrollbackBytes:   len(session.scrollback),
 		BaseOffset:        session.baseOffset,
 		TotalBytes:        session.totalBytes,
+		MaxAckLagBytes:    maxAckLagBytes,
+		MaxPendingBytes:   maxPendingBytes,
 		ReplayProtections: len(session.replayProtections),
 		DetachedClients:   session.detachedClients,
 		DroppedClients:    session.droppedClients,

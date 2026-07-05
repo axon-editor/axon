@@ -1,7 +1,25 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import fs from "fs";
 import path from "path";
+
+const workspaceRoot = path.resolve(__dirname, "..", "..");
+const editorNodeModules = path.resolve(__dirname, "node_modules");
+const workspaceNodeModules = path.resolve(workspaceRoot, "node_modules");
+
+function dependencyPath(...segments: string[]) {
+  const editorPath = path.resolve(editorNodeModules, ...segments);
+  if (fs.existsSync(editorPath)) return editorPath;
+
+  // npm workspaces are allowed to hoist direct dependencies to the repository
+  // root. Vite resolves aliases before Node's normal package lookup can climb
+  // parent folders, so a hardcoded app-level node_modules path makes renderer
+  // builds depend on the exact local install layout. Falling back to the
+  // workspace node_modules keeps dev, CI, and release installs using the same
+  // dependency contract.
+  return path.resolve(workspaceNodeModules, ...segments);
+}
 
 export default defineConfig({
   // Packaged Electron loads the renderer from file://, not from a web server.
@@ -133,100 +151,62 @@ export default defineConfig({
         "workbench",
       ),
       "@axon/protocol": path.resolve(
-        __dirname,
-        "..",
-        "..",
-        "node_modules",
+        workspaceNodeModules,
         "@axon",
         "protocol",
         "dist",
         "index.js",
       ),
-      "@xterm/addon-fit": path.resolve(
-        __dirname,
-        "node_modules",
+      "@xterm/addon-canvas": dependencyPath(
+        "@xterm",
+        "addon-canvas",
+        "lib",
+        "addon-canvas.js",
+      ),
+      "@xterm/addon-fit": dependencyPath(
         "@xterm",
         "addon-fit",
         "lib",
         "addon-fit.js",
       ),
-      "@xterm/addon-web-links": path.resolve(
-        __dirname,
-        "node_modules",
+      "@xterm/addon-web-links": dependencyPath(
         "@xterm",
         "addon-web-links",
         "lib",
         "addon-web-links.js",
       ),
-      "@xterm/xterm": path.resolve(
-        __dirname,
-        "node_modules",
-        "@xterm",
-        "xterm",
-      ),
-      "@monaco-editor/react": path.resolve(
-        __dirname,
-        "node_modules",
+      "@xterm/xterm": dependencyPath("@xterm", "xterm"),
+      "@monaco-editor/react": dependencyPath(
         "@monaco-editor",
         "react",
         "dist",
         "index.mjs",
       ),
-      "monaco-editor": path.resolve(
-        __dirname,
-        "node_modules",
-        "monaco-editor",
-      ),
-      "lucide-react": path.resolve(
-        __dirname,
-        "node_modules",
+      "monaco-editor": dependencyPath("monaco-editor"),
+      "lucide-react": dependencyPath(
         "lucide-react",
         "dist",
         "esm",
         "lucide-react.mjs",
       ),
-      react: path.resolve(__dirname, "..", "..", "node_modules", "react"),
+      react: dependencyPath("react"),
       "react-dom": path.resolve(
-        __dirname,
-        "..",
-        "..",
-        "node_modules",
+        workspaceNodeModules,
         "react-dom",
       ),
       "react-dom/client": path.resolve(
-        __dirname,
-        "..",
-        "..",
-        "node_modules",
+        workspaceNodeModules,
         "react-dom",
         "client.js",
       ),
       "react/jsx-runtime": path.resolve(
-        __dirname,
-        "..",
-        "..",
-        "node_modules",
+        workspaceNodeModules,
         "react",
         "jsx-runtime.js",
       ),
-      "react-markdown": path.resolve(
-        __dirname,
-        "node_modules",
-        "react-markdown",
-        "index.js",
-      ),
-      "rehype-raw": path.resolve(
-        __dirname,
-        "node_modules",
-        "rehype-raw",
-        "index.js",
-      ),
-      "remark-gfm": path.resolve(
-        __dirname,
-        "node_modules",
-        "remark-gfm",
-        "index.js",
-      ),
+      "react-markdown": dependencyPath("react-markdown", "index.js"),
+      "rehype-raw": dependencyPath("rehype-raw", "index.js"),
+      "remark-gfm": dependencyPath("remark-gfm", "index.js"),
     },
   },
   server: {
@@ -241,6 +221,7 @@ export default defineConfig({
       allow: [
         path.resolve(__dirname, "src"),
         path.resolve(__dirname, "node_modules"),
+        workspaceNodeModules,
         path.resolve(__dirname, "..", "..", "extensions", "builtin"),
       ],
     },

@@ -141,8 +141,10 @@ func TestTerminalClientPendingBytesReleaseAfterWriteAccounting(t *testing.T) {
 
 func TestTerminalHealthSnapshotIncludesSessions(t *testing.T) {
 	session := &terminalSession{
-		id:           "health-test",
-		clients:      map[*terminalClient]bool{},
+		id: "health-test",
+		clients: map[*terminalClient]bool{
+			newTerminalClient(nil, 2): true,
+		},
 		scrollback:   []byte("hello"),
 		totalBytes:   5,
 		createdAt:    time.Now(),
@@ -167,6 +169,9 @@ func TestTerminalHealthSnapshotIncludesSessions(t *testing.T) {
 		found = true
 		if item.ScrollbackBytes != 5 || item.TotalBytes != 5 {
 			t.Fatalf("unexpected health byte counts: %+v", item)
+		}
+		if item.MaxAckLagBytes != 3 {
+			t.Fatalf("expected max ack lag to describe renderer distance, got %+v", item)
 		}
 	}
 	if !found {

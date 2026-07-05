@@ -5,6 +5,7 @@ import {
   useState,
 } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
+import { CanvasAddon } from "@xterm/addon-canvas";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { TERMINAL_PROTOCOL } from "@axon/protocol";
@@ -489,6 +490,18 @@ export function useTerminalSessionManager({
         });
       });
 
+      try {
+        // The terminal output-eating fix is primarily the explicit repaint path
+        // in terminalSessionIo.ts, but the DOM row renderer is also the weakest
+        // renderer under very chatty agent output. Canvas paints from xterm's
+        // buffer state instead of patching many individual DOM rows, so I try
+        // it as a resilience layer and fall back to xterm's default renderer if
+        // the addon cannot activate on the installed xterm major.
+        const canvasAddon = new CanvasAddon();
+        term.loadAddon(canvasAddon);
+      } catch (err) {
+        console.warn("failed to activate terminal canvas renderer:", err);
+      }
       term.loadAddon(fitAddon);
       term.loadAddon(webLinksAddon);
       term.open(container);
