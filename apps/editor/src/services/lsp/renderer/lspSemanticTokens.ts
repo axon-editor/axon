@@ -40,6 +40,7 @@ const semanticTokenCache = new Map<
     promise: Promise<monaco.languages.SemanticTokens | null>;
   }
 >();
+const TEXTMATE_LSP_MERGE_WAIT_MS = 650;
 
 type AbsoluteSemanticToken = {
   line: number;
@@ -174,19 +175,34 @@ function mergeSemanticTokenLayers(input: {
     : null;
 }
 
+function waitForLanguageServerOverlay<T>(promise: Promise<T>) {
+  return Promise.race<T | null>([
+    promise,
+    new Promise<null>((resolve) => {
+      window.setTimeout(() => resolve(null), TEXTMATE_LSP_MERGE_WAIT_MS);
+    }),
+  ]);
+}
+
 function createSemanticTokenPromise(model: monaco.editor.ITextModel) {
+  const content = model.getValue();
+  const languageId = model.getLanguageId();
   const base = toLspRequestBase(model);
-  if (!base) return Promise.resolve(null);
 
   const textMatePromise = createTextMateSemanticTokens({
-    languageId: base.languageId,
-    content: base.content,
+    languageId,
+    content,
   });
+  if (!base) return textMatePromise;
 
-  return window.axon
-    .getLanguageServerSemanticTokens(base)
-    .then(async (result): Promise<monaco.languages.SemanticTokens | null> => {
-      const textMateTokens = await textMatePromise;
+  const languageServerPromise = window.axon.getLanguageServerSemanticTokens(base);
+
+  return textMatePromise
+    .then(async (textMateTokens) => {
+      const result = textMateTokens
+        ? await waitForLanguageServerOverlay(languageServerPromise)
+        : await languageServerPromise;
+      if (!result) return textMateTokens;
       if (!result.ok || result.data.length === 0) return textMateTokens;
 
       return mergeSemanticTokenLayers({
@@ -195,7 +211,18 @@ function createSemanticTokenPromise(model: monaco.editor.ITextModel) {
         resultId: result.resultId,
       });
     })
-    .catch(() => textMatePromise);
+    .catch(async () => {
+      try {
+        const result = await languageServerPromise;
+        if (!result.ok || result.data.length === 0) return null;
+        return {
+          data: Uint32Array.from(result.data),
+          resultId: result.resultId,
+        };
+      } catch {
+        return null;
+      }
+    });
 }
 
 function registerSemanticTokensProvider(
