@@ -121,11 +121,12 @@ function registerReactLanguage(
 
   // Monaco's bundled TS/JS tokenizers do not expose JSX as its own language id.
   // Axon does need those ids because the LSP, completion, navigation, and status
-  // plumbing all distinguish React files from plain scripts. I layer a focused
-  // JSX tokenizer over Monaco's normal TypeScript/JavaScript rules so embedded
-  // HTML tags and attributes receive real scopes instead of being painted as
-  // generic identifiers while the rest of the document still uses Monaco's
-  // mature script tokenizer.
+  // plumbing all distinguish React files from plain scripts. This Monarch layer
+  // is now only the immediate lexical fallback for bracket matching and first
+  // paint. Rich JS/TS/JSX/TSX coloring is supplied by the TextMate-backed
+  // semantic token provider, so Axon is not depending on Monaco's regex grammar
+  // to decide whether an identifier is a function, type, property, tag, or
+  // attribute.
   monacoInstance.languages.setMonarchTokensProvider(
     languageId,
     createReactTokenizer(

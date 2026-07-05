@@ -112,6 +112,7 @@ function resolveTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "keyword.operator")) return "operator";
   if (startsWithScope(scopeNames, "keyword")) return "keyword";
   if (hasScope(scopeNames, "storage.modifier")) return "modifier";
+  if (hasScope(scopeNames, "entity.name.function.constructor")) return "constructor";
   if (hasScope(scopeNames, "entity.name.function")) return "function";
   if (hasScope(scopeNames, "support.function")) return "function";
   if (hasScope(scopeNames, "entity.name.method")) return "method";
@@ -120,12 +121,18 @@ function resolveTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "support.class")) return "class";
   if (hasScope(scopeNames, "entity.name.interface")) return "interface";
   if (hasScope(scopeNames, "entity.name.enum")) return "enum";
+  if (hasScope(scopeNames, "entity.name.type.alias")) return "typeAlias";
   if (hasScope(scopeNames, "entity.name.type")) return "type";
+  if (hasScope(scopeNames, "support.type.primitive")) return "builtinType";
   if (hasScope(scopeNames, "support.type")) return "type";
-  if (hasScope(scopeNames, "entity.name.tag")) return "type";
+  if (hasScope(scopeNames, "storage.type")) return "type";
+  if (hasScope(scopeNames, "entity.name.tag")) return "tag";
+  if (hasScope(scopeNames, "entity.other.attribute-name")) return "attribute";
   if (hasScope(scopeNames, "variable.other.property")) return "property";
+  if (hasScope(scopeNames, "variable.other.object.property")) return "property";
   if (hasScope(scopeNames, "meta.object-literal.key")) return "property";
   if (hasScope(scopeNames, "support.variable.property")) return "property";
+  if (hasScope(scopeNames, "constant.language")) return "variable";
   if (hasScope(scopeNames, "variable.other.constant")) return "variable";
   if (startsWithScope(scopeNames, "variable")) return "variable";
   if (startsWithScope(scopeNames, "constant")) return "variable";
@@ -135,8 +142,17 @@ function resolveTokenType(scopeNames: string[]) {
 
 function resolveTokenModifiers(scopeNames: string[]) {
   let modifiers = 0;
+  if (
+    hasScope(scopeNames, "keyword.control.import") ||
+    hasScope(scopeNames, "keyword.operator.expression.import")
+  ) {
+    modifiers |= 1 << (tokenModifierIndexes.get("import") ?? 0);
+  }
   if (hasScope(scopeNames, "variable.other.constant")) {
     modifiers |= 1 << (tokenModifierIndexes.get("readonly") ?? 0);
+  }
+  if (hasScope(scopeNames, "constant.language")) {
+    modifiers |= 1 << (tokenModifierIndexes.get("builtin") ?? 0);
   }
   if (hasScope(scopeNames, "variable.language")) {
     modifiers |= 1 << (tokenModifierIndexes.get("defaultLibrary") ?? 0);

@@ -19,6 +19,16 @@ const axonSemanticTokenModifierIndexes = new Map<string, number>(
     index,
   ]),
 );
+const semanticTokenTypeAliases = new Map<string, string>([
+  ["member", "property"],
+  ["builtin", "builtinType"],
+  ["escapeSequence", "string"],
+]);
+const semanticTokenModifierAliases = new Map<string, string>([
+  ["readOnly", "readonly"],
+  ["modifying", "modification"],
+]);
+const loggedSemanticTokenLegends = new Set<string>();
 
 function normalizeSemanticTokenData(result: unknown) {
   if (!result || typeof result !== "object") return null;
@@ -47,7 +57,9 @@ function remapTokenModifierBits(
   let axonModifierBits = 0;
   for (let serverIndex = 0; serverIndex < serverModifiers.length; serverIndex += 1) {
     if ((serverModifierBits & (1 << serverIndex)) === 0) continue;
-    const modifier = serverModifiers[serverIndex];
+    const rawModifier = serverModifiers[serverIndex];
+    const modifier = semanticTokenModifierAliases.get(rawModifier) ??
+      rawModifier;
     const axonIndex = axonSemanticTokenModifierIndexes.get(modifier);
     if (axonIndex === undefined) continue;
     axonModifierBits |= 1 << axonIndex;
@@ -64,7 +76,9 @@ function remapSemanticTokenData(
   const remapped = [...data];
 
   for (let offset = 0; offset < remapped.length; offset += 5) {
-    const serverTokenType = serverLegend.tokenTypes[remapped[offset + 3]];
+    const rawServerTokenType = serverLegend.tokenTypes[remapped[offset + 3]];
+    const serverTokenType = semanticTokenTypeAliases.get(rawServerTokenType) ??
+      rawServerTokenType;
     remapped[offset + 3] =
       axonSemanticTokenTypeIndexes.get(serverTokenType) ?? variableTokenIndex;
     remapped[offset + 4] = remapTokenModifierBits(
@@ -103,6 +117,14 @@ export async function getLanguageServerSemanticTokens(
       },
       data: [],
     };
+  }
+
+  if (!loggedSemanticTokenLegends.has(ready.session.id)) {
+    loggedSemanticTokenLegends.add(ready.session.id);
+    console.info("[LSP SEMANTIC LEGEND]", ready.session.id, {
+      tokenTypes: provider.legend.tokenTypes,
+      tokenModifiers: provider.legend.tokenModifiers,
+    });
   }
 
   try {
