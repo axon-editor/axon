@@ -36,6 +36,7 @@ export interface TerminalSession {
   lastResizeCols: number | null;
   lastResizeRows: number | null;
   refreshFrame: number | null;
+  heartbeatTimer: number | null;
   disposed: boolean;
   terminating: boolean;
 }

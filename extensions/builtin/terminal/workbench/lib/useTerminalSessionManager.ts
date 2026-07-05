@@ -190,6 +190,13 @@ export function useTerminalSessionManager({
       window.cancelAnimationFrame(session.refreshFrame);
       session.refreshFrame = null;
     }
+    if (
+      session?.heartbeatTimer !== null &&
+      session?.heartbeatTimer !== undefined
+    ) {
+      window.clearInterval(session.heartbeatTimer);
+      session.heartbeatTimer = null;
+    }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
     session?.multilineDisposable?.dispose();
@@ -277,6 +284,7 @@ export function useTerminalSessionManager({
       lastResizeCols: null,
       lastResizeRows: null,
       refreshFrame: null,
+      heartbeatTimer: null,
       disposed: false,
       terminating: false,
     };

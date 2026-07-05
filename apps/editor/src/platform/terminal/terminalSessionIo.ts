@@ -40,11 +40,12 @@ export function isTerminalAtBottom(term: XTerm) {
 }
 
 export function scheduleTerminalRefresh(session: TerminalSession) {
-  // xterm already batches normal writes internally, so forcing a refresh after
-  // every streamed chunk makes long agent output feel slow. Axon only schedules
-  // this explicit repaint at idle boundaries and after resize/theme changes,
-  // which keeps the terminal responsive while still covering the rare case
-  // where the DOM misses the final rows until another layout event happens.
+  // xterm already batches normal writes internally. This explicit refresh is
+  // only a paint nudge for the cases where xterm has parsed output into its
+  // buffer but the renderer has not advanced the visible rows yet. The
+  // requestAnimationFrame guard is the important throttle: callers can request
+  // refreshes from every write callback or heartbeat tick, and the browser will
+  // still collapse them into at most one repaint per frame.
   if (!session.term || session.refreshFrame !== null) return;
 
   session.refreshFrame = window.requestAnimationFrame(() => {
@@ -52,6 +53,30 @@ export function scheduleTerminalRefresh(session: TerminalSession) {
     if (!session.term || session.disposed) return;
     session.term.refresh(0, Math.max(0, session.term.rows - 1));
   });
+}
+
+function clearTerminalHeartbeat(session: TerminalSession) {
+  if (session.heartbeatTimer === null) return;
+  window.clearInterval(session.heartbeatTimer);
+  session.heartbeatTimer = null;
+}
+
+function ensureTerminalHeartbeat(session: TerminalSession) {
+  if (session.heartbeatTimer !== null) return;
+
+  // A busy agent can keep xterm's async write callback delayed long enough
+  // that relying on callback-driven refreshes alone still leaves the DOM
+  // visually stale. This heartbeat is deliberately small and bounded: it only
+  // runs while output is pending, and each tick goes through the same rAF
+  // coalescing as normal refreshes, so it cannot spin into one refresh per
+  // websocket chunk.
+  session.heartbeatTimer = window.setInterval(() => {
+    if (session.disposed || !hasPendingTerminalOutput(session)) {
+      clearTerminalHeartbeat(session);
+      return;
+    }
+    scheduleTerminalRefresh(session);
+  }, 120);
 }
 
 export function sendOrQueueTerminalInput(
@@ -164,10 +189,11 @@ function drainTerminalOutput(session: TerminalSession) {
     if (session.term && session.atBottom) {
       session.term.scrollToBottom();
     }
-    if (session.outputQueue.length === 0) {
-      scheduleTerminalRefresh(session);
-    }
+    scheduleTerminalRefresh(session);
     session.outputWriting = false;
+    if (!hasPendingTerminalOutput(session)) {
+      clearTerminalHeartbeat(session);
+    }
     drainTerminalOutput(session);
   });
 }
@@ -183,6 +209,7 @@ export function writeTerminalOutput(
   session.outputQueue.push(chunk);
   session.queuedBytes += chunk.byteLength;
   session.maxQueuedBytes = Math.max(session.maxQueuedBytes, session.queuedBytes);
+  ensureTerminalHeartbeat(session);
   drainTerminalOutput(session);
 }
 
