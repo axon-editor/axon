@@ -7,6 +7,7 @@ import {
   executeLanguageServerCommand,
   getLanguageServerHover,
   getLanguageServerReferences,
+  getLanguageServerSemanticTokens,
   formatLanguageServerDocument,
   getLanguageServerSignatureHelp,
   getLanguageServerStatus,
@@ -36,6 +37,8 @@ import {
   type LanguageServerReferencesResult,
   type LanguageServerRenameRequest,
   type LanguageServerRenameResult,
+  type LanguageServerSemanticTokensRequest,
+  type LanguageServerSemanticTokensResult,
   type LanguageServerSignatureHelpRequest,
   type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
@@ -241,6 +244,33 @@ export function registerLspHandlers() {
       if (!settings.lsp.enabled) return { ok: true, signatures: [] };
 
       return getLanguageServerSignatureHelp(request);
+    },
+  );
+
+  ipcMain.handle(
+    "lsp:semanticTokens",
+    async (
+      _event,
+      request: LanguageServerSemanticTokensRequest,
+    ): Promise<LanguageServerSemanticTokensResult> => {
+      if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+        return {
+          ok: true,
+          legend: { tokenTypes: [], tokenModifiers: [] },
+          data: [],
+        };
+      }
+
+      const settings = await readSettingsForFolder(request.folderPath);
+      if (!settings.lsp.enabled) {
+        return {
+          ok: true,
+          legend: { tokenTypes: [], tokenModifiers: [] },
+          data: [],
+        };
+      }
+
+      return getLanguageServerSemanticTokens(request);
     },
   );
 

@@ -7,6 +7,7 @@ import { type EditorDiagnostic } from "../../shared/diagnostics";
 import {
   type LanguageServerDocumentSyncRequest,
   type LanguageServerId,
+  type LanguageServerSemanticTokensProvider,
 } from "../../shared/lsp";
 import { readSettingsForFolder } from "../settings/io";
 import { getWorkspaceSettingsPath } from "../settings/paths";
@@ -29,6 +30,7 @@ export interface LanguageServerSession {
   initializeRetryTimer: ReturnType<typeof setTimeout> | null;
   stderr: string;
   stdoutBuffer: Buffer;
+  semanticTokensProvider: LanguageServerSemanticTokensProvider | null;
   pendingRequests: Map<
     number,
     {

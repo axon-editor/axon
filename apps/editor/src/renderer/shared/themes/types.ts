@@ -93,3 +93,14 @@ export function createSemanticTokenColors(tokens: ThemeTokenMap) {
     operator: tokens["syntax.operator"],
   } satisfies Record<string, string>;
 }
+
+export function createSemanticTokenRules(
+  tokens: ThemeTokenMap,
+): editor.ITokenThemeRule[] {
+  return Object.entries(createSemanticTokenColors(tokens)).map(
+    ([token, color]) => ({
+      token,
+      foreground: color.replace(/^#/, ""),
+    }),
+  );
+}

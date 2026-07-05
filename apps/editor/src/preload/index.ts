@@ -72,6 +72,8 @@ import {
   type LanguageServerReferencesResult,
   type LanguageServerRenameRequest,
   type LanguageServerRenameResult,
+  type LanguageServerSemanticTokensRequest,
+  type LanguageServerSemanticTokensResult,
   type LanguageServerSignatureHelpRequest,
   type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
@@ -231,6 +233,10 @@ contextBridge.exposeInMainWorld("axon", {
     request: LanguageServerSignatureHelpRequest,
   ): Promise<LanguageServerSignatureHelpResult> =>
     ipcRenderer.invoke("lsp:signatureHelp", request),
+  getLanguageServerSemanticTokens: (
+    request: LanguageServerSemanticTokensRequest,
+  ): Promise<LanguageServerSemanticTokensResult> =>
+    ipcRenderer.invoke("lsp:semanticTokens", request),
   getLanguageServerCodeActions: (
     request: LanguageServerCodeActionRequest,
   ): Promise<LanguageServerCodeActionResult> =>

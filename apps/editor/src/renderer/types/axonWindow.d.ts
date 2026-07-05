@@ -51,6 +51,8 @@ import type {
   LanguageServerReferencesResult,
   LanguageServerRenameRequest,
   LanguageServerRenameResult,
+  LanguageServerSemanticTokensRequest,
+  LanguageServerSemanticTokensResult,
   LanguageServerSignatureHelpRequest,
   LanguageServerSignatureHelpResult,
   LanguageServerStartForFileRequest,
@@ -182,6 +184,9 @@ declare global {
       getLanguageServerSignatureHelp: (
         request: LanguageServerSignatureHelpRequest,
       ) => Promise<LanguageServerSignatureHelpResult>;
+      getLanguageServerSemanticTokens: (
+        request: LanguageServerSemanticTokensRequest,
+      ) => Promise<LanguageServerSemanticTokensResult>;
       getLanguageServerCodeActions: (
         request: LanguageServerCodeActionRequest,
       ) => Promise<LanguageServerCodeActionResult>;

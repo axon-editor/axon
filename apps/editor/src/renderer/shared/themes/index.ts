@@ -8,6 +8,7 @@ import {
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import {
   createSemanticTokenColors,
+  createSemanticTokenRules,
   createSyntaxRules,
   type AxonThemeDefinition,
   type ThemeTokenMap,
@@ -171,6 +172,14 @@ function buildMonacoTheme(
     inherit: true,
     rules: [
       ...createSyntaxRules(tokens, extensionTheme?.syntax),
+      // Monaco standalone resolves semantic token styling through the same
+      // token theme matcher used for normal syntax rules. Keeping the
+      // semanticTokenColors object below is useful for VS Code-compatible theme
+      // data, but standalone painting calls getTokenStyleMetadata(), which
+      // matches selectors such as "function.declaration" against `rules`.
+      // Without these mirrored rules, Axon can receive perfect LSP/TextMate
+      // semantic tokens and still render them with the default foreground.
+      ...createSemanticTokenRules(tokens),
       ...(theme.tokenRules ?? []),
     ],
     colors: {

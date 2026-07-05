@@ -2,8 +2,11 @@ import path from "path";
 import url from "url";
 import { spawn } from "child_process";
 import {
+  LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS,
+  LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
   type LanguageServerCompletionRequest,
   type LanguageServerLifecycleResult,
+  type LanguageServerSemanticTokensProvider,
   type LanguageServerStatus,
 } from "../../../shared/lsp";
 import {
@@ -158,6 +161,53 @@ export function requestLanguageServer(
   });
 }
 
+function normalizeSemanticTokensProvider(
+  initializeResult: unknown,
+): LanguageServerSemanticTokensProvider | null {
+  if (!initializeResult || typeof initializeResult !== "object") return null;
+  const capabilities = (initializeResult as { capabilities?: unknown }).capabilities;
+  if (!capabilities || typeof capabilities !== "object") return null;
+  const provider = (capabilities as { semanticTokensProvider?: unknown })
+    .semanticTokensProvider;
+  if (!provider || typeof provider !== "object") return null;
+
+  const rawProvider = provider as {
+    legend?: unknown;
+    full?: unknown;
+    range?: unknown;
+  };
+  const legend =
+    rawProvider.legend && typeof rawProvider.legend === "object"
+      ? (rawProvider.legend as {
+          tokenTypes?: unknown;
+          tokenModifiers?: unknown;
+        })
+      : null;
+  const tokenTypes = Array.isArray(legend?.tokenTypes)
+    ? legend.tokenTypes.filter((tokenType): tokenType is string => {
+        return typeof tokenType === "string" && tokenType.length > 0;
+      })
+    : [];
+  const tokenModifiers = Array.isArray(legend?.tokenModifiers)
+    ? legend.tokenModifiers.filter((modifier): modifier is string => {
+        return typeof modifier === "string" && modifier.length > 0;
+      })
+    : [];
+
+  if (tokenTypes.length === 0) return null;
+
+  return {
+    legend: {
+      tokenTypes,
+      tokenModifiers,
+    },
+    full:
+      rawProvider.full === true ||
+      (Boolean(rawProvider.full) && typeof rawProvider.full === "object"),
+    range: Boolean(rawProvider.range),
+  };
+}
+
 function disposeLanguageServerSession(session: LanguageServerSession) {
   session.disposed = true;
   clearPendingDiagnosticsForSession(session);
@@ -272,6 +322,22 @@ async function initializeLanguageServer(session: LanguageServerSession) {
               },
             },
           },
+          semanticTokens: {
+            dynamicRegistration: false,
+            requests: {
+              range: false,
+              full: {
+                delta: false,
+              },
+            },
+            tokenTypes: [...LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES],
+            tokenModifiers: [...LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS],
+            formats: ["relative"],
+            overlappingTokenSupport: false,
+            multilineTokenSupport: true,
+            serverCancelSupport: true,
+            augmentsSyntaxTokens: true,
+          },
         },
         workspace: {
           configuration: true,
@@ -288,9 +354,11 @@ async function initializeLanguageServer(session: LanguageServerSession) {
     },
     LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS,
   )
-    .then(() => {
+    .then((initializeResult) => {
       console.log("[LSP SPAWN OK]", session.id);
       if (session.disposed) return;
+      session.semanticTokensProvider =
+        normalizeSemanticTokensProvider(initializeResult);
       notifyLanguageServer(session, "initialized", {});
       void notifyLanguageServerConfiguration(session, notifyLanguageServer);
       console.log("[LSP INIT OK]", session.id);
@@ -390,6 +458,7 @@ export function startLanguageServerDefinition(
           initializeRetryTimer: null,
           stderr: "",
           stdoutBuffer: Buffer.alloc(0),
+          semanticTokensProvider: null,
           pendingRequests: new Map(),
           syncedDocuments: new Map(),
         };

@@ -62,6 +62,68 @@ export interface LanguageServerDocumentSyncRequest {
   content: string;
 }
 
+export const LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES = [
+  "namespace",
+  "type",
+  "class",
+  "enum",
+  "interface",
+  "struct",
+  "typeParameter",
+  "parameter",
+  "variable",
+  "property",
+  "enumMember",
+  "event",
+  "function",
+  "method",
+  "macro",
+  "keyword",
+  "modifier",
+  "comment",
+  "string",
+  "number",
+  "regexp",
+  "operator",
+  "decorator",
+] as const;
+
+export const LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS = [
+  "declaration",
+  "definition",
+  "readonly",
+  "static",
+  "deprecated",
+  "abstract",
+  "async",
+  "modification",
+  "documentation",
+  "defaultLibrary",
+] as const;
+
+export interface LanguageServerSemanticTokensLegend {
+  tokenTypes: string[];
+  tokenModifiers: string[];
+}
+
+export interface LanguageServerSemanticTokensProvider {
+  legend: LanguageServerSemanticTokensLegend;
+  full: boolean;
+  range: boolean;
+}
+
+export interface LanguageServerSemanticTokensRequest
+  extends LanguageServerDocumentSyncRequest {}
+
+export interface LanguageServerSemanticTokensResult {
+  ok: boolean;
+  message?: string;
+  serverId?: LanguageServerId;
+  legend: LanguageServerSemanticTokensLegend;
+  data: number[];
+  resultId?: string;
+}
+
 export interface LanguageServerCompletionRequest
   extends LanguageServerDocumentSyncRequest {
   line: number;

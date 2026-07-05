@@ -1,67 +1,22 @@
-import fs from "fs";
 import path from "path";
 import url from "url";
 import { app, BrowserWindow } from "electron";
-import {
-  execFile,
-  spawn,
-  type ChildProcessWithoutNullStreams,
-} from "child_process";
+import { execFile } from "child_process";
 import { type EditorDiagnostic } from "../../shared/diagnostics";
 import {
-  type LanguageServerCodeAction,
-  type LanguageServerCodeActionRequest,
-  type LanguageServerCodeActionResult,
-  type LanguageServerCompletionRequest,
-  type LanguageServerCompletionResult,
-  type LanguageServerCommand,
-  type LanguageServerDefinitionRequest,
-  type LanguageServerDefinitionResult,
   type LanguageServerDocumentSyncRequest,
-  type LanguageServerExecuteCommandRequest,
-  type LanguageServerExecuteCommandResult,
-  type LanguageServerFormatRequest,
-  type LanguageServerFormatResult,
-  type LanguageServerHoverRequest,
-  type LanguageServerHoverResult,
-  type LanguageServerLifecycleResult,
-  type LanguageServerReferencesRequest,
-  type LanguageServerReferencesResult,
-  type LanguageServerRenameRequest,
-  type LanguageServerRenameResult,
-  type LanguageServerSignature,
-  type LanguageServerSignatureHelpRequest,
-  type LanguageServerSignatureHelpResult,
-  type LanguageServerStartForFileRequest,
-  type LanguageServerStatus,
   type LanguageServerTextEdit,
   type LanguageServerLocation,
 } from "../../shared/lsp";
-import { normalizeLanguageServerCompletionItems } from "./completionItems";
-import {
-  LANGUAGE_SERVER_DEFINITIONS,
-  type LanguageServerDefinition,
-  type LanguageServerStartAttempt,
-  type ResolvedLanguageServerCommand,
-} from "./definitions";
-import { formatWithBundledPrettier } from "./formatting";
+import { type LanguageServerDefinition } from "./definitions";
 import {
   emitLanguageServerLog,
-  getLanguageServerInitializationOptions,
   getLanguageServerSessionKey,
   getPythonLanguageServerSettings,
   getTypeScriptLanguageServerPreferences,
-  hasWorkspaceMarker,
-  notifyLanguageServerConfiguration,
-  resolveLanguageServerCommand,
-  resolveCommandPath,
   type LanguageServerSession,
   type LspSessionDependencies,
-  canRunCommand,
   writeLanguageServerMessage,
-  rejectLanguageServerPendingRequests,
-  waitForLanguageServerSpawn,
-  readLanguageServerMessages,
 } from "./session";
 
 export const activeLanguageServers = new Map<string, LanguageServerSession>();
@@ -69,7 +24,10 @@ export const activeLanguageServerFailures = new Map<
   string,
   { message: string; timestamp: number }
 >();
-const diagnosticsDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const diagnosticsDebounceTimers = new Map<
+  string,
+  ReturnType<typeof setTimeout>
+>();
 const pendingDiagnosticsByFile = new Map<
   string,
   {
@@ -102,7 +60,9 @@ function diagnosticsPendingKey(input: {
   return `${input.folderPath}::${input.serverId}::${input.filePath}`;
 }
 
-export function clearPendingDiagnosticsForSession(session: LanguageServerSession) {
+export function clearPendingDiagnosticsForSession(
+  session: LanguageServerSession,
+) {
   const prefix = `${session.folderPath}::${session.id}::`;
   for (const [key, timer] of diagnosticsDebounceTimers) {
     if (!key.startsWith(prefix)) continue;
@@ -769,7 +729,9 @@ async function getConfigurationValueForSection(
     return null;
   }
 
-  const pythonSettings = await getPythonLanguageServerSettings(session.folderPath);
+  const pythonSettings = await getPythonLanguageServerSettings(
+    session.folderPath,
+  );
   if (!pythonSettings) return null;
 
   if (!section) return pythonSettings;
@@ -797,12 +759,14 @@ async function getLanguageServerConfigurationResponse(
   };
   const items = Array.isArray(request?.items) ? request.items : [];
 
-  return Promise.all(items.map((item) =>
-    getConfigurationValueForSection(
-      session,
-      typeof item.section === "string" ? item.section : "",
+  return Promise.all(
+    items.map((item) =>
+      getConfigurationValueForSection(
+        session,
+        typeof item.section === "string" ? item.section : "",
+      ),
     ),
-  ));
+  );
 }
 
 async function handleLanguageServerRequest(
@@ -953,26 +917,29 @@ function publishLanguageServerDiagnostics(
   const existingTimer = diagnosticsDebounceTimers.get(pendingKey);
   if (existingTimer) clearTimeout(existingTimer);
 
-  diagnosticsDebounceTimers.set(pendingKey, setTimeout(() => {
-    diagnosticsDebounceTimers.delete(pendingKey);
-    const latest = pendingDiagnosticsByFile.get(pendingKey);
-    pendingDiagnosticsByFile.delete(pendingKey);
-    if (!latest) return;
+  diagnosticsDebounceTimers.set(
+    pendingKey,
+    setTimeout(() => {
+      diagnosticsDebounceTimers.delete(pendingKey);
+      const latest = pendingDiagnosticsByFile.get(pendingKey);
+      pendingDiagnosticsByFile.delete(pendingKey);
+      if (!latest) return;
 
-    // Fan-out still happens to every live BrowserWindow because Axon can have
-    // multiple windows open, but the fan-out is now paid once per debounce
-    // window instead of once per raw LSP publish.
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
-        try {
-          window.webContents.send("lsp:diagnostics", latest);
-        } catch {
-          // Diagnostics can arrive while the app is closing. Dropping one late
-          // publish is safe; letting it crash the main process is not.
+      // Fan-out still happens to every live BrowserWindow because Axon can have
+      // multiple windows open, but the fan-out is now paid once per debounce
+      // window instead of once per raw LSP publish.
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+          try {
+            window.webContents.send("lsp:diagnostics", latest);
+          } catch {
+            // Diagnostics can arrive while the app is closing. Dropping one late
+            // publish is safe; letting it crash the main process is not.
+          }
         }
       }
-    }
-  }, 80));
+    }, 80),
+  );
 }
 
 function normalizeLanguageServerDiagnosticSeverity(
@@ -990,7 +957,17 @@ function normalizeLanguageServerDiagnosticSeverity(
   }
 }
 
-export { getLanguageServerStatus, getReadyLanguageServerSession, getReadyOrWarmLanguageServerSession, requestLanguageServer, startLanguageServerDefinition, startLanguageServerForLanguage, startRelevantLanguageServers, stopAllLanguageServers, stopRelevantLanguageServers } from "./features/lifecycle";
+export {
+  getLanguageServerStatus,
+  getReadyLanguageServerSession,
+  getReadyOrWarmLanguageServerSession,
+  requestLanguageServer,
+  startLanguageServerDefinition,
+  startLanguageServerForLanguage,
+  startRelevantLanguageServers,
+  stopAllLanguageServers,
+  stopRelevantLanguageServers,
+} from "./features/lifecycle";
 export {
   executeLanguageServerCommand,
   formatLanguageServerDocument,
@@ -1002,3 +979,4 @@ export {
   getLanguageServerSignatureHelp,
   renameLanguageServerSymbol,
 } from "./features/requests";
+export { getLanguageServerSemanticTokens } from "./features/semanticTokens";
