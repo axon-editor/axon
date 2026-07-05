@@ -21,6 +21,7 @@ export const AXON_COMMANDS = {
   OPEN_TEST_EXPLORER: "open-test-explorer",
   OPEN_FILE_OUTLINE: "open-file-outline",
   OPEN_LANGUAGE_TOOLS: "open-language-tools",
+  INSPECT_EDITOR_TOKEN: "inspect-editor-token",
   GO_TO_DEFINITION: "go-to-definition",
   FIND_REFERENCES: "find-references",
   RENAME_SYMBOL: "rename-symbol",

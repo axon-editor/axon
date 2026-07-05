@@ -68,7 +68,13 @@ function createReactTokenizer(
           "@jsxOpeningTag",
         ],
         [/{/, "delimiter.bracket", "@bracketCounting"],
-        [/[^<>{}]+/, "string"],
+        // JSX children are user-visible text nodes, not string literals. If we
+        // color them as strings, normal copy inside tags such as
+        // `<p>Need Custom Software?</p>` inherits the string color and looks
+        // like code. The dedicated text token lets Axon's capture layer keep
+        // prose on the normal editor foreground while tags and attributes stay
+        // richly colored.
+        [/[^<>{}]+/, "text"],
         [/[{}]/, "delimiter.bracket"],
       ],
       jsxDoubleString: [

@@ -696,7 +696,14 @@ export default function App({ initialExtensionState }: AppProps) {
     void requestCloseTab(layout.activePaneId, activeFile);
   };
   const runEditorAction = useCallback(
-    (action: "definition" | "references" | "rename" | "format") => {
+    (
+      action:
+        | "definition"
+        | "references"
+        | "rename"
+        | "format"
+        | "inspect-token",
+    ) => {
       const activeFile = activePane?.activeFile;
       if (!activeFile) return;
       // App owns global commands, but SingleEditor owns Monaco. Keeping this

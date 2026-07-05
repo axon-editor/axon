@@ -239,6 +239,9 @@ export function useAppCommandRunner({
         case AXON_COMMANDS.OPEN_LANGUAGE_TOOLS:
           setLanguageToolsOpen(true);
           break;
+        case AXON_COMMANDS.INSPECT_EDITOR_TOKEN:
+          runEditorAction("inspect-token");
+          break;
         case AXON_COMMANDS.GO_TO_DEFINITION:
           if (!requireTrustedWorkspace("Language server navigation")) break;
           runEditorAction("definition");

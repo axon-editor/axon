@@ -22,6 +22,7 @@ import Tooltip from "../../shared/components/Tooltip";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import EditorBreadcrumbs from "./EditorBreadcrumbs";
 import MonacoEditorSurface from "./MonacoEditorSurface";
+import TokenInspectorModal from "./TokenInspectorModal";
 import {
   updateModel,
   releaseModel,
@@ -40,6 +41,8 @@ import {
   toMonacoEdit,
 } from "./lib/editorDocumentHelpers";
 import { markEditorMounted } from "./lib/editorPerformance";
+import { type TokenInspectorReport } from "./lib/tokenInspector";
+import { useEditorActions } from "./lib/useEditorActions";
 
 interface Props {
   filePath: string;
@@ -60,8 +63,6 @@ interface Props {
 }
 
 type PreviewMode = "editor" | "split";
-type EditorActionRequest = "definition" | "references" | "rename" | "format";
-
 export default function SingleEditor({
   filePath,
   folderPath,
@@ -85,6 +86,8 @@ export default function SingleEditor({
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
   const [bufferSymbolsOpen, setBufferSymbolsOpen] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [tokenInspectorReport, setTokenInspectorReport] =
+    useState<TokenInspectorReport | null>(null);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suggestTimerRef = useRef<number | null>(null);
@@ -484,44 +487,14 @@ export default function SingleEditor({
     visible,
   ]);
 
-  useEffect(() => {
-    const handleEditorAction = (event: Event) => {
-      const actionEvent = event as CustomEvent<{
-        path?: string;
-        action?: EditorActionRequest;
-      }>;
-      if (!visible || actionEvent.detail?.path !== filePath) return;
-
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      const action = actionEvent.detail.action ?? "definition";
-      if (action === "definition") {
-        void jumpToDefinition().then((jumped) => {
-          if (!jumped) {
-            void editor.getAction("editor.action.revealDefinition")?.run();
-          }
-        });
-        return;
-      }
-
-      // Monaco owns the final UI for reference search, rename inputs, and
-      // formatter edits. Definition is handled above because Monaco may stop at
-      // a peek popup before Axon's tab model has loaded the target file.
-      const actionIdByRequest: Record<Exclude<EditorActionRequest, "definition">, string> = {
-        references: "editor.action.referenceSearch.trigger",
-        rename: "editor.action.rename",
-        format: "editor.action.formatDocument",
-      };
-      const actionId = actionIdByRequest[action];
-
-      void editor.getAction(actionId)?.run();
-    };
-
-    window.addEventListener("axon:editorAction", handleEditorAction);
-    return () =>
-      window.removeEventListener("axon:editorAction", handleEditorAction);
-  }, [filePath, jumpToDefinition, visible]);
+  useEditorActions({
+    editorRef,
+    filePath,
+    jumpToDefinition,
+    setTokenInspectorReport,
+    themeTokens,
+    visible,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -938,6 +911,12 @@ export default function SingleEditor({
 
   return (
     <div className="w-full h-full flex flex-col">
+      {tokenInspectorReport && (
+        <TokenInspectorModal
+          report={tokenInspectorReport}
+          onClose={() => setTokenInspectorReport(null)}
+        />
+      )}
       {isMd && (
         <div className="flex items-center justify-end gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 py-1">
           <Tooltip label="Editor" side="bottom">

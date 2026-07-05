@@ -163,6 +163,16 @@ export function buildAppPaletteCommands({
         disabled: !activeFilePath,
       },
       {
+        id: AXON_COMMANDS.INSPECT_EDITOR_TOKEN,
+        title: "Inspect Editor Token",
+        group: "Developer",
+        subtitle: activeFilePath
+          ? "Show Monaco token, Axon captures, and rendered color at the cursor"
+          : "Select a file first",
+        keywords: ["theme", "syntax", "color", "token", "capture", "monaco"],
+        disabled: !activeFilePath,
+      },
+      {
         id: AXON_COMMANDS.GO_TO_DEFINITION,
         title: "Go to Definition",
         group: "Navigation",

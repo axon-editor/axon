@@ -2,7 +2,6 @@ import { type editor } from "monaco-editor";
 import { type ThemeColorToken } from "../../../shared/settings";
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import {
-  AxonSyntaxTheme,
   createAxonSyntaxTheme,
   createExtensionSyntaxThemeEntries,
 } from "./syntaxTheme";
@@ -23,13 +22,23 @@ export function hexToMonaco(color: string) {
   return color.replace(/^#/, "").slice(0, 6);
 }
 
-export function createSyntaxRules(tokens: ThemeTokenMap): editor.ITokenThemeRule[] {
+export function createSyntaxRules(
+  tokens: ThemeTokenMap,
+  syntax: Record<string, ExtensionThemeSyntaxStyle> = {},
+): editor.ITokenThemeRule[] {
   // Axon mirrors Zed's SyntaxTheme idea here: themes define a small set of
   // semantic capture names such as function.method, property, type, and
   // punctuation.bracket, then the adapter expands those captures to Monaco's
   // language-specific token names. Keeping the capture system separate prevents
   // the editor from becoming a pile of one-off CSS overrides.
-  return createAxonSyntaxTheme(tokens).toMonacoRules();
+  //
+  // Base captures and extension captures are merged before generating Monaco
+  // rules. That matters because Zed themes often define `primary` as the prose
+  // fallback; if extension rules were emitted in a separate pass, `primary`
+  // could repaint otherwise well-classified tokens back to foreground.
+  return createAxonSyntaxTheme(tokens)
+    .merge(createExtensionSyntaxThemeEntries(syntax))
+    .toMonacoRules();
 }
 
 export function createSemanticTokenColors(tokens: ThemeTokenMap) {
@@ -83,11 +92,4 @@ export function createSemanticTokenColors(tokens: ThemeTokenMap) {
     regexp: tokens["syntax.constant"],
     operator: tokens["syntax.operator"],
   } satisfies Record<string, string>;
-}
-
-export function createExtensionSyntaxRules(
-  syntax: Record<string, ExtensionThemeSyntaxStyle>,
-): editor.ITokenThemeRule[] {
-  return new AxonSyntaxTheme(createExtensionSyntaxThemeEntries(syntax))
-    .toMonacoRules();
 }

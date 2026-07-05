@@ -34,7 +34,7 @@ const zedSyntaxToAxonTokenMap: Record<string, ThemeColorToken> = {
   type: "syntax.type",
   function: "syntax.function",
   method: "syntax.method",
-  "variable.member": "syntax.method",
+  "variable.member": "syntax.property",
   variable: "syntax.variable",
   "variable.special": "syntax.constant",
   property: "syntax.property",

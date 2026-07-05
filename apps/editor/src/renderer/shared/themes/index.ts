@@ -7,7 +7,6 @@ import {
 } from "../../../shared/settings";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import {
-  createExtensionSyntaxRules,
   createSemanticTokenColors,
   createSyntaxRules,
   type AxonThemeDefinition,
@@ -171,9 +170,8 @@ function buildMonacoTheme(
     base: theme.base,
     inherit: true,
     rules: [
-      ...createSyntaxRules(tokens),
+      ...createSyntaxRules(tokens, extensionTheme?.syntax),
       ...(theme.tokenRules ?? []),
-      ...(extensionTheme ? createExtensionSyntaxRules(extensionTheme.syntax) : []),
     ],
     colors: {
       foreground: tokens["editor.foreground"],
