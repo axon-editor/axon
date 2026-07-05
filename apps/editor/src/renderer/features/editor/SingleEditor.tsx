@@ -13,10 +13,15 @@ import {
 } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
+import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import { readFile, writeFile } from "../../shared/lib/api";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { registerAxonTheme } from "../../shared/lib/soraTheme";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
+import {
+  createSemanticTokenDecorations,
+  installSemanticTokenDecorationStyles,
+} from "../../../services/lsp/renderer/semanticTokenDecorations";
 import { parseGitDiffLineDecorations } from "@axon-builtin-git/git/lib/gitDiffDecorations";
 import Tooltip from "../../shared/components/Tooltip";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
@@ -57,6 +62,7 @@ interface Props {
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
@@ -74,6 +80,7 @@ export default function SingleEditor({
   onCursorChange,
   onLanguageChange,
   editorSettings,
+  themeSyntax,
   themeTokens,
   navigationTarget,
   gitChanges,
@@ -92,9 +99,13 @@ export default function SingleEditor({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suggestTimerRef = useRef<number | null>(null);
   const lspSyncTimerRef = useRef<number | null>(null);
+  const semanticDecorationTimerRef = useRef<number | null>(null);
+  const semanticDecorationRequestRef = useRef(0);
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const gitDecorationsRef =
+    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const semanticDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const goSyntaxDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
@@ -310,6 +321,66 @@ export default function SingleEditor({
     goSyntaxDecorationsRef.current.set(decorations);
   }, []);
 
+  const refreshSemanticTokenDecorations = useCallback(async () => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model || model.isDisposed()) {
+      semanticDecorationsRef.current?.clear();
+      return;
+    }
+
+    const requestId = (semanticDecorationRequestRef.current += 1);
+    const modelVersion = model.getVersionId();
+    installSemanticTokenDecorationStyles(themeTokens, themeSyntax);
+
+    try {
+      const decorations = await createSemanticTokenDecorations(
+        model,
+        themeTokens,
+        themeSyntax,
+      );
+      const stillCurrent =
+        requestId === semanticDecorationRequestRef.current &&
+        editorRef.current === editor &&
+        editor.getModel() === model &&
+        !model.isDisposed() &&
+        model.getVersionId() === modelVersion;
+      if (!stillCurrent) return;
+
+      // Monaco's built-in semantic theming is not reliable enough in
+      // standalone Electron, so Axon owns the last paint step with inline
+      // decorations. The token source is still the shared LSP/TextMate pipeline;
+      // this collection only turns the resolved semantic selectors into real
+      // CSS classes that cannot be skipped by Monaco's semantic theme matcher.
+      semanticDecorationsRef.current ??= editor.createDecorationsCollection();
+      semanticDecorationsRef.current.set(decorations);
+      const editorNode = editor.getDomNode();
+      if (editorNode) {
+        editorNode.dataset.axonThemeId = editorSettings.themeId;
+        editorNode.dataset.axonThemeSyntaxCount =
+          String(Object.keys(themeSyntax).length);
+        editorNode.dataset.axonSemanticDecorationCount =
+          String(decorations.length);
+      }
+    } catch (err) {
+      console.error("failed to paint semantic token decorations:", err);
+      semanticDecorationsRef.current?.clear();
+    }
+  }, [editorSettings.themeId, themeSyntax, themeTokens]);
+
+  const scheduleSemanticTokenDecorations = useCallback(
+    (delayMs = 120) => {
+      if (semanticDecorationTimerRef.current) {
+        window.clearTimeout(semanticDecorationTimerRef.current);
+      }
+      semanticDecorationTimerRef.current = window.setTimeout(() => {
+        semanticDecorationTimerRef.current = null;
+        void refreshSemanticTokenDecorations();
+      }, delayMs);
+    },
+    [refreshSemanticTokenDecorations],
+  );
+
   useEffect(() => {
     filePathRef.current = filePath;
   }, [filePath]);
@@ -324,6 +395,10 @@ export default function SingleEditor({
         window.clearTimeout(lspSyncTimerRef.current);
         lspSyncTimerRef.current = null;
       }
+      if (semanticDecorationTimerRef.current) {
+        window.clearTimeout(semanticDecorationTimerRef.current);
+        semanticDecorationTimerRef.current = null;
+      }
 
       // Monaco decoration collections are tied to the editor widget, not to
       // React's state lifetime. I clear them explicitly when this editor
@@ -334,6 +409,7 @@ export default function SingleEditor({
       // stack darker than a single added/modified/deleted marker should.
       navigationDecorationsRef.current?.clear();
       gitDecorationsRef.current?.clear();
+      semanticDecorationsRef.current?.clear();
       goSyntaxDecorationsRef.current?.clear();
       clearFindDecorations();
 
@@ -389,13 +465,23 @@ export default function SingleEditor({
     if (visible) {
       onLanguageChange(detectLanguage(filePath));
       onCursorChange(1, 1);
-      registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
+      registerAxonTheme(
+        monaco,
+        editorSettings.themeId,
+        themeTokens,
+        [],
+        themeSyntax,
+      );
+      installSemanticTokenDecorationStyles(themeTokens, themeSyntax);
+      void refreshSemanticTokenDecorations();
       refreshGoSyntaxDecorations();
     }
   }, [
     visible,
     editorSettings.themeId,
+    themeSyntax,
     themeTokens,
+    refreshSemanticTokenDecorations,
     refreshGoSyntaxDecorations,
   ]);
 
@@ -492,6 +578,7 @@ export default function SingleEditor({
     filePath,
     jumpToDefinition,
     setTokenInspectorReport,
+    themeSyntax,
     themeTokens,
     visible,
   });
@@ -519,7 +606,10 @@ export default function SingleEditor({
         // already closed.
         if (editorRef.current && !model.isDisposed()) {
           editorRef.current.setModel(model);
-          window.requestAnimationFrame(refreshGoSyntaxDecorations);
+          window.requestAnimationFrame(() => {
+            void refreshSemanticTokenDecorations();
+            refreshGoSyntaxDecorations();
+          });
         }
         syncDocumentWithLanguageServer(fc.content);
 
@@ -537,7 +627,10 @@ export default function SingleEditor({
       setLiveContent(content);
       diskContentRef.current = content;
       updateModel(filePath, content);
-      window.requestAnimationFrame(refreshGoSyntaxDecorations);
+      window.requestAnimationFrame(() => {
+        void refreshSemanticTokenDecorations();
+        refreshGoSyntaxDecorations();
+      });
       onDirtyChange(filePath, false);
     });
 
@@ -547,6 +640,8 @@ export default function SingleEditor({
       navigationDecorationsRef.current = null;
       gitDecorationsRef.current?.clear();
       gitDecorationsRef.current = null;
+      semanticDecorationsRef.current?.clear();
+      semanticDecorationsRef.current = null;
       goSyntaxDecorationsRef.current?.clear();
       goSyntaxDecorationsRef.current = null;
       editorOpenerRef.current?.dispose();
@@ -560,6 +655,10 @@ export default function SingleEditor({
       if (lspSyncTimerRef.current) {
         window.clearTimeout(lspSyncTimerRef.current);
         lspSyncTimerRef.current = null;
+      }
+      if (semanticDecorationTimerRef.current) {
+        window.clearTimeout(semanticDecorationTimerRef.current);
+        semanticDecorationTimerRef.current = null;
       }
       // Release only if the async read reached acquireModel. Closing a split
       // quickly used to run this cleanup before the second editor acquired its
@@ -699,7 +798,8 @@ export default function SingleEditor({
     setEditorReadyNonce((nonce) => nonce + 1);
     markEditorMounted(filePath);
 
-    registerAxonTheme(monaco, editorSettings.themeId, themeTokens);
+    registerAxonTheme(monaco, editorSettings.themeId, themeTokens, [], themeSyntax);
+    installSemanticTokenDecorationStyles(themeTokens, themeSyntax);
 
     // only attach model if it already exists from a previous readFile call
     // if readFile hasn't resolved yet it will call editor.setModel when it does
@@ -784,6 +884,7 @@ export default function SingleEditor({
       setLiveContent(current);
       onDirtyChange(filePath, current !== diskContentRef.current);
       syncDocumentWithLanguageServer(current);
+      scheduleSemanticTokenDecorations();
       refreshGoSyntaxDecorations();
 
       const model = editor.getModel();
@@ -831,6 +932,7 @@ export default function SingleEditor({
     });
 
     onLanguageChange(detectLanguage(filePath));
+    void refreshSemanticTokenDecorations();
     refreshGoSyntaxDecorations();
   };
 
@@ -900,6 +1002,7 @@ export default function SingleEditor({
         findQuery={findQuery}
         saving={saving}
         shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}
+        themeSyntax={themeSyntax}
         themeTokens={themeTokens}
         onChangeFindQuery={changeFindQuery}
         onCloseFind={closeFind}

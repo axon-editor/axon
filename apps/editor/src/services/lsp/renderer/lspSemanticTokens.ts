@@ -51,6 +51,37 @@ type AbsoluteSemanticToken = {
   source: "lsp" | "textmate";
 };
 
+const grammarOwnedTokenTypes = new Set([
+  "attribute",
+  "comment",
+  "keyword",
+  "number",
+  "operator",
+  "regexp",
+  "string",
+  "tag",
+  "text",
+]);
+
+const symbolOwnedTokenTypes = new Set([
+  "builtinType",
+  "class",
+  "constructor",
+  "enum",
+  "enumMember",
+  "function",
+  "interface",
+  "method",
+  "namespace",
+  "parameter",
+  "property",
+  "struct",
+  "trait",
+  "type",
+  "typeAlias",
+  "typeParameter",
+]);
+
 function isFileInsideWorkspace(filePath: string, folderPath: string) {
   const normalizedFile = filePath.replace(/\\/g, "/");
   const normalizedFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -110,6 +141,30 @@ function tokensOverlap(a: AbsoluteSemanticToken, b: AbsoluteSemanticToken) {
   return a.character < bEnd && b.character < aEnd;
 }
 
+function semanticTokenTypeName(token: AbsoluteSemanticToken) {
+  return LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES[token.tokenType] ?? "variable";
+}
+
+function semanticTokenPaintPriority(token: AbsoluteSemanticToken) {
+  const tokenType = semanticTokenTypeName(token);
+
+  // TextMate grammars are stronger for lexical structure: JSX/HTML tags,
+  // attributes, punctuation, strings, comments, and keywords. Language servers
+  // are stronger for symbol meaning: functions, methods, classes, interfaces,
+  // parameters, and properties. A source-only merge made LSP ranges erase the
+  // richer grammar layer, which is why a correct theme could still look flat.
+  if (grammarOwnedTokenTypes.has(tokenType)) {
+    return token.source === "textmate" ? 120 : 90;
+  }
+  if (symbolOwnedTokenTypes.has(tokenType)) {
+    return token.source === "lsp" ? 120 : 105;
+  }
+  if (tokenType === "variable") {
+    return token.source === "lsp" ? 45 : 35;
+  }
+  return token.source === "lsp" ? 80 : 70;
+}
+
 function encodeSemanticTokens(tokens: AbsoluteSemanticToken[]) {
   const data: number[] = [];
   let previousLine = 0;
@@ -152,19 +207,33 @@ function mergeSemanticTokenLayers(input: {
     ? decodeSemanticTokens(input.textMate.data, "textmate")
     : [];
 
-  // LSP tokens come from the language server's symbol table, so they win when
-  // they cover the same source range as TextMate. TextMate is still essential
-  // for Bug 1 from the syntax report: it provides VS Code-style grammar scopes
-  // for JSX tags, attributes, object keys, and punctuation-adjacent identifiers
-  // while the language server is silent or intentionally broad. Dropping only
-  // overlapping TextMate tokens gives Axon both layers without producing
-  // invalid overlapping semantic-token ranges for Monaco.
-  const nonOverlappingTextMateTokens = textMateTokens.filter((textMateToken) => {
-    return !lspTokens.some((lspToken) => tokensOverlap(lspToken, textMateToken));
+  // Monaco rejects overlapping semantic-token ranges, so Axon has to collapse
+  // the LSP and grammar layers before painting. The old merge gave every
+  // overlap to LSP. That sounds reasonable until TypeScript reports a broad
+  // identifier where the grammar had a precise JSX tag, attribute, or literal:
+  // the rich token was thrown away before the theme could color it. This merge
+  // compares token intent instead, preserving grammar-owned structure while
+  // still letting LSP own real symbols.
+  const selectedTextMateTokens = textMateTokens.filter((textMateToken) => {
+    const textMatePriority = semanticTokenPaintPriority(textMateToken);
+    const strongestLspOverlap = lspTokens
+      .filter((lspToken) => tokensOverlap(lspToken, textMateToken))
+      .reduce(
+        (priority, lspToken) =>
+          Math.max(priority, semanticTokenPaintPriority(lspToken)),
+        -1,
+      );
+
+    return strongestLspOverlap <= textMatePriority;
+  });
+  const selectedLspTokens = lspTokens.filter((lspToken) => {
+    return !selectedTextMateTokens.some((textMateToken) =>
+      tokensOverlap(lspToken, textMateToken),
+    );
   });
   const merged = encodeSemanticTokens([
-    ...lspTokens,
-    ...nonOverlappingTextMateTokens,
+    ...selectedLspTokens,
+    ...selectedTextMateTokens,
   ]);
 
   return merged.length > 0
@@ -225,6 +294,24 @@ function createSemanticTokenPromise(model: monaco.editor.ITextModel) {
     });
 }
 
+export function getSemanticTokensForModel(model: monaco.editor.ITextModel) {
+  const cacheKey = getSemanticTokenCacheKey(model);
+  const cached = semanticTokenCache.get(cacheKey);
+  if (cached?.versionId === model.getVersionId()) return cached.promise;
+
+  const promise = createSemanticTokenPromise(model);
+  semanticTokenCache.set(cacheKey, {
+    versionId: model.getVersionId(),
+    promise,
+  });
+  if (semanticTokenCache.size > 80) {
+    const staleKeys = Array.from(semanticTokenCache.keys()).slice(0, 20);
+    staleKeys.forEach((key) => semanticTokenCache.delete(key));
+  }
+
+  return promise;
+}
+
 function registerSemanticTokensProvider(
   monacoInstance: typeof monaco,
   languageId: string,
@@ -235,29 +322,8 @@ function registerSemanticTokensProvider(
       tokenModifiers: [...LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS],
     }),
     provideDocumentSemanticTokens: async (model, _lastResultId, token) => {
-      const cacheKey = getSemanticTokenCacheKey(model);
-      const cached = semanticTokenCache.get(cacheKey);
-      if (cached?.versionId === model.getVersionId()) {
-        const cachedResult = await cached.promise;
-        return token.isCancellationRequested ? null : cachedResult;
-      }
-
-      const promise = createSemanticTokenPromise(model);
-      semanticTokenCache.set(cacheKey, {
-        versionId: model.getVersionId(),
-        promise,
-      });
-
-      const result = await promise;
+      const result = await getSemanticTokensForModel(model);
       if (token.isCancellationRequested) return null;
-
-      // The cache is keyed by model version, so older entries naturally stop
-      // being used after edits. I still trim it opportunistically to avoid
-      // keeping semantic token arrays for many closed files in long sessions.
-      if (semanticTokenCache.size > 80) {
-        const staleKeys = Array.from(semanticTokenCache.keys()).slice(0, 20);
-        staleKeys.forEach((key) => semanticTokenCache.delete(key));
-      }
 
       return result;
     },

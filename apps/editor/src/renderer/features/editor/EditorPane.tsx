@@ -21,6 +21,7 @@ import {
 } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import { type EditorDiagnostic } from "../../../shared/diagnostics";
+import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import { type Layout } from "./lib/types";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { type EditorNavigationTarget } from "./lib/navigation";
@@ -61,6 +62,7 @@ interface Props {
   onClosePane: (paneId: string) => void;
   editorSettings: EditorSettings;
   currentThemeId: ThemeId;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
@@ -128,6 +130,7 @@ export default function EditorPane({
   onClosePane,
   editorSettings,
   currentThemeId,
+  themeSyntax,
   themeTokens,
   navigationTarget,
   gitChanges,
@@ -266,6 +269,7 @@ export default function EditorPane({
               onLanguageChange={onLanguageChange}
               editorSettings={editorSettings}
               currentThemeId={currentThemeId}
+              themeSyntax={themeSyntax}
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitChanges}

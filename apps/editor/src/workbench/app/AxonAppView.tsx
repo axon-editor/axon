@@ -122,6 +122,7 @@ export function AxonAppView(props: Record<string, any>) {
     terminalCreateWorkingDirectory,
     terminalOpen,
     testExplorerOpen,
+    themeSyntax,
     themeTokens,
     tree,
     updateInfo,
@@ -491,6 +492,7 @@ export function AxonAppView(props: Record<string, any>) {
               editorSettings={settings.editor}
               currentThemeId={settings.editor.themeId}
               themeItems={welcomeThemeItems}
+              themeSyntax={themeSyntax}
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitStatus?.changes ?? []}

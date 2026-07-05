@@ -1,4 +1,5 @@
 import { createAxonThemeImport } from "./axonThemeImport";
+import { oneSyntaxByThemeId } from "./oneSyntax";
 
 export const oneThemes = [
   createAxonThemeImport({
@@ -65,6 +66,7 @@ export const oneThemes = [
           "editorSuggestWidget.highlightForeground": "#74ade8ff",
           "focusBorder": "#293b5bff"
     },
+    syntax: oneSyntaxByThemeId["one-dark"],
   }),
   createAxonThemeImport({
     id: "one-light",
@@ -130,5 +132,6 @@ export const oneThemes = [
           "editorSuggestWidget.highlightForeground": "#5c78e2ff",
           "focusBorder": "#cbcdf6ff"
     },
+    syntax: oneSyntaxByThemeId["one-light"],
   }),
 ];

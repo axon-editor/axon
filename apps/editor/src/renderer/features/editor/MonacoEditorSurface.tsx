@@ -4,6 +4,7 @@ import {
   type EditorBackgroundImageFit,
   type EditorSettings,
 } from "../../../shared/settings";
+import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { editorFontStack } from "../../shared/lib/fonts";
 import { getMonacoThemeId, registerAxonTheme } from "../../shared/lib/soraTheme";
@@ -20,6 +21,7 @@ interface Props {
   findQuery: string;
   saving: boolean;
   shouldUseTransparentEditorSurface: boolean;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   onChangeFindQuery: (query: string) => void;
   onCloseFind: () => void;
@@ -69,6 +71,7 @@ export default function MonacoEditorSurface({
   findQuery,
   saving,
   shouldUseTransparentEditorSurface,
+  themeSyntax,
   themeTokens,
   onChangeFindQuery,
   onCloseFind,
@@ -126,7 +129,13 @@ export default function MonacoEditorSurface({
           height="100%"
           theme={getMonacoThemeId(editorSettings.themeId)}
           beforeMount={(monacoInstance) =>
-            registerAxonTheme(monacoInstance, editorSettings.themeId, themeTokens)
+            registerAxonTheme(
+              monacoInstance,
+              editorSettings.themeId,
+              themeTokens,
+              [],
+              themeSyntax,
+            )
           }
           onMount={onMount}
           // The same Monaco ITextModel can be attached to multiple editor

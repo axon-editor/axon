@@ -10,6 +10,7 @@ import {
 } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import { type EditorDiagnostic } from "../../../shared/diagnostics";
+import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import {
   decodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
@@ -62,6 +63,7 @@ interface Props {
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
   currentThemeId: ThemeId;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
@@ -98,6 +100,7 @@ export default function PaneInstance({
   onLanguageChange,
   editorSettings,
   currentThemeId,
+  themeSyntax,
   themeTokens,
   navigationTarget,
   gitChanges,
@@ -285,6 +288,7 @@ export default function PaneInstance({
                   onCursorChange={isActive ? onCursorChange : () => {}}
                   onLanguageChange={isActive ? onLanguageChange : () => {}}
                   editorSettings={editorSettings}
+                  themeSyntax={themeSyntax}
                   themeTokens={themeTokens}
                   navigationTarget={navigationTarget}
                   gitChanges={gitChanges}

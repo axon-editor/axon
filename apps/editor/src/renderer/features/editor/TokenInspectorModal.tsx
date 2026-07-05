@@ -167,6 +167,14 @@ export default function TokenInspectorModal({
                   {tokenLabel(report.renderedFontWeight)}
                 </dd>
               </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  DOM class
+                </dt>
+                <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)]">
+                  {tokenLabel(report.renderedClassName)}
+                </dd>
+              </div>
             </dl>
           </section>
         </div>

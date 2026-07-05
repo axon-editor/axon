@@ -98,6 +98,7 @@ export const LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES = [
   "lifetime",
   "formatSpecifier",
   "unresolvedReference",
+  "text",
 ] as const;
 
 export const LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS = [

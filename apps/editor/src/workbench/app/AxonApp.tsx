@@ -178,6 +178,7 @@ export default function App({ initialExtensionState }: AppProps) {
     diagnostics,
     extensionThemes,
     gitChangeCount,
+    themeSyntax,
     themeTokens,
     workspaceTrusted,
   } = useAppDerivedState({
@@ -935,6 +936,7 @@ export default function App({ initialExtensionState }: AppProps) {
       terminalCreateWorkingDirectory,
       terminalOpen,
       testExplorerOpen,
+      themeSyntax,
       themeTokens,
       tree,
       updateInfo,

@@ -1,11 +1,13 @@
 import * as monaco from "monaco-editor";
 import { type ThemeTokenMap } from "../../../shared/themes";
+import { type ExtensionThemeSyntaxStyle } from "../../../../shared/extensions";
 import {
   createDefaultCaptureEntries,
   findCapturesForMonacoToken,
   resolveCaptureStyleForInspector,
   type AxonTokenCaptureMatch,
 } from "../../../shared/themes/captureRegistry";
+import { createExtensionSyntaxThemeEntries } from "../../../shared/themes/syntaxTheme";
 
 export interface TokenInspectorCapture {
   capture: string;
@@ -33,6 +35,10 @@ export interface TokenInspectorReport {
   renderedColor: string | null;
   renderedFontStyle: string | null;
   renderedFontWeight: string | null;
+  renderedClassName: string | null;
+  activeThemeId: string | null;
+  activeThemeSyntaxCount: number;
+  semanticDecorationCount: number;
   captures: TokenInspectorCapture[];
   linePreview: string;
 }
@@ -117,18 +123,26 @@ function getRenderedTokenStyle(
   if (!(element instanceof HTMLElement)) return null;
 
   const style = window.getComputedStyle(element);
+  const semanticElement = element.closest("[class*='axon-sem-']");
   return {
     color: style.color || null,
     fontStyle: style.fontStyle || null,
     fontWeight: style.fontWeight || null,
+    className:
+      element.className ||
+      (semanticElement instanceof HTMLElement ? semanticElement.className : null),
   };
 }
 
 function toCaptureDetails(
   matches: AxonTokenCaptureMatch[],
   tokens: ThemeTokenMap,
+  syntax: Record<string, ExtensionThemeSyntaxStyle>,
 ): TokenInspectorCapture[] {
-  const defaultEntries = createDefaultCaptureEntries(tokens);
+  const defaultEntries = [
+    ...createDefaultCaptureEntries(tokens),
+    ...createExtensionSyntaxThemeEntries(syntax),
+  ];
   return matches.map((match) => {
     const style = resolveCaptureStyleForInspector(match.capture, defaultEntries);
     return {
@@ -145,6 +159,7 @@ export function inspectEditorToken(
   editor: monaco.editor.IStandaloneCodeEditor,
   filePath: string,
   themeTokens: ThemeTokenMap,
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle> = {},
 ): TokenInspectorReport | null {
   const model = editor.getModel();
   const position = editor.getPosition();
@@ -176,9 +191,17 @@ export function inspectEditorToken(
   );
   const word = model.getWordAtPosition(position)?.word ?? "";
   const renderedStyle = getRenderedTokenStyle(editor, inspectedPosition);
+  const editorNode = editor.getDomNode();
+  const activeThemeSyntaxCount = Number(
+    editorNode?.dataset.axonThemeSyntaxCount ?? "0",
+  );
+  const semanticDecorationCount = Number(
+    editorNode?.dataset.axonSemanticDecorationCount ?? "0",
+  );
   const captures = toCaptureDetails(
     findCapturesForMonacoToken(inferredToken?.token.type ?? ""),
     themeTokens,
+    themeSyntax,
   );
 
   // This report is intentionally derived from the mounted Monaco model and the
@@ -205,6 +228,14 @@ export function inspectEditorToken(
     renderedColor: renderedStyle?.color ?? null,
     renderedFontStyle: renderedStyle?.fontStyle ?? null,
     renderedFontWeight: renderedStyle?.fontWeight ?? null,
+    renderedClassName: renderedStyle?.className ?? null,
+    activeThemeId: editorNode?.dataset.axonThemeId ?? null,
+    activeThemeSyntaxCount: Number.isFinite(activeThemeSyntaxCount)
+      ? activeThemeSyntaxCount
+      : 0,
+    semanticDecorationCount: Number.isFinite(semanticDecorationCount)
+      ? semanticDecorationCount
+      : 0,
     captures,
     linePreview: lineContent,
   };

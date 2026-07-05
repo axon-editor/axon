@@ -43,6 +43,9 @@ const textMateLanguages = new Map([
   ["typescriptreact", "tsx"],
   ["javascript", "javascript"],
   ["javascriptreact", "jsx"],
+  ["go", "go"],
+  ["rust", "rust"],
+  ["python", "python"],
 ]);
 const tokenTypeIndexes = new Map<string, number>(
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES.map((tokenType, index) => [
@@ -68,14 +71,25 @@ function getHighlighter() {
       import("shiki/langs/tsx.mjs"),
       import("shiki/langs/javascript.mjs"),
       import("shiki/langs/jsx.mjs"),
+      import("shiki/langs/go.mjs"),
+      import("shiki/langs/rust.mjs"),
+      import("shiki/langs/python.mjs"),
       import("shiki/themes/github-dark.mjs"),
     ])
-      .then(([coreModule, onigurumaModule, ts, tsx, js, jsx, githubDark]) => {
+      .then(([coreModule, onigurumaModule, ts, tsx, js, jsx, go, rust, python, githubDark]) => {
         const shiki = coreModule as ShikiModule;
         const oniguruma = onigurumaModule as ShikiOnigurumaModule;
         return shiki.createHighlighterCore({
           themes: [githubDark.default],
-          langs: [ts.default, tsx.default, js.default, jsx.default],
+          langs: [
+            ts.default,
+            tsx.default,
+            js.default,
+            jsx.default,
+            go.default,
+            rust.default,
+            python.default,
+          ],
           engine: oniguruma.createOnigurumaEngine(import("shiki/wasm")),
         });
       })
@@ -128,6 +142,8 @@ function resolveTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "storage.type")) return "type";
   if (hasScope(scopeNames, "entity.name.tag")) return "tag";
   if (hasScope(scopeNames, "entity.other.attribute-name")) return "attribute";
+  if (hasScope(scopeNames, "meta.jsx.children")) return "text";
+  if (hasScope(scopeNames, "punctuation.definition.tag")) return "operator";
   if (hasScope(scopeNames, "variable.other.property")) return "property";
   if (hasScope(scopeNames, "variable.other.object.property")) return "property";
   if (hasScope(scopeNames, "meta.object-literal.key")) return "property";

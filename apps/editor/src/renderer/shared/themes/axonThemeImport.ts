@@ -6,6 +6,7 @@ interface AxonThemeImportInput {
   appearance: "dark" | "light";
   tokens: ThemeTokenMap;
   monacoColors: AxonThemeDefinition["monacoColors"];
+  syntax?: AxonThemeDefinition["syntax"];
 }
 
 export function createAxonThemeImport(
@@ -22,5 +23,6 @@ export function createAxonThemeImport(
     base: input.appearance === "light" ? "vs" : "vs-dark",
     tokens: input.tokens,
     monacoColors: input.monacoColors,
+    syntax: input.syntax,
   };
 }

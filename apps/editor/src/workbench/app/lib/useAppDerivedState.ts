@@ -62,6 +62,12 @@ export function useAppDerivedState({
     () => resolveThemeTokens(settings, extensionThemes),
     [extensionThemes, settings],
   );
+  const themeSyntax = useMemo(
+    () =>
+      extensionThemes.find((theme: any) => theme.id === settings.editor.themeId)
+        ?.syntax ?? {},
+    [extensionThemes, settings.editor.themeId],
+  );
   const themeCssVariables = useMemo(
     () => createThemeCssVariables(themeTokens),
     [themeTokens],
@@ -243,6 +249,7 @@ export function useAppDerivedState({
     diagnostics,
     extensionThemes,
     gitChangeCount,
+    themeSyntax,
     themeTokens,
     workspaceTrusted,
   };

@@ -61,7 +61,7 @@ const themePackages = [
 ];
 
 function themeJson(theme) {
-  return {
+  const json = {
     $schema: "https://axoneditor.com/schemas/theme/v0.1.0.json",
     id: theme.id,
     name: theme.label,
@@ -69,6 +69,12 @@ function themeJson(theme) {
     ui: theme.tokens,
     monaco: theme.monacoColors ?? {},
   };
+
+  if (theme.syntax && Object.keys(theme.syntax).length > 0) {
+    json.syntax = theme.syntax;
+  }
+
+  return json;
 }
 
 function writeJson(filePath, value) {

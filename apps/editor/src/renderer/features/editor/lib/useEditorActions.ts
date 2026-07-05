@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from "react";
 import * as monaco from "monaco-editor";
 import { type ThemeTokenMap } from "../../../shared/themes";
+import { type ExtensionThemeSyntaxStyle } from "../../../../shared/extensions";
 import {
   inspectEditorToken,
   type TokenInspectorReport,
@@ -18,6 +19,7 @@ interface UseEditorActionsOptions {
   filePath: string;
   jumpToDefinition: () => Promise<boolean>;
   setTokenInspectorReport: (report: TokenInspectorReport | null) => void;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ThemeTokenMap;
   visible: boolean;
 }
@@ -36,6 +38,7 @@ export function useEditorActions({
   filePath,
   jumpToDefinition,
   setTokenInspectorReport,
+  themeSyntax,
   themeTokens,
   visible,
 }: UseEditorActionsOptions) {
@@ -52,7 +55,12 @@ export function useEditorActions({
 
       const action = actionEvent.detail.action ?? "definition";
       if (action === "inspect-token") {
-        const report = inspectEditorToken(editor, filePath, themeTokens);
+        const report = inspectEditorToken(
+          editor,
+          filePath,
+          themeTokens,
+          themeSyntax,
+        );
         if (report) setTokenInspectorReport(report);
         return;
       }
@@ -80,6 +88,7 @@ export function useEditorActions({
     filePath,
     jumpToDefinition,
     setTokenInspectorReport,
+    themeSyntax,
     themeTokens,
     visible,
   ]);

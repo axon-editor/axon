@@ -179,7 +179,7 @@ function buildMonacoTheme(
       // matches selectors such as "function.declaration" against `rules`.
       // Without these mirrored rules, Axon can receive perfect LSP/TextMate
       // semantic tokens and still render them with the default foreground.
-      ...createSemanticTokenRules(tokens),
+      ...createSemanticTokenRules(tokens, extensionTheme?.syntax),
       ...(theme.tokenRules ?? []),
     ],
     colors: {
@@ -212,7 +212,7 @@ function buildMonacoTheme(
       semanticTokenColors: Record<string, unknown>;
     }
   ).semanticTokenColors = {
-    ...createSemanticTokenColors(tokens),
+    ...createSemanticTokenColors(tokens, extensionTheme?.syntax),
     ...(theme.semanticTokenColors ?? {}),
   };
 
@@ -224,7 +224,34 @@ function defineAllThemes(
   activeThemeId: ThemeId,
   activeTokens?: ThemeTokenMap,
   extensionThemes: ResolvedExtensionTheme[] = [],
+  activeSyntax: ResolvedExtensionTheme["syntax"] = {},
 ) {
+  if (extensionThemes.length === 0 && activeTokens) {
+    const themeDefinition: AxonThemeDefinition = {
+      id: activeThemeId,
+      label: activeThemeId,
+      base: "vs-dark",
+      tokens: activeTokens,
+      monacoColors: {},
+      syntax: activeSyntax,
+    };
+    monacoInstance.editor.defineTheme(
+      activeThemeId,
+      buildMonacoTheme(themeDefinition, activeTokens, {
+        id: activeThemeId,
+        label: activeThemeId,
+        extensionId: "axon.runtime-theme",
+        extensionName: "Axon Runtime Theme",
+        appearance: "dark",
+        tokens: activeTokens,
+        syntax: activeSyntax,
+        terminal: {},
+        monaco: {},
+      }),
+    );
+    return;
+  }
+
   for (const extensionTheme of extensionThemes) {
     const tokens = extensionTheme.id === activeThemeId && activeTokens
       ? activeTokens
@@ -261,12 +288,19 @@ export function registerAxonTheme(
   themeId: ThemeId = AXON_MONACO_THEME,
   themeTokens?: ThemeTokenMap,
   extensionThemes: ResolvedExtensionTheme[] = [],
+  activeSyntax: ResolvedExtensionTheme["syntax"] = {},
 ) {
   // Every Monaco instance used by @monaco-editor/react must receive the same
   // extension-provided theme definitions. The renderer no longer has a private
   // TypeScript fallback registry, so a missing definition should surface as a
   // real extension-loading problem instead of being hidden by another source.
-  defineAllThemes(monacoInstance, themeId, themeTokens, extensionThemes);
+  defineAllThemes(
+    monacoInstance,
+    themeId,
+    themeTokens,
+    extensionThemes,
+    activeSyntax,
+  );
   registeredMonacos.add(monacoInstance);
   try {
     monacoInstance.editor.setTheme(getMonacoThemeId(themeId));

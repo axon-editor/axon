@@ -1,4 +1,5 @@
 import { type AxonThemeDefinition, type ThemeTokenMap } from "./types";
+import { ayuSyntaxByThemeId } from "./ayuSyntax";
 
 function makeAyuTheme(input: {
   id: AxonThemeDefinition["id"];
@@ -6,6 +7,7 @@ function makeAyuTheme(input: {
   base: AxonThemeDefinition["base"];
   tokens: ThemeTokenMap;
   monacoColors: AxonThemeDefinition["monacoColors"];
+  syntax?: AxonThemeDefinition["syntax"];
 }): AxonThemeDefinition {
   return input;
 }
@@ -50,6 +52,7 @@ export const ayuDarkTheme = makeAyuTheme({
     "syntax.tag": "#5ac1feff",
     "syntax.attribute": "#5ac1feff",
   },
+  syntax: ayuSyntaxByThemeId["ayu-dark"],
   monacoColors: {
     "editor.lineHighlightBackground": "#1f2127bf",
     "editor.selectionBackground": "#5ac1fe3d",
@@ -116,6 +119,7 @@ export const ayuLightTheme = makeAyuTheme({
     "syntax.tag": "#3b9ee5ff",
     "syntax.attribute": "#3b9ee5ff",
   },
+  syntax: ayuSyntaxByThemeId["ayu-light"],
   monacoColors: {
     "editor.lineHighlightBackground": "#ececedbf",
     "editor.selectionBackground": "#3b9ee53d",
@@ -182,6 +186,7 @@ export const ayuMirageTheme = makeAyuTheme({
     "syntax.tag": "#72cfffff",
     "syntax.attribute": "#72cfffff",
   },
+  syntax: ayuSyntaxByThemeId["ayu-mirage"],
   monacoColors: {
     "editor.lineHighlightBackground": "#353944bf",
     "editor.selectionBackground": "#72cffe3d",
