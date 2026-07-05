@@ -74,6 +74,14 @@ export function useWorkspaceHandlers({
       markAxonPerformance("axon.workspace.open.start", { source: "picker" });
       setLoading(true);
       appendOutput("workspace", `Opening ${path}`);
+      // Start marker-matched language servers as soon as the user picks a
+      // folder, in parallel with the visible file-tree request. The later
+      // guarded service pass still owns user-facing status output; this quiet
+      // pre-warm exists only to make hover/completion ready by the time the
+      // first file is opened.
+      void window.axon.startLanguageServers(path).catch((err) => {
+        console.error("failed to pre-warm language servers:", err);
+      });
       markAxonPerformance("axon.workspace.tree.start", { source: "picker" });
       const fileTree = await getTree(path);
       markAxonPerformance("axon.workspace.tree.end", { source: "picker" });
@@ -110,6 +118,9 @@ export function useWorkspaceHandlers({
       setLoading(true);
       appendOutput("workspace", `Switching to ${path}`);
       markAxonPerformance("axon.workspace.switch.start", { source: "root" });
+      void window.axon.startLanguageServers(path).catch((err) => {
+        console.error("failed to pre-warm language servers:", err);
+      });
       markAxonPerformance("axon.workspace.tree.start", { source: "root" });
       const fileTree = await getTree(path);
       markAxonPerformance("axon.workspace.tree.end", { source: "root" });
@@ -248,6 +259,21 @@ export function useWorkspaceHandlers({
         .catch(() => {
           if (workspaceServiceRequestRef.current !== serviceRequest) return;
           setGitStatus(null);
+        }),
+      window.axon
+        .startLanguageServers(path)
+        .then((result) => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          if (result.message.startsWith("No relevant language servers")) return;
+          if (result.message === "Language servers are disabled in settings.") {
+            return;
+          }
+          appendOutput("lsp", result.message, result.ok ? "success" : "error");
+        })
+        .catch((err) => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          console.error("failed to warm language servers:", err);
+          appendOutput("lsp", "Failed to warm language servers.", "error");
         }),
     ]).finally(() => {
       if (workspaceServiceRequestRef.current !== serviceRequest) return;

@@ -57,6 +57,15 @@ export function registerLspHandlers() {
       } satisfies LanguageServerLifecycleResult;
     }
 
+    const settings = await readSettingsForFolder(folderPath);
+    if (!settings.lsp.enabled) {
+      return {
+        ok: true,
+        message: "Language servers are disabled in settings.",
+        servers: await getLanguageServerStatus(folderPath),
+      } satisfies LanguageServerLifecycleResult;
+    }
+
     return startRelevantLanguageServers(folderPath);
   });
 

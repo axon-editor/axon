@@ -545,13 +545,16 @@ export async function startRelevantLanguageServers(
   );
   const attempts: LanguageServerStartAttempt[] = [];
 
-  for (const status of startableServers) {
-    const definition = LANGUAGE_SERVER_DEFINITIONS.find(
-      (candidate) => candidate.id === status.id,
-    );
-    if (!definition) continue;
-    attempts.push(await startLanguageServerDefinition(folderPath, definition));
-  }
+  const startAttempts = startableServers
+    .map((status) =>
+      LANGUAGE_SERVER_DEFINITIONS.find((candidate) => candidate.id === status.id),
+    )
+    .filter((definition): definition is LanguageServerDefinition =>
+      Boolean(definition),
+    )
+    .map((definition) => startLanguageServerDefinition(folderPath, definition));
+
+  attempts.push(...(await Promise.all(startAttempts)));
 
   const nextStatuses = await getLanguageServerStatus(folderPath);
   const failedAttempts = attempts.filter((attempt) => !attempt.ok);
@@ -780,4 +783,3 @@ export function getLanguageServerStatus(
     }),
   );
 }
-

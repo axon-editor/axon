@@ -233,38 +233,32 @@ export function useAxonAppEffects({
     if (!window.axon.startLanguageServerForLanguage) return;
     activeLanguageServerStartRef.current.add(startKey);
 
-    const startTimer = window.setTimeout(() => {
-      window.axon
-        .startLanguageServerForLanguage({ folderPath, languageId })
-        .then((result) => {
-          if (result.message.startsWith("No external language server")) return;
-          // Language servers should come online after the editor shell and the
-          // first file are usable. Starting every relevant server during
-          // workspace restore made startup compete with file-tree rendering,
-          // Git status, diagnostics, and Monaco on older 8GB Intel machines.
-          // This delayed, active-file-only path keeps completions available
-          // without turning project open into a background process storm.
-          if (!result.ok) {
-            activeLanguageServerStartRef.current.delete(startKey);
-          }
-          appendOutput("lsp", result.message, result.ok ? "success" : "error");
-        })
-        .catch((err) => {
-          // IPC errors are transient from the renderer's point of view. If the
-          // key stayed locked here, one failed bridge call would permanently
-          // block the next active-file change from starting the server again.
+    void window.axon
+      .startLanguageServerForLanguage({ folderPath, languageId })
+      .then((result) => {
+        if (result.message.startsWith("No external language server")) return;
+        // Workspace open now warms marker-matched servers immediately. This
+        // active-file path is the fallback for loose files or languages whose
+        // marker was not present at the root, so delaying it makes the first
+        // hover/completion feel colder without reducing real startup load.
+        if (!result.ok) {
           activeLanguageServerStartRef.current.delete(startKey);
-          appendOutput(
-            "lsp",
-            err instanceof Error
-              ? err.message
-              : "Failed to start language server.",
-            "error",
-          );
-        });
-    }, 900);
-
-    return () => window.clearTimeout(startTimer);
+        }
+        appendOutput("lsp", result.message, result.ok ? "success" : "error");
+      })
+      .catch((err) => {
+        // IPC errors are transient from the renderer's point of view. If the
+        // key stayed locked here, one failed bridge call would permanently
+        // block the next active-file change from starting the server again.
+        activeLanguageServerStartRef.current.delete(startKey);
+        appendOutput(
+          "lsp",
+          err instanceof Error
+            ? err.message
+            : "Failed to start language server.",
+          "error",
+        );
+      });
   }, [
     activePane?.activeFile,
     appendOutput,

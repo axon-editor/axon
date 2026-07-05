@@ -196,6 +196,12 @@ function buildMonacoTheme(
   // the full theme builder with any.
   (
     themeData as monaco.editor.IStandaloneThemeData & {
+      semanticHighlighting: boolean;
+      semanticTokenColors: Record<string, unknown>;
+    }
+  ).semanticHighlighting = true;
+  (
+    themeData as monaco.editor.IStandaloneThemeData & {
       semanticTokenColors: Record<string, unknown>;
     }
   ).semanticTokenColors = {

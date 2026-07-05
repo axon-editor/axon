@@ -154,8 +154,10 @@ async function resolveTypeScriptCompletionItems(
   session: LanguageServerSession,
   items: ReturnType<typeof normalizeLanguageServerCompletionItems>,
 ) {
-  const resolveLimit = 1_000;
-  const resolveConcurrency = 24;
+  const resolveLimit = 160;
+  const resolveConcurrency = 16;
+  const resolveBudgetMs = 900;
+  const startedAt = Date.now();
   const resolvedItems = [...items];
   const itemsToResolve = items
     .map((item, index) => ({ item, index }))
@@ -165,13 +167,14 @@ async function resolveTypeScriptCompletionItems(
   let nextItemIndex = 0;
   async function resolveWorker() {
     while (nextItemIndex < itemsToResolve.length) {
+      if (Date.now() - startedAt > resolveBudgetMs) return;
       const { item, index } = itemsToResolve[nextItemIndex++];
       try {
         const resolved = await requestLanguageServer(
           session,
           "completionItem/resolve",
           item,
-          2500,
+          900,
         );
         const normalized = normalizeLanguageServerCompletionItems([resolved]);
         resolvedItems[index] = normalized[0] ?? item;

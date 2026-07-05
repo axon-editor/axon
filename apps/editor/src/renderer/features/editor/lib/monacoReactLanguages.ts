@@ -10,6 +10,83 @@ import {
 
 const registeredMonacos = new WeakSet<typeof monaco>();
 
+function createReactTokenizer(
+  baseLanguage: monaco.languages.IMonarchLanguage,
+  tokenPostfix: ".tsx" | ".jsx",
+): monaco.languages.IMonarchLanguage {
+  const baseTokenizer = baseLanguage.tokenizer ?? {};
+
+  return {
+    ...baseLanguage,
+    tokenPostfix,
+    tokenizer: {
+      ...baseTokenizer,
+      root: [
+        [/(<\/?)([a-z][\w-]*)/, ["delimiter.angle", "tag"], "@jsxOpeningTag"],
+        [
+          /(<\/?)([A-Z][\w$.]*)/,
+          ["delimiter.angle", "type.identifier"],
+          "@jsxOpeningTag",
+        ],
+        ...(baseTokenizer.root ?? []),
+      ],
+      common: [
+        [/(<\/?)([a-z][\w-]*)/, ["delimiter.angle", "tag"], "@jsxOpeningTag"],
+        [
+          /(<\/?)([A-Z][\w$.]*)/,
+          ["delimiter.angle", "type.identifier"],
+          "@jsxOpeningTag",
+        ],
+        ...(baseTokenizer.common ?? []),
+      ],
+      jsxOpeningTag: [
+        [/[ \t\r\n]+/, ""],
+        [/\/>/, "delimiter.angle", "@pop"],
+        [/>/, "delimiter.angle", "@jsxChildren"],
+        [
+          /([A-Za-z_$][\w$:-]*)(\s*)(=)/,
+          ["attribute.name", "", "delimiter"],
+        ],
+        [/[A-Za-z_$][\w$:-]*/, "attribute.name"],
+        [/"/, "string", "@jsxDoubleString"],
+        [/'/, "string", "@jsxSingleString"],
+        [/{/, "delimiter.bracket", "@bracketCounting"],
+        [/[{}]/, "delimiter.bracket"],
+        [/./, ""],
+      ],
+      jsxChildren: [
+        [/(<\/)([a-z][\w-]*)(>)/, ["delimiter.angle", "tag", "delimiter.angle"], "@pop"],
+        [
+          /(<\/)([A-Z][\w$.]*)(>)/,
+          ["delimiter.angle", "type.identifier", "delimiter.angle"],
+          "@pop",
+        ],
+        [/(<\/?)([a-z][\w-]*)/, ["delimiter.angle", "tag"], "@jsxOpeningTag"],
+        [
+          /(<\/?)([A-Z][\w$.]*)/,
+          ["delimiter.angle", "type.identifier"],
+          "@jsxOpeningTag",
+        ],
+        [/{/, "delimiter.bracket", "@bracketCounting"],
+        [/[^<>{}]+/, "string"],
+        [/[{}]/, "delimiter.bracket"],
+      ],
+      jsxDoubleString: [
+        [/[^"\\]+/, "string"],
+        [/@escapes/, "string.escape"],
+        [/\\./, "string.escape.invalid"],
+        [/"/, "string", "@pop"],
+      ],
+      jsxSingleString: [
+        [/[^'\\]+/, "string"],
+        [/@escapes/, "string.escape"],
+        [/\\./, "string.escape.invalid"],
+        [/'/, "string", "@pop"],
+      ],
+    },
+  };
+}
+
 function registerReactLanguage(
   monacoInstance: typeof monaco,
   languageId: "typescriptreact" | "javascriptreact",
@@ -36,16 +113,20 @@ function registerReactLanguage(
     baseConfiguration,
   );
 
-  // Monaco ships TSX/JSX files under the normal TypeScript and JavaScript
-  // language ids. Axon needs the React ids at the model boundary because our
-  // LSP, status bar, completion providers, and diagnostics routing all treat
-  // React files as a distinct script kind. Reusing Monaco's bundled tokenizer
-  // keeps the editor from falling back to white/plaintext tokens while still
-  // allowing the protocol layer to receive `typescriptreact`/`javascriptreact`.
-  monacoInstance.languages.setMonarchTokensProvider(languageId, {
-    ...baseLanguage,
-    tokenPostfix: languageId === "typescriptreact" ? ".tsx" : ".jsx",
-  });
+  // Monaco's bundled TS/JS tokenizers do not expose JSX as its own language id.
+  // Axon does need those ids because the LSP, completion, navigation, and status
+  // plumbing all distinguish React files from plain scripts. I layer a focused
+  // JSX tokenizer over Monaco's normal TypeScript/JavaScript rules so embedded
+  // HTML tags and attributes receive real scopes instead of being painted as
+  // generic identifiers while the rest of the document still uses Monaco's
+  // mature script tokenizer.
+  monacoInstance.languages.setMonarchTokensProvider(
+    languageId,
+    createReactTokenizer(
+      baseLanguage,
+      languageId === "typescriptreact" ? ".tsx" : ".jsx",
+    ),
+  );
 }
 
 export function registerMonacoReactLanguages(
