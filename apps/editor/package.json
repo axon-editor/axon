@@ -54,7 +54,9 @@
       {
         "from": "../../extensions",
         "to": "extensions",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       "package.json",
       "node_modules/@ampproject/remapping/**/*",
@@ -778,11 +780,11 @@
     }
   },
   "dependencies": {
+    "@astrojs/language-server": "^2.16.10",
     "@axon/config": "file:../../packages/config",
     "@axon/extension-api": "file:../../packages/extension-api",
     "@axon/ipc": "file:../../packages/ipc",
     "@axon/protocol": "file:../../packages/protocol",
-    "@astrojs/language-server": "^2.16.10",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -805,6 +807,8 @@
     "intelephense": "^1.18.4",
     "lucide-react": "^1.16.0",
     "pyright": "^1.1.410",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-file-icon": "^1.6.0",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
@@ -820,6 +824,8 @@
     "@tailwindcss/typography": "^0.5.19",
     "@types/chokidar": "^1.7.5",
     "@types/node": "^25.9.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",

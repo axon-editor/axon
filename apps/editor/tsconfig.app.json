@@ -71,8 +71,10 @@
       ],
       "monaco-editor": ["node_modules/monaco-editor/esm/vs/editor/editor.api.d.ts"],
       "lucide-react": ["node_modules/lucide-react/dist/lucide-react.d.ts"],
-      "react": ["node_modules/@types/react/index.d.ts"],
-      "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"],
+      "react": ["../../node_modules/@types/react/index.d.ts"],
+      "react-dom": ["../../node_modules/@types/react-dom/index.d.ts"],
+      "react-dom/client": ["../../node_modules/@types/react-dom/client.d.ts"],
+      "react/jsx-runtime": ["../../node_modules/@types/react/jsx-runtime.d.ts"],
       "react-markdown": ["node_modules/react-markdown/index.d.ts"],
       "rehype-raw": ["node_modules/rehype-raw/index.d.ts"],
       "remark-gfm": ["node_modules/remark-gfm/index.d.ts"]

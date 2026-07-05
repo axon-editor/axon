@@ -19,6 +19,26 @@ import { type BottomPanelTab } from "../../../platform/panel/bottomPanel";
 import { type ResolvedThemeTokens } from "../lib/themeTokens";
 
 type view = "files" | "history" | "spotify";
+
+function getLanguageStatusLabel(language: string) {
+  const labels: Record<string, string> = {
+    javascript: "JavaScript",
+    javascriptreact: "JSX",
+    json: "JSON",
+    markdown: "Markdown",
+    plaintext: "Plain Text",
+    typescript: "TypeScript",
+    typescriptreact: "TSX",
+  };
+
+  // Monaco and the LSP use protocol-oriented ids such as `typescriptreact`
+  // because TSX needs a different script kind from plain TypeScript. The
+  // status bar is user-facing, so it should show the familiar editor label
+  // while leaving the internal id untouched for diagnostics, tokenization, and
+  // completions.
+  return labels[language.toLowerCase()] ?? language;
+}
+
 interface Props {
   activeFile: string | null;
   hasWorkspace: boolean;
@@ -76,6 +96,7 @@ export default function StatusBar({
   onViewChange,
   view,
 }: Props) {
+  const languageLabel = getLanguageStatusLabel(language);
   const axonAccent =
     "linear-gradient(90deg, #ff6b5f 0%, #f2c94c 36%, #54d6b5 72%, #80c8e0 100%)";
   const activeControlClass =
@@ -191,7 +212,7 @@ export default function StatusBar({
           <>
             <span className="flex items-center gap-1 px-2 text-[#9aa4b8]">
               <FileCode size={11} />
-              {language}
+              {languageLabel}
             </span>
             <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
             <span className="px-2 text-[#586478]">UTF-8</span>
