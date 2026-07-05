@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
 import { createInitialLayout, openFileInPane } from "../../../renderer/features/editor/lib/layoutManager";
 import { getTree, createFile, type FileNode } from "../../../renderer/shared/lib/api";
@@ -64,6 +65,8 @@ export function useWorkspaceHandlers({
   terminalOpen,
   workspaceRoots,
 }: WorkspaceHandlersOptions) {
+  const workspaceServiceRequestRef = useRef(0);
+
   const handleOpenFolder = async () => {
     try {
       const path = await window.axon.openFolder();
@@ -193,23 +196,6 @@ export function useWorkspaceHandlers({
       setWorkspaceTrustPromptPath(path);
     }
 
-    try {
-      const workspaceSettings = await window.axon.getSettings(path);
-      setSettings(normalizeSettings(workspaceSettings));
-    } catch (err) {
-      console.error("failed to load workspace settings:", err);
-      appendOutput("settings", "Failed to load workspace settings.", "error");
-    }
-
-    await window.axon.unwatchFolder();
-    await window.axon.watchFolder(path);
-    appendOutput("workspace", "Watching workspace changes.");
-    void window.axon
-      .getGitStatus(path)
-      .then(setGitStatus)
-      .catch(() => {
-        setGitStatus(null);
-      });
     markAxonPerformance("axon.workspace.apply.end", {
       restored: restoredSession ? true : false,
     });
@@ -218,6 +204,62 @@ export function useWorkspaceHandlers({
       "axon.workspace.apply.start",
       "axon.workspace.apply.end",
     );
+
+    const serviceRequest = ++workspaceServiceRequestRef.current;
+    markAxonPerformance("axon.workspace.services.start", {
+      restored: restoredSession ? true : false,
+    });
+
+    // The project should become visible as soon as the file tree is available.
+    // Settings hydration, watcher startup, and Git status are useful, but they
+    // are not prerequisites for showing the workspace. Running them in the
+    // background keeps folder selection feeling local and immediate while the
+    // stale request guard prevents a slow previous workspace from repainting
+    // state after the user has already opened another folder.
+    void Promise.allSettled([
+      window.axon
+        .getSettings(path)
+        .then((workspaceSettings) => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          setSettings(normalizeSettings(workspaceSettings));
+        })
+        .catch((err) => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          console.error("failed to load workspace settings:", err);
+          appendOutput("settings", "Failed to load workspace settings.", "error");
+        }),
+      window.axon
+        .watchFolder(path)
+        .then(() => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          appendOutput("workspace", "Watching workspace changes.");
+        })
+        .catch((err) => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          console.error("failed to watch workspace:", err);
+          appendOutput("workspace", "Failed to watch workspace changes.", "error");
+        }),
+      window.axon
+        .getGitStatus(path)
+        .then((status) => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          setGitStatus(status);
+        })
+        .catch(() => {
+          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+          setGitStatus(null);
+        }),
+    ]).finally(() => {
+      if (workspaceServiceRequestRef.current !== serviceRequest) return;
+      markAxonPerformance("axon.workspace.services.end", {
+        restored: restoredSession ? true : false,
+      });
+      measureAxonPerformance(
+        "axon.workspace.services",
+        "axon.workspace.services.start",
+        "axon.workspace.services.end",
+      );
+    });
   };
 
   const handleRefresh = async () => {
