@@ -21,10 +21,9 @@ export interface TerminalSession {
   ackTimer: number | null;
   outputQueue: TerminalOutputChunk[];
   outputWriting: boolean;
+  pendingBinaryDecodes: number;
   queuedBytes: number;
   maxQueuedBytes: number;
-  backpressureDisconnects: number;
-  backpressureClosePending: boolean;
   drainedChunks: number;
   reconnectCount: number;
   lastCloseCode: number | null;
@@ -52,9 +51,16 @@ export const MAX_RECONNECT_INPUT_BYTES =
   TERMINAL_REPLAY.maxReconnectInputBytes;
 export const TERMINAL_ACK_BYTE_THRESHOLD = TERMINAL_REPLAY.ackByteThreshold;
 export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
+// Core owns durable byte replay, but xterm still owns the live visible history.
+// Long agent runs are judged by what the user can scroll back to in the
+// terminal, so this stays large enough to avoid making older output disappear
+// from the rendered buffer while core protects reconnect integrity underneath.
 export const TERMINAL_SCROLLBACK_LINES = 200_000;
-export const TERMINAL_OUTPUT_BACKPRESSURE_BYTES =
-  TERMINAL_REPLAY.outputBackpressureBytes;
+// xterm parses escape sequences on the renderer thread. Batching tiny websocket
+// chunks helps throughput, but very large writes make the UI feel blocked while
+// xterm tokenizes the buffer. 64KB is intentionally small enough to keep input
+// and painting responsive while still avoiding thousands of one-line writes.
+export const TERMINAL_WRITE_BATCH_BYTES = 64 * 1024;
 
 export function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;

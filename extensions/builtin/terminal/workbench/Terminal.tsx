@@ -106,7 +106,6 @@ export default function Terminal({
     maxQueuedBytes: number;
     drainedChunks: number;
     reconnectCount: number;
-    backpressureDisconnects: number;
     lastCloseCode: number | null;
     lastCloseReason: string;
   } }) => {
@@ -123,7 +122,6 @@ export default function Terminal({
       `max queue ${tab.health.maxQueuedBytes} bytes`,
       `drained ${tab.health.drainedChunks} chunks`,
       `reconnects ${tab.health.reconnectCount}`,
-      `backpressure detaches ${tab.health.backpressureDisconnects}`,
       tab.health.lastCloseCode
         ? `last close ${tab.health.lastCloseCode}${tab.health.lastCloseReason ? ` ${tab.health.lastCloseReason}` : ""}`
         : "no websocket close recorded",

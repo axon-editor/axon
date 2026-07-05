@@ -42,7 +42,6 @@ export interface TerminalTab {
     maxQueuedBytes: number;
     drainedChunks: number;
     reconnectCount: number;
-    backpressureDisconnects: number;
     lastCloseCode: number | null;
     lastCloseReason: string;
   };
@@ -73,6 +72,7 @@ export function useTerminalSessionManager({
   const [zoomed, setZoomed] = useState(false);
   const sessionsRef = useRef<Record<string, TerminalSession>>({});
   const connectionAbortRef = useRef<Record<string, AbortController>>({});
+  const healthFrameRef = useRef<Record<string, number>>({});
   const lastCreateNonceRef = useRef(createNonce);
   const suppressAutoCreateRef = useRef(false);
   const previousOpenRef = useRef(open);
@@ -131,7 +131,6 @@ export function useTerminalSessionManager({
                 maxQueuedBytes: session.maxQueuedBytes,
                 drainedChunks: session.drainedChunks,
                 reconnectCount: session.reconnectCount,
-                backpressureDisconnects: session.backpressureDisconnects,
                 lastCloseCode: session.lastCloseCode,
                 lastCloseReason: session.lastCloseReason,
               },
@@ -140,6 +139,17 @@ export function useTerminalSessionManager({
       ),
     );
   }, []);
+
+  const scheduleTabHealthUpdate = useCallback(
+    (id: string) => {
+      if (healthFrameRef.current[id] !== undefined) return;
+      healthFrameRef.current[id] = window.requestAnimationFrame(() => {
+        delete healthFrameRef.current[id];
+        updateTabHealth(id);
+      });
+    },
+    [updateTabHealth],
+  );
 
   const scheduleReconnect = useCallback(
     (session: TerminalSession, callback: () => void, delayMs: number) => {
@@ -160,6 +170,10 @@ export function useTerminalSessionManager({
 
     connectionAbortRef.current[id]?.abort();
     delete connectionAbortRef.current[id];
+    if (healthFrameRef.current[id] !== undefined) {
+      window.cancelAnimationFrame(healthFrameRef.current[id]);
+      delete healthFrameRef.current[id];
+    }
     if (session?.reconnectTimer) {
       window.clearTimeout(session.reconnectTimer);
       session.reconnectTimer = null;
@@ -224,7 +238,6 @@ export function useTerminalSessionManager({
           maxQueuedBytes: 0,
           drainedChunks: 0,
           reconnectCount: 0,
-          backpressureDisconnects: 0,
           lastCloseCode: null,
           lastCloseReason: "",
         },
@@ -249,10 +262,9 @@ export function useTerminalSessionManager({
       ackTimer: null,
       outputQueue: [],
       outputWriting: false,
+      pendingBinaryDecodes: 0,
       queuedBytes: 0,
       maxQueuedBytes: 0,
-      backpressureDisconnects: 0,
-      backpressureClosePending: false,
       drainedChunks: 0,
       reconnectCount: 0,
       lastCloseCode: null,
@@ -357,18 +369,30 @@ export function useTerminalSessionManager({
           if (latestSession.ws !== ws) return;
 
           if (event.data instanceof Blob) {
+            latestSession.pendingBinaryDecodes += 1;
             void event.data.arrayBuffer().then((buffer) => {
               const currentSession = sessionsRef.current[id];
               if (!currentSession || currentSession.disposed) return;
+              currentSession.pendingBinaryDecodes = Math.max(
+                0,
+                currentSession.pendingBinaryDecodes - 1,
+              );
               if (currentSession.ws !== ws) return;
               writeTerminalOutput(currentSession, buffer);
-              updateTabHealth(id);
+              scheduleTabHealthUpdate(id);
+            }).catch(() => {
+              const currentSession = sessionsRef.current[id];
+              if (!currentSession || currentSession.disposed) return;
+              currentSession.pendingBinaryDecodes = Math.max(
+                0,
+                currentSession.pendingBinaryDecodes - 1,
+              );
             });
             return;
           }
 
           writeTerminalOutput(latestSession, event.data);
-          updateTabHealth(id);
+          scheduleTabHealthUpdate(id);
         };
 
         ws.onclose = (event) => {
@@ -419,7 +443,13 @@ export function useTerminalSessionManager({
         };
       });
     },
-    [scheduleReconnect, sendResize, updateTabConnection, updateTabHealth],
+    [
+      scheduleReconnect,
+      scheduleTabHealthUpdate,
+      sendResize,
+      updateTabConnection,
+      updateTabHealth,
+    ],
   );
 
   const attachContainer = useCallback(
@@ -436,10 +466,10 @@ export function useTerminalSessionManager({
         cursorStyle: "block",
         ignoreBracketedPasteMode: false,
         // Long-running local agents can produce far more output than a normal
-        // shell session. Core keeps a large byte replay window, but xterm also
-        // has its own line-based buffer. If this stays too small, output looks
-        // "eaten" even though the backend still has the bytes, because older
-        // rendered rows have already fallen out of the visible terminal buffer.
+        // shell session. Core protects reconnect replay by byte offset, while
+        // xterm keeps the visible scrollback the user can inspect after a run.
+        // This large live buffer is deliberate: shrinking it makes older rows
+        // vanish from the terminal and feels like the process ate output.
         scrollback: TERMINAL_SCROLLBACK_LINES,
       });
       const fitAddon = new FitAddon();

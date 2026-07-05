@@ -465,7 +465,6 @@ export default function App({ initialExtensionState }: AppProps) {
   };
   const openProblemsTab = useCallback(() => {
     setBottomPanelOpen(false);
-    setTerminalOpen(false);
     setLayout((prev) =>
       openFileInPane(prev, prev.activePaneId, AXON_PROBLEMS_TAB_PATH),
     );

@@ -1,7 +1,7 @@
 import { Terminal as XTerm } from "@xterm/xterm";
 import {
   MAX_RECONNECT_INPUT_BYTES,
-  TERMINAL_OUTPUT_BACKPRESSURE_BYTES,
+  TERMINAL_WRITE_BATCH_BYTES,
   getOutputByteLength,
   getTerminalBackendUrl,
   quoteShellPath,
@@ -89,25 +89,66 @@ export function flushQueuedTerminalInput(session: TerminalSession) {
   }
 }
 
-function closeTerminalForBackpressure(session: TerminalSession) {
-  if (session.backpressureClosePending) return;
-  if (!session.ws || session.ws.readyState !== WebSocket.OPEN) return;
-  if (session.queuedBytes < TERMINAL_OUTPUT_BACKPRESSURE_BYTES) return;
+function takeTerminalOutputBatch(session: TerminalSession) {
+  const firstChunk = session.outputQueue.shift();
+  if (!firstChunk) return null;
 
-  // The renderer is the slowest part of the terminal path during long agent
-  // streams. Once xterm is several MB behind, keeping the websocket attached
-  // only lets more data pile up in browser memory. Closing the view transport
-  // pauses delivery without killing the PTY; the session manager waits for
-  // xterm to finish this queue and reconnects from the painted byte offset.
-  session.backpressureClosePending = true;
-  session.backpressureDisconnects += 1;
-  session.ws.close(4001, "renderer-output-backpressure");
+  const chunks = [firstChunk];
+  let byteLength = firstChunk.byteLength;
+
+  while (session.outputQueue.length > 0) {
+    const nextChunk = session.outputQueue[0];
+    if (byteLength + nextChunk.byteLength > TERMINAL_WRITE_BATCH_BYTES) break;
+    chunks.push(session.outputQueue.shift()!);
+    byteLength += nextChunk.byteLength;
+  }
+
+  if (chunks.length === 1) {
+    return {
+      data: firstChunk.data,
+      byteLength,
+      chunkCount: 1,
+    };
+  }
+
+  const allStrings = chunks.every((chunk) => typeof chunk.data === "string");
+  if (allStrings) {
+    return {
+      data: chunks.map((chunk) => chunk.data).join(""),
+      byteLength,
+      chunkCount: chunks.length,
+    };
+  }
+
+  const data = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    if (typeof chunk.data === "string") {
+      // Mixed string/binary batches are rare, but Blob replay and normal text
+      // output can meet during reconnect. Encoding the string here preserves
+      // byte-exact replay accounting while still letting xterm parse one larger
+      // write instead of many tiny writes.
+      const encoded = new TextEncoder().encode(chunk.data);
+      data.set(encoded, offset);
+      offset += encoded.byteLength;
+    } else {
+      data.set(chunk.data, offset);
+      offset += chunk.data.byteLength;
+    }
+  }
+
+  return {
+    data,
+    byteLength,
+    chunkCount: chunks.length,
+  };
 }
 
 function drainTerminalOutput(session: TerminalSession) {
   if (session.outputWriting) return;
-  const chunk = session.outputQueue.shift();
-  if (!chunk || !session.term || session.disposed) return;
+  if (!session.term || session.disposed) return;
+  const batch = takeTerminalOutputBatch(session);
+  if (!batch) return;
   // Don't decrement queuedBytes here -- xterm hasn't processed it yet.
   // Decrementing early makes hasPendingTerminalOutput return false while
   // bytes are still inside xterm's internal write queue, which causes
@@ -115,10 +156,10 @@ function drainTerminalOutput(session: TerminalSession) {
 
   session.outputWriting = true;
   session.atBottom = isTerminalAtBottom(session.term);
-  session.term.write(chunk.data, () => {
-    session.receivedBytes += chunk.byteLength;
-    session.queuedBytes = Math.max(0, session.queuedBytes - chunk.byteLength);
-    session.drainedChunks += 1;
+  session.term.write(batch.data, () => {
+    session.receivedBytes += batch.byteLength;
+    session.queuedBytes = Math.max(0, session.queuedBytes - batch.byteLength);
+    session.drainedChunks += batch.chunkCount;
     sendTerminalAck(session, session.outputQueue.length === 0);
     if (session.term && session.atBottom) {
       session.term.scrollToBottom();
@@ -127,9 +168,6 @@ function drainTerminalOutput(session: TerminalSession) {
       scheduleTerminalRefresh(session);
     }
     session.outputWriting = false;
-    if (session.queuedBytes === 0) {
-      session.backpressureClosePending = false;
-    }
     drainTerminalOutput(session);
   });
 }
@@ -145,13 +183,13 @@ export function writeTerminalOutput(
   session.outputQueue.push(chunk);
   session.queuedBytes += chunk.byteLength;
   session.maxQueuedBytes = Math.max(session.maxQueuedBytes, session.queuedBytes);
-  closeTerminalForBackpressure(session);
   drainTerminalOutput(session);
 }
 
 export function hasPendingTerminalOutput(session: TerminalSession) {
   return (
     session.outputWriting ||
+    session.pendingBinaryDecodes > 0 ||
     session.outputQueue.length > 0 ||
     session.queuedBytes > 0
   );
