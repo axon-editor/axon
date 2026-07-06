@@ -9,6 +9,11 @@ import {
 import { sanitizeRestoredLayout, type WorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
 import { createWorkspaceRoot, upsertWorkspaceRoot } from "../../../renderer/shared/lib/workspaceRoots";
 import { normalizeSettings } from "../../../shared/settings";
+import {
+  createWorkspaceServiceCoordinator,
+  type WorkspaceOpenSource,
+  type WorkspaceServiceGeneration,
+} from "./workspaceServiceCoordinator";
 
 interface WorkspaceHandlersOptions {
   allowSessionPersistenceRef: any;
@@ -65,25 +70,23 @@ export function useWorkspaceHandlers({
   terminalOpen,
   workspaceRoots,
 }: WorkspaceHandlersOptions) {
-  const workspaceServiceRequestRef = useRef(0);
+  const workspaceCoordinatorRef = useRef(createWorkspaceServiceCoordinator());
+
+  const beginWorkspaceOpen = (path: string, source: WorkspaceOpenSource) =>
+    workspaceCoordinatorRef.current.begin({ path, source });
 
   const handleOpenFolder = async () => {
+    let generation: WorkspaceServiceGeneration | null = null;
     try {
       const path = await window.axon.openFolder();
       if (!path) return;
+      generation = beginWorkspaceOpen(path, "picker");
       markAxonPerformance("axon.workspace.open.start", { source: "picker" });
       setLoading(true);
       appendOutput("workspace", `Opening ${path}`);
-      // Start marker-matched language servers as soon as the user picks a
-      // folder, in parallel with the visible file-tree request. The later
-      // guarded service pass still owns user-facing status output; this quiet
-      // pre-warm exists only to make hover/completion ready by the time the
-      // first file is opened.
-      void window.axon.startLanguageServers(path).catch((err) => {
-        console.error("failed to pre-warm language servers:", err);
-      });
       markAxonPerformance("axon.workspace.tree.start", { source: "picker" });
       const fileTree = await getTree(path);
+      if (!workspaceCoordinatorRef.current.isCurrent(generation)) return;
       markAxonPerformance("axon.workspace.tree.end", { source: "picker" });
       measureAxonPerformance(
         "axon.workspace.tree",
@@ -91,7 +94,7 @@ export function useWorkspaceHandlers({
         "axon.workspace.tree.end",
       );
       addRecentFolder(path);
-      await handleFolderChange(path, fileTree);
+      await handleFolderChange(path, fileTree, null, generation);
       markAxonPerformance("axon.workspace.open.end", { source: "picker" });
       measureAxonPerformance(
         "axon.workspace.open",
@@ -107,22 +110,23 @@ export function useWorkspaceHandlers({
           : "Failed to open folder.";
       appendOutput("workspace", message, "error");
     } finally {
-      setLoading(false);
+      if (!generation || workspaceCoordinatorRef.current.isCurrent(generation)) {
+        setLoading(false);
+      }
     }
   };
 
   const handleSwitchWorkspaceRoot = async (path: string) => {
     if (path === folderPath) return;
 
+    const generation = beginWorkspaceOpen(path, "root");
     try {
       setLoading(true);
       appendOutput("workspace", `Switching to ${path}`);
       markAxonPerformance("axon.workspace.switch.start", { source: "root" });
-      void window.axon.startLanguageServers(path).catch((err) => {
-        console.error("failed to pre-warm language servers:", err);
-      });
       markAxonPerformance("axon.workspace.tree.start", { source: "root" });
       const fileTree = await getTree(path);
+      if (!workspaceCoordinatorRef.current.isCurrent(generation)) return;
       markAxonPerformance("axon.workspace.tree.end", { source: "root" });
       measureAxonPerformance(
         "axon.workspace.tree",
@@ -141,7 +145,7 @@ export function useWorkspaceHandlers({
         terminalOpen,
         bottomPanelOpen,
         bottomPanelTab,
-      });
+      }, generation);
       markAxonPerformance("axon.workspace.switch.end", { source: "root" });
       measureAxonPerformance(
         "axon.workspace.switch",
@@ -153,7 +157,9 @@ export function useWorkspaceHandlers({
       console.error("failed to switch workspace root:", err);
       appendOutput("workspace", "Failed to switch workspace root.", "error");
     } finally {
-      setLoading(false);
+      if (workspaceCoordinatorRef.current.isCurrent(generation)) {
+        setLoading(false);
+      }
     }
   };
 
@@ -163,9 +169,19 @@ export function useWorkspaceHandlers({
     path: string,
     fileTree: FileNode,
     restoredSession?: WorkspaceSession | null,
+    openGeneration?: WorkspaceServiceGeneration,
+    sourceOverride?: WorkspaceOpenSource,
   ) => {
+    const generation =
+      openGeneration ??
+      workspaceCoordinatorRef.current.begin({
+        path,
+        source: sourceOverride ?? (restoredSession ? "session" : "recent"),
+        restored: restoredSession ? true : false,
+      });
     markAxonPerformance("axon.workspace.apply.start", {
       restored: restoredSession ? true : false,
+      generationId: generation.id,
     });
     allowSessionPersistenceRef.current = true;
     const restoredRoots =
@@ -209,16 +225,18 @@ export function useWorkspaceHandlers({
 
     markAxonPerformance("axon.workspace.apply.end", {
       restored: restoredSession ? true : false,
+      generationId: generation.id,
     });
     measureAxonPerformance(
       "axon.workspace.apply",
       "axon.workspace.apply.start",
       "axon.workspace.apply.end",
     );
+    workspaceCoordinatorRef.current.markVisible(generation);
 
-    const serviceRequest = ++workspaceServiceRequestRef.current;
     markAxonPerformance("axon.workspace.services.start", {
       restored: restoredSession ? true : false,
+      generationId: generation.id,
     });
 
     // The project should become visible as soon as the file tree is available.
@@ -227,58 +245,50 @@ export function useWorkspaceHandlers({
     // background keeps folder selection feeling local and immediate while the
     // stale request guard prevents a slow previous workspace from repainting
     // state after the user has already opened another folder.
+    const coordinator = workspaceCoordinatorRef.current;
     void Promise.allSettled([
-      window.axon
-        .getSettings(path)
-        .then((workspaceSettings) => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
-          setSettings(normalizeSettings(workspaceSettings));
-        })
-        .catch((err) => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+      coordinator.runPhase(generation, "settings", () => window.axon.getSettings(path), {
+        onSuccess: (workspaceSettings) =>
+          setSettings(normalizeSettings(workspaceSettings)),
+        onError: (err) => {
           console.error("failed to load workspace settings:", err);
           appendOutput("settings", "Failed to load workspace settings.", "error");
-        }),
-      window.axon
-        .watchFolder(path)
-        .then(() => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
-          appendOutput("workspace", "Watching workspace changes.");
-        })
-        .catch((err) => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
+        },
+      }),
+      coordinator.runPhase(generation, "watcher", () => window.axon.watchFolder(path), {
+        onSuccess: () => appendOutput("workspace", "Watching workspace changes."),
+        onError: (err) => {
           console.error("failed to watch workspace:", err);
           appendOutput("workspace", "Failed to watch workspace changes.", "error");
-        }),
-      window.axon
-        .getGitStatus(path)
-        .then((status) => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
-          setGitStatus(status);
-        })
-        .catch(() => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
-          setGitStatus(null);
-        }),
-      window.axon
-        .startLanguageServers(path)
-        .then((result) => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
-          if (result.message.startsWith("No relevant language servers")) return;
-          if (result.message === "Language servers are disabled in settings.") {
-            return;
-          }
-          appendOutput("lsp", result.message, result.ok ? "success" : "error");
-        })
-        .catch((err) => {
-          if (workspaceServiceRequestRef.current !== serviceRequest) return;
-          console.error("failed to warm language servers:", err);
-          appendOutput("lsp", "Failed to warm language servers.", "error");
-        }),
+        },
+      }),
+      coordinator.runPhase(generation, "git", () => window.axon.getGitStatus(path), {
+        onSuccess: setGitStatus,
+        onError: () => setGitStatus(null),
+      }),
+      coordinator.runPhase(
+        generation,
+        "lsp",
+        () => window.axon.startLanguageServers(path),
+        {
+          onSuccess: (result) => {
+            if (result.message.startsWith("No relevant language servers")) return;
+            if (result.message === "Language servers are disabled in settings.") {
+              return;
+            }
+            appendOutput("lsp", result.message, result.ok ? "success" : "error");
+          },
+          onError: (err) => {
+            console.error("failed to warm language servers:", err);
+            appendOutput("lsp", "Failed to warm language servers.", "error");
+          },
+        },
+      ),
     ]).finally(() => {
-      if (workspaceServiceRequestRef.current !== serviceRequest) return;
+      if (!coordinator.isCurrent(generation)) return;
       markAxonPerformance("axon.workspace.services.end", {
         restored: restoredSession ? true : false,
+        generationId: generation.id,
       });
       measureAxonPerformance(
         "axon.workspace.services",

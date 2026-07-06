@@ -36,7 +36,6 @@ interface AxonAppEffectsOptions {
   handleSettingsSave: any;
   layout: any;
   lspDiagnosticsByFile: any;
-  refreshExtensions: any;
   refreshGitStatus: any;
   refreshProjectDiagnostics: any;
   restoreStartedRef: any;
@@ -95,7 +94,6 @@ export function useAxonAppEffects({
   handleSettingsSave,
   layout,
   lspDiagnosticsByFile,
-  refreshExtensions,
   refreshGitStatus,
   refreshProjectDiagnostics,
   restoreStartedRef,
@@ -277,10 +275,6 @@ export function useAxonAppEffects({
       .finally(() => {
         setSettingsHydrated(true);
       });
-  }, []);
-
-  useEffect(() => {
-    void refreshExtensions();
   }, []);
 
   useEffect(() => {
@@ -737,7 +731,7 @@ export function useAxonAppEffects({
             "axon.workspace.tree.end",
           );
           addRecentFolder(nextFolderPath);
-          await handleFolderChange(nextFolderPath, fileTree);
+          await handleFolderChange(nextFolderPath, fileTree, null, undefined, "cli");
           markAxonPerformance("axon.workspace.cliOpen.end", { source: "cli" });
           measureAxonPerformance(
             "axon.workspace.cliOpen",

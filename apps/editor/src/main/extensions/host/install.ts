@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { type ExtensionActionResult } from "@axon/extension-api";
 import { getUserExtensionsPath } from "../paths";
-import { getExtensionState } from "./state";
+import { getExtensionState, invalidateExtensionStateCache } from "./state";
 import { readCatalogPackages } from "./marketplace";
 
 function getCatalogPackage(extensionId: string) {
@@ -52,6 +52,7 @@ export function installExtensionPackage(
     recursive: true,
     errorOnExist: true,
   });
+  invalidateExtensionStateCache("user");
 
   return {
     ok: true,

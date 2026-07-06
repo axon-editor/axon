@@ -5,7 +5,7 @@ import {
 import { readDisabledExtensionIds, writeDisabledExtensionIds } from "./enablement";
 import { getExtensionMarketplaceState } from "./marketplace";
 import { installExtensionPackage } from "./install";
-import { getExtensionState } from "./state";
+import { getExtensionState, invalidateExtensionStateCache } from "./state";
 import {
   activateExtensionsForEvent,
   clearExtensionActivationRecords,
@@ -32,6 +32,7 @@ export class ExtensionHostService {
   }
 
   reload(folderPath?: string | null): ExtensionActionResult {
+    invalidateExtensionStateCache();
     return {
       ok: true,
       message: "Reloaded extensions.",
@@ -127,6 +128,7 @@ export class ExtensionHostService {
     }
 
     writeDisabledExtensionIds(Array.from(disabled));
+    invalidateExtensionStateCache();
     return {
       ok: true,
       message: `${enabled ? "Enabled" : "Disabled"} ${extensionId}.`,

@@ -45,6 +45,60 @@ import {
   startExtensionHostTiming,
 } from "./lib/diagnostics";
 
+type ExtensionDiscoveryCacheEntry = {
+  disabledKey: string;
+  rootPath: string | null;
+  extensions: ExtensionInfo[];
+};
+
+const extensionDiscoveryCache = new Map<string, ExtensionDiscoveryCacheEntry>();
+
+function getDisabledCacheKey(disabledIds: Set<string>) {
+  return Array.from(disabledIds).sort().join("\n");
+}
+
+function getDiscoveryCacheKey(source: ExtensionInfo["source"], rootPath: string | null) {
+  return `${source}:${rootPath ?? "none"}`;
+}
+
+function readExtensionsForSource(
+  rootPath: string | null,
+  source: ExtensionInfo["source"],
+  disabledIds: Set<string>,
+) {
+  const disabledKey = getDisabledCacheKey(disabledIds);
+  const cacheKey = getDiscoveryCacheKey(source, rootPath);
+  const cached = extensionDiscoveryCache.get(cacheKey);
+  if (cached?.rootPath === rootPath && cached.disabledKey === disabledKey) {
+    return cached.extensions;
+  }
+
+  const extensions = findExtensionDirectories(rootPath)
+    .map((extensionPath) => loadExtensionFromPath(extensionPath, source, disabledIds))
+    .filter((extension): extension is ExtensionInfo => extension !== null);
+
+  extensionDiscoveryCache.set(cacheKey, {
+    disabledKey,
+    rootPath,
+    extensions,
+  });
+
+  return extensions;
+}
+
+export function invalidateExtensionStateCache(source?: ExtensionInfo["source"]) {
+  if (!source) {
+    extensionDiscoveryCache.clear();
+    return;
+  }
+
+  for (const cacheKey of Array.from(extensionDiscoveryCache.keys())) {
+    if (cacheKey.startsWith(`${source}:`)) {
+      extensionDiscoveryCache.delete(cacheKey);
+    }
+  }
+}
+
 function readThemes(
   extensionPath: string,
   manifest: ExtensionManifest,
@@ -159,8 +213,10 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   });
 
   const bundledStartedAt = startExtensionHostTiming();
-  const bundledExtensions = findExtensionDirectories(bundledExtensionsPath).map(
-    (extensionPath) => loadExtensionFromPath(extensionPath, "internal", disabledIds),
+  const bundledExtensions = readExtensionsForSource(
+    bundledExtensionsPath,
+    "internal",
+    disabledIds,
   );
   markExtensionHostTiming("discover-bundled", bundledStartedAt, {
     count: bundledExtensions.length,
@@ -168,8 +224,10 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   });
 
   const workspaceStartedAt = startExtensionHostTiming();
-  const workspaceExtensions = findExtensionDirectories(workspaceExtensionsPath).map(
-    (extensionPath) => loadExtensionFromPath(extensionPath, "workspace", disabledIds),
+  const workspaceExtensions = readExtensionsForSource(
+    workspaceExtensionsPath,
+    "workspace",
+    disabledIds,
   );
   markExtensionHostTiming("discover-workspace", workspaceStartedAt, {
     count: workspaceExtensions.length,
@@ -178,8 +236,10 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   });
 
   const userStartedAt = startExtensionHostTiming();
-  const userExtensions = findExtensionDirectories(userExtensionsPath).map(
-    (extensionPath) => loadExtensionFromPath(extensionPath, "user", disabledIds),
+  const userExtensions = readExtensionsForSource(
+    userExtensionsPath,
+    "user",
+    disabledIds,
   );
   markExtensionHostTiming("discover-user", userStartedAt, {
     count: userExtensions.length,
@@ -191,7 +251,7 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
     ...bundledExtensions,
     ...workspaceExtensions,
     ...userExtensions,
-  ].filter((extension): extension is ExtensionInfo => extension !== null);
+  ];
   activateStartupExtensions(extensions);
   const activatedExtensions = extensions.map((extension) => {
     const activatedExtension = applyActivationState(extension);

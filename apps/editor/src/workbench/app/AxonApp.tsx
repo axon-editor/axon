@@ -344,15 +344,6 @@ export default function App({ initialExtensionState }: AppProps) {
       setProjectDiagnostics([]);
     }
   }, [appendOutput, folderPath]);
-  const refreshExtensions = useCallback(async () => {
-    try {
-      const nextExtensionState = await window.axon.listExtensions(folderPath);
-      setExtensionState(nextExtensionState);
-    } catch (err) {
-      console.error("failed to load extensions:", err);
-      appendOutput("extensions", "Failed to load extensions.", "error");
-    }
-  }, [appendOutput, folderPath]);
   const {
     handleFileSelect,
     handleFolderChange,
@@ -819,7 +810,6 @@ export default function App({ initialExtensionState }: AppProps) {
     handleSettingsSave,
     layout,
     lspDiagnosticsByFile,
-    refreshExtensions,
     refreshGitStatus,
     refreshProjectDiagnostics,
     restoreStartedRef,
