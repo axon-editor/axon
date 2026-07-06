@@ -194,14 +194,18 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Split panes, draggable tabs, dirty indicators, and close prompts
 - Shared Monaco models across panes
 - Markdown preview and HTML preview
+- Live Markdown preview tabs that stay connected to dirty editor content
 - Image/video preview through Axon protocols
 - Workspace search with jump-to-line and binary/cache exclusions
 - Cmd+P project file search with file-first results and `>` command search
 - Source control modal, diffs, Git gutter markers, branch/stash workflows,
   conflict helpers, worktree management, and a full commit graph view
 - Problems panel with project-aware LSP diagnostics and copy actions
-- Test explorer with provider discovery, target runs, and inline output
-- Integrated terminal with tabs
+- Problems as editor tabs opened from the status bar
+- Test explorer with project-aware provider discovery, target runs, and inline
+  output
+- Integrated terminal with tabs, replay protection, and session health
+  diagnostics
 - Built-in terminal workbench contribution loaded from the extension-oriented
   architecture
 - Interactive `axon` terminal sessions with workspace context, saved
@@ -209,10 +213,16 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
   header, and streaming responses
 - Settings UI and settings JSON
 - Extension-backed built-in themes, custom themes, and imported fonts
+- Extension-host activation, command runtime, contribution registry, and
+  built-in workbench feature routing
 - Splash screen and custom app icon/name
 - LSP completion and diagnostics for TypeScript/JavaScript, TSX/JSX, Go,
   Python, Rust, C/C++, Java, C#, Kotlin, PHP, Lua, Docker, and Tailwind CSS
 - Tailwind CSS warnings, hover details, and variant-aware utility completions
+- Rich syntax coloring through Monaco, TextMate/Shiki grammars, LSP semantic
+  tokens, Axon decorations, and language-specific fallbacks
+- Token inspector for debugging actual rendered syntax colors and semantic
+  decoration output
 - Language tools modal for definition, references, rename, formatting, server
   status, and file symbols
 - Live LSP diagnostics routed into Problems
@@ -249,7 +259,7 @@ More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history and
-[docs/releases/v1.2.5.md](docs/releases/v1.2.5.md) for the latest release
+[docs/releases/v1.2.7.md](docs/releases/v1.2.7.md) for the latest release
 notes.
 
 ## Roadmap

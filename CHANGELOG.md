@@ -2,6 +2,84 @@
 
 ## Next
 
+## v1.2.7
+
+- Finished the next extension-host slice with built-in activation, command
+  runtime wiring, contribution registration, extension lifecycle state, and
+  diagnostics for slow or failed activation paths.
+- Moved more first-party IDE surfaces behind built-in extension ownership,
+  including agent, terminal, Git/source control, search, settings, testing,
+  problems, language tools, tasks, Spotify, Markdown preview, HTML preview, and
+  media preview contribution boundaries.
+- Added `extensions/builtin/README.md` to document how built-ins, language
+  manifests, workbench code, and shared platform boundaries should be owned.
+- Continued the production architecture migration by splitting app, workbench,
+  platform, service, extension, and package responsibilities across the new
+  folder structure.
+- Rebuilt terminal session IO around a platform service boundary with
+  renderer-side acknowledgement timing, reconnect/replay hardening, queue
+  diagnostics, and safer handling for long-running agent output.
+- Improved the terminal and agent workbench boundaries so UI lives under the
+  built-in extension while shared protocol/session behavior lives in platform
+  and backend services.
+- Added stronger terminal reliability diagnostics for received bytes,
+  acknowledged bytes, pending bytes, queued bytes, queue peaks, reconnects, and
+  websocket close causes.
+- Moved Problems into an editor tab opened from the status bar instead of a
+  modal-like panel, keeping it closer to how a serious IDE treats diagnostics.
+- Strengthened the Problems panel with better presentation helpers, diagnostic
+  cache ownership, copy actions, and project-aware diagnostics export for agent
+  workflows.
+- Upgraded the Test Explorer workbench with project-aware provider discovery,
+  filtered test roots, richer sidebar/details/output surfaces, and status bar
+  access.
+- Added broader built-in language manifests for the extension registry,
+  including Astro, Bash, CSS, Docker, GraphQL, HTML, JSON, MDX, Prisma, Svelte,
+  Tailwind, Vue, YAML, and the existing compiled/server-backed languages.
+- Improved workspace open performance by unblocking non-critical services and
+  reducing startup work that made local folder selection feel slower than it
+  should.
+- Warmed active LSP flows earlier and tightened React language ids so TSX/JSX
+  keep React-aware editor behavior while language servers receive the correct
+  document identity.
+- Fixed React runtime resolution for editor TypeScript/JSX files so the LSP no
+  longer reports missing `react/jsx-runtime` for valid React projects.
+- Added the rich syntax coloring architecture: TextMate/Shiki grammar loading,
+  LSP semantic token overlays, Axon semantic decorations, capture-based theme
+  routing, bracket color control, and language-specific fallbacks.
+- Added a token inspector for debugging real editor color output, including
+  Monaco token class, rendered color, active syntax count, semantic selector,
+  expected color, TextMate readiness, and grammar/CSP errors.
+- Fixed the Electron renderer CSP so the inlined Oniguruma WebAssembly engine
+  can load, allowing the TextMate grammar pipeline to actually power rich
+  TSX/JSX and other language colors.
+- Added Python import/alias/class/member fallbacks and shared member-access
+  fallbacks for languages such as Go so method/property chains no longer collapse
+  to generic white identifiers.
+- Added capture aliases for imported theme syntax keys such as `diff.plus` and
+  `diff.minus`, keeping Ayu/One-style syntax maps connected to Axon's editor
+  token pipeline.
+- Documented the token-coloring architecture and the long Monaco semantic
+  highlighting issue that led Axon to own its final decoration paint layer.
+- Improved Markdown preview behavior with smoother in-document hash navigation,
+  better blockquote rendering, media support, and live preview-tab updates from
+  dirty Monaco models without closing and reopening the preview.
+- Fixed stale Git watcher refreshes so source control and file state do not
+  keep using outdated workspace information after filesystem changes.
+- Restored modal sizing/layout regressions across Settings, Source Control, and
+  Extensions after the previous modal performance work.
+- Improved Git previews with media rendering and corrected close-button behavior
+  so pane-level close actions do not close the whole modal.
+- Added a stronger source-control graph/editor pass and kept Source Control
+  surfaces behind the built-in Git contribution boundary.
+- Added startup, build, release, extension activation, terminal health, and
+  renderer diagnostics so failures show useful phase-specific causes instead of
+  vague package or runtime errors.
+- Fixed Windows package-build execution by using the active npm exec path,
+  preventing `npm.cmd` spawn failures in CI/release builds.
+- Updated architecture documentation for the current production IDE migration
+  and added detailed syntax-coloring notes under `docs/`.
+
 ## v1.2.6
 
 - Fixed the code-review findings from the Axon review pass, including editor,
