@@ -10,7 +10,13 @@ let bootSplashWindow: BrowserWindow | null = null;
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "axon",
-    privileges: { secure: true, standard: true, stream: true },
+    privileges: {
+      secure: true,
+      standard: true,
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
   },
 ]);
 

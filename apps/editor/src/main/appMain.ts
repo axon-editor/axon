@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, protocol, net } from "electron";
+import fs from "fs/promises";
 import path from "path";
 import url from "url";
 import { execFile } from "child_process";
@@ -90,6 +91,51 @@ let htmlPreviewServer: HtmlPreviewServer | null = null;
 const { sendToRenderer, sendMenuCommand } = createMainProcessIpc({
   getMainWindow: () => mainWindow,
 });
+
+function getLocalProtocolContentType(filePath: string) {
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === ".otf") return "font/otf";
+  if (extension === ".ttf") return "font/ttf";
+  if (extension === ".woff") return "font/woff";
+  if (extension === ".woff2") return "font/woff2";
+  if (extension === ".svg") return "image/svg+xml";
+  if (extension === ".png") return "image/png";
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  if (extension === ".gif") return "image/gif";
+  if (extension === ".avif") return "image/avif";
+  if (extension === ".css") return "text/css; charset=utf-8";
+  if (extension === ".js") return "text/javascript; charset=utf-8";
+  if (extension === ".json") return "application/json; charset=utf-8";
+  if (extension === ".html" || extension === ".htm") {
+    return "text/html; charset=utf-8";
+  }
+  return "application/octet-stream";
+}
+
+async function createLocalProtocolResponse(requestUrl: URL) {
+  const filePath = decodeURIComponent(requestUrl.pathname);
+  const headers = new Headers({
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers": "*",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "Content-Type": getLocalProtocolContentType(filePath),
+  });
+
+  try {
+    const body = await fs.readFile(filePath);
+    return new Response(body, { status: 200, headers });
+  } catch (err) {
+    return new Response(
+      err instanceof Error ? err.message : "Local asset was not found.",
+      {
+        status: 404,
+        headers,
+      },
+    );
+  }
+}
 async function deliverPendingAgentResumeRequest() {
   const request = await consumePendingAgentResumeRequest();
   if (request) {
@@ -412,6 +458,20 @@ app.whenReady().then(async () => {
       sendToRenderer,
     });
     if (spotifyResponse) return spotifyResponse;
+
+    if (requestUrl.hostname === "local") {
+      if (request.method === "OPTIONS") {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+          },
+        });
+      }
+      return createLocalProtocolResponse(requestUrl);
+    }
 
     // axon://local/absolute/path, existing local file serving, unchanged
     const filePath = decodeURIComponent(

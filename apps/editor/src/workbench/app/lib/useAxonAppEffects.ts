@@ -281,7 +281,7 @@ export function useAxonAppEffects({
 
   useEffect(() => {
     void refreshExtensions();
-  }, [refreshExtensions]);
+  }, []);
 
   useEffect(() => {
     // Axon uses two update data streams on purpose:
