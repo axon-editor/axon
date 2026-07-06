@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  editor:
+    name: Editor checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure native build binding
+        run: node apps/editor/scripts/ensure-native-build-binding.mjs
+
+      - name: Build shared packages
+        run: npm run build:packages
+
+      - name: Check main process TypeScript
+        run: npx tsc -p apps/editor/tsconfig.main.json
+
+      - name: Check renderer TypeScript
+        run: npx tsc -p apps/editor/tsconfig.app.json
+
+      - name: Check file line limits
+        run: npm run check:line-count
+
+      - name: Validate extension registry inputs
+        working-directory: apps/editor
+        run: npm run prepare:extension-registry
+
+      - name: Build renderer
+        run: npm --workspace axon run build:renderer
+
+  core:
+    name: Core tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/core/go.mod
+          cache-dependency-path: services/core/go.sum
+
+      - name: Run Go tests
+        working-directory: services/core
+        run: go test ./...
