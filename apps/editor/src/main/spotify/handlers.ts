@@ -49,9 +49,10 @@ export function registerSpotifyHandlers(): void {
     // This covers the case where the user saved the client ID in this session
     // before settings:update had a chance to call setClientId.
     let clientId = getClientId();
-    if (!clientId && AXON_SPOTIFY_CLIENT_ID) {
-      clientId = AXON_SPOTIFY_CLIENT_ID;
-      setClientId(clientId);
+    const bundledClientId = AXON_SPOTIFY_CLIENT_ID;
+    if (!clientId && bundledClientId) {
+      clientId = bundledClientId;
+      setClientId(bundledClientId);
     }
     if (!clientId) {
       const settings = readSettingsFromDisk(getUserSettingsPath());

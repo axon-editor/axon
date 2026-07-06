@@ -6,7 +6,11 @@ import path from "path";
 export const EXTENSION_MANIFEST_FILE = AXON_EXTENSION_PATHS.manifestFile;
 
 function getRepositoryExtensionsRootPath() {
-  const packagedPath = path.join(app.getAppPath(), "extensions");
+  const packagedCandidates = [
+    path.join(app.getAppPath(), "extensions"),
+    path.join(process.resourcesPath, "extensions"),
+    path.join(process.resourcesPath, "app.asar.unpacked", "extensions"),
+  ];
   const workspaceRootPath = path.resolve(
     app.getAppPath(),
     "..",
@@ -20,7 +24,15 @@ function getRepositoryExtensionsRootPath() {
   // that root folder into the Electron app bundle as app/extensions, so the
   // loader checks the source-tree location first and then falls back to the
   // packaged location.
-  return fs.existsSync(workspaceRootPath) ? workspaceRootPath : packagedPath;
+  if (!app.isPackaged && fs.existsSync(workspaceRootPath)) {
+    return workspaceRootPath;
+  }
+
+  for (const candidate of packagedCandidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return packagedCandidates[0];
 }
 
 export function getBundledExtensionsPath() {

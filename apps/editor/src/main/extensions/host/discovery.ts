@@ -13,9 +13,30 @@ export function findExtensionDirectories(rootPath: string | null) {
       return;
     }
 
-    for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(currentPath, { withFileTypes: true });
+    } catch (err) {
+      console.warn(
+        `[extensions] skipped unreadable extension folder ${currentPath}:`,
+        err instanceof Error ? err.message : err,
+      );
+      return;
+    }
+
+    for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      visit(path.join(currentPath, entry.name));
+      try {
+        visit(path.join(currentPath, entry.name));
+      } catch (err) {
+        console.warn(
+          `[extensions] skipped broken extension folder ${path.join(
+            currentPath,
+            entry.name,
+          )}:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
   };
 

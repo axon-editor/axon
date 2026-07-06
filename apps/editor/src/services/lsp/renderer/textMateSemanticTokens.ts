@@ -424,6 +424,17 @@ function pushFallbackIdentifierTokens(input: {
 
 function resolveTokenType(scopeNames: string[]) {
   if (startsWithScope(scopeNames, "comment")) return "comment";
+  if (hasScope(scopeNames, "entity.name.tag.yaml")) return "property";
+  if (
+    hasScope(scopeNames, "punctuation.separator.key-value.mapping.yaml") ||
+    hasScope(scopeNames, "punctuation.definition.block.sequence.item.yaml")
+  ) {
+    return "operator";
+  }
+  if (hasScope(scopeNames, "constant.language.boolean.yaml")) return "keyword";
+  // YAML keys carry both `string.unquoted.*` and `entity.name.tag.yaml`.
+  // Structural scopes must be handled before generic strings or every key
+  // collapses back to normal text coloring.
   if (startsWithScope(scopeNames, "string")) return "string";
   if (
     hasScope(scopeNames, "storage.type.class.python") ||
