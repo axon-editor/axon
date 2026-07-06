@@ -8,6 +8,10 @@ import { registerMonacoReactLanguages } from "./monacoReactLanguages";
 const models = new Map<string, monaco.editor.ITextModel>();
 const refCounts = new Map<string, number>();
 const disposalTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const modelListeners = new Map<
+  string,
+  Set<(model: monaco.editor.ITextModel) => void>
+>();
 
 export function detectLanguage(path: string): string {
   return detectMonacoLanguage(path);
@@ -170,6 +174,7 @@ export function acquireModel(
     }
     models.set(filePath, existingByUri);
     refCounts.set(filePath, (refCounts.get(filePath) ?? 0) + 1);
+    notifyModelReady(filePath, existingByUri);
     return existingByUri;
   }
 
@@ -181,6 +186,7 @@ export function acquireModel(
 
   models.set(filePath, model);
   refCounts.set(filePath, 1);
+  notifyModelReady(filePath, model);
   return model;
 }
 
@@ -240,4 +246,36 @@ export function getModel(
   const model = models.get(filePath);
   if (!model || model.isDisposed()) return undefined;
   return model;
+}
+
+export function onModelReady(
+  filePath: string,
+  listener: (model: monaco.editor.ITextModel) => void,
+) {
+  // Some consumers, especially preview tabs, can mount before the source editor
+  // has created the shared Monaco model. Exposing a ready notification lets
+  // those consumers render the disk snapshot immediately, then reconnect to the
+  // live dirty document as soon as the editor model exists.
+  const existing = getModel(filePath);
+  if (existing) listener(existing);
+
+  let listeners = modelListeners.get(filePath);
+  if (!listeners) {
+    listeners = new Set();
+    modelListeners.set(filePath, listeners);
+  }
+  listeners.add(listener);
+
+  return {
+    dispose() {
+      listeners?.delete(listener);
+      if (listeners?.size === 0) modelListeners.delete(filePath);
+    },
+  };
+}
+
+function notifyModelReady(filePath: string, model: monaco.editor.ITextModel) {
+  const listeners = modelListeners.get(filePath);
+  if (!listeners) return;
+  for (const listener of listeners) listener(model);
 }

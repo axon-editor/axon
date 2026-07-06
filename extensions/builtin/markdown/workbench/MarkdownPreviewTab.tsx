@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { readFile } from "@axon-editor/renderer/shared/lib/api";
-import { getModel } from "@axon-editor/renderer/features/editor/lib/monacoModels";
+import {
+  getModel,
+  onModelReady,
+} from "@axon-editor/renderer/features/editor/lib/monacoModels";
 import MarkdownPreview from "./MarkdownPreview";
 
 interface Props {
@@ -19,20 +22,23 @@ export default function MarkdownPreviewTab({
 
   useEffect(() => {
     let cancelled = false;
+    let modelContentDisposable: { dispose(): void } | null = null;
     setError(null);
 
-    const model = getModel(filePath);
-    if (model && !model.isDisposed()) {
+    const bindModel = (model: NonNullable<ReturnType<typeof getModel>>) => {
+      if (cancelled || model.isDisposed()) return;
+      modelContentDisposable?.dispose();
       setContent(model.getValue());
-      const disposable = model.onDidChangeContent(() => {
+      modelContentDisposable = model.onDidChangeContent(() => {
         setContent(model.getValue());
       });
-      return () => disposable.dispose();
-    }
+    };
+
+    const modelReadyDisposable = onModelReady(filePath, bindModel);
 
     readFile(filePath)
       .then((file) => {
-        if (!cancelled) setContent(file.content);
+        if (!cancelled && !getModel(filePath)) setContent(file.content);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -44,6 +50,8 @@ export default function MarkdownPreviewTab({
 
     return () => {
       cancelled = true;
+      modelContentDisposable?.dispose();
+      modelReadyDisposable.dispose();
     };
   }, [filePath]);
 
