@@ -5,7 +5,11 @@ import {
 import { readDisabledExtensionIds, writeDisabledExtensionIds } from "./enablement";
 import { getExtensionMarketplaceState } from "./marketplace";
 import { installExtensionPackage } from "./install";
-import { getExtensionState, invalidateExtensionStateCache } from "./state";
+import {
+  getExtensionState,
+  invalidateExtensionStateCache,
+  refreshExtensionStateFromExistingState,
+} from "./state";
 import {
   activateExtensionsForEvent,
   clearExtensionActivationRecords,
@@ -72,7 +76,7 @@ export class ExtensionHostService {
           : activated.length > 0
           ? `Activated ${activated.length} extension${activated.length === 1 ? "" : "s"} for ${event}.`
           : `No extensions activated for ${event}.`,
-      state: this.getState(folderPath),
+      state: refreshExtensionStateFromExistingState(state, folderPath),
     };
   }
 
@@ -99,7 +103,10 @@ export class ExtensionHostService {
         ok: true,
         message: `Executed ${commandId}.`,
         result,
-        state: this.getState(folderPath),
+        state: refreshExtensionStateFromExistingState(
+          activation.state,
+          folderPath,
+        ),
       };
     } catch (err) {
       return {

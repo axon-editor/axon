@@ -99,6 +99,62 @@ export function invalidateExtensionStateCache(source?: ExtensionInfo["source"]) 
   }
 }
 
+function finalizeExtensionState(input: {
+  extensions: ExtensionInfo[];
+  userExtensionsPath: string;
+  workspaceExtensionsPath: string | null;
+  folderPath?: string | null;
+  startedAt: ReturnType<typeof startExtensionHostTiming>;
+}) {
+  const activatedExtensions = input.extensions.map((extension) => {
+    const activatedExtension = applyActivationState(extension);
+    const runtimeDiagnostics = getRuntimeDiagnostics(activatedExtension);
+    const runtimeErrors = runtimeDiagnostics.errors.filter(
+      (error) => !activatedExtension.errors.includes(error),
+    );
+
+    if (runtimeErrors.length === 0 && !runtimeDiagnostics.activatedAt) {
+      return activatedExtension;
+    }
+
+    return {
+      ...activatedExtension,
+      errors: [...activatedExtension.errors, ...runtimeErrors],
+      lastActivatedAt:
+        runtimeDiagnostics.activatedAt ?? activatedExtension.lastActivatedAt,
+      lifecycle:
+        runtimeErrors.length > 0
+          ? "failed"
+          : activatedExtension.lifecycle,
+    } satisfies ExtensionInfo;
+  });
+  const runtime = summarizeExtensionRuntime(activatedExtensions);
+  const runtimeRegistrations =
+    createExtensionRuntimeRegistrations(activatedExtensions);
+  const contributionRegistry =
+    createExtensionContributionRegistry(activatedExtensions);
+  const activationRecords = getExtensionActivationRecords();
+  markExtensionHostTiming("state", input.startedAt, {
+    count: activatedExtensions.length,
+    folderPath: input.folderPath,
+  });
+
+  return {
+    extensions: activatedExtensions,
+    contributionRegistry,
+    activationRecords,
+    runtimeRegistrations,
+    userExtensionsPath: input.userExtensionsPath,
+    workspaceExtensionsPath: input.workspaceExtensionsPath,
+    hostStatus: {
+      mode: runtime.mode,
+      safeMode: true,
+      message: runtime.message,
+    },
+    availableActivationEvents: AVAILABLE_EXTENSION_ACTIVATION_EVENTS,
+  } satisfies ExtensionState;
+}
+
 function readThemes(
   extensionPath: string,
   manifest: ExtensionManifest,
@@ -253,51 +309,24 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
     ...userExtensions,
   ];
   activateStartupExtensions(extensions);
-  const activatedExtensions = extensions.map((extension) => {
-    const activatedExtension = applyActivationState(extension);
-    const runtimeDiagnostics = getRuntimeDiagnostics(activatedExtension);
-    const runtimeErrors = runtimeDiagnostics.errors.filter(
-      (error) => !activatedExtension.errors.includes(error),
-    );
-
-    if (runtimeErrors.length === 0 && !runtimeDiagnostics.activatedAt) {
-      return activatedExtension;
-    }
-
-    return {
-      ...activatedExtension,
-      errors: [...activatedExtension.errors, ...runtimeErrors],
-      lastActivatedAt:
-        runtimeDiagnostics.activatedAt ?? activatedExtension.lastActivatedAt,
-      lifecycle:
-        runtimeErrors.length > 0
-          ? "failed"
-          : activatedExtension.lifecycle,
-    } satisfies ExtensionInfo;
-  });
-  const runtime = summarizeExtensionRuntime(activatedExtensions);
-  const runtimeRegistrations =
-    createExtensionRuntimeRegistrations(activatedExtensions);
-  const contributionRegistry =
-    createExtensionContributionRegistry(activatedExtensions);
-  const activationRecords = getExtensionActivationRecords();
-  markExtensionHostTiming("state", stateStartedAt, {
-    count: activatedExtensions.length,
-    folderPath,
-  });
-
-  return {
-    extensions: activatedExtensions,
-    contributionRegistry,
-    activationRecords,
-    runtimeRegistrations,
+  return finalizeExtensionState({
+    extensions,
     userExtensionsPath,
     workspaceExtensionsPath,
-    hostStatus: {
-      mode: runtime.mode,
-      safeMode: true,
-      message: runtime.message,
-    },
-    availableActivationEvents: AVAILABLE_EXTENSION_ACTIVATION_EVENTS,
-  };
+    folderPath,
+    startedAt: stateStartedAt,
+  });
+}
+
+export function refreshExtensionStateFromExistingState(
+  state: ExtensionState,
+  folderPath?: string | null,
+) {
+  return finalizeExtensionState({
+    extensions: state.extensions,
+    userExtensionsPath: state.userExtensionsPath,
+    workspaceExtensionsPath: state.workspaceExtensionsPath,
+    folderPath,
+    startedAt: startExtensionHostTiming(),
+  });
 }

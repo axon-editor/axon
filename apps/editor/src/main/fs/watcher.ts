@@ -21,6 +21,7 @@ export class FileWatcherManager {
   private activeFileDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private folderWatchGeneration = 0;
 
   constructor(private readonly deps: FileWatcherDependencies) {}
 
@@ -151,12 +152,14 @@ export class FileWatcherManager {
   }
 
   async watchFolder(folderPath: string) {
+    const generation = ++this.folderWatchGeneration;
     await this.closeFolderWatcher();
     await this.closeGitWatcher();
     // Stopping language servers belongs before the new watcher is installed:
     // diagnostics and file sync from the old workspace should not race with
     // filesystem events from the folder the user just opened.
     await Promise.resolve(this.deps.stopAllLanguageServers());
+    if (generation !== this.folderWatchGeneration) return;
 
     try {
       this.folderWatcher = chokidar.watch(folderPath, {
@@ -173,6 +176,7 @@ export class FileWatcherManager {
         // and prevent a stale tree refresh for a folder that is no longer open.
         this.folderDebounceTimer = setTimeout(() => {
           this.folderDebounceTimer = null;
+          if (generation !== this.folderWatchGeneration) return;
           this.deps.sendToRenderer("fs:folderChanged", { path: changedPath });
           // New untracked files and deleted files do not always mutate the small
           // set of .git paths we watch quickly enough for the sidebar colors to
@@ -215,6 +219,7 @@ export class FileWatcherManager {
       this.folderWatcher.on("unlinkDir", notify);
 
       const gitWatchPaths = await this.deps.getGitWatchPaths(folderPath);
+      if (generation !== this.folderWatchGeneration) return;
       if (gitWatchPaths.length > 0) {
         this.gitWatcher = chokidar.watch(gitWatchPaths, {
           ...this.buildWatcherOptions(),
@@ -231,6 +236,7 @@ export class FileWatcherManager {
           // event can repaint source-control state for the wrong workspace.
           this.gitDebounceTimer = setTimeout(() => {
             this.gitDebounceTimer = null;
+            if (generation !== this.folderWatchGeneration) return;
             this.deps.sendToRenderer("git:changed", { folderPath });
           }, 90);
         };
@@ -253,11 +259,13 @@ export class FileWatcherManager {
   }
 
   async unwatchFolder() {
+    this.folderWatchGeneration += 1;
     await this.closeFolderWatcher();
     await this.closeGitWatcher();
   }
 
   async closeAll() {
+    this.folderWatchGeneration += 1;
     await this.closeActiveWatcher();
     await this.closeFolderWatcher();
     await this.closeGitWatcher();
