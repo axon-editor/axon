@@ -315,3 +315,10 @@ Build scripts now print phase-specific failure summaries for shared package and
 core binary builds. The goal is that CI and local release failures point at the
 failing layer first, then leave the original tool output intact for the detailed
 cause.
+
+## Syntax Highlighting Architecture
+
+The detailed syntax-coloring design and debugging history lives in
+`docs/TOKEN_COLORING_ARCHITECTURE.md`. That document explains why Axon now uses
+a layered Monaco, TextMate, LSP semantic-token, and Axon decoration pipeline
+instead of relying on Monaco's default token paint path alone.

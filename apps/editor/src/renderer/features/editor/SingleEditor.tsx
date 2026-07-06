@@ -69,6 +69,16 @@ interface Props {
 }
 
 type PreviewMode = "editor" | "split";
+const richSemanticDecorationLanguages = new Set([
+  "typescript",
+  "typescriptreact",
+  "javascript",
+  "javascriptreact",
+  "go",
+  "rust",
+  "python",
+]);
+
 export default function SingleEditor({
   filePath,
   folderPath,
@@ -100,6 +110,8 @@ export default function SingleEditor({
   const suggestTimerRef = useRef<number | null>(null);
   const lspSyncTimerRef = useRef<number | null>(null);
   const semanticDecorationTimerRef = useRef<number | null>(null);
+  const semanticDecorationRetryTimerRef = useRef<number | null>(null);
+  const semanticDecorationRetryRef = useRef({ key: "", count: 0 });
   const semanticDecorationRequestRef = useRef(0);
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
@@ -362,6 +374,34 @@ export default function SingleEditor({
         editorNode.dataset.axonSemanticDecorationCount =
           String(decorations.length);
       }
+
+      const retryKey = `${model.uri.toString()}::${modelVersion}::${editorSettings.themeId}`;
+      if (decorations.length > 0) {
+        semanticDecorationRetryRef.current = { key: retryKey, count: 0 };
+        if (semanticDecorationRetryTimerRef.current) {
+          window.clearTimeout(semanticDecorationRetryTimerRef.current);
+          semanticDecorationRetryTimerRef.current = null;
+        }
+      } else if (
+        richSemanticDecorationLanguages.has(model.getLanguageId()) &&
+        semanticDecorationRetryRef.current.key !== retryKey
+      ) {
+        semanticDecorationRetryRef.current = { key: retryKey, count: 0 };
+      }
+
+      if (
+        decorations.length === 0 &&
+        richSemanticDecorationLanguages.has(model.getLanguageId()) &&
+        semanticDecorationRetryRef.current.key === retryKey &&
+        semanticDecorationRetryRef.current.count < 2 &&
+        semanticDecorationRetryTimerRef.current === null
+      ) {
+        semanticDecorationRetryRef.current.count += 1;
+        semanticDecorationRetryTimerRef.current = window.setTimeout(() => {
+          semanticDecorationRetryTimerRef.current = null;
+          void refreshSemanticTokenDecorations();
+        }, 700);
+      }
     } catch (err) {
       console.error("failed to paint semantic token decorations:", err);
       semanticDecorationsRef.current?.clear();
@@ -398,6 +438,10 @@ export default function SingleEditor({
       if (semanticDecorationTimerRef.current) {
         window.clearTimeout(semanticDecorationTimerRef.current);
         semanticDecorationTimerRef.current = null;
+      }
+      if (semanticDecorationRetryTimerRef.current) {
+        window.clearTimeout(semanticDecorationRetryTimerRef.current);
+        semanticDecorationRetryTimerRef.current = null;
       }
 
       // Monaco decoration collections are tied to the editor widget, not to
@@ -659,6 +703,10 @@ export default function SingleEditor({
       if (semanticDecorationTimerRef.current) {
         window.clearTimeout(semanticDecorationTimerRef.current);
         semanticDecorationTimerRef.current = null;
+      }
+      if (semanticDecorationRetryTimerRef.current) {
+        window.clearTimeout(semanticDecorationRetryTimerRef.current);
+        semanticDecorationRetryTimerRef.current = null;
       }
       // Release only if the async read reached acquireModel. Closing a split
       // quickly used to run this cleanup before the second editor acquired its

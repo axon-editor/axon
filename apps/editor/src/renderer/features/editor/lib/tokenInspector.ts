@@ -2,12 +2,19 @@ import * as monaco from "monaco-editor";
 import { type ThemeTokenMap } from "../../../shared/themes";
 import { type ExtensionThemeSyntaxStyle } from "../../../../shared/extensions";
 import {
+  LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS,
+  LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
+} from "../../../../shared/lsp";
+import { getSemanticTokensForModel } from "../../../../services/lsp/renderer/lspSemanticTokens";
+import { getTextMateSemanticTokenStatus } from "../../../../services/lsp/renderer/textMateSemanticTokens";
+import {
   createDefaultCaptureEntries,
   findCapturesForMonacoToken,
   resolveCaptureStyleForInspector,
   type AxonTokenCaptureMatch,
 } from "../../../shared/themes/captureRegistry";
 import { createExtensionSyntaxThemeEntries } from "../../../shared/themes/syntaxTheme";
+import { createSemanticTokenColors } from "../../../shared/themes/types";
 
 export interface TokenInspectorCapture {
   capture: string;
@@ -39,8 +46,84 @@ export interface TokenInspectorReport {
   activeThemeId: string | null;
   activeThemeSyntaxCount: number;
   semanticDecorationCount: number;
+  semanticTokenType: string | null;
+  semanticTokenModifiers: string[];
+  semanticTokenRange: string | null;
+  semanticSelector: string | null;
+  semanticExpectedColor: string | null;
+  semanticDecorationClassName: string | null;
+  textMateHighlighterReady: boolean;
+  textMateHighlighterError: string | null;
   captures: TokenInspectorCapture[];
   linePreview: string;
+}
+
+function decodeSemanticModifiers(bits: number) {
+  const modifiers: string[] = [];
+  for (let index = 0; index < LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS.length; index += 1) {
+    if ((bits & (1 << index)) === 0) continue;
+    modifiers.push(LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS[index]);
+  }
+  return modifiers;
+}
+
+async function getSemanticTokenAtPosition(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) {
+  const semanticTokens = await getSemanticTokensForModel(model);
+  if (!semanticTokens || semanticTokens.data.length === 0) return null;
+
+  let line = 1;
+  let column = 1;
+  for (let offset = 0; offset < semanticTokens.data.length; offset += 5) {
+    const deltaLine = semanticTokens.data[offset] ?? 0;
+    const deltaColumn = semanticTokens.data[offset + 1] ?? 0;
+    line += deltaLine;
+    column = deltaLine === 0 ? column + deltaColumn : deltaColumn + 1;
+
+    const length = semanticTokens.data[offset + 2] ?? 0;
+    const tokenType =
+      LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES[semanticTokens.data[offset + 3] ?? -1];
+    const modifierBits = semanticTokens.data[offset + 4] ?? 0;
+    const endColumn = column + length;
+    if (
+      tokenType &&
+      position.lineNumber === line &&
+      position.column >= column &&
+      position.column <= endColumn
+    ) {
+      return {
+        type: tokenType,
+        modifiers: decodeSemanticModifiers(modifierBits),
+        range: `${line}:${column}-${endColumn}`,
+      };
+    }
+  }
+
+  return null;
+}
+
+function semanticClassName(selector: string) {
+  return `axon-sem-${selector.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
+}
+
+function resolveSemanticSelector(
+  tokenType: string | null,
+  modifiers: string[],
+  colors: Record<string, string>,
+) {
+  if (!tokenType) return null;
+
+  const exactSelector = [tokenType, ...modifiers].join(".");
+  if (colors[exactSelector]) return exactSelector;
+
+  for (const modifier of modifiers) {
+    const modifierSelector = `${tokenType}.${modifier}`;
+    if (colors[modifierSelector]) return modifierSelector;
+  }
+
+  return colors[tokenType] ? tokenType : null;
 }
 
 interface RuntimeLineTokens {
@@ -155,12 +238,12 @@ function toCaptureDetails(
   });
 }
 
-export function inspectEditorToken(
+export async function inspectEditorToken(
   editor: monaco.editor.IStandaloneCodeEditor,
   filePath: string,
   themeTokens: ThemeTokenMap,
   themeSyntax: Record<string, ExtensionThemeSyntaxStyle> = {},
-): TokenInspectorReport | null {
+): Promise<TokenInspectorReport | null> {
   const model = editor.getModel();
   const position = editor.getPosition();
   if (!model || model.isDisposed() || !position) return null;
@@ -190,8 +273,19 @@ export function inspectEditorToken(
     tokenStartColumn,
   );
   const word = model.getWordAtPosition(position)?.word ?? "";
+  const semanticToken = await getSemanticTokenAtPosition(model, position);
+  const semanticColors: Record<string, string> = createSemanticTokenColors(
+    themeTokens,
+    themeSyntax,
+  );
+  const semanticSelector = resolveSemanticSelector(
+    semanticToken?.type ?? null,
+    semanticToken?.modifiers ?? [],
+    semanticColors,
+  );
   const renderedStyle = getRenderedTokenStyle(editor, inspectedPosition);
   const editorNode = editor.getDomNode();
+  const textMateStatus = getTextMateSemanticTokenStatus();
   const activeThemeSyntaxCount = Number(
     editorNode?.dataset.axonThemeSyntaxCount ?? "0",
   );
@@ -236,6 +330,18 @@ export function inspectEditorToken(
     semanticDecorationCount: Number.isFinite(semanticDecorationCount)
       ? semanticDecorationCount
       : 0,
+    semanticTokenType: semanticToken?.type ?? null,
+    semanticTokenModifiers: semanticToken?.modifiers ?? [],
+    semanticTokenRange: semanticToken?.range ?? null,
+    semanticSelector,
+    semanticExpectedColor: semanticSelector
+      ? semanticColors[semanticSelector] ?? null
+      : null,
+    semanticDecorationClassName: semanticSelector
+      ? semanticClassName(semanticSelector)
+      : null,
+    textMateHighlighterReady: textMateStatus.ready,
+    textMateHighlighterError: textMateStatus.error,
     captures,
     linePreview: lineContent,
   };

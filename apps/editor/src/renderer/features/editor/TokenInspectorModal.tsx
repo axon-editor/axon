@@ -122,6 +122,46 @@ export default function TokenInspectorModal({
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  Semantic
+                </dt>
+                <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)] opacity-70">
+                  {report.semanticTokenType ?? "none"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  Sem range
+                </dt>
+                <dd className="font-mono text-[var(--axon-editor-foreground)]">
+                  {report.semanticTokenRange ?? "none"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  Sem selector
+                </dt>
+                <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)] opacity-70">
+                  {report.semanticSelector ?? "none"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  Sem color
+                </dt>
+                <dd className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm border border-[var(--axon-panel-border)]"
+                    style={{
+                      backgroundColor: report.semanticExpectedColor ?? undefined,
+                    }}
+                  />
+                  <span className="truncate font-mono text-[var(--axon-editor-foreground)]">
+                    {report.semanticExpectedColor ?? "none"}
+                  </span>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
                   Range
                 </dt>
                 <dd className="font-mono text-[var(--axon-editor-foreground)]">
@@ -175,6 +215,32 @@ export default function TokenInspectorModal({
                   {tokenLabel(report.renderedClassName)}
                 </dd>
               </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  Expected class
+                </dt>
+                <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)]">
+                  {report.semanticDecorationClassName ?? "none"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  TextMate
+                </dt>
+                <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)]">
+                  {report.textMateHighlighterReady ? "ready" : "not ready"}
+                </dd>
+              </div>
+              {report.textMateHighlighterError && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                    TM error
+                  </dt>
+                  <dd className="min-w-0 truncate font-mono text-[var(--axon-syntax-constant)]">
+                    {report.textMateHighlighterError}
+                  </dd>
+                </div>
+              )}
             </dl>
           </section>
         </div>

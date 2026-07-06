@@ -55,13 +55,11 @@ export function useEditorActions({
 
       const action = actionEvent.detail.action ?? "definition";
       if (action === "inspect-token") {
-        const report = inspectEditorToken(
-          editor,
-          filePath,
-          themeTokens,
-          themeSyntax,
+        void inspectEditorToken(editor, filePath, themeTokens, themeSyntax).then(
+          (report) => {
+            if (report) setTokenInspectorReport(report);
+          },
         );
-        if (report) setTokenInspectorReport(report);
         return;
       }
 
