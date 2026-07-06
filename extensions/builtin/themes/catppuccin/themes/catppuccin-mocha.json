@@ -54,5 +54,213 @@
     "editorSuggestWidget.selectedBackground": "#313244",
     "editorSuggestWidget.highlightForeground": "#89b4fa",
     "focusBorder": "#89b4fa"
+  },
+  "syntax": {
+    "attribute": {
+      "color": "#f9e2af"
+    },
+    "boolean": {
+      "color": "#f38ba8",
+      "fontStyle": "italic"
+    },
+    "comment": {
+      "color": "#6c7086",
+      "fontStyle": "italic"
+    },
+    "comment.doc": {
+      "color": "#6c7086",
+      "fontStyle": "italic"
+    },
+    "constant": {
+      "color": "#f38ba8"
+    },
+    "constant.builtin": {
+      "color": "#f38ba8"
+    },
+    "constructor": {
+      "color": "#f9e2af"
+    },
+    "diff.minus": {
+      "color": "#f38ba8"
+    },
+    "diff.plus": {
+      "color": "#a6e3a1"
+    },
+    "embedded": {
+      "color": "#cdd6f4"
+    },
+    "emphasis": {
+      "color": "#cdd6f4",
+      "fontStyle": "italic"
+    },
+    "emphasis.strong": {
+      "color": "#cdd6f4",
+      "fontStyle": "bold"
+    },
+    "enum": {
+      "color": "#f9e2af"
+    },
+    "function": {
+      "color": "#89b4fa"
+    },
+    "function.builtin": {
+      "color": "#89b4fa"
+    },
+    "function.definition": {
+      "color": "#89b4fa"
+    },
+    "function.method": {
+      "color": "#89b4fa"
+    },
+    "function.special": {
+      "color": "#89b4fa"
+    },
+    "hint": {
+      "color": "#94e2d5",
+      "fontStyle": "bold"
+    },
+    "import": {
+      "color": "#cba6f7",
+      "fontStyle": "italic"
+    },
+    "keyword": {
+      "color": "#cba6f7",
+      "fontStyle": "italic"
+    },
+    "keyword.control": {
+      "color": "#cba6f7",
+      "fontStyle": "italic"
+    },
+    "keyword.operator": {
+      "color": "#89dceb"
+    },
+    "label": {
+      "color": "#94e2d5"
+    },
+    "link_text": {
+      "color": "#94e2d5"
+    },
+    "link_uri": {
+      "color": "#a6e3a1"
+    },
+    "module": {
+      "color": "#f9e2af"
+    },
+    "namespace": {
+      "color": "#f9e2af"
+    },
+    "number": {
+      "color": "#fab387"
+    },
+    "operator": {
+      "color": "#89dceb"
+    },
+    "predictive": {
+      "color": "#6c7086"
+    },
+    "preproc": {
+      "color": "#cba6f7",
+      "fontStyle": "italic"
+    },
+    "primary": {
+      "color": "#cdd6f4"
+    },
+    "property": {
+      "color": "#94e2d5"
+    },
+    "punctuation": {
+      "color": "#bac2de"
+    },
+    "punctuation.bracket": {
+      "color": "#bac2de"
+    },
+    "punctuation.delimiter": {
+      "color": "#bac2de"
+    },
+    "punctuation.list_marker": {
+      "color": "#89dceb"
+    },
+    "punctuation.markup": {
+      "color": "#bac2de"
+    },
+    "punctuation.special": {
+      "color": "#89dceb"
+    },
+    "selector": {
+      "color": "#89dceb"
+    },
+    "selector.pseudo": {
+      "color": "#f9e2af"
+    },
+    "string": {
+      "color": "#a6e3a1"
+    },
+    "string.escape": {
+      "color": "#f38ba8",
+      "fontStyle": "bold"
+    },
+    "string.regex": {
+      "color": "#f38ba8"
+    },
+    "string.special": {
+      "color": "#f38ba8"
+    },
+    "string.special.symbol": {
+      "color": "#f38ba8"
+    },
+    "tag": {
+      "color": "#89dceb"
+    },
+    "text": {
+      "color": "#cdd6f4"
+    },
+    "text.literal": {
+      "color": "#a6e3a1"
+    },
+    "title": {
+      "color": "#89b4fa",
+      "fontStyle": "bold"
+    },
+    "type": {
+      "color": "#f9e2af"
+    },
+    "type.builtin": {
+      "color": "#f9e2af"
+    },
+    "type.class": {
+      "color": "#f9e2af"
+    },
+    "type.enum": {
+      "color": "#f9e2af"
+    },
+    "type.interface": {
+      "color": "#f9e2af"
+    },
+    "type.struct": {
+      "color": "#f9e2af"
+    },
+    "variable": {
+      "color": "#cdd6f4"
+    },
+    "variable.builtin": {
+      "color": "#f38ba8",
+      "fontStyle": "italic"
+    },
+    "variable.member": {
+      "color": "#94e2d5"
+    },
+    "variable.mutable": {
+      "color": "#cdd6f4"
+    },
+    "variable.parameter": {
+      "color": "#f5c2e7"
+    },
+    "variable.special": {
+      "color": "#f38ba8",
+      "fontStyle": "italic"
+    },
+    "variant": {
+      "color": "#f38ba8"
+    }
   }
 }
