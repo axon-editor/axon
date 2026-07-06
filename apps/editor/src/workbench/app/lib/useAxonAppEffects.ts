@@ -462,6 +462,7 @@ export function useAxonAppEffects({
         if (workspaceTrusted) {
           void refreshProjectDiagnostics();
         }
+        void refreshGitStatus({ silent: true });
         return;
       }
 

@@ -426,7 +426,12 @@ app.whenReady().then(async () => {
   // even though the renderer can already restore chrome, tabs, and the last
   // workspace while core finishes binding its local port.
   const bundledCoreReady = bundledCore.startBundledAxonCore();
-  createManagedWindow({ restoreSession: true });
+  // A cold `axon .` launch can queue an open-file request before the app is
+  // ready. In that case restoring the previous session first is actively wrong:
+  // the old workspace can become visible and persisted before the renderer
+  // consumes the CLI folder. Starting this window without restore makes the CLI
+  // path the only workspace owner for that launch.
+  createManagedWindow({ restoreSession: pendingCliOpenFolderPath ? false : true });
   void bundledCoreReady.then(() => {
     bundledCore.startBundledCoreWatchdog();
     void warmUpAiRuntime({ axonCorePort });
