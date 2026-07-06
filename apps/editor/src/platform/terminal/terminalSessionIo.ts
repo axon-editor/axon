@@ -1,6 +1,8 @@
 import { Terminal as XTerm } from "@xterm/xterm";
 import {
   MAX_RECONNECT_INPUT_BYTES,
+  TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
+  TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN,
   TERMINAL_WRITE_BATCH_BYTES,
   getOutputByteLength,
   getTerminalBackendUrl,
@@ -169,33 +171,79 @@ function takeTerminalOutputBatch(session: TerminalSession) {
   };
 }
 
-function drainTerminalOutput(session: TerminalSession) {
-  if (session.outputWriting) return;
-  if (!session.term || session.disposed) return;
-  const batch = takeTerminalOutputBatch(session);
-  if (!batch) return;
-  // Don't decrement queuedBytes here -- xterm hasn't processed it yet.
-  // Decrementing early makes hasPendingTerminalOutput return false while
-  // bytes are still inside xterm's internal write queue, which causes
-  // reconnects to replay from the wrong offset and drop or duplicate output.
+function clearTerminalDrainTimer(session: TerminalSession) {
+  if (session.outputDrainTimer === null) return;
+  window.clearTimeout(session.outputDrainTimer);
+  session.outputDrainTimer = null;
+}
 
-  session.outputWriting = true;
-  session.atBottom = isTerminalAtBottom(session.term);
-  session.term.write(batch.data, () => {
-    session.receivedBytes += batch.byteLength;
-    session.queuedBytes = Math.max(0, session.queuedBytes - batch.byteLength);
-    session.drainedChunks += batch.chunkCount;
-    sendTerminalAck(session, session.outputQueue.length === 0);
-    if (session.term && session.atBottom) {
-      session.term.scrollToBottom();
-    }
-    scheduleTerminalRefresh(session);
-    session.outputWriting = false;
-    if (!hasPendingTerminalOutput(session)) {
-      clearTerminalHeartbeat(session);
-    }
+function scheduleTerminalDrain(session: TerminalSession) {
+  if (session.outputDrainTimer !== null || session.disposed) return;
+
+  // A drain can intentionally stop after a bounded number of writes so a huge
+  // replay cannot monopolize one event-loop turn. If there is still room under
+  // the in-flight cap, this timer resumes the drain on the next turn without
+  // waiting for xterm callbacks to serially unlock the whole stream.
+  session.outputDrainTimer = window.setTimeout(() => {
+    session.outputDrainTimer = null;
     drainTerminalOutput(session);
-  });
+  }, 0);
+}
+
+function drainTerminalOutput(session: TerminalSession) {
+  if (!session.term || session.disposed) return;
+
+  let batchesWritten = 0;
+  while (
+    session.outputQueue.length > 0 &&
+    session.inFlightWriteBytes < TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES &&
+    batchesWritten < TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN
+  ) {
+    const batch = takeTerminalOutputBatch(session);
+    if (!batch) break;
+
+    // queuedBytes represents bytes that have not reached xterm's write callback
+    // yet, so I keep it high while the write is merely queued inside xterm. This
+    // is what makes reconnect replay exact: if the websocket closes while xterm
+    // is still parsing a batch, Axon waits and reconnects from the last committed
+    // byte instead of pretending the browser already painted it.
+    session.outputWriting = true;
+    session.inFlightWriteBytes += batch.byteLength;
+    session.atBottom = session.term ? isTerminalAtBottom(session.term) : true;
+    batchesWritten += 1;
+
+    session.term.write(batch.data, () => {
+      session.receivedBytes += batch.byteLength;
+      session.inFlightWriteBytes = Math.max(
+        0,
+        session.inFlightWriteBytes - batch.byteLength,
+      );
+      session.queuedBytes = Math.max(0, session.queuedBytes - batch.byteLength);
+      session.drainedChunks += batch.chunkCount;
+      session.outputWriting = session.inFlightWriteBytes > 0;
+
+      const settled = !hasPendingTerminalOutput(session);
+      sendTerminalAck(session, settled);
+      if (session.term && session.atBottom) {
+        session.term.scrollToBottom();
+      }
+      scheduleTerminalRefresh(session);
+
+      if (settled) {
+        clearTerminalHeartbeat(session);
+        clearTerminalDrainTimer(session);
+        return;
+      }
+      drainTerminalOutput(session);
+    });
+  }
+
+  if (
+    session.outputQueue.length > 0 &&
+    session.inFlightWriteBytes < TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES
+  ) {
+    scheduleTerminalDrain(session);
+  }
 }
 
 export function writeTerminalOutput(
@@ -216,6 +264,8 @@ export function writeTerminalOutput(
 export function hasPendingTerminalOutput(session: TerminalSession) {
   return (
     session.outputWriting ||
+    session.outputDrainTimer !== null ||
+    session.inFlightWriteBytes > 0 ||
     session.pendingBinaryDecodes > 0 ||
     session.outputQueue.length > 0 ||
     session.queuedBytes > 0

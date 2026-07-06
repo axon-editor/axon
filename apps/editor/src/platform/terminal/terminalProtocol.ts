@@ -21,6 +21,8 @@ export interface TerminalSession {
   ackTimer: number | null;
   outputQueue: TerminalOutputChunk[];
   outputWriting: boolean;
+  outputDrainTimer: number | null;
+  inFlightWriteBytes: number;
   pendingBinaryDecodes: number;
   queuedBytes: number;
   maxQueuedBytes: number;
@@ -59,9 +61,20 @@ export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
 export const TERMINAL_SCROLLBACK_LINES = 200_000;
 // xterm parses escape sequences on the renderer thread. Batching tiny websocket
 // chunks helps throughput, but very large writes make the UI feel blocked while
-// xterm tokenizes the buffer. 64KB is intentionally small enough to keep input
-// and painting responsive while still avoiding thousands of one-line writes.
-export const TERMINAL_WRITE_BATCH_BYTES = 64 * 1024;
+// xterm tokenizes the buffer. 128KB is large enough to avoid thousands of small
+// writes during agent streams while still giving the browser regular chances to
+// handle input and paint.
+export const TERMINAL_WRITE_BATCH_BYTES = 128 * 1024;
+// This is the important part of the terminal-output architecture. Core keeps the
+// durable append-only buffer, but the renderer must not serialize every chunk on
+// a single xterm callback because that makes long agent runs crawl. At the same
+// time, it also cannot push unbounded bytes into xterm because reconnect replay
+// is only safe after xterm has actually committed the bytes. The in-flight cap is
+// the middle ground: Axon can pipeline enough output to stay fast, but the
+// backend still has a small, exact acknowledged cursor to replay from if the
+// websocket detaches.
+export const TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES = 4 * 1024 * 1024;
+export const TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN = 16;
 
 export function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
