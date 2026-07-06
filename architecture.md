@@ -319,6 +319,7 @@ cause.
 ## Syntax Highlighting Architecture
 
 The detailed syntax-coloring design and debugging history lives in
-`docs/TOKEN_COLORING_ARCHITECTURE.md`. That document explains why Axon now uses
-a layered Monaco, TextMate, LSP semantic-token, and Axon decoration pipeline
-instead of relying on Monaco's default token paint path alone.
+[docs/TOKEN_COLORING_ARCHITECTURE.md](docs/TOKEN_COLORING_ARCHITECTURE.md).
+That document explains why Axon now uses a layered Monaco, TextMate, LSP
+semantic-token, and Axon decoration pipeline instead of relying on Monaco's
+default token paint path alone.
