@@ -32,6 +32,7 @@ import type {
   HtmlPreviewActionResult,
   HtmlPreviewConsoleEvent,
 } from "../../shared/htmlPreview";
+import type { WorkspaceIndexSummary } from "../../shared/workspaceIndex";
 import type {
   LanguageServerCodeActionRequest,
   LanguageServerCodeActionResult,
@@ -332,6 +333,9 @@ declare global {
       listProjectFiles: (
         folderPath: string,
       ) => Promise<Array<{ name: string; path: string; is_dir: false }>>;
+      getWorkspaceIndex: (
+        folderPath: string,
+      ) => Promise<WorkspaceIndexSummary | null>;
       onFileChanged: (
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;

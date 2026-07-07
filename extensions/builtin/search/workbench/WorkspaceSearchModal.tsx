@@ -8,6 +8,7 @@ import {
 } from "@axon-editor/renderer/shared/lib/api";
 import { getFileIcon } from "@axon-editor/renderer/features/sidebar/files/lib/fileIcons";
 import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
+import { type WorkspaceIndexSummary } from "@axon-editor/shared/workspaceIndex";
 
 const SEARCH_HISTORY_KEY = "axon.workspaceSearch.history";
 
@@ -115,6 +116,8 @@ export default function WorkspaceSearchModal({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
+  const [workspaceIndex, setWorkspaceIndex] =
+    useState<WorkspaceIndexSummary | null>(null);
   const [history, setHistory] = useState<string[]>(() =>
     readSearchHistory(rootPath),
   );
@@ -129,8 +132,26 @@ export default function WorkspaceSearchModal({
     setQuery("");
     setResults([]);
     setSelectedIndex(0);
+    setWorkspaceIndex(null);
     setHistory(readSearchHistory(rootPath));
     setTimeout(() => inputRef.current?.focus(), 50);
+  }, [open, rootPath]);
+
+  useEffect(() => {
+    if (!open || !rootPath) return;
+    let cancelled = false;
+
+    // Workspace search still asks the backend for content matches, but warming
+    // the shared metadata index here means future file filters, symbol search,
+    // test discovery, and extension activation all start from the same
+    // project-aware file set instead of each feature walking the tree on its own.
+    void window.axon.getWorkspaceIndex(rootPath).then((summary) => {
+      if (!cancelled) setWorkspaceIndex(summary);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, rootPath]);
 
   useEffect(() => {
@@ -341,6 +362,14 @@ export default function WorkspaceSearchModal({
                     <span className="truncate">{item}</span>
                   </button>
                 ))}
+              </div>
+            )}
+            {workspaceIndex && (
+              <div className="mt-3 text-[11px] text-[var(--axon-editor-foreground)] opacity-40">
+                indexed {workspaceIndex.indexedFileCount.toLocaleString()} files
+                {Object.keys(workspaceIndex.languageCounts).length > 0
+                  ? ` across ${Object.keys(workspaceIndex.languageCounts).length} languages`
+                  : ""}
               </div>
             )}
           </div>

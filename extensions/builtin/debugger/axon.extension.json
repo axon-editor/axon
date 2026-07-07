@@ -1,0 +1,49 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.debugger",
+  "name": "Axon Debugger",
+  "publisher": "Axon",
+  "version": "0.1.0",
+  "description": "Built-in debug adapter contribution points for launch configurations, breakpoints, call stacks, and debug console workflows.",
+  "kind": "debugger",
+  "categories": ["Debuggers", "Workbench"],
+  "activationEvents": [
+    "onCommand:axon.debug.open",
+    "onDebugType:node",
+    "onDebugType:go",
+    "onDebugType:python"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.debug.open",
+        "title": "Open Debugger",
+        "category": "Debug"
+      }
+    ],
+    "views": [
+      {
+        "id": "axon.debug",
+        "title": "Debug",
+        "location": "sidebar"
+      }
+    ],
+    "debuggerProviders": [
+      {
+        "type": "node",
+        "label": "Node.js",
+        "languages": ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+      },
+      {
+        "type": "go",
+        "label": "Go",
+        "languages": ["go"]
+      },
+      {
+        "type": "python",
+        "label": "Python",
+        "languages": ["python"]
+      }
+    ]
+  }
+}

@@ -62,6 +62,7 @@ function createContributionLabels(
     ["terminal profiles", contributes.terminalProfiles.length],
     ["tasks", contributes.taskProviders.length],
     ["debuggers", contributes.debuggerProviders.length],
+    ["index providers", contributes.workspaceIndexProviders.length],
   ].flatMap(([label, count]) => (Number(count) > 0 ? [`${count} ${label}`] : []));
 }
 

@@ -141,6 +141,15 @@ export default defineConfig({
         "testing",
         "workbench",
       ),
+      "@axon-builtin-debugger": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "debugger",
+        "workbench",
+      ),
       "@axon-builtin-problems": path.resolve(
         __dirname,
         "..",

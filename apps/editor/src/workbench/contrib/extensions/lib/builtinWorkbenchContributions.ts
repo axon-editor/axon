@@ -18,6 +18,7 @@ interface RequiredWorkbenchContribution {
 export const BUILTIN_CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = {
   "axon.agent.fixProblems": AXON_COMMANDS.AI_FIX_PROBLEM,
   "axon.agent.open": AXON_COMMANDS.ASK_AXON,
+  "axon.debug.open": AXON_COMMANDS.OPEN_DEBUGGER,
   "axon.git.openHistory": AXON_COMMANDS.OPEN_GIT_HISTORY,
   "axon.git.openSourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
   "axon.git.refresh": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
@@ -37,6 +38,7 @@ export const BUILTIN_CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = 
 
 export const BUILTIN_CONTRIBUTED_VIEW_ALIASES: Record<string, AxonCommand> = {
   "axon.agent": AXON_COMMANDS.ASK_AXON,
+  "axon.debug": AXON_COMMANDS.OPEN_DEBUGGER,
   "axon.history": AXON_COMMANDS.OPEN_GIT_HISTORY,
   "axon.problems": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
   "axon.search.workspace": AXON_COMMANDS.OPEN_WORKSPACE_SEARCH,
@@ -66,6 +68,11 @@ export const BUILTIN_WORKBENCH_CONTRIBUTIONS = {
       "axon.git.openHistory",
       "axon.git.refresh",
     ],
+  },
+  debugger: {
+    extensionId: "axon.debugger",
+    views: [{ id: "axon.debug", location: "sidebar" }],
+    commands: ["axon.debug.open"],
   },
   search: {
     extensionId: "axon.search",

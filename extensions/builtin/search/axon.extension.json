@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "description": "Built-in workspace search surfaces and search command contributions.",
   "author": "Axon",
-  "kind": "view",
+  "kind": "mixed",
   "categories": ["Search"],
   "activationEvents": [
     "onStartup",
@@ -26,6 +26,13 @@
         "id": "axon.search.workspace",
         "title": "Workspace Search",
         "location": "modal"
+      }
+    ],
+    "workspaceIndexProviders": [
+      {
+        "id": "axon.search.workspaceIndex",
+        "label": "Workspace file index",
+        "filePatterns": ["**/*"]
       }
     ]
   }

@@ -17,6 +17,12 @@ export function summarizeExtensionRuntime(
   const executableCount = extensions.filter(
     (extension) => extension.hostKind === "isolated-process" && extension.enabled,
   ).length;
+  const externalExecutableCount = extensions.filter(
+    (extension) =>
+      extension.hostKind === "isolated-process" &&
+      extension.enabled &&
+      extension.source !== "internal",
+  ).length;
   const declarativeCount = extensions.filter(
     (extension) => extension.hostKind === "declarative" && extension.enabled,
   ).length;
@@ -31,7 +37,9 @@ export function summarizeExtensionRuntime(
     declarativeCount,
     mode: executableCount > 0 ? "isolated-process" : "declarative",
     message:
-      executableCount > 0
+      externalExecutableCount > 0
+        ? `${externalExecutableCount} executable user/workspace extension package${externalExecutableCount === 1 ? "" : "s"} waiting for the isolated process host.`
+        : executableCount > 0
         ? `${executableCount} executable extension package${executableCount === 1 ? "" : "s"} registered for isolated activation.`
         : "Declarative extension contributions are active.",
   };
@@ -64,11 +72,25 @@ export function createExtensionRuntimeRegistrations(
         ]),
       ];
       const agentIds = contributes.agents.map((agent) => agent.id);
+      const debuggerProviderIds = [
+        ...new Set([
+          ...contributes.debuggerProviders.map((provider) => provider.type),
+          ...runtimeDiagnostics.debuggerProviders,
+        ]),
+      ];
+      const workspaceIndexProviderIds = [
+        ...new Set([
+          ...contributes.workspaceIndexProviders.map((provider) => provider.id),
+          ...runtimeDiagnostics.workspaceIndexProviders,
+        ]),
+      ];
       const contributionCount =
         commandIds.length +
         viewIds.length +
         terminalProfileIds.length +
-        agentIds.length;
+        agentIds.length +
+        debuggerProviderIds.length +
+        workspaceIndexProviderIds.length;
 
       // This runtime registration is the bridge between today's declarative
       // manifests and the isolated activate() host. It gives the workbench a
@@ -82,6 +104,8 @@ export function createExtensionRuntimeRegistrations(
         views: viewIds,
         terminalProfiles: terminalProfileIds,
         agents: agentIds,
+        debuggerProviders: debuggerProviderIds,
+        workspaceIndexProviders: workspaceIndexProviderIds,
         activatedEvents: extension.activatedEvents,
         lastActivatedAt: extension.lastActivatedAt,
         status:

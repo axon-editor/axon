@@ -103,6 +103,7 @@ export default function Terminal({
     receivedBytes: number;
     ackedBytes: number;
     queuedBytes: number;
+    inFlightWriteBytes: number;
     maxQueuedBytes: number;
     drainedChunks: number;
     reconnectCount: number;
@@ -119,6 +120,7 @@ export default function Terminal({
       `acked ${tab.health.ackedBytes} bytes`,
       `pending ${pendingBytes} bytes`,
       `queued ${tab.health.queuedBytes} bytes`,
+      `in-flight ${tab.health.inFlightWriteBytes} bytes`,
       `max queue ${tab.health.maxQueuedBytes} bytes`,
       `drained ${tab.health.drainedChunks} chunks`,
       `reconnects ${tab.health.reconnectCount}`,

@@ -40,6 +40,7 @@ export interface TerminalTab {
     receivedBytes: number;
     ackedBytes: number;
     queuedBytes: number;
+    inFlightWriteBytes: number;
     maxQueuedBytes: number;
     drainedChunks: number;
     reconnectCount: number;
@@ -129,6 +130,7 @@ export function useTerminalSessionManager({
                 receivedBytes: session.receivedBytes,
                 ackedBytes: session.lastAckedBytes,
                 queuedBytes: session.queuedBytes,
+                inFlightWriteBytes: session.inFlightWriteBytes,
                 maxQueuedBytes: session.maxQueuedBytes,
                 drainedChunks: session.drainedChunks,
                 reconnectCount: session.reconnectCount,
@@ -250,6 +252,7 @@ export function useTerminalSessionManager({
           receivedBytes: 0,
           ackedBytes: 0,
           queuedBytes: 0,
+          inFlightWriteBytes: 0,
           maxQueuedBytes: 0,
           drainedChunks: 0,
           reconnectCount: 0,

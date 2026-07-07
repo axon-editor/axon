@@ -55,6 +55,9 @@
       "@axon-builtin-testing/*": [
         "../../extensions/builtin/testing/workbench/*"
       ],
+      "@axon-builtin-debugger/*": [
+        "../../extensions/builtin/debugger/workbench/*"
+      ],
       "@axon-builtin-problems/*": [
         "../../extensions/builtin/problems/workbench/*"
       ],
@@ -105,6 +108,7 @@
     "../../extensions/builtin/settings/workbench/**/*",
     "../../extensions/builtin/git/workbench/**/*",
     "../../extensions/builtin/testing/workbench/**/*",
+    "../../extensions/builtin/debugger/workbench/**/*",
     "../../extensions/builtin/problems/workbench/**/*"
   ]
 }

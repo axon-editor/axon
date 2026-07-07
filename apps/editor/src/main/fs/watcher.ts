@@ -12,6 +12,7 @@ interface FileWatcherDependencies {
     filePath: string,
     changeType: "create" | "change" | "delete",
   ) => void;
+  invalidateWorkspaceIndex: (folderPath: string) => void;
 }
 
 export class FileWatcherManager {
@@ -177,6 +178,7 @@ export class FileWatcherManager {
         this.folderDebounceTimer = setTimeout(() => {
           this.folderDebounceTimer = null;
           if (generation !== this.folderWatchGeneration) return;
+          this.deps.invalidateWorkspaceIndex(folderPath);
           this.deps.sendToRenderer("fs:folderChanged", { path: changedPath });
           // New untracked files and deleted files do not always mutate the small
           // set of .git paths we watch quickly enough for the sidebar colors to

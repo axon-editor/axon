@@ -41,6 +41,9 @@ export function normalizeExtensionContributions(
     debuggerProviders: Array.isArray(contributes?.debuggerProviders)
       ? contributes.debuggerProviders
       : empty.debuggerProviders,
+    workspaceIndexProviders: Array.isArray(contributes?.workspaceIndexProviders)
+      ? contributes.workspaceIndexProviders
+      : empty.workspaceIndexProviders,
     languagePacks: Array.isArray(contributes?.languagePacks)
       ? contributes.languagePacks
       : empty.languagePacks,

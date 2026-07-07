@@ -63,6 +63,8 @@ export interface ExtensionRuntimeRegistration {
   views: string[];
   terminalProfiles: string[];
   agents: string[];
+  debuggerProviders: string[];
+  workspaceIndexProviders: string[];
   activatedEvents: string[];
   lastActivatedAt: string | null;
   status: "registered" | "waiting" | "activating" | "error";
@@ -91,39 +93,44 @@ export interface ExtensionContributionRecord<T> {
   contribution: T;
 }
 
+type ContributionItem<T> = NonNullable<T> extends Array<infer Item> ? Item : never;
+
 export interface ExtensionContributionRegistry {
   commands: ExtensionContributionRecord<
-    ExtensionContributions["commands"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["commands"]>
   >[];
   themes: ExtensionContributionRecord<
-    ExtensionContributions["themes"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["themes"]>
   >[];
   iconThemes: ExtensionContributionRecord<
-    ExtensionContributions["iconThemes"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["iconThemes"]>
   >[];
   languages: ExtensionContributionRecord<
-    ExtensionContributions["languages"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["languages"]>
   >[];
   snippets: ExtensionContributionRecord<
-    ExtensionContributions["snippets"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["snippets"]>
   >[];
   views: ExtensionContributionRecord<
-    ExtensionContributions["views"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["views"]>
   >[];
   agents: ExtensionContributionRecord<
-    ExtensionContributions["agents"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["agents"]>
   >[];
   terminalProfiles: ExtensionContributionRecord<
-    ExtensionContributions["terminalProfiles"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["terminalProfiles"]>
   >[];
   taskProviders: ExtensionContributionRecord<
-    ExtensionContributions["taskProviders"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["taskProviders"]>
   >[];
   debuggerProviders: ExtensionContributionRecord<
-    ExtensionContributions["debuggerProviders"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["debuggerProviders"]>
+  >[];
+  workspaceIndexProviders: ExtensionContributionRecord<
+    ContributionItem<ExtensionContributions["workspaceIndexProviders"]>
   >[];
   languagePacks: ExtensionContributionRecord<
-    ExtensionContributions["languagePacks"] extends Array<infer T> ? T : never
+    ContributionItem<ExtensionContributions["languagePacks"]>
   >[];
 }
 

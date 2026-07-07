@@ -13,6 +13,7 @@ export function isExtensionKind(value: unknown): value is ExtensionKind {
     value === "view" ||
     value === "agent" ||
     value === "terminal" ||
+    value === "debugger" ||
     value === "mixed"
   );
 }
@@ -41,6 +42,7 @@ export function emptyExtensionContributions(): Required<ExtensionContributions> 
     terminalProfiles: [],
     taskProviders: [],
     debuggerProviders: [],
+    workspaceIndexProviders: [],
     languagePacks: [],
   };
 }
@@ -62,10 +64,11 @@ export function inferExtensionKind(
   if (contributes.views.length > 0) kinds.add("view");
   if (contributes.agents.length > 0) kinds.add("agent");
   if (contributes.terminalProfiles.length > 0) kinds.add("terminal");
+  if (contributes.debuggerProviders.length > 0) kinds.add("debugger");
   if (
     contributes.commands.length > 0 ||
     contributes.taskProviders.length > 0 ||
-    contributes.debuggerProviders.length > 0
+    contributes.workspaceIndexProviders.length > 0
   ) {
     kinds.add("tool");
   }

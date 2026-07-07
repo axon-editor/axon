@@ -52,10 +52,41 @@ export interface ExtensionTerminalProfile {
   env?: Record<string, string>;
 }
 
+export interface DebugRegistry {
+  registerDebugProvider(
+    debugType: string,
+    provider: ExtensionDebugProvider,
+  ): Disposable;
+}
+
+export interface ExtensionDebugProvider {
+  resolveConfiguration(
+    configuration: Record<string, unknown>,
+  ): Record<string, unknown> | Promise<Record<string, unknown>>;
+}
+
+export interface WorkspaceIndexRegistry {
+  registerWorkspaceIndexProvider(
+    providerId: string,
+    provider: ExtensionWorkspaceIndexProvider,
+  ): Disposable;
+}
+
+export interface ExtensionWorkspaceIndexProvider {
+  indexWorkspace(request: ExtensionWorkspaceIndexRequest): Promise<void> | void;
+}
+
+export interface ExtensionWorkspaceIndexRequest {
+  workspacePath: string;
+  signal?: AbortSignal;
+}
+
 export interface AxonExtensionApi {
   commands: CommandRegistry;
   views: ViewRegistry;
   terminals: TerminalRegistry;
+  debug: DebugRegistry;
+  workspace: WorkspaceIndexRegistry;
 }
 
 export interface AxonExtensionModule {

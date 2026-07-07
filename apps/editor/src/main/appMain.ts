@@ -20,6 +20,7 @@ import { consumePendingAgentResumeRequest } from "./app/resumeRequest";
 import { registerDiagnosticsHandlers } from "./diagnostics/handlers";
 import { registerExtensionHandlers } from "./extensions/handlers";
 import { registerFileWatcherHandlers } from "./fs/handlers";
+import { invalidateWorkspaceIndex } from "./fs/workspaceIndex";
 import { FileWatcherManager } from "./fs/watcher";
 import { registerGitHandlers } from "./git/handlers";
 import { getGitWatchPaths } from "./git/git";
@@ -227,6 +228,7 @@ const fileWatcherManager = new FileWatcherManager({
     await stopAllLanguageServers();
   },
   notifyLanguageServersOfFileChange,
+  invalidateWorkspaceIndex,
 });
 const updateManager = new UpdateManager({
   sendToRenderer,

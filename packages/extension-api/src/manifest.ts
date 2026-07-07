@@ -11,6 +11,7 @@ export type ExtensionKind =
   | "view"
   | "agent"
   | "terminal"
+  | "debugger"
   | "mixed";
 
 export type ExtensionActivationEvent =
@@ -65,6 +66,7 @@ export interface ExtensionContributions {
   terminalProfiles?: ExtensionTerminalProfileContribution[];
   taskProviders?: ExtensionTaskProviderContribution[];
   debuggerProviders?: ExtensionDebuggerProviderContribution[];
+  workspaceIndexProviders?: ExtensionWorkspaceIndexProviderContribution[];
   languagePacks?: ExtensionLanguagePackContribution[];
 }
 
@@ -138,6 +140,14 @@ export interface ExtensionDebuggerProviderContribution {
   label: string;
   languages?: string[];
   configurationAttributes?: Record<string, unknown>;
+}
+
+export interface ExtensionWorkspaceIndexProviderContribution {
+  id: string;
+  label: string;
+  languages?: string[];
+  filePatterns?: string[];
+  activationEvent?: `onWorkspaceContains:${string}`;
 }
 
 export interface ExtensionLanguagePackContribution {

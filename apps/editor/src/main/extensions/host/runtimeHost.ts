@@ -22,6 +22,8 @@ interface RuntimeExtensionRecord {
   commands: string[];
   views: string[];
   terminalProfiles: string[];
+  debuggerProviders: string[];
+  workspaceIndexProviders: string[];
   errors: string[];
   subscriptions: Disposable[];
   module?: AxonExtensionModule;
@@ -41,6 +43,8 @@ function getRuntimeRecord(extensionId: string) {
     commands: [],
     views: [],
     terminalProfiles: [],
+    debuggerProviders: [],
+    workspaceIndexProviders: [],
     errors: [],
     subscriptions: [],
   };
@@ -141,6 +145,40 @@ function createExtensionApi(record: RuntimeExtensionRecord): AxonExtensionApi {
         });
       },
     },
+    debug: {
+      registerDebugProvider(debugType) {
+        if (!record.debuggerProviders.includes(debugType)) {
+          record.debuggerProviders.push(debugType);
+        }
+
+        // Debug providers are still a contract surface in this pass, not a full
+        // adapter runner. Tracking the provider here is still important because
+        // it lets activation diagnostics prove which extension owns a debug type
+        // before Axon starts launching adapters in a later isolated process.
+        return createDisposable(() => {
+          record.debuggerProviders = record.debuggerProviders.filter(
+            (type) => type !== debugType,
+          );
+        });
+      },
+    },
+    workspace: {
+      registerWorkspaceIndexProvider(providerId) {
+        if (!record.workspaceIndexProviders.includes(providerId)) {
+          record.workspaceIndexProviders.push(providerId);
+        }
+
+        // Workspace indexing can become very expensive if stale providers remain
+        // registered after reloads. The disposable keeps this first provider
+        // registry honest even before providers are allowed to execute indexing
+        // work in their own sandbox.
+        return createDisposable(() => {
+          record.workspaceIndexProviders = record.workspaceIndexProviders.filter(
+            (id) => id !== providerId,
+          );
+        });
+      },
+    },
   };
 }
 
@@ -168,6 +206,11 @@ export async function activateRuntimeExtension(
   if (record.activated) return;
 
   try {
+    if (extension.source !== "internal") {
+      throw new Error(
+        "Executable user and workspace extensions require the isolated process host before activation.",
+      );
+    }
     if (!extension.main) {
       throw new Error("Executable extension is missing a main entry.");
     }
@@ -242,6 +285,8 @@ export async function deactivateRuntimeExtension(extensionId: string) {
     commands: [],
     views: [],
     terminalProfiles: [],
+    debuggerProviders: [],
+    workspaceIndexProviders: [],
     errors: [...record.errors, ...errors],
     subscriptions: [],
   });
@@ -268,6 +313,8 @@ export function getRuntimeDiagnostics(extension: ExtensionInfo) {
       commands: [] as string[],
       views: [] as string[],
       terminalProfiles: [] as string[],
+      debuggerProviders: [] as string[],
+      workspaceIndexProviders: [] as string[],
       errors: [] as string[],
     };
   }
@@ -278,6 +325,8 @@ export function getRuntimeDiagnostics(extension: ExtensionInfo) {
     commands: [...record.commands],
     views: [...record.views],
     terminalProfiles: [...record.terminalProfiles],
+    debuggerProviders: [...record.debuggerProviders],
+    workspaceIndexProviders: [...record.workspaceIndexProviders],
     errors: [...record.errors],
   };
 }

@@ -88,6 +88,7 @@ import {
   type HtmlPreviewActionResult,
   type HtmlPreviewConsoleEvent,
 } from "../shared/htmlPreview";
+import { type WorkspaceIndexSummary } from "../shared/workspaceIndex";
 import {
   type ExtensionActionResult,
   type ExtensionCommandExecutionResult,
@@ -474,6 +475,8 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath: string,
   ): Promise<Array<{ name: string; path: string; is_dir: false }>> =>
     ipcRenderer.invoke("fs:listProjectFiles", folderPath),
+  getWorkspaceIndex: (folderPath: string): Promise<WorkspaceIndexSummary | null> =>
+    ipcRenderer.invoke("fs:getWorkspaceIndex", folderPath),
 
   onFileChanged: (
     callback: (data: { path: string; content: string }) => void,

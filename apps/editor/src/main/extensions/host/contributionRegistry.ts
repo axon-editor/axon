@@ -45,6 +45,7 @@ export function createExtensionContributionRegistry(
     terminalProfiles: [],
     taskProviders: [],
     debuggerProviders: [],
+    workspaceIndexProviders: [],
     languagePacks: [],
   };
 
@@ -93,6 +94,12 @@ export function createExtensionContributionRegistry(
       "debuggerProviders",
       extension,
       contributes.debuggerProviders,
+    );
+    pushContributions(
+      registry,
+      "workspaceIndexProviders",
+      extension,
+      contributes.workspaceIndexProviders,
     );
     pushContributions(
       registry,

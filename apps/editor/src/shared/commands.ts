@@ -19,6 +19,7 @@ export const AXON_COMMANDS = {
   OPEN_SPOTIFY: "open-spotify",
   OPEN_TASK_RUNNER: "open-task-runner",
   OPEN_TEST_EXPLORER: "open-test-explorer",
+  OPEN_DEBUGGER: "open-debugger",
   OPEN_FILE_OUTLINE: "open-file-outline",
   OPEN_LANGUAGE_TOOLS: "open-language-tools",
   INSPECT_EDITOR_TOKEN: "inspect-editor-token",

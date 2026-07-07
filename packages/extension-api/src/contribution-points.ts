@@ -16,6 +16,7 @@ export const AXON_CONTRIBUTION_POINTS = {
   terminalProfiles: "terminalProfiles",
   taskProviders: "taskProviders",
   debuggerProviders: "debuggerProviders",
+  workspaceIndexProviders: "workspaceIndexProviders",
   languagePacks: "languagePacks",
 } as const;
 
