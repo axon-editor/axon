@@ -2,6 +2,36 @@
 
 ## Next
 
+## v1.2.8
+
+- Added a packaged-build Git decoration heartbeat so modified files continue to
+  repaint in the sidebar even when native filesystem `change` events are missed
+  by the installed Electron app.
+- Stabilized terminal link handling by routing confirmed OSC/link clicks through
+  Axon's opener path and removing the xterm canvas renderer path that crashed
+  during workspace switches.
+- Fixed workspace handoff from `axon .` so terminal-launched folders do not
+  reopen a previously closed workspace before settling on the requested path.
+- Added empty-pane drag-and-drop import for external files and media, keeping
+  dropped content on the same validation/import path used by the rest of Axon.
+- Added debugger and workspace-index extension contracts so the next extension
+  host slices have typed contribution points instead of ad hoc workbench hooks.
+- Pipelined terminal renderer output so xterm writes are scheduled more
+  predictably without blocking the whole stream on every chunk.
+- Added richer syntax maps across the remaining built-in themes, including
+  Anysphere, Apathy, Arctikai, Axon, Catppuccin, Solarized, and Zed.
+- Reduced stale main-process workspace work and coordinated workspace service
+  hydration so switching projects does less outdated indexing, watching, and
+  service startup work.
+- Fixed dev asset loading and workspace hydration regressions that made local
+  workspace switches feel slower or less deterministic.
+- Stabilized YAML token coloring and added CI checks for the main Electron
+  process so push-time validation catches missing generated config and
+  TypeScript errors earlier.
+- Added GitHub Actions validation on every push.
+- Corrected packaged workspace handoff refresh behavior so packaged launches
+  and CLI opens keep the requested folder as the source of truth.
+
 ## v1.2.7
 
 - Finished the next extension-host slice with built-in activation, command

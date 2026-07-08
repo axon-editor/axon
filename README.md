@@ -259,7 +259,7 @@ More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history and
-[docs/releases/v1.2.7.md](docs/releases/v1.2.7.md) for the latest release
+[docs/releases/v1.2.8.md](docs/releases/v1.2.8.md) for the latest release
 notes.
 
 ## Roadmap
