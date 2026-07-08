@@ -146,8 +146,14 @@ export default function PaneInstance({
     return types.includes(FILE_TREE_DRAG_TYPE) || types.includes("text/plain");
   };
 
+  const hasExternalFilePayload = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer.types).includes("Files");
+
+  const hasPaneDropPayload = (event: React.DragEvent) =>
+    hasFileTreePayload(event) || hasExternalFilePayload(event);
+
   const handleNativeDragEnter = (event: React.DragEvent) => {
-    if (!hasFileTreePayload(event)) return;
+    if (!hasPaneDropPayload(event)) return;
     event.preventDefault();
     event.stopPropagation();
     nativeDragDepth.current++;
@@ -155,7 +161,7 @@ export default function PaneInstance({
   };
 
   const handleNativeDragOver = (event: React.DragEvent) => {
-    if (!hasFileTreePayload(event)) return;
+    if (!hasPaneDropPayload(event)) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = "copy";
@@ -163,18 +169,42 @@ export default function PaneInstance({
   };
 
   const handleNativeDragLeave = (event: React.DragEvent) => {
-    if (!hasFileTreePayload(event)) return;
+    if (!hasPaneDropPayload(event)) return;
     event.stopPropagation();
     nativeDragDepth.current = Math.max(0, nativeDragDepth.current - 1);
     if (nativeDragDepth.current === 0) setFileDragOver(false);
   };
 
   const handleNativeDrop = (event: React.DragEvent) => {
-    if (!hasFileTreePayload(event)) return;
+    if (!hasPaneDropPayload(event)) return;
     event.preventDefault();
     event.stopPropagation();
     nativeDragDepth.current = 0;
     setFileDragOver(false);
+
+    const externalPaths = window.axon.getDroppedFilePaths(
+      Array.from(event.dataTransfer.files),
+    );
+    if (externalPaths.length > 0) {
+      if (!folderPath) return;
+
+      // External pane drops are imports into the current workspace, not direct
+      // editor reads from an arbitrary filesystem location. The main-process
+      // import endpoint validates the target directory, rejects overwrites, and
+      // copies with exclusive creation before Axon opens the imported file.
+      void window.axon
+        .importExternalEntries(externalPaths, folderPath)
+        .then((importedEntries) => {
+          const firstImportedFile = importedEntries.find((entry) => !entry.isDir);
+          if (!firstImportedFile) return;
+          onSelectFile(firstImportedFile.targetPath);
+          onActivate();
+        })
+        .catch((err) => {
+          console.error("pane external drop import failed:", err);
+        });
+      return;
+    }
 
     const payload = getFileTreePayload(event);
 

@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { app, clipboard, ipcMain, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
 import {
   type AgentResumeRequest,
   type CliToolInstallResult,
@@ -184,6 +184,12 @@ export function registerAppHandlers({
   ipcMain.handle("app:consumeCliOpenFolder", () =>
     consumePendingCliOpenFolder(),
   );
+
+  ipcMain.handle("app:openDevTools", (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window || window.webContents.isDestroyed()) return;
+    window.webContents.openDevTools({ mode: "detach" });
+  });
 
   ipcMain.handle("shell:openExternal", async (_event, href: string) => {
     if (!isExternalHandlerUrl(href)) {

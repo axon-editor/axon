@@ -45,6 +45,27 @@ export default function FolderPicker({
     });
   };
 
+  const selectFolderAfterClose = (path: string) => {
+    onClose();
+
+    // Selecting a recent/root workspace replaces large parts of the renderer:
+    // file tree, editor layout, LSP state, terminal working directory, and
+    // project-scoped modals. Starting that transition while this picker is
+    // still mounted can leave React reconciling a closing modal against the old
+    // workspace tree. Closing first gives the modal a clean teardown boundary,
+    // then the next frame starts the heavier workspace switch.
+    window.requestAnimationFrame(() => {
+      onSelect(path);
+    });
+  };
+
+  const selectWorkspaceRootAfterClose = (path: string) => {
+    onClose();
+    window.requestAnimationFrame(() => {
+      onSelectWorkspaceRoot?.(path);
+    });
+  };
+
   return (
     <CommandModal
       title="open folder"
@@ -80,10 +101,7 @@ export default function FolderPicker({
                 <button
                   key={root.id}
                   type="button"
-                  onClick={() => {
-                    onSelectWorkspaceRoot?.(root.path);
-                    onClose();
-                  }}
+                  onClick={() => selectWorkspaceRootAfterClose(root.path)}
                   className={`flex w-full min-w-0 cursor-pointer items-center gap-3 rounded px-3 py-2 text-left transition-colors ${
                     active
                       ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
@@ -136,10 +154,7 @@ export default function FolderPicker({
                 >
                   <button
                     type="button"
-                    onClick={() => {
-                      onSelect(folder);
-                      onClose();
-                    }}
+                    onClick={() => selectFolderAfterClose(folder)}
                     className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-2 py-2 text-left"
                   >
                     <FolderOpen

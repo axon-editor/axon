@@ -4,8 +4,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Terminal as XTerm } from "@xterm/xterm";
-import { CanvasAddon } from "@xterm/addon-canvas";
+import { Terminal as XTerm, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { TERMINAL_PROTOCOL } from "@axon/protocol";
@@ -79,6 +78,14 @@ export function useTerminalSessionManager({
   const suppressAutoCreateRef = useRef(false);
   const previousOpenRef = useRef(open);
   const previousWorkingDirectoryRef = useRef(workingDirectory);
+
+  const openTerminalLink = useCallback((event: MouseEvent, uri: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void window.axon.openExternalLink(uri).catch((err) => {
+      console.error("failed to open terminal link:", err);
+    });
+  }, []);
 
   const sendResize = useCallback((id: string) => {
     const session = sessionsRef.current[id];
@@ -227,7 +234,11 @@ export function useTerminalSessionManager({
     } else if (session && terminate) {
       terminateDetachedSession(session.workingDirectory, id);
     }
-    session?.term?.dispose();
+    try {
+      session?.term?.dispose();
+    } catch (err) {
+      console.error("failed to dispose terminal session cleanly:", err);
+    }
     delete sessionsRef.current[id];
   }, []);
 
@@ -486,6 +497,13 @@ export function useTerminalSessionManager({
         cursorBlink: true,
         cursorStyle: "block",
         ignoreBracketedPasteMode: false,
+        linkHandler: {
+          activate: (
+            event: MouseEvent,
+            uri: string,
+            _range: IBufferRange,
+          ) => openTerminalLink(event, uri),
+        },
         // Long-running local agents can produce far more output than a normal
         // shell session. Core protects reconnect replay by byte offset, while
         // xterm keeps the visible scrollback the user can inspect after a run.
@@ -494,26 +512,8 @@ export function useTerminalSessionManager({
         scrollback: TERMINAL_SCROLLBACK_LINES,
       });
       const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon((event, uri) => {
-        event.preventDefault();
-        event.stopPropagation();
-        void window.axon.openExternalLink(uri).catch((err) => {
-          console.error("failed to open terminal link:", err);
-        });
-      });
+      const webLinksAddon = new WebLinksAddon(openTerminalLink);
 
-      try {
-        // The terminal output-eating fix is primarily the explicit repaint path
-        // in terminalSessionIo.ts, but the DOM row renderer is also the weakest
-        // renderer under very chatty agent output. Canvas paints from xterm's
-        // buffer state instead of patching many individual DOM rows, so I try
-        // it as a resilience layer and fall back to xterm's default renderer if
-        // the addon cannot activate on the installed xterm major.
-        const canvasAddon = new CanvasAddon();
-        term.loadAddon(canvasAddon);
-      } catch (err) {
-        console.warn("failed to activate terminal canvas renderer:", err);
-      }
       term.loadAddon(fitAddon);
       term.loadAddon(webLinksAddon);
       term.open(container);
@@ -586,7 +586,7 @@ export function useTerminalSessionManager({
       });
       session.resizeObserver.observe(container);
     },
-    [connectSession, sendResize, terminalOptions],
+    [connectSession, openTerminalLink, sendResize, terminalOptions],
   );
 
   const resizeActiveTerminal = useCallback(() => {

@@ -304,6 +304,7 @@ declare global {
       ) => Promise<ExtensionActionResult>;
       shouldRestoreSession: () => Promise<boolean>;
       consumeCliOpenFolder: () => Promise<string | null>;
+      openDevTools: () => Promise<void>;
       checkForUpdates: () => Promise<UpdateInfo>;
       getUpdateInstallState: () => Promise<UpdateInstallState>;
       downloadUpdate: () => Promise<UpdateActionResult>;

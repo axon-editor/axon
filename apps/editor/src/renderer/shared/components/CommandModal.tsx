@@ -93,7 +93,9 @@ export default function CommandModal({
     );
 
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) requestClose();
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (ref.current && !ref.current.contains(target)) requestClose();
     };
     const keyHandler = (e: KeyboardEvent) => {
       if (e.key === "Escape") requestClose();

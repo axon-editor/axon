@@ -21,6 +21,7 @@ import {
   Download,
   Blocks,
   Info,
+  Bug,
 } from "lucide-react";
 import Tooltip from "../../shared/components/Tooltip";
 import { type UpdateInfo, type UpdateInstallState } from "../../../shared/updates";
@@ -330,6 +331,16 @@ export default function EditorToolbar({
             >
               <Info size={13} className="shrink-0" />
               about Axon
+            </button>
+            <button
+              onClick={() => {
+                setDropdown(null);
+                void window.axon.openDevTools();
+              }}
+              className={toolbarMenuItem}
+            >
+              <Bug size={13} className="shrink-0" />
+              inspect console
             </button>
             {updateInfo?.updateAvailable ? (
               <>

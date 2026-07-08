@@ -18,19 +18,30 @@ export default function TokenInspectorModal({
 }: TokenInspectorModalProps) {
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
   const fileName = report.filePath.split(/[\\/]/).pop() ?? report.filePath;
 
   useEffect(() => {
     return () => {
-      if (copiedTimerRef.current) window.clearTimeout(copiedTimerRef.current);
+      mountedRef.current = false;
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = null;
+      }
     };
   }, []);
 
   const copyReport = () => {
     void navigator.clipboard.writeText(JSON.stringify(report, null, 2)).then(() => {
+      if (!mountedRef.current) return;
       setCopied(true);
-      if (copiedTimerRef.current) window.clearTimeout(copiedTimerRef.current);
-      copiedTimerRef.current = window.setTimeout(() => setCopied(false), 1400);
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+      }
+      copiedTimerRef.current = window.setTimeout(() => {
+        copiedTimerRef.current = null;
+        if (mountedRef.current) setCopied(false);
+      }, 1400);
     });
   };
 

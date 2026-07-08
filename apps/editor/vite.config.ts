@@ -166,12 +166,6 @@ export default defineConfig({
         "dist",
         "index.js",
       ),
-      "@xterm/addon-canvas": dependencyPath(
-        "@xterm",
-        "addon-canvas",
-        "lib",
-        "addon-canvas.js",
-      ),
       "@xterm/addon-fit": dependencyPath(
         "@xterm",
         "addon-fit",
