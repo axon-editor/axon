@@ -22,6 +22,7 @@ export class FileWatcherManager {
   private activeFileDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private gitHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private folderWatchGeneration = 0;
 
   constructor(private readonly deps: FileWatcherDependencies) {}
@@ -95,6 +96,10 @@ export class FileWatcherManager {
     if (this.gitDebounceTimer) {
       clearTimeout(this.gitDebounceTimer);
       this.gitDebounceTimer = null;
+    }
+    if (this.gitHeartbeatTimer) {
+      clearInterval(this.gitHeartbeatTimer);
+      this.gitHeartbeatTimer = null;
     }
     if (!this.gitWatcher) return;
     await this.gitWatcher.close();
@@ -248,6 +253,17 @@ export class FileWatcherManager {
         this.gitWatcher.on("unlink", notifyGit);
         this.gitWatcher.on("addDir", notifyGit);
         this.gitWatcher.on("unlinkDir", notifyGit);
+
+        // Packaged Electron builds can miss native `change` events for edited
+        // files on some filesystem/OS combinations even when `add` events still
+        // work. That is the exact failure mode where new files turn green but
+        // modified files do not repaint. I keep this heartbeat Git-only instead
+        // of enabling full workspace polling so sidebar decorations stay fresh
+        // without making the file tree or language-server watcher expensive.
+        this.gitHeartbeatTimer = setInterval(() => {
+          if (generation !== this.folderWatchGeneration) return;
+          this.deps.sendToRenderer("git:changed", { folderPath });
+        }, 2500);
       }
     } catch (err) {
       // If git path discovery or watcher setup fails halfway through, the app
