@@ -30,7 +30,7 @@ example-extension/
   "kind": "theme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GordenArcher/axon/tree/main/example-extension"
+    "url": "https://github.com/axon-editor/axon/tree/main/example-extension"
   },
   "activationEvents": ["onStartup"],
   "contributes": {
