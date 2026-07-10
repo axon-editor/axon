@@ -46,10 +46,10 @@ function routeExternalNavigation(window: BrowserWindow) {
 
   window.webContents.on("will-navigate", (event, targetUrl) => {
     if (!targetUrl || targetUrl === window.webContents.getURL()) return;
-    if (!isExternalHandlerUrl(targetUrl)) return;
-
     event.preventDefault();
-    void shell.openExternal(targetUrl);
+    if (isExternalHandlerUrl(targetUrl)) {
+      void shell.openExternal(targetUrl);
+    }
   });
 }
 
@@ -111,6 +111,7 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
             preload: path.join(__dirname, "../../preload/index.js"),
             contextIsolation: true,
             nodeIntegration: false,
+            sandbox: true,
           },
         });
 

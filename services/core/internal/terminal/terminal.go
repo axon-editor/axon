@@ -22,9 +22,19 @@ import (
 )
 
 // upgrader configures the WebSocket upgrader.
-// CheckOrigin allows all origins since axon-core only runs locally.
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		// Authentication and origin checks defend different boundaries. The HTTP
+		// middleware verifies the per-launch secret before this code runs, while
+		// this allow-list prevents an unrelated browser page from driving the shell
+		// if a token is ever copied into a URL or exposed by a renderer defect.
+		switch r.Header.Get("Origin") {
+		case "", "null", "file://", "http://127.0.0.1:5173", "http://localhost:5173":
+			return true
+		default:
+			return false
+		}
+	},
 }
 
 type terminalControlMessage struct {
@@ -62,6 +72,7 @@ type terminalClient struct {
 	acknowledgedOffset int64
 	mu                 sync.Mutex
 	closeOnce          sync.Once
+	drainCloseOnce     sync.Once
 }
 
 type terminalHealthSnapshot struct {
@@ -166,6 +177,12 @@ func createSession(id string, cwd string) (*terminalSession, error) {
 		buf := make([]byte, 32*1024)
 		for {
 			n, err := ptmx.Read(buf)
+			if n > 0 {
+				// Readers may legally return bytes and EOF together. Broadcasting the
+				// bytes first preserves the final command or agent output instead of
+				// dropping the tail just because the shell exited in the same read.
+				session.broadcast(buf[:n])
+			}
 			if err != nil {
 				if err != io.EOF {
 					log.Println("pty read error:", err)
@@ -173,7 +190,6 @@ func createSession(id string, cwd string) (*terminalSession, error) {
 				session.finish()
 				return
 			}
-			session.broadcast(buf[:n])
 		}
 	}()
 
@@ -322,6 +338,26 @@ func (client *terminalClient) acknowledge(offset int64) {
 	client.mu.Unlock()
 }
 
+func (session *terminalSession) acknowledge(client *terminalClient, offset int64) {
+	if client == nil || offset < 0 {
+		return
+	}
+
+	// The renderer reports a cumulative byte cursor, but core owns the real
+	// stream bounds. Clamping here prevents a stale or malformed acknowledgement
+	// from jumping past bytes the PTY produced and allowing a later trim to erase
+	// output xterm never committed.
+	session.mu.Lock()
+	if offset < session.baseOffset {
+		offset = session.baseOffset
+	}
+	if offset > session.totalBytes {
+		offset = session.totalBytes
+	}
+	client.acknowledge(offset)
+	session.mu.Unlock()
+}
+
 func (client *terminalClient) acknowledged() int64 {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -345,6 +381,39 @@ func (client *terminalClient) close() {
 		if client.ws != nil {
 			_ = client.ws.Close()
 		}
+	})
+}
+
+func (client *terminalClient) closeAfterDrain() {
+	client.drainCloseOnce.Do(func() {
+		go func() {
+			deadline := time.Now().Add(websocketWriteWait)
+			ticker := time.NewTicker(5 * time.Millisecond)
+			defer ticker.Stop()
+
+			for {
+				client.mu.Lock()
+				pendingBytes := client.pendingBytes
+				client.mu.Unlock()
+				if pendingBytes == 0 || time.Now().After(deadline) {
+					// PTY EOF can arrive while the WebSocket writer still owns the final
+					// result frames. I send the close control only after those frames have
+					// drained so a successful shell exit cannot eat the output tail.
+					_ = client.ws.WriteControl(
+						websocket.CloseMessage,
+						websocket.FormatCloseMessage(websocket.CloseNormalClosure, "terminal exited"),
+						time.Now().Add(websocketWriteWait),
+					)
+					client.close()
+					return
+				}
+				select {
+				case <-client.done:
+					return
+				case <-ticker.C:
+				}
+			}
+		}()
 	})
 }
 
@@ -563,7 +632,7 @@ func (session *terminalSession) finish() {
 	}
 	_ = session.cmd.Wait()
 	for _, client := range clients {
-		client.close()
+		client.closeAfterDrain()
 	}
 }
 
@@ -581,9 +650,7 @@ func handleControlMessage(session *terminalSession, client *terminalClient, data
 		session.terminate()
 		return true, true
 	case "ack":
-		if client != nil {
-			client.acknowledge(msg.Offset)
-		}
+		session.acknowledge(client, msg.Offset)
 		return true, false
 	default:
 		return false, false
@@ -611,6 +678,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer ws.Close()
+	// Terminal input consists of keystrokes, paste payloads, and small JSON
+	// controls. A bounded read protects the core process from a compromised
+	// renderer allocating an arbitrarily large WebSocket message.
+	ws.SetReadLimit(1 << 20)
 	_ = ws.SetReadDeadline(time.Now().Add(websocketPongWait))
 	ws.SetPongHandler(func(string) error {
 		return ws.SetReadDeadline(time.Now().Add(websocketPongWait))

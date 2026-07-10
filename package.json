@@ -2,6 +2,11 @@
   "name": "axon-workspace",
   "version": "1.2.8",
   "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22 <23",
+    "npm": ">=10"
+  },
   "workspaces": [
     "apps/editor",
     "packages/*"
@@ -16,6 +21,8 @@
     "build:config": "npm --workspace @axon/config run build",
     "build:editor-main": "npm --workspace axon run build:main",
     "build:editor-renderer": "npm --workspace axon run build:renderer",
+    "lint": "eslint apps/editor/src extensions/builtin --config eslint.config.mjs",
+    "test": "npm --workspace axon test && go -C services/core test ./...",
     "check:line-count": "node tools/check-file-lines.mjs"
   }
 }

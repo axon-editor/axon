@@ -19,3 +19,8 @@ export interface AgentResumeRequest {
   folderPath: string;
   conversationId: string | null;
 }
+
+export interface CoreConnection {
+  httpUrl: string;
+  token: string;
+}

@@ -1,6 +1,9 @@
 import { readSettingsForFolder } from "../settings/io";
 
-export async function warmUpAiRuntime(input: { axonCorePort: string }) {
+export async function warmUpAiRuntime(input: {
+  axonCorePort: string;
+  axonCoreToken: string;
+}) {
   const settings = await readSettingsForFolder(null);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 7000);
@@ -8,7 +11,10 @@ export async function warmUpAiRuntime(input: { axonCorePort: string }) {
   try {
     await fetch(
       `http://127.0.0.1:${input.axonCorePort}/ai/runtime?model=${encodeURIComponent(settings.ai.model)}`,
-      { signal: controller.signal },
+      {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${input.axonCoreToken}` },
+      },
     );
   } catch (err) {
     // AI warmup must never block the editor from opening. The Ask Axon panel

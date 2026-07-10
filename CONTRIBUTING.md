@@ -61,6 +61,8 @@ Useful commands:
 npm run build:packages
 npm run build:editor-main
 npm run build:editor-renderer
+npm run lint
+npm test
 npm --workspace axon run build
 npm --workspace axon run dist:mac
 npm --workspace axon run dist:win
@@ -82,8 +84,10 @@ you ran in the PR.
 - Shared package changes: `npm run build:packages`
 - Electron main/preload changes: `npm run build:editor-main`
 - Renderer/editor changes: `npm run build:editor-renderer`
+- TypeScript/React changes: `npm run lint` and `npm --workspace axon test`
 - Full app packaging logic: `npm --workspace axon run build`
-- Core service or terminal backend changes: `go test ./...` from `services/core`
+- Core service or terminal backend changes: `go test -race ./...` and
+  `go vet ./...` from `services/core`
 - File-size enforcement: `npm run check:line-count`
 
 CI runs package validation, editor build checks, and Go tests on push. Do not

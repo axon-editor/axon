@@ -85,12 +85,12 @@ export function getFolderName(path: string | null) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? "terminal";
 }
 
-export function getTerminalBackendUrl(
+export async function getTerminalBackendUrl(
   workingDirectory: string | null,
   sessionId: string,
   replayFrom = 0,
 ) {
-  const backendUrl = getCoreWebSocketUrl(TERMINAL_PROTOCOL.endpoint);
+  const backendUrl = await getCoreWebSocketUrl(TERMINAL_PROTOCOL.endpoint);
   backendUrl.searchParams.set(TERMINAL_PROTOCOL.query.sessionId, sessionId);
   backendUrl.searchParams.set(
     TERMINAL_PROTOCOL.query.replayFrom,

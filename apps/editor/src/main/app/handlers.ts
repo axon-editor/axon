@@ -8,6 +8,7 @@ import {
   type AgentResumeRequest,
   type CliToolInstallResult,
   type CliToolStatus,
+  type CoreConnection,
 } from "../../shared/app";
 import {
   consumePendingAgentResumeRequest,
@@ -19,6 +20,7 @@ interface AppHandlerDependencies {
   isExternalHandlerUrl: (href: string) => boolean;
   consumePendingCliOpenFolder: () => string | null;
   isDev: boolean;
+  coreConnection: CoreConnection;
 }
 
 const execFileAsync = promisify(execFile);
@@ -165,7 +167,10 @@ export function registerAppHandlers({
   isExternalHandlerUrl,
   consumePendingCliOpenFolder,
   isDev,
+  coreConnection,
 }: AppHandlerDependencies) {
+
+  ipcMain.handle("core:getConnection", (): CoreConnection => coreConnection);
   ipcMain.handle("app:getInfo", async () => {
     return {
       name: "Axon",

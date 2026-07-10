@@ -3,6 +3,7 @@ import type {
   AgentResumeRequest,
   CliToolInstallResult,
   CliToolStatus,
+  CoreConnection,
 } from "../../shared/app";
 import type { EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import type {
@@ -106,6 +107,7 @@ declare global {
     axonEditorSettings?: AxonSettings;
     axon: {
       platform: string;
+      getCoreConnection: () => Promise<CoreConnection>;
       openFolder: () => Promise<string | null>;
       getCliToolStatus: () => Promise<CliToolStatus>;
       installCliTool: () => Promise<CliToolInstallResult>;

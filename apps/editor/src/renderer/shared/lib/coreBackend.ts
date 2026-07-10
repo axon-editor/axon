@@ -1,15 +1,35 @@
-const DEFAULT_CORE_HTTP_URL = "http://127.0.0.1:7777";
+import type { CoreConnection } from "../../../shared/app";
 
-export const CORE_HTTP_URL =
-  import.meta.env.VITE_AXON_CORE_URL?.replace(/\/$/, "") ??
-  DEFAULT_CORE_HTTP_URL;
+let coreConnectionPromise: Promise<CoreConnection> | null = null;
 
-export function getCoreWebSocketUrl(path: string) {
-  const baseUrl = new URL(CORE_HTTP_URL);
+export function getCoreConnection() {
+  if (!coreConnectionPromise) {
+    // The token is intentionally obtained through preload instead of Vite
+    // configuration or renderer globals. Build-time values end up in packaged
+    // JavaScript, while this value must be fresh for every Axon process.
+    coreConnectionPromise = window.axon.getCoreConnection();
+  }
+  return coreConnectionPromise;
+}
+
+export async function authenticatedCoreFetch(
+  path: string,
+  options: RequestInit = {},
+) {
+  const connection = await getCoreConnection();
+  const headers = new Headers(options.headers);
+  headers.set("Authorization", `Bearer ${connection.token}`);
+  return fetch(`${connection.httpUrl}${path}`, { ...options, headers });
+}
+
+export async function getCoreWebSocketUrl(path: string) {
+  const connection = await getCoreConnection();
+  const baseUrl = new URL(connection.httpUrl);
   baseUrl.protocol = baseUrl.protocol === "https:" ? "wss:" : "ws:";
   baseUrl.pathname = path.startsWith("/") ? path : `/${path}`;
   baseUrl.search = "";
   baseUrl.hash = "";
+  baseUrl.searchParams.set("access_token", connection.token);
   return baseUrl;
 }
 
@@ -21,14 +41,12 @@ export async function waitForCoreBackend(
     if (signal?.aborted) return false;
 
     try {
-      const response = await fetch(`${CORE_HTTP_URL}/health`, { signal });
+      const response = await authenticatedCoreFetch("/health", { signal });
       if (response.ok) return true;
     } catch {
-      // The Electron shell can mount the renderer before the packaged Go core
-      // finishes listening, and development launches can start before the user
-      // restarts `go run`. Retrying here prevents terminal tabs from dying on
-      // a normal startup race while still returning a clear failure when the
-      // backend is genuinely unavailable.
+      // Electron mounts the renderer before packaged core is necessarily ready.
+      // Retrying here keeps startup asynchronous while authentication ensures an
+      // unrelated process on the same port can never be mistaken for Axon Core.
     }
 
     await new Promise((resolve) => window.setTimeout(resolve, 250));

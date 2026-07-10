@@ -1,4 +1,4 @@
-import { Terminal as XTerm } from "@xterm/xterm";
+import type { Terminal as XTerm } from "@xterm/xterm";
 import {
   MAX_RECONNECT_INPUT_BYTES,
   TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
@@ -278,11 +278,13 @@ export function isVisibleTerminalContainer(container: HTMLDivElement | null) {
   return rect.width > 0 && rect.height > 0;
 }
 
-export function terminateDetachedSession(
+export async function terminateDetachedSession(
   workingDirectory: string | null,
   sessionId: string,
 ) {
-  const ws = new WebSocket(getTerminalBackendUrl(workingDirectory, sessionId));
+  const ws = new WebSocket(
+    await getTerminalBackendUrl(workingDirectory, sessionId),
+  );
   ws.binaryType = "arraybuffer";
   const closeTimer = window.setTimeout(() => ws.close(), 1500);
 

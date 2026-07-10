@@ -249,6 +249,39 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist/renderer"),
     emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "monaco",
+              test: /node_modules[\\/]monaco-editor/,
+              priority: 30,
+            },
+            {
+              name: "syntax",
+              test: /node_modules[\\/](shiki|@shikijs|vscode-textmate|vscode-oniguruma)/,
+              priority: 25,
+            },
+            {
+              name: "terminal",
+              test: /node_modules[\\/]@xterm/,
+              priority: 20,
+            },
+            {
+              name: "markdown",
+              test: /node_modules[\\/](react-markdown|remark-|rehype-|unified|micromark)/,
+              priority: 20,
+            },
+            {
+              name: "react",
+              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              priority: 15,
+            },
+          ],
+        },
+      },
+    },
   },
   define: {
     "process.env.SPOTIFY_CLIENT_ID": JSON.stringify(

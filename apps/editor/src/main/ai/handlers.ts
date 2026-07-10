@@ -34,10 +34,12 @@ function coreErrorMessage(json: CoreResponse<unknown>, fallback: string) {
 
 async function listCoreAiModels(input: {
   axonCorePort: string;
+  axonCoreToken: string;
   model: string;
 }): Promise<AiModelInfo[]> {
   const response = await fetch(
     `http://127.0.0.1:${input.axonCorePort}/ai/models?model=${encodeURIComponent(input.model)}`,
+    { headers: { Authorization: `Bearer ${input.axonCoreToken}` } },
   );
   const json = (await response.json()) as CoreResponse<AiModelInfo[]>;
   if (!response.ok || json.status !== "success") {
@@ -48,10 +50,12 @@ async function listCoreAiModels(input: {
 
 async function getCoreAiRuntimeStatus(input: {
   axonCorePort: string;
+  axonCoreToken: string;
   model: string;
 }): Promise<AiRuntimeStatus> {
   const response = await fetch(
     `http://127.0.0.1:${input.axonCorePort}/ai/runtime?model=${encodeURIComponent(input.model)}`,
+    { headers: { Authorization: `Bearer ${input.axonCoreToken}` } },
   );
   const json = (await response.json()) as CoreResponse<AiRuntimeStatus>;
   if (!response.ok || json.status !== "success" || !json.data) {
@@ -62,10 +66,12 @@ async function getCoreAiRuntimeStatus(input: {
 
 async function getCoreAiProjectContext(input: {
   axonCorePort: string;
+  axonCoreToken: string;
   folderPath: string;
 }): Promise<AiProjectContext> {
   const response = await fetch(
     `http://127.0.0.1:${input.axonCorePort}/ai/project-context?root=${encodeURIComponent(input.folderPath)}`,
+    { headers: { Authorization: `Bearer ${input.axonCoreToken}` } },
   );
   const json = (await response.json()) as CoreResponse<AiProjectContext>;
   if (!response.ok || json.status !== "success" || !json.data) {
@@ -74,13 +80,17 @@ async function getCoreAiProjectContext(input: {
   return json.data;
 }
 
-export function registerAiHandlers(deps: { axonCorePort: string }) {
+export function registerAiHandlers(deps: {
+  axonCorePort: string;
+  axonCoreToken: string;
+}) {
   ipcMain.handle(
     "ai:getRuntimeStatus",
     async (_event, folderPath?: string | null): Promise<AiRuntimeStatus> => {
       const settings = await readSettingsForFolder(folderPath);
       return getCoreAiRuntimeStatus({
         axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
         model: settings.ai.model,
       });
     },
@@ -92,6 +102,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
       const settings = await readSettingsForFolder(folderPath);
       return listCoreAiModels({
         axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
         model: settings.ai.model,
       });
     },
@@ -102,6 +113,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
     async (_event, folderPath: string): Promise<AiProjectContext> => {
       return getCoreAiProjectContext({
         axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
         folderPath,
       });
     },
@@ -133,6 +145,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
 
       return startCoreAiStream({
         axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
         request: {
           ...request,
           model: request.model?.trim() || settings.ai.model,
@@ -163,6 +176,7 @@ export function registerAiHandlers(deps: { axonCorePort: string }) {
 
       return startCoreModelPullStream({
         axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
         model,
         send: (payload) => {
           if (!event.sender.isDestroyed()) {

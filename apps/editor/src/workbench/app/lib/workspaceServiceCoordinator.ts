@@ -86,13 +86,21 @@ export function createWorkspaceServiceCoordinator(): WorkspaceServiceCoordinator
         if (!isCurrent(generation)) return;
         handlers?.onError?.(err);
       } finally {
-        if (!isCurrent(generation)) return;
-        markAxonPerformance(endMark, {
-          generationId: generation.id,
-          source: generation.source,
-          phase,
-        });
-        measureAxonPerformance(`axon.workspace.service.${phase}`, startMark, endMark);
+        // A return inside finally overrides returns and thrown errors from the
+        // service phase. The generation check therefore guards only the timing
+        // side effect; stale work remains ignored without changing control flow.
+        if (isCurrent(generation)) {
+          markAxonPerformance(endMark, {
+            generationId: generation.id,
+            source: generation.source,
+            phase,
+          });
+          measureAxonPerformance(
+            `axon.workspace.service.${phase}`,
+            startMark,
+            endMark,
+          );
+        }
       }
     },
   };

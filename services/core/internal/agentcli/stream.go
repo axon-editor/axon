@@ -121,6 +121,7 @@ func streamAgentRequest(ctx context.Context, input streamRequestInput) (string, 
 		return "", err
 	}
 	httpRequest.Header.Set("Content-Type", "application/json")
+	authorizeCoreRequest(httpRequest)
 
 	spinner := startStreamSpinner("Axon is thinking")
 	defer spinner.Stop()

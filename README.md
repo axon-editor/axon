@@ -89,7 +89,7 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 - xterm.js terminal
 
 **Core**
-- Go HTTP server on `localhost:7777`
+- Authenticated Go HTTP/WebSocket server bound to `127.0.0.1`
 - File system, workspace search, Git, terminal PTY, and future AI routes
 
 ## Project Structure
@@ -265,6 +265,8 @@ notes.
 ## Roadmap
 
 - Workspace replace
-- AI provider service and streaming chat panel
-- AI patch preview/apply workflow
-- Plugin/extension architecture
+- Reviewed AI patch preview/apply workflow
+- Complete multi-root behavior across Git, LSP, terminals, tests, and agent context
+- Additional hosted/local AI providers with secure credential storage
+- Complete extension contribution activation and replace the temporary asset mirror
+- Test coverage, test debugging, advanced Git review, and deeper LSP features

@@ -86,6 +86,7 @@ function toChatStreamEvent(
 
 export function startCoreAiStream(input: {
   axonCorePort: string;
+  axonCoreToken: string;
   request: AiChatRequest;
   send: (event: AiChatStreamEvent) => void;
 }): AiChatStreamStarted {
@@ -99,7 +100,10 @@ export function startCoreAiStream(input: {
         `http://127.0.0.1:${input.axonCorePort}/ai/chat/stream`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${input.axonCoreToken}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(input.request),
           signal: controller.signal,
         },
@@ -165,6 +169,7 @@ export function cancelCoreAiStream(requestId: string) {
 
 export function startCoreModelPullStream(input: {
   axonCorePort: string;
+  axonCoreToken: string;
   model: string;
   send: (event: AiPullEvent) => void;
 }): AiPullStarted {
@@ -178,7 +183,10 @@ export function startCoreModelPullStream(input: {
         `http://127.0.0.1:${input.axonCorePort}/ai/models/pull/stream`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${input.axonCoreToken}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ model: input.model }),
           signal: controller.signal,
         },

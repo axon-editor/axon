@@ -10,6 +10,7 @@ import {
   type AgentResumeRequest,
   type CliToolInstallResult,
   type CliToolStatus,
+  type CoreConnection,
 } from "../shared/app";
 import {
   type AiChatRequest,
@@ -120,6 +121,8 @@ const EXTENSION_IPC_CHANNELS = {
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
+  getCoreConnection: (): Promise<CoreConnection> =>
+    ipcRenderer.invoke("core:getConnection"),
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   getCliToolStatus: (): Promise<CliToolStatus> =>
     ipcRenderer.invoke("app:getCliToolStatus"),

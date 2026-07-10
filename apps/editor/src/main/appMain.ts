@@ -1,8 +1,8 @@
-import { app, BrowserWindow, Menu, protocol, net } from "electron";
+import { app, BrowserWindow, Menu, protocol } from "electron";
 import fs from "fs/promises";
 import path from "path";
-import url from "url";
 import { execFile } from "child_process";
+import { randomBytes } from "crypto";
 import { promisify } from "util";
 import { registerLspHandlers } from "./lsp/handlers";
 import {
@@ -84,6 +84,11 @@ const windowSessionRestore = new Map<number, boolean>();
 let pendingCliOpenFolderPath: string | null = null;
 let mainWindowReadyForCliOpen = false;
 const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
+// Development supplies one process-scoped token to the independently launched
+// Go process. Packaged Axon generates a fresh secret for every app launch and
+// passes it only to its child core process and trusted preload bridge.
+const axonCoreToken =
+  process.env.AXON_CORE_TOKEN?.trim() || randomBytes(32).toString("hex");
 const axonReleaseApiUrl =
   "https://api.github.com/repos/GordenArcher/axon/releases/latest";
 const axonReleasePageUrl =
@@ -105,23 +110,47 @@ function getLocalProtocolContentType(filePath: string) {
   if (extension === ".webp") return "image/webp";
   if (extension === ".gif") return "image/gif";
   if (extension === ".avif") return "image/avif";
-  if (extension === ".css") return "text/css; charset=utf-8";
-  if (extension === ".js") return "text/javascript; charset=utf-8";
-  if (extension === ".json") return "application/json; charset=utf-8";
-  if (extension === ".html" || extension === ".htm") {
-    return "text/html; charset=utf-8";
-  }
-  return "application/octet-stream";
+  if (extension === ".bmp") return "image/bmp";
+  if (extension === ".ico") return "image/x-icon";
+  if (extension === ".mp4") return "video/mp4";
+  if (extension === ".webm") return "video/webm";
+  if (extension === ".mov") return "video/quicktime";
+  if (extension === ".m4v") return "video/x-m4v";
+  if (extension === ".ogv") return "video/ogg";
+  return null;
 }
 
-async function createLocalProtocolResponse(requestUrl: URL) {
+function allowedLocalProtocolOrigin(origin: string | null) {
+  return (
+    origin === null ||
+    origin === "null" ||
+    origin === "file://" ||
+    origin === "http://127.0.0.1:5173" ||
+    origin === "http://localhost:5173"
+  );
+}
+
+async function createLocalProtocolResponse(request: Request) {
+  const requestUrl = new URL(request.url);
   const filePath = decodeURIComponent(requestUrl.pathname);
+  const contentType = getLocalProtocolContentType(filePath);
+  const origin = request.headers.get("Origin");
+  if (!allowedLocalProtocolOrigin(origin)) {
+    return new Response("Origin is not allowed.", { status: 403 });
+  }
+  if (!contentType) {
+    // axon://local is an asset transport, not a second arbitrary file-reading
+    // API. Refusing documents and executable content prevents local HTML/JS or
+    // project secrets from being loaded into Axon's privileged renderer origin.
+    return new Response("Local asset type is not allowed.", { status: 403 });
+  }
   const headers = new Headers({
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": origin ?? "null",
     "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-    "Access-Control-Allow-Headers": "*",
-    "Cross-Origin-Resource-Policy": "cross-origin",
-    "Content-Type": getLocalProtocolContentType(filePath),
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cross-Origin-Resource-Policy": "same-site",
+    "Content-Type": contentType,
+    "X-Content-Type-Options": "nosniff",
   });
 
   try {
@@ -187,6 +216,7 @@ function queueCliOpenFolder(filePath: string) {
 const bundledCore = createBundledCoreController({
   isDev,
   axonCorePort,
+  axonCoreToken,
 });
 const taskManager = new TaskManager({
   sendToRenderer,
@@ -247,11 +277,15 @@ registerAppHandlers({
   isExternalHandlerUrl,
   consumePendingCliOpenFolder,
   isDev,
+  coreConnection: {
+    httpUrl: `http://127.0.0.1:${axonCorePort}`,
+    token: axonCoreToken,
+  },
 });
 registerDiagnosticsHandlers();
 registerExtensionHandlers();
 registerGitHandlers();
-registerAiHandlers({ axonCorePort });
+registerAiHandlers({ axonCorePort, axonCoreToken });
 registerLspHandlers();
 registerSettingsHandlers({
   getActiveLanguageServers: () => getActiveLanguageServerSessions(),
@@ -463,23 +497,23 @@ app.whenReady().then(async () => {
 
     if (requestUrl.hostname === "local") {
       if (request.method === "OPTIONS") {
+        const origin = request.headers.get("Origin");
+        if (!allowedLocalProtocolOrigin(origin)) {
+          return new Response("Origin is not allowed.", { status: 403 });
+        }
         return new Response(null, {
           status: 204,
           headers: {
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": origin ?? "null",
             "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
           },
         });
       }
-      return createLocalProtocolResponse(requestUrl);
+      return createLocalProtocolResponse(request);
     }
 
-    // axon://local/absolute/path, existing local file serving, unchanged
-    const filePath = decodeURIComponent(
-      request.url.replace("axon://local", ""),
-    );
-    return net.fetch(url.pathToFileURL(filePath).toString());
+    return new Response("Unknown Axon protocol route.", { status: 404 });
   });
 
   // Cold start should show the editor shell first, then let backend readiness
@@ -496,7 +530,7 @@ app.whenReady().then(async () => {
   createManagedWindow({ restoreSession: pendingCliOpenFolderPath ? false : true });
   void bundledCoreReady.then(() => {
     bundledCore.startBundledCoreWatchdog();
-    void warmUpAiRuntime({ axonCorePort });
+    void warmUpAiRuntime({ axonCorePort, axonCoreToken });
   });
 
   // Prefer Axon's bundled Spotify app client_id. It is public PKCE metadata,

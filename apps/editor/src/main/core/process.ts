@@ -2,10 +2,12 @@ import fs from "fs";
 import http from "http";
 import path from "path";
 import { spawn, type ChildProcess } from "child_process";
+import { createHmac, randomBytes } from "crypto";
 
 export interface BundledCoreControllerDependencies {
   isDev: boolean;
   axonCorePort: string;
+  axonCoreToken: string;
 }
 
 export function createBundledCoreController(
@@ -18,6 +20,14 @@ export function createBundledCoreController(
 
   function getAxonCoreHealthUrl() {
     return `http://127.0.0.1:${deps.axonCorePort}/health`;
+  }
+
+  function createHealthProof() {
+    const challenge = randomBytes(24).toString("hex");
+    const expectedProof = createHmac("sha256", deps.axonCoreToken)
+      .update(challenge)
+      .digest("hex");
+    return { challenge, expectedProof };
   }
 
   function waitForAxonCore(timeoutMs = 5000) {
@@ -35,9 +45,18 @@ export function createBundledCoreController(
 
       const check = () => {
         if (settled) return;
-        const request = http.get(getAxonCoreHealthUrl(), (response) => {
+        const { challenge, expectedProof } = createHealthProof();
+        const request = http.get(getAxonCoreHealthUrl(), {
+          headers: {
+            Authorization: `Bearer ${deps.axonCoreToken}`,
+            "X-Axon-Challenge": challenge,
+          },
+        }, (response) => {
           response.resume();
-          if (response.statusCode && response.statusCode >= 200 && response.statusCode < 500) {
+          if (
+            response.statusCode === 200 &&
+            response.headers["x-axon-core-proof"] === expectedProof
+          ) {
             settle(true);
             return;
           }
@@ -77,9 +96,18 @@ export function createBundledCoreController(
         settled = true;
         resolve(value);
       };
-      const request = http.get(getAxonCoreHealthUrl(), (response) => {
+      const { challenge, expectedProof } = createHealthProof();
+      const request = http.get(getAxonCoreHealthUrl(), {
+        headers: {
+          Authorization: `Bearer ${deps.axonCoreToken}`,
+          "X-Axon-Challenge": challenge,
+        },
+      }, (response) => {
         response.resume();
-        settle(Boolean(response.statusCode && response.statusCode >= 200 && response.statusCode < 500));
+        settle(
+          response.statusCode === 200 &&
+            response.headers["x-axon-core-proof"] === expectedProof,
+        );
       });
       request.once("error", () => settle(false));
       request.setTimeout(timeoutMs, () => {
@@ -113,6 +141,7 @@ export function createBundledCoreController(
       env: {
         ...process.env,
         AXON_CORE_PORT: deps.axonCorePort,
+        AXON_CORE_TOKEN: deps.axonCoreToken,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

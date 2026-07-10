@@ -358,7 +358,7 @@ export function useTerminalSessionManager({
       const abortController = new AbortController();
       connectionAbortRef.current[id] = abortController;
 
-      void waitForCoreBackend(abortController.signal).then((ready) => {
+      void waitForCoreBackend(abortController.signal).then(async (ready) => {
         const currentSession = sessionsRef.current[id];
         if (abortController.signal.aborted || !currentSession?.term) return;
         if (currentSession.disposed) return;
@@ -374,7 +374,7 @@ export function useTerminalSessionManager({
         }
 
         const ws = new WebSocket(
-          getTerminalBackendUrl(
+          await getTerminalBackendUrl(
             currentSession.workingDirectory,
             id,
             currentSession.receivedBytes,

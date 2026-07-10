@@ -46,6 +46,12 @@ jobs:
       - name: Check renderer TypeScript
         run: npx tsc -p apps/editor/tsconfig.app.json
 
+      - name: Lint editor and built-in extensions
+        run: npm run lint
+
+      - name: Run renderer unit tests
+        run: npm --workspace axon test
+
       - name: Check file line limits
         run: npm run check:line-count
 
@@ -72,4 +78,8 @@ jobs:
 
       - name: Run Go tests
         working-directory: services/core
-        run: go test ./...
+        run: go test -race ./...
+
+      - name: Vet Go packages
+        working-directory: services/core
+        run: go vet ./...

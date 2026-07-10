@@ -4,7 +4,7 @@
 // Every method returns the `data` field from the response envelope,
 // or throws an error with the `error` field from the envelope.
 
-import { CORE_HTTP_URL } from "./coreBackend";
+import { authenticatedCoreFetch } from "./coreBackend";
 
 // AxonResponse mirrors the standard envelope from axon-core
 interface AxonResponse<T = unknown> {
@@ -37,9 +37,39 @@ export interface WorkspaceSearchResult {
   preview: string;
 }
 
+let activeWorkspaceRoot: string | null = null;
+
+function normalizedPath(value: string) {
+  return value.replaceAll("\\", "/").replace(/\/+$/, "");
+}
+
+function pathIsInsideRoot(filePath: string, rootPath: string) {
+  const pathValue = normalizedPath(filePath);
+  const rootValue = normalizedPath(rootPath);
+  return pathValue === rootValue || pathValue.startsWith(`${rootValue}/`);
+}
+
+function parentPath(filePath: string) {
+  const normalized = normalizedPath(filePath);
+  const separator = normalized.lastIndexOf("/");
+  return separator > 0 ? normalized.slice(0, separator) : normalized;
+}
+
+function workspaceRootFor(filePath: string, explicitRoot?: string) {
+  if (explicitRoot) return explicitRoot;
+  if (activeWorkspaceRoot && pathIsInsideRoot(filePath, activeWorkspaceRoot)) {
+    return activeWorkspaceRoot;
+  }
+
+  // Axon can intentionally open a user settings file outside the project. In
+  // that case the narrowest useful capability is its parent directory, not an
+  // unrestricted filesystem root.
+  return parentPath(filePath);
+}
+
 // request is the internal helper that handles fetch + envelope unwrapping
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${CORE_HTTP_URL}${path}`, options);
+  const res = await authenticatedCoreFetch(path, options);
   const json: AxonResponse<T> = await res.json();
 
   if (json.status !== "ok") {
@@ -50,13 +80,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // getTree fetches the recursive file tree for the given root path
-export async function getTree(path: string): Promise<FileNode> {
-  return request<FileNode>(`/fs/tree?path=${encodeURIComponent(path)}`);
+export async function getTree(path: string, root?: string): Promise<FileNode> {
+  const requestedRoot = root ??
+    (activeWorkspaceRoot && pathIsInsideRoot(path, activeWorkspaceRoot)
+      ? activeWorkspaceRoot
+      : path);
+  activeWorkspaceRoot = requestedRoot;
+  return request<FileNode>(
+    `/fs/tree?path=${encodeURIComponent(path)}&root=${encodeURIComponent(requestedRoot)}`,
+  );
 }
 
 // readFile fetches the content of a file at the given path
-export async function readFile(path: string): Promise<FileContent> {
-  return request<FileContent>(`/fs/file?path=${encodeURIComponent(path)}`);
+export async function readFile(path: string, root?: string): Promise<FileContent> {
+  const requestedRoot = workspaceRootFor(path, root);
+  return request<FileContent>(
+    `/fs/file?path=${encodeURIComponent(path)}&root=${encodeURIComponent(requestedRoot)}`,
+  );
 }
 
 // writeFile saves content to a file at the given path
@@ -72,19 +112,19 @@ export async function writeFile(
   });
 }
 
-export async function createFile(path: string): Promise<void> {
+export async function createFile(path: string, root?: string): Promise<void> {
   await request("/fs/create", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, is_dir: false }),
+    body: JSON.stringify({ path, is_dir: false, root: workspaceRootFor(path, root) }),
   });
 }
 
-export async function createDir(path: string): Promise<void> {
+export async function createDir(path: string, root?: string): Promise<void> {
   await request("/fs/create", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, is_dir: true }),
+    body: JSON.stringify({ path, is_dir: true, root: workspaceRootFor(path, root) }),
   });
 }
 
@@ -100,22 +140,32 @@ export async function deleteEntry(path: string, root: string): Promise<void> {
 export async function moveEntry(
   source: string,
   targetDir: string,
+  root?: string,
 ): Promise<void> {
   await request("/fs/move", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source, target_dir: targetDir }),
+    body: JSON.stringify({
+      source,
+      target_dir: targetDir,
+      root: workspaceRootFor(source, root),
+    }),
   });
 }
 
 export async function renameEntry(
   source: string,
   newName: string,
+  root?: string,
 ): Promise<string> {
   const data = await request<{ path: string }>("/fs/rename", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source, new_name: newName }),
+    body: JSON.stringify({
+      source,
+      new_name: newName,
+      root: workspaceRootFor(source, root),
+    }),
   });
 
   return data.path;
@@ -126,6 +176,7 @@ export async function searchWorkspace(
   query: string,
   signal?: AbortSignal,
 ): Promise<WorkspaceSearchResult[]> {
+  activeWorkspaceRoot = root;
   return request<WorkspaceSearchResult[]>(
     `/fs/search?root=${encodeURIComponent(root)}&q=${encodeURIComponent(query)}`,
     { signal },

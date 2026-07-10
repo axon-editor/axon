@@ -5,6 +5,10 @@
 package server
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -22,11 +26,13 @@ import (
 
 // Server is the core HTTP server struct.
 // Will hold shared dependencies (config, ai clients, etc) as we expand.
-type Server struct{}
+type Server struct {
+	authToken string
+}
 
 // New creates and returns a new Server instance.
-func New() *Server {
-	return &Server{}
+func New(authToken string) *Server {
+	return &Server{authToken: strings.TrimSpace(authToken)}
 }
 
 // Response is the standard envelope for all API responses.
@@ -120,6 +126,13 @@ func validateWorkspacePath(rootPath string, candidatePath string) error {
 	if candidatePath == "" {
 		return errors.New("path is required")
 	}
+	rootInfo, err := os.Stat(rootPath)
+	if err != nil {
+		return errors.New("workspace root does not exist")
+	}
+	if !rootInfo.IsDir() {
+		return errors.New("workspace root must be a directory")
+	}
 	inside, err := pathInsideWorkspace(rootPath, candidatePath)
 	if err != nil {
 		return err
@@ -128,6 +141,21 @@ func validateWorkspacePath(rootPath string, candidatePath string) error {
 		return errors.New("path is outside the workspace")
 	}
 	return nil
+}
+
+func sameFilesystemPath(firstPath string, secondPath string) bool {
+	first, firstErr := filepath.Abs(filepath.Clean(firstPath))
+	second, secondErr := filepath.Abs(filepath.Clean(secondPath))
+	if firstErr != nil || secondErr != nil {
+		return false
+	}
+	if resolved, err := filepath.EvalSymlinks(first); err == nil {
+		first = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(second); err == nil {
+		second = resolved
+	}
+	return first == second
 }
 
 // writeJSON serializes a Response to JSON and writes it to the ResponseWriter.
@@ -177,16 +205,54 @@ func (s *Server) Router() http.Handler {
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed
-	return corsMiddleware(mux)
+	return corsMiddleware(s.requireAuthentication(mux))
 }
 
-// corsMiddleware allows cross-origin requests from the Electron renderer.
-// In dev the renderer is on localhost:5173, in production it's a file:// origin.
-// We allow all origins here since axon-core only ever runs locally, it's not
-// a public server so there's no security concern with open CORS.
+func requestToken(r *http.Request) string {
+	const bearerPrefix = "Bearer "
+	authorization := r.Header.Get("Authorization")
+	if strings.HasPrefix(authorization, bearerPrefix) {
+		return strings.TrimSpace(strings.TrimPrefix(authorization, bearerPrefix))
+	}
+
+	// Browsers cannot attach an Authorization header to a WebSocket handshake.
+	// The renderer therefore sends the same short-lived per-launch token as a
+	// query parameter only for /terminal; axon-core never logs request URLs.
+	if r.URL.Path == "/terminal" {
+		return strings.TrimSpace(r.URL.Query().Get("access_token"))
+	}
+	return ""
+}
+
+func (s *Server) requireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providedToken := requestToken(r)
+		if s.authToken == "" || len(providedToken) != len(s.authToken) ||
+			subtle.ConstantTimeCompare([]byte(providedToken), []byte(s.authToken)) != 1 {
+			writeJSON(w, http.StatusUnauthorized, Response{
+				Status: "error",
+				Error:  "axon-core authentication failed",
+			})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// corsMiddleware allows only Axon's development and packaged renderer origins.
+// Loopback binding prevents LAN access, but origin validation is still required
+// because arbitrary websites can try to contact services on a user's localhost.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		if origin != "" && !allowedRendererOrigin(origin) {
+			writeJSON(w, http.StatusForbidden, Response{Status: "error", Error: "origin is not allowed"})
+			return
+		}
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
@@ -200,9 +266,23 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func allowedRendererOrigin(origin string) bool {
+	switch origin {
+	case "null", "file://", "http://127.0.0.1:5173", "http://localhost:5173":
+		return true
+	default:
+		return false
+	}
+}
+
 // handleHealth is a simple liveness check endpoint.
 // Used by the editor to confirm axon-core is running before making other calls.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if challenge := strings.TrimSpace(r.Header.Get("X-Axon-Challenge")); challenge != "" {
+		mac := hmac.New(sha256.New, []byte(s.authToken))
+		_, _ = mac.Write([]byte(challenge))
+		w.Header().Set("X-Axon-Core-Proof", hex.EncodeToString(mac.Sum(nil)))
+	}
 	writeJSON(w, http.StatusOK, Response{
 		Status:  "ok",
 		Message: "axon-core running",
@@ -351,14 +431,14 @@ func (s *Server) handleFSTree(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := r.URL.Query().Get("path")
-	if path == "" {
+	root := r.URL.Query().Get("root")
+	if err := validateWorkspacePath(root, path); err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{
 			Status: "error",
-			Error:  "path query parameter is required",
+			Error:  err.Error(),
 		})
 		return
 	}
-
 	tree, err := fs.GetTree(path)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, Response{
@@ -387,10 +467,11 @@ func (s *Server) handleFSFile(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// read file
 		path := r.URL.Query().Get("path")
-		if path == "" {
+		root := r.URL.Query().Get("root")
+		if err := validateWorkspacePath(root, path); err != nil {
 			writeJSON(w, http.StatusBadRequest, Response{
 				Status: "error",
-				Error:  "path query parameter is required",
+				Error:  err.Error(),
 			})
 			return
 		}
@@ -480,6 +561,7 @@ func (s *Server) handleFSCreate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path  string `json:"path"`
 		IsDir bool   `json:"is_dir"`
+		Root  string `json:"root"`
 	}
 
 	limitRequestBody(w, r)
@@ -488,8 +570,8 @@ func (s *Server) handleFSCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.Path == "" {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "path is required"})
+	if err := validateWorkspacePath(body.Root, body.Path); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: err.Error()})
 		return
 	}
 
@@ -536,6 +618,10 @@ func (s *Server) handleFSDelete(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, Response{Status: "error", Error: err.Error()})
 		return
 	}
+	if sameFilesystemPath(root, path) {
+		writeJSON(w, http.StatusForbidden, Response{Status: "error", Error: "workspace root cannot be deleted"})
+		return
+	}
 
 	if err := os.RemoveAll(path); err != nil {
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
@@ -557,6 +643,7 @@ func (s *Server) handleFSMove(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Source    string `json:"source"`
 		TargetDir string `json:"target_dir"`
+		Root      string `json:"root"`
 	}
 
 	limitRequestBody(w, r)
@@ -567,6 +654,18 @@ func (s *Server) handleFSMove(w http.ResponseWriter, r *http.Request) {
 
 	if body.Source == "" || body.TargetDir == "" {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "source and target_dir are required"})
+		return
+	}
+	if err := validateWorkspacePath(body.Root, body.Source); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: err.Error()})
+		return
+	}
+	if sameFilesystemPath(body.Root, body.Source) {
+		writeJSON(w, http.StatusForbidden, Response{Status: "error", Error: "workspace root cannot be moved"})
+		return
+	}
+	if err := validateWorkspacePath(body.Root, body.TargetDir); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: err.Error()})
 		return
 	}
 
@@ -592,6 +691,7 @@ func (s *Server) handleFSRename(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Source  string `json:"source"`
 		NewName string `json:"new_name"`
+		Root    string `json:"root"`
 	}
 
 	limitRequestBody(w, r)
@@ -602,6 +702,22 @@ func (s *Server) handleFSRename(w http.ResponseWriter, r *http.Request) {
 
 	if body.Source == "" || body.NewName == "" {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "source and new_name are required"})
+		return
+	}
+	if body.NewName != filepath.Base(body.NewName) || body.NewName == "." || body.NewName == ".." {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "new_name must be one file name"})
+		return
+	}
+	if err := validateWorkspacePath(body.Root, body.Source); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: err.Error()})
+		return
+	}
+	if sameFilesystemPath(body.Root, body.Source) {
+		writeJSON(w, http.StatusForbidden, Response{Status: "error", Error: "workspace root cannot be renamed"})
+		return
+	}
+	if err := validateWorkspacePath(body.Root, filepath.Join(filepath.Dir(body.Source), body.NewName)); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: err.Error()})
 		return
 	}
 
@@ -632,8 +748,8 @@ func (s *Server) handleFSSearch(w http.ResponseWriter, r *http.Request) {
 
 	rootPath := r.URL.Query().Get("root")
 	query := r.URL.Query().Get("q")
-	if rootPath == "" {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "root query parameter is required"})
+	if err := validateWorkspacePath(rootPath, rootPath); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: err.Error()})
 		return
 	}
 

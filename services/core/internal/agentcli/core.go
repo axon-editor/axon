@@ -2,6 +2,10 @@ package agentcli
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"os"
 	"os/exec"
@@ -31,6 +35,29 @@ func resolveCorePort() string {
 	return port
 }
 
+func resolveCoreToken() string {
+	if token := strings.TrimSpace(os.Getenv("AXON_CORE_TOKEN")); token != "" {
+		return token
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".axon", "core.token"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func authorizeCoreRequest(request *http.Request) string {
+	token := resolveCoreToken()
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	return token
+}
+
 // coreRunning checks the health endpoint with a short timeout.
 // This command runs in a terminal, so a dead or stale port file should fail
 // quickly instead of making the shell feel frozen before we even try to start
@@ -43,12 +70,27 @@ func coreRunning(ctx context.Context, port string) bool {
 	if err != nil {
 		return false
 	}
+	token := authorizeCoreRequest(request)
+	if token == "" {
+		return false
+	}
+	var challengeBytes [24]byte
+	if _, err := rand.Read(challengeBytes[:]); err != nil {
+		return false
+	}
+	challenge := hex.EncodeToString(challengeBytes[:])
+	request.Header.Set("X-Axon-Challenge", challenge)
+	mac := hmac.New(sha256.New, []byte(token))
+	_, _ = mac.Write([]byte(challenge))
+	expectedProof := hex.EncodeToString(mac.Sum(nil))
+
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return false
 	}
 	defer response.Body.Close()
-	return response.StatusCode == http.StatusOK
+	return response.StatusCode == http.StatusOK &&
+		hmac.Equal([]byte(response.Header.Get("X-Axon-Core-Proof")), []byte(expectedProof))
 }
 
 // ensureCore is the bridge between terminal usage and the desktop backend.

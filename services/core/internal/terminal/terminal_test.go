@@ -86,6 +86,76 @@ func TestTerminalHighVolumeOutputIsDelivered(t *testing.T) {
 	_ = conn.WriteJSON(terminalControlMessage{Type: "terminate"})
 }
 
+func TestTerminalExitDrainsFinalOutputBeforeSocketClose(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(Handler))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(
+		terminalWebSocketURL(server.URL, fmt.Sprintf("tail-%d", time.Now().UnixNano())),
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("dial terminal websocket: %v", err)
+	}
+	defer conn.Close()
+
+	const finalMarker = "AXON_FINAL_OUTPUT_WITHOUT_NEWLINE"
+	if err := conn.WriteMessage(
+		websocket.TextMessage,
+		[]byte("printf '"+finalMarker+"'; exit\r"),
+	); err != nil {
+		t.Fatalf("write terminal exit command: %v", err)
+	}
+
+	var output strings.Builder
+	for {
+		_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_, data, readErr := conn.ReadMessage()
+		if readErr != nil {
+			if websocket.IsCloseError(readErr, websocket.CloseNormalClosure) {
+				break
+			}
+			t.Fatalf("terminal closed before a clean output drain: %v", readErr)
+		}
+		output.Write(data)
+	}
+
+	if !strings.Contains(output.String(), finalMarker) {
+		t.Fatalf("terminal exit ate its final output; captured %q", output.String())
+	}
+}
+
+func TestTerminalRejectsUntrustedBrowserOrigin(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(Handler))
+	defer server.Close()
+
+	headers := http.Header{}
+	headers.Set("Origin", "https://attacker.example")
+	conn, response, err := websocket.DefaultDialer.Dial(
+		terminalWebSocketURL(server.URL, "hostile-origin"),
+		headers,
+	)
+	if conn != nil {
+		_ = conn.Close()
+	}
+	if err == nil {
+		t.Fatal("expected hostile terminal origin to fail the WebSocket upgrade")
+	}
+	if response == nil || response.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 for hostile terminal origin, got %#v", response)
+	}
+}
+
+func TestTerminalAcknowledgementCannotAdvancePastProducedOutput(t *testing.T) {
+	client := &terminalClient{acknowledgedOffset: 5}
+	session := &terminalSession{baseOffset: 4, totalBytes: 10}
+
+	session.acknowledge(client, 1_000_000)
+	if acknowledged := client.acknowledged(); acknowledged != session.totalBytes {
+		t.Fatalf("expected acknowledgement to clamp at %d, got %d", session.totalBytes, acknowledged)
+	}
+}
+
 func TestTerminalBroadcastDetachesAckLaggingClient(t *testing.T) {
 	client := &terminalClient{
 		send: make(chan []byte, 1),

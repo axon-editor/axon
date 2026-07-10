@@ -31,6 +31,7 @@ func fetchProjectContext(ctx context.Context, port string, folderPath string) (a
 	if err != nil {
 		return ai.ProjectContext{}, err
 	}
+	authorizeCoreRequest(request)
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {

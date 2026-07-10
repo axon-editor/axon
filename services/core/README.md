@@ -11,6 +11,8 @@ terminal.
 ## Responsibilities
 
 - Serve the local API used by the Electron renderer.
+- Bind only to loopback and authenticate every HTTP/WebSocket request with a
+  per-launch secret.
 - Read, write, rename, delete, and scan workspace files.
 - Run workspace search while skipping generated folders, media files, archives,
   and binary content.
@@ -41,20 +43,21 @@ cd services/core
 go run cmd/axon/main.go
 ```
 
-By default the server listens on port `7777`. The Electron dev app usually runs
+By default the server listens on `127.0.0.1:7777`. The Electron dev app usually runs
 core on another port so it does not collide with a manually started backend:
 
 ```bash
-AXON_CORE_PORT=17777 go run cmd/axon/main.go
+AXON_CORE_PORT=17777 AXON_CORE_TOKEN=axon-development-only go run cmd/axon/main.go
 ```
 
 The renderer selects the matching URL through its core API configuration. If the
 desktop app cannot connect, folder operations and terminals will fail even if
 the UI itself is running.
 
-When core starts it writes the selected port to `~/.axon/core.port`. The `axon`
-CLI reads that file first and falls back to `7777`, so terminal
-commands do not need to guess the desktop app's local API port.
+When core starts it writes the selected port and launch token to
+`~/.axon/core.port` and `~/.axon/core.token` with user-only permissions. The
+`axon` CLI reads those files so terminal commands use the same authenticated
+connection as the desktop app.
 
 ## Axon Agent CLI
 
@@ -84,6 +87,8 @@ diagnostics workspace.
 
 ```bash
 go test ./...
+go test -race ./...
+go vet ./...
 ```
 
 ## Terminal Behavior
