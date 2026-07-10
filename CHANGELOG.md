@@ -2,6 +2,37 @@
 
 ## Next
 
+## v1.2.9
+
+- Secured axon-core with loopback-only binding, per-launch authentication,
+  ownership proofs, restricted origins, and validated workspace boundaries.
+- Replaced renderer access to the Core bearer token with an allow-listed
+  main-process request proxy and one-time terminal connection tickets.
+- Fixed terminal tail loss and high-volume output integrity with acknowledged
+  replay cursors, final-frame draining, and regression coverage.
+- Added persistent, symlink-aware workspace capabilities for file, settings,
+  terminal, and Core operations.
+- Accelerated file loading by removing duplicate renderer-to-Core
+  serialization and performing capability-checked text I/O in the main process.
+- Reduced editor startup work by mounting tabs lazily, limiting watchers and
+  language servers to active files, and deferring non-critical activation.
+- Reduced typing work by coalescing React snapshots, LSP synchronization,
+  semantic decoration refreshes, and whole-file syntax scans.
+- Split Shiki grammars into per-language lazy chunks and corrected JSON object
+  keys so they use property styling instead of string-value styling.
+- Added accurate draggable split-pane dividers with larger hit targets, pointer
+  capture, frame-batched updates, and minimum pane sizing.
+- Added Save As, Open Recent, and one-pass workspace replacement with bounded
+  traversal and atomic file writes.
+- Fixed TypeScript project ownership for `vitest.config.ts`, eliminating false
+  missing-Node-type diagnostics in the editor.
+- Bundled distinct Inter and IBM Plex Sans UI faces and migrated legacy font
+  names that previously collapsed to the same system fallback.
+- Deduplicated theme IDs across extension sources so Settings, startup, Welcome,
+  and Monaco share one highest-precedence theme contribution.
+- Added the root MIT License for GordenArcher and Axon Editor Group and aligned
+  the workspace package metadata with the public license.
+
 ## v1.2.8
 
 - Added a packaged-build Git decoration heartbeat so modified files continue to

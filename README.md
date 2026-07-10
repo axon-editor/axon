@@ -259,12 +259,17 @@ More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history and
-[docs/releases/v1.2.8.md](docs/releases/v1.2.8.md) for the latest release
+[docs/releases/v1.2.9.md](docs/releases/v1.2.9.md) for the latest release
 notes.
+
+## License
+
+Axon is available under the [MIT License](LICENSE).
+
+Copyright (c) 2026 GordenArcher and Axon Editor Group.
 
 ## Roadmap
 
-- Workspace replace
 - Reviewed AI patch preview/apply workflow
 - Complete multi-root behavior across Git, LSP, terminals, tests, and agent context
 - Additional hosted/local AI providers with secure credential storage
