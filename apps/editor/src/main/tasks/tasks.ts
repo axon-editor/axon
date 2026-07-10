@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import fs from "fs";
 import path from "path";
 import { type TaskFinishedEvent, type TaskOutputEvent, type TaskRunResult, type WorkspaceTask } from "../../shared/tasks";
+import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 
 interface TaskManagerDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
@@ -123,7 +124,10 @@ export class TaskManager {
     }
   }
 
-  startWorkspaceTask(folderPath: string, taskId: string): TaskRunResult {
+  async startWorkspaceTask(
+    folderPath: string,
+    taskId: string,
+  ): Promise<TaskRunResult> {
     // The renderer sends only a task id. I re-detect the task right before
     // execution so stale UI state cannot run a command that no longer belongs to
     // the current workspace after package.json or the folder changes.
@@ -136,12 +140,13 @@ export class TaskManager {
 
     const runId = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
     const { command, args } = this.getTaskCommand(task);
+    const env = await getDeveloperToolSpawnEnvironment();
     // spawn gives us streaming stdout/stderr, which is the important behavior for
     // build tools. execFile would only return after the command ends, making the
     // Output panel feel frozen during long tests or builds.
     const child = spawn(command, args, {
       cwd: folderPath,
-      env: process.env,
+      env,
     });
     const stdoutBuffer = { value: "" };
     const stderrBuffer = { value: "" };

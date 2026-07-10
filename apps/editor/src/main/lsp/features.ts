@@ -1,7 +1,6 @@
 import path from "path";
 import url from "url";
-import { app, BrowserWindow } from "electron";
-import { execFile } from "child_process";
+import { BrowserWindow } from "electron";
 import { type EditorDiagnostic } from "../../shared/diagnostics";
 import {
   type LanguageServerDocumentSyncRequest,
@@ -9,6 +8,7 @@ import {
   type LanguageServerLocation,
 } from "../../shared/lsp";
 import { type LanguageServerDefinition } from "./definitions";
+import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 import {
   emitLanguageServerLog,
   getLanguageServerSessionKey,
@@ -44,7 +44,6 @@ export const LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS = 2_000;
 export const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
 export const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 8_000;
 export const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
-let loginShellEnvironmentPromise: Promise<NodeJS.ProcessEnv> | null = null;
 
 const lspWatchedFileChangeTypes = {
   create: 1,
@@ -111,102 +110,10 @@ export function notifyLanguageServersOfFileChange(
   }
 }
 
-function parseEnvironmentOutput(output: string) {
-  const parsed: NodeJS.ProcessEnv = {};
-
-  for (const line of output.split(/\r?\n/)) {
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex <= 0) continue;
-    const key = line.slice(0, separatorIndex);
-    const value = line.slice(separatorIndex + 1);
-    if (!key) continue;
-    parsed[key] = value;
-  }
-
-  return parsed;
-}
-
-function mergePathValues(...values: Array<string | undefined>) {
-  const entries = new Set<string>();
-
-  for (const value of values) {
-    if (!value) continue;
-    for (const entry of value.split(path.delimiter)) {
-      const trimmed = entry.trim();
-      if (trimmed) entries.add(trimmed);
-    }
-  }
-
-  return Array.from(entries).join(path.delimiter);
-}
-
-function getLoginShellEnvironment(): Promise<NodeJS.ProcessEnv> {
-  if (process.platform !== "darwin") {
-    return Promise.resolve({} satisfies NodeJS.ProcessEnv);
-  }
-
-  if (loginShellEnvironmentPromise) return loginShellEnvironmentPromise;
-
-  loginShellEnvironmentPromise = new Promise((resolve) => {
-    const shell = process.env.SHELL || "/bin/zsh";
-    execFile(
-      shell,
-      ["-ilc", "/usr/bin/env"],
-      {
-        env: {
-          ...process.env,
-          HOME: process.env.HOME ?? app.getPath("home"),
-          TMPDIR: process.env.TMPDIR ?? app.getPath("temp"),
-        },
-        maxBuffer: 256 * 1024,
-        timeout: 3_000,
-      },
-      (err, stdout) => {
-        if (err) {
-          resolve({});
-          return;
-        }
-
-        resolve(parseEnvironmentOutput(stdout));
-      },
-    );
-  });
-
-  return loginShellEnvironmentPromise;
-}
-
 export async function getManagedLanguageServerSpawnEnvironment(
   env: NodeJS.ProcessEnv | undefined,
 ) {
-  const loginShellEnvironment = await getLoginShellEnvironment();
-  const fallbackPath = [
-    "/opt/homebrew/bin",
-    "/opt/homebrew/sbin",
-    "/usr/local/bin",
-    "/usr/local/sbin",
-    "/usr/bin",
-    "/bin",
-  ].join(path.delimiter);
-
-  // macOS gives apps launched from Dock/Finder a much smaller environment than
-  // apps launched from a shell. Native LSP binaries still need HOME for cache
-  // directories, TMPDIR for workspace/temp files, and PATH so they can find
-  // toolchain helpers when the user has installed them.
-  //
-  // I read the login shell once because a packaged app opened from Finder or
-  // the Dock does not inherit the developer PATH that makes `go env`, `go list`,
-  // rustup, pyenv, and similar helpers visible. gopls itself is bundled, but it
-  // still shells out to the Go toolchain while analyzing real projects. Without
-  // this merge, gopls can initialize successfully and then return no useful
-  // completions because the child process cannot see the same Go installation
-  // that works when Axon is launched from Terminal.
-  return {
-    ...loginShellEnvironment,
-    ...env,
-    HOME: env?.HOME ?? loginShellEnvironment.HOME ?? app.getPath("home"),
-    PATH: mergePathValues(loginShellEnvironment.PATH, env?.PATH, fallbackPath),
-    TMPDIR: env?.TMPDIR ?? loginShellEnvironment.TMPDIR ?? app.getPath("temp"),
-  };
+  return getDeveloperToolSpawnEnvironment(env);
 }
 
 export function getActiveLanguageServerSessions() {

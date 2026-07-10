@@ -10,6 +10,7 @@ import {
   type TestRunResult,
   type TestStopResult,
 } from "../../shared/tests";
+import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 
 interface TestManagerDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
@@ -445,7 +446,11 @@ export class TestManager {
     this.deps.sendToRenderer("tests:finished", event);
   }
 
-  run(folderPath: string, providerId: string, targetId?: string | null): TestRunResult {
+  async run(
+    folderPath: string,
+    providerId: string,
+    targetId?: string | null,
+  ): Promise<TestRunResult> {
     const discovery = this.discover(folderPath);
     const provider = discovery.providers.find(
       (candidate) => candidate.id === providerId,
@@ -475,9 +480,10 @@ export class TestManager {
 
     const runId = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
     const { command, args } = this.getProviderCommand(provider, target);
+    const env = await getDeveloperToolSpawnEnvironment();
     const child = spawn(command, args, {
       cwd: provider.rootPath,
-      env: process.env,
+      env,
     });
     this.activeRuns.set(runId, child);
     this.runStartedAt.set(runId, Date.now());
@@ -515,7 +521,13 @@ export class TestManager {
 
     child.stdout.on("data", (chunk: Buffer) => stream("stdout", chunk));
     child.stderr.on("data", (chunk: Buffer) => stream("stderr", chunk));
-    child.on("close", (exitCode, signal) => {
+    let hasFinished = false;
+    const finish = (
+      exitCode: number | null,
+      signal: NodeJS.Signals | null,
+    ) => {
+      if (hasFinished) return;
+      hasFinished = true;
       this.activeRuns.delete(runId);
       const startedAt = this.runStartedAt.get(runId) ?? Date.now();
       this.runStartedAt.delete(runId);
@@ -529,7 +541,24 @@ export class TestManager {
         durationMs: Date.now() - startedAt,
         status: signal ? "stopped" : exitCode === 0 ? "passed" : "failed",
       });
+    };
+
+    // A failed spawn emits `error` instead of throwing from spawn(). Without an
+    // error listener Node treats ENOENT as an uncaught exception and terminates
+    // Electron's main process. Reporting it through the test panel keeps Axon
+    // alive and gives the user the actual missing command and recovered PATH.
+    child.on("error", (err) => {
+      this.sendOutput({
+        runId,
+        providerId: provider.id,
+        label: target?.label ?? provider.label,
+        rootPath: provider.rootPath,
+        stream: "stderr",
+        line: `Could not start ${command}: ${err.message}`,
+      });
+      finish(null, null);
     });
+    child.on("close", finish);
 
     return {
       ok: true,
