@@ -3,7 +3,7 @@
 // dropping on the tab strip, editor surface, or empty pane placeholder.
 // Clicking anywhere in the pane marks it as the active pane.
 import { useDroppable } from "@dnd-kit/core";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type EditorSettings,
   type ThemeId,
@@ -112,7 +112,26 @@ export default function PaneInstance({
   nativeControlInset,
 }: Props) {
   const [fileDragOver, setFileDragOver] = useState(false);
+  const [mountedTabs, setMountedTabs] = useState<Set<string>>(
+    () => new Set(pane.activeFile ? [pane.activeFile] : []),
+  );
   const nativeDragDepth = useRef(0);
+
+  useEffect(() => {
+    setMountedTabs((current) => {
+      const next = new Set(
+        [...current].filter((tabPath) => pane.openTabs.includes(tabPath)),
+      );
+      if (pane.activeFile) next.add(pane.activeFile);
+      if (
+        next.size === current.size &&
+        [...next].every((tabPath) => current.has(tabPath))
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, [pane.activeFile, pane.openTabs]);
 
   const { isOver, setNodeRef } = useDroppable({
     id: getPaneDropId(pane.id),
@@ -255,7 +274,9 @@ export default function PaneInstance({
         ) : pane.openTabs.length === 0 ? (
           <WorkspaceBlankPane />
         ) : (
-          pane.openTabs.map((path) => (
+          pane.openTabs
+            .filter((path) => mountedTabs.has(path) || path === pane.activeFile)
+            .map((path) => (
             <div
               key={path}
               className="absolute inset-0"

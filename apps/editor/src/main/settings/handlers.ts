@@ -10,6 +10,12 @@ import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
 import { detectPythonVirtualEnvForWorkspace } from "../lsp/session";
 
 interface SettingsHandlersDependencies {
+  authorizeWorkspaceRoot: (
+    rendererId: number,
+    rootPath: string,
+    persist?: boolean,
+  ) => string;
+  assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
   getActiveLanguageServers: () => Iterable<{
     id: string;
     folderPath: string;
@@ -19,7 +25,7 @@ interface SettingsHandlersDependencies {
 }
 
 export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
-  ipcMain.handle("dialog:openFolder", async () => {
+  ipcMain.handle("dialog:openFolder", async (event) => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
     });
@@ -28,8 +34,32 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       return null;
     }
 
-    return result.filePaths[0];
+    return deps.authorizeWorkspaceRoot(event.sender.id, result.filePaths[0], true);
   });
+
+  ipcMain.handle(
+    "dialog:saveFileAs",
+    async (event, suggestedPath: string, content: string) => {
+      const result = await dialog.showSaveDialog({
+        title: "Save As",
+        defaultPath: suggestedPath,
+      });
+      if (result.canceled || !result.filePath) return null;
+
+      // The native save dialog is the authority for an out-of-workspace target.
+      // Writing in main keeps that explicit user choice separate from the broad
+      // Core filesystem API and prevents the renderer from silently inventing a
+      // destination that was never approved by the operating-system dialog.
+      await fs.promises.mkdir(path.dirname(result.filePath), { recursive: true });
+      await fs.promises.writeFile(result.filePath, content, "utf8");
+      deps.authorizeWorkspaceRoot(
+        event.sender.id,
+        path.dirname(result.filePath),
+        true,
+      );
+      return result.filePath;
+    },
+  );
 
   ipcMain.handle("dialog:importFont", async () => {
     const result = await dialog.showOpenDialog({
@@ -83,7 +113,10 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
 
   ipcMain.handle(
     "dialog:selectPythonVirtualEnv",
-    async (_event, folderPath?: string | null) => {
+    async (event, folderPath?: string | null) => {
+      if (folderPath) {
+        deps.assertWorkspaceRoot(event.sender.id, folderPath);
+      }
       const defaultPath =
         folderPath && fs.existsSync(folderPath) ? folderPath : undefined;
       const result = await dialog.showOpenDialog({
@@ -124,7 +157,10 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     },
   );
 
-  ipcMain.handle("settings:get", async (_event, folderPath?: string | null) => {
+  ipcMain.handle("settings:get", async (event, folderPath?: string | null) => {
+    if (folderPath) {
+      deps.assertWorkspaceRoot(event.sender.id, folderPath);
+    }
     const settings = await readSettingsForFolder(folderPath);
     const settingsPath = getSettingsPath(folderPath);
     const hasWorkspaceSettings =
@@ -176,7 +212,10 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
 
   ipcMain.handle(
     "settings:update",
-    async (_event, settings: AxonSettings, folderPath?: string | null) => {
+    async (event, settings: AxonSettings, folderPath?: string | null) => {
+      if (folderPath) {
+        deps.assertWorkspaceRoot(event.sender.id, folderPath);
+      }
       const normalizedSettings = writeSettingsToDisk(
         settings,
         getSettingsPath(folderPath),
@@ -205,8 +244,15 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
 
   ipcMain.handle(
     "settings:ensureFile",
-    async (_event, folderPath?: string | null, settings?: AxonSettings) => {
+    async (event, folderPath?: string | null, settings?: AxonSettings) => {
       const pathForSettings = getSettingsPath(folderPath);
+      // Creating workspace settings is still a filesystem write. Requiring an
+      // existing capability here prevents the renderer from turning this helper
+      // into an arbitrary-directory authorization primitive. Global settings are
+      // main-owned under userData and therefore do not need a workspace grant.
+      if (folderPath) {
+        deps.assertWorkspaceRoot(event.sender.id, folderPath);
+      }
       if (fs.existsSync(pathForSettings)) return pathForSettings;
       if (!folderPath) return pathForSettings;
 

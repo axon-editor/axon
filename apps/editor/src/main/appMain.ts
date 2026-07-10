@@ -38,10 +38,15 @@ import { registerUpdateHandlers } from "./updates/handlers";
 import { UpdateManager } from "./updates/updater";
 import { createMainProcessIpc } from "./core/ipc";
 import { createBundledCoreController } from "./core/process";
+import { registerCoreProxyHandlers } from "./core/proxy";
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { registerAiHandlers } from "./ai/handlers";
 import { warmUpAiRuntime } from "./ai/runtimeWarmup";
 import { setClientId } from "./spotify/api";
+import {
+  registerWorkspaceCapabilityHandlers,
+  WorkspaceCapabilityRegistry,
+} from "./security/workspaceCapabilities";
 import { AXON_SPOTIFY_CLIENT_ID } from "./generated/buildConfig";
 import {
   handleSpotifyProtocolRequest,
@@ -90,10 +95,12 @@ const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
 const axonCoreToken =
   process.env.AXON_CORE_TOKEN?.trim() || randomBytes(32).toString("hex");
 const axonReleaseApiUrl =
-  "https://api.github.com/repos/GordenArcher/axon/releases/latest";
+  "https://api.github.com/repos/axon-editor/axon/releases/latest";
 const axonReleasePageUrl =
-  "https://github.com/GordenArcher/axon/releases/latest";
+  "https://github.com/axon-editor/axon/releases/latest";
 let htmlPreviewServer: HtmlPreviewServer | null = null;
+const workspaceCapabilities = new WorkspaceCapabilityRegistry();
+registerWorkspaceCapabilityHandlers(workspaceCapabilities);
 const { sendToRenderer, sendMenuCommand } = createMainProcessIpc({
   getMainWindow: () => mainWindow,
 });
@@ -180,6 +187,13 @@ async function deliverPendingAgentResumeRequest() {
 function deliverPendingCliOpenFolder() {
   if (!mainWindowReadyForCliOpen) return;
   if (!pendingCliOpenFolderPath) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    workspaceCapabilities.authorize(
+      mainWindow.webContents.id,
+      pendingCliOpenFolderPath,
+      true,
+    );
+  }
   sendToRenderer("cli:open-folder", pendingCliOpenFolderPath);
 }
 
@@ -277,10 +291,14 @@ registerAppHandlers({
   isExternalHandlerUrl,
   consumePendingCliOpenFolder,
   isDev,
-  coreConnection: {
-    httpUrl: `http://127.0.0.1:${axonCorePort}`,
-    token: axonCoreToken,
-  },
+});
+registerCoreProxyHandlers({
+  axonCorePort,
+  axonCoreToken,
+  assertWorkspaceRoot: (rendererId, rootPath) =>
+    workspaceCapabilities.assertRoot(rendererId, rootPath),
+  assertWorkspacePath: (rendererId, candidatePath) =>
+    workspaceCapabilities.assertPath(rendererId, candidatePath),
 });
 registerDiagnosticsHandlers();
 registerExtensionHandlers();
@@ -288,6 +306,10 @@ registerGitHandlers();
 registerAiHandlers({ axonCorePort, axonCoreToken });
 registerLspHandlers();
 registerSettingsHandlers({
+  authorizeWorkspaceRoot: (rendererId, rootPath, persist) =>
+    workspaceCapabilities.authorize(rendererId, rootPath, persist),
+  assertWorkspaceRoot: (rendererId, rootPath) =>
+    workspaceCapabilities.assertRoot(rendererId, rootPath),
   getActiveLanguageServers: () => getActiveLanguageServerSessions(),
   notifyPythonConfigurationForFolder: (folderPath) => {
     const session = [...getActiveLanguageServerSessions()].find(
@@ -413,6 +435,7 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
     // "Object has been destroyed" during native quit, which turns a normal app
     // shutdown into a scary main-process crash dialog.
     windowSessionRestore.delete(createdWebContentsId);
+    workspaceCapabilities.releaseRenderer(createdWebContentsId);
     if (mainWindow === createdWindow.window) {
       mainWindow =
         BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??
@@ -527,7 +550,9 @@ app.whenReady().then(async () => {
   // the old workspace can become visible and persisted before the renderer
   // consumes the CLI folder. Starting this window without restore makes the CLI
   // path the only workspace owner for that launch.
-  createManagedWindow({ restoreSession: pendingCliOpenFolderPath ? false : true });
+  createManagedWindow({
+    restoreSession: pendingCliOpenFolderPath ? false : true,
+  });
   void bundledCoreReady.then(() => {
     bundledCore.startBundledCoreWatchdog();
     void warmUpAiRuntime({ axonCorePort, axonCoreToken });

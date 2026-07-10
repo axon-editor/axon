@@ -3,7 +3,8 @@ import type {
   AgentResumeRequest,
   CliToolInstallResult,
   CliToolStatus,
-  CoreConnection,
+  CoreRequest,
+  CoreResponse,
 } from "../../shared/app";
 import type { EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import type {
@@ -107,8 +108,24 @@ declare global {
     axonEditorSettings?: AxonSettings;
     axon: {
       platform: string;
-      getCoreConnection: () => Promise<CoreConnection>;
+      coreRequest: (request: CoreRequest) => Promise<CoreResponse>;
+      cancelCoreRequest: (requestId: string) => Promise<boolean>;
+      createTerminalTicket: (workingDirectory: string) => Promise<string>;
       openFolder: () => Promise<string | null>;
+      authorizeWorkspaceRoot: (rootPath: string) => Promise<string>;
+      readTextFile: (
+        filePath: string,
+        rootPath: string,
+      ) => Promise<{ path: string; content: string }>;
+      writeTextFile: (
+        filePath: string,
+        content: string,
+        rootPath: string,
+      ) => Promise<void>;
+      saveFileAs: (
+        suggestedPath: string,
+        content: string,
+      ) => Promise<string | null>;
       getCliToolStatus: () => Promise<CliToolStatus>;
       installCliTool: () => Promise<CliToolInstallResult>;
       getAgentResumeRequest: () => Promise<AgentResumeRequest | null>;

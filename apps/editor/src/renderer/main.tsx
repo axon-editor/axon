@@ -12,7 +12,6 @@ import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { configureMonacoDiagnostics } from "../services/lsp/renderer/monacoDiagnostics";
 import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions";
 import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
-import { configureLspSemanticTokens } from "../services/lsp/renderer/lspSemanticTokens";
 import { registerMonacoReactLanguages } from "./features/editor/lib/monacoReactLanguages";
 import { type ExtensionState } from "../shared/extensions";
 import {
@@ -55,7 +54,6 @@ configureMonacoDiagnostics(monaco);
 registerMonacoReactLanguages(monaco);
 configureLspCompletions(monaco);
 configureLspNavigation(monaco);
-configureLspSemanticTokens(monaco);
 
 // The static drag strip in index.html exists before React so the window can be
 // moved during the boot splash and early renderer startup. Once React is ready,
@@ -98,19 +96,11 @@ async function boot() {
     }
 
     markAxonPerformance("axon.extensions.initialList.start");
-    const listedExtensionState = await axonApi.listExtensions(null);
     const startupRuntimeActivation = await axonApi.activateExtensionEvent(
       "onStartup",
       null,
     );
-    const startupActivation = await axonApi.activateExtensionEvent(
-      "onStartupFinished",
-      null,
-    );
-    const initialExtensionState =
-      startupActivation.state ??
-      startupRuntimeActivation.state ??
-      listedExtensionState;
+    const initialExtensionState = startupRuntimeActivation.state;
     markAxonPerformance("axon.extensions.initialList.end", {
       count: initialExtensionState.extensions.length,
     });
@@ -133,6 +123,23 @@ async function boot() {
     ReactDOM.createRoot(document.getElementById("root")!).render(
       <App initialExtensionState={initialExtensionState} />,
     );
+
+    const finishStartup = () => {
+      void axonApi
+        .activateExtensionEvent("onStartupFinished", null)
+        .then((result) => {
+          window.dispatchEvent(
+            new CustomEvent("axon:extensionState", { detail: result.state }),
+          );
+        })
+        .catch((err) => {
+          console.error("failed to finish extension activation:", err);
+        });
+    };
+    // Contributions required for the first frame are available after onStartup.
+    // Runtime-only onStartupFinished work is deferred until Chromium has painted
+    // the editor shell, so extension discovery cannot hold the first usable frame.
+    window.requestIdleCallback(finishStartup, { timeout: 1000 });
     markAxonPerformance("axon.renderer.react.rendered");
     measureAxonPerformance(
       "axon.renderer.boot",

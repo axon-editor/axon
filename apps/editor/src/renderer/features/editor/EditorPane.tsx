@@ -2,7 +2,8 @@
 // Renders panes side by side (horizontal) or stacked (vertical)
 // separated by resizable PaneDivider components.
 // Pane sizes tracked as flex-grow values and updated on divider drag.
-import { useState } from "react";
+import * as React from "react";
+import { useEffect, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -142,6 +143,7 @@ export default function EditorPane({
   nativeControlInset,
 }: Props) {
   const [draggingTab, setDraggingTab] = useState<DragTabData | null>(null);
+  const paneElementsRef = React.useRef(new Map<string, HTMLDivElement>());
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -156,14 +158,18 @@ export default function EditorPane({
     return sizes;
   });
 
-  // when panes change (split/close) reset sizes to equal
-  const paneCount = layout.panes.length;
-  const currentSizeCount = Object.keys(paneSizes).length;
-  if (currentSizeCount !== paneCount) {
-    const sizes: Record<string, number> = {};
-    layout.panes.forEach((p) => (sizes[p.id] = paneSizes[p.id] ?? 1));
-    setTimeout(() => setPaneSizes(sizes), 0);
-  }
+  useEffect(() => {
+    // Pane membership changes should update sizing after commit. Scheduling a
+    // state update from render caused an extra full editor-tree render and made
+    // split/open operations noticeably heavier on large Monaco models.
+    setPaneSizes((current) => {
+      const next: Record<string, number> = {};
+      layout.panes.forEach((pane) => {
+        next[pane.id] = current[pane.id] ?? 1;
+      });
+      return next;
+    });
+  }, [layout.panes.map((pane) => pane.id).join("\n")]);
 
   const handleResize = (
     leftPaneId: string,
@@ -171,10 +177,27 @@ export default function EditorPane({
     delta: number,
   ) => {
     setPaneSizes((prev) => {
-      const leftSize = (prev[leftPaneId] ?? 1) + delta * 0.005;
-      const rightSize = (prev[rightPaneId] ?? 1) - delta * 0.005;
-      if (leftSize < 0.1 || rightSize < 0.1) return prev;
-      return { ...prev, [leftPaneId]: leftSize, [rightPaneId]: rightSize };
+      const leftElement = paneElementsRef.current.get(leftPaneId);
+      const rightElement = paneElementsRef.current.get(rightPaneId);
+      if (!leftElement || !rightElement) return prev;
+      const leftPixels = isHorizontal
+        ? leftElement.getBoundingClientRect().width
+        : leftElement.getBoundingClientRect().height;
+      const rightPixels = isHorizontal
+        ? rightElement.getBoundingClientRect().width
+        : rightElement.getBoundingClientRect().height;
+      if (leftPixels + delta < 160 || rightPixels - delta < 160) return prev;
+
+      const leftWeight = prev[leftPaneId] ?? 1;
+      const rightWeight = prev[rightPaneId] ?? 1;
+      const weightPerPixel =
+        (leftWeight + rightWeight) / (leftPixels + rightPixels);
+      const weightDelta = delta * weightPerPixel;
+      return {
+        ...prev,
+        [leftPaneId]: leftWeight + weightDelta,
+        [rightPaneId]: rightWeight - weightDelta,
+      };
     });
   };
 
@@ -240,11 +263,16 @@ export default function EditorPane({
         className={`flex flex-1 overflow-hidden ${isHorizontal ? "flex-row" : "flex-col"}`}
       >
         {layout.panes.map((pane, index) => (
-          <div
-            key={pane.id}
-            className="flex flex-1 overflow-hidden min-w-0 min-h-0"
-            style={{ flexGrow: paneSizes[pane.id] ?? 1 }}
-          >
+          <React.Fragment key={pane.id}>
+            <div
+              ref={(element) => {
+                if (element) paneElementsRef.current.set(pane.id, element);
+                else paneElementsRef.current.delete(pane.id);
+              }}
+              data-axon-pane-id={pane.id}
+              className="flex min-h-0 min-w-0 basis-0 overflow-hidden"
+              style={{ flexGrow: paneSizes[pane.id] ?? 1 }}
+            >
             <PaneInstance
               pane={pane}
               folderPath={folderPath}
@@ -284,6 +312,7 @@ export default function EditorPane({
               }}
               nativeControlInset={index === 0 ? nativeControlInset : undefined}
             />
+            </div>
             {index < layout.panes.length - 1 && (
               <PaneDivider
                 direction={isHorizontal ? "horizontal" : "vertical"}
@@ -292,7 +321,7 @@ export default function EditorPane({
                 }
               />
             )}
-          </div>
+          </React.Fragment>
         ))}
       </div>
       <DragOverlay>

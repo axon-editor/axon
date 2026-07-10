@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AxonAppView } from "./AxonAppView";
 import { writeFile, type FileNode } from "../../renderer/shared/lib/api";
 import {
@@ -49,6 +49,7 @@ import { useAxonAppEffects } from "./lib/useAxonAppEffects";
 import { useAppCommandRunner } from "./lib/useAppCommandRunner";
 import { useWorkspaceHandlers } from "./lib/useWorkspaceHandlers";
 import { useEditorSurfaceHandlers } from "./lib/useEditorSurfaceHandlers";
+import { useSaveFileAs } from "./lib/useSaveFileAs";
 import { toMonacoEdit } from "./lib/monacoEdit";
 import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
 import "../../renderer/App.css";
@@ -124,6 +125,13 @@ export default function App({ initialExtensionState }: AppProps) {
   const [extensionState, setExtensionState] = useState<ExtensionState>(
     initialExtensionState,
   );
+  useEffect(() => {
+    const handleExtensionState = (event: Event) => {
+      setExtensionState((event as CustomEvent<ExtensionState>).detail);
+    };
+    window.addEventListener("axon:extensionState", handleExtensionState);
+    return () => window.removeEventListener("axon:extensionState", handleExtensionState);
+  }, []);
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
@@ -349,8 +357,8 @@ export default function App({ initialExtensionState }: AppProps) {
     handleFolderChange,
     handleNewFile,
     handleOpenFolder,
-  handleRefresh,
-  handleSwitchWorkspaceRoot,
+    handleRefresh,
+    handleSwitchWorkspaceRoot,
   } = useWorkspaceHandlers({
     allowSessionPersistenceRef,
     appendOutput,
@@ -475,10 +483,10 @@ export default function App({ initialExtensionState }: AppProps) {
       const activeFile = activePane?.activeFile;
       const anchor = activeFile
         ? {
-            path: activeFile,
-            line: cursorInfo.line,
-            column: cursorInfo.col,
-          }
+          path: activeFile,
+          line: cursorInfo.line,
+          column: cursorInfo.col,
+        }
         : null;
       const compareWithAnchor = (diagnostic: EditorDiagnostic) => {
         if (!anchor) return direction;
@@ -493,11 +501,11 @@ export default function App({ initialExtensionState }: AppProps) {
       const nextDiagnostic =
         direction === 1
           ? (orderedDiagnostics.find(
-              (diagnostic) => compareWithAnchor(diagnostic) > 0,
-            ) ?? orderedDiagnostics[0])
+            (diagnostic) => compareWithAnchor(diagnostic) > 0,
+          ) ?? orderedDiagnostics[0])
           : ([...orderedDiagnostics]
-              .reverse()
-              .find((diagnostic) => compareWithAnchor(diagnostic) < 0) ??
+            .reverse()
+            .find((diagnostic) => compareWithAnchor(diagnostic) < 0) ??
             orderedDiagnostics[orderedDiagnostics.length - 1]);
       // Problem navigation is intentionally based on the merged diagnostics
       // store instead of the currently mounted Monaco model. That lets F8 walk
@@ -649,6 +657,12 @@ export default function App({ initialExtensionState }: AppProps) {
       }
     });
   }, [activePane?.activeFile, appendOutput, saveFileFromModel]);
+  const handleSaveActiveFileAs = useSaveFileAs({
+    activeFile: activePane?.activeFile ?? null,
+    appendOutput,
+    handleRefresh,
+    setLayout,
+  });
   const requestCloseTab = useCallback(
     async (paneId: string, filePath: string) => {
       const pane = layout.panes.find((candidate) => candidate.id === paneId);
@@ -723,6 +737,7 @@ export default function App({ initialExtensionState }: AppProps) {
     handleOpenHtmlPreview,
     handleOpenSettingsJson,
     handleSaveActiveFile,
+    handleSaveActiveFileAs,
     navigateDiagnostic,
     openProblemsTab,
     refreshGitStatus,
@@ -744,6 +759,7 @@ export default function App({ initialExtensionState }: AppProps) {
     setExtensionsOpen,
     setExtensionViewOpenId,
     setFileOutlineOpen,
+    setFolderPickerOpen,
     setLanguageToolsOpen,
     setPaletteOpen,
     setSettingsOpen,
@@ -851,128 +867,128 @@ export default function App({ initialExtensionState }: AppProps) {
   return (
     <AxonAppView
       {...{
-      activeFileContent,
-      activeFileSymbols,
-      activePane,
-      activeRootId,
-      agentActionRequest,
-      agentResumeRequest,
-      agentResumeRequested,
-      agentSidebarOpen,
-      appThemeCssVariables,
-      availableFonts,
-      bottomPanelOpen,
-      bottomPanelTab,
-      cliToolInstallPrompt,
-      cursorInfo,
-      deletedFiles,
-      diagnosticCounts,
-      diagnostics,
-      diffFilePath,
-      diffOpen,
-      extensionState,
-      extensionThemes,
-      extensionViewOpenId,
-      extensionsOpen,
-      fileOutlineOpen,
-      folderPath,
-      folderPickerOpen,
-      gitChangeCount,
-      gitHistoryEditor,
-      gitStatus,
-      handleApplyAgentEdit,
-      handleDownloadUpdate,
-      handleFileSelect,
-      handleFolderChange,
-      handleNewFile,
-      handleOpenDiagnostic,
-      handleOpenFolder,
-      handleOpenHtmlPreview,
-      handleOpenNavigationTarget,
-      handleOpenPathInTerminal,
-      handleOpenTabInTerminal,
-      handleWorkspaceSearchResult,
-      handleOpenUpdatePage,
-      handleRefresh,
-      handleInstallUpdate,
-      handleRunWorkspaceTask,
-      handleSettingsPreview,
-      handleSettingsSave,
-      handleSplit,
-      handleSwitchWorkspaceRoot,
-      language,
-      languageToolsOpen,
-      layout,
-      loading,
-      navigationTarget,
-      outputEntries,
-      paletteCommands,
-      paletteOpen,
-      platform,
-      requestCloseTab,
-      runCommand,
-      settings,
-      settingsHydrated,
-      settingsOpen,
-      sidebarCollapsed,
-      sidebarView,
-      sidebarWidth,
-      sourceControlOpen,
-      spotifyActions,
-      spotifyPlayerOpen,
-      spotifyState,
-      taskRunnerOpen,
-      terminalCreateNonce,
-      terminalCreateWorkingDirectory,
-      terminalOpen,
-      testExplorerOpen,
-      themeSyntax,
-      themeTokens,
-      tree,
-      updateInfo,
-      updateInstallState,
-      updateModalOpen,
-      workspaceOverviewOpen,
-      workspaceRoots,
-      workspaceSearchOpen,
-      workspaceTrusted,
-      workspaceTrustPromptPath,
-      zenMode,
-      setAboutOpen,
-      setAgentSidebarOpen,
-      setBottomPanelOpen,
-      setBottomPanelTab,
-      setDiffFilePath,
-      setDiffOpen,
-      setExtensionsOpen,
-      setExtensionState,
-      setExtensionViewOpenId,
-      setFileOutlineOpen,
-      setFolderPickerOpen,
-      setGitHistoryEditor,
-      setLanguage,
-      setLanguageToolsOpen,
-      setLayout,
-      setPaletteOpen,
-      setSettingsOpen,
-      setSidebarCollapsed,
-      setSidebarView,
-      setSidebarWidth,
-      setSourceControlOpen,
-      setSpotifyPlayerOpen,
-      setTaskRunnerOpen,
-      setTerminalOpen,
-      setTestExplorerOpen,
-      setUpdateModalOpen,
-      setWorkspaceOverviewOpen,
-      setWorkspaceSearchOpen,
-      setWorkspaceTrustNonce,
-      setWorkspaceTrustPromptPath,
-      setZenMode,
-      setCursorInfo,
-      appendOutput,
-      aboutOpen,
-      refreshGitStatus,
+        activeFileContent,
+        activeFileSymbols,
+        activePane,
+        activeRootId,
+        agentActionRequest,
+        agentResumeRequest,
+        agentResumeRequested,
+        agentSidebarOpen,
+        appThemeCssVariables,
+        availableFonts,
+        bottomPanelOpen,
+        bottomPanelTab,
+        cliToolInstallPrompt,
+        cursorInfo,
+        deletedFiles,
+        diagnosticCounts,
+        diagnostics,
+        diffFilePath,
+        diffOpen,
+        extensionState,
+        extensionThemes,
+        extensionViewOpenId,
+        extensionsOpen,
+        fileOutlineOpen,
+        folderPath,
+        folderPickerOpen,
+        gitChangeCount,
+        gitHistoryEditor,
+        gitStatus,
+        handleApplyAgentEdit,
+        handleDownloadUpdate,
+        handleFileSelect,
+        handleFolderChange,
+        handleNewFile,
+        handleOpenDiagnostic,
+        handleOpenFolder,
+        handleOpenHtmlPreview,
+        handleOpenNavigationTarget,
+        handleOpenPathInTerminal,
+        handleOpenTabInTerminal,
+        handleWorkspaceSearchResult,
+        handleOpenUpdatePage,
+        handleRefresh,
+        handleInstallUpdate,
+        handleRunWorkspaceTask,
+        handleSettingsPreview,
+        handleSettingsSave,
+        handleSplit,
+        handleSwitchWorkspaceRoot,
+        language,
+        languageToolsOpen,
+        layout,
+        loading,
+        navigationTarget,
+        outputEntries,
+        paletteCommands,
+        paletteOpen,
+        platform,
+        requestCloseTab,
+        runCommand,
+        settings,
+        settingsHydrated,
+        settingsOpen,
+        sidebarCollapsed,
+        sidebarView,
+        sidebarWidth,
+        sourceControlOpen,
+        spotifyActions,
+        spotifyPlayerOpen,
+        spotifyState,
+        taskRunnerOpen,
+        terminalCreateNonce,
+        terminalCreateWorkingDirectory,
+        terminalOpen,
+        testExplorerOpen,
+        themeSyntax,
+        themeTokens,
+        tree,
+        updateInfo,
+        updateInstallState,
+        updateModalOpen,
+        workspaceOverviewOpen,
+        workspaceRoots,
+        workspaceSearchOpen,
+        workspaceTrusted,
+        workspaceTrustPromptPath,
+        zenMode,
+        setAboutOpen,
+        setAgentSidebarOpen,
+        setBottomPanelOpen,
+        setBottomPanelTab,
+        setDiffFilePath,
+        setDiffOpen,
+        setExtensionsOpen,
+        setExtensionState,
+        setExtensionViewOpenId,
+        setFileOutlineOpen,
+        setFolderPickerOpen,
+        setGitHistoryEditor,
+        setLanguage,
+        setLanguageToolsOpen,
+        setLayout,
+        setPaletteOpen,
+        setSettingsOpen,
+        setSidebarCollapsed,
+        setSidebarView,
+        setSidebarWidth,
+        setSourceControlOpen,
+        setSpotifyPlayerOpen,
+        setTaskRunnerOpen,
+        setTerminalOpen,
+        setTestExplorerOpen,
+        setUpdateModalOpen,
+        setWorkspaceOverviewOpen,
+        setWorkspaceSearchOpen,
+        setWorkspaceTrustNonce,
+        setWorkspaceTrustPromptPath,
+        setZenMode,
+        setCursorInfo,
+        appendOutput,
+        aboutOpen,
+        refreshGitStatus,
       }}
     />
   );

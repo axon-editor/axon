@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { History, Replace, Search } from "lucide-react";
 import {
   readFile,
+  replaceWorkspace,
   searchWorkspace,
   writeFile,
   type WorkspaceSearchResult,
@@ -249,6 +250,8 @@ export default function WorkspaceSearchModal({
 
   const replaceAllVisible = async () => {
     if (!query.trim() || groupedResults.length === 0) return;
+    if (!rootPath) return;
+    const replaceRoot = rootPath;
     const confirmed = window.confirm(
       `Replace "${query.trim()}" in ${new Set(groupedResults.map((result) => result.path)).size} file(s)?`,
     );
@@ -256,18 +259,11 @@ export default function WorkspaceSearchModal({
 
     setReplacing(true);
     try {
-      // Search results are line-level, but replacing one file multiple times is
-      // wasteful and can create confusing progress. I collapse the visible
-      // matches to unique files, then use the existing file read/write API so
-      // the operation stays inside Axon's normal save path.
-      const uniquePaths = Array.from(
-        new Set(groupedResults.map((result) => result.path)),
-      );
-      await Promise.all(
-        uniquePaths.map((filePath) =>
-          replaceInFile(filePath, query.trim(), replaceValue),
-        ),
-      );
+      // Core performs one bounded walk and atomic per-file writes. The previous
+      // renderer loop only changed the first 80 visible search results and opened
+      // an IPC read/write pair for every file, which was both incomplete and slow
+      // on real workspaces.
+      await replaceWorkspace(replaceRoot, query.trim(), replaceValue);
       cacheRef.current.clear();
       setResults([]);
       setQuery((current) => `${current}`);

@@ -1,35 +1,38 @@
-import type { CoreConnection } from "../../../shared/app";
-
-let coreConnectionPromise: Promise<CoreConnection> | null = null;
-
-export function getCoreConnection() {
-  if (!coreConnectionPromise) {
-    // The token is intentionally obtained through preload instead of Vite
-    // configuration or renderer globals. Build-time values end up in packaged
-    // JavaScript, while this value must be fresh for every Axon process.
-    coreConnectionPromise = window.axon.getCoreConnection();
-  }
-  return coreConnectionPromise;
-}
-
 export async function authenticatedCoreFetch(
   path: string,
   options: RequestInit = {},
 ) {
-  const connection = await getCoreConnection();
-  const headers = new Headers(options.headers);
-  headers.set("Authorization", `Bearer ${connection.token}`);
-  return fetch(`${connection.httpUrl}${path}`, { ...options, headers });
+  const requestId = crypto.randomUUID();
+  const headers = Object.fromEntries(new Headers(options.headers).entries());
+  const abortRequest = () => {
+    void window.axon.cancelCoreRequest(requestId);
+  };
+  options.signal?.addEventListener("abort", abortRequest, { once: true });
+
+  try {
+    if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const result = await window.axon.coreRequest({
+      id: requestId,
+      path,
+      method: (options.method ?? "GET") as "GET" | "POST" | "PUT" | "DELETE",
+      headers,
+      body: typeof options.body === "string" ? options.body : undefined,
+    });
+    if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    return new Response(result.body, {
+      status: result.status,
+      headers: result.headers,
+    });
+  } finally {
+    options.signal?.removeEventListener("abort", abortRequest);
+  }
 }
 
-export async function getCoreWebSocketUrl(path: string) {
-  const connection = await getCoreConnection();
-  const baseUrl = new URL(connection.httpUrl);
-  baseUrl.protocol = baseUrl.protocol === "https:" ? "wss:" : "ws:";
+export async function getCoreWebSocketUrl(path: string, workingDirectory: string) {
+  const baseUrl = new URL(
+    await window.axon.createTerminalTicket(workingDirectory),
+  );
   baseUrl.pathname = path.startsWith("/") ? path : `/${path}`;
-  baseUrl.search = "";
-  baseUrl.hash = "";
-  baseUrl.searchParams.set("access_token", connection.token);
   return baseUrl;
 }
 

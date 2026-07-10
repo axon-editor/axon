@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 
 const editorRoot = process.cwd();
+const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const vscodeUriBridgePath = path.join(
   editorRoot,
   "node_modules",
@@ -22,6 +23,40 @@ const fixedVscodeUriBridge = [
   "export { URI, Utils };",
 ].join("\n");
 
+function replaceNestedDependency(targetSegments, securePackageName) {
+  const appSourcePath = path.join(editorRoot, "node_modules", securePackageName);
+  const workspaceSourcePath = path.join(
+    workspaceRoot,
+    "node_modules",
+    securePackageName,
+  );
+  const sourcePath = fs.existsSync(appSourcePath)
+    ? appSourcePath
+    : workspaceSourcePath;
+  const targetPath = path.join(workspaceRoot, "node_modules", ...targetSegments);
+  if (!fs.existsSync(sourcePath) || !fs.existsSync(targetPath)) return;
+
+  const sourceManifest = JSON.parse(
+    fs.readFileSync(path.join(sourcePath, "package.json"), "utf8"),
+  );
+  const targetManifest = JSON.parse(
+    fs.readFileSync(path.join(targetPath, "package.json"), "utf8"),
+  );
+  if (sourceManifest.version === targetManifest.version) return;
+
+  // Several managed language servers pin exact vulnerable transitive versions,
+  // so npm cannot deduplicate them even though the patched releases preserve the
+  // APIs those servers consume. Axon copies the reviewed secure package into the
+  // nested resolution location before dev/build. That keeps Node's normal module
+  // lookup unchanged and avoids downgrading Monaco, Bash LS, or Intelephense just
+  // to make npm audit choose an older dependency graph.
+  fs.rmSync(targetPath, { recursive: true, force: true });
+  fs.cpSync(sourcePath, targetPath, { recursive: true });
+  console.log(
+    `patched ${securePackageName} ${targetManifest.version} -> ${sourceManifest.version}`,
+  );
+}
+
 if (fs.existsSync(vscodeUriBridgePath)) {
   const current = fs.readFileSync(vscodeUriBridgePath, "utf8");
 
@@ -39,3 +74,18 @@ if (fs.existsSync(vscodeUriBridgePath)) {
     console.log("patched vscode-markdown-languageservice vscode-uri import");
   }
 }
+
+replaceNestedDependency(
+  ["editorconfig", "node_modules", "minimatch"],
+  "minimatch",
+);
+replaceNestedDependency(
+  ["editorconfig", "node_modules", "brace-expansion"],
+  "brace-expansion",
+);
+replaceNestedDependency(
+  ["editorconfig", "node_modules", "balanced-match"],
+  "balanced-match",
+);
+replaceNestedDependency(["protobufjs"], "protobufjs");
+replaceNestedDependency(["dompurify"], "dompurify");

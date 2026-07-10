@@ -37,7 +37,20 @@ export interface WorkspaceSearchResult {
   preview: string;
 }
 
+export interface WorkspaceReplaceResult {
+  files_changed: number;
+  replacements: number;
+}
+
 let activeWorkspaceRoot: string | null = null;
+const authorizedWorkspaceRoots = new Set<string>();
+
+async function authorizeWorkspaceRoot(root: string) {
+  if (authorizedWorkspaceRoots.has(root)) return;
+  const authorizedRoot = await window.axon.authorizeWorkspaceRoot(root);
+  authorizedWorkspaceRoots.add(root);
+  authorizedWorkspaceRoots.add(authorizedRoot);
+}
 
 function normalizedPath(value: string) {
   return value.replaceAll("\\", "/").replace(/\/+$/, "");
@@ -86,6 +99,7 @@ export async function getTree(path: string, root?: string): Promise<FileNode> {
       ? activeWorkspaceRoot
       : path);
   activeWorkspaceRoot = requestedRoot;
+  await authorizeWorkspaceRoot(requestedRoot);
   return request<FileNode>(
     `/fs/tree?path=${encodeURIComponent(path)}&root=${encodeURIComponent(requestedRoot)}`,
   );
@@ -94,9 +108,7 @@ export async function getTree(path: string, root?: string): Promise<FileNode> {
 // readFile fetches the content of a file at the given path
 export async function readFile(path: string, root?: string): Promise<FileContent> {
   const requestedRoot = workspaceRootFor(path, root);
-  return request<FileContent>(
-    `/fs/file?path=${encodeURIComponent(path)}&root=${encodeURIComponent(requestedRoot)}`,
-  );
+  return window.axon.readTextFile(path, requestedRoot);
 }
 
 // writeFile saves content to a file at the given path
@@ -105,11 +117,7 @@ export async function writeFile(
   content: string,
   root: string,
 ): Promise<void> {
-  await request("/fs/file", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, content, root }),
-  });
+  await window.axon.writeTextFile(path, content, root);
 }
 
 export async function createFile(path: string, root?: string): Promise<void> {
@@ -181,4 +189,16 @@ export async function searchWorkspace(
     `/fs/search?root=${encodeURIComponent(root)}&q=${encodeURIComponent(query)}`,
     { signal },
   );
+}
+
+export async function replaceWorkspace(
+  root: string,
+  search: string,
+  replacement: string,
+): Promise<WorkspaceReplaceResult> {
+  return request<WorkspaceReplaceResult>("/fs/replace", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ root, search, replacement }),
+  });
 }

@@ -24,5 +24,16 @@
     "lint": "eslint apps/editor/src extensions/builtin --config eslint.config.mjs",
     "test": "npm --workspace axon test && go -C services/core test ./...",
     "check:line-count": "node tools/check-file-lines.mjs"
+  },
+  "overrides": {
+    "editorconfig": {
+      "minimatch": "10.2.5"
+    },
+    "intelephense": {
+      "protobufjs": "8.7.0"
+    },
+    "monaco-editor": {
+      "dompurify": "3.4.11"
+    }
   }
 }

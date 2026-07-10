@@ -56,7 +56,7 @@ function normalizeUpdatePageUrl(
     const isAxonReleaseUrl =
       parsedUrl.protocol === "https:" &&
       parsedUrl.hostname === "github.com" &&
-      parsedUrl.pathname.startsWith("/GordenArcher/axon/releases");
+      parsedUrl.pathname.startsWith("/axon-editor/axon/releases");
 
     return isAxonReleaseUrl ? parsedUrl.toString() : releasePageUrl;
   } catch {
@@ -68,7 +68,7 @@ export class UpdateManager {
   private state: UpdateInstallState = { phase: "idle" };
   private updateInstallTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private readonly deps: UpdateManagerDependencies) {}
+  constructor(private readonly deps: UpdateManagerDependencies) { }
 
   getState() {
     return this.state;

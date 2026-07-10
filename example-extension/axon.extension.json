@@ -7,10 +7,15 @@
   "description": "A reference Axon extension package showing manifest contributions for themes, icons, commands, views, and terminal profiles.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GordenArcher/axon/tree/main/example-extension"
+    "url": "https://github.com/axon-editor/axon/tree/main/example-extension"
   },
   "kind": "mixed",
-  "categories": ["Themes", "Icon Themes", "Views", "Terminal"],
+  "categories": [
+    "Themes",
+    "Icon Themes",
+    "Views",
+    "Terminal"
+  ],
   "activationEvents": [
     "onStartup",
     "onCommand:axon.example.sayHello",
@@ -53,7 +58,9 @@
         "id": "axon.example.shell",
         "title": "Example Shell",
         "command": "sh",
-        "args": ["-l"]
+        "args": [
+          "-l"
+        ]
       }
     ]
   }

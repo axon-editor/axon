@@ -9,14 +9,14 @@
   },
   "productName": "Axon",
   "description": "A personal AI-powered code editor built with Electron, React, TypeScript, and Go.",
-  "homepage": "https://github.com/GordenArcher/axon",
+  "homepage": "https://github.com/axon-editor/axon",
   "author": {
     "name": "Gorden",
     "email": "GordenArcher@users.noreply.github.com"
   },
   "main": "dist/main/index.js",
   "scripts": {
-    "predev": "npm --prefix ../.. run build:packages && node scripts/write-build-config.mjs && tsc -p tsconfig.main.json && npm run build:dev-cli",
+    "predev": "npm --prefix ../.. run build:packages && npm run patch:language-servers && node scripts/write-build-config.mjs && tsc -p tsconfig.main.json && npm run build:dev-cli",
     "dev": "npm run prepare:extension-registry && npm run check:language-servers && cross-env AXON_CORE_TOKEN=axon-development-only concurrently -k -n core,renderer,electron \"cross-env AXON_CORE_PORT=17777 go -C ../../services/core run cmd/axon/main.go\" \"cross-env NODE_ENV=development VITE_AXON_CORE_URL=http://127.0.0.1:17777 vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development AXON_CORE_PORT=17777 AXON_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "check:language-servers": "node scripts/check-language-servers.mjs",
     "build:language-servers": "node scripts/download-language-servers.mjs",
@@ -50,9 +50,7 @@
     "directories": {
       "output": "release"
     },
-    "asarUnpack": [
-      "node_modules/**/*"
-    ],
+    "asarUnpack": ["node_modules/**/*"],
     "files": [
       "dist/main/**/*",
       "dist/preload/**/*",
@@ -61,9 +59,7 @@
       {
         "from": "../../extensions",
         "to": "extensions",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       },
       "package.json",
       "node_modules/@ampproject/remapping/**/*",
@@ -763,26 +759,18 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": [
-        "dmg",
-        "zip"
-      ],
+      "target": ["dmg", "zip"],
       "icon": "build/axon.png"
     },
     "win": {
-      "target": [
-        "nsis"
-      ],
+      "target": ["nsis"],
       "verifyUpdateCodeSignature": false,
       "icon": "build/axon.png"
     },
     "linux": {
       "category": "Development",
       "maintainer": "Gorden <GordenArcher@users.noreply.github.com>",
-      "target": [
-        "AppImage",
-        "deb"
-      ],
+      "target": ["AppImage", "deb"],
       "icon": "build/axon.png"
     }
   },
@@ -808,12 +796,15 @@
     "bash-language-server": "^5.6.0",
     "chokidar": "^5.0.0",
     "dockerfile-language-server-nodejs": "^0.15.0",
+    "dompurify": "3.4.11",
     "electron-updater": "^6.8.3",
     "graphql": "^16.14.2",
     "graphql-language-service-server": "^2.14.10",
     "intelephense": "^1.18.4",
     "lucide-react": "^1.16.0",
+    "minimatch": "10.2.5",
     "monaco-editor": "^0.55.1",
+    "protobufjs": "8.7.0",
     "pyright": "^1.1.410",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

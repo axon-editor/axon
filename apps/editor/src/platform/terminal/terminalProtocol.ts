@@ -90,7 +90,13 @@ export async function getTerminalBackendUrl(
   sessionId: string,
   replayFrom = 0,
 ) {
-  const backendUrl = await getCoreWebSocketUrl(TERMINAL_PROTOCOL.endpoint);
+  if (!workingDirectory) {
+    throw new Error("A terminal requires an approved workspace directory.");
+  }
+  const backendUrl = await getCoreWebSocketUrl(
+    TERMINAL_PROTOCOL.endpoint,
+    workingDirectory,
+  );
   backendUrl.searchParams.set(TERMINAL_PROTOCOL.query.sessionId, sessionId);
   backendUrl.searchParams.set(
     TERMINAL_PROTOCOL.query.replayFrom,

@@ -47,6 +47,13 @@ type SearchResult struct {
 	Preview string `json:"preview"`
 }
 
+// ReplaceResult summarizes one workspace replace operation without returning
+// every changed file body across the process boundary.
+type ReplaceResult struct {
+	FilesChanged int `json:"files_changed"`
+	Replacements int `json:"replacements"`
+}
+
 func shouldSkipEntry(name string) bool {
 	// Dotfiles and dependency/build folders are real project entries in an
 	// editor. Axon must show entries like .github, .gitignore, node_modules,
@@ -412,4 +419,82 @@ func SearchWorkspaceContext(ctx context.Context, rootPath string, query string, 
 	}
 
 	return results, err
+}
+
+// ReplaceWorkspaceContext performs one bounded filesystem walk in Core instead
+// of making the renderer read and write every search result over IPC. Each file
+// is replaced through a temporary sibling and rename, so a crash cannot leave a
+// half-written source file even though a multi-file operation is not globally
+// transactional.
+func ReplaceWorkspaceContext(ctx context.Context, rootPath string, searchText string, replacement string) (ReplaceResult, error) {
+	result := ReplaceResult{}
+	if searchText == "" {
+		return result, errors.New("search text is required")
+	}
+
+	err := filepath.WalkDir(rootPath, func(path string, entry os.DirEntry, walkErr error) error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		if walkErr != nil {
+			return nil
+		}
+		if path != rootPath && shouldSkipSearchPath(rootPath, path) {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if entry.IsDir() || shouldSkipSearchFile(path) {
+			return nil
+		}
+
+		info, infoErr := entry.Info()
+		if infoErr != nil || info.Size() > 1024*1024 {
+			return nil
+		}
+		content, readErr := os.ReadFile(path)
+		if readErr != nil || isBinaryContent(content) {
+			return nil
+		}
+		matchCount := strings.Count(string(content), searchText)
+		if matchCount == 0 {
+			return nil
+		}
+
+		tempFile, createErr := os.CreateTemp(filepath.Dir(path), ".axon-replace-*")
+		if createErr != nil {
+			return createErr
+		}
+		tempPath := tempFile.Name()
+		committed := false
+		defer func() {
+			_ = tempFile.Close()
+			if !committed {
+				_ = os.Remove(tempPath)
+			}
+		}()
+
+		updated := strings.ReplaceAll(string(content), searchText, replacement)
+		if _, writeErr := tempFile.WriteString(updated); writeErr != nil {
+			return writeErr
+		}
+		if syncErr := tempFile.Sync(); syncErr != nil {
+			return syncErr
+		}
+		if closeErr := tempFile.Close(); closeErr != nil {
+			return closeErr
+		}
+		if chmodErr := os.Chmod(tempPath, info.Mode().Perm()); chmodErr != nil {
+			return chmodErr
+		}
+		if renameErr := os.Rename(tempPath, path); renameErr != nil {
+			return renameErr
+		}
+		committed = true
+		result.FilesChanged++
+		result.Replacements += matchCount
+		return nil
+	})
+	return result, err
 }

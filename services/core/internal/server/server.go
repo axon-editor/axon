@@ -6,8 +6,10 @@ package server
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,12 +30,22 @@ import (
 // Server is the core HTTP server struct.
 // Will hold shared dependencies (config, ai clients, etc) as we expand.
 type Server struct {
-	authToken string
+	authToken       string
+	terminalMu      sync.Mutex
+	terminalTickets map[string]terminalTicket
+}
+
+type terminalTicket struct {
+	expiresAt time.Time
+	cwd       string
 }
 
 // New creates and returns a new Server instance.
 func New(authToken string) *Server {
-	return &Server{authToken: strings.TrimSpace(authToken)}
+	return &Server{
+		authToken:       strings.TrimSpace(authToken),
+		terminalTickets: make(map[string]terminalTicket),
+	}
 }
 
 // Response is the standard envelope for all API responses.
@@ -190,6 +203,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/fs/move", s.handleFSMove)
 	mux.HandleFunc("/fs/rename", s.handleFSRename)
 	mux.HandleFunc("/fs/search", s.handleFSSearch)
+	mux.HandleFunc("/fs/replace", s.handleFSReplace)
 
 	// AI
 	mux.HandleFunc("/ai/runtime", s.handleAIRuntime)
@@ -202,6 +216,7 @@ func (s *Server) Router() http.Handler {
 	// each connection spawns a real shell attached to a PTY
 	mux.HandleFunc("/terminal", terminal.Handler)
 	mux.HandleFunc("/terminal/health", terminal.HealthHandler)
+	mux.HandleFunc("/terminal/ticket", s.handleTerminalTicket)
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed
@@ -215,20 +230,44 @@ func requestToken(r *http.Request) string {
 		return strings.TrimSpace(strings.TrimPrefix(authorization, bearerPrefix))
 	}
 
-	// Browsers cannot attach an Authorization header to a WebSocket handshake.
-	// The renderer therefore sends the same short-lived per-launch token as a
-	// query parameter only for /terminal; axon-core never logs request URLs.
-	if r.URL.Path == "/terminal" {
-		return strings.TrimSpace(r.URL.Query().Get("access_token"))
-	}
 	return ""
+}
+
+func (s *Server) consumeTerminalTicket(ticket string, requestedCwd string) bool {
+	if ticket == "" {
+		return false
+	}
+
+	s.terminalMu.Lock()
+	defer s.terminalMu.Unlock()
+	capability, exists := s.terminalTickets[ticket]
+	// A ticket is deleted before the WebSocket upgrade continues. This makes it a
+	// true one-use capability: copying a terminal URL from logs, history, or a
+	// compromised renderer cannot be replayed to create another shell.
+	delete(s.terminalTickets, ticket)
+	if !exists || !time.Now().Before(capability.expiresAt) {
+		return false
+	}
+	sameCwd, err := pathInsideWorkspace(capability.cwd, requestedCwd)
+	return err == nil && sameCwd && sameFilesystemPath(capability.cwd, requestedCwd)
+}
+
+func (s *Server) authenticated(r *http.Request) bool {
+	if r.URL.Path == "/terminal" {
+		return s.consumeTerminalTicket(
+			strings.TrimSpace(r.URL.Query().Get("ticket")),
+			r.URL.Query().Get("cwd"),
+		)
+	}
+
+	providedToken := requestToken(r)
+	return s.authToken != "" && len(providedToken) == len(s.authToken) &&
+		subtle.ConstantTimeCompare([]byte(providedToken), []byte(s.authToken)) == 1
 }
 
 func (s *Server) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		providedToken := requestToken(r)
-		if s.authToken == "" || len(providedToken) != len(s.authToken) ||
-			subtle.ConstantTimeCompare([]byte(providedToken), []byte(s.authToken)) != 1 {
+		if !s.authenticated(r) {
 			writeJSON(w, http.StatusUnauthorized, Response{
 				Status: "error",
 				Error:  "axon-core authentication failed",
@@ -236,6 +275,58 @@ func (s *Server) requireAuthentication(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) handleTerminalTicket(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
+		return
+	}
+	var body struct {
+		Cwd string `json:"cwd"`
+	}
+	limitRequestBody(w, r)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Cwd == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is required"})
+		return
+	}
+	info, err := os.Stat(body.Cwd)
+	if err != nil || !info.IsDir() {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is invalid"})
+		return
+	}
+	resolvedCwd, err := filepath.EvalSymlinks(body.Cwd)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is invalid"})
+		return
+	}
+
+	randomTicket := make([]byte, 32)
+	if _, err := rand.Read(randomTicket); err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: "could not create terminal capability"})
+		return
+	}
+	ticket := base64.RawURLEncoding.EncodeToString(randomTicket)
+	now := time.Now()
+
+	s.terminalMu.Lock()
+	for value, capability := range s.terminalTickets {
+		if !now.Before(capability.expiresAt) {
+			delete(s.terminalTickets, value)
+		}
+	}
+	// Fifteen seconds covers normal main-process IPC and WebSocket setup while
+	// keeping the capability too short-lived to become a second session secret.
+	s.terminalTickets[ticket] = terminalTicket{
+		expiresAt: now.Add(15 * time.Second),
+		cwd:       resolvedCwd,
+	}
+	s.terminalMu.Unlock()
+
+	writeJSON(w, http.StatusOK, Response{
+		Status: "ok",
+		Data:   map[string]string{"ticket": ticket},
 	})
 }
 
@@ -763,4 +854,37 @@ func (s *Server) handleFSSearch(w http.ResponseWriter, r *http.Request) {
 		Status: "ok",
 		Data:   results,
 	})
+}
+
+func (s *Server) handleFSReplace(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
+		return
+	}
+
+	var body struct {
+		Root        string `json:"root"`
+		Search      string `json:"search"`
+		Replacement string `json:"replacement"`
+	}
+	limitRequestBody(w, r)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "invalid request body"})
+		return
+	}
+	if err := validateWorkspacePath(body.Root, body.Root); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: err.Error()})
+		return
+	}
+	if body.Search == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "search text is required"})
+		return
+	}
+
+	result, err := fs.ReplaceWorkspaceContext(r.Context(), body.Root, body.Search, body.Replacement)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, Response{Status: "ok", Data: result})
 }

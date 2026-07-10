@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -238,5 +239,50 @@ func TestSearchWorkspaceSkipsBinaryContentWithoutExtension(t *testing.T) {
 	}
 	if results[0].Path != textPath {
 		t.Fatalf("expected result path %s, got %s", textPath, results[0].Path)
+	}
+}
+
+func TestReplaceWorkspaceChangesAllTextFilesAndPreservesSkippedContent(t *testing.T) {
+	root := t.TempDir()
+	sourceFiles := []string{
+		filepath.Join(root, "src", "one.ts"),
+		filepath.Join(root, "src", "two.ts"),
+	}
+	for _, filePath := range sourceFiles {
+		if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filePath, []byte("before before\n"), 0o640); err != nil {
+			t.Fatal(err)
+		}
+	}
+	skippedPath := filepath.Join(root, "node_modules", "dependency.js")
+	if err := os.MkdirAll(filepath.Dir(skippedPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(skippedPath, []byte("before\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ReplaceWorkspaceContext(context.Background(), root, "before", "after")
+	if err != nil {
+		t.Fatalf("ReplaceWorkspaceContext failed: %v", err)
+	}
+	if result.FilesChanged != 2 || result.Replacements != 4 {
+		t.Fatalf("unexpected replace result: %#v", result)
+	}
+	for _, filePath := range sourceFiles {
+		content, readErr := os.ReadFile(filePath)
+		if readErr != nil || string(content) != "after after\n" {
+			t.Fatalf("unexpected replacement in %s: %q, %v", filePath, content, readErr)
+		}
+		info, statErr := os.Stat(filePath)
+		if statErr != nil || info.Mode().Perm() != 0o640 {
+			t.Fatalf("replacement changed permissions for %s", filePath)
+		}
+	}
+	skippedContent, err := os.ReadFile(skippedPath)
+	if err != nil || string(skippedContent) != "before\n" {
+		t.Fatal("workspace replace modified dependency content")
 	}
 }

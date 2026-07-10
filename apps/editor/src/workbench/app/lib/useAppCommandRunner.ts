@@ -18,6 +18,7 @@ interface AppCommandRunnerOptions {
   handleOpenHtmlPreview: any;
   handleOpenSettingsJson: any;
   handleSaveActiveFile: any;
+  handleSaveActiveFileAs: any;
   navigateDiagnostic: any;
   openProblemsTab: any;
   refreshGitStatus: any;
@@ -39,6 +40,7 @@ interface AppCommandRunnerOptions {
   setExtensionsOpen: any;
   setExtensionViewOpenId: any;
   setFileOutlineOpen: any;
+  setFolderPickerOpen: any;
   setLanguageToolsOpen: any;
   setPaletteOpen: any;
   setSettingsOpen: any;
@@ -65,6 +67,7 @@ export function useAppCommandRunner({
   handleOpenHtmlPreview,
   handleOpenSettingsJson,
   handleSaveActiveFile,
+  handleSaveActiveFileAs,
   navigateDiagnostic,
   openProblemsTab,
   refreshGitStatus,
@@ -86,6 +89,7 @@ export function useAppCommandRunner({
   setExtensionsOpen,
   setExtensionViewOpenId,
   setFileOutlineOpen,
+  setFolderPickerOpen,
   setLanguageToolsOpen,
   setPaletteOpen,
   setSettingsOpen,
@@ -206,8 +210,14 @@ export function useAppCommandRunner({
         case AXON_COMMANDS.OPEN_FOLDER:
           void handleOpenFolder();
           break;
+        case AXON_COMMANDS.OPEN_RECENT:
+          setFolderPickerOpen(true);
+          break;
         case AXON_COMMANDS.SAVE:
           handleSaveActiveFile();
+          break;
+        case AXON_COMMANDS.SAVE_AS:
+          void handleSaveActiveFileAs();
           break;
         case AXON_COMMANDS.CLOSE_TAB:
           handleCloseActiveTab();
@@ -424,6 +434,7 @@ export function useAppCommandRunner({
       handleOpenHtmlPreview,
       handleOpenSettingsJson,
       handleSaveActiveFile,
+      handleSaveActiveFileAs,
       navigateDiagnostic,
       refreshGitStatus,
       refreshProjectDiagnostics,
@@ -442,6 +453,7 @@ export function useAppCommandRunner({
       setExtensionsOpen,
       setExtensionViewOpenId,
       setFileOutlineOpen,
+      setFolderPickerOpen,
       setLanguageToolsOpen,
       setPaletteOpen,
       setSettingsOpen,

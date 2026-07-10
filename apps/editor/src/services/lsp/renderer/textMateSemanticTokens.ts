@@ -42,29 +42,35 @@ type ShikiWasmModule = {
   getWasmInstance?: unknown;
 };
 
-const textMateLanguages = new Map([
-  ["typescript", "typescript"],
-  ["typescriptreact", "tsx"],
-  ["javascript", "javascript"],
-  ["javascriptreact", "jsx"],
-  ["go", "go"],
-  ["rust", "rust"],
-  ["python", "python"],
-  ["java", "java"],
-  ["csharp", "csharp"],
-  ["kotlin", "kotlin"],
-  ["php", "php"],
-  ["lua", "lua"],
-  ["cpp", "cpp"],
-  ["c", "c"],
-  ["html", "html"],
-  ["css", "css"],
-  ["scss", "scss"],
-  ["less", "less"],
-  ["json", "json"],
-  ["yaml", "yaml"],
-  ["shell", "shell"],
-  ["dockerfile", "dockerfile"],
+type ShikiLanguageModule = { default: unknown };
+type TextMateLanguage = {
+  id: string;
+  load: () => Promise<ShikiLanguageModule>;
+};
+
+const textMateLanguages = new Map<string, TextMateLanguage>([
+  ["typescript", { id: "typescript", load: () => import("shiki/langs/typescript.mjs") }],
+  ["typescriptreact", { id: "tsx", load: () => import("shiki/langs/tsx.mjs") }],
+  ["javascript", { id: "javascript", load: () => import("shiki/langs/javascript.mjs") }],
+  ["javascriptreact", { id: "jsx", load: () => import("shiki/langs/jsx.mjs") }],
+  ["go", { id: "go", load: () => import("shiki/langs/go.mjs") }],
+  ["rust", { id: "rust", load: () => import("shiki/langs/rust.mjs") }],
+  ["python", { id: "python", load: () => import("shiki/langs/python.mjs") }],
+  ["java", { id: "java", load: () => import("shiki/langs/java.mjs") }],
+  ["csharp", { id: "csharp", load: () => import("shiki/langs/csharp.mjs") }],
+  ["kotlin", { id: "kotlin", load: () => import("shiki/langs/kotlin.mjs") }],
+  ["php", { id: "php", load: () => import("shiki/langs/php.mjs") }],
+  ["lua", { id: "lua", load: () => import("shiki/langs/lua.mjs") }],
+  ["cpp", { id: "cpp", load: () => import("shiki/langs/cpp.mjs") }],
+  ["c", { id: "c", load: () => import("shiki/langs/c.mjs") }],
+  ["html", { id: "html", load: () => import("shiki/langs/html.mjs") }],
+  ["css", { id: "css", load: () => import("shiki/langs/css.mjs") }],
+  ["scss", { id: "scss", load: () => import("shiki/langs/scss.mjs") }],
+  ["less", { id: "less", load: () => import("shiki/langs/less.mjs") }],
+  ["json", { id: "json", load: () => import("shiki/langs/json.mjs") }],
+  ["yaml", { id: "yaml", load: () => import("shiki/langs/yaml.mjs") }],
+  ["shell", { id: "shell", load: () => import("shiki/langs/shell.mjs") }],
+  ["dockerfile", { id: "dockerfile", load: () => import("shiki/langs/dockerfile.mjs") }],
 ]);
 const tokenTypeIndexes = new Map<string, number>(
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES.map((tokenType, index) => [
@@ -79,7 +85,12 @@ const tokenModifierIndexes = new Map<string, number>(
   ]),
 );
 
-let highlighterPromise: Promise<ShikiHighlighter | null> | null = null;
+let highlighterFoundationPromise: Promise<{
+  shiki: ShikiModule;
+  engine: unknown;
+  theme: unknown;
+}> | null = null;
+const highlighterPromises = new Map<string, Promise<ShikiHighlighter | null>>();
 let highlighterLoadError: string | null = null;
 let highlighterLoadWarningShown = false;
 
@@ -89,103 +100,47 @@ function describeError(err: unknown) {
 
 export function getTextMateSemanticTokenStatus() {
   return {
-    ready: highlighterPromise !== null && highlighterLoadError === null,
+    ready: highlighterPromises.size > 0 && highlighterLoadError === null,
     error: highlighterLoadError,
   };
 }
 
-function getHighlighter() {
-  if (!highlighterPromise) {
-    highlighterPromise = Promise.all([
-      import("shiki/core"),
-      import("shiki/engine/oniguruma"),
-      import("@shikijs/engine-oniguruma/wasm-inlined"),
-      import("shiki/langs/typescript.mjs"),
-      import("shiki/langs/tsx.mjs"),
-      import("shiki/langs/javascript.mjs"),
-      import("shiki/langs/jsx.mjs"),
-      import("shiki/langs/go.mjs"),
-      import("shiki/langs/rust.mjs"),
-      import("shiki/langs/python.mjs"),
-      import("shiki/langs/java.mjs"),
-      import("shiki/langs/csharp.mjs"),
-      import("shiki/langs/kotlin.mjs"),
-      import("shiki/langs/php.mjs"),
-      import("shiki/langs/lua.mjs"),
-      import("shiki/langs/cpp.mjs"),
-      import("shiki/langs/c.mjs"),
-      import("shiki/langs/html.mjs"),
-      import("shiki/langs/css.mjs"),
-      import("shiki/langs/scss.mjs"),
-      import("shiki/langs/less.mjs"),
-      import("shiki/langs/json.mjs"),
-      import("shiki/langs/yaml.mjs"),
-      import("shiki/langs/shell.mjs"),
-      import("shiki/langs/dockerfile.mjs"),
-      import("shiki/themes/github-dark.mjs"),
-    ])
-      .then(async ([
-        coreModule,
-        onigurumaModule,
-        wasmModule,
-        ts,
-        tsx,
-        js,
-        jsx,
-        go,
-        rust,
-        python,
-        java,
-        csharp,
-        kotlin,
-        php,
-        lua,
-        cpp,
-        c,
-        html,
-        css,
-        scss,
-        less,
-        json,
-        yaml,
-        shell,
-        dockerfile,
-        githubDark,
-      ]) => {
-        const shiki = coreModule as ShikiModule;
-        const oniguruma = onigurumaModule as ShikiOnigurumaModule;
-        const wasm = wasmModule as ShikiWasmModule;
-        const wasmLoader = wasm.default ?? wasm.getWasmInstance;
-        const engine = await oniguruma.createOnigurumaEngine(wasmLoader);
-        highlighterLoadError = null;
+function getHighlighterFoundation() {
+  highlighterFoundationPromise ??= Promise.all([
+    import("shiki/core"),
+    import("shiki/engine/oniguruma"),
+    import("@shikijs/engine-oniguruma/wasm-inlined"),
+    import("shiki/themes/github-dark.mjs"),
+  ]).then(async ([coreModule, onigurumaModule, wasmModule, githubDark]) => {
+    const oniguruma = onigurumaModule as ShikiOnigurumaModule;
+    const wasm = wasmModule as ShikiWasmModule;
+    return {
+      shiki: coreModule as ShikiModule,
+      engine: await oniguruma.createOnigurumaEngine(
+        wasm.default ?? wasm.getWasmInstance,
+      ),
+      theme: githubDark.default,
+    };
+  });
+  return highlighterFoundationPromise;
+}
 
-        return shiki.createHighlighterCore({
-          themes: [githubDark.default],
-          langs: [
-            ts.default,
-            tsx.default,
-            js.default,
-            jsx.default,
-            go.default,
-            rust.default,
-            python.default,
-            java.default,
-            csharp.default,
-            kotlin.default,
-            php.default,
-            lua.default,
-            cpp.default,
-            c.default,
-            html.default,
-            css.default,
-            scss.default,
-            less.default,
-            json.default,
-            yaml.default,
-            shell.default,
-            dockerfile.default,
-          ],
-          engine,
+function getHighlighter(language: TextMateLanguage) {
+  let highlighterPromise = highlighterPromises.get(language.id);
+  if (!highlighterPromise) {
+    // Loading every grammar on the first edited file made a JSON or Go document
+    // pay for two dozen unrelated languages. Each language now gets an isolated
+    // lazy chunk while the expensive Oniguruma engine is shared across them.
+    highlighterPromise = Promise.all([
+      getHighlighterFoundation(),
+      language.load(),
+    ])
+      .then(([foundation, grammar]) => {
+        highlighterLoadError = null;
+        return foundation.shiki.createHighlighterCore({
+          themes: [foundation.theme],
+          langs: [grammar.default],
+          engine: foundation.engine,
         });
       })
       .catch((err) => {
@@ -195,7 +150,7 @@ function getHighlighter() {
         // whole renderer session. Vite/Electron can briefly reject a lazy chunk
         // during startup or reload; clearing the cached promise lets the next
         // semantic refresh try again instead of returning `null` forever.
-        highlighterPromise = null;
+        highlighterPromises.delete(language.id);
         if (!highlighterLoadWarningShown) {
           highlighterLoadWarningShown = true;
           console.warn(
@@ -205,8 +160,8 @@ function getHighlighter() {
         }
         return null;
       });
+    highlighterPromises.set(language.id, highlighterPromise);
   }
-
   return highlighterPromise;
 }
 
@@ -422,9 +377,19 @@ function pushFallbackIdentifierTokens(input: {
   }
 }
 
-function resolveTokenType(scopeNames: string[]) {
+export function resolveTextMateTokenType(scopeNames: string[]) {
   if (startsWithScope(scopeNames, "comment")) return "comment";
   if (hasScope(scopeNames, "entity.name.tag.yaml")) return "property";
+  // JSON object keys are lexically quoted strings, but semantically they are
+  // properties. This structural scope must win before the generic string branch
+  // or every key receives the same color as a string value.
+  if (
+    hasScope(scopeNames, "support.type.property-name.json") ||
+    hasScope(scopeNames, "string.key.json") ||
+    hasScope(scopeNames, "key.json")
+  ) {
+    return "property";
+  }
   if (
     hasScope(scopeNames, "punctuation.separator.key-value.mapping.yaml") ||
     hasScope(scopeNames, "punctuation.definition.block.sequence.item.yaml")
@@ -536,10 +501,10 @@ export async function createTextMateSemanticTokens(input: {
   languageId: string;
   content: string;
 }) {
-  const shikiLanguage = textMateLanguages.get(input.languageId);
-  if (!shikiLanguage) return null;
+  const language = textMateLanguages.get(input.languageId);
+  if (!language) return null;
 
-  const highlighter = await getHighlighter();
+  const highlighter = await getHighlighter(language);
   if (!highlighter) return null;
 
   const lineStarts = createLineStarts(input.content);
@@ -553,7 +518,7 @@ export async function createTextMateSemanticTokens(input: {
   // keeps grammar richness independent from the temporary tokenizer theme used
   // to make Shiki emit scope explanations.
   const shikiTokens = highlighter.codeToTokens(input.content, {
-    lang: shikiLanguage,
+    lang: language.id,
     theme: "github-dark",
     includeExplanation: true,
     tokenizeTimeLimit: 120,
@@ -584,7 +549,7 @@ export async function createTextMateSemanticTokens(input: {
           trimmedEnd >= 0 ? trimmedEnd : content.length;
         const tokenLength = visibleLength - trimmedStart;
         const scopeNames = getScopeNames(explanation.scopes);
-        const tokenType = resolveTokenType(scopeNames);
+        const tokenType = resolveTextMateTokenType(scopeNames);
         const startColumnZeroBased =
           explanationOffset - lineStart + trimmedStart;
         if (!tokenType) {

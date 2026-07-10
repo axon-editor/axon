@@ -10,7 +10,8 @@ import {
   type AgentResumeRequest,
   type CliToolInstallResult,
   type CliToolStatus,
-  type CoreConnection,
+  type CoreRequest,
+  type CoreResponse,
 } from "../shared/app";
 import {
   type AiChatRequest,
@@ -121,9 +122,28 @@ const EXTENSION_IPC_CHANNELS = {
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
-  getCoreConnection: (): Promise<CoreConnection> =>
-    ipcRenderer.invoke("core:getConnection"),
+  coreRequest: (request: CoreRequest): Promise<CoreResponse> =>
+    ipcRenderer.invoke("core:request", request),
+  cancelCoreRequest: (requestId: string): Promise<boolean> =>
+    ipcRenderer.invoke("core:cancelRequest", requestId),
+  createTerminalTicket: (workingDirectory: string): Promise<string> =>
+    ipcRenderer.invoke("core:createTerminalTicket", workingDirectory),
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
+  authorizeWorkspaceRoot: (rootPath: string): Promise<string> =>
+    ipcRenderer.invoke("workspace:authorizeKnownRoot", rootPath),
+  readTextFile: (
+    filePath: string,
+    rootPath: string,
+  ): Promise<{ path: string; content: string }> =>
+    ipcRenderer.invoke("workspace:readTextFile", filePath, rootPath),
+  writeTextFile: (
+    filePath: string,
+    content: string,
+    rootPath: string,
+  ): Promise<void> =>
+    ipcRenderer.invoke("workspace:writeTextFile", filePath, content, rootPath),
+  saveFileAs: (suggestedPath: string, content: string): Promise<string | null> =>
+    ipcRenderer.invoke("dialog:saveFileAs", suggestedPath, content),
   getCliToolStatus: (): Promise<CliToolStatus> =>
     ipcRenderer.invoke("app:getCliToolStatus"),
   installCliTool: (): Promise<CliToolInstallResult> =>

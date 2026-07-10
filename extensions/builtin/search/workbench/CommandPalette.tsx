@@ -15,16 +15,7 @@ import {
 import { getFileIcon } from "@axon-editor/renderer/features/sidebar/files/lib/fileIcons";
 import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
 import { type AxonCommand } from "@axon-editor/shared/commands";
-
-export interface CommandPaletteCommand {
-  id: AxonCommand;
-  title: string;
-  group?: string;
-  subtitle?: string;
-  shortcut?: string;
-  keywords?: string[];
-  disabled?: boolean;
-}
+import { type CommandPaletteCommand } from "./lib/types";
 
 interface Props {
   tree: FileNode | null;

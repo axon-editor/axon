@@ -193,10 +193,7 @@ export default defineConfig({
         "lucide-react.mjs",
       ),
       react: dependencyPath("react"),
-      "react-dom": path.resolve(
-        workspaceNodeModules,
-        "react-dom",
-      ),
+      "react-dom": path.resolve(workspaceNodeModules, "react-dom"),
       "react-dom/client": path.resolve(
         workspaceNodeModules,
         "react-dom",
@@ -260,7 +257,11 @@ export default defineConfig({
             },
             {
               name: "syntax",
-              test: /node_modules[\\/](shiki|@shikijs|vscode-textmate|vscode-oniguruma)/,
+              // Keep Shiki's engine/runtime together, but leave dist/langs out of
+              // the manual group. Those grammar modules are requested lazily by
+              // language; grouping them here would silently rebuild the old 2.8MB
+              // all-languages chunk and erase the first-edit performance win.
+              test: /node_modules[\\/](?:(?:@shikijs[\\/](?!langs[\\/]))|vscode-textmate|vscode-oniguruma|shiki[\\/](?!dist[\\/]langs))/,
               priority: 25,
             },
             {

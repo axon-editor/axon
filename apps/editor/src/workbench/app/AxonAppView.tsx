@@ -1,19 +1,9 @@
 import * as React from "react";
-import Terminal from "@axon-builtin-terminal/Terminal";
 import { resolveTerminalWorkbenchContribution } from "@axon-builtin-terminal/lib/contribution";
-import AxonAgentSidebar from "@axon-builtin-agent/AxonAgentSidebar";
 import { resolveAgentWorkbenchContribution } from "@axon-builtin-agent/lib/contribution";
-import CommandPalette from "@axon-builtin-search/CommandPalette";
-import WorkspaceSearchModal from "@axon-builtin-search/WorkspaceSearchModal";
-import FileOutlineModal from "@axon-builtin-search/FileOutlineModal";
 import { resolveSearchWorkbenchContribution } from "@axon-builtin-search/lib/contribution";
-import DiffModal from "@axon-builtin-git/git/DiffModal";
-import SourceControlModal from "@axon-builtin-git/git/SourceControlModal";
-import GitHistoryEditor from "@axon-builtin-git/git/GitHistoryEditor";
 import { resolveGitWorkbenchContribution } from "@axon-builtin-git/lib/contribution";
-import SettingsModal from "@axon-builtin-settings/settings/SettingsModal";
 import { resolveSettingsWorkbenchContribution } from "@axon-builtin-settings/lib/contribution";
-import TestExplorerModal from "@axon-builtin-testing/TestExplorerModal";
 import { resolveTestingWorkbenchContribution } from "@axon-builtin-testing/lib/contribution";
 import { resolveTasksWorkbenchContribution } from "@axon-builtin-tasks/lib/contribution";
 import { resolveLanguageToolsWorkbenchContribution } from "@axon-builtin-language-tools/lib/contribution";
@@ -22,16 +12,8 @@ import Sidebar, { setWorkspaceTrusted } from "../../renderer/features/sidebar";
 import EditorPane from "../../renderer/features/editor/EditorPane";
 import StatusBar from "../../renderer/shared/components/StatusBar";
 import EditorToolbar from "../../renderer/features/editor/EditorToolbar";
-import ExtensionsModal from "../contrib/extensions";
-import AboutModal from "../../renderer/shared/components/AboutModal";
-import TaskRunnerModal from "@axon-builtin-tasks/TaskRunnerModal";
-import WorkspaceOverviewModal from "../../renderer/features/workspace/WorkspaceOverviewModal";
-import LanguageToolsModal from "@axon-builtin-language-tools/LanguageToolsModal";
-import UpdateModal from "../../renderer/features/updates/UpdateModal";
 import WorkspaceLoadingOverlay from "../../renderer/shared/components/WorkspaceLoadingOverlay";
-import SpotifyFloatingPlayer from "@axon-builtin-spotify/SpotifyFloatingPlayer";
 import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallPrompt";
-import ExtensionViewModal from "../contrib/extensions/views/ExtensionViewModal";
 import { AXON_COMMANDS } from "../../shared/commands";
 import { type ThemeId } from "../../shared/settings";
 import AppMenuButton from "./chrome/AppMenuButton";
@@ -48,6 +30,25 @@ import {
 import { detectLanguage } from "../../renderer/features/editor/lib/monacoModels";
 import { fontStack } from "../../renderer/shared/lib/fonts";
 import { getPathBasename } from "./lib/appPath";
+
+const Terminal = React.lazy(() => import("@axon-builtin-terminal/Terminal"));
+const AxonAgentSidebar = React.lazy(() => import("@axon-builtin-agent/AxonAgentSidebar"));
+const CommandPalette = React.lazy(() => import("@axon-builtin-search/CommandPalette"));
+const WorkspaceSearchModal = React.lazy(() => import("@axon-builtin-search/WorkspaceSearchModal"));
+const FileOutlineModal = React.lazy(() => import("@axon-builtin-search/FileOutlineModal"));
+const DiffModal = React.lazy(() => import("@axon-builtin-git/git/DiffModal"));
+const SourceControlModal = React.lazy(() => import("@axon-builtin-git/git/SourceControlModal"));
+const GitHistoryEditor = React.lazy(() => import("@axon-builtin-git/git/GitHistoryEditor"));
+const SettingsModal = React.lazy(() => import("@axon-builtin-settings/settings/SettingsModal"));
+const TestExplorerModal = React.lazy(() => import("@axon-builtin-testing/TestExplorerModal"));
+const TaskRunnerModal = React.lazy(() => import("@axon-builtin-tasks/TaskRunnerModal"));
+const LanguageToolsModal = React.lazy(() => import("@axon-builtin-language-tools/LanguageToolsModal"));
+const ExtensionsModal = React.lazy(() => import("../contrib/extensions"));
+const AboutModal = React.lazy(() => import("../../renderer/shared/components/AboutModal"));
+const WorkspaceOverviewModal = React.lazy(() => import("../../renderer/features/workspace/WorkspaceOverviewModal"));
+const UpdateModal = React.lazy(() => import("../../renderer/features/updates/UpdateModal"));
+const SpotifyFloatingPlayer = React.lazy(() => import("@axon-builtin-spotify/SpotifyFloatingPlayer"));
+const ExtensionViewModal = React.lazy(() => import("../contrib/extensions/views/ExtensionViewModal"));
 
 export function AxonAppView(props: Record<string, any>) {
   const {
@@ -228,6 +229,7 @@ export function AxonAppView(props: Record<string, any>) {
     !zenMode && settings.ai.enabled && agentSidebarOpen && !!agentContribution;
   const canShowSpotify = !!spotifyContribution;
   const agentSidebarNode = shouldShowAgentSidebar ? (
+    <React.Suspense fallback={null}>
     <AxonAgentSidebar
       activeFileContent={activeFileContent}
       activeFileLanguage={
@@ -246,6 +248,7 @@ export function AxonAppView(props: Record<string, any>) {
       onClose={() => setAgentSidebarOpen(false)}
       onWidthChange={setAgentSidebarWidth}
     />
+    </React.Suspense>
   ) : null;
   const mainSidebarOrder = mainSidebarSide === "right" ? 3 : 1;
   const editorOrder = 2;
@@ -362,6 +365,7 @@ export function AxonAppView(props: Record<string, any>) {
         )}
 
         {spotifyPlayerOpen && canShowSpotify && spotifyState.status?.connected && (
+          <React.Suspense fallback={null}>
           <SpotifyFloatingPlayer
             playback={spotifyState.playback}
             onPlay={spotifyActions.play}
@@ -379,6 +383,7 @@ export function AxonAppView(props: Record<string, any>) {
             onRefreshDevices={spotifyActions.refreshDevices}
             onClose={() => setSpotifyPlayerOpen(false)}
           />
+          </React.Suspense>
         )}
 
         <div
@@ -433,6 +438,7 @@ export function AxonAppView(props: Record<string, any>) {
           )}
 
           {gitHistoryEditor && gitContribution ? (
+            <React.Suspense fallback={null}>
             <GitHistoryEditor
               commit={gitHistoryEditor.commit}
               file={gitHistoryEditor.file}
@@ -441,6 +447,7 @@ export function AxonAppView(props: Record<string, any>) {
               themeTokens={themeTokens}
               onClose={() => setGitHistoryEditor(null)}
             />
+            </React.Suspense>
           ) : settingsHydrated ? (
             <EditorPane
               layout={layout}
@@ -510,6 +517,7 @@ export function AxonAppView(props: Record<string, any>) {
           )}
 
           {workspaceTrusted && terminalContribution ? (
+            <React.Suspense fallback={null}>
             <Terminal
               open={terminalOpen && !zenMode}
               createNonce={terminalCreateNonce}
@@ -538,6 +546,7 @@ export function AxonAppView(props: Record<string, any>) {
               }}
               onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
             />
+            </React.Suspense>
           ) : null}
         </div>
 
@@ -596,7 +605,8 @@ export function AxonAppView(props: Record<string, any>) {
         />
       )}
 
-      <CommandPalette
+      <React.Suspense fallback={null}>
+      {paletteOpen && <CommandPalette
         tree={tree}
         folderPath={folderPath}
         open={paletteOpen}
@@ -604,9 +614,9 @@ export function AxonAppView(props: Record<string, any>) {
         onClose={() => setPaletteOpen(false)}
         onFileSelect={handleFileSelect}
         onCommandSelect={runCommand}
-      />
+      />}
 
-      {searchContribution && (
+      {searchContribution && workspaceSearchOpen && (
         <WorkspaceSearchModal
           rootPath={folderPath}
           open={workspaceSearchOpen}
@@ -615,7 +625,7 @@ export function AxonAppView(props: Record<string, any>) {
         />
       )}
 
-      <WorkspaceOverviewModal
+      {workspaceOverviewOpen && <WorkspaceOverviewModal
         open={workspaceOverviewOpen}
         roots={workspaceRoots}
         activeRootId={activeRootId}
@@ -628,9 +638,9 @@ export function AxonAppView(props: Record<string, any>) {
           setWorkspaceOverviewOpen(false);
           runCommand(AXON_COMMANDS.OPEN_TEST_EXPLORER);
         }}
-      />
+      />}
 
-      {tasksContribution && (
+      {tasksContribution && taskRunnerOpen && (
         <TaskRunnerModal
           folderPath={folderPath}
           open={taskRunnerOpen}
@@ -639,7 +649,7 @@ export function AxonAppView(props: Record<string, any>) {
         />
       )}
 
-      {testingContribution && (
+      {testingContribution && testExplorerOpen && (
         <TestExplorerModal
           folderPath={folderPath}
           open={testExplorerOpen}
@@ -650,7 +660,7 @@ export function AxonAppView(props: Record<string, any>) {
         />
       )}
 
-      <FileOutlineModal
+      {fileOutlineOpen && <FileOutlineModal
         open={fileOutlineOpen}
         filePath={activePane?.activeFile ?? null}
         symbols={activeFileSymbols}
@@ -665,9 +675,9 @@ export function AxonAppView(props: Record<string, any>) {
             length: Math.max(1, symbol.name.length),
           });
         }}
-      />
+      />}
 
-      {languageToolsContribution && (
+      {languageToolsContribution && languageToolsOpen && (
         <LanguageToolsModal
           open={languageToolsOpen}
           folderPath={folderPath}
@@ -714,11 +724,11 @@ export function AxonAppView(props: Record<string, any>) {
         />
       )}
 
-      <ExtensionViewModal
+      {extensionViewOpenId && <ExtensionViewModal
         extensionState={extensionState}
         viewId={extensionViewOpenId}
         onClose={() => setExtensionViewOpenId(null)}
-      />
+      />}
 
       {aboutOpen && (
         <AboutModal
@@ -752,7 +762,7 @@ export function AxonAppView(props: Record<string, any>) {
         />
       )}
 
-      {gitContribution && (
+      {gitContribution && sourceControlOpen && (
         <SourceControlModal
           folderPath={folderPath}
           open={sourceControlOpen}
@@ -770,6 +780,7 @@ export function AxonAppView(props: Record<string, any>) {
           }
         />
       )}
+      </React.Suspense>
 
       {workspaceTrustPromptPath && (
         <div className="axon-modal-overlay fixed inset-0 z-[80] flex items-center justify-center px-4">

@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"testing"
+	"time"
 )
 
 const testCoreToken = "test-core-token"
@@ -31,6 +33,77 @@ func TestRouterRejectsRequestsWithoutCoreToken(t *testing.T) {
 	)
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 without core token, got %d", recorder.Code)
+	}
+}
+
+func TestTerminalTicketsAreSingleUse(t *testing.T) {
+	server := New(testCoreToken)
+	cwd := t.TempDir()
+	recorder := httptest.NewRecorder()
+	server.Router().ServeHTTP(
+		recorder,
+		authenticatedRequest(
+			http.MethodPost,
+			"/terminal/ticket",
+			[]byte(`{"cwd":`+strconv.Quote(cwd)+`}`),
+		),
+	)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected terminal ticket, got %d", recorder.Code)
+	}
+
+	var response struct {
+		Data struct {
+			Ticket string `json:"ticket"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Data.Ticket == "" {
+		t.Fatal("terminal ticket response was empty")
+	}
+
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/terminal?ticket="+url.QueryEscape(response.Data.Ticket)+"&cwd="+url.QueryEscape(cwd),
+		nil,
+	)
+	if !server.authenticated(request) {
+		t.Fatal("fresh terminal ticket was rejected")
+	}
+	if server.authenticated(request) {
+		t.Fatal("terminal ticket could be replayed")
+	}
+}
+
+func TestTerminalTicketRejectsDifferentWorkingDirectory(t *testing.T) {
+	server := New(testCoreToken)
+	approvedCwd := t.TempDir()
+	ticket := "scoped-ticket"
+	server.terminalTickets[ticket] = terminalTicket{
+		expiresAt: time.Now().Add(time.Minute),
+		cwd:       approvedCwd,
+	}
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/terminal?ticket="+ticket+"&cwd="+url.QueryEscape(t.TempDir()),
+		nil,
+	)
+	if server.authenticated(request) {
+		t.Fatal("terminal ticket was accepted for a different working directory")
+	}
+}
+
+func TestTerminalRouteRejectsLaunchTokenInQuery(t *testing.T) {
+	server := New(testCoreToken)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/terminal?access_token="+url.QueryEscape(testCoreToken),
+		nil,
+	)
+	if server.authenticated(request) {
+		t.Fatal("terminal route accepted the reusable launch token from a URL")
 	}
 }
 

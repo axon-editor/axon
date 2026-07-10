@@ -47,11 +47,17 @@ func TestTerminalHighVolumeOutputIsDelivered(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(20 * time.Second)
+	// The shell is started as an interactive login shell, so profile scripts can
+	// legitimately delay the first PTY frame when the machine is also building
+	// the renderer. A two-second deadline on every read made this integrity test
+	// report output loss before any output had arrived. The single end-to-end
+	// deadline still fails a stalled or truncated stream, while measuring the
+	// behavior the test actually promises: all markers arrive within 20 seconds.
+	if err := conn.SetReadDeadline(deadline); err != nil {
+		t.Fatalf("set terminal stream deadline: %v", err)
+	}
 	var output strings.Builder
 	for time.Now().Before(deadline) {
-		if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-			t.Fatalf("set read deadline: %v", err)
-		}
 		_, data, err := conn.ReadMessage()
 		if err != nil {
 			t.Fatalf("read terminal output: %v", err)

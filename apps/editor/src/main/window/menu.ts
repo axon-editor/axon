@@ -105,7 +105,7 @@ export function buildApplicationMenu(
         },
         {
           label: "Open Recent",
-          enabled: false,
+          click: () => sendMenuCommand(AXON_COMMANDS.OPEN_RECENT),
         },
         { type: "separator" },
         {
@@ -115,7 +115,8 @@ export function buildApplicationMenu(
         },
         {
           label: "Save As...",
-          enabled: false,
+          accelerator: "CmdOrCtrl+Shift+S",
+          click: () => sendMenuCommand(AXON_COMMANDS.SAVE_AS),
         },
         { type: "separator" },
         {

@@ -48,6 +48,8 @@ import {
 import { markEditorMounted } from "./lib/editorPerformance";
 import { type TokenInspectorReport } from "./lib/tokenInspector";
 import { useEditorActions } from "./lib/useEditorActions";
+import { useTrailingTask } from "./lib/useTrailingTask";
+import { useActiveFileServices } from "./lib/useActiveFileServices";
 
 interface Props {
   filePath: string;
@@ -125,6 +127,8 @@ export default function SingleEditor({
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
   const isMd = isMarkdown(filePath);
+  const scheduleLiveContentUpdate = useTrailingTask();
+  const scheduleGoSyntaxUpdate = useTrailingTask();
   const editorBackgroundImagePath = editorSettings.backgroundImagePath.trim();
   const editorBackgroundImageUrl = editorBackgroundImagePath
     ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
@@ -248,7 +252,7 @@ export default function SingleEditor({
           languageId,
           content,
         });
-      }, 180);
+      }, 320);
     },
     [folderPath],
   );
@@ -409,7 +413,7 @@ export default function SingleEditor({
   }, [editorSettings.themeId, themeSyntax, themeTokens]);
 
   const scheduleSemanticTokenDecorations = useCallback(
-    (delayMs = 120) => {
+    (delayMs = 650) => {
       if (semanticDecorationTimerRef.current) {
         window.clearTimeout(semanticDecorationTimerRef.current);
       }
@@ -655,9 +659,6 @@ export default function SingleEditor({
             refreshGoSyntaxDecorations();
           });
         }
-        syncDocumentWithLanguageServer(fc.content);
-
-        window.axon.watchFile(filePath);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -691,7 +692,6 @@ export default function SingleEditor({
       editorOpenerRef.current?.dispose();
       editorOpenerRef.current = null;
       cleanup();
-      window.axon.unwatchFile();
       if (suggestTimerRef.current) {
         window.clearTimeout(suggestTimerRef.current);
         suggestTimerRef.current = null;
@@ -715,6 +715,8 @@ export default function SingleEditor({
       if (acquiredModel) releaseModel(filePath);
     };
   }, [filePath]);
+
+  useActiveFileServices({ filePath, loading, syncDocument: syncDocumentWithLanguageServer, visible });
 
   const handleSave = useCallback(async () => {
     const path = filePathRef.current;
@@ -929,11 +931,17 @@ export default function SingleEditor({
 
     editor.onDidChangeModelContent((event) => {
       const current = editor.getValue();
-      setLiveContent(current);
+      // Monaco owns the live text; React only needs a snapshot for secondary
+      // state on every keystroke wastes a render and reparses file symbols while
+      // the user is still typing. A short trailing update keeps those secondary
+      scheduleLiveContentUpdate(
+        () => setLiveContent(current),
+        isMd && previewMode === "split" ? 80 : 240,
+      );
       onDirtyChange(filePath, current !== diskContentRef.current);
       syncDocumentWithLanguageServer(current);
       scheduleSemanticTokenDecorations();
-      refreshGoSyntaxDecorations();
+      scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 320);
 
       const model = editor.getModel();
       const position = editor.getPosition();

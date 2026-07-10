@@ -20,7 +20,16 @@ export interface AgentResumeRequest {
   conversationId: string | null;
 }
 
-export interface CoreConnection {
-  httpUrl: string;
-  token: string;
+export interface CoreRequest {
+  id: string;
+  path: string;
+  method?: "GET" | "POST" | "PUT" | "DELETE";
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+export interface CoreResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
 }

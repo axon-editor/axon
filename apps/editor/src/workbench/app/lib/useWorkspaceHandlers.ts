@@ -266,24 +266,6 @@ export function useWorkspaceHandlers({
         onSuccess: setGitStatus,
         onError: () => setGitStatus(null),
       }),
-      coordinator.runPhase(
-        generation,
-        "lsp",
-        () => window.axon.startLanguageServers(path),
-        {
-          onSuccess: (result) => {
-            if (result.message.startsWith("No relevant language servers")) return;
-            if (result.message === "Language servers are disabled in settings.") {
-              return;
-            }
-            appendOutput("lsp", result.message, result.ok ? "success" : "error");
-          },
-          onError: (err) => {
-            console.error("failed to warm language servers:", err);
-            appendOutput("lsp", "Failed to warm language servers.", "error");
-          },
-        },
-      ),
     ]).finally(() => {
       if (!coordinator.isCurrent(generation)) return;
       markAxonPerformance("axon.workspace.services.end", {
