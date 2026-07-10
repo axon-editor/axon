@@ -70,11 +70,28 @@ export const SETTINGS_SECTIONS: Array<{
   },
 ];
 
+const UI_FONT_PRESENTATION: Record<
+  UiFontFamily,
+  Pick<SearchSelectItem<UiFontFamily>, "label" | "previewFontFamily">
+> = {
+  ".AxonSans": {
+    label: "Axon Sans",
+    previewFontFamily: "Inter Variable",
+  },
+  ".ZedSans": {
+    label: "Zed Sans",
+    previewFontFamily: "IBM Plex Sans Variable",
+  },
+  "system-ui": {
+    label: "System UI",
+    previewFontFamily: "system-ui",
+  },
+};
+
 export const UI_FONT_ITEMS: SearchSelectItem<UiFontFamily>[] =
   UI_FONT_FAMILIES.map((fontFamily) => ({
     value: fontFamily,
-    label: fontFamily,
-    previewFontFamily: fontFamily,
+    ...UI_FONT_PRESENTATION[fontFamily],
   }));
 
 export const EDITOR_FONT_ITEMS: SearchSelectItem<EditorFontFamily>[] =

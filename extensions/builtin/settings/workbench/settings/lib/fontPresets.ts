@@ -39,7 +39,7 @@ export const FONT_PRESET_VALUES: Record<
   },
   "sf-mono": {
     fontPreset: "sf-mono",
-    uiFontFamily: "SF Pro Text",
+    uiFontFamily: "system-ui",
     fontFamily: "SF Mono",
     fontWeight: 400,
     lineHeight: 22,
@@ -55,7 +55,7 @@ export const FONT_PRESET_VALUES: Record<
   },
   "geist-mono": {
     fontPreset: "geist-mono",
-    uiFontFamily: "Inter",
+    uiFontFamily: ".AxonSans",
     fontFamily: "Geist Mono",
     fontWeight: 400,
     lineHeight: 22,

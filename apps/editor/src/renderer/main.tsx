@@ -6,6 +6,8 @@ import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import CssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import HtmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import TsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource-variable/ibm-plex-sans/wght.css";
 import App from "./App";
 import "./index.css";
 import { registerAxonTheme } from "./shared/lib/soraTheme";
@@ -13,7 +15,7 @@ import { configureMonacoDiagnostics } from "../services/lsp/renderer/monacoDiagn
 import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions";
 import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
 import { registerMonacoReactLanguages } from "./features/editor/lib/monacoReactLanguages";
-import { type ExtensionState } from "../shared/extensions";
+import { getEnabledExtensionThemes } from "../shared/extensions";
 import {
   markAxonPerformance,
   measureAxonPerformance,
@@ -60,12 +62,6 @@ configureLspNavigation(monaco);
 // the real toolbar/sidebar drag regions take over and the static strip must get
 // out of the hit-test path so it cannot block editor controls.
 document.body.classList.add("axon-react-ready");
-
-function getEnabledExtensionThemes(extensionState: ExtensionState) {
-  return extensionState.extensions.flatMap((extension) =>
-    extension.enabled ? extension.themes : [],
-  );
-}
 
 function renderStartupFailure(err: unknown) {
   const message = err instanceof Error ? err.message : "Unknown startup error.";

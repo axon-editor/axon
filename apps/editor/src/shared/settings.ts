@@ -23,10 +23,6 @@ export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
 export const UI_FONT_FAMILIES = [
   ".AxonSans",
   ".ZedSans",
-  "Axon Sans",
-  "IBM Plex Sans",
-  "Inter",
-  "SF Pro Text",
   "system-ui",
 ] as const;
 
@@ -398,6 +394,31 @@ function isEditorSidebarSide(value: unknown): value is EditorSidebarSide {
   return value === "left" || value === "right";
 }
 
+export function normalizeUiFontFamily(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return DEFAULT_SETTINGS.editor.uiFontFamily;
+  }
+
+  // Older releases exposed names that were not bundled. On machines without
+  // those exact local fonts, every option silently rendered as system-ui and
+  // appeared broken. These aliases preserve existing settings while routing
+  // them to the real bundled faces used by the current picker.
+  switch (value.trim()) {
+    case ".AxonSans":
+    case "Axon Sans":
+    case "Inter":
+      return ".AxonSans";
+    case ".ZedSans":
+    case "IBM Plex Sans":
+      return ".ZedSans";
+    case "SF Pro Text":
+    case "system-ui":
+      return "system-ui";
+    default:
+      return value.trim();
+  }
+}
+
 export function normalizeSettings(value: unknown): AxonSettings {
   const root = isRecord(value) ? value : {};
   const editor = isRecord(root.editor) ? root.editor : {};
@@ -411,10 +432,7 @@ export function normalizeSettings(value: unknown): AxonSettings {
       ? rawFontFamily
       : DEFAULT_SETTINGS.editor.fontFamily;
 
-  const uiFontFamily =
-    typeof editor.uiFontFamily === "string" && editor.uiFontFamily.trim()
-      ? editor.uiFontFamily.trim()
-      : DEFAULT_SETTINGS.editor.uiFontFamily;
+  const uiFontFamily = normalizeUiFontFamily(editor.uiFontFamily);
 
   const aiModel =
     typeof ai.model === "string" && ai.model.trim()

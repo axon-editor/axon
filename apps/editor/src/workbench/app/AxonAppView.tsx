@@ -15,6 +15,7 @@ import EditorToolbar from "../../renderer/features/editor/EditorToolbar";
 import WorkspaceLoadingOverlay from "../../renderer/shared/components/WorkspaceLoadingOverlay";
 import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallPrompt";
 import { AXON_COMMANDS } from "../../shared/commands";
+import { getEnabledExtensionThemes } from "../../shared/extensions";
 import { type ThemeId } from "../../shared/settings";
 import AppMenuButton from "./chrome/AppMenuButton";
 import {
@@ -175,9 +176,11 @@ export function AxonAppView(props: Record<string, any>) {
   } = props;
   const welcomeThemeItems = React.useMemo(
     () =>
-      (extensionState?.extensions ?? [])
-        .filter((extension: any) => extension.source === "internal")
-        .flatMap((extension: any) => extension.themes ?? [])
+      getEnabledExtensionThemes({
+        extensions: (extensionState?.extensions ?? []).filter(
+          (extension: any) => extension.source === "internal",
+        ),
+      })
         .slice(0, 12)
         .map((theme: any) => ({
           id: theme.id,

@@ -85,6 +85,27 @@ export interface ExtensionState extends Omit<ApiExtensionState, "extensions"> {
   extensions: ExtensionInfo[];
 }
 
+export function getEnabledExtensionThemes(
+  state: Pick<ExtensionState, "extensions"> | null | undefined,
+) {
+  const themesById = new Map<string, ResolvedExtensionTheme>();
+
+  // An extension can exist in bundled, workspace, and user sources at the same
+  // time. Later sources are the effective override, but flattening every source
+  // made Settings render the same theme ID repeatedly and allowed Monaco to
+  // redefine it in a different order. Map replacement keeps one stable picker
+  // position while ensuring the highest-precedence contribution is the value
+  // consumed by the whole renderer.
+  for (const extension of state?.extensions ?? []) {
+    if (!extension.enabled) continue;
+    for (const theme of extension.themes) {
+      themesById.set(theme.id, theme);
+    }
+  }
+
+  return [...themesById.values()];
+}
+
 export interface ExtensionActionResult
   extends Omit<ApiExtensionActionResult, "state"> {
   state: ExtensionState;

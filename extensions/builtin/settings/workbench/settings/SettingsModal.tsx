@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Braces } from "lucide-react";
 import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
-import { type ExtensionState } from "@axon-editor/shared/extensions";
+import {
+  getEnabledExtensionThemes,
+  type ExtensionState,
+} from "@axon-editor/shared/extensions";
 import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
 import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
 import {
@@ -105,10 +108,7 @@ export default function SettingsModal({
     [customFontItems],
   );
   const extensionThemes = useMemo(
-    () =>
-      extensionState?.extensions.flatMap((extension) =>
-        extension.enabled ? extension.themes : [],
-      ) ?? [],
+    () => getEnabledExtensionThemes(extensionState),
     [extensionState],
   );
   const themeItems = useMemo(

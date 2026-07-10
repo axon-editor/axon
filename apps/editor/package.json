@@ -783,6 +783,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
+    "@fontsource-variable/inter": "^5.2.8",
     "@mdx-js/language-server": "^0.6.3",
     "@monaco-editor/react": "^4.7.0",
     "@prisma/language-server": "^31.11.0",

@@ -5,6 +5,7 @@ import { getModel } from "../../../renderer/features/editor/lib/monacoModels";
 import { collectFileSymbols } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { createThemeCssVariables, resolveThemeTokens } from "../../../renderer/shared/lib/themeTokens";
 import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
+import { getEnabledExtensionThemes } from "../../../shared/extensions";
 
 function colorWithAlpha(color: string, alpha: number) {
   const normalizedColor = color.trim();
@@ -52,10 +53,7 @@ export function useAppDerivedState({
 
 
   const extensionThemes = useMemo(
-    () =>
-      extensionState?.extensions.flatMap((extension: any) =>
-        extension.enabled ? extension.themes : [],
-      ) ?? [],
+    () => getEnabledExtensionThemes(extensionState),
     [extensionState],
   );
   const themeTokens = useMemo(

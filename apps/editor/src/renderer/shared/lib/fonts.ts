@@ -1,12 +1,12 @@
 export function fontStack(primaryFont: string, fallback: string) {
   if (primaryFont === ".ZedSans") {
-    return `"IBM Plex Sans", "Axon Sans", ${fallback}`;
+    return `"IBM Plex Sans Variable", ${fallback}`;
   }
   if (primaryFont === ".ZedMono") {
     return `"Lilex", "IBM Plex Mono", "Axon Mono", ${fallback}`;
   }
   if (primaryFont === ".AxonSans") {
-    return `"Axon Sans", "IBM Plex Sans", ${fallback}`;
+    return `"Inter Variable", ${fallback}`;
   }
   if (primaryFont === ".AxonMono") {
     return `"Axon Mono", "Lilex", "IBM Plex Mono", ${fallback}`;
@@ -18,4 +18,3 @@ export function fontStack(primaryFont: string, fallback: string) {
 export function editorFontStack(primaryFont: string) {
   return fontStack(primaryFont, "monospace");
 }
-
