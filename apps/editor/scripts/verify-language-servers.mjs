@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const editorRoot = path.resolve(__dirname, "..");
-const platformKey = process.argv[2] || `${process.platform}-${process.arch}`;
+const cliArgs = process.argv.slice(2);
+const packagingOnly = cliArgs.includes("--packaging-only");
+const platformKey =
+  cliArgs.find((argument) => !argument.startsWith("--")) ||
+  `${process.platform}-${process.arch}`;
 const languageServerRoot = path.join(
   editorRoot,
   "build",
@@ -183,10 +187,10 @@ async function verifyNodeBackedLanguageServerPackaging() {
       [
         "npm language-server packaging is incomplete.",
         missingFiles.length
-          ? `Missing from build.files: ${missingFiles.slice(0, 20).join(", ")}`
+          ? `Missing from build.files (${missingFiles.length}): ${missingFiles.join(", ")}`
           : "",
         missingUnpack.length
-          ? `Missing from build.asarUnpack: ${missingUnpack.slice(0, 20).join(", ")}`
+          ? `Missing from build.asarUnpack (${missingUnpack.length}): ${missingUnpack.join(", ")}`
           : "",
       ]
         .filter(Boolean)
@@ -200,23 +204,29 @@ async function verifyNodeBackedLanguageServerPackaging() {
 }
 
 async function main() {
-  const rootStat = await fs.stat(languageServerRoot).catch(() => null);
-  if (!rootStat?.isDirectory()) {
-    throw new Error(
-      `language server platform root missing at ${path.relative(
-        editorRoot,
-        languageServerRoot,
-      )}`,
-    );
-  }
+  if (!packagingOnly) {
+    const rootStat = await fs.stat(languageServerRoot).catch(() => null);
+    if (!rootStat?.isDirectory()) {
+      throw new Error(
+        `language server platform root missing at ${path.relative(
+          editorRoot,
+          languageServerRoot,
+        )}`,
+      );
+    }
 
-  for (const bundle of managedBundles) {
-    await verifyBundle(bundle);
+    for (const bundle of managedBundles) {
+      await verifyBundle(bundle);
+    }
   }
 
   await verifyNodeBackedLanguageServerPackaging();
 
-  console.log(`verified managed language servers for ${platformKey}`);
+  console.log(
+    packagingOnly
+      ? "verified npm language-server release packaging"
+      : `verified managed language servers for ${platformKey}`,
+  );
 }
 
 main().catch((error) => {

@@ -55,6 +55,9 @@ jobs:
       - name: Check file line limits
         run: npm run check:line-count
 
+      - name: Verify npm language-server release packaging
+        run: node apps/editor/scripts/verify-language-servers.mjs --packaging-only
+
       - name: Validate extension registry inputs
         working-directory: apps/editor
         run: npm run prepare:extension-registry

@@ -32,6 +32,10 @@
   and Monaco share one highest-precedence theme contribution.
 - Added the root MIT License for GordenArcher and Axon Editor Group and aligned
   the workspace package metadata with the public license.
+- Synchronized the packaged language-server dependency allow-list with the
+  current lockfile closure so all release platforms pass bundle verification.
+- Added the dependency-closure packaging check to normal CI so a lockfile change
+  cannot wait until a release tag to expose missing language-server files.
 
 ## v1.2.8
 
