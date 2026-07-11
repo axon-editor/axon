@@ -15,6 +15,28 @@ interface FileWatcherDependencies {
   invalidateWorkspaceIndex: (folderPath: string) => void;
 }
 
+function waitForWatcherReady(watcher: FSWatcher, isCurrent: () => boolean) {
+  return new Promise<void>((resolve, reject) => {
+    const finish = (callback: () => void) => {
+      watcher.off("ready", handleReady);
+      watcher.off("error", handleError);
+      clearInterval(generationTimer);
+      callback();
+    };
+    const handleReady = () => {
+      finish(resolve);
+    };
+    const handleError = (error: unknown) => {
+      finish(() => reject(error));
+    };
+    const generationTimer = setInterval(() => {
+      if (!isCurrent()) finish(resolve);
+    }, 25);
+    watcher.once("ready", handleReady);
+    watcher.once("error", handleError);
+  });
+}
+
 export class FileWatcherManager {
   private activeWatcher: FSWatcher | null = null;
   private folderWatcher: FSWatcher | null = null;
@@ -224,6 +246,27 @@ export class FileWatcherManager {
       });
       this.folderWatcher.on("addDir", notify);
       this.folderWatcher.on("unlinkDir", notify);
+      this.folderWatcher.on("error", (err) => {
+        console.warn(
+          `workspace watcher failed for ${folderPath}:`,
+          err instanceof Error ? err.message : err,
+        );
+      });
+
+      await waitForWatcherReady(
+        this.folderWatcher,
+        () => generation === this.folderWatchGeneration,
+      );
+      if (generation !== this.folderWatchGeneration) return;
+
+      // `ignoreInitial` avoids repainting once for every file in a large
+      // workspace, but a file created while Chokidar performs that first scan
+      // can otherwise be absorbed as an initial entry and never emit `add`.
+      // One post-ready resync closes that startup window with a fixed amount of
+      // work regardless of repository size.
+      this.deps.invalidateWorkspaceIndex(folderPath);
+      this.deps.sendToRenderer("fs:folderChanged", { path: folderPath });
+      this.deps.sendToRenderer("git:changed", { folderPath });
 
       const gitWatchPaths = await this.deps.getGitWatchPaths(folderPath);
       if (generation !== this.folderWatchGeneration) return;
@@ -253,6 +296,12 @@ export class FileWatcherManager {
         this.gitWatcher.on("unlink", notifyGit);
         this.gitWatcher.on("addDir", notifyGit);
         this.gitWatcher.on("unlinkDir", notifyGit);
+        this.gitWatcher.on("error", (err) => {
+          console.warn(
+            `Git watcher failed for ${folderPath}:`,
+            err instanceof Error ? err.message : err,
+          );
+        });
 
         // Packaged Electron builds can miss native `change` events for edited
         // files on some filesystem/OS combinations even when `add` events still
@@ -263,7 +312,7 @@ export class FileWatcherManager {
         this.gitHeartbeatTimer = setInterval(() => {
           if (generation !== this.folderWatchGeneration) return;
           this.deps.sendToRenderer("git:changed", { folderPath });
-        }, 2500);
+        }, 1500);
       }
     } catch (err) {
       // If git path discovery or watcher setup fails halfway through, the app

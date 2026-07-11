@@ -208,7 +208,7 @@ export function useAppCommandRunner({
           void handleNewFile();
           break;
         case AXON_COMMANDS.OPEN_FOLDER:
-          void handleOpenFolder();
+          setFolderPickerOpen(true);
           break;
         case AXON_COMMANDS.OPEN_RECENT:
           setFolderPickerOpen(true);

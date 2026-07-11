@@ -50,6 +50,7 @@ import { useAppCommandRunner } from "./lib/useAppCommandRunner";
 import { useWorkspaceHandlers } from "./lib/useWorkspaceHandlers";
 import { useEditorSurfaceHandlers } from "./lib/useEditorSurfaceHandlers";
 import { useSaveFileAs } from "./lib/useSaveFileAs";
+import { useGitStatusRefresh } from "./lib/useGitStatusRefresh";
 import { toMonacoEdit } from "./lib/monacoEdit";
 import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
 import "../../renderer/App.css";
@@ -160,7 +161,6 @@ export default function App({ initialExtensionState }: AppProps) {
   const allowSessionPersistenceRef = useRef(true);
   const folderRefreshTimerRef = useRef<number | null>(null);
   const folderRefreshRequestRef = useRef(0);
-  const lastSlowGitRefreshOutputRef = useRef(0);
   const updateAutoDownloadVersionRef = useRef<string | null>(null);
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
@@ -280,49 +280,11 @@ export default function App({ initialExtensionState }: AppProps) {
     const result = await window.axon.installUpdate();
     appendOutput("update", result.message, result.ok ? "success" : "error");
   }, [appendOutput]);
-  const refreshGitStatus = useCallback(
-    async (options?: { silent?: boolean }) => {
-      if (!folderPath) {
-        setGitStatus(null);
-        return;
-      }
-      try {
-        const refreshStartedAt = performance.now();
-        const nextStatus = await window.axon.getGitStatus(folderPath);
-        const refreshDurationMs = Math.round(performance.now() - refreshStartedAt);
-        setGitStatus(nextStatus);
-        if (
-          refreshDurationMs > 1200 &&
-          Date.now() - lastSlowGitRefreshOutputRef.current > 10000
-        ) {
-          // Git refreshes often come from file-system watcher events while the
-          // user is saving, switching roots, or staging files. I only surface
-          // slow refreshes and throttle the warning so Output gives us a stale
-          // watcher signal without flooding normal background refresh traffic.
-          lastSlowGitRefreshOutputRef.current = Date.now();
-          appendOutput(
-            "git",
-            `Git status refresh took ${refreshDurationMs}ms. Watcher updates may be catching up.`,
-            "warning",
-          );
-        }
-        if (!options?.silent) {
-          appendOutput(
-            "git",
-            nextStatus.isRepository
-              ? `Git status found ${nextStatus.changes.length} changed file${nextStatus.changes.length === 1 ? "" : "s"}.`
-              : "Workspace is not a Git repository.",
-            nextStatus.isRepository ? "success" : "warning",
-          );
-        }
-      } catch (err) {
-        console.error("failed to refresh git status:", err);
-        appendOutput("git", "Failed to refresh Git status.", "error");
-        setGitStatus(null);
-      }
-    },
-    [appendOutput, folderPath],
-  );
+  const refreshGitStatus = useGitStatusRefresh({
+    appendOutput,
+    folderPath,
+    setGitStatus,
+  });
   const refreshProjectDiagnostics = useCallback(async () => {
     setProjectDiagnostics([]);
     setLspDiagnosticsByFile({});
@@ -818,6 +780,7 @@ export default function App({ initialExtensionState }: AppProps) {
     bottomPanelTab,
     extensionThemes,
     folderPath,
+    gitStatus,
     folderRefreshRequestRef,
     folderRefreshTimerRef,
     handleDownloadUpdate,

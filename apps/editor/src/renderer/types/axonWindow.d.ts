@@ -17,6 +17,8 @@ import type {
   GitActionResult,
   GitBranchAction,
   GitBranchListResult,
+  GitCloneResult,
+  GitCloneProgressEvent,
   GitConflictListResult,
   GitConflictResolution,
   GitCommitDiffResult,
@@ -242,6 +244,13 @@ declare global {
       ) => Promise<TestRunResult>;
       stopTests: () => Promise<TestStopResult>;
       getGitStatus: (folderPath: string) => Promise<GitStatusResult>;
+      cloneGitRepository: (
+        repositoryUrl: string,
+        requestId: string,
+      ) => Promise<GitCloneResult>;
+      onGitCloneProgress: (
+        callback: (event: GitCloneProgressEvent) => void,
+      ) => () => void;
       getGitDiff: (
         folderPath: string,
         filePath: string,

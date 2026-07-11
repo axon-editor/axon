@@ -1,9 +1,11 @@
 import fs from "fs";
-import { ipcMain } from "electron";
+import { BrowserWindow, app, dialog, ipcMain } from "electron";
 import {
   type GitActionResult,
   type GitBranchAction,
   type GitBranchListResult,
+  type GitCloneResult,
+  type GitCloneProgressEvent,
   type GitConflictListResult,
   type GitConflictResolution,
   type GitCommitDiffResult,
@@ -36,8 +38,99 @@ import {
   runGitStashAction,
   runGitAction,
 } from "./git";
+import {
+  cloneGitRepository,
+  validateGitCloneRepositoryUrl,
+} from "./clone";
 
-export function registerGitHandlers() {
+interface GitHandlerDependencies {
+  authorizeWorkspaceRoot: (
+    rendererId: number,
+    rootPath: string,
+    persist?: boolean,
+  ) => string;
+}
+
+export function registerGitHandlers(deps: GitHandlerDependencies) {
+  ipcMain.handle(
+    "git:clone",
+    async (
+      event,
+      repositoryUrl: unknown,
+      requestId: unknown,
+    ): Promise<GitCloneResult> => {
+      const validated = validateGitCloneRepositoryUrl(repositoryUrl);
+      if (!validated.ok) {
+        return {
+          ok: false,
+          canceled: false,
+          message: validated.message,
+          folderPath: null,
+        };
+      }
+
+      const cloneRequestId =
+        typeof requestId === "string" &&
+        requestId.length > 0 &&
+        requestId.length <= 128
+          ? requestId
+          : `${Date.now()}`;
+      const sendProgress = (
+        progress: Omit<GitCloneProgressEvent, "requestId">,
+      ) => {
+        if (event.sender.isDestroyed()) return;
+        event.sender.send("git:cloneProgress", {
+          requestId: cloneRequestId,
+          ...progress,
+        } satisfies GitCloneProgressEvent);
+      };
+
+      const parentWindow = BrowserWindow.fromWebContents(event.sender);
+      const dialogOptions = {
+        title: "Choose Clone Destination",
+        buttonLabel: "Clone Here",
+        defaultPath: app.getPath("desktop"),
+        properties: ["openDirectory", "createDirectory"] as Array<
+          "openDirectory" | "createDirectory"
+        >,
+      };
+      const result = parentWindow
+        ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions);
+      if (result.canceled || result.filePaths.length === 0) {
+        return {
+          ok: false,
+          canceled: true,
+          message: "Clone canceled.",
+          folderPath: null,
+        };
+      }
+
+      // The native directory dialog is the authority for the write location.
+      // The renderer supplies only the repository URL, so it cannot redirect a
+      // clone into an arbitrary path that the user did not approve. After Git
+      // succeeds, I grant the exact checkout root and no broader parent folder.
+      const cloneResult = await cloneGitRepository(
+        validated.value,
+        result.filePaths[0],
+        sendProgress,
+      );
+      if (cloneResult.ok && cloneResult.folderPath) {
+        cloneResult.folderPath = deps.authorizeWorkspaceRoot(
+          event.sender.id,
+          cloneResult.folderPath,
+          true,
+        );
+        sendProgress({
+          phase: "complete",
+          percent: 100,
+          message: "Clone complete",
+        });
+      }
+      return cloneResult;
+    },
+  );
+
   ipcMain.handle("git:status", async (_event, folderPath: string) => {
     if (!folderPath || !fs.existsSync(folderPath)) {
       return {

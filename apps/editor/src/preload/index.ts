@@ -29,6 +29,8 @@ import {
   type GitActionResult,
   type GitBranchAction,
   type GitBranchListResult,
+  type GitCloneResult,
+  type GitCloneProgressEvent,
   type GitConflictListResult,
   type GitConflictResolution,
   type GitCommitResult,
@@ -311,6 +313,19 @@ contextBridge.exposeInMainWorld("axon", {
   },
   getGitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke("git:status", folderPath),
+  cloneGitRepository: (
+    repositoryUrl: string,
+    requestId: string,
+  ): Promise<GitCloneResult> =>
+    ipcRenderer.invoke("git:clone", repositoryUrl, requestId),
+  onGitCloneProgress: (
+    callback: (event: GitCloneProgressEvent) => void,
+  ) => {
+    const handler = (_: unknown, event: GitCloneProgressEvent) =>
+      callback(event);
+    ipcRenderer.on("git:cloneProgress", handler);
+    return () => ipcRenderer.removeListener("git:cloneProgress", handler);
+  },
   listWorkspaceTasks: (folderPath: string): Promise<WorkspaceTask[]> =>
     ipcRenderer.invoke("tasks:list", folderPath),
   runWorkspaceTask: (

@@ -302,7 +302,10 @@ registerCoreProxyHandlers({
 });
 registerDiagnosticsHandlers();
 registerExtensionHandlers();
-registerGitHandlers();
+registerGitHandlers({
+  authorizeWorkspaceRoot: (rendererId, rootPath, persist) =>
+    workspaceCapabilities.authorize(rendererId, rootPath, persist),
+});
 registerAiHandlers({ axonCorePort, axonCoreToken });
 registerLspHandlers();
 registerSettingsHandlers({

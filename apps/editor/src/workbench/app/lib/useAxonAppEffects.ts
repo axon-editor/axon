@@ -28,6 +28,7 @@ interface AxonAppEffectsOptions {
   bottomPanelTab: any;
   extensionThemes: any;
   folderPath: any;
+  gitStatus: any;
   folderRefreshRequestRef: any;
   folderRefreshTimerRef: any;
   handleDownloadUpdate: any;
@@ -86,6 +87,7 @@ export function useAxonAppEffects({
   bottomPanelTab,
   extensionThemes,
   folderPath,
+  gitStatus,
   folderRefreshRequestRef,
   folderRefreshTimerRef,
   handleDownloadUpdate,
@@ -539,7 +541,6 @@ export function useAxonAppEffects({
             }
           })
           .catch(console.error);
-        void refreshGitStatus({ silent: true });
       }, 90);
     });
     return () => {
@@ -549,7 +550,7 @@ export function useAxonAppEffects({
         folderRefreshTimerRef.current = null;
       }
     };
-  }, [folderPath, layout.panes, refreshGitStatus]);
+  }, [folderPath, layout.panes]);
 
   useEffect(() => {
     const cleanup = window.axon.onGitChanged((event) => {
@@ -558,6 +559,32 @@ export function useAxonAppEffects({
     });
     return cleanup;
   }, [folderPath, refreshGitStatus]);
+
+  useEffect(() => {
+    if (!folderPath || gitStatus?.isRepository === false) return;
+
+    // Main-process native watcher events remain the immediate path. This
+    // renderer-owned fallback is deliberately separate because each Axon
+    // window must refresh its own repository even when another window owns the
+    // global watcher or a packaged background event is dropped. The Git status
+    // function coalesces overlapping requests, so native events and this timer
+    // cannot create a process storm on large repositories.
+    const refresh = () => void refreshGitStatus({ silent: true });
+    const handleVisibility = () => {
+      if (!document.hidden) refresh();
+    };
+    const interval = window.setInterval(
+      refresh,
+      gitStatus?.isRepository ? 2_000 : 5_000,
+    );
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [folderPath, gitStatus?.isRepository, refreshGitStatus]);
 
   useEffect(() => {
     const cleanupOutput = window.axon.onTaskOutput((event) => {

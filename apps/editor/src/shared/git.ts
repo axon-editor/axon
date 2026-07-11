@@ -38,6 +38,32 @@ export interface GitActionResult {
   message: string;
 }
 
+export interface GitCloneResult {
+  ok: boolean;
+  canceled: boolean;
+  message: string;
+  folderPath: string | null;
+}
+
+export type GitCloneProgressPhase =
+  | "starting"
+  | "counting"
+  | "compressing"
+  | "receiving"
+  | "resolving"
+  | "checkout"
+  | "complete";
+
+export interface GitCloneProgress {
+  phase: GitCloneProgressPhase;
+  percent: number | null;
+  message: string;
+}
+
+export interface GitCloneProgressEvent extends GitCloneProgress {
+  requestId: string;
+}
+
 export interface GitCommitResult {
   ok: boolean;
   message: string;

@@ -508,7 +508,7 @@ export function AxonAppView(props: Record<string, any>) {
               gitChanges={gitStatus?.changes ?? []}
               diagnostics={diagnostics}
               deletedFiles={deletedFiles}
-              handleOpenFolder={handleOpenFolder}
+              handleOpenFolder={() => setFolderPickerOpen(true)}
               handleNewFile={handleNewFile}
               handleFolderChange={handleFolderChange}
               nativeControlInset={zenNativeControlInset}
