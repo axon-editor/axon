@@ -2,6 +2,30 @@
 
 ## Next
 
+## v1.2.10
+
+- Removed the TypeScript completion-list bottleneck by resolving documentation
+  and auto-import edits lazily for only the focused suggestion.
+- Shortened completion and hover failure ceilings and reduced Monaco hover delay
+  so language feedback appears promptly without long loading states.
+- Reworked the autocomplete popup into a narrower, denser surface with tighter
+  rows, restrained rounding, and no persistent status strip.
+- Fixed terminal output following during overlapping xterm writes by preserving
+  each batch's pre-write viewport state.
+- Kept terminal output draining and painting while Axon is behind another app by
+  disabling Chromium background throttling on normal and reused boot windows.
+- Replaced synchronous workspace traversal and metadata stats with bounded async
+  filesystem batches so large projects no longer block Electron's main thread.
+- Reduced semantic-token refresh latency from 650 ms to 175 ms.
+- Gave every Axon window independent file and Git watchers, direct event routing,
+  and workspace-scoped language-server cleanup.
+- Added project opening from local folders or cloned repositories with live clone
+  progress and post-clone workspace activation.
+- Made HTML preview use the full editor height and routed browser console output
+  into Axon's Output tab.
+- Updated Electron to 42.4.0 for current Chromium/V8 fixes and improved native
+  browser-process stability on Intel macOS.
+
 ## v1.2.9
 
 - Secured axon-core with loopback-only binding, per-launch authentication,

@@ -190,10 +190,11 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 ## Current Features
 
 - Real folder/workspace opening
-- Lazy file tree with Git colors and ignored-path handling
+- Lazy file tree with Git colors, ignored-path handling, and independent watcher
+  ownership in every Axon window
 - Split panes, draggable tabs, dirty indicators, and close prompts
 - Shared Monaco models across panes
-- Markdown preview and HTML preview
+- Markdown preview and full-height HTML preview with browser logs in Output
 - Live Markdown preview tabs that stay connected to dirty editor content
 - Image/video preview through Axon protocols
 - Workspace search with jump-to-line and binary/cache exclusions
@@ -216,7 +217,7 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Extension-host activation, command runtime, contribution registry, and
   built-in workbench feature routing
 - Splash screen and custom app icon/name
-- LSP completion and diagnostics for TypeScript/JavaScript, TSX/JSX, Go,
+- Low-latency LSP completion, hover, and diagnostics for TypeScript/JavaScript, TSX/JSX, Go,
   Python, Rust, C/C++, Java, C#, Kotlin, PHP, Lua, Docker, and Tailwind CSS
 - Tailwind CSS warnings, hover details, and variant-aware utility completions
 - Rich syntax coloring through Monaco, TextMate/Shiki grammars, LSP semantic
@@ -259,7 +260,7 @@ More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history and
-[docs/releases/v1.2.9.md](docs/releases/v1.2.9.md) for the latest release
+[docs/releases/v1.2.10.md](docs/releases/v1.2.10.md) for the latest release
 notes.
 
 ## License

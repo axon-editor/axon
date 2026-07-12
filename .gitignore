@@ -17,6 +17,6 @@ docs/.docusaurus/
 docs/.next/
 docs/build/
 docs/out/
-AXON_FEATURES_AND_WORK.md
+axon-terminal-race-and-perf-fixes.md
 pr.md
 .env
