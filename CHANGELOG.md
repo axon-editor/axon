@@ -2,6 +2,21 @@
 
 ## Next
 
+## v1.3.0
+
+- Moved the Git commit graph from Source Control into a normal editor tab with
+  searchable history, graph lanes, refs, and commit metadata columns.
+- Added delayed animated commit previews and an on-selection details pane that
+  remains hidden until requested and scrolls independently.
+- Displayed changed files using their real collapsible repository folder tree
+  and opened leaf files in Axon's existing historical comparison view.
+- Split Git graph rows, previews, details, file trees, lanes, and reference chips
+  into focused components instead of concentrating the feature in one module.
+- Added resilient author initials when a remote Gravatar is absent or fails to
+  load; the existing HTTPS image CSP remains unchanged.
+- Isolated every packaged Axon launch on a private random Core port so stale
+  orphan processes cannot intercept folder-opening requests from a new app.
+
 ## v1.2.10
 
 - Removed the TypeScript completion-list bottleneck by resolving documentation

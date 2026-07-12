@@ -260,7 +260,7 @@ More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history and
-[docs/releases/v1.2.10.md](docs/releases/v1.2.10.md) for the latest release
+[docs/releases/v1.3.0.md](docs/releases/v1.3.0.md) for the latest release
 notes.
 
 ## License
