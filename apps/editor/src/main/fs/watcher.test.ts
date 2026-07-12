@@ -15,7 +15,7 @@ describe("FileWatcherManager", () => {
       shouldIgnoreWorkspaceWatchPath: () => false,
       sendToRenderer: (channel, payload) => events.push({ channel, payload }),
       getGitWatchPaths: async () => [],
-      stopAllLanguageServers: () => undefined,
+      stopLanguageServersForFolder: () => undefined,
       notifyLanguageServersOfFileChange: () => undefined,
       invalidateWorkspaceIndex: () => undefined,
     });

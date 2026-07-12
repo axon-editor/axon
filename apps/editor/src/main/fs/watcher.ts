@@ -6,7 +6,7 @@ interface FileWatcherDependencies {
   shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => boolean;
   sendToRenderer: (channel: string, payload?: unknown) => void;
   getGitWatchPaths: (folderPath: string) => Promise<string[]>;
-  stopAllLanguageServers: () => void | Promise<void>;
+  stopLanguageServersForFolder: (folderPath: string) => void | Promise<void>;
   notifyLanguageServersOfFileChange: (
     folderPath: string,
     filePath: string,
@@ -46,6 +46,7 @@ export class FileWatcherManager {
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private gitHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private folderWatchGeneration = 0;
+  private watchedFolderPath: string | null = null;
 
   constructor(private readonly deps: FileWatcherDependencies) {}
 
@@ -134,7 +135,8 @@ export class FileWatcherManager {
     this.activeWatcher = chokidar.watch(filePath, this.buildWatcherOptions());
 
     this.activeWatcher.on("change", () => {
-      if (this.activeFileDebounceTimer) clearTimeout(this.activeFileDebounceTimer);
+      if (this.activeFileDebounceTimer)
+        clearTimeout(this.activeFileDebounceTimer);
 
       this.activeFileDebounceTimer = setTimeout(() => {
         this.activeFileDebounceTimer = null;
@@ -181,13 +183,19 @@ export class FileWatcherManager {
 
   async watchFolder(folderPath: string) {
     const generation = ++this.folderWatchGeneration;
+    const previousFolderPath = this.watchedFolderPath;
     await this.closeFolderWatcher();
     await this.closeGitWatcher();
-    // Stopping language servers belongs before the new watcher is installed:
-    // diagnostics and file sync from the old workspace should not race with
-    // filesystem events from the folder the user just opened.
-    await Promise.resolve(this.deps.stopAllLanguageServers());
+    // Watchers are owned per renderer window. Only stop language servers for the
+    // workspace this manager is replacing; stopping every session here makes a
+    // second Axon window silently tear down the first window's language tools.
+    if (previousFolderPath && previousFolderPath !== folderPath) {
+      await Promise.resolve(
+        this.deps.stopLanguageServersForFolder(previousFolderPath),
+      );
+    }
     if (generation !== this.folderWatchGeneration) return;
+    this.watchedFolderPath = folderPath;
 
     try {
       this.folderWatcher = chokidar.watch(folderPath, {
@@ -327,12 +335,18 @@ export class FileWatcherManager {
 
   async unwatchFolder() {
     this.folderWatchGeneration += 1;
+    const folderPath = this.watchedFolderPath;
+    this.watchedFolderPath = null;
     await this.closeFolderWatcher();
     await this.closeGitWatcher();
+    if (folderPath) {
+      await Promise.resolve(this.deps.stopLanguageServersForFolder(folderPath));
+    }
   }
 
   async closeAll() {
     this.folderWatchGeneration += 1;
+    this.watchedFolderPath = null;
     await this.closeActiveWatcher();
     await this.closeFolderWatcher();
     await this.closeGitWatcher();

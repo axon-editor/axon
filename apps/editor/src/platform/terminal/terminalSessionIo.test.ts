@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getOutputByteLength, type TerminalSession } from "./terminalProtocol";
 import {
-  getOutputByteLength,
-  type TerminalSession,
-} from "./terminalProtocol";
-import { hasPendingTerminalOutput, writeTerminalOutput } from "./terminalSessionIo";
+  hasPendingTerminalOutput,
+  writeTerminalOutput,
+} from "./terminalSessionIo";
 
 function createSession() {
   const sent: string[] = [];
@@ -70,5 +70,31 @@ describe("terminal output accounting", () => {
       type: "ack",
       offset: 12,
     });
+  });
+
+  it("keeps each queued write's auto-scroll decision until its callback runs", () => {
+    const { session } = createSession();
+    const callbacks: Array<() => void> = [];
+    const term = session.term!;
+    vi.mocked(term.scrollToBottom).mockClear();
+    term.write = vi.fn((_data, callback) => callbacks.push(callback));
+
+    const buffer = term.buffer.active as { viewportY: number; baseY: number };
+    buffer.viewportY = 10;
+    buffer.baseY = 10;
+    writeTerminalOutput(session, "first batch");
+
+    // Simulate xterm advancing its buffer while the first write is still
+    // pending, followed by another queued write while the user-visible viewport
+    // has not caught up. The first callback must retain its original follow
+    // decision instead of reading state overwritten by the second write.
+    buffer.baseY = 20;
+    writeTerminalOutput(session, "second batch");
+
+    expect(callbacks).toHaveLength(2);
+    callbacks[0]();
+    callbacks[1]();
+
+    expect(term.scrollToBottom).toHaveBeenCalledTimes(1);
   });
 });

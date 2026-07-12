@@ -4,6 +4,7 @@ import {
   type LanguageServerCodeActionResult,
   type LanguageServerCommand,
   type LanguageServerCompletionRequest,
+  type LanguageServerCompletionResolveRequest,
   type LanguageServerCompletionResult,
   type LanguageServerDefinitionRequest,
   type LanguageServerDefinitionResult,
@@ -126,17 +127,13 @@ export async function getLanguageServerCompletions(
           triggerCharacter: request.triggerCharacter,
         },
       },
+      1_200,
     );
     const completionItems =
       normalizeLanguageServerCompletionItems(completionResult);
-    const resolvedCompletionItems =
-      serverId === "typescript"
-        ? await resolveTypeScriptCompletionItems(session, completionItems)
-        : completionItems;
-
     return {
       ok: true,
-      items: resolvedCompletionItems,
+      items: completionItems,
     };
   } catch (err) {
     return {
@@ -150,54 +147,38 @@ export async function getLanguageServerCompletions(
   }
 }
 
-async function resolveTypeScriptCompletionItems(
-  session: LanguageServerSession,
-  items: ReturnType<typeof normalizeLanguageServerCompletionItems>,
-) {
-  const resolveLimit = 160;
-  const resolveConcurrency = 16;
-  const resolveBudgetMs = 900;
-  const startedAt = Date.now();
-  const resolvedItems = [...items];
-  const itemsToResolve = items
-    .map((item, index) => ({ item, index }))
-    .filter(({ item }) => item.data)
-    .slice(0, resolveLimit);
+export async function resolveLanguageServerCompletionItem(
+  request: LanguageServerCompletionResolveRequest,
+): Promise<LanguageServerCompletionResult> {
+  if (!request.item.data) return { ok: true, items: [request.item] };
 
-  let nextItemIndex = 0;
-  async function resolveWorker() {
-    while (nextItemIndex < itemsToResolve.length) {
-      if (Date.now() - startedAt > resolveBudgetMs) return;
-      const { item, index } = itemsToResolve[nextItemIndex++];
-      try {
-        const resolved = await requestLanguageServer(
-          session,
-          "completionItem/resolve",
-          item,
-          900,
-        );
-        const normalized = normalizeLanguageServerCompletionItems([resolved]);
-        resolvedItems[index] = normalized[0] ?? item;
-      } catch {
-        // TypeScript keeps the expensive auto-import data behind
-        // completionItem/resolve so the initial suggest list can stay fast.
-        // If an individual resolve request times out or fails, I keep the
-        // original item instead of failing the whole autocomplete request.
-        // That gives the user every completion the server returned while still
-        // enriching as many package/local export items as possible with the
-        // additionalTextEdits that insert the import statement.
-      }
-    }
+  const serverId = resolveLanguageServerIdForMonacoLanguage(request.languageId);
+  if (!serverId) return { ok: true, items: [request.item] };
+  const session = getReadyLanguageServerSession({
+    folderPath: request.folderPath,
+    languageId: request.languageId,
+  });
+  if (!session.ok || !session.session) {
+    return { ok: true, items: [request.item] };
   }
 
-  await Promise.all(
-    Array.from(
-      { length: Math.min(resolveConcurrency, itemsToResolve.length) },
-      () => resolveWorker(),
-    ),
-  );
-
-  return resolvedItems;
+  try {
+    // Completion lists must appear immediately. Expensive documentation and
+    // auto-import edits are resolved only for Monaco's focused item, which is
+    // the same lazy protocol used by fast native editors and language clients.
+    const resolved = await requestLanguageServer(
+      session.session,
+      "completionItem/resolve",
+      request.item,
+      700,
+    );
+    return {
+      ok: true,
+      items: normalizeLanguageServerCompletionItems([resolved]),
+    };
+  } catch {
+    return { ok: true, items: [request.item] };
+  }
 }
 
 export async function getLanguageServerHover(
@@ -245,6 +226,7 @@ export async function getLanguageServerHover(
                 character: Math.max(0, request.column - 1),
               },
             },
+            900,
           );
 
           return {

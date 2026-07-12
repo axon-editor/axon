@@ -5,12 +5,8 @@ import {
   RefreshCw,
   Smartphone,
   Tablet,
-  Trash2,
 } from "lucide-react";
-import {
-  type HtmlPreviewConsoleEvent,
-  type HtmlPreviewTarget,
-} from "@axon-editor/shared/htmlPreview";
+import { type HtmlPreviewTarget } from "@axon-editor/shared/htmlPreview";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
@@ -33,21 +29,11 @@ const DEVICE_PRESETS: DevicePreset[] = [
   { id: "desktop", label: "Desktop", width: 1440, height: 900, icon: Monitor },
 ];
 
-function getConsoleTone(level: HtmlPreviewConsoleEvent["level"]) {
-  if (level === "error") return "text-red-300";
-  if (level === "warn") return "text-yellow-300";
-  if (level === "info") return "text-[#80c8e0]";
-  return "text-[var(--axon-editor-foreground)]";
-}
-
 export default function HtmlPreview({ filePath, folderPath }: Props) {
   const [target, setTarget] = useState<HtmlPreviewTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [deviceId, setDeviceId] = useState("responsive");
-  const [consoleEvents, setConsoleEvents] = useState<HtmlPreviewConsoleEvent[]>(
-    [],
-  );
 
   const device = useMemo(
     () =>
@@ -60,7 +46,6 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
     let cancelled = false;
     setError(null);
     setTarget(null);
-    setConsoleEvents([]);
 
     window.axon
       .getHtmlPreviewTarget(filePath, folderPath)
@@ -84,19 +69,6 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
       cancelled = true;
     };
   }, [filePath, folderPath]);
-
-  useEffect(() => {
-    if (!target) return undefined;
-
-    const cleanupConsole = window.axon.onHtmlPreviewConsole((event) => {
-      if (event.serverId !== target.serverId) return;
-      setConsoleEvents((current) => [...current.slice(-99), event]);
-    });
-
-    return () => {
-      cleanupConsole();
-    };
-  }, [target]);
 
   const previewUrl = useMemo(() => {
     if (!target) return "";
@@ -172,72 +144,32 @@ export default function HtmlPreview({ filePath, folderPath }: Props) {
           {error}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-auto bg-[var(--axon-editor-background)] p-4">
-            <div
-              className="mx-auto h-full min-h-[320px] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
-              style={{
-                width: device.width ? `${device.width}px` : "100%",
-                height: device.height ? `${device.height}px` : "100%",
-                maxWidth: "100%",
-              }}
-            >
-              {previewUrl ? (
-                <iframe
-                  key={previewUrl}
-                  title="HTML preview"
-                  src={previewUrl}
-                  className="h-full w-full bg-white"
-                  // The iframe is pointed at Axon's localhost preview server.
-                  // Scripts need to run so real pages behave normally, but the
-                  // page still stays isolated from the Electron renderer and can
-                  // only report console output through the injected preview API.
-                  sandbox="allow-forms allow-modals allow-popups allow-same-origin allow-scripts"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
-                  preparing preview...
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="h-40 shrink-0 border-t border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
-            <div className="flex h-8 items-center gap-2 border-b border-[var(--axon-panel-border)] px-3">
-              <span className="flex-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-55">console</span>
-              <Tooltip label="Clear console" side="top">
-                <button
-                  type="button"
-                  aria-label="Clear console"
-                  onClick={() => setConsoleEvents([])}
-                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </Tooltip>
-            </div>
-            <div className="h-[calc(100%-2rem)] overflow-auto px-3 py-2 font-mono text-[11px]">
-              {consoleEvents.length === 0 ? (
-                <div className="text-[var(--axon-editor-foreground)] opacity-35">no console output</div>
-              ) : (
-                consoleEvents.map((event) => (
-                  <div key={event.id} className="mb-1 flex gap-2">
-                    <span className={`w-10 shrink-0 ${getConsoleTone(event.level)}`}>
-                      {event.level}
-                    </span>
-                    <span className="min-w-0 flex-1 break-words text-[var(--axon-editor-foreground)]">
-                      {event.message}
-                      {event.source ? (
-                        <span className="ml-2 text-[var(--axon-editor-foreground)] opacity-45">
-                          {event.source}
-                          {event.line ? `:${event.line}` : ""}
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+        <div className="min-h-0 flex-1 overflow-auto bg-[var(--axon-editor-background)] p-4">
+          <div
+            className="mx-auto h-full min-h-[320px] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
+            style={{
+              width: device.width ? `${device.width}px` : "100%",
+              height: device.height ? `${device.height}px` : "100%",
+              maxWidth: "100%",
+            }}
+          >
+            {previewUrl ? (
+              <iframe
+                key={previewUrl}
+                title="HTML preview"
+                src={previewUrl}
+                className="h-full w-full bg-white"
+                // The iframe is pointed at Axon's localhost preview server.
+                // Scripts need to run so real pages behave normally, but the
+                // page still stays isolated from the Electron renderer and can
+                // only report console output through the injected preview API.
+                sandbox="allow-forms allow-modals allow-popups allow-same-origin allow-scripts"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
+                preparing preview...
+              </div>
+            )}
           </div>
         </div>
       )}

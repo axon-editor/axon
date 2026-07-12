@@ -587,6 +587,20 @@ export function useAxonAppEffects({
   }, [folderPath, gitStatus?.isRepository, refreshGitStatus]);
 
   useEffect(() => {
+    const cleanupHtmlPreviewConsole = window.axon.onHtmlPreviewConsole((event) => {
+      const location = event.source
+        ? ` (${event.source}${event.line ? `:${event.line}` : ""})`
+        : "";
+      appendOutput(
+        "html preview",
+        `${event.message}${location}`,
+        event.level === "error"
+          ? "error"
+          : event.level === "warn"
+            ? "warning"
+            : "info",
+      );
+    });
     const cleanupOutput = window.axon.onTaskOutput((event) => {
       appendOutput(
         event.label,
@@ -605,6 +619,7 @@ export function useAxonAppEffects({
     });
 
     return () => {
+      cleanupHtmlPreviewConsole();
       cleanupOutput();
       cleanupFinished();
     };

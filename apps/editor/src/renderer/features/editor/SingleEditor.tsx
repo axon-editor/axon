@@ -413,7 +413,7 @@ export default function SingleEditor({
   }, [editorSettings.themeId, themeSyntax, themeTokens]);
 
   const scheduleSemanticTokenDecorations = useCallback(
-    (delayMs = 650) => {
+    (delayMs = 175) => {
       if (semanticDecorationTimerRef.current) {
         window.clearTimeout(semanticDecorationTimerRef.current);
       }

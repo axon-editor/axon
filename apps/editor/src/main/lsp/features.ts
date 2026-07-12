@@ -884,6 +884,7 @@ export {
   getLanguageServerHover,
   getLanguageServerReferences,
   getLanguageServerSignatureHelp,
+  resolveLanguageServerCompletionItem,
   renameLanguageServerSymbol,
 } from "./features/requests";
 export { getLanguageServerSemanticTokens } from "./features/semanticTokens";

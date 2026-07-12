@@ -41,6 +41,7 @@ import type {
   LanguageServerCodeActionRequest,
   LanguageServerCodeActionResult,
   LanguageServerCompletionRequest,
+  LanguageServerCompletionResolveRequest,
   LanguageServerCompletionResult,
   LanguageServerDefinitionRequest,
   LanguageServerDefinitionResult,
@@ -184,6 +185,9 @@ declare global {
       ) => Promise<LanguageServerLifecycleResult>;
       getLanguageServerCompletions: (
         request: LanguageServerCompletionRequest,
+      ) => Promise<LanguageServerCompletionResult>;
+      resolveLanguageServerCompletion: (
+        request: LanguageServerCompletionResolveRequest,
       ) => Promise<LanguageServerCompletionResult>;
       syncLanguageServerDocument: (
         request: LanguageServerDocumentSyncRequest,

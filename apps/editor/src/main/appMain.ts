@@ -10,6 +10,7 @@ import {
   notifyLanguageServersOfFileChange,
   startLanguageServerForLanguage,
   stopAllLanguageServers,
+  stopRelevantLanguageServers,
 } from "./lsp/features";
 import {
   notifyLanguageServer,
@@ -238,42 +239,50 @@ const taskManager = new TaskManager({
 const testManager = new TestManager({
   sendToRenderer,
 });
-const fileWatcherManager = new FileWatcherManager({
-  shouldPollWatchers,
-  shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => {
-    const normalizedPath = candidatePath.replace(/\\/g, "/");
-    const segments = normalizedPath.split("/").filter(Boolean);
+function createFileWatcherManager(
+  sendWatcherEvent: (channel: string, payload?: unknown) => void,
+) {
+  return new FileWatcherManager({
+    shouldPollWatchers,
+    shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => {
+      const normalizedPath = candidatePath.replace(/\\/g, "/");
+      const segments = normalizedPath.split("/").filter(Boolean);
 
-    // Hidden project files are valid editor content. I only ignore folders/files
-    // that are implementation noise or generated output, because ignoring every
-    // dot-prefixed path makes newly created files such as .gitignore and release
-    // workflow files invisible until the core tree filter is changed too.
-    return segments.some((segment, index) => {
-      if (segment === ".git" || segment === ".DS_Store") return true;
-      if (
-        segment === "node_modules" ||
-        segment === "vendor" ||
-        segment === "dist" ||
-        segment === "release"
-      ) {
-        return true;
-      }
+      // Hidden project files are valid editor content. I only ignore folders/files
+      // that are implementation noise or generated output, because ignoring every
+      // dot-prefixed path makes newly created files such as .gitignore and release
+      // workflow files invisible until the core tree filter is changed too.
+      return segments.some((segment, index) => {
+        if (segment === ".git" || segment === ".DS_Store") return true;
+        if (
+          segment === "node_modules" ||
+          segment === "vendor" ||
+          segment === "dist" ||
+          segment === "release"
+        ) {
+          return true;
+        }
 
-      return (
-        segment === "build" &&
-        index < segments.length - 1 &&
-        segments[index + 1] === "core"
-      );
-    });
-  },
-  sendToRenderer,
-  getGitWatchPaths,
-  stopAllLanguageServers: async () => {
-    await stopAllLanguageServers();
-  },
-  notifyLanguageServersOfFileChange,
-  invalidateWorkspaceIndex,
-});
+        return (
+          segment === "build" &&
+          index < segments.length - 1 &&
+          segments[index + 1] === "core"
+        );
+      });
+    },
+    sendToRenderer: sendWatcherEvent,
+    getGitWatchPaths,
+    stopLanguageServersForFolder: async (folderPath) => {
+      await stopRelevantLanguageServers(folderPath);
+    },
+    notifyLanguageServersOfFileChange,
+    invalidateWorkspaceIndex,
+  });
+}
+
+// HtmlPreviewServer only consumes Chokidar option helpers from this instance.
+// Actual workspace and Git watcher state belongs to renderer-specific managers.
+const watcherOptionSource = createFileWatcherManager(sendToRenderer);
 const updateManager = new UpdateManager({
   sendToRenderer,
   releaseApiUrl: axonReleaseApiUrl,
@@ -327,7 +336,11 @@ registerSettingsHandlers({
     await startLanguageServerForLanguage(folderPath, "python");
   },
 });
-registerFileWatcherHandlers(fileWatcherManager);
+const fileWatcherRegistry = registerFileWatcherHandlers((sender) =>
+  createFileWatcherManager((channel, payload) => {
+    if (!sender.isDestroyed()) sender.send(channel, payload);
+  }),
+);
 registerHtmlPreviewHandlers(getHtmlPreviewServer);
 registerTaskHandlers(taskManager);
 registerTestHandlers(testManager);
@@ -370,9 +383,9 @@ app.on("second-instance", () => {
 function getHtmlPreviewServer() {
   if (!htmlPreviewServer) {
     htmlPreviewServer = new HtmlPreviewServer({
-      buildWatcherOptions: () => fileWatcherManager.buildWatcherOptions(),
+      buildWatcherOptions: () => watcherOptionSource.buildWatcherOptions(),
       shouldIgnoreWorkspaceWatchPath: (candidatePath: string) =>
-        fileWatcherManager.shouldIgnoreWorkspaceWatchPath(candidatePath),
+        watcherOptionSource.shouldIgnoreWorkspaceWatchPath(candidatePath),
       sendToRenderer,
     });
   }
@@ -600,6 +613,6 @@ app.on("before-quit", async () => {
   stopAllLanguageServers();
   bundledCore.stopBundledCoreWatchdog();
   bundledCore.stopBundledAxonCore();
-  await fileWatcherManager.closeAll();
+  await fileWatcherRegistry.closeAll();
   await htmlPreviewServer?.close();
 });

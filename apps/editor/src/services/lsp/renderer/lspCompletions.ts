@@ -1,5 +1,6 @@
 import * as monaco from "monaco-editor";
 import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
+import type { LanguageServerCompletionItem } from "../../../shared/lsp";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -811,6 +812,29 @@ function registerTailwindUtilityProvider(monacoInstance: typeof monaco) {
   }
 }
 
+interface LspBackedCompletionItem extends monaco.languages.CompletionItem {
+  axonLspItem?: LanguageServerCompletionItem;
+  axonFolderPath?: string;
+  axonLanguageId?: string;
+}
+
+function applyResolvedLspFields(
+  completion: LspBackedCompletionItem,
+  item: LanguageServerCompletionItem,
+) {
+  const textEditRange = toMonacoRange(item.textEdit?.range);
+  completion.detail = item.detail;
+  completion.documentation = item.documentation;
+  completion.insertText = item.textEdit?.newText ?? item.insertText ?? item.label;
+  completion.additionalTextEdits = item.additionalTextEdits?.map((edit) => ({
+    range: toMonacoRange(edit.range)!,
+    text: edit.newText,
+    forceMoveMarkers: true,
+  }));
+  if (textEditRange) completion.range = textEditRange;
+  return completion;
+}
+
 function registerExternalLspProvider(monacoInstance: typeof monaco) {
   for (const languageId of lspCompletionLanguages) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
@@ -828,6 +852,27 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
           ? identifierTriggerCharacters
           : []),
       ],
+      resolveCompletionItem: async (completion, token) => {
+        const item = completion as LspBackedCompletionItem;
+        if (
+          token.isCancellationRequested ||
+          !item.axonLspItem?.data ||
+          !item.axonFolderPath ||
+          !item.axonLanguageId
+        ) {
+          return completion;
+        }
+
+        const result = await window.axon.resolveLanguageServerCompletion({
+          folderPath: item.axonFolderPath,
+          languageId: item.axonLanguageId,
+          item: item.axonLspItem,
+        });
+        if (token.isCancellationRequested || !result.ok || !result.items[0]) {
+          return completion;
+        }
+        return applyResolvedLspFields(item, result.items[0]);
+      },
       provideCompletionItems: async (model, position, context, token) => {
         const folderPath = window.axonCompletionWorkspacePath;
         const filePath = model.uri.fsPath;
@@ -863,7 +908,7 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
 
         const range = getWordReplaceRange(model, position);
         return {
-          suggestions: result.items.map((item) => {
+          suggestions: result.items.map((item): LspBackedCompletionItem => {
             const textEditRange = toMonacoRange(item.textEdit?.range);
             const insertText =
               item.textEdit?.newText ?? item.insertText ?? item.label;
@@ -906,6 +951,9 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
                 forceMoveMarkers: true,
               })),
               range: textEditRange ?? range,
+              axonLspItem: item,
+              axonFolderPath: folderPath,
+              axonLanguageId: detectLanguageServerLanguage(filePath),
             };
           }),
         };

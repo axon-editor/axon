@@ -197,6 +197,12 @@ export interface LanguageServerCompletionResult {
   items: LanguageServerCompletionItem[];
 }
 
+export interface LanguageServerCompletionResolveRequest {
+  folderPath: string;
+  languageId: string;
+  item: LanguageServerCompletionItem;
+}
+
 export interface LanguageServerLocation {
   filePath: string;
   range: LanguageServerTextRange;

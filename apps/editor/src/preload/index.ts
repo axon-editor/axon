@@ -61,6 +61,7 @@ import {
   type LanguageServerCodeActionRequest,
   type LanguageServerCodeActionResult,
   type LanguageServerCompletionRequest,
+  type LanguageServerCompletionResolveRequest,
   type LanguageServerCompletionResult,
   type LanguageServerDefinitionRequest,
   type LanguageServerDefinitionResult,
@@ -232,6 +233,10 @@ contextBridge.exposeInMainWorld("axon", {
     request: LanguageServerCompletionRequest,
   ): Promise<LanguageServerCompletionResult> =>
     ipcRenderer.invoke("lsp:completion", request),
+  resolveLanguageServerCompletion: (
+    request: LanguageServerCompletionResolveRequest,
+  ): Promise<LanguageServerCompletionResult> =>
+    ipcRenderer.invoke("lsp:resolveCompletion", request),
   syncLanguageServerDocument: (
     request: LanguageServerDocumentSyncRequest,
   ): Promise<void> => ipcRenderer.invoke("lsp:syncDocument", request),

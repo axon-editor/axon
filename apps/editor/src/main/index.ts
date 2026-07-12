@@ -188,6 +188,11 @@ async function createBootSplashWindow() {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // This BrowserWindow becomes the real editor window after the splash, so
+      // its renderer scheduling policy must match createWindow's normal path.
+      // Without this setting the production-only reused window still throttles
+      // terminal output whenever Axon loses focus.
+      backgroundThrottling: false,
     },
   });
 

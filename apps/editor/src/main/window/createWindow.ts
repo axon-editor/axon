@@ -112,6 +112,11 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true,
+            // Agent and task output must continue to drain and paint when Axon
+            // is behind another window. Chromium otherwise throttles the timers
+            // and animation frames that xterm uses, making background output
+            // appear frozen until the editor regains focus.
+            backgroundThrottling: false,
           },
         });
 

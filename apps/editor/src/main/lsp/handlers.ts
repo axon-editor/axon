@@ -6,6 +6,7 @@ import {
   getLanguageServerDefinitions,
   executeLanguageServerCommand,
   getLanguageServerHover,
+  resolveLanguageServerCompletionItem,
   getLanguageServerReferences,
   getLanguageServerSemanticTokens,
   formatLanguageServerDocument,
@@ -22,6 +23,7 @@ import {
   type LanguageServerCodeActionRequest,
   type LanguageServerCodeActionResult,
   type LanguageServerCompletionRequest,
+  type LanguageServerCompletionResolveRequest,
   type LanguageServerCompletionResult,
   type LanguageServerDefinitionRequest,
   type LanguageServerDefinitionResult,
@@ -142,6 +144,19 @@ export function registerLspHandlers() {
       if (!settings.lsp.enabled) return;
 
       await syncDocumentWithLanguageServer(request);
+    },
+  );
+
+  ipcMain.handle(
+    "lsp:resolveCompletion",
+    async (
+      _event,
+      request: LanguageServerCompletionResolveRequest,
+    ): Promise<LanguageServerCompletionResult> => {
+      if (!request.folderPath || !fs.existsSync(request.folderPath)) {
+        return { ok: true, items: [request.item] };
+      }
+      return resolveLanguageServerCompletionItem(request);
     },
   );
 

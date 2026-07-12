@@ -29,6 +29,12 @@ export function useEditorSurfaceHandlers({
   const handleOpenHtmlPreview = (filePath: string) => {
     if (!requireTrustedWorkspace("HTML preview")) return;
 
+    // Preview is an editor surface and should receive the full available height.
+    // Browser console messages are routed into Axon's Output tab, so neither the
+    // terminal nor the bottom panel needs to remain open beside the preview.
+    setTerminalOpen(false);
+    setBottomPanelOpen(false);
+
     // HTML previews are represented as their own tab identity because a source
     // document and its rendered browser view are different editor surfaces.
     // Reusing the raw file path would make the preview fight with the Monaco

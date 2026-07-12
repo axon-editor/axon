@@ -209,7 +209,13 @@ function drainTerminalOutput(session: TerminalSession) {
     // byte instead of pretending the browser already painted it.
     session.outputWriting = true;
     session.inFlightWriteBytes += batch.byteLength;
-    session.atBottom = session.term ? isTerminalAtBottom(session.term) : true;
+    // xterm accepts several writes before their callbacks run. The follow state
+    // therefore belongs to this batch, not to the shared session: a later batch
+    // must not overwrite the decision made while this batch still had the
+    // viewport at the bottom. Rechecking after the write is also too late because
+    // xterm may already have advanced baseY, making a previously-following view
+    // look manually scrolled even though the user never moved it.
+    const shouldFollowOutput = isTerminalAtBottom(session.term);
     batchesWritten += 1;
 
     session.term.write(batch.data, () => {
@@ -224,7 +230,7 @@ function drainTerminalOutput(session: TerminalSession) {
 
       const settled = !hasPendingTerminalOutput(session);
       sendTerminalAck(session, settled);
-      if (session.term && session.atBottom) {
+      if (session.term && shouldFollowOutput) {
         session.term.scrollToBottom();
       }
       scheduleTerminalRefresh(session);

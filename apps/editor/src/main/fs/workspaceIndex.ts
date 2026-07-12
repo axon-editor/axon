@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "fs/promises";
 import path from "path";
 import {
   type WorkspaceIndexFile,
@@ -10,6 +10,11 @@ const workspaceIndexCache = new Map<
   string,
   { generatedAtMs: number; summary: WorkspaceIndexSummary }
 >();
+const workspaceIndexRequests = new Map<
+  string,
+  Promise<WorkspaceIndexSummary>
+>();
+const STAT_CONCURRENCY = 256;
 
 const languageByExtension: Record<string, string> = {
   ".astro": "astro",
@@ -57,49 +62,49 @@ export function invalidateWorkspaceIndex(folderPath?: string | null) {
   workspaceIndexCache.delete(path.resolve(folderPath));
 }
 
-export function getWorkspaceIndex(
-  folderPath: string,
-  limit = 50000,
-): WorkspaceIndexSummary {
-  const workspacePath = path.resolve(folderPath);
-  const cached = workspaceIndexCache.get(workspacePath);
-  if (cached && Date.now() - cached.generatedAtMs < 5000) {
-    return cached.summary;
-  }
-
-  const files = listProjectFiles(workspacePath, limit);
+async function buildWorkspaceIndex(
+  workspacePath: string,
+  limit: number,
+): Promise<WorkspaceIndexSummary> {
+  const files = await listProjectFiles(workspacePath, limit);
   const languageCounts: Record<string, number> = {};
   const indexedFiles: WorkspaceIndexFile[] = [];
 
-  for (const file of files) {
-    let stat: fs.Stats;
-    try {
-      stat = fs.statSync(file.path);
-    } catch {
-      continue;
-    }
+  // Stat calls are independent and safe to overlap, but an unbounded
+  // Promise.all over a large repository can overwhelm the process and OS. This
+  // bounded loop keeps the main thread responsive while maintaining enough I/O
+  // concurrency for SSD-backed projects to index quickly.
+  for (let offset = 0; offset < files.length; offset += STAT_CONCURRENCY) {
+    const entries = await Promise.all(
+      files.slice(offset, offset + STAT_CONCURRENCY).map(async (file) => {
+        try {
+          return { file, stat: await fs.stat(file.path) };
+        } catch {
+          return null;
+        }
+      }),
+    );
 
-    const languageId = getLanguageId(file.path);
-    if (languageId) {
-      languageCounts[languageId] = (languageCounts[languageId] ?? 0) + 1;
-    }
+    for (const entry of entries) {
+      if (!entry) continue;
+      const { file, stat } = entry;
+      const languageId = getLanguageId(file.path);
+      if (languageId) {
+        languageCounts[languageId] = (languageCounts[languageId] ?? 0) + 1;
+      }
 
-    indexedFiles.push({
-      name: file.name,
-      path: file.path,
-      relativePath: path.relative(workspacePath, file.path),
-      extension: path.extname(file.path).toLowerCase(),
-      languageId,
-      sizeBytes: stat.size,
-      modifiedAt: stat.mtime.toISOString(),
-    });
+      indexedFiles.push({
+        name: file.name,
+        path: file.path,
+        relativePath: path.relative(workspacePath, file.path),
+        extension: path.extname(file.path).toLowerCase(),
+        languageId,
+        sizeBytes: stat.size,
+        modifiedAt: stat.mtime.toISOString(),
+      });
+    }
   }
 
-  // This is intentionally a metadata index, not a content index yet. It gives
-  // file search, test discovery, symbol indexing, and extension activation a
-  // shared project-aware base without reading every file into memory during
-  // workspace open. Content/symbol indexing can layer on this and decide which
-  // language/provider should parse each file.
   const summary: WorkspaceIndexSummary = {
     workspacePath,
     generatedAt: new Date().toISOString(),
@@ -108,6 +113,36 @@ export function getWorkspaceIndex(
     languageCounts,
     files: indexedFiles,
   };
-  workspaceIndexCache.set(workspacePath, { generatedAtMs: Date.now(), summary });
+  workspaceIndexCache.set(workspacePath, {
+    generatedAtMs: Date.now(),
+    summary,
+  });
   return summary;
+}
+
+export async function getWorkspaceIndex(
+  folderPath: string,
+  limit = 50000,
+): Promise<WorkspaceIndexSummary> {
+  const workspacePath = path.resolve(folderPath);
+  const cached = workspaceIndexCache.get(workspacePath);
+  if (cached && Date.now() - cached.generatedAtMs < 5000) {
+    return cached.summary;
+  }
+
+  // This is intentionally a metadata index, not a content index yet. It gives
+  // file search, test discovery, symbol indexing, and extension activation a
+  // shared project-aware base without reading every file into memory during
+  // workspace open. Content/symbol indexing can layer on this and decide which
+  // language/provider should parse each file.
+  const existingRequest = workspaceIndexRequests.get(workspacePath);
+  if (existingRequest) return existingRequest;
+
+  const request = buildWorkspaceIndex(workspacePath, limit).finally(() => {
+    if (workspaceIndexRequests.get(workspacePath) === request) {
+      workspaceIndexRequests.delete(workspacePath);
+    }
+  });
+  workspaceIndexRequests.set(workspacePath, request);
+  return request;
 }
