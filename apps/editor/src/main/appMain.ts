@@ -89,7 +89,15 @@ let isQuitting = false;
 const windowSessionRestore = new Map<number, boolean>();
 let pendingCliOpenFolderPath: string | null = null;
 let mainWindowReadyForCliOpen = false;
-const axonCorePort = process.env.AXON_CORE_PORT ?? "7777";
+// Packaged launches use a process-private high port. A native crash can leave
+// axon-core orphaned after its Electron parent disappears; reusing fixed port
+// 7777 then connects the next app launch to a Core holding yesterday's secret,
+// so every authenticated tree/file request fails and folder selection appears
+// to do nothing. A fresh port keeps that stale process isolated. Development
+// remains deterministic because the dev runner supplies AXON_CORE_PORT.
+const axonCorePort =
+  process.env.AXON_CORE_PORT?.trim() ||
+  String(20_000 + randomBytes(2).readUInt16BE(0) % 30_000);
 // Development supplies one process-scoped token to the independently launched
 // Go process. Packaged Axon generates a fresh secret for every app launch and
 // passes it only to its child core process and trusted preload bridge.
