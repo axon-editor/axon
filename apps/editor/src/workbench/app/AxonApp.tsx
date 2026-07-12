@@ -53,6 +53,10 @@ import { useSaveFileAs } from "./lib/useSaveFileAs";
 import { useGitStatusRefresh } from "./lib/useGitStatusRefresh";
 import { toMonacoEdit } from "./lib/monacoEdit";
 import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
+import {
+  AXON_OPEN_GIT_COMMIT_DIFF_EVENT,
+  type OpenGitCommitDiffDetail,
+} from "@axon-builtin-git/git/lib/gitGraphTab";
 import "../../renderer/App.css";
 import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolInstallPrompt";
 import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
@@ -155,6 +159,20 @@ export default function App({ initialExtensionState }: AppProps) {
     file: GitHistoryFile;
     diff: GitCommitDiffResult;
   } | null>(null);
+  useEffect(() => {
+    const openCommitDiff = (event: Event) => {
+      const { commit, file, diff } = (
+        event as CustomEvent<OpenGitCommitDiffDetail>
+      ).detail;
+      setGitHistoryEditor({ commit, file, diff });
+    };
+    window.addEventListener(AXON_OPEN_GIT_COMMIT_DIFF_EVENT, openCommitDiff);
+    return () =>
+      window.removeEventListener(
+        AXON_OPEN_GIT_COMMIT_DIFF_EVENT,
+        openCommitDiff,
+      );
+  }, []);
   const platform = window.axon.platform;
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);

@@ -26,7 +26,6 @@ import MediaPreview, {
 } from "@axon-builtin-media-preview/MediaPreview";
 import GitDiffEditorView from "./GitDiffEditorView";
 import GitWorkflowPanel from "./GitWorkflowPanel";
-import GitGraphPanel from "./advanced/GitGraphPanel";
 import {
   commitSourceControlChanges,
   copyGitText,
@@ -43,6 +42,7 @@ interface Props {
   onClose: () => void;
   onOpenFile: (path: string) => void;
   onOpenDiff: (path: string) => void;
+  onOpenGraph: () => void;
   onGitStatusChanged: () => void;
   editorSettings: EditorSettings;
   themeTokens: ResolvedThemeTokens;
@@ -109,6 +109,7 @@ export default function SourceControlModal({
   onClose,
   onOpenFile,
   onOpenDiff,
+  onOpenGraph,
   onGitStatusChanged,
   editorSettings,
   themeTokens,
@@ -123,7 +124,6 @@ export default function SourceControlModal({
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
   const [committing, setCommitting] = useState(false);
-  const [activeView, setActiveView] = useState<"diff" | "graph">("diff");
   const panelRef = useRef<HTMLDivElement>(null);
   const selectedChangeIsMedia = selectedChange
     ? isMediaFile(selectedChange.absolutePath)
@@ -269,11 +269,6 @@ export default function SourceControlModal({
   };
 
   const closeActivePreview = () => {
-    if (activeView === "graph") {
-      setActiveView("diff");
-      return;
-    }
-
     setSelectedChange(null);
     setDiff(null);
   };
@@ -428,13 +423,9 @@ export default function SourceControlModal({
               <div className="flex items-center gap-1">
                 <Tooltip label="Show commit graph" side="bottom">
                   <button
-                    onClick={() => setActiveView("graph")}
+                    onClick={onOpenGraph}
                     aria-label="Show commit graph"
-                    className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 ${
-                      activeView === "graph"
-                        ? "opacity-100 text-[var(--axon-syntax-function)]"
-                        : "opacity-45"
-                    }`}
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-syntax-function)] hover:opacity-100"
                   >
                     <GitGraphIcon size={13} />
                   </button>
@@ -590,33 +581,16 @@ export default function SourceControlModal({
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
               <div className="min-w-0">
                 <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
-                  {activeView === "graph"
-                    ? "Commit graph"
-                    : selectedChange
-                      ? getFileName(selectedChange.path)
-                      : "No file selected"}
+                  {selectedChange
+                    ? getFileName(selectedChange.path)
+                    : "No file selected"}
                 </div>
                 <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                  {activeView === "graph"
-                    ? "Branch history, refs, authors, and lanes"
-                    : selectedChange?.path ??
-                      "Select a changed file to preview its diff"}
+                  {selectedChange?.path ??
+                    "Select a changed file to preview its diff"}
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <Tooltip label="Show selected file diff" side="bottom">
-                  <button
-                    onClick={() => setActiveView("diff")}
-                    aria-label="Show selected file diff"
-                    className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 ${
-                      activeView === "diff"
-                        ? "opacity-100 text-[var(--axon-syntax-function)]"
-                        : "opacity-45"
-                    }`}
-                  >
-                    <FileDiff size={13} />
-                  </button>
-                </Tooltip>
                 <Tooltip label="Copy selected diff context" side="bottom">
                   <button
                     onClick={() => void copySelectedDiff()}
@@ -643,22 +617,11 @@ export default function SourceControlModal({
                     <FileText size={13} />
                   </button>
                 </Tooltip>
-                <Tooltip
-                  label={
-                    activeView === "graph"
-                      ? "Close commit graph"
-                      : "Close selected file"
-                  }
-                  side="bottom"
-                >
+                <Tooltip label="Close selected file" side="bottom">
                   <button
                     onClick={closeActivePreview}
-                    disabled={activeView === "diff" && !selectedChange}
-                    aria-label={
-                      activeView === "graph"
-                        ? "Close commit graph"
-                        : "Close selected file"
-                    }
+                    disabled={!selectedChange}
+                    aria-label="Close selected file"
                     className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
                   >
                     <X size={13} />
@@ -668,18 +631,15 @@ export default function SourceControlModal({
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-[var(--axon-editor-background)]">
-              {activeView === "graph" && (
-                <GitGraphPanel folderPath={folderPath} variant="full" />
-              )}
-              {activeView === "diff" && loadingDiff && (
+              {loadingDiff && (
                 <DiffSkeleton />
               )}
-              {activeView === "diff" && !loadingDiff && !selectedChange && (
+              {!loadingDiff && !selectedChange && (
                 <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   Select a changed file to view diff context.
                 </div>
               )}
-              {activeView === "diff" && !loadingDiff && selectedChange && (
+              {!loadingDiff && selectedChange && (
                 selectedChangeIsMedia ? (
                   selectedChangeIsDeleted ? (
                     <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">

@@ -31,6 +31,7 @@ import {
 import { detectLanguage } from "../../renderer/features/editor/lib/monacoModels";
 import { fontStack } from "../../renderer/shared/lib/fonts";
 import { getPathBasename } from "./lib/appPath";
+import { AXON_GIT_GRAPH_TAB_PATH } from "@axon-builtin-git/git/lib/gitGraphTab";
 
 const Terminal = React.lazy(() => import("@axon-builtin-terminal/Terminal"));
 const AxonAgentSidebar = React.lazy(() => import("@axon-builtin-agent/AxonAgentSidebar"));
@@ -774,6 +775,10 @@ export function AxonAppView(props: Record<string, any>) {
           onOpenDiff={(path) => {
             setDiffFilePath(path);
             setDiffOpen(true);
+          }}
+          onOpenGraph={() => {
+            handleFileSelect(AXON_GIT_GRAPH_TAB_PATH);
+            setSourceControlOpen(false);
           }}
           onGitStatusChanged={() => void refreshGitStatus({ silent: true })}
           editorSettings={settings.editor}

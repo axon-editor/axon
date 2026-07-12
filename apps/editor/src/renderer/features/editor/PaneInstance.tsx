@@ -38,6 +38,8 @@ import SingleEditor from "./SingleEditor";
 import EmptyPane from "./EmptyPane";
 import WorkspaceBlankPane from "./WorkspaceBlankPane";
 import WelcomeTab, { type WelcomeThemeItem } from "../onboarding/WelcomeTab";
+import GitGraphPanel from "@axon-builtin-git/git/advanced/GitGraphPanel";
+import { isGitGraphTabPath } from "@axon-builtin-git/git/lib/gitGraphTab";
 
 interface Props {
   pane: Pane;
@@ -312,6 +314,8 @@ export default function PaneInstance({
                     })
                   }
                 />
+              ) : isGitGraphTabPath(path) ? (
+                <GitGraphPanel folderPath={folderPath} variant="full" />
               ) : isHtmlPreviewTabPath(path) ? (
                 <HtmlPreview
                   filePath={getHtmlPreviewFilePath(path)}
