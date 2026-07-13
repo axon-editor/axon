@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveTextMateTokenType } from "./textMateSemanticTokens";
+import {
+  resolveContextualTokenType,
+  resolveTextMateTokenType,
+} from "./textMateSemanticTokens";
 
 describe("resolveTextMateTokenType", () => {
   it("classifies quoted JSON object keys as properties", () => {
@@ -21,6 +24,30 @@ describe("resolveTextMateTokenType", () => {
         "meta.structure.dictionary.value.json",
         "string.quoted.double.json",
       ]),
+    ).toBe("string");
+  });
+
+  it("classifies quoted Python dictionary keys as properties", () => {
+    expect(
+      resolveContextualTokenType({
+        baseTokenType: "string",
+        languageId: "python",
+        lineContent: '    "category": issue.category,',
+        identifier: '"category"',
+        startColumnZeroBased: 4,
+      }),
+    ).toBe("property");
+  });
+
+  it("keeps quoted Python dictionary values classified as strings", () => {
+    expect(
+      resolveContextualTokenType({
+        baseTokenType: "string",
+        languageId: "python",
+        lineContent: '    "message": "Issue details.",',
+        identifier: '"Issue details."',
+        startColumnZeroBased: 15,
+      }),
     ).toBe("string");
   });
 });

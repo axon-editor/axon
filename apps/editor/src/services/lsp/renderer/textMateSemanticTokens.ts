@@ -324,13 +324,29 @@ function resolveFallbackTokenType(input: {
   return null;
 }
 
-function resolveContextualTokenType(input: {
+export function resolveContextualTokenType(input: {
   baseTokenType: string;
   languageId: string;
   lineContent: string;
   identifier: string;
   startColumnZeroBased: number;
 }) {
+  if (
+    input.languageId === "python" &&
+    input.baseTokenType === "string" &&
+    nextMeaningfulCharacter(
+      input.lineContent,
+      input.startColumnZeroBased + input.identifier.length,
+    ) === ":"
+  ) {
+    // TextMate's Python grammar gives quoted dictionary keys the same string
+    // scope as their values. The following colon is the structural distinction
+    // available at tokenization time, so promote only that exact shape to a
+    // property. Ordinary strings keep string coloring, including values in the
+    // same dictionary and strings used elsewhere in Python expressions.
+    return "property";
+  }
+
   const memberAccessType = resolveMemberAccessTokenType(input);
   if (memberAccessType && input.baseTokenType === "variable") {
     return memberAccessType;
