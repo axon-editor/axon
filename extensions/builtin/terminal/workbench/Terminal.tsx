@@ -53,6 +53,9 @@ interface Props {
   onHide: () => void;
 }
 
+const terminalControlClassName =
+  "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white";
+
 export default function Terminal({
   open,
   createNonce,
@@ -195,15 +198,15 @@ export default function Terminal({
     >
       <div
         onPointerDown={handleResizeStart}
-        className={`absolute left-0 right-0 top-0 h-1 ${
+        className={`absolute -top-0.5 left-0 right-0 z-30 h-1 ${
           zoomed
-            ? "cursor-default"
+            ? "pointer-events-none"
             : "cursor-row-resize hover:bg-[#80c8e0]/60"
         }`}
         aria-hidden="true"
       />
       <div
-        className="flex items-center justify-between border-b pl-3 pr-3 shrink-0"
+        className="relative z-20 flex h-9 shrink-0 items-center justify-between border-b pl-3 pr-3"
         style={{ borderColor: "var(--axon-panel-border)" }}
       >
         <div className="flex min-w-0 flex-1 items-stretch gap-3 overflow-hidden">
@@ -214,7 +217,7 @@ export default function Terminal({
               {terminalTitle}
             </span>
           </div>
-          <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-hidden">
+          <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto overflow-y-hidden">
             {tabs.map((tab) => (
               <ChromeTab
                 key={tab.id}
@@ -223,6 +226,7 @@ export default function Terminal({
                 closeLabel={`Close ${tab.title}`}
                 tooltipLabel={getTerminalHealthLabel(tab)}
                 tooltipDelayMs={450}
+                closeButtonClassName="h-7 w-7"
                 onClick={() => {
                   setActiveTabId(tab.id);
                   onActivePanelTabChange("terminal");
@@ -233,19 +237,23 @@ export default function Terminal({
                 }}
               />
             ))}
-            <Tooltip label="New terminal tab (plus)" side="top">
-              <button
-                onClick={() => {
-                  onActivePanelTabChange("terminal");
-                  createTab();
-                }}
-                aria-label="New terminal tab"
-                className="my-1 cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
-              >
-                <Plus size={13} />
-              </button>
-            </Tooltip>
           </div>
+          <Tooltip
+            label="New terminal tab (plus)"
+            side="top"
+            triggerClassName="inline-flex shrink-0"
+          >
+            <button
+              onClick={() => {
+                onActivePanelTabChange("terminal");
+                createTab();
+              }}
+              aria-label="New terminal tab"
+              className={terminalControlClassName}
+            >
+              <Plus size={13} />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="ml-2 flex shrink-0 items-center gap-1">
@@ -254,7 +262,7 @@ export default function Terminal({
               <button
                 onClick={onClearOutput}
                 aria-label="Clear output"
-                className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
+                className={terminalControlClassName}
               >
                 <Trash2 size={13} />
               </button>
@@ -267,7 +275,7 @@ export default function Terminal({
             <button
               onClick={handleZoomToggle}
               aria-label={zoomed ? "Restore terminal" : "Zoom terminal"}
-              className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
+              className={terminalControlClassName}
             >
               {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
@@ -276,7 +284,7 @@ export default function Terminal({
             <button
               onClick={handleHide}
               aria-label="Hide terminal"
-              className="cursor-pointer rounded p-1 text-neutral-500 transition-colors hover:bg-[#151923] hover:text-white"
+              className={terminalControlClassName}
             >
               <Minus size={13} />
             </button>
@@ -284,7 +292,7 @@ export default function Terminal({
         </div>
       </div>
 
-      <div className="relative flex-1 overflow-hidden px-2 py-1">
+      <div className="relative z-0 flex-1 overflow-hidden px-2 py-1">
         {activePanelTab !== "terminal" && (
           <BottomPanelContent
             activeTab={activePanelTab}

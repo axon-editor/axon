@@ -18,6 +18,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   deleted?: boolean;
   pinned?: boolean;
   closeLabel?: string;
+  closeButtonClassName?: string;
   tooltipLabel?: string;
   tooltipDelayMs?: number;
   onClose?: (event: MouseEvent<HTMLButtonElement>) => void;
@@ -31,6 +32,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
     deleted = false,
     pinned = false,
     closeLabel = "Close tab",
+    closeButtonClassName = "h-5 w-5",
     tooltipLabel,
     tooltipDelayMs = 0,
     onClose,
@@ -101,7 +103,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
             aria-label={closeLabel}
             onPointerDown={handleClosePointerDown}
             onClick={onClose}
-            className="ml-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-55 focus:opacity-100"
+            className={`ml-0.5 flex shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-55 focus:opacity-100 ${closeButtonClassName}`}
           >
             <X size={11} />
           </button>
