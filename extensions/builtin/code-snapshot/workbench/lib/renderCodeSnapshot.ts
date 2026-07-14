@@ -1,4 +1,8 @@
 import * as monaco from "monaco-editor";
+import type { ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
+import type { ThemeTokenMap } from "@axon-editor/renderer/shared/themes/types";
+import { publicAsset } from "@axon-editor/renderer/shared/lib/assets";
+import { createSnapshotTokenStyleResolver } from "./snapshotTokenStyle";
 
 export interface CodeSnapshotPalette {
   background: string;
@@ -20,6 +24,8 @@ export interface CodeSnapshotRenderOptions {
   showLineNumbers: boolean;
   startLine: number;
   tabSize: number;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
+  themeTokens: ThemeTokenMap;
   width: number;
 }
 
@@ -31,6 +37,8 @@ interface TokenStyle {
 
 const EXPORT_SCALE = 2;
 const MAX_EXPORT_HEIGHT = 16_000;
+const WATERMARK_HEIGHT = 42;
+let axonLogoPromise: Promise<HTMLImageElement | null> | null = null;
 
 function roundedRect(
   context: CanvasRenderingContext2D,
@@ -51,7 +59,10 @@ function parseRgb(color: string) {
       Number.parseInt(hex.slice(4, 6), 16),
     ];
   }
-  const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  const channels = color
+    .match(/[\d.]+/g)
+    ?.slice(0, 3)
+    .map(Number);
   return channels?.length === 3 ? channels : null;
 }
 
@@ -76,35 +87,56 @@ function hasReadableContrast(foreground: string, background: string) {
   return (lighter + 0.05) / (darker + 0.05) >= 2.4;
 }
 
-function readTokenStyle(
-  tokenClass: string,
-  fallback: string,
-  background: string,
-): TokenStyle {
-  if (!tokenClass) {
-    return { color: fallback, fontStyle: "normal", fontWeight: "400" };
-  }
+function loadAxonLogo() {
+  if (axonLogoPromise) return axonLogoPromise;
 
-  const editorRoot = document.createElement("span");
-  const token = document.createElement("span");
-  editorRoot.className = "monaco-editor";
-  editorRoot.style.cssText =
-    "position:fixed;left:-10000px;top:-10000px;visibility:hidden";
-  token.className = tokenClass;
-  token.textContent = "M";
-  editorRoot.appendChild(token);
-  document.body.appendChild(editorRoot);
-  const computed = getComputedStyle(token);
-  const computedColor = computed.color || fallback;
-  const style = {
-    color: hasReadableContrast(computedColor, background)
-      ? computedColor
-      : fallback,
-    fontStyle: computed.fontStyle || "normal",
-    fontWeight: computed.fontWeight || "400",
-  };
-  editorRoot.remove();
-  return style;
+  axonLogoPromise = new Promise((resolve) => {
+    const logo = new Image();
+    logo.onload = () => resolve(logo);
+    logo.onerror = () => resolve(null);
+    // I resolve the logo through publicAsset because Vite uses a relative base
+    // in production. A root-relative URL works in development but points at the
+    // filesystem root when the installed Electron app loads through file://.
+    logo.src = publicAsset("axon.png");
+  });
+  return axonLogoPromise;
+}
+
+function drawWatermark(
+  context: CanvasRenderingContext2D,
+  logo: HTMLImageElement | null,
+  width: number,
+  baseline: number,
+  foreground: string,
+) {
+  context.save();
+  context.globalAlpha = 0.72;
+  context.font = "600 13px Inter, system-ui, sans-serif";
+  const labelWidth = context.measureText("Axon").width;
+  const logoWidth = logo ? 25 : 0;
+  const gap = logo ? 7 : 0;
+  const groupWidth = logoWidth + gap + labelWidth;
+  const startX = (width - groupWidth) / 2;
+
+  if (logo) {
+    const tintedLogo = document.createElement("canvas");
+    tintedLogo.width = logoWidth * EXPORT_SCALE;
+    tintedLogo.height = 21 * EXPORT_SCALE;
+    const logoContext = tintedLogo.getContext("2d");
+    if (logoContext) {
+      logoContext.scale(EXPORT_SCALE, EXPORT_SCALE);
+      logoContext.drawImage(logo, 0, 0, logoWidth, 21);
+      logoContext.globalCompositeOperation = "source-in";
+      logoContext.fillStyle = foreground;
+      logoContext.fillRect(0, 0, logoWidth, 21);
+      context.drawImage(tintedLogo, startX, baseline - 18, logoWidth, 21);
+    }
+  }
+  context.fillStyle = foreground;
+  context.textAlign = "left";
+  context.textBaseline = "alphabetic";
+  context.fillText("Axon", startX + logoWidth + gap, baseline);
+  context.restore();
 }
 
 function expandTabs(value: string, startColumn: number, tabSize: number) {
@@ -134,15 +166,19 @@ function tokenize(code: string, languageId: string) {
   }
 }
 
-export function renderCodeSnapshot(
+export async function renderCodeSnapshot(
   canvas: HTMLCanvasElement,
   options: CodeSnapshotRenderOptions,
 ) {
+  const logo = await loadAxonLogo();
   const lines = options.code.split("\n");
   const lineHeight = Math.round(options.fontSize * 1.55);
   const headerHeight = options.showFileName ? 52 : 0;
   const contentHeight =
-    headerHeight + options.padding * 2 + Math.max(1, lines.length) * lineHeight;
+    headerHeight +
+    options.padding * 2 +
+    Math.max(1, lines.length) * lineHeight +
+    WATERMARK_HEIGHT;
   const height = Math.min(MAX_EXPORT_HEIGHT / EXPORT_SCALE, contentHeight);
   const width = options.width;
 
@@ -193,6 +229,10 @@ export function renderCodeSnapshot(
   const firstBaseline = headerHeight + options.padding + options.fontSize;
   const tokenLines = tokenize(options.code, options.languageId);
   const tokenStyles = new Map<string, TokenStyle>();
+  const resolveTokenStyle = createSnapshotTokenStyleResolver(
+    options.themeTokens,
+    options.themeSyntax,
+  );
 
   context.textBaseline = "alphabetic";
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
@@ -235,11 +275,13 @@ export function renderCodeSnapshot(
       const tokenClass = token.type;
       let style = tokenStyles.get(tokenClass);
       if (!style) {
-        style = readTokenStyle(
-          tokenClass,
-          options.palette.foreground,
-          options.palette.background,
-        );
+        const resolved = resolveTokenStyle(tokenClass);
+        style = {
+          ...resolved,
+          color: hasReadableContrast(resolved.color, options.palette.background)
+            ? resolved.color
+            : options.palette.foreground,
+        };
         tokenStyles.set(tokenClass, style);
       }
       context.font = `${style.fontStyle} ${style.fontWeight} ${options.fontSize}px ${options.fontFamily}`;
@@ -248,6 +290,8 @@ export function renderCodeSnapshot(
       x += context.measureText(expanded.expanded).width;
     }
   }
+
+  drawWatermark(context, logo, width, height - 17, options.palette.foreground);
 
   context.restore();
   roundedRect(context, width, height, 18);

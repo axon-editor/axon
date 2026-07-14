@@ -100,6 +100,7 @@ export function CodeSnapshotControls({
   padding,
   paletteId,
   palettes,
+  renderReady,
   showFileName,
   showLineNumbers,
   startLine,
@@ -124,6 +125,7 @@ export function CodeSnapshotControls({
   padding: number;
   paletteId: string;
   palettes: SnapshotPaletteOption[];
+  renderReady: boolean;
   showFileName: boolean;
   showLineNumbers: boolean;
   startLine: number;
@@ -225,16 +227,18 @@ export function CodeSnapshotControls({
       <div className="sticky bottom-0 grid grid-cols-2 gap-2 border-t border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-4">
         <button
           type="button"
+          disabled={!renderReady}
           onClick={onCopy}
-          className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded border border-[var(--axon-panel-border)] text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
+          className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded border border-[var(--axon-panel-border)] text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-wait disabled:opacity-45"
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
           {copied ? "Copied" : "Copy PNG"}
         </button>
         <button
           type="button"
+          disabled={!renderReady}
           onClick={onSave}
-          className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded bg-[#d8e5eb] text-[12px] font-medium text-[#0d1016] transition-colors hover:bg-white"
+          className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded bg-[#d8e5eb] text-[12px] font-medium text-[#0d1016] transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-45"
         >
           <Download size={14} />
           Save PNG

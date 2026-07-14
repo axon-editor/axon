@@ -319,7 +319,12 @@ export default function PaneInstance({
               ) : isGitGraphTabPath(path) ? (
                 <GitGraphPanel folderPath={folderPath} variant="full" />
               ) : isCodeSnapshotTabPath(path) ? (
-                <CodeSnapshot editorSettings={editorSettings} tabPath={path} />
+                <CodeSnapshot
+                  editorSettings={editorSettings}
+                  tabPath={path}
+                  themeSyntax={themeSyntax}
+                  themeTokens={themeTokens}
+                />
               ) : isHtmlPreviewTabPath(path) ? (
                 <HtmlPreview
                   filePath={getHtmlPreviewFilePath(path)}

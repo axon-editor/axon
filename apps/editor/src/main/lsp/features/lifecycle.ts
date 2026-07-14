@@ -47,6 +47,10 @@ import {
   waitForLanguageServerSpawn,
   writeLanguageServerMessage,
 } from "../session";
+import {
+  createTypeScriptExternalProjectsRequest,
+  discoverTypeScriptProjectConfigs,
+} from "../typescriptProjects";
 
 export function getReadyLanguageServerSession(request: {
   folderPath: string;
@@ -215,6 +219,51 @@ function disposeLanguageServerSession(session: LanguageServerSession) {
     clearTimeout(session.initializeRetryTimer);
     session.initializeRetryTimer = null;
   }
+  if (session.typeScriptProjectRefreshTimer) {
+    clearTimeout(session.typeScriptProjectRefreshTimer);
+    session.typeScriptProjectRefreshTimer = null;
+  }
+}
+
+async function registerTypeScriptProjects(session: LanguageServerSession) {
+  const projectConfigs = await discoverTypeScriptProjectConfigs(
+    session.folderPath,
+  );
+  const request = await createTypeScriptExternalProjectsRequest(projectConfigs);
+  const projects = (request.arguments[1] as { projects: unknown[] }).projects;
+
+  await requestLanguageServer(
+    session,
+    "workspace/executeCommand",
+    request,
+    15_000,
+  );
+  emitLanguageServerLog(
+    session,
+    "info",
+    `Discovered ${projectConfigs.length} TypeScript project config${projectConfigs.length === 1 ? "" : "s"}; registered ${projects.length} cross-directory project${projects.length === 1 ? "" : "s"}.`,
+  );
+}
+
+function scheduleTypeScriptProjectRefresh(session: LanguageServerSession) {
+  if (session.disposed) return;
+  if (session.typeScriptProjectRefreshTimer) {
+    clearTimeout(session.typeScriptProjectRefreshTimer);
+  }
+
+  // Config writes often arrive as several watcher events from an atomic save.
+  // I collapse that burst into one scan so editing tsconfig.json does not make
+  // TypeScript repeatedly parse the same monorepo while the file is changing.
+  session.typeScriptProjectRefreshTimer = setTimeout(() => {
+    session.typeScriptProjectRefreshTimer = null;
+    void registerTypeScriptProjects(session).catch((error) => {
+      emitLanguageServerLog(
+        session,
+        "error",
+        `TypeScript project refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+  }, 250);
 }
 
 async function initializeLanguageServer(session: LanguageServerSession) {
@@ -354,13 +403,28 @@ async function initializeLanguageServer(session: LanguageServerSession) {
     },
     LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS,
   )
-    .then((initializeResult) => {
+    .then(async (initializeResult) => {
       console.log("[LSP SPAWN OK]", session.id);
       if (session.disposed) return;
       session.semanticTokensProvider =
         normalizeSemanticTokensProvider(initializeResult);
       notifyLanguageServer(session, "initialized", {});
       void notifyLanguageServerConfiguration(session, notifyLanguageServer);
+
+      if (session.id === "typescript") {
+        try {
+          // I finish cross-directory registration before exposing the session
+          // as ready, otherwise an early completion or diagnostic request can
+          // still place a sibling source file into an inferred project.
+          await registerTypeScriptProjects(session);
+        } catch (error) {
+          emitLanguageServerLog(
+            session,
+            "error",
+            `TypeScript project discovery failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
       console.log("[LSP INIT OK]", session.id);
       session.initialized = true;
       session.initializeRetryCount = 0;
@@ -456,12 +520,19 @@ export function startLanguageServerDefinition(
           disposed: false,
           initializeRetryCount: 0,
           initializeRetryTimer: null,
+          typeScriptProjectRefreshTimer: null,
+          refreshTypeScriptProjects: null,
           stderr: "",
           stdoutBuffer: Buffer.alloc(0),
           semanticTokensProvider: null,
           pendingRequests: new Map(),
           syncedDocuments: new Map(),
         };
+        if (session.id === "typescript") {
+          session.refreshTypeScriptProjects = () => {
+            scheduleTypeScriptProjectRefresh(session);
+          };
+        }
 
         child.stdout.on("data", (chunk: Buffer) => {
           readLanguageServerMessages(

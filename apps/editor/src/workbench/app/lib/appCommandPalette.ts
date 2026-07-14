@@ -11,6 +11,7 @@ import {
   getWorkbenchExtensionViews,
   toExtensionViewCommandId,
 } from "../../contrib/extensions/lib/extensionViews";
+import { shouldIncludeContributedCommand } from "./paletteCommandContributions";
 
 interface BuildAppPaletteCommandsOptions {
   activeFilePath: string | null;
@@ -43,10 +44,11 @@ export function buildAppPaletteCommands({
   workspaceTrusted,
   zenMode,
 }: BuildAppPaletteCommandsOptions): CommandPaletteCommand[] {
-  const commandRecords =
-    (extensionState?.contributionRegistry.commands ??
+  const commandRecords = (extensionState?.contributionRegistry.commands ??
       []) as ExtensionContributionRecord<ExtensionCommandContribution>[];
-  const extensionCommands = commandRecords.map((record) => ({
+  const extensionCommands = commandRecords
+    .filter((record) => shouldIncludeContributedCommand(record.contribution.id))
+    .map((record) => ({
     id: `extension:${record.contribution.id}` as const,
     title: record.contribution.title,
     group: record.contribution.category ?? "Extensions",
@@ -235,9 +237,7 @@ export function buildAppPaletteCommands({
             : "Select an HTML file first",
         keywords: ["browser", "live", "preview", "web"],
         disabled:
-          !activeFilePath ||
-          !isHtmlFile(activeFilePath) ||
-          !workspaceTrusted,
+        !activeFilePath || !isHtmlFile(activeFilePath) || !workspaceTrusted,
       },
       {
         id: AXON_COMMANDS.OPEN_CODE_SNAPSHOT,
@@ -365,9 +365,7 @@ export function buildAppPaletteCommands({
         title: "Save Active File",
         group: "File",
         shortcut: "Cmd S",
-        subtitle: activeFilePath
-          ? "Save the current tab"
-          : "No active file",
+      subtitle: activeFilePath ? "Save the current tab" : "No active file",
         keywords: ["write"],
         disabled: !activeFilePath,
       },
@@ -376,9 +374,7 @@ export function buildAppPaletteCommands({
         title: "Close Active Tab",
         group: "File",
         shortcut: "Cmd W",
-        subtitle: activeFilePath
-          ? "Close the current tab"
-          : "No active file",
+      subtitle: activeFilePath ? "Close the current tab" : "No active file",
         keywords: ["remove"],
         disabled: !activeFilePath,
       },

@@ -18,6 +18,7 @@ import {
   type LspSessionDependencies,
   writeLanguageServerMessage,
 } from "./session";
+import { isTypeScriptProjectConfig } from "./typescriptProjects";
 
 export const activeLanguageServers = new Map<string, LanguageServerSession>();
 export const activeLanguageServerFailures = new Map<
@@ -92,6 +93,13 @@ export function notifyLanguageServersOfFileChange(
   for (const session of activeLanguageServers.values()) {
     if (session.folderPath !== folderPath) continue;
     if (!session.initialized || session.disposed) continue;
+
+    if (
+      session.id === "typescript" &&
+      isTypeScriptProjectConfig(path.basename(filePath))
+    ) {
+      session.refreshTypeScriptProjects?.();
+    }
 
     // Files already opened in Monaco are synchronized through didOpen/didChange
     // with full document contents. Sending a watched-file notification for the

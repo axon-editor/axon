@@ -3,6 +3,7 @@
 // Right side has terminal toggle, language, cursor position.
 import {
   AlertCircle,
+  Camera,
   FileCode,
   Files,
   FlaskConical,
@@ -41,6 +42,7 @@ function getLanguageStatusLabel(language: string) {
 
 interface Props {
   activeFile: string | null;
+  codeSnapshotAvailable: boolean;
   hasWorkspace: boolean;
   language: string;
   cursor: { line: number; col: number };
@@ -62,6 +64,7 @@ interface Props {
   onToggleAgentSidebar: () => void;
   onOpenProblems: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
+  onOpenCodeSnapshot: () => void;
   onOpenSourceControl: () => void;
   onOpenTests: () => void;
   onViewChange: (view: view) => void;
@@ -70,6 +73,7 @@ interface Props {
 
 export default function StatusBar({
   activeFile,
+  codeSnapshotAvailable,
   hasWorkspace,
   language,
   cursor,
@@ -91,6 +95,7 @@ export default function StatusBar({
   onToggleAgentSidebar,
   onOpenProblems,
   onOpenBottomPanel,
+  onOpenCodeSnapshot,
   onOpenSourceControl,
   onOpenTests,
   onViewChange,
@@ -210,6 +215,21 @@ export default function StatusBar({
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {activeFile && (
           <>
+            {codeSnapshotAvailable ? (
+              <>
+                <Tooltip label="Capture code snapshot" side="top">
+                  <button
+                    type="button"
+                    onClick={onOpenCodeSnapshot}
+                    aria-label="Capture code snapshot"
+                    className="flex h-5 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:text-[#54d6b5]"
+                  >
+                    <Camera size={12} />
+                  </button>
+                </Tooltip>
+                <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
+              </>
+            ) : null}
             <span className="flex items-center gap-1 px-2 text-[#9aa4b8]">
               <FileCode size={11} />
               {languageLabel}

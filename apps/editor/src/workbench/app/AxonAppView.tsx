@@ -32,6 +32,7 @@ import { detectLanguage } from "../../renderer/features/editor/lib/monacoModels"
 import { fontStack } from "../../renderer/shared/lib/fonts";
 import { getPathBasename } from "./lib/appPath";
 import { AXON_GIT_GRAPH_TAB_PATH } from "@axon-builtin-git/git/lib/gitGraphTab";
+import { isVirtualTabPath } from "../../renderer/features/editor/lib/tabIdentity";
 
 const Terminal = React.lazy(() => import("@axon-builtin-terminal/Terminal"));
 const AxonAgentSidebar = React.lazy(() => import("@axon-builtin-agent/AxonAgentSidebar"));
@@ -564,6 +565,9 @@ export function AxonAppView(props: Record<string, any>) {
       {!zenMode && (
         <StatusBar
           activeFile={activePane?.activeFile ?? null}
+          codeSnapshotAvailable={Boolean(
+            activePane?.activeFile && !isVirtualTabPath(activePane.activeFile),
+          )}
           hasWorkspace={!!folderPath}
           language={language}
           cursor={cursorInfo}
@@ -592,6 +596,9 @@ export function AxonAppView(props: Record<string, any>) {
                 ? AXON_COMMANDS.OPEN_OUTPUT_PANEL
                 : AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
             )
+          }
+          onOpenCodeSnapshot={() =>
+            runCommand(AXON_COMMANDS.OPEN_CODE_SNAPSHOT)
           }
           onOpenSourceControl={() =>
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)

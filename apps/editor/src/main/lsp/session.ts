@@ -28,6 +28,8 @@ export interface LanguageServerSession {
   disposed: boolean;
   initializeRetryCount: number;
   initializeRetryTimer: ReturnType<typeof setTimeout> | null;
+  typeScriptProjectRefreshTimer: ReturnType<typeof setTimeout> | null;
+  refreshTypeScriptProjects: (() => void) | null;
   stderr: string;
   stdoutBuffer: Buffer;
   semanticTokensProvider: LanguageServerSemanticTokensProvider | null;

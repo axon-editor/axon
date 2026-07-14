@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { type EditorSettings } from "@axon-editor/shared/settings";
 import {
   CodeSnapshotControls,
@@ -62,9 +64,13 @@ function pngName(fileName: string) {
 export default function CodeSnapshot({
   editorSettings,
   tabPath,
+  themeSyntax,
+  themeTokens,
 }: {
   editorSettings: EditorSettings;
   tabPath: string;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
+  themeTokens: ResolvedThemeTokens;
 }) {
   const source = getCodeSnapshotSource(tabPath);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -82,15 +88,35 @@ export default function CodeSnapshot({
   const [width, setWidth] = useState(1040);
   const [showFileName, setShowFileName] = useState(true);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
-  const [paletteId, setPaletteId] = useState("graphite");
+  const [paletteId, setPaletteId] = useState("theme");
   const [copied, setCopied] = useState(false);
+  const [renderReady, setRenderReady] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const paletteOptions = useMemo<SnapshotPaletteOption[]>(
+    () => [
+      {
+        id: "theme",
+        label: "Axon theme",
+        background: themeTokens["editor.background"],
+        header: themeTokens["panel.background"],
+        border: themeTokens["panel.border"],
+        foreground: themeTokens["editor.foreground"],
+        lineNumber: themeTokens["syntax.comment"],
+      },
+      ...palettes,
+    ],
+    [themeTokens],
+  );
   const palette =
-    palettes.find((candidate) => candidate.id === paletteId) ?? palettes[0];
+    paletteOptions.find((candidate) => candidate.id === paletteId) ??
+    paletteOptions[0];
 
   const normalizedRange = useMemo(() => {
     const start = Math.max(1, Math.min(totalLines, Math.floor(startLine) || 1));
-    const requestedEnd = Math.max(start, Math.min(totalLines, Math.floor(endLine) || start));
+    const requestedEnd = Math.max(
+      start,
+      Math.min(totalLines, Math.floor(endLine) || start),
+    );
     return {
       start,
       end: Math.min(requestedEnd, start + MAX_SNAPSHOT_LINES - 1),
@@ -107,7 +133,9 @@ export default function CodeSnapshot({
 
   useEffect(() => {
     if (!source || !canvasRef.current) return;
-    renderCodeSnapshot(canvasRef.current, {
+    let cancelled = false;
+    setRenderReady(false);
+    void renderCodeSnapshot(canvasRef.current, {
       code,
       fileName,
       fontFamily: editorFontStack(editorSettings.fontFamily),
@@ -119,8 +147,21 @@ export default function CodeSnapshot({
       showLineNumbers,
       startLine: normalizedRange.start,
       tabSize: editorSettings.tabSize,
+      themeSyntax,
+      themeTokens,
       width,
-    });
+    })
+      .then(() => {
+        if (!cancelled) setRenderReady(true);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setExportError(error instanceof Error ? error.message : String(error));
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     code,
     editorSettings.fontFamily,
@@ -133,6 +174,8 @@ export default function CodeSnapshot({
     showFileName,
     showLineNumbers,
     source,
+    themeSyntax,
+    themeTokens,
     width,
   ]);
 
@@ -146,7 +189,9 @@ export default function CodeSnapshot({
 
   const getPngData = () => {
     const canvas = canvasRef.current;
-    if (!canvas) throw new Error("The snapshot preview is not ready.");
+    if (!canvas || !renderReady) {
+      throw new Error("The snapshot preview is not ready.");
+    }
     return canvas.toDataURL("image/png");
   };
 
@@ -178,7 +223,9 @@ export default function CodeSnapshot({
       <div className="grid h-full place-items-center bg-[var(--axon-editor-background)] text-[var(--axon-editor-foreground)]">
         <div className="text-center opacity-60">
           <ImageOff className="mx-auto mb-3" size={24} />
-          <p className="text-[13px]">This snapshot source is no longer available.</p>
+          <p className="text-[13px]">
+            This snapshot source is no longer available.
+          </p>
         </div>
       </div>
     );
@@ -208,7 +255,8 @@ export default function CodeSnapshot({
         onWidthChange={setWidth}
         padding={padding}
         paletteId={paletteId}
-        palettes={palettes}
+        palettes={paletteOptions}
+        renderReady={renderReady}
         showFileName={showFileName}
         showLineNumbers={showLineNumbers}
         startLine={normalizedRange.start}

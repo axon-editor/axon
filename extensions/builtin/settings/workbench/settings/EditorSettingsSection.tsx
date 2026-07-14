@@ -101,23 +101,29 @@ export default function EditorSettingsSection({
 
       <SettingsField
         label="Tab size"
-        description="Controls the width of each indentation level when automatic detection is disabled."
+        description="Sets indentation width for typing and formatting. Changing it switches to your fixed indentation settings."
       >
         <SettingsNumberSlider
           min={1}
           max={8}
           value={draft.editor.tabSize}
-          onChange={(value) => onUpdateEditor("tabSize", value)}
+          onChange={(value) => {
+            onUpdateEditor("tabSize", value);
+            onUpdateEditor("detectIndentation", false);
+          }}
         />
       </SettingsField>
 
       <SettingsField
         label="Indent with spaces"
-        description="Uses spaces for new indentation. Disable this to insert tab characters."
+        description="Uses spaces for new indentation and formatting. Disable this to use tabs; changing it switches to your fixed settings."
       >
         <SettingsToggle
           checked={draft.editor.insertSpaces}
-          onChange={(checked) => onUpdateEditor("insertSpaces", checked)}
+          onChange={(checked) => {
+            onUpdateEditor("insertSpaces", checked);
+            onUpdateEditor("detectIndentation", false);
+          }}
           label={draft.editor.insertSpaces ? "Spaces" : "Tabs"}
         />
       </SettingsField>

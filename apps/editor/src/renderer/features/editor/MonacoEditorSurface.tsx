@@ -9,6 +9,7 @@ import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { editorFontStack } from "../../shared/lib/fonts";
 import { getMonacoThemeId, registerAxonTheme } from "../../shared/lib/soraTheme";
 import EditorFindWidget from "./EditorFindWidget";
+import { createEditorFormattingOptions } from "./lib/editorFormattingOptions";
 
 interface Props {
   editorBackgroundImageFit: EditorBackgroundImageFit;
@@ -175,17 +176,7 @@ export default function MonacoEditorSurface({
             multiCursorPaste: "spread",
             multiCursorMergeOverlapping: true,
             bracketPairColorization: { enabled: true },
-            guides: {
-              bracketPairs: editorSettings.bracketPairGuidesEnabled,
-              bracketPairsHorizontal: editorSettings.bracketPairGuidesEnabled,
-              highlightActiveBracketPair:
-                editorSettings.bracketPairGuidesEnabled,
-              indentation: editorSettings.indentationGuidesEnabled,
-              highlightActiveIndentation:
-                editorSettings.indentationGuidesEnabled &&
-                editorSettings.highlightActiveIndentationGuide,
-            },
-            lineDecorationsWidth: editorSettings.codePaddingLeft,
+            ...createEditorFormattingOptions(editorSettings),
             scrollbar: {
               vertical: "auto",
               horizontal: "auto",
