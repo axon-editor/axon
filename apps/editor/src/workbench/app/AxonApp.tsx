@@ -688,6 +688,7 @@ export default function App({ initialExtensionState }: AppProps) {
         | "references"
         | "rename"
         | "format"
+        | "snapshot"
         | "inspect-token",
     ) => {
       const activeFile = activePane?.activeFile;

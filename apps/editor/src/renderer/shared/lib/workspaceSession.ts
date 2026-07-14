@@ -6,6 +6,7 @@ import {
   isVirtualTabPath,
 } from "../../features/editor/lib/tabIdentity";
 import { isWelcomeTabPath } from "../../features/onboarding/lib/welcomeTab";
+import { isCodeSnapshotTabPath } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 import { type BottomPanelTab } from "../../../platform/panel/bottomPanel";
 import {
   createWorkspaceRoot,
@@ -113,6 +114,7 @@ export function sanitizeRestoredLayout(
     // generic initial layout; restoring that tab would make every folder switch
     // feel like first launch again, so workspace restore intentionally drops it.
     if (isWelcomeTabPath(tab)) return false;
+    if (isCodeSnapshotTabPath(tab)) return false;
     if (isVirtualTabPath(tab)) return filePaths.has(getTabFilePath(tab));
     return filePaths.has(tab);
   };

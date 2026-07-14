@@ -268,6 +268,10 @@ export function useAppCommandRunner({
           if (!requireTrustedWorkspace("Language server features")) break;
           runEditorAction("format");
           break;
+        case AXON_COMMANDS.OPEN_CODE_SNAPSHOT:
+          activateExtensionEvent("onCommand:axon.codeSnapshot.open");
+          runEditorAction("snapshot");
+          break;
         case AXON_COMMANDS.OPEN_HTML_PREVIEW:
           if (activeFilePath && isHtmlFile(activeFilePath)) {
             handleOpenHtmlPreview(activeFilePath);

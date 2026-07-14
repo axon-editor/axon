@@ -40,6 +40,8 @@ import WorkspaceBlankPane from "./WorkspaceBlankPane";
 import WelcomeTab, { type WelcomeThemeItem } from "../onboarding/WelcomeTab";
 import GitGraphPanel from "@axon-builtin-git/git/advanced/GitGraphPanel";
 import { isGitGraphTabPath } from "@axon-builtin-git/git/lib/gitGraphTab";
+import CodeSnapshot from "@axon-builtin-code-snapshot/CodeSnapshot";
+import { isCodeSnapshotTabPath } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 
 interface Props {
   pane: Pane;
@@ -316,6 +318,8 @@ export default function PaneInstance({
                 />
               ) : isGitGraphTabPath(path) ? (
                 <GitGraphPanel folderPath={folderPath} variant="full" />
+              ) : isCodeSnapshotTabPath(path) ? (
+                <CodeSnapshot editorSettings={editorSettings} tabPath={path} />
               ) : isHtmlPreviewTabPath(path) ? (
                 <HtmlPreview
                   filePath={getHtmlPreviewFilePath(path)}

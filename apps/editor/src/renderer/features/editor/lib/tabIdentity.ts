@@ -9,6 +9,10 @@ import {
 import { isProblemsTabPath } from "@axon-builtin-problems/lib/problemsTab";
 import { isGitGraphTabPath } from "@axon-builtin-git/git/lib/gitGraphTab";
 import { isWelcomeTabPath } from "../../onboarding/lib/welcomeTab";
+import {
+  getCodeSnapshotSource,
+  isCodeSnapshotTabPath,
+} from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 
 export function getTabFilePath(tabPath: string) {
   if (isHtmlPreviewTabPath(tabPath)) return getHtmlPreviewFilePath(tabPath);
@@ -20,6 +24,7 @@ export function getTabDisplayName(tabPath: string) {
   if (isWelcomeTabPath(tabPath)) return "Welcome to Axon";
   if (isProblemsTabPath(tabPath)) return "Problems";
   if (isGitGraphTabPath(tabPath)) return "Git Graph";
+  if (isCodeSnapshotTabPath(tabPath)) return "Code Snapshot";
 
   const filePath = getTabFilePath(tabPath);
   const name = filePath.split("/").pop() ?? filePath;
@@ -35,6 +40,10 @@ export function getTabTooltipLabel(tabPath: string) {
   if (isWelcomeTabPath(tabPath)) return "Welcome to Axon";
   if (isProblemsTabPath(tabPath)) return "Problems";
   if (isGitGraphTabPath(tabPath)) return "Repository commit graph";
+  if (isCodeSnapshotTabPath(tabPath)) {
+    const source = getCodeSnapshotSource(tabPath);
+    return source ? `Code snapshot: ${source.filePath}` : "Code snapshot";
+  }
 
   const filePath = getTabFilePath(tabPath);
   if (isHtmlPreviewTabPath(tabPath)) return `HTML preview: ${filePath}`;
@@ -47,6 +56,7 @@ export function isVirtualTabPath(tabPath: string) {
     isWelcomeTabPath(tabPath) ||
     isProblemsTabPath(tabPath) ||
     isGitGraphTabPath(tabPath) ||
+    isCodeSnapshotTabPath(tabPath) ||
     isHtmlPreviewTabPath(tabPath) ||
     isMarkdownPreviewTabPath(tabPath)
   );

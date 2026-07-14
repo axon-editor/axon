@@ -5,6 +5,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "@axon-editor": path.resolve(__dirname, "src"),
+      "@axon-builtin-code-snapshot": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "code-snapshot",
+        "workbench",
+      ),
     },
   },
   test: {

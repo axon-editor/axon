@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { openFileInPane, splitPane } from "../../../renderer/features/editor/lib/layoutManager";
 import type { SplitDirection } from "../../../renderer/features/editor/lib/types";
 import { createHtmlPreviewTabPath } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import type { WorkspaceSearchResult } from "../../../renderer/shared/lib/api";
+import { AXON_OPEN_CODE_SNAPSHOT_EVENT } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 
 interface EditorSurfaceHandlersOptions {
   appendOutput: any;
@@ -26,6 +28,26 @@ export function useEditorSurfaceHandlers({
   setTerminalCreateWorkingDirectory,
   setTerminalOpen,
 }: EditorSurfaceHandlersOptions) {
+  useEffect(() => {
+    const openSnapshotTab = (event: Event) => {
+      const snapshotEvent = event as CustomEvent<{ tabPath?: string }>;
+      const tabPath = snapshotEvent.detail?.tabPath;
+      if (!tabPath) return;
+
+      // Snapshot design needs the full editor height. Closing bottom surfaces
+      // here prevents the new tab from inheriting a cramped terminal layout.
+      setTerminalOpen(false);
+      setBottomPanelOpen(false);
+      setLayout((current: any) =>
+        openFileInPane(current, current.activePaneId, tabPath),
+      );
+    };
+
+    window.addEventListener(AXON_OPEN_CODE_SNAPSHOT_EVENT, openSnapshotTab);
+    return () =>
+      window.removeEventListener(AXON_OPEN_CODE_SNAPSHOT_EVENT, openSnapshotTab);
+  }, [setBottomPanelOpen, setLayout, setTerminalOpen]);
+
   const handleOpenHtmlPreview = (filePath: string) => {
     if (!requireTrustedWorkspace("HTML preview")) return;
 

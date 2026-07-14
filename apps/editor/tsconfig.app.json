@@ -34,6 +34,9 @@
       "@axon-builtin-html-preview/*": [
         "../../extensions/builtin/html-preview/workbench/*"
       ],
+      "@axon-builtin-code-snapshot/*": [
+        "../../extensions/builtin/code-snapshot/workbench/*"
+      ],
       "@axon-builtin-media-preview/*": [
         "../../extensions/builtin/media-preview/workbench/*"
       ],
@@ -101,6 +104,7 @@
     "../../extensions/builtin/search/workbench/**/*",
     "../../extensions/builtin/markdown/workbench/**/*",
     "../../extensions/builtin/html-preview/workbench/**/*",
+    "../../extensions/builtin/code-snapshot/workbench/**/*",
     "../../extensions/builtin/media-preview/workbench/**/*",
     "../../extensions/builtin/tasks/workbench/**/*",
     "../../extensions/builtin/spotify/workbench/**/*",

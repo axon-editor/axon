@@ -29,6 +29,7 @@ export const AXON_COMMANDS = {
   FIND_REFERENCES: "find-references",
   RENAME_SYMBOL: "rename-symbol",
   FORMAT_DOCUMENT: "format-document",
+  OPEN_CODE_SNAPSHOT: "open-code-snapshot",
   OPEN_HTML_PREVIEW: "open-html-preview",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",

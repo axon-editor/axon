@@ -23,6 +23,7 @@ export const BUILTIN_CONTRIBUTED_COMMAND_ALIASES: Record<string, AxonCommand> = 
   "axon.git.openSourceControl": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
   "axon.git.refresh": AXON_COMMANDS.OPEN_SOURCE_CONTROL,
   "axon.languageTools.open": AXON_COMMANDS.OPEN_LANGUAGE_TOOLS,
+  "axon.codeSnapshot.open": AXON_COMMANDS.OPEN_CODE_SNAPSHOT,
   "axon.preview.openHtml": AXON_COMMANDS.OPEN_HTML_PREVIEW,
   "axon.problems.open": AXON_COMMANDS.OPEN_PROBLEMS_PANEL,
   "axon.problems.refresh": AXON_COMMANDS.REFRESH_DIAGNOSTICS,
@@ -82,6 +83,10 @@ export const BUILTIN_WORKBENCH_CONTRIBUTIONS = {
   htmlPreview: {
     extensionId: "axon.htmlPreview",
     commands: ["axon.preview.openHtml"],
+  },
+  codeSnapshot: {
+    extensionId: "axon.codeSnapshot",
+    commands: ["axon.codeSnapshot.open"],
   },
   languageTools: {
     extensionId: "axon.languageTools",

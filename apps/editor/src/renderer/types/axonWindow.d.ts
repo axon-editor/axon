@@ -352,6 +352,11 @@ declare global {
         folderPath?: string | null,
       ) => Promise<HtmlPreviewActionResult>;
       copyText: (text: string) => Promise<void>;
+      copyImage: (dataUrl: string) => Promise<void>;
+      saveCodeSnapshot: (
+        suggestedName: string,
+        dataUrl: string,
+      ) => Promise<string | null>;
       getDroppedFilePaths: (files: File[]) => string[];
       importExternalEntries: (
         sourcePaths: string[],

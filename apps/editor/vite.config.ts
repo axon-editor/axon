@@ -78,6 +78,15 @@ export default defineConfig({
         "html-preview",
         "workbench",
       ),
+      "@axon-builtin-code-snapshot": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "code-snapshot",
+        "workbench",
+      ),
       "@axon-builtin-media-preview": path.resolve(
         __dirname,
         "..",

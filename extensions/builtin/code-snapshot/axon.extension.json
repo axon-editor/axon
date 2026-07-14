@@ -1,0 +1,21 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.codeSnapshot",
+  "name": "Code Snapshot",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Create polished, high-resolution PNG snapshots from active editor code.",
+  "author": "Axon",
+  "kind": "builtin",
+  "categories": ["Developer Tools", "Preview"],
+  "activationEvents": ["onCommand:axon.codeSnapshot.open"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "axon.codeSnapshot.open",
+        "title": "Capture Code Snapshot",
+        "category": "Editor"
+      }
+    ]
+  }
+}

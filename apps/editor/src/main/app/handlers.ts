@@ -3,7 +3,15 @@ import { constants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  nativeImage,
+  shell,
+} from "electron";
 import {
   type AgentResumeRequest,
   type CliToolInstallResult,
@@ -13,6 +21,7 @@ import {
   consumePendingAgentResumeRequest,
   writePendingAgentResumeRequest,
 } from "./resumeRequest";
+import { decodeSnapshotPng } from "./snapshotPng";
 
 interface AppHandlerDependencies {
   windowSessionRestore: Map<number, boolean>;
@@ -204,6 +213,34 @@ export function registerAppHandlers({
   ipcMain.handle("clipboard:writeText", async (_event, text: string) => {
     clipboard.writeText(text);
   });
+
+  ipcMain.handle("clipboard:writeImage", async (_event, dataUrl: string) => {
+    const image = nativeImage.createFromBuffer(decodeSnapshotPng(dataUrl));
+    if (image.isEmpty()) throw new Error("The generated snapshot is empty.");
+    clipboard.writeImage(image);
+  });
+
+  ipcMain.handle(
+    "dialog:saveCodeSnapshot",
+    async (_event, suggestedName: string, dataUrl: string) => {
+      const safeName = path.basename(suggestedName || "code-snapshot.png");
+      const defaultPath = safeName.toLowerCase().endsWith(".png")
+        ? safeName
+        : `${safeName}.png`;
+      const result = await dialog.showSaveDialog({
+        title: "Save Code Snapshot",
+        defaultPath,
+        filters: [{ name: "PNG image", extensions: ["png"] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+
+      // Export writes only bytes that passed the fixed PNG signature and size
+      // checks above. The native dialog remains the authority for the target,
+      // so the renderer never receives arbitrary filesystem write capability.
+      await fs.writeFile(result.filePath, decodeSnapshotPng(dataUrl));
+      return result.filePath;
+    },
+  );
 
   ipcMain.handle("app:getCliToolStatus", async () => getCliToolStatus(isDev));
 

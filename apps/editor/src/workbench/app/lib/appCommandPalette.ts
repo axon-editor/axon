@@ -1,5 +1,6 @@
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
+import { isVirtualTabPath } from "../../../renderer/features/editor/lib/tabIdentity";
 import { type CommandPaletteCommand } from "@axon-builtin-search/lib/types";
 import {
   type ExtensionCommandContribution,
@@ -237,6 +238,17 @@ export function buildAppPaletteCommands({
           !activeFilePath ||
           !isHtmlFile(activeFilePath) ||
           !workspaceTrusted,
+      },
+      {
+        id: AXON_COMMANDS.OPEN_CODE_SNAPSHOT,
+        title: "Capture Code Snapshot",
+        group: "Editor",
+        subtitle:
+          activeFilePath && !isVirtualTabPath(activeFilePath)
+            ? "Create a polished image from the selection or visible lines"
+            : "Select a source file first",
+        keywords: ["code", "screenshot", "snapshot", "image", "png"],
+        disabled: !activeFilePath || isVirtualTabPath(activeFilePath),
       },
       {
         id: AXON_COMMANDS.OPEN_PROBLEMS_PANEL,

@@ -501,6 +501,13 @@ contextBridge.exposeInMainWorld("axon", {
   ): Promise<HtmlPreviewActionResult> =>
     ipcRenderer.invoke("htmlPreview:openExternal", filePath, folderPath),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
+  copyImage: (dataUrl: string): Promise<void> =>
+    ipcRenderer.invoke("clipboard:writeImage", dataUrl),
+  saveCodeSnapshot: (
+    suggestedName: string,
+    dataUrl: string,
+  ): Promise<string | null> =>
+    ipcRenderer.invoke("dialog:saveCodeSnapshot", suggestedName, dataUrl),
   getDroppedFilePaths: (files: File[]): string[] =>
     files
       .map((file) => webUtils.getPathForFile(file))
