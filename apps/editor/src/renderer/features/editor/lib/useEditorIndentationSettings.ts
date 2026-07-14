@@ -12,7 +12,7 @@ export function useEditorIndentationSettings(
   useEffect(() => {
     const editor = editorRef.current;
     const model = editor?.getModel();
-    if (!model || model.isDisposed()) return;
+    if (!editor || !model || model.isDisposed()) return;
 
     // I update the mounted Monaco instance directly because
     // @monaco-editor/react applies construction options reliably on mount, but
