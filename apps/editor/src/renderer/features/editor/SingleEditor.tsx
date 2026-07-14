@@ -50,7 +50,7 @@ import { type TokenInspectorReport } from "./lib/tokenInspector";
 import { useEditorActions } from "./lib/useEditorActions";
 import { useTrailingTask } from "./lib/useTrailingTask";
 import { useActiveFileServices } from "./lib/useActiveFileServices";
-
+import { useEditorIndentationSettings } from "./lib/useEditorIndentationSettings";
 interface Props {
   filePath: string;
   folderPath: string | null;
@@ -69,7 +69,6 @@ interface Props {
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
 }
-
 type PreviewMode = "editor" | "split";
 const richSemanticDecorationLanguages = new Set([
   "typescript",
@@ -620,6 +619,8 @@ export default function SingleEditor({
     revealNavigationTarget,
     visible,
   ]);
+
+  useEditorIndentationSettings(editorRef, editorSettings, editorReadyNonce, loading);
 
   useEditorActions({
     editorRef,

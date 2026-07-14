@@ -153,6 +153,9 @@ export default function MonacoEditorSurface({
             lineHeight: editorSettings.lineHeight,
             letterSpacing: 0,
             fontLigatures: editorSettings.fontLigatures,
+            tabSize: editorSettings.tabSize,
+            insertSpaces: editorSettings.insertSpaces,
+            detectIndentation: editorSettings.detectIndentation,
             "semanticHighlighting.enabled": true,
             minimap: { enabled: editorSettings.minimapEnabled },
             scrollBeyondLastLine: true,
@@ -173,10 +176,16 @@ export default function MonacoEditorSurface({
             multiCursorMergeOverlapping: true,
             bracketPairColorization: { enabled: true },
             guides: {
-              bracketPairs: true,
-              indentation: true,
-              highlightActiveIndentation: true,
+              bracketPairs: editorSettings.bracketPairGuidesEnabled,
+              bracketPairsHorizontal: editorSettings.bracketPairGuidesEnabled,
+              highlightActiveBracketPair:
+                editorSettings.bracketPairGuidesEnabled,
+              indentation: editorSettings.indentationGuidesEnabled,
+              highlightActiveIndentation:
+                editorSettings.indentationGuidesEnabled &&
+                editorSettings.highlightActiveIndentationGuide,
             },
+            lineDecorationsWidth: editorSettings.codePaddingLeft,
             scrollbar: {
               vertical: "auto",
               horizontal: "auto",

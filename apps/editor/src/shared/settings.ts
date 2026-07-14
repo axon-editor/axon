@@ -173,6 +173,13 @@ export interface EditorSettings {
   lineHeight: number;
   fontWeight: number;
   fontLigatures: boolean;
+  tabSize: number;
+  insertSpaces: boolean;
+  detectIndentation: boolean;
+  codePaddingLeft: number;
+  indentationGuidesEnabled: boolean;
+  highlightActiveIndentationGuide: boolean;
+  bracketPairGuidesEnabled: boolean;
   appTransparency: boolean;
   appBackgroundOpacity: number;
   appBackgroundBlur: number;
@@ -231,6 +238,13 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     lineHeight: 22,
     fontWeight: 400,
     fontLigatures: true,
+    tabSize: 2,
+    insertSpaces: true,
+    detectIndentation: true,
+    codePaddingLeft: 10,
+    indentationGuidesEnabled: true,
+    highlightActiveIndentationGuide: true,
+    bracketPairGuidesEnabled: true,
     appTransparency: false,
     appBackgroundOpacity: 0.88,
     appBackgroundBlur: 0,
@@ -479,6 +493,38 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.fontLigatures === "boolean"
           ? editor.fontLigatures
           : DEFAULT_SETTINGS.editor.fontLigatures,
+      tabSize: clampNumber(
+        editor.tabSize,
+        DEFAULT_SETTINGS.editor.tabSize,
+        1,
+        8,
+      ),
+      insertSpaces:
+        typeof editor.insertSpaces === "boolean"
+          ? editor.insertSpaces
+          : DEFAULT_SETTINGS.editor.insertSpaces,
+      detectIndentation:
+        typeof editor.detectIndentation === "boolean"
+          ? editor.detectIndentation
+          : DEFAULT_SETTINGS.editor.detectIndentation,
+      codePaddingLeft: clampNumber(
+        editor.codePaddingLeft,
+        DEFAULT_SETTINGS.editor.codePaddingLeft,
+        0,
+        64,
+      ),
+      indentationGuidesEnabled:
+        typeof editor.indentationGuidesEnabled === "boolean"
+          ? editor.indentationGuidesEnabled
+          : DEFAULT_SETTINGS.editor.indentationGuidesEnabled,
+      highlightActiveIndentationGuide:
+        typeof editor.highlightActiveIndentationGuide === "boolean"
+          ? editor.highlightActiveIndentationGuide
+          : DEFAULT_SETTINGS.editor.highlightActiveIndentationGuide,
+      bracketPairGuidesEnabled:
+        typeof editor.bracketPairGuidesEnabled === "boolean"
+          ? editor.bracketPairGuidesEnabled
+          : DEFAULT_SETTINGS.editor.bracketPairGuidesEnabled,
       appTransparency:
         typeof editor.appTransparency === "boolean"
           ? editor.appTransparency

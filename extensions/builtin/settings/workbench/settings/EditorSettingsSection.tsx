@@ -29,7 +29,7 @@ export default function EditorSettingsSection({
   return (
     <SettingsSection
       title="Editor"
-      description="Tune the code editor typography. These values are normalized before saving so invalid JSON edits cannot push the editor outside usable bounds."
+      description="Tune code typography, indentation, spacing, and visual nesting guides. Changes preview in open editors before you save them."
     >
       <SettingsField
         label="Font preset"
@@ -96,6 +96,96 @@ export default function EditorSettingsSection({
           checked={draft.editor.fontLigatures}
           onChange={(checked) => onUpdateEditor("fontLigatures", checked)}
           label={draft.editor.fontLigatures ? "Enabled" : "Disabled"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Tab size"
+        description="Controls the width of each indentation level when automatic detection is disabled."
+      >
+        <SettingsNumberSlider
+          min={1}
+          max={8}
+          value={draft.editor.tabSize}
+          onChange={(value) => onUpdateEditor("tabSize", value)}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Indent with spaces"
+        description="Uses spaces for new indentation. Disable this to insert tab characters."
+      >
+        <SettingsToggle
+          checked={draft.editor.insertSpaces}
+          onChange={(checked) => onUpdateEditor("insertSpaces", checked)}
+          label={draft.editor.insertSpaces ? "Spaces" : "Tabs"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Detect indentation"
+        description="Lets Monaco infer indentation from each file. Disable it to enforce the selected tab size and spaces setting everywhere."
+      >
+        <SettingsToggle
+          checked={draft.editor.detectIndentation}
+          onChange={(checked) => onUpdateEditor("detectIndentation", checked)}
+          label={draft.editor.detectIndentation ? "Automatic" : "Use my settings"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Code left spacing"
+        description="Controls the layout-aware space between the line-number gutter and code. Set it to 0 for no extra space."
+      >
+        <SettingsNumberSlider
+          min={0}
+          max={64}
+          value={draft.editor.codePaddingLeft}
+          onChange={(value) => onUpdateEditor("codePaddingLeft", value)}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Indentation guides"
+        description="Shows or removes the straight vertical lines for indentation levels."
+      >
+        <SettingsToggle
+          checked={draft.editor.indentationGuidesEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("indentationGuidesEnabled", checked)
+          }
+          label={draft.editor.indentationGuidesEnabled ? "Visible" : "Hidden"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Active indentation guide"
+        description="Highlights the indentation guide for the current cursor position."
+      >
+        <SettingsToggle
+          checked={draft.editor.highlightActiveIndentationGuide}
+          disabled={!draft.editor.indentationGuidesEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("highlightActiveIndentationGuide", checked)
+          }
+          label={
+            draft.editor.highlightActiveIndentationGuide
+              ? "Highlighted"
+              : "Not highlighted"
+          }
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Bracket pair guides"
+        description="Shows or removes vertical and horizontal guides connecting matching brackets."
+      >
+        <SettingsToggle
+          checked={draft.editor.bracketPairGuidesEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("bracketPairGuidesEnabled", checked)
+          }
+          label={draft.editor.bracketPairGuidesEnabled ? "Visible" : "Hidden"}
         />
       </SettingsField>
 
