@@ -75,6 +75,15 @@ export default function LanguageToolInstallPrompt({ prompt }: Props) {
               <Download size={12} />
               {prompt.installing ? "Installing" : "Install"}
             </button>
+            {prompt.installing ? (
+              <button
+                type="button"
+                onClick={() => void prompt.cancel()}
+                className="h-7 cursor-pointer rounded px-2 text-[11px] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+              >
+                Cancel
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={prompt.dismiss}

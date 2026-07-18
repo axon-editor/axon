@@ -370,6 +370,31 @@ export default function SettingsModal({
     }
   };
 
+  const cancelManagedLanguageToolInstall = async (
+    id: ManagedLanguageToolId,
+  ) => {
+    await window.axon.cancelManagedLanguageToolInstall(id);
+  };
+
+  const uninstallManagedLanguageTool = async (id: ManagedLanguageToolId) => {
+    setLanguageServerMessage(null);
+    try {
+      if (folderPath && workspaceTrusted) {
+        await stopSettingsLanguageServers(folderPath);
+      }
+      const result = await window.axon.uninstallManagedLanguageTool(id);
+      setLanguageServerMessage(result.message);
+      if (folderPath && workspaceTrusted && draft.lsp.enabled) {
+        await startSettingsLanguageServers(folderPath);
+      }
+      await refreshLanguageServers();
+    } catch (error) {
+      setLanguageServerMessage(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  };
+
   const runLanguageServerAction = async (
     action: "start" | "stop" | "restart",
   ) => {
@@ -545,6 +570,12 @@ export default function SettingsModal({
                 }
                 onInstallManagedLanguageTool={(id) =>
                   void installManagedLanguageTool(id)
+                }
+                onCancelManagedLanguageToolInstall={(id) =>
+                  void cancelManagedLanguageToolInstall(id)
+                }
+                onUninstallManagedLanguageTool={(id) =>
+                  void uninstallManagedLanguageTool(id)
                 }
                 onSelectPythonVirtualEnv={() => void selectPythonVirtualEnv()}
                 onUpdateLsp={updateLsp}

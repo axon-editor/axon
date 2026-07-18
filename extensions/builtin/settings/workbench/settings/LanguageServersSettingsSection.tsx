@@ -31,6 +31,8 @@ interface LanguageServersSettingsSectionProps {
   onRefreshLanguageServers: () => void;
   onRunLanguageServerAction: (action: "start" | "stop" | "restart") => void;
   onInstallManagedLanguageTool: (id: ManagedLanguageToolId) => void;
+  onCancelManagedLanguageToolInstall: (id: ManagedLanguageToolId) => void;
+  onUninstallManagedLanguageTool: (id: ManagedLanguageToolId) => void;
   onSelectPythonVirtualEnv: () => void;
   onUpdateLsp: <K extends keyof AxonSettings["lsp"]>(
     key: K,
@@ -70,6 +72,8 @@ export default function LanguageServersSettingsSection({
   onRefreshLanguageServers,
   onRunLanguageServerAction,
   onInstallManagedLanguageTool,
+  onCancelManagedLanguageToolInstall,
+  onUninstallManagedLanguageTool,
   onSelectPythonVirtualEnv,
   onUpdateLsp,
   onViewLogs,
@@ -159,6 +163,11 @@ export default function LanguageServersSettingsSection({
                   <div className="mt-1 text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-45">
                     {tool.detail}
                   </div>
+                  {tool.requiredBy.length > 0 ? (
+                    <div className="mt-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
+                      Required by {tool.requiredBy.join(", ")}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-1">
                   {recommendationsDisabled ? (
@@ -173,7 +182,15 @@ export default function LanguageServersSettingsSection({
                       Enable prompts
                     </button>
                   ) : null}
-                  {!tool.installed ? (
+                  {installingManagedLanguageTool === tool.id ? (
+                    <button
+                      type="button"
+                      onClick={() => onCancelManagedLanguageToolInstall(tool.id)}
+                      className="h-7 cursor-pointer rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                    >
+                      Cancel
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => onInstallManagedLanguageTool(tool.id)}
@@ -181,9 +198,24 @@ export default function LanguageServersSettingsSection({
                       className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[var(--axon-panel-border)] px-2 text-[10px] text-[var(--axon-editor-foreground)] hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       <Download size={11} />
-                      {installingManagedLanguageTool === tool.id
-                        ? "Installing"
-                        : "Install"}
+                      {tool.updateAvailable
+                        ? "Update"
+                        : tool.installed
+                          ? "Repair"
+                          : "Install"}
+                    </button>
+                  )}
+                  {tool.installed ? (
+                    <button
+                      type="button"
+                      onClick={() => onUninstallManagedLanguageTool(tool.id)}
+                      disabled={
+                        installingManagedLanguageTool !== null ||
+                        tool.requiredBy.length > 0
+                      }
+                      className="h-7 cursor-pointer rounded px-2 text-[10px] text-[#ff8b92] opacity-70 hover:bg-[#341b20] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      Uninstall
                     </button>
                   ) : null}
                 </div>

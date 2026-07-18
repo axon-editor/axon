@@ -89,6 +89,11 @@ export function useLanguageToolInstallPrompt({
     try {
       const result = await window.axon.installManagedLanguageTool(status.id);
       if (!result.ok) {
+        if (result.message.endsWith("installation was cancelled.")) {
+          setStatus(null);
+          setProgress(null);
+          return;
+        }
         setError(result.message);
         return;
       }
@@ -109,6 +114,11 @@ export function useLanguageToolInstallPrompt({
     }
   }, [folderPath, status]);
 
+  const cancel = useCallback(async () => {
+    if (!status) return;
+    await window.axon.cancelManagedLanguageToolInstall(status.id);
+  }, [status]);
+
   return {
     open: Boolean(status),
     status,
@@ -116,6 +126,7 @@ export function useLanguageToolInstallPrompt({
     installing,
     error,
     install,
+    cancel,
     dismiss,
     neverAsk,
   };

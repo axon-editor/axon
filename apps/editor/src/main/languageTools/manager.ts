@@ -298,7 +298,11 @@ async function findExecutable(
 export class ManagedLanguageToolManager {
   private readonly installations = new Map<
     ManagedLanguageToolId,
-    Promise<ManagedLanguageToolInstallResult>
+    {
+      promise: Promise<ManagedLanguageToolInstallResult>;
+      controller: AbortController;
+      dependencyId?: ManagedLanguageToolId;
+    }
   >();
 
   constructor(private readonly deps: ManagedLanguageToolManagerDependencies) {}
@@ -321,6 +325,31 @@ export class ManagedLanguageToolManager {
     );
   }
 
+  private getCatalogVersion(entry: ManagedLanguageToolCatalogEntry) {
+    return (
+      entry.githubTag ??
+      entry.openVsx?.version ??
+      entry.pinnedGithubAsset?.tag ??
+      entry.dotnetSdk?.version
+    );
+  }
+
+  private async getInstalledDependents(id: ManagedLanguageToolId) {
+    const dependentEntries = MANAGED_LANGUAGE_TOOL_CATALOG.filter((entry) =>
+      entry.dependencies?.includes(id),
+    );
+    const installedLabels = await Promise.all(
+      dependentEntries.map(async (entry) => {
+        const installed = await fs
+          .access(this.getExecutablePath(entry))
+          .then(() => true)
+          .catch(() => false);
+        return installed ? entry.label : null;
+      }),
+    );
+    return installedLabels.filter((label): label is string => Boolean(label));
+  }
+
   async getStatus(id: ManagedLanguageToolId): Promise<ManagedLanguageToolStatus> {
     const entry = getManagedLanguageToolCatalogEntry(id);
     if (!entry) throw new Error(`Unknown managed language tool: ${id}`);
@@ -331,14 +360,31 @@ export class ManagedLanguageToolManager {
       entry.openVsx?.platforms.includes(platformKey) ??
       entry.pinnedGithubAsset?.platforms.includes(platformKey) ??
       Boolean(entry.dotnetSdk?.ridByPlatform[platformKey]);
-    const installed = await fs
+    const executableInstalled = await fs
       .access(this.getExecutablePath(entry))
       .then(() => true)
       .catch(() => false);
+    const dependencyStates = await Promise.all(
+      (entry.dependencies ?? []).map(async (dependencyId) => {
+        const dependencyEntry = getManagedLanguageToolCatalogEntry(dependencyId);
+        if (!dependencyEntry) return { label: dependencyId, installed: false };
+        const dependencyInstalled = await fs
+          .access(this.getExecutablePath(dependencyEntry))
+          .then(() => true)
+          .catch(() => false);
+        return { label: dependencyEntry.label, installed: dependencyInstalled };
+      }),
+    );
+    const missingDependencies = dependencyStates
+      .filter((dependency) => !dependency.installed)
+      .map((dependency) => dependency.label);
+    const installed = executableInstalled && missingDependencies.length === 0;
     const metadata: { version?: string } = await fs
       .readFile(path.join(this.getToolRoot(id), "install.json"), "utf8")
       .then((value) => JSON.parse(value) as { version?: string })
       .catch(() => ({} as { version?: string }));
+    const catalogVersion = this.getCatalogVersion(entry);
+    const requiredBy = await this.getInstalledDependents(id);
 
     return {
       id,
@@ -347,7 +393,15 @@ export class ManagedLanguageToolManager {
       installed,
       supported: Boolean(assetName),
       version: metadata.version,
-      detail: installed
+      catalogVersion,
+      updateAvailable: Boolean(
+        installed && catalogVersion && metadata.version !== catalogVersion,
+      ),
+      requiredBy,
+      missingDependencies,
+      detail: executableInstalled && missingDependencies.length > 0
+        ? `${entry.label} needs repair because ${missingDependencies.join(", ")} is missing.`
+        : installed
         ? `${entry.label} language tools are installed.`
         : assetName
           ? `${entry.label} language tools can be installed by Axon.`
@@ -385,7 +439,10 @@ export class ManagedLanguageToolManager {
     );
   }
 
-  private async resolveAsset(entry: ManagedLanguageToolCatalogEntry) {
+  private async resolveAsset(
+    entry: ManagedLanguageToolCatalogEntry,
+    signal: AbortSignal,
+  ) {
     const platformKey = getManagedLanguageToolPlatformKey();
     if (entry.dotnetSdk) {
       const rid = entry.dotnetSdk.ridByPlatform[platformKey];
@@ -394,7 +451,7 @@ export class ManagedLanguageToolManager {
       }
       const response = await fetch(
         `https://builds.dotnet.microsoft.com/dotnet/release-metadata/${entry.dotnetSdk.channel}/releases.json`,
-        { headers: { Accept: "application/json", "User-Agent": `Axon/${app.getVersion()}` } },
+        { signal, headers: { Accept: "application/json", "User-Agent": `Axon/${app.getVersion()}` } },
       );
       if (!response.ok) {
         throw new Error(`Microsoft returned ${response.status} while resolving .NET.`);
@@ -419,6 +476,7 @@ export class ManagedLanguageToolManager {
       }
       const downloadMetadata = await fetch(file.url, {
         method: "HEAD",
+        signal,
         headers: { "User-Agent": `Axon/${app.getVersion()}` },
       });
       const size = Number(downloadMetadata.headers.get("content-length"));
@@ -448,6 +506,7 @@ export class ManagedLanguageToolManager {
       const { namespace, extension, version } = entry.openVsx;
       const metadataPath = `/api/${namespace}/${extension}/${platformKey}/${version}`;
       const response = await fetch(`https://open-vsx.org${metadataPath}`, {
+        signal,
         headers: { Accept: "application/json", "User-Agent": `Axon/${app.getVersion()}` },
       });
       if (!response.ok) {
@@ -470,9 +529,10 @@ export class ManagedLanguageToolManager {
       }
 
       const [checksumResponse, downloadMetadata] = await Promise.all([
-        fetch(metadata.files.sha256, { headers: { "User-Agent": `Axon/${app.getVersion()}` } }),
+        fetch(metadata.files.sha256, { signal, headers: { "User-Agent": `Axon/${app.getVersion()}` } }),
         fetch(metadata.files.download, {
           method: "HEAD",
+          signal,
           headers: { "User-Agent": `Axon/${app.getVersion()}` },
         }),
       ]);
@@ -534,6 +594,7 @@ export class ManagedLanguageToolManager {
     const response = await fetch(
       `https://api.github.com/repos/${entry.repository}/releases/tags/${encodeURIComponent(entry.githubTag)}`,
       {
+        signal,
         headers: {
           Accept: "application/vnd.github+json",
           "User-Agent": `Axon/${app.getVersion()}`,
@@ -584,8 +645,10 @@ export class ManagedLanguageToolManager {
     asset: ResolvedToolAsset,
     destination: string,
     targetWindow: BrowserWindow | null,
+    signal: AbortSignal,
   ) {
     const response = await fetch(asset.downloadUrl, {
+      signal,
       headers: { "User-Agent": `Axon/${app.getVersion()}` },
     });
     if (!response.ok || !response.body) {
@@ -604,6 +667,7 @@ export class ManagedLanguageToolManager {
     let transferred = 0;
     try {
       while (true) {
+        signal.throwIfAborted();
         const { done, value } = await reader.read();
         if (done) break;
         transferred += value.byteLength;
@@ -633,6 +697,7 @@ export class ManagedLanguageToolManager {
     entry: ManagedLanguageToolCatalogEntry,
     asset: ResolvedToolAsset,
     archivePath: string,
+    signal: AbortSignal,
   ) {
     const toolRoot = this.getToolRoot(entry.id);
     const stagingRoot = `${toolRoot}.installing-${process.pid}-${Date.now()}`;
@@ -646,6 +711,7 @@ export class ManagedLanguageToolManager {
     } else {
       await extractTarArchive(archivePath, runtimeRoot);
     }
+    signal.throwIfAborted();
     const executablePath = await findExecutable(
       runtimeRoot,
       entry.executableNames,
@@ -702,6 +768,7 @@ export class ManagedLanguageToolManager {
     );
 
     const previousRoot = `${toolRoot}.previous`;
+    signal.throwIfAborted();
     await fs.rm(previousRoot, { recursive: true, force: true });
     await fs.mkdir(path.dirname(toolRoot), { recursive: true });
     await fs.rename(toolRoot, previousRoot).catch(() => undefined);
@@ -721,30 +788,55 @@ export class ManagedLanguageToolManager {
     targetWindow: BrowserWindow | null,
   ): Promise<ManagedLanguageToolInstallResult> {
     const activeInstallation = this.installations.get(id);
-    if (activeInstallation) return activeInstallation;
+    if (activeInstallation) return activeInstallation.promise;
 
-    const installation = this.installOnce(id, targetWindow).finally(() => {
+    const controller = new AbortController();
+    const installation: {
+      promise: Promise<ManagedLanguageToolInstallResult>;
+      controller: AbortController;
+      dependencyId?: ManagedLanguageToolId;
+    } = { promise: Promise.resolve(null as never), controller };
+    installation.promise = this.installOnce(
+      id,
+      targetWindow,
+      controller.signal,
+      installation,
+    ).finally(() => {
       this.installations.delete(id);
     });
     this.installations.set(id, installation);
-    return installation;
+    return installation.promise;
   }
 
   private async installOnce(
     id: ManagedLanguageToolId,
     targetWindow: BrowserWindow | null,
+    signal: AbortSignal,
+    installation: { dependencyId?: ManagedLanguageToolId },
   ): Promise<ManagedLanguageToolInstallResult> {
     const entry = getManagedLanguageToolCatalogEntry(id);
     if (!entry) throw new Error(`Unknown managed language tool: ${id}`);
     for (const dependencyId of entry.dependencies ?? []) {
       const dependencyStatus = await this.getStatus(dependencyId);
       if (dependencyStatus.installed) continue;
+      if (signal.aborted) {
+        const message = `${entry.label} installation was cancelled.`;
+        this.publish(targetWindow, { id, phase: "cancelled", message });
+        return { ok: false, message, status: await this.getStatus(id) };
+      }
+      installation.dependencyId = dependencyId;
       this.publish(targetWindow, {
         id,
         phase: "resolving",
         message: `Installing required ${dependencyStatus.label} runtime support.`,
       });
       const dependencyResult = await this.install(dependencyId, targetWindow);
+      installation.dependencyId = undefined;
+      if (signal.aborted) {
+        const message = `${entry.label} installation was cancelled.`;
+        this.publish(targetWindow, { id, phase: "cancelled", message });
+        return { ok: false, message, status: await this.getStatus(id) };
+      }
       if (!dependencyResult.ok) {
         return {
           ok: false,
@@ -760,7 +852,8 @@ export class ManagedLanguageToolManager {
 
     try {
       this.publish(targetWindow, { id, phase: "resolving" });
-      const asset = await this.resolveAsset(entry);
+      signal.throwIfAborted();
+      const asset = await this.resolveAsset(entry, signal);
       this.publish(targetWindow, {
         id,
         phase: "downloading",
@@ -768,10 +861,11 @@ export class ManagedLanguageToolManager {
         total: asset.size,
         percent: 0,
       });
-      await this.downloadAsset(entry, asset, archivePath, targetWindow);
+      await this.downloadAsset(entry, asset, archivePath, targetWindow, signal);
+      signal.throwIfAborted();
       this.publish(targetWindow, { id, phase: "verifying" });
       this.publish(targetWindow, { id, phase: "installing" });
-      await this.installArchive(entry, asset, archivePath);
+      await this.installArchive(entry, asset, archivePath, signal);
       this.publish(targetWindow, { id, phase: "installed", percent: 100 });
       return {
         ok: true,
@@ -779,11 +873,62 @@ export class ManagedLanguageToolManager {
         status: await this.getStatus(id),
       };
     } catch (error) {
+      if (signal.aborted) {
+        const message = `${entry.label} installation was cancelled.`;
+        this.publish(targetWindow, { id, phase: "cancelled", message });
+        return { ok: false, message, status: await this.getStatus(id) };
+      }
       const message = error instanceof Error ? error.message : String(error);
       this.publish(targetWindow, { id, phase: "error", message });
       return { ok: false, message, status: await this.getStatus(id) };
     } finally {
       await fs.rm(temporaryRoot, { recursive: true, force: true });
     }
+  }
+
+  cancel(id: ManagedLanguageToolId) {
+    const installation = this.installations.get(id);
+    if (!installation) return false;
+    installation.controller.abort();
+    if (installation.dependencyId) this.cancel(installation.dependencyId);
+    return true;
+  }
+
+  async uninstall(id: ManagedLanguageToolId): Promise<ManagedLanguageToolInstallResult> {
+    const entry = getManagedLanguageToolCatalogEntry(id);
+    if (!entry) throw new Error(`Unknown managed language tool: ${id}`);
+    if (this.installations.has(id)) {
+      return {
+        ok: false,
+        message: `${entry.label} is currently installing. Cancel it first.`,
+        status: await this.getStatus(id),
+      };
+    }
+    const status = await this.getStatus(id);
+    if (status.requiredBy.length > 0) {
+      return {
+        ok: false,
+        message: `${entry.label} is still required by ${status.requiredBy.join(", ")}.`,
+        status,
+      };
+    }
+
+    await fs.rm(this.getToolRoot(id), { recursive: true, force: true });
+    for (const dependencyId of entry.dependencies ?? []) {
+      const dependencyEntry = getManagedLanguageToolCatalogEntry(dependencyId);
+      if (!dependencyEntry?.hidden) continue;
+      const dependencyStatus = await this.getStatus(dependencyId);
+      if (dependencyStatus.requiredBy.length === 0) {
+        await fs.rm(this.getToolRoot(dependencyId), {
+          recursive: true,
+          force: true,
+        });
+      }
+    }
+    return {
+      ok: true,
+      message: `${entry.label} language tools were uninstalled.`,
+      status: await this.getStatus(id),
+    };
   }
 }

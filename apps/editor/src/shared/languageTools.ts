@@ -16,6 +16,7 @@ export type ManagedLanguageToolPhase =
   | "verifying"
   | "installing"
   | "installed"
+  | "cancelled"
   | "error";
 
 export interface ManagedLanguageToolStatus {
@@ -25,6 +26,10 @@ export interface ManagedLanguageToolStatus {
   installed: boolean;
   supported: boolean;
   version?: string;
+  catalogVersion?: string;
+  updateAvailable: boolean;
+  requiredBy: string[];
+  missingDependencies: string[];
   size?: number;
   detail: string;
 }
@@ -43,3 +48,5 @@ export interface ManagedLanguageToolInstallResult {
   message: string;
   status: ManagedLanguageToolStatus;
 }
+
+export type ManagedLanguageToolActionResult = ManagedLanguageToolInstallResult;

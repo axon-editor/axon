@@ -199,6 +199,12 @@ declare global {
       installManagedLanguageTool: (
         id: ManagedLanguageToolId,
       ) => Promise<ManagedLanguageToolInstallResult>;
+      cancelManagedLanguageToolInstall: (
+        id: ManagedLanguageToolId,
+      ) => Promise<boolean>;
+      uninstallManagedLanguageTool: (
+        id: ManagedLanguageToolId,
+      ) => Promise<ManagedLanguageToolInstallResult>;
       onManagedLanguageToolProgress: (
         callback: (event: ManagedLanguageToolProgress) => void,
       ) => () => void;

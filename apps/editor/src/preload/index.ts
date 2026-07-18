@@ -249,6 +249,13 @@ contextBridge.exposeInMainWorld("axon", {
     id: ManagedLanguageToolId,
   ): Promise<ManagedLanguageToolInstallResult> =>
     ipcRenderer.invoke("languageTools:install", id),
+  cancelManagedLanguageToolInstall: (
+    id: ManagedLanguageToolId,
+  ): Promise<boolean> => ipcRenderer.invoke("languageTools:cancel", id),
+  uninstallManagedLanguageTool: (
+    id: ManagedLanguageToolId,
+  ): Promise<ManagedLanguageToolInstallResult> =>
+    ipcRenderer.invoke("languageTools:uninstall", id),
   stopLanguageServers: (
     folderPath: string,
   ): Promise<LanguageServerLifecycleResult> =>

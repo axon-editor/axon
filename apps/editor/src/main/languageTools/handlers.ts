@@ -21,4 +21,12 @@ export function registerManagedLanguageToolHandlers(
       return manager.install(id, BrowserWindow.fromWebContents(event.sender));
     },
   );
+  ipcMain.handle(
+    "languageTools:cancel",
+    async (_event, id: ManagedLanguageToolId) => manager.cancel(id),
+  );
+  ipcMain.handle(
+    "languageTools:uninstall",
+    async (_event, id: ManagedLanguageToolId) => manager.uninstall(id),
+  );
 }
