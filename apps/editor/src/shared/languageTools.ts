@@ -7,7 +7,17 @@ export type ManagedLanguageToolId =
   | "lua"
   | "proto"
   | "rust"
-  | "xml";
+  | "xml"
+  | "sql"
+  | "dart"
+  | "toml"
+  | "terraform"
+  | "haskell"
+  | "zig"
+  | "latex"
+  | "clojure"
+  | "erlang"
+  | "asm";
 
 export type ManagedLanguageToolPhase =
   | "idle"

@@ -1,0 +1,43 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-terraform",
+    "name": "Terraform and HCL",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Terraform and HCL language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:terraform",
+        "onLanguage:hcl"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "terraform",
+                "label": "Terraform",
+                "extensions": [
+                    ".tf",
+                    ".tfvars"
+                ],
+                "aliases": [
+                    "Terraform",
+                    "terraform"
+                ]
+            },
+            {
+                "id": "hcl",
+                "label": "HCL",
+                "extensions": [
+                    ".hcl"
+                ],
+                "aliases": [
+                    "HCL",
+                    "hcl"
+                ]
+            }
+        ]
+    }
+}

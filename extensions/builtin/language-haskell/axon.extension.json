@@ -1,0 +1,31 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-haskell",
+    "name": "Haskell",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Haskell language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:haskell"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "haskell",
+                "label": "Haskell",
+                "extensions": [
+                    ".hs",
+                    ".lhs"
+                ],
+                "aliases": [
+                    "Haskell",
+                    "haskell"
+                ]
+            }
+        ]
+    }
+}

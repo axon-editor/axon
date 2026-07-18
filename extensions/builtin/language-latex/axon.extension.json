@@ -1,0 +1,44 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-latex",
+    "name": "LaTeX and BibTeX",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in LaTeX and BibTeX language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:latex",
+        "onLanguage:bibtex"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "latex",
+                "label": "LaTeX",
+                "extensions": [
+                    ".tex",
+                    ".sty",
+                    ".cls"
+                ],
+                "aliases": [
+                    "LaTeX",
+                    "TeX"
+                ]
+            },
+            {
+                "id": "bibtex",
+                "label": "BibTeX",
+                "extensions": [
+                    ".bib"
+                ],
+                "aliases": [
+                    "BibTeX",
+                    "bibtex"
+                ]
+            }
+        ]
+    }
+}

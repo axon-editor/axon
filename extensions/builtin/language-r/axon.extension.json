@@ -1,0 +1,31 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-r",
+    "name": "R",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in R language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:r"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "r",
+                "label": "R",
+                "extensions": [
+                    ".r",
+                    ".R"
+                ],
+                "aliases": [
+                    "R",
+                    "r"
+                ]
+            }
+        ]
+    }
+}

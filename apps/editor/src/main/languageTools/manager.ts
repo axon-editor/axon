@@ -1,14 +1,7 @@
 import { createHash } from "crypto";
-import { createReadStream, createWriteStream } from "fs";
 import fs from "fs/promises";
 import path from "path";
-import { pipeline } from "stream/promises";
-import { Transform } from "stream";
-import { createGunzip } from "zlib";
 import { app, type BrowserWindow } from "electron";
-import extractZip from "extract-zip";
-import { extract as extractTar, list as listTar } from "tar";
-import { open as openZip, type Entry as ZipEntry } from "yauzl";
 import type {
   ManagedLanguageToolId,
   ManagedLanguageToolInstallResult,
@@ -23,9 +16,9 @@ import {
   findManagedLanguageToolAssetName,
   type ManagedLanguageToolCatalogEntry,
 } from "./catalog";
+import { extractLanguageToolArchive, findExecutable } from "./archive";
 
-const MAX_TOOL_ARCHIVE_BYTES = 300 * 1024 * 1024;
-const MAX_TOOL_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_TOOL_ARCHIVE_BYTES = 512 * 1024 * 1024;
 
 interface GitHubReleaseAsset {
   name?: string;
@@ -82,148 +75,6 @@ interface ManagedLanguageToolManagerDependencies {
   ) => void;
 }
 
-export function isSafeArchiveEntry(entry: string) {
-  const normalized = entry.replace(/\\/g, "/").trim();
-  if (!normalized || normalized.includes("\0")) return false;
-  if (normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized)) {
-    return false;
-  }
-  return !normalized.split("/").some((part: string) => part === "..");
-}
-
-function isZipSymbolicLink(entry: ZipEntry) {
-  const mode = (entry.externalFileAttributes >>> 16) & 0xffff;
-  return (mode & 0o170000) === 0o120000;
-}
-
-async function validateZipArchive(archivePath: string) {
-  await new Promise<void>((resolve, reject) => {
-    openZip(archivePath, { lazyEntries: true }, (openError, zipFile) => {
-      if (openError || !zipFile) {
-        reject(openError ?? new Error("The ZIP archive could not be opened."));
-        return;
-      }
-
-      let entryCount = 0;
-      let extractedBytes = 0;
-      const fail = (error: Error) => {
-        zipFile.close();
-        reject(error);
-      };
-
-      zipFile.on("error", reject);
-      zipFile.on("entry", (entry) => {
-        entryCount += 1;
-        extractedBytes += entry.uncompressedSize;
-        if (!isSafeArchiveEntry(entry.fileName)) {
-          fail(new Error("The language tool ZIP contains an unsafe path."));
-          return;
-        }
-        if (isZipSymbolicLink(entry)) {
-          fail(new Error("The language tool ZIP contains a symbolic link."));
-          return;
-        }
-        if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-          fail(new Error("The language tool ZIP expands beyond the allowed size."));
-          return;
-        }
-        zipFile.readEntry();
-      });
-      zipFile.on("end", () => {
-        if (entryCount === 0) {
-          fail(new Error("The language tool ZIP is empty."));
-          return;
-        }
-        resolve();
-      });
-      zipFile.readEntry();
-    });
-  });
-}
-
-async function extractZipArchive(archivePath: string, destination: string) {
-  await validateZipArchive(archivePath);
-  await extractZip(archivePath, {
-    dir: destination,
-    onEntry: (entry) => {
-      if (!isSafeArchiveEntry(entry.fileName) || isZipSymbolicLink(entry)) {
-        throw new Error("The language tool ZIP changed after validation.");
-      }
-    },
-  });
-}
-
-async function extractTarArchive(archivePath: string, destination: string) {
-  let entryCount = 0;
-  let extractedBytes = 0;
-
-  // Listing the archive first prevents extraction from creating any files
-  // until every path and entry type has passed the same policy. The extraction
-  // filter repeats that policy so a future change cannot accidentally make the
-  // validation and write phases disagree.
-  await listTar({
-    file: archivePath,
-    strict: true,
-    onReadEntry: (entry) => {
-      if (entry.meta) return;
-      entryCount += 1;
-      extractedBytes += entry.size;
-      if (!isSafeArchiveEntry(entry.path)) {
-        throw new Error("The language tool TAR contains an unsafe path.");
-      }
-      if (!["File", "OldFile", "Directory"].includes(entry.type)) {
-        throw new Error(`The language tool TAR contains ${entry.type}.`);
-      }
-      if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-        throw new Error("The language tool TAR expands beyond the allowed size.");
-      }
-    },
-  });
-  if (entryCount === 0) throw new Error("The language tool TAR is empty.");
-
-  await extractTar({
-    file: archivePath,
-    cwd: destination,
-    strict: true,
-    preservePaths: false,
-    unlink: true,
-    filter: (entryPath, entry) =>
-      isSafeArchiveEntry(entryPath) &&
-      ("type" in entry
-        ? ["File", "OldFile", "Directory"].includes(entry.type)
-        : false),
-  });
-}
-
-async function extractGzipExecutable(
-  archivePath: string,
-  assetName: string,
-  destination: string,
-) {
-  const outputName = path.basename(assetName, ".gz");
-  if (!isSafeArchiveEntry(outputName)) {
-    throw new Error("The compressed language tool has an unsafe name.");
-  }
-
-  let extractedBytes = 0;
-  const sizeGuard = new Transform({
-    transform(chunk: Buffer, _encoding, callback) {
-      extractedBytes += chunk.length;
-      if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-        callback(new Error("The language tool expands beyond the allowed size."));
-        return;
-      }
-      callback(null, chunk);
-    },
-  });
-  await pipeline(
-    createReadStream(archivePath),
-    createGunzip(),
-    sizeGuard,
-    createWriteStream(path.join(destination, outputName), { mode: 0o600 }),
-  );
-}
-
 function isAllowedDownloadUrl(repository: string, candidate: string) {
   try {
     const url = new URL(candidate);
@@ -276,23 +127,18 @@ function isAllowedDotNetDownloadUrl(candidate: string, version: string) {
   }
 }
 
-async function findExecutable(
-  directory: string,
-  executableNames: string[],
-): Promise<string | null> {
-  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isSymbolicLink()) {
-      throw new Error("The downloaded language tool contains a symbolic link.");
-    }
-    if (entry.isDirectory()) {
-      const nested = await findExecutable(entryPath, executableNames);
-      if (nested) return nested;
-    } else if (entry.isFile() && executableNames.includes(entry.name)) {
-      return entryPath;
-    }
+function isAllowedPinnedHttpsUrl(candidate: string) {
+  try {
+    const url = new URL(candidate);
+    return (
+      url.protocol === "https:" &&
+      ["releases.hashicorp.com", "storage.googleapis.com", "download.swift.org"].includes(
+        url.hostname,
+      )
+    );
+  } catch {
+    return false;
   }
-  return null;
 }
 
 export class ManagedLanguageToolManager {
@@ -330,6 +176,8 @@ export class ManagedLanguageToolManager {
       entry.githubTag ??
       entry.openVsx?.version ??
       entry.pinnedGithubAsset?.tag ??
+      Object.values(entry.pinnedGithubAssets ?? {})[0]?.tag ??
+      Object.values(entry.pinnedHttpsAssets ?? {})[0]?.version ??
       entry.dotnetSdk?.version
     );
   }
@@ -354,12 +202,15 @@ export class ManagedLanguageToolManager {
     const entry = getManagedLanguageToolCatalogEntry(id);
     if (!entry) throw new Error(`Unknown managed language tool: ${id}`);
     const platformKey = getManagedLanguageToolPlatformKey();
-    const assetName =
-      entry.assetNames[platformKey] ??
-      entry.assetPatterns?.[platformKey] ??
-      entry.openVsx?.platforms.includes(platformKey) ??
-      entry.pinnedGithubAsset?.platforms.includes(platformKey) ??
-      Boolean(entry.dotnetSdk?.ridByPlatform[platformKey]);
+    const assetName = Boolean(
+      entry.assetNames[platformKey] ||
+      entry.assetPatterns?.[platformKey] ||
+      entry.openVsx?.platforms.includes(platformKey) ||
+      entry.pinnedGithubAsset?.platforms.includes(platformKey) ||
+      entry.pinnedGithubAssets?.[platformKey] ||
+      entry.pinnedHttpsAssets?.[platformKey] ||
+      entry.dotnetSdk?.ridByPlatform[platformKey],
+    );
     const executableInstalled = await fs
       .access(this.getExecutablePath(entry))
       .then(() => true)
@@ -581,6 +432,40 @@ export class ManagedLanguageToolManager {
       } satisfies ResolvedToolAsset;
     }
 
+    const pinnedPlatformAsset = entry.pinnedGithubAssets?.[platformKey];
+    if (pinnedPlatformAsset) {
+      if (!entry.repository) {
+        throw new Error(`${entry.label} does not have a configured download source.`);
+      }
+      const downloadUrl = `https://github.com/${entry.repository}/releases/download/${pinnedPlatformAsset.tag}/${pinnedPlatformAsset.name}`;
+      if (!isAllowedDownloadUrl(entry.repository, downloadUrl)) {
+        throw new Error(`${entry.label} has an invalid pinned download URL.`);
+      }
+      return {
+        version: pinnedPlatformAsset.tag,
+        name: pinnedPlatformAsset.name,
+        size: pinnedPlatformAsset.size,
+        hashAlgorithm: "sha256",
+        checksum: pinnedPlatformAsset.sha256,
+        downloadUrl,
+      } satisfies ResolvedToolAsset;
+    }
+
+    const pinnedHttpsAsset = entry.pinnedHttpsAssets?.[platformKey];
+    if (pinnedHttpsAsset) {
+      if (!isAllowedPinnedHttpsUrl(pinnedHttpsAsset.url)) {
+        throw new Error(`${entry.label} has an invalid pinned download URL.`);
+      }
+      return {
+        version: pinnedHttpsAsset.version,
+        name: pinnedHttpsAsset.name,
+        size: pinnedHttpsAsset.size,
+        hashAlgorithm: "sha256",
+        checksum: pinnedHttpsAsset.sha256,
+        downloadUrl: pinnedHttpsAsset.url,
+      } satisfies ResolvedToolAsset;
+    }
+
     if (!entry.assetNames[platformKey] && !entry.assetPatterns?.[platformKey]) {
       throw new Error(`${entry.label} is not available for this platform.`);
     }
@@ -660,6 +545,12 @@ export class ManagedLanguageToolManager {
     ) {
       throw new Error("The language tool download redirected to an untrusted host.");
     }
+    if (
+      isAllowedPinnedHttpsUrl(asset.downloadUrl) &&
+      !isAllowedPinnedHttpsUrl(response.url)
+    ) {
+      throw new Error("The language tool download redirected to an untrusted host.");
+    }
 
     const file = await fs.open(destination, "w", 0o600);
     const reader = response.body.getReader();
@@ -704,80 +595,81 @@ export class ManagedLanguageToolManager {
     const runtimeRoot = path.join(stagingRoot, "runtime");
     await fs.mkdir(runtimeRoot, { recursive: true });
 
-    if (asset.name.endsWith(".zip") || asset.name.endsWith(".vsix")) {
-      await extractZipArchive(archivePath, runtimeRoot);
-    } else if (asset.name.endsWith(".gz") && !asset.name.endsWith(".tar.gz")) {
-      await extractGzipExecutable(archivePath, asset.name, runtimeRoot);
-    } else {
-      await extractTarArchive(archivePath, runtimeRoot);
-    }
-    signal.throwIfAborted();
-    const executablePath = await findExecutable(
-      runtimeRoot,
-      entry.executableNames,
-    );
-    if (!executablePath) {
-      throw new Error("The language tool archive did not contain its executable.");
-    }
+    try {
+      await extractLanguageToolArchive({
+        archivePath,
+        assetName: asset.name,
+        destination: runtimeRoot,
+        signal,
+      });
+      signal.throwIfAborted();
+      const executablePath = await findExecutable(
+        runtimeRoot,
+        entry.executableNames,
+      );
+      if (!executablePath) {
+        throw new Error("The language tool archive did not contain its executable.");
+      }
 
-    const binRoot = path.join(stagingRoot, "bin");
-    await fs.mkdir(binRoot, { recursive: true });
-    const installedExecutablePath = path.join(
-      binRoot,
-      process.platform === "win32"
-        ? entry.windowsCommandName
-        : entry.commandName,
-    );
-    const relativeExecutable = path.relative(binRoot, executablePath);
-    if (process.platform === "win32") {
-      if (/[%"\r\n]/.test(relativeExecutable)) {
-        throw new Error("The language tool executable has an unsafe Windows path.");
+      const binRoot = path.join(stagingRoot, "bin");
+      await fs.mkdir(binRoot, { recursive: true });
+      const installedExecutablePath = path.join(
+        binRoot,
+        process.platform === "win32"
+          ? entry.windowsCommandName
+          : entry.commandName,
+      );
+      const relativeExecutable = path.relative(binRoot, executablePath);
+      if (process.platform === "win32") {
+        if (/[%"\r\n]/.test(relativeExecutable)) {
+          throw new Error("The language tool executable has an unsafe Windows path.");
+        }
+        await fs.writeFile(
+          installedExecutablePath,
+          `@echo off\r\n"%~dp0\\${relativeExecutable}" %*\r\n`,
+          "utf8",
+        );
+      } else {
+        const portableRelativePath = relativeExecutable
+          .split(path.sep)
+          .join("/")
+          .replace(/'/g, `'"'"'`);
+        await fs.writeFile(
+          installedExecutablePath,
+          `#!/usr/bin/env sh\nDIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"\nexec "$DIR"/'${portableRelativePath}' "$@"\n`,
+          { encoding: "utf8", mode: 0o755 },
+        );
+        await fs.chmod(executablePath, 0o755);
       }
       await fs.writeFile(
-        installedExecutablePath,
-        `@echo off\r\n"%~dp0\\${relativeExecutable}" %*\r\n`,
+        path.join(stagingRoot, "install.json"),
+        JSON.stringify(
+          {
+            id: entry.id,
+            version: asset.version,
+            asset: asset.name,
+            checksumAlgorithm: asset.hashAlgorithm,
+            checksum: asset.checksum,
+            installedAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
         "utf8",
       );
-    } else {
-      const portableRelativePath = relativeExecutable
-        .split(path.sep)
-        .join("/")
-        .replace(/'/g, `'"'"'`);
-      await fs.writeFile(
-        installedExecutablePath,
-        `#!/usr/bin/env sh\nDIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"\nexec "$DIR"/'${portableRelativePath}' "$@"\n`,
-        { encoding: "utf8", mode: 0o755 },
-      );
-      await fs.chmod(executablePath, 0o755);
-    }
-    await fs.writeFile(
-      path.join(stagingRoot, "install.json"),
-      JSON.stringify(
-        {
-          id: entry.id,
-          version: asset.version,
-          asset: asset.name,
-          checksumAlgorithm: asset.hashAlgorithm,
-          checksum: asset.checksum,
-          installedAt: new Date().toISOString(),
-        },
-        null,
-        2,
-      ),
-      "utf8",
-    );
 
-    const previousRoot = `${toolRoot}.previous`;
-    signal.throwIfAborted();
-    await fs.rm(previousRoot, { recursive: true, force: true });
-    await fs.mkdir(path.dirname(toolRoot), { recursive: true });
-    await fs.rename(toolRoot, previousRoot).catch(() => undefined);
-    try {
-      await fs.rename(stagingRoot, toolRoot);
+      const previousRoot = `${toolRoot}.previous`;
+      signal.throwIfAborted();
       await fs.rm(previousRoot, { recursive: true, force: true });
-    } catch (error) {
-      await fs.rename(previousRoot, toolRoot).catch(() => undefined);
-      throw error;
+      await fs.mkdir(path.dirname(toolRoot), { recursive: true });
+      await fs.rename(toolRoot, previousRoot).catch(() => undefined);
+      try {
+        await fs.rename(stagingRoot, toolRoot);
+        await fs.rm(previousRoot, { recursive: true, force: true });
+      } catch (error) {
+        await fs.rename(previousRoot, toolRoot).catch(() => undefined);
+        throw error;
+      }
     } finally {
       await fs.rm(stagingRoot, { recursive: true, force: true });
     }

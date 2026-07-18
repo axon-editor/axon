@@ -1,0 +1,32 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-powershell",
+    "name": "PowerShell",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in PowerShell language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:powershell"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "powershell",
+                "label": "PowerShell",
+                "extensions": [
+                    ".ps1",
+                    ".psm1",
+                    ".psd1"
+                ],
+                "aliases": [
+                    "PowerShell",
+                    "powershell"
+                ]
+            }
+        ]
+    }
+}

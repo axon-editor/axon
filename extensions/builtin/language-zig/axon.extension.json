@@ -1,0 +1,31 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-zig",
+    "name": "Zig",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Zig language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:zig"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "zig",
+                "label": "Zig",
+                "extensions": [
+                    ".zig",
+                    ".zon"
+                ],
+                "aliases": [
+                    "Zig",
+                    "zig"
+                ]
+            }
+        ]
+    }
+}

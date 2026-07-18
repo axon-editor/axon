@@ -1,0 +1,34 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-clojure",
+    "name": "Clojure",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Clojure language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:clojure"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "clojure",
+                "label": "Clojure",
+                "extensions": [
+                    ".clj",
+                    ".cljs",
+                    ".cljc",
+                    ".edn"
+                ],
+                "aliases": [
+                    "Clojure",
+                    "ClojureScript",
+                    "EDN"
+                ]
+            }
+        ]
+    }
+}

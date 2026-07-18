@@ -5,6 +5,7 @@
 import * as monaco from "monaco-editor";
 import { registerMonacoReactLanguages } from "./monacoReactLanguages";
 import { registerMonacoStructuredLanguages } from "./monacoStructuredLanguages";
+import { registerMonacoAdditionalLanguages } from "./monacoAdditionalLanguages";
 import { detectMonacoLanguage } from "./languageDetection";
 
 export { detectLanguageServerLanguage, detectMonacoLanguage } from "./languageDetection";
@@ -30,6 +31,7 @@ export function acquireModel(
 ): monaco.editor.ITextModel {
   registerMonacoReactLanguages();
   registerMonacoStructuredLanguages();
+  registerMonacoAdditionalLanguages();
 
   const pendingDisposal = disposalTimers.get(filePath);
   if (pendingDisposal) {

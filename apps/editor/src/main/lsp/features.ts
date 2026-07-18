@@ -403,7 +403,29 @@ export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
     return "xml" satisfies LanguageServerDefinition["id"];
   }
 
-  return null;
+  const additionalLanguageServers: Partial<
+    Record<string, LanguageServerDefinition["id"]>
+  > = {
+    swift: "swift",
+    ruby: "ruby",
+    dart: "dart",
+    sql: "sql",
+    toml: "toml",
+    zig: "zig",
+    terraform: "terraform",
+    hcl: "terraform",
+    latex: "latex",
+    bibtex: "latex",
+    scala: "scala",
+    clojure: "clojure",
+    haskell: "haskell",
+    erlang: "erlang",
+    r: "r",
+    powershell: "powershell",
+    asm: "asm",
+    makefile: "makefile",
+  };
+  return additionalLanguageServers[normalizedLanguageId] ?? null;
 }
 
 function shouldAttachTailwindLanguageServer(languageId: string) {

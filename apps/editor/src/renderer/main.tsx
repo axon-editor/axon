@@ -16,6 +16,7 @@ import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions
 import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
 import { registerMonacoReactLanguages } from "./features/editor/lib/monacoReactLanguages";
 import { registerMonacoStructuredLanguages } from "./features/editor/lib/monacoStructuredLanguages";
+import { registerMonacoAdditionalLanguages } from "./features/editor/lib/monacoAdditionalLanguages";
 import { getEnabledExtensionThemes } from "../shared/extensions";
 import {
   markAxonPerformance,
@@ -56,6 +57,7 @@ loader.config({ monaco });
 configureMonacoDiagnostics(monaco);
 registerMonacoReactLanguages(monaco);
 registerMonacoStructuredLanguages(monaco);
+registerMonacoAdditionalLanguages(monaco);
 configureLspCompletions(monaco);
 configureLspNavigation(monaco);
 

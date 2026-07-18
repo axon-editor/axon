@@ -1,0 +1,30 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-toml",
+    "name": "TOML",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in TOML language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:toml"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "toml",
+                "label": "TOML",
+                "extensions": [
+                    ".toml"
+                ],
+                "aliases": [
+                    "TOML",
+                    "toml"
+                ]
+            }
+        ]
+    }
+}

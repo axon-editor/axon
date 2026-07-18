@@ -1,0 +1,30 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-sql",
+    "name": "SQL",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in SQL language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:sql"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "sql",
+                "label": "SQL",
+                "extensions": [
+                    ".sql"
+                ],
+                "aliases": [
+                    "SQL",
+                    "sql"
+                ]
+            }
+        ]
+    }
+}

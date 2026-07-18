@@ -42,7 +42,7 @@ describe("managed language tool catalog", () => {
 
   it("pins every GitHub platform asset to a reviewed checksum", () => {
     for (const entry of MANAGED_LANGUAGE_TOOL_CATALOG) {
-      if (!entry.repository || entry.pinnedGithubAsset) continue;
+      if (!entry.repository || entry.pinnedGithubAsset || entry.pinnedGithubAssets || entry.pinnedHttpsAssets) continue;
       expect(entry.githubTag, entry.id).toBeTruthy();
       const platformKeys = new Set([
         ...Object.keys(entry.assetNames),
@@ -53,6 +53,30 @@ describe("managed language tool catalog", () => {
           entry.expectedSha256ByPlatform?.[platformKey],
           `${entry.id}:${platformKey}`,
         ).toMatch(/^[a-f0-9]{64}$/);
+      }
+    }
+  });
+
+  it("pins direct HTTPS archives with bounded sizes and SHA-256 checksums", () => {
+    for (const entry of MANAGED_LANGUAGE_TOOL_CATALOG) {
+      for (const [platform, asset] of Object.entries(
+        entry.pinnedHttpsAssets ?? {},
+      )) {
+        if (!asset) throw new Error(`${entry.id}:${platform} is missing`);
+        expect(asset.sha256, `${entry.id}:${platform}`).toMatch(
+          /^[a-f0-9]{64}$/,
+        );
+        expect(asset.size, `${entry.id}:${platform}`).toBeGreaterThan(0);
+        expect(asset.url, `${entry.id}:${platform}`).toMatch(/^https:\/\//);
+      }
+      for (const [platform, asset] of Object.entries(
+        entry.pinnedGithubAssets ?? {},
+      )) {
+        if (!asset) throw new Error(`${entry.id}:${platform} is missing`);
+        expect(asset.sha256, `${entry.id}:${platform}`).toMatch(
+          /^[a-f0-9]{64}$/,
+        );
+        expect(asset.size, `${entry.id}:${platform}`).toBeGreaterThan(0);
       }
     }
   });
@@ -78,5 +102,28 @@ describe("managed language tool catalog", () => {
     expect(csharp?.dependencies).toEqual(["dotnet-sdk"]);
     expect(dotnet?.hidden).toBe(true);
     expect(dotnet?.dotnetSdk?.version).toBe("8.0.423");
+  });
+
+  it.each([
+    ["sql", "sql"],
+    ["dart", "dart"],
+    ["zig", "zig"],
+    ["toml", "toml"],
+    ["terraform", "terraform"],
+    ["hcl", "terraform"],
+    ["haskell", "haskell"],
+    ["latex", "latex"],
+    ["bibtex", "latex"],
+    ["clojure", "clojure"],
+    ["erlang", "erlang"],
+    ["asm", "asm"],
+  ] as const)("recommends %s through the %s managed tool", (language, toolId) => {
+    expect(getManagedLanguageToolForLanguage(language)?.id).toBe(toolId);
+  });
+
+  it("does not offer the amd64-only SQLS archive on ARM", () => {
+    const sql = getManagedLanguageToolCatalogEntry("sql");
+    expect(sql?.assetNames["darwin-arm64"]).toBeUndefined();
+    expect(sql?.assetNames["linux-arm64"]).toBeUndefined();
   });
 });

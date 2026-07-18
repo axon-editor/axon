@@ -1,0 +1,33 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-assembly",
+    "name": "Assembly",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Assembly language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:asm"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "asm",
+                "label": "Assembly",
+                "extensions": [
+                    ".asm",
+                    ".s",
+                    ".S",
+                    ".inc"
+                ],
+                "aliases": [
+                    "Assembly",
+                    "ASM"
+                ]
+            }
+        ]
+    }
+}

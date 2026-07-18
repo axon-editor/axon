@@ -1,0 +1,30 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-dart",
+    "name": "Dart",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Dart language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:dart"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "dart",
+                "label": "Dart",
+                "extensions": [
+                    ".dart"
+                ],
+                "aliases": [
+                    "Dart",
+                    "dart"
+                ]
+            }
+        ]
+    }
+}

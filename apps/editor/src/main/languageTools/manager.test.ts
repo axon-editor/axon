@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeArchiveEntry } from "./manager";
+import { isSafeArchiveEntry } from "./archive";
 
 describe("managed language tool archive validation", () => {
   it.each([

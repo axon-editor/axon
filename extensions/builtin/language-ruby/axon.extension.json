@@ -1,0 +1,39 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-ruby",
+    "name": "Ruby",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Ruby language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:ruby"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "ruby",
+                "label": "Ruby",
+                "extensions": [
+                    ".rb",
+                    ".rake",
+                    ".gemspec"
+                ],
+                "filenames": [
+                    "Gemfile",
+                    "Rakefile",
+                    "Guardfile",
+                    "Podfile",
+                    "Brewfile"
+                ],
+                "aliases": [
+                    "Ruby",
+                    "ruby"
+                ]
+            }
+        ]
+    }
+}

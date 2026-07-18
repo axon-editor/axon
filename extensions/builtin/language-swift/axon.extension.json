@@ -1,0 +1,30 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-swift",
+    "name": "Swift",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Swift language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:swift"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "swift",
+                "label": "Swift",
+                "extensions": [
+                    ".swift"
+                ],
+                "aliases": [
+                    "Swift",
+                    "swift"
+                ]
+            }
+        ]
+    }
+}

@@ -1,0 +1,37 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-makefile",
+    "name": "Makefile",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Makefile language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:makefile"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "makefile",
+                "label": "Makefile",
+                "extensions": [
+                    ".mk",
+                    ".mak",
+                    ".make"
+                ],
+                "filenames": [
+                    "Makefile",
+                    "GNUmakefile",
+                    "BSDmakefile"
+                ],
+                "aliases": [
+                    "Makefile",
+                    "GNU Make"
+                ]
+            }
+        ]
+    }
+}

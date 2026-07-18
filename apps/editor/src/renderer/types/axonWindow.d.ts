@@ -180,6 +180,10 @@ declare global {
       getLanguageServerStatus: (
         folderPath: string,
       ) => Promise<LanguageServerStatus[]>;
+      getWorkspaceLanguageServerStatus: (
+        folderPath: string,
+        languageId: string,
+      ) => Promise<LanguageServerStatus[]>;
       startLanguageServers: (
         folderPath: string,
       ) => Promise<LanguageServerLifecycleResult>;

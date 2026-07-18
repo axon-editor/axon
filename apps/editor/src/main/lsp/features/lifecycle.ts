@@ -4,7 +4,6 @@ import { spawn } from "child_process";
 import {
   LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS,
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
-  type LanguageServerCompletionRequest,
   type LanguageServerLifecycleResult,
   type LanguageServerSemanticTokensProvider,
   type LanguageServerStatus,
@@ -848,9 +847,25 @@ export async function stopAllLanguageServers(): Promise<LanguageServerLifecycleR
 
 export function getLanguageServerStatus(
   folderPath: string,
+  options: { relevantOnly?: boolean; languageId?: string } = {},
 ): Promise<LanguageServerStatus[]> {
+  const activeLanguageServerIds = new Set(
+    options.languageId
+      ? resolveDocumentSyncServerIds(options.languageId)
+      : [],
+  );
+  const definitions = LANGUAGE_SERVER_DEFINITIONS.filter((definition) => {
+    if (!options.relevantOnly) return true;
+    const sessionKey = getLanguageServerSessionKey(folderPath, definition.id);
+    return (
+      activeLanguageServers.has(sessionKey) ||
+      activeLanguageServerIds.has(definition.id) ||
+      hasWorkspaceMarker(folderPath, definition.workspaceMarkers)
+    );
+  });
+
   return Promise.all(
-    LANGUAGE_SERVER_DEFINITIONS.map(async (definition) => {
+    definitions.map(async (definition) => {
       const resolved = resolveLanguageServerCommand(definition, folderPath);
       const relevant = hasWorkspaceMarker(
         folderPath,

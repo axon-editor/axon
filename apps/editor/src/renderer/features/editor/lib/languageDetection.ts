@@ -30,6 +30,23 @@ export function detectMonacoLanguage(path: string): string {
   ) {
     return "json";
   }
+  if (
+    fileName === "makefile" ||
+    fileName === "gnumakefile" ||
+    fileName === "bsdmakefile" ||
+    fileName.startsWith("makefile.")
+  ) {
+    return "makefile";
+  }
+  if (
+    fileName === "gemfile" ||
+    fileName === "rakefile" ||
+    fileName === "guardfile" ||
+    fileName === "podfile" ||
+    fileName === "brewfile"
+  ) {
+    return "ruby";
+  }
 
   const languagesByExtension: Record<string, string> = {
     c: "cpp",
@@ -59,10 +76,41 @@ export function detectMonacoLanguage(path: string): string {
     cs: "csharp",
     swift: "swift",
     rb: "ruby",
+    rake: "ruby",
+    gemspec: "ruby",
     lua: "lua",
     php: "php",
     sql: "sql",
     dart: "dart",
+    tf: "terraform",
+    tfvars: "terraform",
+    hcl: "hcl",
+    zig: "zig",
+    zon: "zig",
+    tex: "latex",
+    sty: "latex",
+    cls: "latex",
+    bib: "bibtex",
+    scala: "scala",
+    sc: "scala",
+    clj: "clojure",
+    cljs: "clojure",
+    cljc: "clojure",
+    edn: "clojure",
+    hs: "haskell",
+    lhs: "haskell",
+    erl: "erlang",
+    hrl: "erlang",
+    r: "r",
+    ps1: "powershell",
+    psm1: "powershell",
+    psd1: "powershell",
+    asm: "asm",
+    s: "asm",
+    inc: "asm",
+    mk: "makefile",
+    mak: "makefile",
+    make: "makefile",
     xml: "xml",
     xsd: "xml",
     xsl: "xml",

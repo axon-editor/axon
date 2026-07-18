@@ -44,7 +44,6 @@ import {
   type LanguageServerSignatureHelpRequest,
   type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
-  type LanguageServerStatus,
 } from "../../shared/lsp";
 
 export function registerLspHandlers() {
@@ -52,6 +51,17 @@ export function registerLspHandlers() {
     if (!folderPath || !fs.existsSync(folderPath)) return [];
     return getLanguageServerStatus(folderPath);
   });
+
+  ipcMain.handle(
+    "lsp:workspaceStatus",
+    async (_event, folderPath: string, languageId: string) => {
+      if (!folderPath || !fs.existsSync(folderPath)) return [];
+      return getLanguageServerStatus(folderPath, {
+        relevantOnly: true,
+        languageId,
+      });
+    },
+  );
 
   ipcMain.handle("lsp:start", async (_event, folderPath: string) => {
     if (!folderPath || !fs.existsSync(folderPath)) {

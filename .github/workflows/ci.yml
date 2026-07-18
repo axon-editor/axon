@@ -36,12 +36,8 @@ jobs:
       - name: Build shared packages
         run: npm run build:packages
 
-      - name: Generate main process build config
-        working-directory: apps/editor
-        run: node scripts/write-build-config.mjs
-
-      - name: Check main process TypeScript
-        run: npx tsc -p apps/editor/tsconfig.main.json
+      - name: Build main process
+        run: npm --workspace axon run build:main
 
       - name: Check renderer TypeScript
         run: npx tsc -p apps/editor/tsconfig.app.json

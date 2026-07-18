@@ -1,0 +1,31 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-erlang",
+    "name": "Erlang",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Erlang language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:erlang"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "erlang",
+                "label": "Erlang",
+                "extensions": [
+                    ".erl",
+                    ".hrl"
+                ],
+                "aliases": [
+                    "Erlang",
+                    "erlang"
+                ]
+            }
+        ]
+    }
+}

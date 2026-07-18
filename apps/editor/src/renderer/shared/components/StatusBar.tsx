@@ -14,6 +14,7 @@ import {
   Search,
   Sparkles,
   TerminalSquare,
+  Zap,
 } from "lucide-react";
 import Tooltip from "./Tooltip";
 import { type BottomPanelTab } from "../../../platform/panel/bottomPanel";
@@ -45,6 +46,7 @@ interface Props {
   codeSnapshotAvailable: boolean;
   hasWorkspace: boolean;
   language: string;
+  languageToolsOpen: boolean;
   cursor: { line: number; col: number };
   sidebarCollapsed: boolean;
   terminalOpen: boolean;
@@ -77,6 +79,7 @@ export default function StatusBar({
   codeSnapshotAvailable,
   hasWorkspace,
   language,
+  languageToolsOpen,
   cursor,
   sidebarCollapsed,
   terminalOpen,
@@ -232,14 +235,23 @@ export default function StatusBar({
                 <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
               </>
             ) : null}
-            <Tooltip label={`Language tools for ${languageLabel}`} side="top">
+            <span className="flex h-5 items-center gap-1 px-1.5 text-[#9aa4b8]">
+              <FileCode size={11} />
+              {languageLabel}
+            </span>
+            <Tooltip label="Workspace language tools" side="top">
               <button
                 type="button"
                 onClick={onOpenLanguageTools}
-                className="flex h-5 cursor-pointer items-center gap-1 rounded px-2 text-[#9aa4b8] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#54d6b5]"
+                aria-label="Workspace language tools"
+                aria-pressed={languageToolsOpen}
+                className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+                  languageToolsOpen
+                    ? "bg-[var(--axon-panel-overlay-hover)] text-[#54d6b5]"
+                    : "text-[#586478] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#54d6b5]"
+                }`}
               >
-                <FileCode size={11} />
-                {languageLabel}
+                <Zap size={12} />
               </button>
             </Tooltip>
             <div className="h-4 w-px bg-[var(--axon-panel-border)]" />

@@ -223,6 +223,11 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath: string,
   ): Promise<LanguageServerStatus[]> =>
     ipcRenderer.invoke("lsp:status", folderPath),
+  getWorkspaceLanguageServerStatus: (
+    folderPath: string,
+    languageId: string,
+  ): Promise<LanguageServerStatus[]> =>
+    ipcRenderer.invoke("lsp:workspaceStatus", folderPath, languageId),
   startLanguageServers: (
     folderPath: string,
   ): Promise<LanguageServerLifecycleResult> =>

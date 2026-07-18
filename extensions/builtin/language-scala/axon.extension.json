@@ -1,0 +1,31 @@
+{
+    "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+    "id": "axon.language-scala",
+    "name": "Scala",
+    "publisher": "Axon",
+    "version": "1.0.0",
+    "description": "Built-in Scala language metadata and syntax support.",
+    "author": "Axon",
+    "categories": [
+        "Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:scala"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "scala",
+                "label": "Scala",
+                "extensions": [
+                    ".scala",
+                    ".sc"
+                ],
+                "aliases": [
+                    "Scala",
+                    "scala"
+                ]
+            }
+        ]
+    }
+}

@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Braces } from "lucide-react";
 import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
 import {
   getEnabledExtensionThemes,
   type ExtensionState,
 } from "@axon-editor/shared/extensions";
-import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
-import {
-  type ManagedLanguageToolId,
-  type ManagedLanguageToolStatus,
-} from "@axon-editor/shared/languageTools";
 import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
 import {
   EDITOR_FONT_ITEMS,
@@ -19,12 +14,9 @@ import {
 } from "./lib/settingsData";
 import { FONT_PRESET_VALUES } from "./lib/fontPresets";
 import {
-  getSettingsLanguageServerStatus,
   importSettingsFont,
   selectSettingsBackgroundImage,
   selectSettingsPythonVirtualEnv,
-  startSettingsLanguageServers,
-  stopSettingsLanguageServers,
 } from "./lib/settingsPlatform";
 import AppearanceSettingsSection from "./AppearanceSettingsSection";
 import AxonAgentSettingsSection from "./AxonAgentSettingsSection";
@@ -43,25 +35,25 @@ import {
 
 interface Props {
   folderPath: string | null;
-  workspaceTrusted: boolean;
   availableFonts: AxonSettings["customFonts"];
   extensionState: ExtensionState | null;
   settings: AxonSettings;
   onClose: () => void;
   onPreview: (settings: AxonSettings) => void;
   onSave: (settings: AxonSettings) => void;
+  onOpenLanguageTools: () => void;
   onViewLogs: () => void;
 }
 
 export default function SettingsModal({
   folderPath,
-  workspaceTrusted,
   availableFonts,
   extensionState,
   settings,
   onClose,
   onPreview,
   onSave,
+  onOpenLanguageTools,
   onViewLogs,
 }: Props) {
   const initialSettingsRef = useRef(settings);
@@ -73,19 +65,7 @@ export default function SettingsModal({
   const [backgroundImageError, setBackgroundImageError] = useState<
     string | null
   >(null);
-  const [languageServers, setLanguageServers] = useState<
-    LanguageServerStatus[]
-  >([]);
-  const [loadingLanguageServers, setLoadingLanguageServers] = useState(false);
-  const [managedLanguageTools, setManagedLanguageTools] = useState<
-    ManagedLanguageToolStatus[]
-  >([]);
-  const [installingManagedLanguageTool, setInstallingManagedLanguageTool] =
-    useState<ManagedLanguageToolId | null>(null);
-  const [languageServerAction, setLanguageServerAction] = useState<
-    "start" | "stop" | "restart" | null
-  >(null);
-  const [languageServerMessage, setLanguageServerMessage] = useState<
+  const [pythonEnvironmentMessage, setPythonEnvironmentMessage] = useState<
     string | null
   >(null);
   const previewReadyRef = useRef(false);
@@ -267,7 +247,7 @@ export default function SettingsModal({
   };
 
   const selectPythonVirtualEnv = async () => {
-    setLanguageServerMessage(null);
+    setPythonEnvironmentMessage(null);
 
     try {
       const selected = await selectSettingsPythonVirtualEnv(folderPath);
@@ -281,11 +261,11 @@ export default function SettingsModal({
           pythonInterpreterPath: selected.interpreterPath,
         },
       }));
-      setLanguageServerMessage(
+      setPythonEnvironmentMessage(
         "Python virtual environment selected. Pyright will use it for external packages after you save settings.",
       );
     } catch (err) {
-      setLanguageServerMessage(
+      setPythonEnvironmentMessage(
         err instanceof Error
           ? err.message
           : "Failed to select Python virtual environment.",
@@ -302,7 +282,7 @@ export default function SettingsModal({
         pythonInterpreterPath: "",
       },
     }));
-    setLanguageServerMessage(
+    setPythonEnvironmentMessage(
       "Python virtual environment cleared. Python still works with Pyright's default interpreter resolution.",
     );
   };
@@ -329,129 +309,10 @@ export default function SettingsModal({
     });
   };
 
-  const refreshLanguageServers = useCallback(async () => {
-    setLoadingLanguageServers(true);
-    try {
-      const [nextServers, nextManagedLanguageTools] = await Promise.all([
-        folderPath
-          ? getSettingsLanguageServerStatus(folderPath)
-          : Promise.resolve([]),
-        window.axon.listManagedLanguageTools(),
-      ]);
-      setLanguageServers(nextServers);
-      setManagedLanguageTools(nextManagedLanguageTools);
-    } catch (err) {
-      console.error("failed to load language server status:", err);
-      setLanguageServers([]);
-    } finally {
-      setLoadingLanguageServers(false);
-    }
-  }, [folderPath]);
-
-  const installManagedLanguageTool = async (id: ManagedLanguageToolId) => {
-    setInstallingManagedLanguageTool(id);
-    setLanguageServerMessage(null);
-    try {
-      const result = await window.axon.installManagedLanguageTool(id);
-      setLanguageServerMessage(result.message);
-      if (result.ok && folderPath) {
-        await window.axon.startLanguageServerForLanguage({
-          folderPath,
-          languageId: result.status.languages[0],
-        });
-      }
-      await refreshLanguageServers();
-    } catch (error) {
-      setLanguageServerMessage(
-        error instanceof Error ? error.message : String(error),
-      );
-    } finally {
-      setInstallingManagedLanguageTool(null);
-    }
-  };
-
-  const cancelManagedLanguageToolInstall = async (
-    id: ManagedLanguageToolId,
-  ) => {
-    await window.axon.cancelManagedLanguageToolInstall(id);
-  };
-
-  const uninstallManagedLanguageTool = async (id: ManagedLanguageToolId) => {
-    setLanguageServerMessage(null);
-    try {
-      if (folderPath && workspaceTrusted) {
-        await stopSettingsLanguageServers(folderPath);
-      }
-      const result = await window.axon.uninstallManagedLanguageTool(id);
-      setLanguageServerMessage(result.message);
-      if (folderPath && workspaceTrusted && draft.lsp.enabled) {
-        await startSettingsLanguageServers(folderPath);
-      }
-      await refreshLanguageServers();
-    } catch (error) {
-      setLanguageServerMessage(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  };
-
-  const runLanguageServerAction = async (
-    action: "start" | "stop" | "restart",
-  ) => {
-    if (!folderPath) return;
-    if (!workspaceTrusted) {
-      setLanguageServerMessage(
-        "Language servers are disabled until this workspace is trusted.",
-      );
-      return;
-    }
-
-    setLanguageServerAction(action);
-    setLanguageServerMessage(null);
-    try {
-      if (action === "restart") {
-        onSave(normalizedDraft);
-      }
-
-      const result =
-        action === "start"
-          ? await startSettingsLanguageServers(folderPath)
-          : action === "stop"
-            ? await stopSettingsLanguageServers(folderPath)
-            : await stopSettingsLanguageServers(folderPath).then(() =>
-                startSettingsLanguageServers(folderPath),
-              );
-      setLanguageServers(result.servers);
-      setLanguageServerMessage(result.message);
-    } catch (err) {
-      console.error(`failed to ${action} language servers:`, err);
-      const message = err instanceof Error ? err.message : "";
-      setLanguageServerMessage(
-        message ||
-          (action === "start"
-            ? "Failed to start language servers."
-            : action === "restart"
-              ? "Failed to restart language servers."
-            : "Failed to stop language servers."),
-      );
-    } finally {
-      setLanguageServerAction(null);
-    }
-  };
-
-  useEffect(() => {
-    if (activeSection !== "languageServers") return;
-    void refreshLanguageServers();
-  }, [activeSection, refreshLanguageServers]);
-
   const save = () => {
     onSave(normalizedDraft);
     onClose();
   };
-
-  const hasPythonWorkspace = languageServers.some(
-    (server) => server.id === "python" && server.relevant,
-  );
 
   const close = () => {
     // Because the modal previews settings live, closing without saving needs
@@ -555,31 +416,12 @@ export default function SettingsModal({
               <LanguageServersSettingsSection
                 draft={draft}
                 folderPath={folderPath}
-                hasPythonWorkspace={hasPythonWorkspace}
-                languageServerAction={languageServerAction}
-                languageServerMessage={languageServerMessage}
-                languageServers={languageServers}
-                managedLanguageTools={managedLanguageTools}
-                installingManagedLanguageTool={installingManagedLanguageTool}
-                loadingLanguageServers={loadingLanguageServers}
-                workspaceTrusted={workspaceTrusted}
                 onClearPythonVirtualEnv={clearPythonVirtualEnv}
-                onRefreshLanguageServers={() => void refreshLanguageServers()}
-                onRunLanguageServerAction={(action) =>
-                  void runLanguageServerAction(action)
-                }
-                onInstallManagedLanguageTool={(id) =>
-                  void installManagedLanguageTool(id)
-                }
-                onCancelManagedLanguageToolInstall={(id) =>
-                  void cancelManagedLanguageToolInstall(id)
-                }
-                onUninstallManagedLanguageTool={(id) =>
-                  void uninstallManagedLanguageTool(id)
-                }
+                onOpenLanguageTools={onOpenLanguageTools}
                 onSelectPythonVirtualEnv={() => void selectPythonVirtualEnv()}
                 onUpdateLsp={updateLsp}
                 onViewLogs={onViewLogs}
+                pythonEnvironmentMessage={pythonEnvironmentMessage}
               />
             )}
 

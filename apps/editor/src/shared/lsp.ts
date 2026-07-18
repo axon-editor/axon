@@ -24,6 +24,22 @@ export const LANGUAGE_SERVER_IDS = [
   "prisma",
   "proto",
   "xml",
+  "swift",
+  "ruby",
+  "dart",
+  "sql",
+  "toml",
+  "zig",
+  "terraform",
+  "latex",
+  "scala",
+  "clojure",
+  "haskell",
+  "erlang",
+  "r",
+  "powershell",
+  "asm",
+  "makefile",
 ] as const;
 
 export type LanguageServerId = (typeof LANGUAGE_SERVER_IDS)[number];

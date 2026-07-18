@@ -20,6 +20,24 @@ export interface ManagedLanguageToolCatalogEntry {
     sha256: string;
     platforms: string[];
   };
+  pinnedGithubAssets?: Partial<
+    Record<
+      string,
+      { tag: string; name: string; size: number; sha256: string }
+    >
+  >;
+  pinnedHttpsAssets?: Partial<
+    Record<
+      string,
+      {
+        version: string;
+        name: string;
+        size: number;
+        sha256: string;
+        url: string;
+      }
+    >
+  >;
   dotnetSdk?: {
     channel: string;
     version: string;
@@ -259,6 +277,231 @@ export const MANAGED_LANGUAGE_TOOL_CATALOG: ManagedLanguageToolCatalogEntry[] = 
       "linux-arm64": "lemminx-linux-aarch_64.zip",
       "linux-x64": "lemminx-linux-x86_64.zip",
       "win32-x64": "lemminx-win32.zip",
+    },
+  },
+  {
+    id: "sql",
+    label: "SQL",
+    languages: ["sql"],
+    repository: "lighttiger2505/sqls",
+    githubTag: "v0.2.48",
+    expectedSha256ByPlatform: {
+      "darwin-x64": "b44165ca597a4b4298d56657bc911aa3ca8a591befefde4e29566923c6229f3d",
+      "linux-x64": "30047b92c41658c821b7803d2c2a3a1ce4e17ee769ceff6f24bb9e3daaf5d4dc",
+      "win32-x64": "df6453b2ddcb4e748547d0288b826251a24af099749dc7a9ddea587aac3d4365",
+    },
+    executableNames: ["sqls", "sqls.exe"],
+    commandName: "sqls",
+    windowsCommandName: "sqls.cmd",
+    assetNames: {
+      "darwin-x64": "sqls-darwin-0.2.48.zip",
+      "linux-x64": "sqls-linux-0.2.48.zip",
+      "win32-x64": "sqls-windows-0.2.48.zip",
+    },
+  },
+  {
+    id: "dart",
+    label: "Dart",
+    languages: ["dart"],
+    pinnedHttpsAssets: {
+      "darwin-arm64": { version: "3.12.2", name: "dartsdk-macos-arm64-release.zip", size: 215_274_228, sha256: "cd8753928e77b6b665bd70dce0e64b4ec6d2e2fde141d6409bb716c8ac1f1c0a", url: "https://storage.googleapis.com/dart-archive/channels/stable/release/3.12.2/sdk/dartsdk-macos-arm64-release.zip" },
+      "darwin-x64": { version: "3.12.2", name: "dartsdk-macos-x64-release.zip", size: 217_963_426, sha256: "38199f56fe22f2235e76799191d5b9516e360369c61b6ba4411398d5d5920bab", url: "https://storage.googleapis.com/dart-archive/channels/stable/release/3.12.2/sdk/dartsdk-macos-x64-release.zip" },
+      "linux-arm64": { version: "3.12.2", name: "dartsdk-linux-arm64-release.zip", size: 230_513_702, sha256: "f82c83ece7d168047550dfd4a664e4071ac7c488bddb72dc43102c22d7e0b518", url: "https://storage.googleapis.com/dart-archive/channels/stable/release/3.12.2/sdk/dartsdk-linux-arm64-release.zip" },
+      "linux-x64": { version: "3.12.2", name: "dartsdk-linux-x64-release.zip", size: 233_130_148, sha256: "28e47b44cf075f36771046c068bb0d174201cf9c7608744aed1cc23204299c2d", url: "https://storage.googleapis.com/dart-archive/channels/stable/release/3.12.2/sdk/dartsdk-linux-x64-release.zip" },
+      "win32-x64": { version: "3.12.2", name: "dartsdk-windows-x64-release.zip", size: 214_147_239, sha256: "77fd96c823ed09a85e58209a2c5f16b0fc02e5ed4f3e3d46fddf4be763d498d6", url: "https://storage.googleapis.com/dart-archive/channels/stable/release/3.12.2/sdk/dartsdk-windows-x64-release.zip" },
+    },
+    executableNames: ["dart", "dart.exe"],
+    commandName: "dart",
+    windowsCommandName: "dart.cmd",
+    assetNames: {},
+  },
+  {
+    id: "zig",
+    label: "Zig",
+    languages: ["zig"],
+    repository: "zigtools/zls",
+    githubTag: "0.16.0",
+    expectedSha256ByPlatform: {
+      "darwin-arm64": "b93ec549f8558a7e85984a840e9276d274f1059b54ade4254296ef4982958359",
+      "darwin-x64": "49f716ea96c1aadaecaa5d9c0a50874cbcf443dc42b825f1e7ee35499ad3eb96",
+      "linux-arm64": "430cd293d201eb70ae2519dbc96c854bf8791b8df7fc9392e8d2dc9680a2bed7",
+      "linux-x64": "ded6d562a0b86ee878b1ddf70ffab2797ce3cdca3b02d6077548f9d56dff96b6",
+      "win32-arm64": "ef4c5ccb93c80c9f023105c5f558ae8774ac6668d560ba6f92a2f87d95df2311",
+      "win32-x64": "35cbb7163224e8cf92d21099c1b1391f2aba927f25d389f021b13a21d40b96dd",
+    },
+    executableNames: ["zls", "zls.exe"],
+    commandName: "zls",
+    windowsCommandName: "zls.cmd",
+    assetNames: {
+      "darwin-arm64": "zls-aarch64-macos.tar.xz",
+      "darwin-x64": "zls-x86_64-macos.tar.xz",
+      "linux-arm64": "zls-aarch64-linux.tar.xz",
+      "linux-x64": "zls-x86_64-linux.tar.xz",
+      "win32-arm64": "zls-aarch64-windows.zip",
+      "win32-x64": "zls-x86_64-windows.zip",
+    },
+  },
+  {
+    id: "toml",
+    label: "TOML",
+    languages: ["toml"],
+    repository: "tamasfe/taplo",
+    pinnedGithubAssets: {
+      "darwin-arm64": { tag: "0.10.0", name: "taplo-darwin-aarch64.gz", size: 4_616_415, sha256: "713734314c3e71894b9e77513c5349835eefbd52908445a0d73b0c7dc469347d" },
+      "darwin-x64": { tag: "0.10.0", name: "taplo-darwin-x86_64.gz", size: 4_921_954, sha256: "898122cde3a0b1cd1cbc2d52d3624f23338218c91b5ddb71518236a4c2c10ef2" },
+      "linux-arm64": { tag: "0.10.0", name: "taplo-linux-aarch64.gz", size: 4_631_779, sha256: "033681d01eec8376c3fd38fa3703c79316f5e14bb013d859943b60a07bccdcc3" },
+      "linux-x64": { tag: "0.10.0", name: "taplo-linux-x86_64.gz", size: 5_116_068, sha256: "8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156" },
+      "win32-arm64": { tag: "0.10.0", name: "taplo-windows-aarch64.zip", size: 4_810_289, sha256: "65a50c5d3b78f6014e6bc6d64eb6dc1d4992bc236589c9bb29e5609fc3454674" },
+      "win32-x64": { tag: "0.10.0", name: "taplo-windows-x86_64.zip", size: 5_182_591, sha256: "1615eed140039bd58e7089109883b1c434de5d6de8f64a993e6e8c80ca57bdf9" },
+    },
+    executableNames: [
+      "taplo",
+      "taplo.exe",
+      "taplo-darwin-aarch64",
+      "taplo-darwin-x86_64",
+      "taplo-linux-aarch64",
+      "taplo-linux-x86_64",
+    ],
+    commandName: "taplo",
+    windowsCommandName: "taplo.cmd",
+    assetNames: {},
+  },
+  {
+    id: "latex",
+    label: "LaTeX and BibTeX",
+    languages: ["latex", "bibtex"],
+    repository: "latex-lsp/texlab",
+    githubTag: "v5.26.0",
+    expectedSha256ByPlatform: {
+      "darwin-arm64": "af7972ffd230711ba04ada9b69cc32ce9111d9196ba69538062872faefdbee56",
+      "darwin-x64": "6091611f756b28e1a57612b130c196df4b0bb6e22dde5cf5d890578513397daf",
+      "linux-arm64": "a85cdfcd22454b8d8550f4b0f0620c45ab51760f302fac7a12bc18a890f70f8c",
+      "linux-x64": "8697bd5e479d4584b14b7eed5c320c80ec4e1d91ebefbb6801e6bf38e9971300",
+      "win32-arm64": "99b215e9a44169eb8d786c33484b963055e1c3dd40f68e14fcc47ae1c84e92c1",
+      "win32-x64": "cb028d44c3d2b85d36a2ed52d41a0ff43a341b1f04c500c56c4524c4eb72b316",
+    },
+    executableNames: ["texlab", "texlab.exe"],
+    commandName: "texlab",
+    windowsCommandName: "texlab.cmd",
+    assetNames: {
+      "darwin-arm64": "texlab-aarch64-macos.tar.gz",
+      "darwin-x64": "texlab-x86_64-macos.tar.gz",
+      "linux-arm64": "texlab-aarch64-linux.tar.gz",
+      "linux-x64": "texlab-x86_64-linux.tar.gz",
+      "win32-arm64": "texlab-aarch64-windows.zip",
+      "win32-x64": "texlab-x86_64-windows.zip",
+    },
+  },
+  {
+    id: "terraform",
+    label: "Terraform and HCL",
+    languages: ["terraform", "hcl"],
+    pinnedHttpsAssets: {
+      "darwin-arm64": { version: "0.38.8", name: "terraform-ls_0.38.8_darwin_arm64.zip", size: 30_012_654, sha256: "510a506f7bf1550294202347261961e52daa4664a795e2deffbf7df7296b1f6c", url: "https://releases.hashicorp.com/terraform-ls/0.38.8/terraform-ls_0.38.8_darwin_arm64.zip" },
+      "darwin-x64": { version: "0.38.8", name: "terraform-ls_0.38.8_darwin_amd64.zip", size: 30_709_588, sha256: "34cfe6cbbb61da5b8fd21721e14be0f134417f249350872da1669454dc8762a4", url: "https://releases.hashicorp.com/terraform-ls/0.38.8/terraform-ls_0.38.8_darwin_amd64.zip" },
+      "linux-arm64": { version: "0.38.8", name: "terraform-ls_0.38.8_linux_arm64.zip", size: 29_620_863, sha256: "762db754428dd188b949533ca05437955e26f4b3fc699d4b93392668a24e7a10", url: "https://releases.hashicorp.com/terraform-ls/0.38.8/terraform-ls_0.38.8_linux_arm64.zip" },
+      "linux-x64": { version: "0.38.8", name: "terraform-ls_0.38.8_linux_amd64.zip", size: 30_326_575, sha256: "d16077d9c83f13ac33501af49ea75f43218d3fa2437c6c1374550b2625edc3ef", url: "https://releases.hashicorp.com/terraform-ls/0.38.8/terraform-ls_0.38.8_linux_amd64.zip" },
+      "win32-arm64": { version: "0.38.8", name: "terraform-ls_0.38.8_windows_arm64.zip", size: 29_677_853, sha256: "5cee26a3645487125bf65daee8cfc85c84d8c7e03bbb00662fb12225afe9d6cd", url: "https://releases.hashicorp.com/terraform-ls/0.38.8/terraform-ls_0.38.8_windows_arm64.zip" },
+      "win32-x64": { version: "0.38.8", name: "terraform-ls_0.38.8_windows_amd64.zip", size: 30_467_602, sha256: "5152e76e45103ea2a31b8a8dadc43833ae559a4aba4cb12f57c1c006c11dda8c", url: "https://releases.hashicorp.com/terraform-ls/0.38.8/terraform-ls_0.38.8_windows_amd64.zip" },
+    },
+    executableNames: ["terraform-ls", "terraform-ls.exe"],
+    commandName: "terraform-ls",
+    windowsCommandName: "terraform-ls.cmd",
+    assetNames: {},
+  },
+  {
+    id: "clojure",
+    label: "Clojure",
+    languages: ["clojure"],
+    repository: "clojure-lsp/clojure-lsp",
+    githubTag: "2026.07.06-14.34.19",
+    expectedSha256ByPlatform: {
+      "darwin-arm64": "dd9a8e36add53b8d8166bb3d7580c6e5563401aea87b62600786af2e7d37ccde",
+      "darwin-x64": "0449f7f8fc975157cb4e5cdcf365bcd43bcf1fa47b99256427e7a86e4c17fc3f",
+      "linux-arm64": "0595e65a5934d3208246f529b5cf0497d7167d7e9b8317e9b391e05b5c0906d7",
+      "linux-x64": "520f724ee02f4b3ecb225395a7a5a4ccad3878d6d1418240cd9636afcf9b858e",
+      "win32-x64": "7b978ab266f7aa0ecf48b7484fc0aa6d3b3b7b395c27c47c949d6ce93174599d",
+    },
+    executableNames: ["clojure-lsp", "clojure-lsp.exe"],
+    commandName: "clojure-lsp",
+    windowsCommandName: "clojure-lsp.cmd",
+    assetNames: {
+      "darwin-arm64": "clojure-lsp-native-macos-aarch64.zip",
+      "darwin-x64": "clojure-lsp-native-macos-amd64.zip",
+      "linux-arm64": "clojure-lsp-native-linux-aarch64.zip",
+      "linux-x64": "clojure-lsp-native-linux-amd64.zip",
+      "win32-x64": "clojure-lsp-native-windows-amd64.zip",
+    },
+  },
+  {
+    id: "erlang",
+    label: "Erlang",
+    languages: ["erlang"],
+    repository: "WhatsApp/erlang-language-platform",
+    githubTag: "2026-06-10",
+    expectedSha256ByPlatform: {
+      "darwin-arm64": "ed9e8b7ae0e6eab54eec5f759570cde2f32efd060487d946ac449d7e8eec347f",
+      "darwin-x64": "b8bdfdf209d34e7cf9d41220bdbb929d9cb52349a204b93e04f6fbf2abb199c0",
+      "linux-arm64": "dd33a48bc909a5e7eedb5240302e49e740faa024e3d37608bfa05b26249bee58",
+      "linux-x64": "104450964d8f43d85294d106fd6a5bf6094b88aef7a94685aeb719735d839fb7",
+      "win32-x64": "0060037ac353fd22908ca689e80d80d8522f98dd6ee55b977f1b7a4063514e78",
+    },
+    executableNames: ["elp", "elp.exe"],
+    commandName: "elp",
+    windowsCommandName: "elp.cmd",
+    assetNames: {
+      "darwin-arm64": "elp-macos-aarch64-apple-darwin-otp-28.tar.gz",
+      "darwin-x64": "elp-macos-x86_64-apple-darwin-otp-28.tar.gz",
+      "linux-arm64": "elp-linux-aarch64-unknown-linux-gnu-otp-28.tar.gz",
+      "linux-x64": "elp-linux-x86_64-unknown-linux-gnu-otp-28.tar.gz",
+      "win32-x64": "elp-windows-x86_64-pc-windows-msvc-otp-28.tar.gz",
+    },
+  },
+  {
+    id: "haskell",
+    label: "Haskell",
+    languages: ["haskell"],
+    repository: "haskell/haskell-language-server",
+    githubTag: "2.14.0.0",
+    expectedSha256ByPlatform: {
+      "darwin-arm64": "934ce8d82ef53ac2f649dbd0535d4d9c059d8e2a90c71ea41b97929e00f6e462",
+      "darwin-x64": "c4000ef74d7f544e5dc5a76215403fe798c5de57206cdba03bdbef1eecba5800",
+      "linux-arm64": "7d2e9356487a802a2ccf903f570872c028fb91b1d34906629c3a0054a1f33daa",
+      "linux-x64": "25d9ef724fd979c5838f82ea90c98a7460248e3f42894aa54afedbcbb1f87436",
+      "win32-x64": "b928e205dfd09d2b75986f19bc37700dcd74037bf695c5663a7454d84e3409e7",
+    },
+    executableNames: [
+      "haskell-language-server-wrapper",
+      "haskell-language-server-wrapper.exe",
+    ],
+    commandName: "haskell-language-server-wrapper",
+    windowsCommandName: "haskell-language-server-wrapper.cmd",
+    assetNames: {
+      "darwin-arm64": "haskell-language-server-2.14.0.0-aarch64-apple-darwin.tar.xz",
+      "darwin-x64": "haskell-language-server-2.14.0.0-x86_64-apple-darwin.tar.xz",
+      "linux-arm64": "haskell-language-server-2.14.0.0-aarch64-linux-ubuntu2204.tar.xz",
+      "linux-x64": "haskell-language-server-2.14.0.0-x86_64-linux-unknown.tar.xz",
+      "win32-x64": "haskell-language-server-2.14.0.0-x86_64-mingw64.zip",
+    },
+  },
+  {
+    id: "asm",
+    label: "Assembly",
+    languages: ["asm"],
+    repository: "bergercookie/asm-lsp",
+    githubTag: "v0.10.1",
+    expectedSha256ByPlatform: {
+      "darwin-arm64": "affc8917d5bb6f44805c2e964ad07cf7e0799ecfaa7686f7a5cea9efa00bc575",
+      "darwin-x64": "900c0c95bb2cf0a65102beb09031496e3ed2d31b85dbbe3ef8cae5ffbe493a07",
+      "linux-x64": "2a2f386c10348e365df484d5c66d084813e7dbf8ab4e9eb7a7cc0bb0acf2f8f8",
+    },
+    executableNames: ["asm-lsp", "asm-lsp.exe"],
+    commandName: "asm-lsp",
+    windowsCommandName: "asm-lsp.cmd",
+    assetNames: {
+      "darwin-arm64": "asm-lsp-aarch64-apple-darwin.tar.gz",
+      "darwin-x64": "asm-lsp-x86_64-apple-darwin.tar.gz",
+      "linux-x64": "asm-lsp-x86_64-unknown-linux-gnu.tar.gz",
     },
   },
 ];
