@@ -50,6 +50,7 @@ export class FileWatcherManager {
   private gitWatcher: FSWatcher | null = null;
   private activeFileDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingFolderChangedPaths = new Set<string>();
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private gitHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private gitDiscoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -126,6 +127,7 @@ export class FileWatcherManager {
       clearTimeout(this.folderDebounceTimer);
       this.folderDebounceTimer = null;
     }
+    this.pendingFolderChangedPaths.clear();
     if (!this.folderWatcher) return;
     await this.folderWatcher.close();
     this.folderWatcher = null;
@@ -267,7 +269,7 @@ export class FileWatcherManager {
       this.buildWatcherOptions(),
     );
 
-    this.activeWatcher.on("change", () => {
+    const reloadActiveFile = () => {
       if (this.activeFileDebounceTimer)
         clearTimeout(this.activeFileDebounceTimer);
 
@@ -295,8 +297,11 @@ export class FileWatcherManager {
           );
           void this.closeActiveWatcher();
         }
-      }, 150);
-    });
+      }, 80);
+    };
+
+    this.activeWatcher.on("change", reloadActiveFile);
+    this.activeWatcher.on("add", reloadActiveFile);
 
     this.activeWatcher.on("error", (err) => {
       // Watcher errors usually mean the underlying path disappeared or the OS
@@ -346,6 +351,7 @@ export class FileWatcherManager {
       });
 
       const notify = (changedPath: string) => {
+        this.pendingFolderChangedPaths.add(changedPath);
         if (this.folderDebounceTimer) clearTimeout(this.folderDebounceTimer);
         // The timer is stored on the manager, not as a local closure variable,
         // because workspace switches close the watcher before the last debounce
@@ -354,8 +360,12 @@ export class FileWatcherManager {
         this.folderDebounceTimer = setTimeout(() => {
           this.folderDebounceTimer = null;
           if (generation !== this.folderWatchGeneration) return;
+          const changedPaths = [...this.pendingFolderChangedPaths];
+          this.pendingFolderChangedPaths.clear();
           this.deps.invalidateWorkspaceIndex(folderPath);
-          this.deps.sendToRenderer("fs:folderChanged", { path: changedPath });
+          changedPaths.forEach((path) => {
+            this.deps.sendToRenderer("fs:folderChanged", { path });
+          });
           // New untracked files and deleted files do not always mutate the small
           // set of .git paths we watch quickly enough for the sidebar colors to
           // feel live. I refresh Git status from the normal folder watcher too so

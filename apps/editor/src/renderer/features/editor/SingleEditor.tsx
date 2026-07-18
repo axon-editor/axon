@@ -1,7 +1,3 @@
-// Renders a Monaco editor instance for a single file.
-// Uses shared Monaco models via monacoModels.ts so multiple panes
-// showing the same file share one model and edits reflect instantly
-// across all panes without saving.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
@@ -51,6 +47,7 @@ import { useEditorActions } from "./lib/useEditorActions";
 import { useTrailingTask } from "./lib/useTrailingTask";
 import { useActiveFileServices } from "./lib/useActiveFileServices";
 import { useEditorIndentationSettings } from "./lib/useEditorIndentationSettings";
+import { useEditorZoomViewport } from "./lib/useEditorZoomViewport";
 interface Props {
   filePath: string;
   folderPath: string | null;
@@ -125,6 +122,7 @@ export default function SingleEditor({
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
+  const trackEditorZoomViewport = useEditorZoomViewport(editorRef, editorSettings.fontSize, editorSettings.lineHeight);
   const isMd = isMarkdown(filePath);
   const scheduleLiveContentUpdate = useTrailingTask();
   const scheduleGoSyntaxUpdate = useTrailingTask();
@@ -848,6 +846,7 @@ export default function SingleEditor({
     editorRef.current = editor;
     setEditorReadyNonce((nonce) => nonce + 1);
     markEditorMounted(filePath);
+    trackEditorZoomViewport(editor);
 
     registerAxonTheme(monaco, editorSettings.themeId, themeTokens, [], themeSyntax);
     installSemanticTokenDecorationStyles(themeTokens, themeSyntax);

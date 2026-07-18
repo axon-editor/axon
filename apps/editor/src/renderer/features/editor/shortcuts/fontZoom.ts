@@ -27,6 +27,8 @@ export function settingsFromEditorFontZoomShortcut(
 
   const nextFontSize = clampEditorFontSize(settings.editor.fontSize + direction);
   if (nextFontSize === settings.editor.fontSize) return null;
+  const lineHeightRatio = settings.editor.lineHeight / settings.editor.fontSize;
+  const nextLineHeight = Math.round(nextFontSize * lineHeightRatio);
 
   // Font zoom is persisted through normal editor settings instead of being a
   // transient Monaco option. That makes the shortcut affect every pane, the
@@ -37,6 +39,7 @@ export function settingsFromEditorFontZoomShortcut(
     editor: {
       ...settings.editor,
       fontSize: nextFontSize,
+      lineHeight: nextLineHeight,
     },
   });
 }
