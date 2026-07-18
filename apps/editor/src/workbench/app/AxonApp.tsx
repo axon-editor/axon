@@ -59,6 +59,7 @@ import {
 } from "@axon-builtin-git/git/lib/gitGraphTab";
 import "../../renderer/App.css";
 import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolInstallPrompt";
+import { useLanguageToolInstallPrompt } from "../../renderer/features/languageTools/useLanguageToolInstallPrompt";
 import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
 import { detectLanguageServerLanguage, getModel } from "../../renderer/features/editor/lib/monacoModels";
 import {
@@ -217,6 +218,11 @@ export default function App({ initialExtensionState }: AppProps) {
     projectDiagnostics,
     settings,
     workspaceTrustNonce,
+  });
+  const languageToolInstallPrompt = useLanguageToolInstallPrompt({
+    activeFile: activePane?.activeFile ?? null,
+    folderPath,
+    workspaceTrusted,
   });
   const handleOpenNavigationTarget = useCallback(
     (target: Omit<EditorNavigationTarget, "id">) => {
@@ -862,6 +868,7 @@ export default function App({ initialExtensionState }: AppProps) {
         bottomPanelOpen,
         bottomPanelTab,
         cliToolInstallPrompt,
+        languageToolInstallPrompt,
         cursorInfo,
         deletedFiles,
         diagnosticCounts,

@@ -85,6 +85,12 @@ import {
   type LanguageServerStatus,
 } from "../shared/lsp";
 import {
+  type ManagedLanguageToolId,
+  type ManagedLanguageToolInstallResult,
+  type ManagedLanguageToolProgress,
+  type ManagedLanguageToolStatus,
+} from "../shared/languageTools";
+import {
   type UpdateActionResult,
   type UpdateInfo,
   type UpdateInstallState,
@@ -225,6 +231,24 @@ contextBridge.exposeInMainWorld("axon", {
     request: LanguageServerStartForFileRequest,
   ): Promise<LanguageServerLifecycleResult> =>
     ipcRenderer.invoke("lsp:startForLanguage", request),
+  getManagedLanguageToolRecommendation: (
+    languageId: string,
+  ): Promise<ManagedLanguageToolStatus | null> =>
+    ipcRenderer.invoke("languageTools:recommendation", languageId),
+  getManagedLanguageToolStatusForLanguage: (
+    languageId: string,
+  ): Promise<ManagedLanguageToolStatus | null> =>
+    ipcRenderer.invoke("languageTools:statusForLanguage", languageId),
+  getManagedLanguageToolStatus: (
+    id: ManagedLanguageToolId,
+  ): Promise<ManagedLanguageToolStatus> =>
+    ipcRenderer.invoke("languageTools:status", id),
+  listManagedLanguageTools: (): Promise<ManagedLanguageToolStatus[]> =>
+    ipcRenderer.invoke("languageTools:list"),
+  installManagedLanguageTool: (
+    id: ManagedLanguageToolId,
+  ): Promise<ManagedLanguageToolInstallResult> =>
+    ipcRenderer.invoke("languageTools:install", id),
   stopLanguageServers: (
     folderPath: string,
   ): Promise<LanguageServerLifecycleResult> =>
@@ -559,6 +583,14 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = (_: unknown, event: AiPullEvent) => callback(event);
     ipcRenderer.on("ai:pullEvent", handler);
     return () => ipcRenderer.removeListener("ai:pullEvent", handler);
+  },
+  onManagedLanguageToolProgress: (
+    callback: (event: ManagedLanguageToolProgress) => void,
+  ) => {
+    const handler = (_: unknown, event: ManagedLanguageToolProgress) =>
+      callback(event);
+    ipcRenderer.on("languageTools:progress", handler);
+    return () => ipcRenderer.removeListener("languageTools:progress", handler);
   },
   onTaskOutput: (callback: (event: TaskOutputEvent) => void) => {
     const handler = (_: unknown, event: TaskOutputEvent) => callback(event);

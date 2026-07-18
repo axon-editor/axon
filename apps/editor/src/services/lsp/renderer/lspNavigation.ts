@@ -27,6 +27,8 @@ const lspNavigationLanguages = [
   "json",
   "yaml",
   "shell",
+  "proto",
+  "xml",
 ];
 
 const monacoNativeHoverLanguages = new Set(["typescript", "javascript"]);

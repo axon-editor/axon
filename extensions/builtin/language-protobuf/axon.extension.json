@@ -1,0 +1,21 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-protobuf",
+  "name": "Protocol Buffers",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in Protocol Buffers language metadata and syntax support.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:proto"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "proto",
+        "label": "Protocol Buffers",
+        "extensions": [".proto"],
+        "aliases": ["Protocol Buffers", "Protobuf", "proto"]
+      }
+    ]
+  }
+}

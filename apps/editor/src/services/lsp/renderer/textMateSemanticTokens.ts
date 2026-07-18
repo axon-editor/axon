@@ -71,6 +71,8 @@ const textMateLanguages = new Map<string, TextMateLanguage>([
   ["yaml", { id: "yaml", load: () => import("shiki/langs/yaml.mjs") }],
   ["shell", { id: "shell", load: () => import("shiki/langs/shell.mjs") }],
   ["dockerfile", { id: "dockerfile", load: () => import("shiki/langs/dockerfile.mjs") }],
+  ["xml", { id: "xml", load: () => import("shiki/langs/xml.mjs") }],
+  ["proto", { id: "proto", load: () => import("shiki/langs/proto.mjs") }],
 ]);
 const tokenTypeIndexes = new Map<string, number>(
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES.map((tokenType, index) => [

@@ -14,31 +14,6 @@ const languageServerRoot = path.join(
 
 const managedBundles = [
   { id: "go", executable: process.platform === "win32" ? "gopls.cmd" : "gopls" },
-  {
-    id: "rust",
-    executable:
-      process.platform === "win32" ? "rust-analyzer.cmd" : "rust-analyzer",
-  },
-  { id: "cpp", executable: process.platform === "win32" ? "clangd.cmd" : "clangd" },
-  { id: "java", executable: process.platform === "win32" ? "jdtls.cmd" : "jdtls" },
-  {
-    id: "csharp",
-    executable: process.platform === "win32" ? "OmniSharp.cmd" : "OmniSharp",
-  },
-  {
-    id: "kotlin",
-    executable:
-      process.platform === "win32"
-        ? "kotlin-language-server.cmd"
-        : "kotlin-language-server",
-  },
-  {
-    id: "lua",
-    executable:
-      process.platform === "win32"
-        ? "lua-language-server.cmd"
-        : "lua-language-server",
-  },
 ];
 
 async function isFile(filePath) {

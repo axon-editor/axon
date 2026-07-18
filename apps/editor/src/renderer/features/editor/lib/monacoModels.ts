@@ -4,6 +4,10 @@
 // Ref counting ensures the model is only disposed when all editors release it.
 import * as monaco from "monaco-editor";
 import { registerMonacoReactLanguages } from "./monacoReactLanguages";
+import { registerMonacoStructuredLanguages } from "./monacoStructuredLanguages";
+import { detectMonacoLanguage } from "./languageDetection";
+
+export { detectLanguageServerLanguage, detectMonacoLanguage } from "./languageDetection";
 
 const models = new Map<string, monaco.editor.ITextModel>();
 const refCounts = new Map<string, number>();
@@ -17,125 +21,6 @@ export function detectLanguage(path: string): string {
   return detectMonacoLanguage(path);
 }
 
-export function detectMonacoLanguage(path: string): string {
-  const fileName = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
-  const ext = path.split(".").pop()?.toLowerCase();
-
-  // Basename-sensitive files need to be handled before extension lookup
-  // because files like Dockerfile, .env.local, and .gitignore either have no
-  // useful extension or use a dot-prefix that would otherwise be mistaken for
-  // a normal extension. Mapping them here keeps syntax highlighting, snippets,
-  // and LSP startup tied to the file's real role instead of falling back to
-  // plaintext.
-  if (
-    fileName === ".env" ||
-    fileName === ".envrc" ||
-    fileName.startsWith(".env.")
-  ) {
-    return "shell";
-  }
-
-  if (
-    fileName === "dockerfile" ||
-    fileName.startsWith("dockerfile.") ||
-    fileName === ".dockerignore"
-  ) {
-    return "dockerfile";
-  }
-
-  if (
-    fileName === ".gitignore" ||
-    fileName === ".ignore" ||
-    fileName.endsWith("ignore")
-  ) {
-    return "gitignore";
-  }
-
-  if (
-    fileName === "tsconfig.json" ||
-    fileName === "jsconfig.json" ||
-    ext === "jsonc"
-  ) {
-    return "json";
-  }
-
-  // Monaco already ships a C/C++ contribution, but Axon has to map the file
-  // extension to that language explicitly. If we leave these extensions out,
-  // the editor falls back to plaintext and the file loses both syntax
-  // highlighting and the language-specific worker behavior that Monaco can
-  // provide out of the box.
-  const map: Record<string, string> = {
-    c: "cpp",
-    cc: "cpp",
-    cpp: "cpp",
-    cxx: "cpp",
-    h: "cpp",
-    hh: "cpp",
-    hpp: "cpp",
-    hxx: "cpp",
-    cplusplus: "cpp",
-    go: "go",
-    rs: "rust",
-    ts: "typescript",
-    tsx: "typescriptreact",
-    mts: "typescript",
-    cts: "typescript",
-    js: "javascript",
-    mjs: "javascript",
-    cjs: "javascript",
-    jsx: "javascriptreact",
-    py: "python",
-    pyi: "python",
-    java: "java",
-    kt: "kotlin",
-    kts: "kotlin",
-    cs: "csharp",
-    swift: "swift",
-    rb: "ruby",
-    lua: "lua",
-    php: "php",
-    sql: "sql",
-    dart: "dart",
-    xml: "xml",
-    svg: "xml",
-    md: "markdown",
-    markdown: "markdown",
-    json: "json",
-    jsonc: "json",
-    json5: "json",
-    css: "css",
-    scss: "scss",
-    sass: "scss",
-    less: "less",
-    astro: "html",
-    html: "html",
-    htm: "html",
-    yaml: "yaml",
-    yml: "yaml",
-    toml: "toml",
-    sh: "shell",
-    bash: "shell",
-    zsh: "shell",
-    fish: "shell",
-  };
-  return map[ext ?? ""] ?? "plaintext";
-}
-
-export function detectLanguageServerLanguage(path: string): string {
-  const ext = path.split(".").pop()?.toLowerCase();
-
-  // React documents have to keep their React language ids all the way into the
-  // protocol layer. If `.tsx` is ever collapsed back to `typescript`, the
-  // server can parse JSX tags as invalid TypeScript and features like Tailwind,
-  // package export completions, and component definitions lose the context they
-  // need to behave like a production IDE.
-  if (ext === "tsx") return "typescriptreact";
-  if (ext === "jsx") return "javascriptreact";
-  if (ext === "astro") return "astro";
-
-  return detectMonacoLanguage(path);
-}
-
 // acquireModel increments the ref count and returns the model.
 // Creates the model if it doesn't exist yet.
 // Always call this once per editor instance that opens a file.
@@ -144,6 +29,7 @@ export function acquireModel(
   content: string,
 ): monaco.editor.ITextModel {
   registerMonacoReactLanguages();
+  registerMonacoStructuredLanguages();
 
   const pendingDisposal = disposalTimers.get(filePath);
   if (pendingDisposal) {

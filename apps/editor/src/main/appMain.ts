@@ -42,6 +42,8 @@ import { createBundledCoreController } from "./core/process";
 import { registerCoreProxyHandlers } from "./core/proxy";
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { registerAiHandlers } from "./ai/handlers";
+import { registerManagedLanguageToolHandlers } from "./languageTools/handlers";
+import { ManagedLanguageToolManager } from "./languageTools/manager";
 import { warmUpAiRuntime } from "./ai/runtimeWarmup";
 import { setClientId } from "./spotify/api";
 import {
@@ -325,6 +327,9 @@ registerGitHandlers({
 });
 registerAiHandlers({ axonCorePort, axonCoreToken });
 registerLspHandlers();
+registerManagedLanguageToolHandlers(
+  new ManagedLanguageToolManager({ sendToRenderer }),
+);
 registerSettingsHandlers({
   authorizeWorkspaceRoot: (rendererId, rootPath, persist) =>
     workspaceCapabilities.authorize(rendererId, rootPath, persist),

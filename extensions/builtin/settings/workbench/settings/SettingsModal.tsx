@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Braces } from "lucide-react";
 import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
 import {
@@ -6,6 +6,10 @@ import {
   type ExtensionState,
 } from "@axon-editor/shared/extensions";
 import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
+import {
+  type ManagedLanguageToolId,
+  type ManagedLanguageToolStatus,
+} from "@axon-editor/shared/languageTools";
 import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
 import {
   EDITOR_FONT_ITEMS,
@@ -73,6 +77,11 @@ export default function SettingsModal({
     LanguageServerStatus[]
   >([]);
   const [loadingLanguageServers, setLoadingLanguageServers] = useState(false);
+  const [managedLanguageTools, setManagedLanguageTools] = useState<
+    ManagedLanguageToolStatus[]
+  >([]);
+  const [installingManagedLanguageTool, setInstallingManagedLanguageTool] =
+    useState<ManagedLanguageToolId | null>(null);
   const [languageServerAction, setLanguageServerAction] = useState<
     "start" | "stop" | "restart" | null
   >(null);
@@ -320,21 +329,44 @@ export default function SettingsModal({
     });
   };
 
-  const refreshLanguageServers = async () => {
-    if (!folderPath) {
-      setLanguageServers([]);
-      return;
-    }
-
+  const refreshLanguageServers = useCallback(async () => {
     setLoadingLanguageServers(true);
     try {
-      const nextServers = await getSettingsLanguageServerStatus(folderPath);
+      const [nextServers, nextManagedLanguageTools] = await Promise.all([
+        folderPath
+          ? getSettingsLanguageServerStatus(folderPath)
+          : Promise.resolve([]),
+        window.axon.listManagedLanguageTools(),
+      ]);
       setLanguageServers(nextServers);
+      setManagedLanguageTools(nextManagedLanguageTools);
     } catch (err) {
       console.error("failed to load language server status:", err);
       setLanguageServers([]);
     } finally {
       setLoadingLanguageServers(false);
+    }
+  }, [folderPath]);
+
+  const installManagedLanguageTool = async (id: ManagedLanguageToolId) => {
+    setInstallingManagedLanguageTool(id);
+    setLanguageServerMessage(null);
+    try {
+      const result = await window.axon.installManagedLanguageTool(id);
+      setLanguageServerMessage(result.message);
+      if (result.ok && folderPath) {
+        await window.axon.startLanguageServerForLanguage({
+          folderPath,
+          languageId: result.status.languages[0],
+        });
+      }
+      await refreshLanguageServers();
+    } catch (error) {
+      setLanguageServerMessage(
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setInstallingManagedLanguageTool(null);
     }
   };
 
@@ -385,7 +417,7 @@ export default function SettingsModal({
   useEffect(() => {
     if (activeSection !== "languageServers") return;
     void refreshLanguageServers();
-  }, [activeSection, folderPath]);
+  }, [activeSection, refreshLanguageServers]);
 
   const save = () => {
     onSave(normalizedDraft);
@@ -502,12 +534,17 @@ export default function SettingsModal({
                 languageServerAction={languageServerAction}
                 languageServerMessage={languageServerMessage}
                 languageServers={languageServers}
+                managedLanguageTools={managedLanguageTools}
+                installingManagedLanguageTool={installingManagedLanguageTool}
                 loadingLanguageServers={loadingLanguageServers}
                 workspaceTrusted={workspaceTrusted}
                 onClearPythonVirtualEnv={clearPythonVirtualEnv}
                 onRefreshLanguageServers={() => void refreshLanguageServers()}
                 onRunLanguageServerAction={(action) =>
                   void runLanguageServerAction(action)
+                }
+                onInstallManagedLanguageTool={(id) =>
+                  void installManagedLanguageTool(id)
                 }
                 onSelectPythonVirtualEnv={() => void selectPythonVirtualEnv()}
                 onUpdateLsp={updateLsp}

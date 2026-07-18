@@ -1,0 +1,21 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.language-xml",
+  "name": "XML",
+  "publisher": "Axon",
+  "version": "1.0.0",
+  "description": "Built-in XML language metadata and syntax support.",
+  "author": "Axon",
+  "categories": ["Languages"],
+  "activationEvents": ["onLanguage:xml"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "xml",
+        "label": "XML",
+        "extensions": [".xml", ".xsd", ".xsl", ".xslt", ".dtd", ".svg"],
+        "aliases": ["XML", "xml"]
+      }
+    ]
+  }
+}

@@ -1,6 +1,14 @@
-import { FolderOpen } from "lucide-react";
+import { Download, FolderOpen } from "lucide-react";
 import { type AxonSettings } from "@axon-editor/shared/settings";
 import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
+import {
+  type ManagedLanguageToolId,
+  type ManagedLanguageToolStatus,
+} from "@axon-editor/shared/languageTools";
+import {
+  enableManagedLanguageToolPrompt,
+  isManagedLanguageToolPromptDisabled,
+} from "@axon-editor/renderer/features/languageTools/languageToolPreferences";
 import {
   SettingsField,
   SettingsSection,
@@ -16,10 +24,13 @@ interface LanguageServersSettingsSectionProps {
   languageServerMessage: string | null;
   languageServers: LanguageServerStatus[];
   loadingLanguageServers: boolean;
+  managedLanguageTools: ManagedLanguageToolStatus[];
+  installingManagedLanguageTool: ManagedLanguageToolId | null;
   workspaceTrusted: boolean;
   onClearPythonVirtualEnv: () => void;
   onRefreshLanguageServers: () => void;
   onRunLanguageServerAction: (action: "start" | "stop" | "restart") => void;
+  onInstallManagedLanguageTool: (id: ManagedLanguageToolId) => void;
   onSelectPythonVirtualEnv: () => void;
   onUpdateLsp: <K extends keyof AxonSettings["lsp"]>(
     key: K,
@@ -52,10 +63,13 @@ export default function LanguageServersSettingsSection({
   languageServerMessage,
   languageServers,
   loadingLanguageServers,
+  managedLanguageTools,
+  installingManagedLanguageTool,
   workspaceTrusted,
   onClearPythonVirtualEnv,
   onRefreshLanguageServers,
   onRunLanguageServerAction,
+  onInstallManagedLanguageTool,
   onSelectPythonVirtualEnv,
   onUpdateLsp,
   onViewLogs,
@@ -119,6 +133,65 @@ export default function LanguageServersSettingsSection({
           </div>
         </SettingsField>
       ) : null}
+
+      <div className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
+        <div className="border-b border-[var(--axon-panel-border)] px-3 py-2 text-[12px] font-medium text-[var(--axon-editor-foreground)]">
+          Managed language support
+        </div>
+        <div className="divide-y divide-[var(--axon-panel-border)]">
+          {managedLanguageTools.map((tool) => {
+            const recommendationsDisabled =
+              isManagedLanguageToolPromptDisabled(tool.id);
+            return (
+              <div
+                key={tool.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-medium text-[var(--axon-editor-foreground)]">
+                      {tool.label}
+                    </span>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] ${tool.installed ? "bg-[#15321f] text-[#90c8a0]" : "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)] opacity-65"}`}>
+                      {tool.installed ? "installed" : "available"}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-45">
+                    {tool.detail}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {recommendationsDisabled ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        enableManagedLanguageToolPrompt(tool.id);
+                        onRefreshLanguageServers();
+                      }}
+                      className="h-7 cursor-pointer rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] opacity-60 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                    >
+                      Enable prompts
+                    </button>
+                  ) : null}
+                  {!tool.installed ? (
+                    <button
+                      type="button"
+                      onClick={() => onInstallManagedLanguageTool(tool.id)}
+                      disabled={!tool.supported || installingManagedLanguageTool !== null}
+                      className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[var(--axon-panel-border)] px-2 text-[10px] text-[var(--axon-editor-foreground)] hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <Download size={11} />
+                      {installingManagedLanguageTool === tool.id
+                        ? "Installing"
+                        : "Install"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
         <div className="flex items-center justify-between border-b border-[var(--axon-panel-border)] px-3 py-2">

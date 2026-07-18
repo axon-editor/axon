@@ -11,3 +11,5 @@ declare module "monaco-editor/esm/vs/basic-languages/javascript/javascript" {
   export const conf: monaco.languages.LanguageConfiguration;
   export const language: monaco.languages.IMonarchLanguage;
 }
+
+declare module "monaco-editor/esm/vs/basic-languages/xml/xml.contribution";

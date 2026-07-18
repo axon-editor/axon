@@ -31,6 +31,8 @@ const semanticTokenLanguages = [
   "yaml",
   "shell",
   "dockerfile",
+  "xml",
+  "proto",
 ];
 
 const semanticTokenCache = new Map<

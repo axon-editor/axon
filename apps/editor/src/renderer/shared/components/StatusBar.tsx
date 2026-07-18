@@ -65,6 +65,7 @@ interface Props {
   onOpenProblems: () => void;
   onOpenBottomPanel: (tab: BottomPanelTab) => void;
   onOpenCodeSnapshot: () => void;
+  onOpenLanguageTools: () => void;
   onOpenSourceControl: () => void;
   onOpenTests: () => void;
   onViewChange: (view: view) => void;
@@ -96,6 +97,7 @@ export default function StatusBar({
   onOpenProblems,
   onOpenBottomPanel,
   onOpenCodeSnapshot,
+  onOpenLanguageTools,
   onOpenSourceControl,
   onOpenTests,
   onViewChange,
@@ -230,10 +232,16 @@ export default function StatusBar({
                 <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
               </>
             ) : null}
-            <span className="flex items-center gap-1 px-2 text-[#9aa4b8]">
-              <FileCode size={11} />
-              {languageLabel}
-            </span>
+            <Tooltip label={`Language tools for ${languageLabel}`} side="top">
+              <button
+                type="button"
+                onClick={onOpenLanguageTools}
+                className="flex h-5 cursor-pointer items-center gap-1 rounded px-2 text-[#9aa4b8] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#54d6b5]"
+              >
+                <FileCode size={11} />
+                {languageLabel}
+              </button>
+            </Tooltip>
             <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
             <span className="px-2 text-[#586478]">UTF-8</span>
             <div className="h-4 w-px bg-[var(--axon-panel-border)]" />

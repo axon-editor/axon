@@ -14,6 +14,7 @@ import StatusBar from "../../renderer/shared/components/StatusBar";
 import EditorToolbar from "../../renderer/features/editor/EditorToolbar";
 import WorkspaceLoadingOverlay from "../../renderer/shared/components/WorkspaceLoadingOverlay";
 import CliToolInstallPrompt from "../../renderer/features/cli/CliToolInstallPrompt";
+import LanguageToolInstallPrompt from "../../renderer/features/languageTools/LanguageToolInstallPrompt";
 import { AXON_COMMANDS } from "../../shared/commands";
 import { getEnabledExtensionThemes } from "../../shared/extensions";
 import { type ThemeId } from "../../shared/settings";
@@ -68,6 +69,7 @@ export function AxonAppView(props: Record<string, any>) {
     bottomPanelOpen,
     bottomPanelTab,
     cliToolInstallPrompt,
+    languageToolInstallPrompt,
     cursorInfo,
     deletedFiles,
     diagnosticCounts,
@@ -600,6 +602,9 @@ export function AxonAppView(props: Record<string, any>) {
           onOpenCodeSnapshot={() =>
             runCommand(AXON_COMMANDS.OPEN_CODE_SNAPSHOT)
           }
+          onOpenLanguageTools={() =>
+            runCommand(AXON_COMMANDS.OPEN_LANGUAGE_TOOLS)
+          }
           onOpenSourceControl={() =>
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
@@ -846,6 +851,7 @@ export function AxonAppView(props: Record<string, any>) {
 
       {loading && <WorkspaceLoadingOverlay />}
       <CliToolInstallPrompt prompt={cliToolInstallPrompt} />
+      <LanguageToolInstallPrompt prompt={languageToolInstallPrompt} />
     </div>
   );
 }

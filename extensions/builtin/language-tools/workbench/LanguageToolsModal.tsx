@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Braces,
+  Download,
   FileCode2,
   GitPullRequestArrow,
   Languages,
@@ -12,7 +13,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
+import {
+  type ManagedLanguageToolProgress,
+  type ManagedLanguageToolStatus,
+} from "@axon-editor/shared/languageTools";
 import { type FileSymbol } from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";
+import {
+  enableManagedLanguageToolPrompt,
+  isManagedLanguageToolPromptDisabled,
+} from "@axon-editor/renderer/features/languageTools/languageToolPreferences";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
@@ -50,27 +59,80 @@ export default function LanguageToolsModal({
   onOpenOutline,
 }: Props) {
   const [servers, setServers] = useState<LanguageServerStatus[]>([]);
+  const [managedTool, setManagedTool] =
+    useState<ManagedLanguageToolStatus | null>(null);
+  const [managedProgress, setManagedProgress] =
+    useState<ManagedLanguageToolProgress | null>(null);
+  const [managedToolError, setManagedToolError] = useState<string | null>(null);
+  const [installingManagedTool, setInstallingManagedTool] = useState(false);
+  const [managedPromptDisabled, setManagedPromptDisabled] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!folderPath) {
       setServers([]);
       return;
     }
     setLoading(true);
     try {
-      setServers(await window.axon.getLanguageServerStatus(folderPath));
+      const [nextServers, nextManagedTool] = await Promise.all([
+        window.axon.getLanguageServerStatus(folderPath),
+        window.axon.getManagedLanguageToolStatusForLanguage(language),
+      ]);
+      setServers(nextServers);
+      setManagedTool(nextManagedTool);
+      setManagedPromptDisabled(
+        nextManagedTool
+          ? isManagedLanguageToolPromptDisabled(nextManagedTool.id)
+          : false,
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [folderPath, language]);
 
   useEffect(() => {
     if (!open) return;
     void refresh().catch((err) => {
       console.error("failed to load language tools:", err);
     });
-  }, [open, folderPath]);
+  }, [open, refresh]);
+
+  useEffect(() => {
+    if (!open) return;
+    return window.axon.onManagedLanguageToolProgress((event) => {
+      setManagedProgress((current) =>
+        !managedTool || event.id === managedTool.id ? event : current,
+      );
+    });
+  }, [managedTool, open]);
+
+  const installManagedTool = async () => {
+    if (!folderPath || !managedTool) return;
+    setInstallingManagedTool(true);
+    setManagedToolError(null);
+    try {
+      const result = await window.axon.installManagedLanguageTool(
+        managedTool.id,
+      );
+      setManagedTool(result.status);
+      if (!result.ok) {
+        setManagedToolError(result.message);
+        return;
+      }
+      enableManagedLanguageToolPrompt(managedTool.id);
+      setManagedPromptDisabled(false);
+      await window.axon.startLanguageServerForLanguage({
+        folderPath,
+        languageId: managedTool.languages[0],
+      });
+      await refresh();
+    } catch (error) {
+      setManagedToolError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setInstallingManagedTool(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -161,6 +223,65 @@ export default function LanguageToolsModal({
                 </Tooltip>
               </div>
               <div className="max-h-full overflow-y-auto p-2">
+                {managedTool ? (
+                  <div className="mb-2 rounded border border-[var(--axon-syntax-function)]/45 bg-[var(--axon-panel-overlay-hover)] px-2 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[12px] text-[var(--axon-editor-foreground)]">
+                        {managedTool.label} managed support
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] ${
+                          managedTool.installed
+                            ? statusClass("running")
+                            : statusClass("missing")
+                        }`}
+                      >
+                        {managedTool.installed ? "installed" : "available"}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-55">
+                      {managedTool.detail}
+                    </div>
+                    {installingManagedTool && managedProgress ? (
+                      <div className="mt-2 h-1 overflow-hidden rounded bg-[var(--axon-editor-background)]">
+                        <div
+                          className="h-full bg-[var(--axon-syntax-function)] transition-[width] duration-150"
+                          style={{ width: `${managedProgress.percent ?? 18}%` }}
+                        />
+                      </div>
+                    ) : null}
+                    {managedToolError ? (
+                      <div className="mt-2 text-[10px] leading-4 text-[#ff9aa2]">
+                        {managedToolError}
+                      </div>
+                    ) : null}
+                    <div className="mt-2 flex items-center gap-2">
+                      {!managedTool.installed ? (
+                        <button
+                          type="button"
+                          disabled={installingManagedTool || !managedTool.supported}
+                          onClick={() => void installManagedTool()}
+                          className="flex h-7 cursor-pointer items-center gap-1.5 rounded border border-[var(--axon-syntax-function)] px-2 text-[10px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-editor-background)] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Download size={11} />
+                          {installingManagedTool ? "Installing" : "Install"}
+                        </button>
+                      ) : null}
+                      {managedPromptDisabled ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            enableManagedLanguageToolPrompt(managedTool.id);
+                            setManagedPromptDisabled(false);
+                          }}
+                          className="h-7 cursor-pointer rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] opacity-60 hover:bg-[var(--axon-editor-background)] hover:opacity-100"
+                        >
+                          Enable recommendations
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 {(relevantServers.length > 0 ? relevantServers : servers).map(
                   (server) => (
                     <div

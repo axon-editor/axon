@@ -396,6 +396,12 @@ export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   if (normalizedLanguageId === "shell") {
     return "bash" satisfies LanguageServerDefinition["id"];
   }
+  if (normalizedLanguageId === "proto") {
+    return "proto" satisfies LanguageServerDefinition["id"];
+  }
+  if (normalizedLanguageId === "xml") {
+    return "xml" satisfies LanguageServerDefinition["id"];
+  }
 
   return null;
 }

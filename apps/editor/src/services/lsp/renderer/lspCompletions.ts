@@ -26,6 +26,8 @@ const lspCompletionLanguages = [
   "json",
   "yaml",
   "shell",
+  "proto",
+  "xml",
 ];
 
 const webTagLanguages = [

@@ -452,11 +452,12 @@ export function getManagedLanguageServerPlatformKeys() {
 }
 
 export function getManagedLanguageServerRoots() {
-  // Packaged builds receive managed native/runtime-backed servers through
-  // Electron's extraResources directory. Development builds use the same shape
-  // under apps/editor/build/language-servers so the resolver can be tested locally
-  // before release packaging.
+  // User-installed language tools take precedence over packaged resources so
+  // an installed update can be activated immediately without replacing Axon.
+  // The packaged and development roots remain as fallbacks for the explicitly
+  // bundled Go server and for existing installations created by older builds.
   return [
+    path.join(app.getPath("userData"), "language-tools"),
     path.join(process.resourcesPath, "language-servers"),
     path.join(app.getAppPath(), "build", "language-servers"),
   ];
@@ -470,6 +471,72 @@ export function getExecutableNameVariants(executableName: string) {
     `${executableName}.cmd`,
     `${executableName}.bat`,
   ];
+}
+
+function findBundledJavaHome(directory: string, remainingDepth = 7): string | null {
+  if (remainingDepth < 0 || !fs.existsSync(directory)) return null;
+  const javaExecutable = path.join(
+    directory,
+    "bin",
+    process.platform === "win32" ? "java.exe" : "java",
+  );
+  if (fs.existsSync(javaExecutable)) return directory;
+
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const nested = findBundledJavaHome(
+      path.join(directory, entry.name),
+      remainingDepth - 1,
+    );
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function getManagedRuntimeEnvironment(
+  managedRoot: string,
+  platformKey: string,
+  definition: LanguageServerDefinition,
+) {
+  if (definition.id === "csharp") {
+    const dotnetRoot = path.join(
+      managedRoot,
+      platformKey,
+      "dotnet-sdk",
+      "runtime",
+    );
+    const dotnetExecutable = path.join(
+      dotnetRoot,
+      process.platform === "win32" ? "dotnet.exe" : "dotnet",
+    );
+    if (!fs.existsSync(dotnetExecutable)) return process.env;
+    return {
+      ...process.env,
+      DOTNET_ROOT: dotnetRoot,
+      PATH: `${dotnetRoot}${path.delimiter}${process.env.PATH ?? ""}`,
+    };
+  }
+
+  if (definition.id !== "java" && definition.id !== "kotlin") {
+    return process.env;
+  }
+
+  // Red Hat's platform-specific Java extension carries the private JRE used by
+  // VS Code to launch JDT LS. Axon keeps that package intact under runtime/, so
+  // Java can use it directly and Kotlin can share the same JVM without asking
+  // the user for a machine-wide JDK. Project JDK selection remains independent
+  // because Gradle, Maven, compilation, and execution may target another Java
+  // version even though editor intelligence is already running.
+  const javaHome = findBundledJavaHome(
+    path.join(managedRoot, platformKey, "java", "runtime"),
+  );
+  if (!javaHome) return process.env;
+  const javaBin = path.join(javaHome, "bin");
+  return {
+    ...process.env,
+    JAVA_HOME: javaHome,
+    PATH: `${javaBin}${path.delimiter}${process.env.PATH ?? ""}`,
+  };
 }
 
 export function resolveManagedLanguageServer(
@@ -493,9 +560,8 @@ export function resolveManagedLanguageServer(
 
           if (!fs.existsSync(executablePath)) continue;
 
-          // Managed bundles are where Axon can ship native or runtime-backed
-          // servers such as JDT LS, OmniSharp, Kotlin LS, and Lua LS without
-          // asking each project to install them. The
+          // Managed bundles hold both on-demand native tools and the packaged
+          // Go server without asking each project to install them. The
           // platform segment prevents macOS/Linux/Windows binaries from being
           // mixed, while the common segment still supports portable launchers.
           //
@@ -511,7 +577,7 @@ export function resolveManagedLanguageServer(
             launchCommand: executablePath,
             launchArgs:
               definition.managedBundle.launchArgs ?? definition.launchArgs,
-            env: process.env,
+            env: getManagedRuntimeEnvironment(root, platformKey, definition),
             startable: true,
           };
         }

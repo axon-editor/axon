@@ -22,6 +22,8 @@ export const LANGUAGE_SERVER_IDS = [
   "graphql",
   "mdx",
   "prisma",
+  "proto",
+  "xml",
 ] as const;
 
 export type LanguageServerId = (typeof LANGUAGE_SERVER_IDS)[number];

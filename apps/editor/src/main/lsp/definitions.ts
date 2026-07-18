@@ -134,7 +134,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "*.h",
       "*.hpp",
     ],
-    installHint: "Bundled with Axon through the managed clangd bundle.",
+    installHint: "Install clangd from Axon's Language Tools when C or C++ is detected.",
     managedBundle: {
       directoryName: "cpp",
       executableNames: ["clangd"],
@@ -162,7 +162,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: [],
     workspaceMarkers: ["Cargo.toml"],
-    installHint: "Bundled with Axon through the managed rust-analyzer bundle.",
+    installHint: "Install rust-analyzer from Axon's Language Tools when Rust is detected.",
     managedBundle: {
       directoryName: "rust",
       executableNames: ["rust-analyzer"],
@@ -199,9 +199,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "settings.gradle.kts",
       ".project",
     ],
-    installHint: "Bundled with Axon through the managed Eclipse JDT LS bundle.",
-    runtimeRequirement:
-      "Requires a JDK on the machine so JDT LS can analyze Java projects.",
+    installHint: "Install JDT LS and Axon's private Java runtime from Language Tools.",
     managedBundle: {
       directoryName: "java",
       executableNames: ["jdtls"],
@@ -220,9 +218,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "global.json",
       "Directory.Build.props",
     ],
-    installHint: "Bundled with Axon through the managed OmniSharp bundle.",
-    runtimeRequirement:
-      "Requires the .NET SDK/runtime for project restore and Roslyn analysis.",
+    installHint: "Install OmniSharp and Axon's private .NET SDK from Language Tools.",
     managedBundle: {
       directoryName: "csharp",
       executableNames: ["OmniSharp", "OmniSharp.exe", "omnisharp"],
@@ -242,9 +238,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "settings.gradle",
       "settings.gradle.kts",
     ],
-    installHint: "Bundled with Axon through the managed Kotlin language-server bundle.",
-    runtimeRequirement:
-      "Requires a JDK because Kotlin project analysis runs on the JVM.",
+    installHint: "Install Kotlin support and its shared private Java runtime from Language Tools.",
     managedBundle: {
       directoryName: "kotlin",
       executableNames: ["kotlin-language-server"],
@@ -277,7 +271,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "selene.toml",
       "stylua.toml",
     ],
-    installHint: "Bundled with Axon through the managed Lua language-server bundle.",
+    installHint: "Install Lua Language Server from Axon's Language Tools when Lua is detected.",
     managedBundle: {
       directoryName: "lua",
       executableNames: ["lua-language-server"],
@@ -558,6 +552,34 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     bundledNodeServer: {
       packagePath: ["node_modules", "@prisma", "language-server"],
       scriptPath: ["dist", "bin.js"],
+    },
+  },
+  {
+    id: "proto",
+    label: "Protocol Buffers",
+    languages: ["Protocol Buffers"],
+    command: "protols",
+    args: ["--version"],
+    launchArgs: ["--stdio"],
+    workspaceMarkers: ["*.proto", "buf.yaml", "buf.work.yaml", "protols.toml"],
+    installHint: "Install the Axon-managed Protols language server.",
+    managedBundle: {
+      directoryName: "proto",
+      executableNames: ["protols", "protols.exe"],
+    },
+  },
+  {
+    id: "xml",
+    label: "XML",
+    languages: ["XML", "XSD", "XSLT", "DTD", "SVG"],
+    command: "lemminx",
+    args: ["--version"],
+    launchArgs: [],
+    workspaceMarkers: ["*.xml", "*.xsd", "*.xsl", "*.xslt", "*.dtd"],
+    installHint: "Install the Axon-managed LemMinX language server.",
+    managedBundle: {
+      directoryName: "xml",
+      executableNames: ["lemminx", "lemminx.exe"],
     },
   },
 ];

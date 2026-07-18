@@ -38,30 +38,6 @@ const nodeBackedLanguageServerPackages = [
 
 const managedBundles = [
   { id: "go", executable: platformKey.startsWith("win32") ? "gopls.cmd" : "gopls" },
-  {
-    id: "rust",
-    executable: platformKey.startsWith("win32")
-      ? "rust-analyzer.cmd"
-      : "rust-analyzer",
-  },
-  { id: "cpp", executable: platformKey.startsWith("win32") ? "clangd.cmd" : "clangd" },
-  { id: "java", executable: platformKey.startsWith("win32") ? "jdtls.cmd" : "jdtls" },
-  {
-    id: "csharp",
-    executable: platformKey.startsWith("win32") ? "OmniSharp.cmd" : "OmniSharp",
-  },
-  {
-    id: "kotlin",
-    executable: platformKey.startsWith("win32")
-      ? "kotlin-language-server.cmd"
-      : "kotlin-language-server",
-  },
-  {
-    id: "lua",
-    executable: platformKey.startsWith("win32")
-      ? "lua-language-server.cmd"
-      : "lua-language-server",
-  },
 ];
 
 async function assertFile(filePath, label) {
@@ -203,6 +179,19 @@ async function verifyNodeBackedLanguageServerPackaging() {
   );
 }
 
+async function verifyOnlyGoIsPackagedAsANativeServer() {
+  const packageJson = await readJson(packageJsonPath);
+  const languageServerResource = (packageJson.build?.extraResources ?? []).find(
+    (resource) => resource.to === "language-servers",
+  );
+  const filters = languageServerResource?.filter ?? [];
+  if (filters.length !== 1 || filters[0] !== "**/go/**/*") {
+    throw new Error(
+      "Native language-server packaging must include only the baked Go server.",
+    );
+  }
+}
+
 async function main() {
   if (!packagingOnly) {
     const rootStat = await fs.stat(languageServerRoot).catch(() => null);
@@ -221,6 +210,7 @@ async function main() {
   }
 
   await verifyNodeBackedLanguageServerPackaging();
+  await verifyOnlyGoIsPackagedAsANativeServer();
 
   console.log(
     packagingOnly

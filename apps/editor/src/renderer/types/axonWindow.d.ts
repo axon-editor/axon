@@ -65,6 +65,12 @@ import type {
   LanguageServerStatus,
 } from "../../shared/lsp";
 import type {
+  ManagedLanguageToolId,
+  ManagedLanguageToolInstallResult,
+  ManagedLanguageToolProgress,
+  ManagedLanguageToolStatus,
+} from "../../shared/languageTools";
+import type {
   SpotifyActionResult,
   SpotifyAuthResult,
   SpotifyDevicesResult,
@@ -180,6 +186,22 @@ declare global {
       startLanguageServerForLanguage: (
         request: LanguageServerStartForFileRequest,
       ) => Promise<LanguageServerLifecycleResult>;
+      getManagedLanguageToolRecommendation: (
+        languageId: string,
+      ) => Promise<ManagedLanguageToolStatus | null>;
+      getManagedLanguageToolStatusForLanguage: (
+        languageId: string,
+      ) => Promise<ManagedLanguageToolStatus | null>;
+      getManagedLanguageToolStatus: (
+        id: ManagedLanguageToolId,
+      ) => Promise<ManagedLanguageToolStatus>;
+      listManagedLanguageTools: () => Promise<ManagedLanguageToolStatus[]>;
+      installManagedLanguageTool: (
+        id: ManagedLanguageToolId,
+      ) => Promise<ManagedLanguageToolInstallResult>;
+      onManagedLanguageToolProgress: (
+        callback: (event: ManagedLanguageToolProgress) => void,
+      ) => () => void;
       stopLanguageServers: (
         folderPath: string,
       ) => Promise<LanguageServerLifecycleResult>;
