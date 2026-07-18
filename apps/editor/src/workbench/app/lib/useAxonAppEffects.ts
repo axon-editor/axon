@@ -561,14 +561,14 @@ export function useAxonAppEffects({
   }, [folderPath, refreshGitStatus]);
 
   useEffect(() => {
-    if (!folderPath || gitStatus?.isRepository === false) return;
+    if (!folderPath) return;
 
     // Main-process native watcher events remain the immediate path. This
     // renderer-owned fallback is deliberately separate because each Axon
-    // window must refresh its own repository even when another window owns the
-    // global watcher or a packaged background event is dropped. The Git status
-    // function coalesces overlapping requests, so native events and this timer
-    // cannot create a process storm on large repositories.
+    // window must refresh its own repository even when a packaged background
+    // event is dropped. A workspace that is not a repository polls slowly so
+    // `git init` can promote it without a reopen; active repositories retain
+    // the shorter recovery interval. The status function coalesces overlap.
     const refresh = () => void refreshGitStatus({ silent: true });
     const handleVisibility = () => {
       if (!document.hidden) refresh();

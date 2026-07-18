@@ -1,5 +1,6 @@
-import chokidar, { type FSWatcher } from "chokidar";
+import chokidar, { type ChokidarOptions, type FSWatcher } from "chokidar";
 import fs from "fs";
+import path from "path";
 
 interface FileWatcherDependencies {
   shouldPollWatchers: boolean;
@@ -13,6 +14,10 @@ interface FileWatcherDependencies {
     changeType: "create" | "change" | "delete",
   ) => void;
   invalidateWorkspaceIndex: (folderPath: string) => void;
+  createWatcher?: (
+    paths: string | string[],
+    options: ChokidarOptions,
+  ) => FSWatcher;
 }
 
 function waitForWatcherReady(watcher: FSWatcher, isCurrent: () => boolean) {
@@ -37,6 +42,8 @@ function waitForWatcherReady(watcher: FSWatcher, isCurrent: () => boolean) {
   });
 }
 
+const GIT_DISCOVERY_RETRY_DELAYS_MS = [120, 400, 1_000] as const;
+
 export class FileWatcherManager {
   private activeWatcher: FSWatcher | null = null;
   private folderWatcher: FSWatcher | null = null;
@@ -45,10 +52,19 @@ export class FileWatcherManager {
   private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private gitHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private gitDiscoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private gitWatcherSetupPromise: Promise<boolean> | null = null;
+  private gitWatcherGeneration = 0;
   private folderWatchGeneration = 0;
   private watchedFolderPath: string | null = null;
 
   constructor(private readonly deps: FileWatcherDependencies) {}
+
+  private createWatcher(paths: string | string[], options: ChokidarOptions) {
+    return (
+      this.deps.createWatcher?.(paths, options) ?? chokidar.watch(paths, options)
+    );
+  }
 
   buildWatcherOptions() {
     return {
@@ -116,6 +132,12 @@ export class FileWatcherManager {
   }
 
   async closeGitWatcher() {
+    this.gitWatcherGeneration += 1;
+    this.gitWatcherSetupPromise = null;
+    if (this.gitDiscoveryTimer) {
+      clearTimeout(this.gitDiscoveryTimer);
+      this.gitDiscoveryTimer = null;
+    }
     if (this.gitDebounceTimer) {
       clearTimeout(this.gitDebounceTimer);
       this.gitDebounceTimer = null;
@@ -129,10 +151,121 @@ export class FileWatcherManager {
     this.gitWatcher = null;
   }
 
+  private isRootGitMetadataPath(folderPath: string, candidatePath: string) {
+    return (
+      path.resolve(candidatePath) === path.join(path.resolve(folderPath), ".git")
+    );
+  }
+
+  private async createGitWatcher(folderPath: string, generation: number) {
+    const gitWatcherGeneration = this.gitWatcherGeneration;
+    const gitWatchPaths = await this.deps.getGitWatchPaths(folderPath);
+    if (
+      generation !== this.folderWatchGeneration ||
+      gitWatcherGeneration !== this.gitWatcherGeneration ||
+      gitWatchPaths.length === 0
+    ) {
+      return false;
+    }
+
+    const watcher = this.createWatcher(gitWatchPaths, {
+      ...this.buildWatcherOptions(),
+      // Git watch paths are intentionally narrow (`HEAD`, `index`, `refs`,
+      // etc). A shallow depth keeps rebase/fetch updates visible without
+      // walking deep object directories on repositories with many refs.
+      depth: 2,
+    });
+    if (
+      generation !== this.folderWatchGeneration ||
+      gitWatcherGeneration !== this.gitWatcherGeneration
+    ) {
+      await watcher.close();
+      return false;
+    }
+    this.gitWatcher = watcher;
+
+    const notifyGit = () => {
+      if (this.gitDebounceTimer) clearTimeout(this.gitDebounceTimer);
+      // This timer is also instance-owned so closeGitWatcher can cancel it
+      // during rapid workspace changes. Otherwise a delayed git:changed event
+      // can repaint source-control state for the wrong workspace.
+      this.gitDebounceTimer = setTimeout(() => {
+        this.gitDebounceTimer = null;
+        if (generation !== this.folderWatchGeneration) return;
+        this.deps.sendToRenderer("git:changed", { folderPath });
+      }, 90);
+    };
+
+    watcher.on("add", notifyGit);
+    watcher.on("change", notifyGit);
+    watcher.on("unlink", notifyGit);
+    watcher.on("addDir", notifyGit);
+    watcher.on("unlinkDir", notifyGit);
+    watcher.on("error", (err) => {
+      console.warn(
+        `Git watcher failed for ${folderPath}:`,
+        err instanceof Error ? err.message : err,
+      );
+    });
+
+    // Native `change` events can occasionally disappear in packaged Electron
+    // builds. I keep this heartbeat Git-only so decorations recover without
+    // turning the complete workspace watcher into an expensive polling walk.
+    this.gitHeartbeatTimer = setInterval(() => {
+      if (generation !== this.folderWatchGeneration) return;
+      this.deps.sendToRenderer("git:changed", { folderPath });
+    }, 1_500);
+    return true;
+  }
+
+  private ensureGitWatcher(folderPath: string, generation: number) {
+    if (this.gitWatcher) return Promise.resolve(true);
+    if (this.gitWatcherSetupPromise) return this.gitWatcherSetupPromise;
+
+    const setupPromise = this.createGitWatcher(folderPath, generation).finally(
+      () => {
+        if (this.gitWatcherSetupPromise === setupPromise) {
+          this.gitWatcherSetupPromise = null;
+        }
+      },
+    );
+    this.gitWatcherSetupPromise = setupPromise;
+    return setupPromise;
+  }
+
+  private scheduleGitWatcherDiscovery(
+    folderPath: string,
+    generation: number,
+    attempt = 0,
+  ) {
+    if (generation !== this.folderWatchGeneration || this.gitWatcher) return;
+    if (this.gitDiscoveryTimer) clearTimeout(this.gitDiscoveryTimer);
+
+    const delay = GIT_DISCOVERY_RETRY_DELAYS_MS[attempt];
+    if (delay === undefined) return;
+    this.gitDiscoveryTimer = setTimeout(() => {
+      this.gitDiscoveryTimer = null;
+      void this.ensureGitWatcher(folderPath, generation).then((started) => {
+        if (!started) {
+          this.scheduleGitWatcherDiscovery(folderPath, generation, attempt + 1);
+        }
+      }).catch((error) => {
+        console.warn(
+          `Git watcher discovery failed for ${folderPath}:`,
+          error instanceof Error ? error.message : error,
+        );
+        this.scheduleGitWatcherDiscovery(folderPath, generation, attempt + 1);
+      });
+    }, delay);
+  }
+
   async watchFile(filePath: string) {
     await this.closeActiveWatcher();
 
-    this.activeWatcher = chokidar.watch(filePath, this.buildWatcherOptions());
+    this.activeWatcher = this.createWatcher(
+      filePath,
+      this.buildWatcherOptions(),
+    );
 
     this.activeWatcher.on("change", () => {
       if (this.activeFileDebounceTimer)
@@ -198,9 +331,17 @@ export class FileWatcherManager {
     this.watchedFolderPath = folderPath;
 
     try {
-      this.folderWatcher = chokidar.watch(folderPath, {
+      this.folderWatcher = this.createWatcher(folderPath, {
         ...this.buildWatcherOptions(),
-        ignored: this.deps.shouldIgnoreWorkspaceWatchPath,
+        ignored: (candidatePath) => {
+          // I keep the root .git boundary visible so a workspace can become a
+          // repository after `git init`. Descendants still use the normal ignore
+          // rule and are handled by the narrow Git watcher after discovery.
+          if (this.isRootGitMetadataPath(folderPath, candidatePath)) {
+            return false;
+          }
+          return this.deps.shouldIgnoreWorkspaceWatchPath(candidatePath);
+        },
         depth: 8,
       });
 
@@ -235,6 +376,9 @@ export class FileWatcherManager {
           "create",
         );
         notify(changedPath);
+        if (this.isRootGitMetadataPath(folderPath, changedPath)) {
+          this.scheduleGitWatcherDiscovery(folderPath, generation);
+        }
       });
       this.folderWatcher.on("change", (changedPath) => {
         this.deps.notifyLanguageServersOfFileChange(
@@ -251,9 +395,22 @@ export class FileWatcherManager {
           "delete",
         );
         notify(changedPath);
+        if (this.isRootGitMetadataPath(folderPath, changedPath)) {
+          void this.closeGitWatcher();
+        }
       });
-      this.folderWatcher.on("addDir", notify);
-      this.folderWatcher.on("unlinkDir", notify);
+      this.folderWatcher.on("addDir", (changedPath) => {
+        notify(changedPath);
+        if (this.isRootGitMetadataPath(folderPath, changedPath)) {
+          this.scheduleGitWatcherDiscovery(folderPath, generation);
+        }
+      });
+      this.folderWatcher.on("unlinkDir", (changedPath) => {
+        notify(changedPath);
+        if (this.isRootGitMetadataPath(folderPath, changedPath)) {
+          void this.closeGitWatcher();
+        }
+      });
       this.folderWatcher.on("error", (err) => {
         console.warn(
           `workspace watcher failed for ${folderPath}:`,
@@ -276,51 +433,15 @@ export class FileWatcherManager {
       this.deps.sendToRenderer("fs:folderChanged", { path: folderPath });
       this.deps.sendToRenderer("git:changed", { folderPath });
 
-      const gitWatchPaths = await this.deps.getGitWatchPaths(folderPath);
-      if (generation !== this.folderWatchGeneration) return;
-      if (gitWatchPaths.length > 0) {
-        this.gitWatcher = chokidar.watch(gitWatchPaths, {
-          ...this.buildWatcherOptions(),
-          // Git watch paths are intentionally narrow (`HEAD`, `index`, `refs`,
-          // etc). A shallow depth keeps rebase/fetch updates visible without
-          // walking deep object directories on repositories with many refs.
-          depth: 2,
-        });
-
-        const notifyGit = () => {
-          if (this.gitDebounceTimer) clearTimeout(this.gitDebounceTimer);
-          // This timer is also instance-owned so closeGitWatcher can cancel it
-          // during rapid workspace changes. Otherwise a delayed git:changed
-          // event can repaint source-control state for the wrong workspace.
-          this.gitDebounceTimer = setTimeout(() => {
-            this.gitDebounceTimer = null;
-            if (generation !== this.folderWatchGeneration) return;
-            this.deps.sendToRenderer("git:changed", { folderPath });
-          }, 90);
-        };
-
-        this.gitWatcher.on("add", notifyGit);
-        this.gitWatcher.on("change", notifyGit);
-        this.gitWatcher.on("unlink", notifyGit);
-        this.gitWatcher.on("addDir", notifyGit);
-        this.gitWatcher.on("unlinkDir", notifyGit);
-        this.gitWatcher.on("error", (err) => {
-          console.warn(
-            `Git watcher failed for ${folderPath}:`,
-            err instanceof Error ? err.message : err,
-          );
-        });
-
-        // Packaged Electron builds can miss native `change` events for edited
-        // files on some filesystem/OS combinations even when `add` events still
-        // work. That is the exact failure mode where new files turn green but
-        // modified files do not repaint. I keep this heartbeat Git-only instead
-        // of enabling full workspace polling so sidebar decorations stay fresh
-        // without making the file tree or language-server watcher expensive.
-        this.gitHeartbeatTimer = setInterval(() => {
-          if (generation !== this.folderWatchGeneration) return;
-          this.deps.sendToRenderer("git:changed", { folderPath });
-        }, 1500);
+      const gitWatcherStarted = await this.ensureGitWatcher(
+        folderPath,
+        generation,
+      );
+      if (
+        !gitWatcherStarted &&
+        fs.existsSync(path.join(folderPath, ".git"))
+      ) {
+        this.scheduleGitWatcherDiscovery(folderPath, generation);
       }
     } catch (err) {
       // If git path discovery or watcher setup fails halfway through, the app
