@@ -42,18 +42,29 @@ export function isTerminalAtBottom(term: XTerm) {
 }
 
 export function scheduleTerminalRefresh(session: TerminalSession) {
-  // xterm already batches normal writes internally. This explicit refresh is
-  // only a paint nudge for the cases where xterm has parsed output into its
-  // buffer but the renderer has not advanced the visible rows yet. The
-  // requestAnimationFrame guard is the important throttle: callers can request
-  // refreshes from every write callback or heartbeat tick, and the browser will
-  // still collapse them into at most one repaint per frame.
+  // xterm already batches normal writes internally, while Axon can have several
+  // write callbacks complete during the same browser frame. I coalesce both the
+  // follow and repaint work here so those callbacks cannot issue competing
+  // scrollToBottom calls while xterm is moving rows from the viewport into
+  // scrollback. session.atBottom is the user's persistent follow intent; it is
+  // deliberately not recalculated from xterm's transient buffer coordinates in
+  // this output path.
   if (!session.term || session.refreshFrame !== null) return;
 
   session.refreshFrame = window.requestAnimationFrame(() => {
     session.refreshFrame = null;
     if (!session.term || session.disposed) return;
-    session.term.refresh(0, Math.max(0, session.term.rows - 1));
+
+    if (session.atBottom) {
+      session.term.scrollToBottom();
+    }
+
+    // A full refresh is only a fallback after xterm has committed the burst.
+    // Refreshing while its parser still owns queued writes can repaint a moving
+    // viewport and was unnecessary because xterm paints those writes itself.
+    if (!hasPendingTerminalOutput(session)) {
+      session.term.refresh(0, Math.max(0, session.term.rows - 1));
+    }
   });
 }
 
@@ -209,13 +220,6 @@ function drainTerminalOutput(session: TerminalSession) {
     // byte instead of pretending the browser already painted it.
     session.outputWriting = true;
     session.inFlightWriteBytes += batch.byteLength;
-    // xterm accepts several writes before their callbacks run. The follow state
-    // therefore belongs to this batch, not to the shared session: a later batch
-    // must not overwrite the decision made while this batch still had the
-    // viewport at the bottom. Rechecking after the write is also too late because
-    // xterm may already have advanced baseY, making a previously-following view
-    // look manually scrolled even though the user never moved it.
-    const shouldFollowOutput = isTerminalAtBottom(session.term);
     batchesWritten += 1;
 
     session.term.write(batch.data, () => {
@@ -230,9 +234,6 @@ function drainTerminalOutput(session: TerminalSession) {
 
       const settled = !hasPendingTerminalOutput(session);
       sendTerminalAck(session, settled);
-      if (session.term && shouldFollowOutput) {
-        session.term.scrollToBottom();
-      }
       scheduleTerminalRefresh(session);
 
       if (settled) {

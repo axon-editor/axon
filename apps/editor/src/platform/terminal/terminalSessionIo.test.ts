@@ -45,10 +45,13 @@ function createSession() {
 }
 
 describe("terminal output accounting", () => {
+  let animationFrames: FrameRequestCallback[];
+
   beforeEach(() => {
+    animationFrames = [];
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
+      animationFrames.push(callback);
+      return animationFrames.length;
     });
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
   });
@@ -70,9 +73,11 @@ describe("terminal output accounting", () => {
       type: "ack",
       offset: 12,
     });
+
+    animationFrames.splice(0).forEach((callback) => callback(0));
   });
 
-  it("keeps each queued write's auto-scroll decision until its callback runs", () => {
+  it("preserves live-follow intent while xterm's viewport transiently lags", () => {
     const { session } = createSession();
     const callbacks: Array<() => void> = [];
     const term = session.term!;
@@ -84,17 +89,31 @@ describe("terminal output accounting", () => {
     buffer.baseY = 10;
     writeTerminalOutput(session, "first batch");
 
-    // Simulate xterm advancing its buffer while the first write is still
-    // pending, followed by another queued write while the user-visible viewport
-    // has not caught up. The first callback must retain its original follow
-    // decision instead of reading state overwritten by the second write.
+    // xterm can advance baseY before its visible viewport catches up. The user
+    // has not scrolled here, so that transient coordinate mismatch must not turn
+    // off the session's persistent live-follow intent.
     buffer.baseY = 20;
     writeTerminalOutput(session, "second batch");
 
     expect(callbacks).toHaveLength(2);
     callbacks[0]();
     callbacks[1]();
+    animationFrames.splice(0).forEach((callback) => callback(0));
 
     expect(term.scrollToBottom).toHaveBeenCalledTimes(1);
+    expect(term.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not pull a detached reader back to the live tail", () => {
+    const { session } = createSession();
+    const term = session.term!;
+    session.atBottom = false;
+    vi.mocked(term.scrollToBottom).mockClear();
+
+    writeTerminalOutput(session, "new output while reading scrollback");
+    animationFrames.splice(0).forEach((callback) => callback(0));
+
+    expect(term.scrollToBottom).not.toHaveBeenCalled();
+    expect(term.refresh).toHaveBeenCalledTimes(1);
   });
 });

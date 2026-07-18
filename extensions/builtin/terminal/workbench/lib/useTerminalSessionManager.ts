@@ -521,11 +521,56 @@ export function useTerminalSessionManager({
 
       session.term = term;
       session.fitAddon = fitAddon;
+      let viewportGestureActive = false;
       session.scrollDisposable = term.onScroll((line) => {
         session.scrollLine = line;
-        session.atBottom = isTerminalAtBottom(term);
+        const viewportAtBottom = isTerminalAtBottom(term);
+
+        // xterm emits scroll events both for real user navigation and while new
+        // output advances baseY. During a live burst, viewportY can briefly lag
+        // behind baseY even though the user is still following the tail. Treating
+        // that parser-driven event as user intent switches auto-follow off at the
+        // exact moment rows enter scrollback. Only an observed wheel, keyboard,
+        // or scrollbar gesture may detach a following terminal; reaching the
+        // bottom always resumes following.
+        if (viewportAtBottom || viewportGestureActive) {
+          session.atBottom = viewportAtBottom;
+        }
       });
       connectSession(id);
+
+      const updateFollowAfterViewportGesture = () => {
+        window.requestAnimationFrame(() => {
+          if (!session.term || session.disposed) return;
+          session.scrollLine = session.term.buffer.active.viewportY;
+          session.atBottom = isTerminalAtBottom(session.term);
+        });
+      };
+      const handleTerminalWheel = (event: WheelEvent) => {
+        viewportGestureActive = true;
+        if (event.deltaY < 0) session.atBottom = false;
+        updateFollowAfterViewportGesture();
+        window.requestAnimationFrame(() => {
+          viewportGestureActive = false;
+        });
+      };
+      const viewport = container.querySelector<HTMLElement>(".xterm-viewport");
+      const handleViewportPointerDown = () => {
+        viewportGestureActive = true;
+      };
+      const handleViewportPointerUp = () => {
+        updateFollowAfterViewportGesture();
+        window.requestAnimationFrame(() => {
+          viewportGestureActive = false;
+        });
+      };
+
+      container.addEventListener("wheel", handleTerminalWheel, {
+        capture: true,
+        passive: true,
+      });
+      viewport?.addEventListener("pointerdown", handleViewportPointerDown);
+      window.addEventListener("pointerup", handleViewportPointerUp);
 
       const handleMultilineKeydown = (event: KeyboardEvent) => {
         const isEnter =
@@ -542,11 +587,24 @@ export function useTerminalSessionManager({
       };
       container.addEventListener("keydown", handleMultilineKeydown, true);
       session.multilineDisposable = {
-        dispose: () =>
-          container.removeEventListener("keydown", handleMultilineKeydown, true),
+        dispose: () => {
+          container.removeEventListener("keydown", handleMultilineKeydown, true);
+          container.removeEventListener("wheel", handleTerminalWheel, true);
+          viewport?.removeEventListener(
+            "pointerdown",
+            handleViewportPointerDown,
+          );
+          window.removeEventListener("pointerup", handleViewportPointerUp);
+        },
       };
       term.attachCustomKeyEventHandler((event) => {
         if (event.type !== "keydown") return true;
+
+        if (event.shiftKey && event.key === "PageUp") {
+          session.atBottom = false;
+        } else if (event.shiftKey && event.key === "PageDown") {
+          updateFollowAfterViewportGesture();
+        }
 
         const isEnter =
           event.key === "Enter" ||
