@@ -2,6 +2,39 @@
 
 ## Next
 
+## v1.3.1
+
+- Added a built-in code snapshot editor with selection capture, syntax-aware
+  PNG rendering, configurable framing, Axon branding, clipboard copy, and
+  native save support.
+- Added live editor controls for tab size, spaces, indentation detection,
+  source padding, indentation guides, active guides, and bracket-pair guides.
+- Reworked TypeScript project discovery for arbitrary monorepos without
+  hardcoded Axon source paths.
+- Fixed terminal live-tail output loss while an agent streams into the visible
+  viewport and preserved detached readers while new output continues.
+- Detected Git initialization inside an already-open workspace without requiring
+  the folder to be closed and reopened.
+- Kept open files, Git state, and the workspace tree current across rapid agent
+  writes, atomic file replacement, and multi-file watcher bursts.
+- Added built-in syntax detection and lazy grammars for Swift, Ruby, Dart, SQL,
+  TOML, Zig, Terraform, LaTeX, Scala, Clojure, Haskell, Erlang, R, PowerShell,
+  Assembly, Makefile, XML, and Protocol Buffers.
+- Added secure on-demand language-tool installation with pinned versions,
+  integrity verification, archive traversal protection, cancellation cleanup,
+  atomic activation, repair, update, and dependency-aware uninstall support.
+- Added private managed Java, .NET, and PowerShell runtimes where required while
+  sharing dependencies between compatible language servers.
+- Kept npm-backed language servers and Go bundled while excluding roughly
+  485 MB of other uncompressed native server resources from release packaging.
+- Moved workspace language controls to the left status bar and added a focused
+  Language Tools surface with detection, install progress, lifecycle actions,
+  and logs.
+- Fixed YAML startup with npm-hoisted development dependencies, stopped
+  Makefiles from activating C++, and treated `.dockerignore` as an ignore file.
+- Corrected editor zoom direction and viewport preservation, kept zoomed text
+  line height proportional, and restored `Cmd/Ctrl+B` sidebar toggling.
+
 ## v1.3.0
 
 - Moved the Git commit graph from Source Control into a normal editor tab with

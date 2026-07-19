@@ -12,23 +12,29 @@ renderer.
 | Language | Server | Status |
 | --- | --- | --- |
 | TypeScript / JavaScript | `typescript-language-server` | Bundled with Axon |
-| Go | `gopls` | Axon managed bundle path |
+| Go | `gopls` | Bundled with Axon |
 | Python | `pyright-langserver` | Bundled with Axon |
-| Rust | `rust-analyzer` | Axon managed bundle path |
-| C / C++ | `clangd` | Axon managed bundle path |
-| Java | `jdtls` | Axon managed bundle path |
-| C# | `OmniSharp` | Axon managed bundle path |
-| Kotlin | `kotlin-language-server` | Axon managed bundle path |
+| Rust | `rust-analyzer` | Installed on demand |
+| C / C++ | `clangd` | Installed on demand |
+| Java | `jdtls` with private JRE | Installed on demand |
+| C# | C# language server with private .NET | Installed on demand |
+| Kotlin | `kotlin-language-server` with shared JRE | Installed on demand |
 | PHP | `intelephense` | Bundled with Axon |
-| Lua | `lua-language-server` | Axon managed bundle path |
+| Lua | `lua-language-server` | Installed on demand |
+| XML / Protocol Buffers | `lemminx` / `protols` | Installed on demand |
+| Swift / Ruby / Scala / R / PowerShell | Runtime-backed servers | Installed or connected on demand |
+| Dart / SQL / TOML / Zig / Terraform / LaTeX | Language-specific servers | Installed on demand |
+| Clojure / Haskell / Erlang / Assembly / Makefile | Language-specific servers | Installed on demand |
 
 ## Current LSP Features
 
-- Server detection in Settings.
-- Clear server status in Settings: bundled, running, missing, or failed.
+- Automatic workspace language detection.
+- Status-bar Language Tools access with workspace and complete catalog views.
+- Clear server status: bundled, running, available, missing, or failed.
 - Server lifecycle start/stop.
-- Server restart from Settings after runtime or virtual environment changes.
-- LSP logs visible from Settings through the Output panel.
+- Server restart after runtime or virtual environment changes.
+- LSP logs visible through the Output panel.
+- Install, cancel, update, repair, and uninstall actions for managed tools.
 - Active-file server startup.
 - Completion requests.
 - Rich completion items: snippets, text edits, commit characters, and
@@ -38,8 +44,8 @@ renderer.
   Pyright is still starting.
 - Live diagnostics from `textDocument/publishDiagnostics`.
 - Python virtual environment selection for import resolution.
-- Runtime requirement messages for servers that still need project tooling such
-  as a Python venv, JDK, or .NET runtime.
+- Runtime requirement messages for ecosystem-backed tools that use an existing
+  Swift, Ruby, R, or Python installation.
 
 ## Python Virtual Environments
 
@@ -48,51 +54,47 @@ Flask inside a project virtual environment. Pyright cannot resolve those imports
 from the global Python runtime unless Axon tells it which interpreter belongs to
 the project.
 
-Use `Settings -> Language Servers -> Python virtual environment` and select the
-folder that contains the environment, such as `.venv` or `venv`. Axon detects
+Select the Python virtual environment and choose the folder that contains the
+environment, such as `.venv` or `venv`. Axon detects
 the interpreter inside that folder, saves both the environment path and the
 resolved interpreter path, then sends those settings to Pyright during startup.
 
-After changing the environment, use the Language Servers `Restart` action. That
+After changing the environment, use the Language Tools `Restart` action. That
 restarts Pyright with the new interpreter settings, which is safer than trying
 to reuse an already-started server that analyzed the workspace with stale
 runtime paths.
 
-## How Managed Bundles Ship
+## How Language Tools Ship
 
-TypeScript, Python, PHP, Docker, and Tailwind are bundled through npm packages
-that ship inside the Electron app.
-
-Go, Rust, C/C++, Java, C#, Kotlin, and Lua are downloaded or built into Axon's
-managed language server bundle directory during release builds:
+TypeScript, Python, PHP, HTML, CSS, JSON, YAML, Bash, Docker, Tailwind, and the
+other npm-backed web servers ship inside the Electron app. Go is the only native
+language server baked into each platform release:
 
 ```text
 editor/build/language-servers/<platform>-<arch>/<server>/bin/<executable>
 ```
 
-Packaged builds copy that directory into Electron `extraResources` as
-`language-servers/`. That lets Axon ship runtime-backed tools per platform
-without asking every project to install them separately.
+Packaged builds filter Electron `extraResources` to the `go` directory. Native
+servers and private runtime dependencies for other languages are installed into
+Axon's user-data directory only after the user chooses Install in Language Tools.
 
-The platform segment is based on Node's `process.platform` and `process.arch`.
-For example, an Intel macOS build creates `darwin-x64`, while an Apple Silicon
-build creates `darwin-arm64`. GitHub Actions runs this bundler separately on
-macOS x64, macOS arm64, Windows x64, and Linux x64, so each release asset only
-contains the server bundle that matches that artifact.
+Managed downloads use the current platform and architecture, pin reviewed asset
+versions and checksums, reject unsafe archive contents, and activate only after
+verification succeeds. Cancelling or failing an install removes staging data
+without replacing a working tool.
 
-Those generated binaries are intentionally ignored in source control. Users who
-download a GitHub release asset already have the matching managed servers inside
-the app. Developers who clone the repo can run `npm run build:language-servers`
-inside `editor/` to recreate the local bundle.
+Generated Go binaries are intentionally ignored in source control. Developers
+who clone the repo can run `npm --workspace axon run build:language-servers` to
+recreate the local release bundle.
 
-Bundled Java/Kotlin/C# servers still expect the matching language runtime or
-SDK to be available for real project analysis. C/C++ projects still need build
-metadata such as `compile_commands.json` for best results. That is different
-from asking the user to install the language server itself: Axon ships the
-server payload, while the project toolchain remains the user's normal
-development runtime.
+Java and Kotlin share Axon's private managed JRE. C# uses Axon's private managed
+.NET runtime, and PowerShell can use a private managed `pwsh` runtime. Project
+toolchains are still separate: C/C++ projects benefit from
+`compile_commands.json`, and language servers do not replace compilers, package
+managers, or SDK requirements imposed by the project itself.
 
 ## Next LSP Work
 
-- Add Settings UI actions for installing/updating managed language tools.
-- Show runtime/toolchain requirements beside each bundled server in Settings.
+- Add per-workspace language-tool version policies.
+- Add signed first-party mirrors for upstream assets that do not publish stable
+  checksummed releases.

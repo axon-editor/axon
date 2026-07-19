@@ -238,29 +238,29 @@ acts as an LSP client and talks to language servers.
 Currently targeted:
 
 - TypeScript/JavaScript: bundled `typescript-language-server`
-- Go: managed `gopls` bundle path
+- Go: bundled managed `gopls`
 - Python: bundled `pyright-langserver`
-- Rust: managed `rust-analyzer` bundle path
-- C/C++: managed `clangd` bundle path
-- Java: managed `jdtls` bundle path
-- C#: managed OmniSharp/C# bundle path
-- Kotlin: managed `kotlin-language-server` bundle path
 - PHP: bundled `intelephense`
-- Lua: managed `lua-language-server` bundle path
+- HTML, CSS, JSON, YAML, Docker, Bash, and web frameworks: bundled npm servers
+- C/C++, Rust, Java, C#, Kotlin, Lua, XML, Protocol Buffers, Dart, SQL,
+  TOML, Zig, Terraform, LaTeX, Clojure, Haskell, Erlang, and Assembly:
+  installed on demand from Language Tools
+- Swift, Ruby, Scala, R, PowerShell, and Makefile: detected automatically and
+  installed or connected through their supported runtime toolchains
 
-Release builds download the native managed servers on the GitHub runner for
-that platform, then package them inside the desktop app. A GitHub release asset
-therefore already contains its matching server bundle; the app does not download
-those servers again on the user's machine. Source checkouts keep those generated
-binaries ignored, so local development uses `npm run build:language-servers`
-when a fresh bundle is needed.
+Release builds package npm-backed servers and Go. Other native servers, SDKs,
+and private runtimes are downloaded only when the user installs their language
+from Axon's Language Tools. Downloads are version-pinned, integrity-checked,
+staged outside the active installation, and cleaned up when cancelled or failed.
+This keeps the desktop installer smaller without removing syntax highlighting
+or workspace language detection.
 
 More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
 
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history and
-[docs/releases/v1.3.0.md](docs/releases/v1.3.0.md) for the latest release
+[docs/releases/v1.3.1.md](docs/releases/v1.3.1.md) for the latest release
 notes.
 
 ## License
