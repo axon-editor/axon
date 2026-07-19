@@ -17,6 +17,15 @@ import {
   type ManagedLanguageToolCatalogEntry,
 } from "./catalog";
 import { extractLanguageToolArchive, findExecutable } from "./archive";
+import {
+  installEcosystemTool,
+  resolveRuntimeCommand,
+  runManagedToolCommand,
+} from "./ecosystemInstaller";
+import {
+  writeMetalsLauncher,
+  writePowerShellEditorServicesLauncher,
+} from "./powershellLauncher";
 
 const MAX_TOOL_ARCHIVE_BYTES = 512 * 1024 * 1024;
 
@@ -178,7 +187,8 @@ export class ManagedLanguageToolManager {
       entry.pinnedGithubAsset?.tag ??
       Object.values(entry.pinnedGithubAssets ?? {})[0]?.tag ??
       Object.values(entry.pinnedHttpsAssets ?? {})[0]?.version ??
-      entry.dotnetSdk?.version
+      entry.dotnetSdk?.version ??
+      entry.ecosystemInstaller?.version
     );
   }
 
@@ -202,6 +212,9 @@ export class ManagedLanguageToolManager {
     const entry = getManagedLanguageToolCatalogEntry(id);
     if (!entry) throw new Error(`Unknown managed language tool: ${id}`);
     const platformKey = getManagedLanguageToolPlatformKey();
+    const ecosystemRuntime = entry.ecosystemInstaller
+      ? await resolveRuntimeCommand(entry.ecosystemInstaller.runtimeCommands)
+      : null;
     const assetName = Boolean(
       entry.assetNames[platformKey] ||
       entry.assetPatterns?.[platformKey] ||
@@ -209,7 +222,9 @@ export class ManagedLanguageToolManager {
       entry.pinnedGithubAsset?.platforms.includes(platformKey) ||
       entry.pinnedGithubAssets?.[platformKey] ||
       entry.pinnedHttpsAssets?.[platformKey] ||
-      entry.dotnetSdk?.ridByPlatform[platformKey],
+      entry.dotnetSdk?.ridByPlatform[platformKey] ||
+      entry.openVsx?.platforms.includes("universal") ||
+      ecosystemRuntime,
     );
     const executableInstalled = await fs
       .access(this.getExecutablePath(entry))
@@ -256,7 +271,9 @@ export class ManagedLanguageToolManager {
         ? `${entry.label} language tools are installed.`
         : assetName
           ? `${entry.label} language tools can be installed by Axon.`
-          : `${entry.label} language tools are not published for this platform.`,
+          : entry.ecosystemInstaller
+            ? `${entry.label} requires ${entry.ecosystemInstaller.runtimeCommands.join(" or ")} before Axon can install its language server.`
+            : `${entry.label} language tools are not published for this platform.`,
     };
   }
 
@@ -351,11 +368,18 @@ export class ManagedLanguageToolManager {
     }
 
     if (entry.openVsx) {
-      if (!entry.openVsx.platforms.includes(platformKey)) {
+      const targetPlatform = entry.openVsx.platforms.includes(platformKey)
+        ? platformKey
+        : entry.openVsx.platforms.includes("universal")
+          ? "universal"
+          : null;
+      if (!targetPlatform) {
         throw new Error(`${entry.label} is not available for this platform.`);
       }
       const { namespace, extension, version } = entry.openVsx;
-      const metadataPath = `/api/${namespace}/${extension}/${platformKey}/${version}`;
+      const metadataPath = targetPlatform === "universal"
+        ? `/api/${namespace}/${extension}/${version}`
+        : `/api/${namespace}/${extension}/${targetPlatform}/${version}`;
       const response = await fetch(`https://open-vsx.org${metadataPath}`, {
         signal,
         headers: { Accept: "application/json", "User-Agent": `Axon/${app.getVersion()}` },
@@ -369,7 +393,7 @@ export class ManagedLanguageToolManager {
         metadata.namespace !== namespace ||
         metadata.name !== extension ||
         metadata.version !== version ||
-        metadata.targetPlatform !== platformKey ||
+        metadata.targetPlatform !== targetPlatform ||
         metadata.verified !== true ||
         !metadata.files?.download ||
         !metadata.files.sha256 ||
@@ -402,7 +426,7 @@ export class ManagedLanguageToolManager {
       }
       return {
         version,
-        name: `${namespace}.${extension}-${version}@${platformKey}.vsix`,
+        name: `${namespace}.${extension}-${version}@${targetPlatform}.vsix`,
         size,
         hashAlgorithm: "sha256",
         checksum: checksum.toLowerCase(),
@@ -620,7 +644,77 @@ export class ManagedLanguageToolManager {
           : entry.commandName,
       );
       const relativeExecutable = path.relative(binRoot, executablePath);
-      if (process.platform === "win32") {
+      if (entry.launcher?.kind === "powershell-editor-services") {
+        const dependencyEntry = getManagedLanguageToolCatalogEntry(
+          entry.launcher.runtimeDependency,
+        );
+        if (!dependencyEntry) {
+          throw new Error("The PowerShell runtime dependency is not configured.");
+        }
+        const finalScriptPath = path.join(
+          toolRoot,
+          path.relative(stagingRoot, executablePath),
+        );
+        await writePowerShellEditorServicesLauncher({
+          launcherPath: installedExecutablePath,
+          scriptPath: finalScriptPath,
+          runtimePath: this.getExecutablePath(dependencyEntry),
+          toolRoot,
+          version: asset.version,
+        });
+      } else if (entry.launcher?.kind === "java-coursier") {
+        const dependencyEntry = getManagedLanguageToolCatalogEntry(
+          entry.launcher.runtimeDependency,
+        );
+        const artifact = entry.launcher.artifact;
+        if (!dependencyEntry || !artifact) {
+          throw new Error("The Scala runtime bootstrap is not configured.");
+        }
+        const javaPath = await findExecutable(
+          path.join(this.getToolRoot(dependencyEntry.id), "runtime"),
+          ["java", "java.exe"],
+        );
+        if (!javaPath) {
+          throw new Error("Axon's managed Java runtime does not contain Java.");
+        }
+        const metalsName = process.platform === "win32" ? "metals.bat" : "metals";
+        const stagedMetalsPath = path.join(runtimeRoot, metalsName);
+        const javaHome = path.dirname(path.dirname(javaPath));
+        await runManagedToolCommand({
+          command: javaPath,
+          args: [
+            "-jar",
+            executablePath,
+            "bootstrap",
+            artifact,
+            "-o",
+            stagedMetalsPath,
+            "-f",
+            "--java-opt",
+            "-Xss4m",
+            "--java-opt",
+            "-Xms100m",
+            "--java-opt",
+            "-Dmetals.client=axon",
+          ],
+          cwd: runtimeRoot,
+          env: {
+            ...process.env,
+            JAVA_HOME: javaHome,
+            PATH: `${path.join(javaHome, "bin")}${path.delimiter}${process.env.PATH ?? ""}`,
+            COURSIER_CACHE: path.join(stagingRoot, "cache"),
+          },
+          signal,
+        });
+        if (process.platform !== "win32") {
+          await fs.chmod(stagedMetalsPath, 0o755);
+        }
+        await writeMetalsLauncher({
+          launcherPath: installedExecutablePath,
+          metalsPath: path.join(toolRoot, "runtime", metalsName),
+          cacheRoot: path.join(toolRoot, "cache"),
+        });
+      } else if (process.platform === "win32") {
         if (/[%"\r\n]/.test(relativeExecutable)) {
           throw new Error("The language tool executable has an unsafe Windows path.");
         }
@@ -658,18 +752,62 @@ export class ManagedLanguageToolManager {
         "utf8",
       );
 
-      const previousRoot = `${toolRoot}.previous`;
-      signal.throwIfAborted();
+      await this.replaceToolRoot(toolRoot, stagingRoot, signal);
+    } finally {
+      await fs.rm(stagingRoot, { recursive: true, force: true });
+    }
+  }
+
+  private async replaceToolRoot(
+    toolRoot: string,
+    stagingRoot: string,
+    signal: AbortSignal,
+  ) {
+    const previousRoot = `${toolRoot}.previous`;
+    signal.throwIfAborted();
+    await fs.rm(previousRoot, { recursive: true, force: true });
+    await fs.mkdir(path.dirname(toolRoot), { recursive: true });
+    await fs.rename(toolRoot, previousRoot).catch(() => undefined);
+    try {
+      await fs.rename(stagingRoot, toolRoot);
       await fs.rm(previousRoot, { recursive: true, force: true });
-      await fs.mkdir(path.dirname(toolRoot), { recursive: true });
-      await fs.rename(toolRoot, previousRoot).catch(() => undefined);
-      try {
-        await fs.rename(stagingRoot, toolRoot);
-        await fs.rm(previousRoot, { recursive: true, force: true });
-      } catch (error) {
-        await fs.rename(previousRoot, toolRoot).catch(() => undefined);
-        throw error;
-      }
+    } catch (error) {
+      await fs.rename(previousRoot, toolRoot).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async installEcosystemPackage(
+    entry: ManagedLanguageToolCatalogEntry,
+    signal: AbortSignal,
+  ) {
+    const toolRoot = this.getToolRoot(entry.id);
+    const stagingRoot = `${toolRoot}.installing-${process.pid}-${Date.now()}`;
+    await fs.rm(stagingRoot, { recursive: true, force: true });
+    await fs.mkdir(stagingRoot, { recursive: true });
+    try {
+      const version = await installEcosystemTool({
+        entry,
+        stagingRoot,
+        finalToolRoot: toolRoot,
+        signal,
+      });
+      signal.throwIfAborted();
+      await fs.writeFile(
+        path.join(stagingRoot, "install.json"),
+        JSON.stringify(
+          {
+            id: entry.id,
+            version,
+            source: entry.ecosystemInstaller?.kind,
+            installedAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+      await this.replaceToolRoot(toolRoot, stagingRoot, signal);
     } finally {
       await fs.rm(stagingRoot, { recursive: true, force: true });
     }
@@ -737,14 +875,19 @@ export class ManagedLanguageToolManager {
         };
       }
     }
-    const temporaryRoot = await fs.mkdtemp(
-      path.join(app.getPath("temp"), `axon-${id}-`),
-    );
+    const temporaryRoot = await fs.mkdtemp(path.join(app.getPath("temp"), `axon-${id}-`));
     const archivePath = path.join(temporaryRoot, "tool.archive");
 
     try {
       this.publish(targetWindow, { id, phase: "resolving" });
       signal.throwIfAborted();
+      if (entry.ecosystemInstaller) {
+        this.publish(targetWindow, { id, phase: "installing" });
+        await this.installEcosystemPackage(entry, signal);
+        const message = `${entry.label} language tools were installed.`;
+        this.publish(targetWindow, { id, phase: "installed", message });
+        return { ok: true, message, status: await this.getStatus(id) };
+      }
       const asset = await this.resolveAsset(entry, signal);
       this.publish(targetWindow, {
         id,

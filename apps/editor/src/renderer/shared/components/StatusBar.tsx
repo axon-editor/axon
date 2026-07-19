@@ -151,6 +151,24 @@ export default function StatusBar({
           </Tooltip>
         )}
 
+        {hasWorkspace && (
+          <Tooltip label="Workspace language tools" side="top">
+            <button
+              type="button"
+              onClick={onOpenLanguageTools}
+              aria-label="Workspace language tools"
+              aria-pressed={languageToolsOpen}
+              className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+                languageToolsOpen
+                  ? "bg-[var(--axon-panel-overlay-hover)] text-[#54d6b5]"
+                  : "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#54d6b5] hover:opacity-100"
+              }`}
+            >
+              <Zap size={12} />
+            </button>
+          </Tooltip>
+        )}
+
         <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 
         <Tooltip label="Files (Status bar)" side="top">
@@ -239,21 +257,6 @@ export default function StatusBar({
               <FileCode size={11} />
               {languageLabel}
             </span>
-            <Tooltip label="Workspace language tools" side="top">
-              <button
-                type="button"
-                onClick={onOpenLanguageTools}
-                aria-label="Workspace language tools"
-                aria-pressed={languageToolsOpen}
-                className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
-                  languageToolsOpen
-                    ? "bg-[var(--axon-panel-overlay-hover)] text-[#54d6b5]"
-                    : "text-[#586478] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#54d6b5]"
-                }`}
-              >
-                <Zap size={12} />
-              </button>
-            </Tooltip>
             <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
             <span className="px-2 text-[#586478]">UTF-8</span>
             <div className="h-4 w-px bg-[var(--axon-panel-border)]" />

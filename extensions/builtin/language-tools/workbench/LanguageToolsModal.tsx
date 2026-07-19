@@ -220,22 +220,26 @@ export default function LanguageToolsModal({
       <div className="flex items-center gap-1">
         <Tooltip
           label={
-            tool.updateAvailable
-              ? "Update"
-              : tool.installed
-                ? "Repair"
-                : "Install"
+            !tool.supported
+              ? tool.detail
+              : tool.updateAvailable
+                ? "Update"
+                : tool.installed
+                  ? "Repair"
+                  : "Install"
           }
           side="top"
         >
           <button
             type="button"
             aria-label={
-              tool.updateAvailable
-                ? "Update"
-                : tool.installed
-                  ? "Repair"
-                  : "Install"
+              !tool.supported
+                ? tool.detail
+                : tool.updateAvailable
+                  ? "Update"
+                  : tool.installed
+                    ? "Repair"
+                    : "Install"
             }
             onClick={() => void installTool(tool)}
             disabled={!tool.supported || installingTool !== null}

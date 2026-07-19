@@ -331,6 +331,9 @@ export function useAppCommandRunner({
           setSidebarCollapsed(false);
           setSidebarView("spotify");
           break;
+        case AXON_COMMANDS.TOGGLE_SIDEBAR:
+          setSidebarCollapsed((collapsed: boolean) => !collapsed);
+          break;
         case AXON_COMMANDS.TOGGLE_TERMINAL:
           if (!requireTrustedWorkspace("Terminal")) break;
           activateExtensionEvent("onCommand:axon.terminal.toggle");

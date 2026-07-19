@@ -31,6 +31,7 @@ export const AXON_COMMANDS = {
   FORMAT_DOCUMENT: "format-document",
   OPEN_CODE_SNAPSHOT: "open-code-snapshot",
   OPEN_HTML_PREVIEW: "open-html-preview",
+  TOGGLE_SIDEBAR: "toggle-sidebar",
   TOGGLE_TERMINAL: "toggle-terminal",
   OPEN_SETTINGS: "open-settings",
   OPEN_EXTENSIONS: "open-extensions",

@@ -121,6 +121,15 @@ export function useGlobalEditorShortcuts({
       }
       if (
         (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "b"
+      ) {
+        event.preventDefault();
+        runCommand(AXON_COMMANDS.TOGGLE_SIDEBAR);
+        return;
+      }
+      if (
+        (event.metaKey || event.ctrlKey) &&
         event.shiftKey &&
         event.key.toLowerCase() === "o"
       ) {

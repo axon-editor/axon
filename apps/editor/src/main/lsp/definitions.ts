@@ -590,7 +590,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: [],
     workspaceMarkers: ["Package.swift", "*.xcodeproj", "*.xcworkspace", "*.swift"],
-    installHint: "Install a Swift toolchain from Language Tools when Swift is detected.",
+    installHint: "Register SourceKit-LSP from the detected Swift or Xcode toolchain.",
     managedBundle: { directoryName: "swift", executableNames: ["sourcekit-lsp", "sourcekit-lsp.exe"] },
   },
   {
@@ -601,7 +601,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: [],
     workspaceMarkers: ["Gemfile", "*.gemspec", ".ruby-version", "*.rb"],
-    installHint: "Install Ruby LSP and its private Ruby runtime from Language Tools.",
+    installHint: "Install an isolated Ruby LSP using the detected Ruby runtime.",
     managedBundle: { directoryName: "ruby", executableNames: ["ruby-lsp", "ruby-lsp.cmd"] },
   },
   {
@@ -722,7 +722,12 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     args: ["--version"],
     launchArgs: ["--slave", "-e", "languageserver::run()"],
     workspaceMarkers: ["DESCRIPTION", "renv.lock", "*.R", "*.r"],
-    installHint: "Install R and its language server from Language Tools.",
+    installHint: "Install an isolated R language server using the detected R runtime.",
+    managedBundle: {
+      directoryName: "r",
+      executableNames: ["R", "R.cmd"],
+      launchArgs: [],
+    },
   },
   {
     id: "powershell",
@@ -755,5 +760,12 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     launchArgs: [],
     workspaceMarkers: ["Makefile", "GNUmakefile", "BSDmakefile", "*.mk"],
     installHint: "Install autotools-language-server to enable Makefile intelligence.",
+    managedBundle: {
+      directoryName: "makefile",
+      executableNames: [
+        "autotools-language-server",
+        "autotools-language-server.cmd",
+      ],
+    },
   },
 ];

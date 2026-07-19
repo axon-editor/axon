@@ -17,7 +17,14 @@ export type ManagedLanguageToolId =
   | "latex"
   | "clojure"
   | "erlang"
-  | "asm";
+  | "asm"
+  | "swift"
+  | "ruby"
+  | "scala"
+  | "r"
+  | "powershell"
+  | "powershell-runtime"
+  | "makefile";
 
 export type ManagedLanguageToolPhase =
   | "idle"

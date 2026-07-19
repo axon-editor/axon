@@ -117,6 +117,12 @@ describe("managed language tool catalog", () => {
     ["clojure", "clojure"],
     ["erlang", "erlang"],
     ["asm", "asm"],
+    ["swift", "swift"],
+    ["ruby", "ruby"],
+    ["scala", "scala"],
+    ["r", "r"],
+    ["powershell", "powershell"],
+    ["makefile", "makefile"],
   ] as const)("recommends %s through the %s managed tool", (language, toolId) => {
     expect(getManagedLanguageToolForLanguage(language)?.id).toBe(toolId);
   });
@@ -125,5 +131,23 @@ describe("managed language tool catalog", () => {
     const sql = getManagedLanguageToolCatalogEntry("sql");
     expect(sql?.assetNames["darwin-arm64"]).toBeUndefined();
     expect(sql?.assetNames["linux-arm64"]).toBeUndefined();
+  });
+
+  it("installs PowerShell Editor Services with a managed pwsh runtime", () => {
+    const powershell = getManagedLanguageToolCatalogEntry("powershell");
+    const runtime = getManagedLanguageToolCatalogEntry("powershell-runtime");
+    expect(powershell?.dependencies).toEqual(["powershell-runtime"]);
+    expect(powershell?.launcher?.kind).toBe("powershell-editor-services");
+    expect(runtime?.hidden).toBe(true);
+    expect(runtime?.pinnedGithubAssets?.["darwin-arm64"]?.sha256).toHaveLength(64);
+  });
+
+  it("uses the verified Metals bootstrap with Axon's managed Java", () => {
+    const scala = getManagedLanguageToolCatalogEntry("scala");
+    expect(scala?.openVsx?.platforms).toContain("universal");
+    expect(scala?.dependencies).toEqual(["java"]);
+    expect(scala?.launcher?.artifact).toBe(
+      "org.scalameta:metals_2.13:1.6.7",
+    );
   });
 });

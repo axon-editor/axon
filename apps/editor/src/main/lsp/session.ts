@@ -517,7 +517,11 @@ function getManagedRuntimeEnvironment(
     };
   }
 
-  if (definition.id !== "java" && definition.id !== "kotlin") {
+  if (
+    definition.id !== "java" &&
+    definition.id !== "kotlin" &&
+    definition.id !== "scala"
+  ) {
     return process.env;
   }
 

@@ -43,6 +43,23 @@ export interface ManagedLanguageToolCatalogEntry {
     version: string;
     ridByPlatform: Partial<Record<string, string>>;
   };
+  ecosystemInstaller?:
+    | {
+        kind: "system-command";
+        version: string;
+        runtimeCommands: string[];
+      }
+    | {
+        kind: "python-venv" | "ruby-gem" | "r-package" | "coursier";
+        version: string;
+        packageName: string;
+        runtimeCommands: string[];
+      };
+  launcher?: {
+    kind: "powershell-editor-services" | "java-coursier";
+    runtimeDependency: ManagedLanguageToolId;
+    artifact?: string;
+  };
   dependencies?: ManagedLanguageToolId[];
   hidden?: boolean;
   executableNames: string[];
@@ -503,6 +520,125 @@ export const MANAGED_LANGUAGE_TOOL_CATALOG: ManagedLanguageToolCatalogEntry[] = 
       "darwin-x64": "asm-lsp-x86_64-apple-darwin.tar.gz",
       "linux-x64": "asm-lsp-x86_64-unknown-linux-gnu.tar.gz",
     },
+  },
+  {
+    id: "swift",
+    label: "Swift",
+    languages: ["swift"],
+    ecosystemInstaller: {
+      kind: "system-command",
+      version: "system",
+      runtimeCommands: ["sourcekit-lsp"],
+    },
+    executableNames: ["sourcekit-lsp", "sourcekit-lsp.exe"],
+    commandName: "sourcekit-lsp",
+    windowsCommandName: "sourcekit-lsp.cmd",
+    assetNames: {},
+  },
+  {
+    id: "ruby",
+    label: "Ruby",
+    languages: ["ruby"],
+    ecosystemInstaller: {
+      kind: "ruby-gem",
+      version: "0.26.10",
+      packageName: "ruby-lsp",
+      runtimeCommands: ["ruby"],
+    },
+    executableNames: ["ruby-lsp", "ruby-lsp.cmd"],
+    commandName: "ruby-lsp",
+    windowsCommandName: "ruby-lsp.cmd",
+    assetNames: {},
+  },
+  {
+    id: "scala",
+    label: "Scala",
+    languages: ["scala"],
+    openVsx: {
+      namespace: "scalameta",
+      extension: "metals",
+      version: "1.68.0",
+      platforms: ["universal"],
+    },
+    dependencies: ["java"],
+    launcher: {
+      kind: "java-coursier",
+      runtimeDependency: "java",
+      artifact: "org.scalameta:metals_2.13:1.6.7",
+    },
+    executableNames: ["coursier-fallback.jar"],
+    commandName: "metals",
+    windowsCommandName: "metals.cmd",
+    assetNames: {},
+  },
+  {
+    id: "r",
+    label: "R",
+    languages: ["r"],
+    ecosystemInstaller: {
+      kind: "r-package",
+      version: "0.3.18",
+      packageName: "languageserver",
+      runtimeCommands: ["R"],
+    },
+    executableNames: ["R", "R.exe"],
+    commandName: "R",
+    windowsCommandName: "R.cmd",
+    assetNames: {},
+  },
+  {
+    id: "powershell-runtime",
+    label: "PowerShell Runtime",
+    languages: [],
+    repository: "PowerShell/PowerShell",
+    pinnedGithubAssets: {
+      "darwin-arm64": { tag: "v7.6.3", name: "powershell-7.6.3-osx-arm64.tar.gz", size: 72_235_055, sha256: "f0263c2072fe7d0953781c60497a574bea99b37237f2554a59ce4bad07de8d36" },
+      "darwin-x64": { tag: "v7.6.3", name: "powershell-7.6.3-osx-x64.tar.gz", size: 76_310_109, sha256: "f02073a442515877aa5a8f361f55866800100c41b665cfb64883b77dbba09412" },
+      "linux-arm64": { tag: "v7.6.3", name: "powershell-7.6.3-linux-arm64.tar.gz", size: 73_554_413, sha256: "7a14a385eca7dc5bedc1c8aa3d8b765f449ada30aabe5785a9fd331266eb062d" },
+      "linux-x64": { tag: "v7.6.3", name: "powershell-7.6.3-linux-x64.tar.gz", size: 77_543_414, sha256: "856d0765d2332377f9d7a4aea76efdfde4de51446e7738dde2dfda41dba9e2a7" },
+      "win32-arm64": { tag: "v7.6.3", name: "PowerShell-7.6.3-win-arm64.zip", size: 110_176_268, sha256: "2ece90557c370bb5ee03275ef41f2a49e26ea85defcf2052aca32c20dadb62c2" },
+      "win32-x64": { tag: "v7.6.3", name: "PowerShell-7.6.3-win-x64.zip", size: 116_931_488, sha256: "07ddb0d00b660459560ef82a9841da7705b27cd5dcca5a0d7b025a98eca29eca" },
+    },
+    hidden: true,
+    executableNames: ["pwsh", "pwsh.exe"],
+    commandName: "pwsh",
+    windowsCommandName: "pwsh.cmd",
+    assetNames: {},
+  },
+  {
+    id: "powershell",
+    label: "PowerShell",
+    languages: ["powershell"],
+    openVsx: {
+      namespace: "ms-vscode",
+      extension: "powershell",
+      version: "2025.4.0",
+      platforms: ["universal"],
+    },
+    dependencies: ["powershell-runtime"],
+    launcher: {
+      kind: "powershell-editor-services",
+      runtimeDependency: "powershell-runtime",
+    },
+    executableNames: ["Start-EditorServices.ps1"],
+    commandName: "PowerShellEditorServices",
+    windowsCommandName: "PowerShellEditorServices.cmd",
+    assetNames: {},
+  },
+  {
+    id: "makefile",
+    label: "Makefile",
+    languages: ["makefile"],
+    ecosystemInstaller: {
+      kind: "python-venv",
+      version: "0.0.23",
+      packageName: "autotools-language-server",
+      runtimeCommands: ["python3", "python"],
+    },
+    executableNames: ["autotools-language-server", "autotools-language-server.exe"],
+    commandName: "autotools-language-server",
+    windowsCommandName: "autotools-language-server.cmd",
+    assetNames: {},
   },
 ];
 
