@@ -126,7 +126,6 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "compile_commands.json",
       "CMakeLists.txt",
       "meson.build",
-      "Makefile",
       "*.c",
       "*.cc",
       "*.cpp",
@@ -286,7 +285,6 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     launchArgs: ["--stdio"],
     workspaceMarkers: [
       "Dockerfile",
-      ".dockerignore",
       "docker-compose.yml",
       "docker-compose.yaml",
     ],

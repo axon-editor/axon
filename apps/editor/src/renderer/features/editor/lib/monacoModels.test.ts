@@ -5,6 +5,12 @@ import {
 } from "./languageDetection";
 
 describe("structured language detection", () => {
+  it("keeps .dockerignore out of Dockerfile language tooling", () => {
+    const filePath = "/workspace/.dockerignore";
+    expect(detectMonacoLanguage(filePath)).toBe("gitignore");
+    expect(detectLanguageServerLanguage(filePath)).toBe("gitignore");
+  });
+
   it.each(["xml", "xsd", "xsl", "xslt", "dtd", "svg"])(
     "maps .%s documents to XML",
     (extension) => {

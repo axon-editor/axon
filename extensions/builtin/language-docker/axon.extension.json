@@ -14,7 +14,7 @@
         "id": "dockerfile",
         "label": "Dockerfile",
         "extensions": [".dockerfile"],
-        "filenames": ["Dockerfile", ".dockerignore"],
+        "filenames": ["Dockerfile"],
         "aliases": ["Dockerfile", "dockerfile", "docker"]
       }
     ]

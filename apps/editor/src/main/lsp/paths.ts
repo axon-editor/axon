@@ -10,7 +10,11 @@ export function getBundledAppFilePath(...segments: string[]) {
   );
   if (app.isPackaged && fs.existsSync(packagedPath)) return packagedPath;
 
-  return path.join(app.getAppPath(), ...segments);
+  const appPath = path.join(app.getAppPath(), ...segments);
+  if (app.isPackaged || fs.existsSync(appPath)) return appPath;
+
+  const workspacePath = path.resolve(app.getAppPath(), "..", "..", ...segments);
+  return fs.existsSync(workspacePath) ? workspacePath : appPath;
 }
 
 export function resolveBundledAppFilePath(...segments: string[]) {

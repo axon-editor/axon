@@ -11,8 +11,7 @@ export function detectMonacoLanguage(path: string): string {
   }
   if (
     fileName === "dockerfile" ||
-    fileName.startsWith("dockerfile.") ||
-    fileName === ".dockerignore"
+    fileName.startsWith("dockerfile.")
   ) {
     return "dockerfile";
   }

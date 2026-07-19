@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Download,
-  LoaderCircle,
   RefreshCw,
   ScrollText,
   Square,
@@ -210,8 +209,10 @@ export default function LanguageToolsModal({
           }
           className="flex h-7 cursor-pointer items-center gap-1.5 rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
         >
-          <LoaderCircle size={11} className="animate-spin" />
-          Cancel
+          <Square size={10} />
+          {progress?.id === tool.id && progress.percent !== undefined
+            ? `Cancel ${progress.percent}%`
+            : "Cancel"}
         </button>
       );
     }
@@ -291,12 +292,10 @@ export default function LanguageToolsModal({
                 type="button"
                 aria-label="Refresh"
                 onClick={() => void refresh()}
+                disabled={loading}
                 className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
               >
-                <RefreshCw
-                  size={12}
-                  className={loading ? "animate-spin" : ""}
-                />
+                <RefreshCw size={12} />
               </button>
             </Tooltip>
             <Tooltip label="Close" side="bottom">
@@ -349,12 +348,7 @@ export default function LanguageToolsModal({
                 onClick={() => void runWorkspaceAction("restart")}
                 className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-25"
               >
-                <RefreshCw
-                  size={12}
-                  className={
-                    workspaceAction === "restart" ? "animate-spin" : ""
-                  }
-                />
+                <RefreshCw size={12} />
               </button>
             </Tooltip>
             <Tooltip label="Stop workspace servers" side="bottom">
