@@ -11,16 +11,20 @@ import {
 } from "vitest";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 
+const reactTestEnvironment = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean;
+};
+
 describe("MarkdownPreview", () => {
   let container: HTMLDivElement;
   let root: Root;
 
   beforeAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    reactTestEnvironment.IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterAll(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+    reactTestEnvironment.IS_REACT_ACT_ENVIRONMENT = false;
   });
 
   beforeEach(() => {
