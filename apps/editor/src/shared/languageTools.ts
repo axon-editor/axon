@@ -31,7 +31,9 @@ export type ManagedLanguageToolPhase =
   | "resolving"
   | "downloading"
   | "verifying"
+  | "extracting"
   | "installing"
+  | "cancelling"
   | "installed"
   | "cancelled"
   | "error";
@@ -58,6 +60,22 @@ export interface ManagedLanguageToolProgress {
   total?: number;
   percent?: number;
   message?: string;
+}
+
+export function isManagedLanguageToolProgressActive(
+  progress: ManagedLanguageToolProgress | null,
+) {
+  return Boolean(
+    progress &&
+      [
+        "resolving",
+        "downloading",
+        "verifying",
+        "extracting",
+        "installing",
+        "cancelling",
+      ].includes(progress.phase),
+  );
 }
 
 export interface ManagedLanguageToolInstallResult {

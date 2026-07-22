@@ -3,6 +3,7 @@ import type {
   ManagedLanguageToolProgress,
   ManagedLanguageToolStatus,
 } from "../../../shared/languageTools";
+import { isManagedLanguageToolProgressActive } from "../../../shared/languageTools";
 import { detectLanguageServerLanguage } from "../editor/lib/monacoModels";
 import {
   disableManagedLanguageToolPrompt,
@@ -25,14 +26,20 @@ export function useLanguageToolInstallPrompt({
   const [progress, setProgress] = useState<ManagedLanguageToolProgress | null>(
     null,
   );
-  const [installing, setInstalling] = useState(false);
+  const [installingToolId, setInstallingToolId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sessionDismissalsRef = useRef(new Set<string>());
 
   useEffect(() => {
     return window.axon.onManagedLanguageToolProgress((event) => {
-      setProgress((current) =>
-        !status || event.id === status.id ? event : current,
+      if (!status || event.id !== status.id) return;
+      setProgress(event);
+      setInstallingToolId((current) =>
+        isManagedLanguageToolProgressActive(event)
+          ? event.id
+          : current === event.id
+            ? null
+            : current,
       );
     });
   }, [status]);
@@ -41,17 +48,29 @@ export function useLanguageToolInstallPrompt({
     let cancelled = false;
     setStatus(null);
     setProgress(null);
+    setInstallingToolId(null);
     setError(null);
     if (!activeFile || !folderPath || !workspaceTrusted) return;
 
     const languageId = detectLanguageServerLanguage(activeFile);
     void window.axon
       .getManagedLanguageToolRecommendation(languageId)
-      .then((recommendation) => {
+      .then(async (recommendation) => {
         if (cancelled || !recommendation) return;
         if (sessionDismissalsRef.current.has(recommendation.id)) return;
         if (isManagedLanguageToolPromptDisabled(recommendation.id)) return;
+        const activeProgress =
+          await window.axon.getManagedLanguageToolInstallProgress(
+            recommendation.id,
+          );
+        if (cancelled) return;
         setStatus(recommendation);
+        setProgress(activeProgress);
+        setInstallingToolId(
+          isManagedLanguageToolProgressActive(activeProgress)
+            ? recommendation.id
+            : null,
+        );
       })
       .catch((caughtError) => {
         if (!cancelled) {
@@ -84,14 +103,15 @@ export function useLanguageToolInstallPrompt({
 
   const install = useCallback(async () => {
     if (!status || !folderPath) return;
-    setInstalling(true);
+    const toolId = status.id;
+    setInstallingToolId(toolId);
     setError(null);
     try {
       const result = await window.axon.installManagedLanguageTool(status.id);
       if (!result.ok) {
         if (result.message.endsWith("installation was cancelled.")) {
-          setStatus(null);
-          setProgress(null);
+          setStatus((current) => (current?.id === toolId ? null : current));
+          setProgress((current) => (current?.id === toolId ? null : current));
           return;
         }
         setError(result.message);
@@ -103,21 +123,31 @@ export function useLanguageToolInstallPrompt({
         folderPath,
         languageId,
       });
-      setStatus(null);
-      setProgress(null);
+      setStatus((current) => (current?.id === toolId ? null : current));
+      setProgress((current) => (current?.id === toolId ? null : current));
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : String(caughtError),
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
       );
     } finally {
-      setInstalling(false);
+      setInstallingToolId((current) => (current === toolId ? null : current));
     }
   }, [folderPath, status]);
 
   const cancel = useCallback(async () => {
     if (!status) return;
-    await window.axon.cancelManagedLanguageToolInstall(status.id);
+    const cancelled = await window.axon.cancelManagedLanguageToolInstall(
+      status.id,
+    );
+    if (!cancelled) {
+      setInstallingToolId(null);
+      setError("The language tool installation is no longer running.");
+    }
   }, [status]);
+
+  const installing = Boolean(status && installingToolId === status.id);
 
   return {
     open: Boolean(status),

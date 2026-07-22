@@ -16,15 +16,20 @@ export default function LanguageToolInstallPrompt({ prompt }: Props) {
 
   const progressPercent = prompt.progress?.percent;
   const progressLabel =
-    prompt.progress?.phase === "downloading" && prompt.progress.total
+    prompt.progress?.message ??
+    (prompt.progress?.phase === "downloading" && prompt.progress.total
       ? `${formatBytes(prompt.progress.transferred ?? 0)} of ${formatBytes(prompt.progress.total)}`
       : prompt.progress?.phase === "verifying"
         ? "Verifying download"
         : prompt.progress?.phase === "installing"
-          ? "Installing"
-          : prompt.progress?.phase === "resolving"
-            ? "Finding the latest verified release"
-            : null;
+          ? "Finalizing installation"
+          : prompt.progress?.phase === "extracting"
+            ? "Extracting downloaded package"
+            : prompt.progress?.phase === "cancelling"
+              ? "Cancelling installation"
+              : prompt.progress?.phase === "resolving"
+                ? "Finding the latest verified release"
+                : null);
 
   return (
     <div className="fixed bottom-7 right-4 z-[76] w-[min(400px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.38)]">
@@ -52,8 +57,15 @@ export default function LanguageToolInstallPrompt({ prompt }: Props) {
               </div>
               <div className="h-1 overflow-hidden rounded bg-[var(--axon-panel-overlay-hover)]">
                 <div
-                  className="h-full bg-[var(--axon-syntax-function)] transition-[width] duration-150"
-                  style={{ width: `${progressPercent ?? 18}%` }}
+                  className={`h-full bg-[var(--axon-syntax-function)] transition-[width] duration-150 ${
+                    typeof progressPercent === "number" ? "" : "animate-pulse"
+                  }`}
+                  style={{
+                    width:
+                      typeof progressPercent === "number"
+                        ? `${progressPercent}%`
+                        : "100%",
+                  }}
                 />
               </div>
             </div>
@@ -79,9 +91,12 @@ export default function LanguageToolInstallPrompt({ prompt }: Props) {
               <button
                 type="button"
                 onClick={() => void prompt.cancel()}
-                className="h-7 cursor-pointer rounded px-2 text-[11px] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                disabled={prompt.progress?.phase === "cancelling"}
+                className="h-7 cursor-pointer rounded px-2 text-[11px] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
               >
-                Cancel
+                {prompt.progress?.phase === "cancelling"
+                  ? "Cancelling"
+                  : "Cancel"}
               </button>
             ) : null}
             <button

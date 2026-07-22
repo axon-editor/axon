@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeArchiveEntry } from "./archive";
+import { extractLanguageToolArchive, isSafeArchiveEntry } from "./archive";
 
 describe("managed language tool archive validation", () => {
   it.each([
@@ -21,4 +21,21 @@ describe("managed language tool archive validation", () => {
   ])("rejects an unsafe archive entry: %s", (entry) => {
     expect(isSafeArchiveEntry(entry)).toBe(false);
   });
+
+  it.each(["tool.zip", "tool.tar.gz", "tool.gz"])(
+    "stops %s extraction before reading files when cancelled",
+    async (assetName) => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(
+        extractLanguageToolArchive({
+          archivePath: "/missing/tool.archive",
+          assetName,
+          destination: "/missing/output",
+          signal: controller.signal,
+        }),
+      ).rejects.toMatchObject({ name: "AbortError" });
+    },
+  );
 });

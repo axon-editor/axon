@@ -151,7 +151,10 @@ contextBridge.exposeInMainWorld("axon", {
     rootPath: string,
   ): Promise<void> =>
     ipcRenderer.invoke("workspace:writeTextFile", filePath, content, rootPath),
-  saveFileAs: (suggestedPath: string, content: string): Promise<string | null> =>
+  saveFileAs: (
+    suggestedPath: string,
+    content: string,
+  ): Promise<string | null> =>
     ipcRenderer.invoke("dialog:saveFileAs", suggestedPath, content),
   getCliToolStatus: (): Promise<CliToolStatus> =>
     ipcRenderer.invoke("app:getCliToolStatus"),
@@ -250,6 +253,13 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("languageTools:status", id),
   listManagedLanguageTools: (): Promise<ManagedLanguageToolStatus[]> =>
     ipcRenderer.invoke("languageTools:list"),
+  getManagedLanguageToolInstallProgress: (
+    id: ManagedLanguageToolId,
+  ): Promise<ManagedLanguageToolProgress | null> =>
+    ipcRenderer.invoke("languageTools:installProgress", id),
+  listManagedLanguageToolInstallProgress: (): Promise<
+    ManagedLanguageToolProgress[]
+  > => ipcRenderer.invoke("languageTools:listInstallProgress"),
   installManagedLanguageTool: (
     id: ManagedLanguageToolId,
   ): Promise<ManagedLanguageToolInstallResult> =>
@@ -359,9 +369,7 @@ contextBridge.exposeInMainWorld("axon", {
     requestId: string,
   ): Promise<GitCloneResult> =>
     ipcRenderer.invoke("git:clone", repositoryUrl, requestId),
-  onGitCloneProgress: (
-    callback: (event: GitCloneProgressEvent) => void,
-  ) => {
+  onGitCloneProgress: (callback: (event: GitCloneProgressEvent) => void) => {
     const handler = (_: unknown, event: GitCloneProgressEvent) =>
       callback(event);
     ipcRenderer.on("git:cloneProgress", handler);
@@ -562,7 +570,9 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath: string,
   ): Promise<Array<{ name: string; path: string; is_dir: false }>> =>
     ipcRenderer.invoke("fs:listProjectFiles", folderPath),
-  getWorkspaceIndex: (folderPath: string): Promise<WorkspaceIndexSummary | null> =>
+  getWorkspaceIndex: (
+    folderPath: string,
+  ): Promise<WorkspaceIndexSummary | null> =>
     ipcRenderer.invoke("fs:getWorkspaceIndex", folderPath),
 
   onFileChanged: (

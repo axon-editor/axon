@@ -27,7 +27,8 @@ function isZipSymbolicLink(entry: ZipEntry) {
   return (mode & 0o170000) === 0o120000;
 }
 
-async function validateZipArchive(archivePath: string) {
+async function validateZipArchive(archivePath: string, signal: AbortSignal) {
+  signal.throwIfAborted();
   await new Promise<void>((resolve, reject) => {
     openZip(archivePath, { lazyEntries: true }, (openError, zipFile) => {
       if (openError || !zipFile) {
@@ -37,13 +38,20 @@ async function validateZipArchive(archivePath: string) {
 
       let entryCount = 0;
       let extractedBytes = 0;
+      const abort = () => fail(signal.reason);
       const fail = (error: Error) => {
+        signal.removeEventListener("abort", abort);
         zipFile.close();
         reject(error);
       };
 
-      zipFile.on("error", reject);
+      signal.addEventListener("abort", abort, { once: true });
+      zipFile.on("error", fail);
       zipFile.on("entry", (entry) => {
+        if (signal.aborted) {
+          fail(signal.reason);
+          return;
+        }
         entryCount += 1;
         extractedBytes += entry.uncompressedSize;
         if (!isSafeArchiveEntry(entry.fileName)) {
@@ -55,12 +63,15 @@ async function validateZipArchive(archivePath: string) {
           return;
         }
         if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-          fail(new Error("The language tool ZIP expands beyond the allowed size."));
+          fail(
+            new Error("The language tool ZIP expands beyond the allowed size."),
+          );
           return;
         }
         zipFile.readEntry();
       });
       zipFile.on("end", () => {
+        signal.removeEventListener("abort", abort);
         if (entryCount === 0) {
           fail(new Error("The language tool ZIP is empty."));
           return;
@@ -72,11 +83,17 @@ async function validateZipArchive(archivePath: string) {
   });
 }
 
-async function extractZipArchive(archivePath: string, destination: string) {
-  await validateZipArchive(archivePath);
+async function extractZipArchive(
+  archivePath: string,
+  destination: string,
+  signal: AbortSignal,
+) {
+  await validateZipArchive(archivePath, signal);
+  signal.throwIfAborted();
   await extractZip(archivePath, {
     dir: destination,
     onEntry: (entry) => {
+      signal.throwIfAborted();
       if (!isSafeArchiveEntry(entry.fileName) || isZipSymbolicLink(entry)) {
         throw new Error("The language tool ZIP changed after validation.");
       }
@@ -84,41 +101,56 @@ async function extractZipArchive(archivePath: string, destination: string) {
   });
 }
 
-async function extractTarArchive(archivePath: string, destination: string) {
+async function extractTarArchive(
+  archivePath: string,
+  destination: string,
+  signal: AbortSignal,
+) {
+  signal.throwIfAborted();
   let entryCount = 0;
   let extractedBytes = 0;
-  await listTar({
-    file: archivePath,
-    strict: true,
-    onReadEntry: (entry) => {
-      if (entry.meta) return;
-      entryCount += 1;
-      extractedBytes += entry.size;
-      if (!isSafeArchiveEntry(entry.path)) {
-        throw new Error("The language tool TAR contains an unsafe path.");
-      }
-      if (!["File", "OldFile", "Directory"].includes(entry.type)) {
-        throw new Error(`The language tool TAR contains ${entry.type}.`);
-      }
-      if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-        throw new Error("The language tool TAR expands beyond the allowed size.");
-      }
-    },
-  });
+  await pipeline(
+    createReadStream(archivePath),
+    listTar({
+      strict: true,
+      onReadEntry: (entry) => {
+        signal.throwIfAborted();
+        if (entry.meta) return;
+        entryCount += 1;
+        extractedBytes += entry.size;
+        if (!isSafeArchiveEntry(entry.path)) {
+          throw new Error("The language tool TAR contains an unsafe path.");
+        }
+        if (!["File", "OldFile", "Directory"].includes(entry.type)) {
+          throw new Error(`The language tool TAR contains ${entry.type}.`);
+        }
+        if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
+          throw new Error(
+            "The language tool TAR expands beyond the allowed size.",
+          );
+        }
+      },
+    }),
+    { signal },
+  );
   if (entryCount === 0) throw new Error("The language tool TAR is empty.");
 
-  await extractTar({
-    file: archivePath,
-    cwd: destination,
-    strict: true,
-    preservePaths: false,
-    unlink: true,
-    filter: (entryPath, entry) =>
-      isSafeArchiveEntry(entryPath) &&
-      ("type" in entry
-        ? ["File", "OldFile", "Directory"].includes(entry.type)
-        : false),
-  });
+  await pipeline(
+    createReadStream(archivePath),
+    extractTar({
+      cwd: destination,
+      strict: true,
+      preservePaths: false,
+      unlink: true,
+      filter: (entryPath, entry) =>
+        !signal.aborted &&
+        isSafeArchiveEntry(entryPath) &&
+        ("type" in entry
+          ? ["File", "OldFile", "Directory"].includes(entry.type)
+          : false),
+    }),
+    { signal },
+  );
 }
 
 async function extractXzTarArchive(
@@ -144,11 +176,11 @@ async function extractXzTarArchive(
     throw new Error("The language tool XZ archive contains an unsafe path.");
   }
   if (
-    entryTypes.some(
-      (entry) => !entry.startsWith("-") && !entry.startsWith("d"),
-    )
+    entryTypes.some((entry) => !entry.startsWith("-") && !entry.startsWith("d"))
   ) {
-    throw new Error("The language tool XZ archive contains an unsafe entry type.");
+    throw new Error(
+      "The language tool XZ archive contains an unsafe entry type.",
+    );
   }
   await execFileAsync(
     "tar",
@@ -161,7 +193,9 @@ async function extractGzipExecutable(
   archivePath: string,
   assetName: string,
   destination: string,
+  signal: AbortSignal,
 ) {
+  signal.throwIfAborted();
   const outputName = path.basename(assetName, ".gz");
   if (!isSafeArchiveEntry(outputName)) {
     throw new Error("The compressed language tool has an unsafe name.");
@@ -172,7 +206,9 @@ async function extractGzipExecutable(
     transform(chunk: Buffer, _encoding, callback) {
       extractedBytes += chunk.length;
       if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-        callback(new Error("The language tool expands beyond the allowed size."));
+        callback(
+          new Error("The language tool expands beyond the allowed size."),
+        );
         return;
       }
       callback(null, chunk);
@@ -183,6 +219,7 @@ async function extractGzipExecutable(
     createGunzip(),
     sizeGuard,
     createWriteStream(path.join(destination, outputName), { mode: 0o600 }),
+    { signal },
   );
 }
 
@@ -193,7 +230,7 @@ export async function extractLanguageToolArchive(input: {
   signal: AbortSignal;
 }) {
   if (input.assetName.endsWith(".zip") || input.assetName.endsWith(".vsix")) {
-    await extractZipArchive(input.archivePath, input.destination);
+    await extractZipArchive(input.archivePath, input.destination, input.signal);
   } else if (input.assetName.endsWith(".tar.xz")) {
     await extractXzTarArchive(
       input.archivePath,
@@ -208,23 +245,27 @@ export async function extractLanguageToolArchive(input: {
       input.archivePath,
       input.assetName,
       input.destination,
+      input.signal,
     );
   } else {
-    await extractTarArchive(input.archivePath, input.destination);
+    await extractTarArchive(input.archivePath, input.destination, input.signal);
   }
 }
 
 export async function findExecutable(
   directory: string,
   executableNames: string[],
+  signal: AbortSignal,
 ): Promise<string | null> {
+  signal.throwIfAborted();
   for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    signal.throwIfAborted();
     const entryPath = path.join(directory, entry.name);
     if (entry.isSymbolicLink()) {
       throw new Error("The downloaded language tool contains a symbolic link.");
     }
     if (entry.isDirectory()) {
-      const nested = await findExecutable(entryPath, executableNames);
+      const nested = await findExecutable(entryPath, executableNames, signal);
       if (nested) return nested;
     } else if (entry.isFile() && executableNames.includes(entry.name)) {
       return entryPath;

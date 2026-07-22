@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
 import {
+  isManagedLanguageToolProgressActive,
   type ManagedLanguageToolId,
   type ManagedLanguageToolProgress,
   type ManagedLanguageToolStatus,
@@ -46,6 +47,20 @@ function statusClass(status: LanguageServerStatus["status"]) {
   return "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)] opacity-65";
 }
 
+function installProgressLabel(progress: ManagedLanguageToolProgress) {
+  if (progress.message) return progress.message;
+  if (progress.phase === "downloading") {
+    return typeof progress.percent === "number"
+      ? `Downloading ${Math.round(progress.percent)}%`
+      : "Downloading";
+  }
+  if (progress.phase === "verifying") return "Verifying download";
+  if (progress.phase === "extracting") return "Extracting downloaded package";
+  if (progress.phase === "installing") return "Finalizing installation";
+  if (progress.phase === "cancelling") return "Cancelling installation";
+  return "Resolving language tools";
+}
+
 export default function LanguageToolsModal({
   open,
   folderPath,
@@ -72,16 +87,26 @@ export default function LanguageToolsModal({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [nextServers, nextTools] = await Promise.all([
+      const [nextServers, nextTools, activeInstallations] = await Promise.all([
         folderPath
           ? scope === "workspace"
             ? window.axon.getWorkspaceLanguageServerStatus(folderPath, language)
             : window.axon.getLanguageServerStatus(folderPath)
           : Promise.resolve([]),
         window.axon.listManagedLanguageTools(),
+        window.axon.listManagedLanguageToolInstallProgress(),
       ]);
       setServers(nextServers);
       setManagedTools(nextTools);
+      const activeProgress = activeInstallations.find((candidate) =>
+        nextTools.some((tool) => tool.id === candidate.id),
+      );
+      setProgress(activeProgress ?? null);
+      setInstallingTool(
+        isManagedLanguageToolProgressActive(activeProgress ?? null)
+          ? (activeProgress?.id ?? null)
+          : null,
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -103,9 +128,20 @@ export default function LanguageToolsModal({
   useEffect(() => {
     if (!open) return;
     return window.axon.onManagedLanguageToolProgress((event) => {
+      if (!managedTools.some((tool) => tool.id === event.id)) return;
       setProgress(event);
+      setInstallingTool((current) =>
+        isManagedLanguageToolProgressActive(event)
+          ? event.id
+          : current === event.id
+            ? null
+            : current,
+      );
+      if (!isManagedLanguageToolProgressActive(event)) {
+        void refresh();
+      }
     });
-  }, [open]);
+  }, [managedTools, open, refresh]);
 
   const workspaceServers = useMemo(
     () =>
@@ -207,12 +243,15 @@ export default function LanguageToolsModal({
           onClick={() =>
             void window.axon.cancelManagedLanguageToolInstall(tool.id)
           }
+          disabled={progress?.phase === "cancelling"}
           className="flex h-7 cursor-pointer items-center gap-1.5 rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
         >
           <Square size={10} />
-          {progress?.id === tool.id && progress.percent !== undefined
-            ? `Cancel ${progress.percent}%`
-            : "Cancel"}
+          {progress?.id === tool.id && progress.phase === "cancelling"
+            ? "Cancelling"
+            : progress?.id === tool.id && progress.percent !== undefined
+              ? `Cancel ${progress.percent}%`
+              : "Cancel"}
         </button>
       );
     }
@@ -378,6 +417,10 @@ export default function LanguageToolsModal({
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {visibleServers.map((server) => {
             const tool = toolsById.get(server.id as ManagedLanguageToolId);
+            const toolProgress =
+              installingTool === tool?.id && progress?.id === tool.id
+                ? progress
+                : null;
             return (
               <div
                 key={server.id}
@@ -411,13 +454,24 @@ export default function LanguageToolsModal({
                     ) : null}
                   </div>
                   <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                    {server.lastError ?? server.detail}
+                    {toolProgress
+                      ? installProgressLabel(toolProgress)
+                      : (server.lastError ?? server.detail)}
                   </div>
-                  {installingTool === tool?.id && progress?.id === tool.id ? (
+                  {toolProgress ? (
                     <div className="mt-1.5 h-1 overflow-hidden rounded bg-[var(--axon-panel-overlay-hover)]">
                       <div
-                        className="h-full bg-[var(--axon-syntax-function)] transition-[width] duration-150"
-                        style={{ width: `${progress.percent ?? 12}%` }}
+                        className={`h-full bg-[var(--axon-syntax-function)] transition-[width] duration-150 ${
+                          typeof toolProgress.percent === "number"
+                            ? ""
+                            : "animate-pulse"
+                        }`}
+                        style={{
+                          width:
+                            typeof toolProgress.percent === "number"
+                              ? `${toolProgress.percent}%`
+                              : "100%",
+                        }}
                       />
                     </div>
                   ) : null}
@@ -438,8 +492,27 @@ export default function LanguageToolsModal({
                   {tool.label}
                 </div>
                 <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                  {tool.detail}
+                  {installingTool === tool.id && progress?.id === tool.id
+                    ? installProgressLabel(progress)
+                    : tool.detail}
                 </div>
+                {installingTool === tool.id && progress?.id === tool.id ? (
+                  <div className="mt-1.5 h-1 overflow-hidden rounded bg-[var(--axon-panel-overlay-hover)]">
+                    <div
+                      className={`h-full bg-[var(--axon-syntax-function)] transition-[width] duration-150 ${
+                        typeof progress.percent === "number"
+                          ? ""
+                          : "animate-pulse"
+                      }`}
+                      style={{
+                        width:
+                          typeof progress.percent === "number"
+                            ? `${progress.percent}%`
+                            : "100%",
+                      }}
+                    />
+                  </div>
+                ) : null}
               </div>
               {renderToolActions(tool)}
             </div>

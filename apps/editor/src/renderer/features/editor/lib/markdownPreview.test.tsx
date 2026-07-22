@@ -1,11 +1,27 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 
 describe("MarkdownPreview", () => {
   let container: HTMLDivElement;
   let root: Root;
+
+  beforeAll(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  });
 
   beforeEach(() => {
     container = document.createElement("div");

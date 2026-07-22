@@ -200,6 +200,12 @@ declare global {
         id: ManagedLanguageToolId,
       ) => Promise<ManagedLanguageToolStatus>;
       listManagedLanguageTools: () => Promise<ManagedLanguageToolStatus[]>;
+      getManagedLanguageToolInstallProgress: (
+        id: ManagedLanguageToolId,
+      ) => Promise<ManagedLanguageToolProgress | null>;
+      listManagedLanguageToolInstallProgress: () => Promise<
+        ManagedLanguageToolProgress[]
+      >;
       installManagedLanguageTool: (
         id: ManagedLanguageToolId,
       ) => Promise<ManagedLanguageToolInstallResult>;
@@ -409,7 +415,9 @@ declare global {
       onFileChanged: (
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;
-      onFolderChanged: (callback: (data?: { path?: string }) => void) => () => void;
+      onFolderChanged: (
+        callback: (data?: { path?: string }) => void,
+      ) => () => void;
       onGitChanged: (
         callback: (event?: { folderPath?: string }) => void,
       ) => () => void;
