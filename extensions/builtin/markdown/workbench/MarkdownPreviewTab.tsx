@@ -22,6 +22,7 @@ export default function MarkdownPreviewTab({
 
   useEffect(() => {
     let cancelled = false;
+    let contentUpdateTimer: number | null = null;
     let modelContentDisposable: { dispose(): void } | null = null;
     setError(null);
 
@@ -30,7 +31,15 @@ export default function MarkdownPreviewTab({
       modelContentDisposable?.dispose();
       setContent(model.getValue());
       modelContentDisposable = model.onDidChangeContent(() => {
-        setContent(model.getValue());
+        if (contentUpdateTimer !== null) {
+          window.clearTimeout(contentUpdateTimer);
+        }
+        contentUpdateTimer = window.setTimeout(() => {
+          contentUpdateTimer = null;
+          if (!cancelled && !model.isDisposed()) {
+            setContent(model.getValue());
+          }
+        }, 80);
       });
     };
 
@@ -43,13 +52,18 @@ export default function MarkdownPreviewTab({
       .catch((err) => {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : "Markdown preview could not load.",
+            err instanceof Error
+              ? err.message
+              : "Markdown preview could not load.",
           );
         }
       });
 
     return () => {
       cancelled = true;
+      if (contentUpdateTimer !== null) {
+        window.clearTimeout(contentUpdateTimer);
+      }
       modelContentDisposable?.dispose();
       modelReadyDisposable.dispose();
     };

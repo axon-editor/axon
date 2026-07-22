@@ -1,4 +1,4 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import { Check, Copy, ExternalLink } from "lucide-react";
@@ -19,6 +19,9 @@ interface MarkdownPreviewProps {
   folderPath: string | null;
   onOpenFile?: (path: string) => void;
 }
+
+const MARKDOWN_REHYPE_PLUGINS = [rehypeRaw];
+const MARKDOWN_REMARK_PLUGINS = [remarkGfm];
 
 function getParentPath(filePath: string) {
   const separatorIndex = Math.max(
@@ -301,18 +304,22 @@ export default function MarkdownPreview({
   onOpenFile,
 }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement | null>(null);
-  const headingSlugCounts = new Map<string, number>();
+  const headingSlugCounts = useRef(new Map<string, number>());
+  headingSlugCounts.current.clear();
 
-  const getHeadingId = (children: ReactNode, providedId?: string) => {
-    if (providedId) return providedId;
+  const getHeadingId = useCallback(
+    (children: ReactNode, providedId?: string) => {
+      if (providedId) return providedId;
 
-    const baseSlug = createHeadingSlug(textFromNode(children));
-    if (!baseSlug) return undefined;
+      const baseSlug = createHeadingSlug(textFromNode(children));
+      if (!baseSlug) return undefined;
 
-    const count = headingSlugCounts.get(baseSlug) ?? 0;
-    headingSlugCounts.set(baseSlug, count + 1);
-    return count === 0 ? baseSlug : `${baseSlug}-${count}`;
-  };
+      const count = headingSlugCounts.current.get(baseSlug) ?? 0;
+      headingSlugCounts.current.set(baseSlug, count + 1);
+      return count === 0 ? baseSlug : `${baseSlug}-${count}`;
+    },
+    [],
+  );
 
   const scrollToMarkdownHash = useCallback((hash: string) => {
     const preview = previewRef.current;
@@ -325,22 +332,25 @@ export default function MarkdownPreview({
     }
 
     const slugHash = createHeadingSlug(decodedHash);
-    const targetIds = Array.from(new Set([decodedHash, slugHash].filter(Boolean)));
+    const targetIds = Array.from(
+      new Set([decodedHash, slugHash].filter(Boolean)),
+    );
     const normalizedTargetIds = targetIds.map(normalizeHeadingAnchor);
-    const target = Array.from(preview.querySelectorAll<HTMLElement>("[id]"))
-      .find((element) => {
-        if (targetIds.includes(element.id)) return true;
+    const target = Array.from(
+      preview.querySelectorAll<HTMLElement>("[id]"),
+    ).find((element) => {
+      if (targetIds.includes(element.id)) return true;
 
-        // Generated tables of contents are not perfectly consistent about
-        // punctuation. A heading like "Returns immediately — no processing
-        // delay." may be linked as either `returns-immediately-no-processing-
-        // delay` or `returns-immediately--no-processing-delay` depending on
-        // whether the authoring tool removes the em dash before or after
-        // spacing is collapsed. Comparing a normalized anchor form here keeps
-        // those links working without changing the visible heading ids that
-        // existing Markdown files may already reference.
-        return normalizedTargetIds.includes(normalizeHeadingAnchor(element.id));
-      });
+      // Generated tables of contents are not perfectly consistent about
+      // punctuation. A heading like "Returns immediately — no processing
+      // delay." may be linked as either `returns-immediately-no-processing-
+      // delay` or `returns-immediately--no-processing-delay` depending on
+      // whether the authoring tool removes the em dash before or after
+      // spacing is collapsed. Comparing a normalized anchor form here keeps
+      // those links working without changing the visible heading ids that
+      // existing Markdown files may already reference.
+      return normalizedTargetIds.includes(normalizeHeadingAnchor(element.id));
+    });
 
     if (!target) return false;
 
@@ -356,39 +366,234 @@ export default function MarkdownPreview({
     return true;
   }, []);
 
-  const handleLinkClick = useCallback((
-    event: MouseEvent<HTMLAnchorElement>,
-    href: string | undefined,
-  ) => {
-    if (!href) return;
-    if (isHashReference(href)) {
+  const handleLinkClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>, href: string | undefined) => {
+      if (!href) return;
+      if (isHashReference(href)) {
+        event.preventDefault();
+        scrollToMarkdownHash(href);
+        return;
+      }
+      if (isInlineReference(href)) return;
       event.preventDefault();
-      scrollToMarkdownHash(href);
-      return;
-    }
-    if (isInlineReference(href)) return;
-    event.preventDefault();
 
-    if (isExternalUrl(href)) {
-      void window.axon.openExternalLink(href);
-      return;
-    }
+      if (isExternalUrl(href)) {
+        void window.axon.openExternalLink(href);
+        return;
+      }
 
-    const { suffix } = splitLocalReference(href);
-    const targetPath = resolveMarkdownLinkPath(href, filePath, folderPath);
-    if (
-      targetPath &&
-      normalizePath(targetPath) === normalizePath(filePath) &&
-      suffix.startsWith("#")
-    ) {
-      scrollToMarkdownHash(suffix);
-      return;
-    }
+      const { suffix } = splitLocalReference(href);
+      const targetPath = resolveMarkdownLinkPath(href, filePath, folderPath);
+      if (
+        targetPath &&
+        normalizePath(targetPath) === normalizePath(filePath) &&
+        suffix.startsWith("#")
+      ) {
+        scrollToMarkdownHash(suffix);
+        return;
+      }
 
-    if (targetPath && onOpenFile) {
-      onOpenFile(targetPath);
-    }
-  }, [filePath, folderPath, onOpenFile, scrollToMarkdownHash]);
+      if (targetPath && onOpenFile) {
+        onOpenFile(targetPath);
+      }
+    },
+    [filePath, folderPath, onOpenFile, scrollToMarkdownHash],
+  );
+
+  const markdownComponents = useMemo<Components>(
+    () => ({
+      h1: ({ children, id }) => (
+        <h1
+          id={getHeadingId(children, id)}
+          className="scroll-mt-4 mb-5 border-b border-[var(--axon-panel-border)] pb-3 text-[26px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+        >
+          {children}
+        </h1>
+      ),
+      h2: ({ children, id }) => (
+        <h2
+          id={getHeadingId(children, id)}
+          className="scroll-mt-4 mb-3 mt-8 border-b border-[var(--axon-panel-border)] pb-2 text-[20px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+        >
+          {children}
+        </h2>
+      ),
+      h3: ({ children, id }) => (
+        <h3
+          id={getHeadingId(children, id)}
+          className="scroll-mt-4 mb-2 mt-6 text-[16px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+        >
+          {children}
+        </h3>
+      ),
+      h4: ({ children, id }) => (
+        <h4
+          id={getHeadingId(children, id)}
+          className="scroll-mt-4 mb-2 mt-5 text-[14px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
+        >
+          {children}
+        </h4>
+      ),
+      p: ({ children, ...props }: any) => (
+        <p className="my-4" style={getFlowStyle(props)}>
+          {children}
+        </p>
+      ),
+      center: ({ children, ...props }: any) => (
+        <div style={{ ...getFlowStyle(props), textAlign: "center" }}>
+          {children}
+        </div>
+      ),
+      div: ({ children, ...props }: any) => (
+        <div style={getFlowStyle(props)}>{children}</div>
+      ),
+      a: ({ children, href }) => (
+        <a
+          href={
+            isExternalUrl(href ?? "") || isInlineReference(href ?? "")
+              ? href
+              : (resolveMarkdownLinkPath(href, filePath, folderPath) ?? href)
+          }
+          onClick={(event) => handleLinkClick(event, href)}
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[var(--axon-syntax-function)] underline-offset-4 hover:underline"
+        >
+          {children}
+          {href && isExternalUrl(href) && <ExternalLink size={11} />}
+        </a>
+      ),
+      blockquote: ({ children }) => (
+        <blockquote className="my-2 border-l-[3px] border-[var(--axon-panel-border)] bg-transparent py-0.5 pl-3 pr-2 text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-55 [&>p]:my-0 [&>p+p]:mt-2">
+          {children}
+        </blockquote>
+      ),
+      code: ({ children, ...props }: any) => (
+        <code
+          className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[13px] text-[var(--axon-syntax-function)]"
+          {...props}
+        >
+          {children}
+        </code>
+      ),
+      pre: ({ children }: any) => {
+        // React Markdown no longer gives a dependable `inline` flag in
+        // every renderer path. Treating `pre` as the only fenced-code
+        // entry point prevents single-backtick text like `7777` from
+        // being mistaken for a full GitHub-style code block.
+        return (
+          <CodeBlock className={getClassNameFromNode(children)}>
+            {textFromNode(children)}
+          </CodeBlock>
+        );
+      },
+      img: ({ src, alt, width, height, ...props }: any) => {
+        const mediaStyle = getStyleObject(props.style);
+        const resolvedSrc = resolveMarkdownAsset(src, filePath, folderPath);
+
+        if (isVideoAsset(src)) {
+          return (
+            <video
+              src={resolvedSrc}
+              controls
+              width={width}
+              height={height}
+              style={{
+                maxWidth: "100%",
+                ...mediaStyle,
+              }}
+              className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
+            />
+          );
+        }
+
+        return (
+          <img
+            src={resolvedSrc}
+            alt={alt ?? ""}
+            width={width}
+            height={height}
+            style={{
+              maxWidth: "100%",
+              ...mediaStyle,
+            }}
+            className="my-4 inline-block align-middle"
+          />
+        );
+      },
+      video: ({ src, children, controls, width, height, ...props }: any) => {
+        const videoStyle = getStyleObject(props.style);
+        const resolvedSrc = resolveMarkdownAsset(src, filePath, folderPath);
+
+        return (
+          <video
+            src={resolvedSrc}
+            controls={controls ?? true}
+            width={width}
+            height={height}
+            style={{
+              maxWidth: "100%",
+              ...videoStyle,
+            }}
+            className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
+            {...props}
+          >
+            {children}
+          </video>
+        );
+      },
+      source: ({ src, ...props }: any) => (
+        <source
+          src={resolveMarkdownAsset(src, filePath, folderPath)}
+          {...props}
+        />
+      ),
+      ul: ({ children }) => (
+        <ul className="my-4 list-disc space-y-1 pl-6">{children}</ul>
+      ),
+      ol: ({ children }) => (
+        <ol className="my-4 list-decimal space-y-1 pl-6">{children}</ol>
+      ),
+      li: ({ children }) => <li className="pl-1">{children}</li>,
+      input: ({ checked, type }) =>
+        type === "checkbox" ? (
+          <input
+            type="checkbox"
+            checked={checked}
+            readOnly
+            className="mr-2 translate-y-[1px] accent-[var(--axon-syntax-function)]"
+          />
+        ) : null,
+      table: ({ children }) => (
+        <div className="my-5 overflow-x-auto rounded-md border border-[var(--axon-panel-border)]">
+          <table className="w-full border-collapse text-left text-[13px]">
+            {children}
+          </table>
+        </div>
+      ),
+      thead: ({ children }) => (
+        <thead className="bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]">
+          {children}
+        </thead>
+      ),
+      th: ({ children }) => (
+        <th className="border-b border-[var(--axon-panel-border)] px-3 py-2 font-medium">
+          {children}
+        </th>
+      ),
+      td: ({ children }) => (
+        <td className="border-t border-[var(--axon-panel-border)] px-3 py-2">
+          {children}
+        </td>
+      ),
+      hr: () => <hr className="my-8 border-[var(--axon-panel-border)]" />,
+      strong: ({ children }) => (
+        <strong className="font-semibold text-[var(--axon-editor-foreground)]">
+          {children}
+        </strong>
+      ),
+    }),
+    [filePath, folderPath, getHeadingId, handleLinkClick],
+  );
 
   return (
     <div
@@ -397,205 +602,9 @@ export default function MarkdownPreview({
     >
       <article className="mx-auto w-full max-w-5xl text-[14px] leading-7 text-[var(--axon-editor-foreground)]">
         <ReactMarkdown
-          rehypePlugins={[rehypeRaw]}
-          remarkPlugins={[remarkGfm]}
-          components={{
-            h1: ({ children, id }) => (
-              <h1
-                id={getHeadingId(children, id)}
-                className="scroll-mt-4 mb-5 border-b border-[var(--axon-panel-border)] pb-3 text-[26px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
-              >
-                {children}
-              </h1>
-            ),
-            h2: ({ children, id }) => (
-              <h2
-                id={getHeadingId(children, id)}
-                className="scroll-mt-4 mb-3 mt-8 border-b border-[var(--axon-panel-border)] pb-2 text-[20px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
-              >
-                {children}
-              </h2>
-            ),
-            h3: ({ children, id }) => (
-              <h3
-                id={getHeadingId(children, id)}
-                className="scroll-mt-4 mb-2 mt-6 text-[16px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
-              >
-                {children}
-              </h3>
-            ),
-            h4: ({ children, id }) => (
-              <h4
-                id={getHeadingId(children, id)}
-                className="scroll-mt-4 mb-2 mt-5 text-[14px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
-              >
-                {children}
-              </h4>
-            ),
-            p: ({ children, ...props }: any) => (
-              <p className="my-4" style={getFlowStyle(props)}>
-                {children}
-              </p>
-            ),
-            center: ({ children, ...props }: any) => (
-              <div style={{ ...getFlowStyle(props), textAlign: "center" }}>
-                {children}
-              </div>
-            ),
-            div: ({ children, ...props }: any) => (
-              <div style={getFlowStyle(props)}>
-                {children}
-              </div>
-            ),
-            a: ({ children, href }) => (
-              <a
-                href={
-                  isExternalUrl(href ?? "") || isInlineReference(href ?? "")
-                    ? href
-                    : resolveMarkdownLinkPath(href, filePath, folderPath) ?? href
-                }
-                onClick={(event) => handleLinkClick(event, href)}
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[var(--axon-syntax-function)] underline-offset-4 hover:underline"
-              >
-                {children}
-                {href && isExternalUrl(href) && <ExternalLink size={11} />}
-              </a>
-            ),
-            blockquote: ({ children }) => (
-              <blockquote className="my-2 border-l-[3px] border-[var(--axon-panel-border)] bg-transparent py-0.5 pl-3 pr-2 text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-55 [&>p]:my-0 [&>p+p]:mt-2">
-                {children}
-              </blockquote>
-            ),
-            code: ({ children, ...props }: any) => (
-              <code
-                className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[13px] text-[var(--axon-syntax-function)]"
-                {...props}
-              >
-                {children}
-              </code>
-            ),
-            pre: ({ children }: any) => {
-              // React Markdown no longer gives a dependable `inline` flag in
-              // every renderer path. Treating `pre` as the only fenced-code
-              // entry point prevents single-backtick text like `7777` from
-              // being mistaken for a full GitHub-style code block.
-              return (
-                <CodeBlock className={getClassNameFromNode(children)}>
-                  {textFromNode(children)}
-                </CodeBlock>
-              );
-            },
-            img: ({ src, alt, width, height, ...props }: any) => {
-              const mediaStyle = getStyleObject(props.style);
-              const resolvedSrc = resolveMarkdownAsset(
-                src,
-                filePath,
-                folderPath,
-              );
-
-              if (isVideoAsset(src)) {
-                return (
-                  <video
-                    src={resolvedSrc}
-                    controls
-                    width={width}
-                    height={height}
-                    style={{
-                      maxWidth: "100%",
-                      ...mediaStyle,
-                    }}
-                    className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
-                  />
-                );
-              }
-
-              return (
-                <img
-                  src={resolvedSrc}
-                  alt={alt ?? ""}
-                  width={width}
-                  height={height}
-                  style={{
-                    maxWidth: "100%",
-                    ...mediaStyle,
-                  }}
-                  className="my-4 inline-block align-middle"
-                />
-              );
-            },
-            video: ({ src, children, controls, width, height, ...props }: any) => {
-              const videoStyle = getStyleObject(props.style);
-              const resolvedSrc = resolveMarkdownAsset(
-                src,
-                filePath,
-                folderPath,
-              );
-
-              return (
-                <video
-                  src={resolvedSrc}
-                  controls={controls ?? true}
-                  width={width}
-                  height={height}
-                  style={{
-                    maxWidth: "100%",
-                    ...videoStyle,
-                  }}
-                  className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
-                  {...props}
-                >
-                  {children}
-                </video>
-              );
-            },
-            source: ({ src, ...props }: any) => (
-              <source
-                src={resolveMarkdownAsset(src, filePath, folderPath)}
-                {...props}
-              />
-            ),
-            ul: ({ children }) => (
-              <ul className="my-4 list-disc space-y-1 pl-6">{children}</ul>
-            ),
-            ol: ({ children }) => (
-              <ol className="my-4 list-decimal space-y-1 pl-6">{children}</ol>
-            ),
-            li: ({ children }) => <li className="pl-1">{children}</li>,
-            input: ({ checked, type }) =>
-              type === "checkbox" ? (
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  readOnly
-                  className="mr-2 translate-y-[1px] accent-[var(--axon-syntax-function)]"
-                />
-              ) : null,
-            table: ({ children }) => (
-              <div className="my-5 overflow-x-auto rounded-md border border-[var(--axon-panel-border)]">
-                <table className="w-full border-collapse text-left text-[13px]">
-                  {children}
-                </table>
-              </div>
-            ),
-            thead: ({ children }) => (
-              <thead className="bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]">{children}</thead>
-            ),
-            th: ({ children }) => (
-              <th className="border-b border-[var(--axon-panel-border)] px-3 py-2 font-medium">
-                {children}
-              </th>
-            ),
-            td: ({ children }) => (
-              <td className="border-t border-[var(--axon-panel-border)] px-3 py-2">
-                {children}
-              </td>
-            ),
-            hr: () => <hr className="my-8 border-[var(--axon-panel-border)]" />,
-            strong: ({ children }) => (
-              <strong className="font-semibold text-[var(--axon-editor-foreground)]">{children}</strong>
-            ),
-          }}
+          rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
+          remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+          components={markdownComponents}
         >
           {content}
         </ReactMarkdown>

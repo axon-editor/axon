@@ -83,14 +83,16 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 ## Stack
 
 **Editor**
+
 - Electron desktop shell
 - React, TypeScript, Tailwind CSS
 - Monaco Editor
 - xterm.js terminal
 
 **Core**
+
 - Authenticated Go HTTP/WebSocket server bound to `127.0.0.1`
-- File system, workspace search, Git, terminal PTY, and future AI routes
+- File system, workspace search, Git, terminal PTY, and local AI runtime routes
 
 ## Project Structure
 
@@ -110,7 +112,7 @@ axon/
 │           ├── fs/               # file tree, text reads, writes, search
 │           ├── server/           # HTTP routes
 │           ├── terminal/         # PTY + websocket bridge
-│           └── ai/               # future AI backend surface
+│           └── ai/               # model discovery, project context, and streaming chat
 ├── packages/
 │   ├── extension-api/            # manifest, registry, and runtime extension contracts
 │   ├── protocol/                 # shared wire protocol contracts
@@ -126,11 +128,13 @@ axon/
 │           ├── platform/         # reusable renderer/client services
 │           ├── preload/          # safe contextBridge API
 │           ├── workbench/        # editor shell and built-in UI contributions
-│           └── renderer/         # remaining renderer modules being migrated
+│           └── renderer/         # editor, sidebar, onboarding, and shared UI features
 └── docs/                         # release, update, and LSP notes
 ```
 
 ## Run Locally
+
+Prerequisites: Node.js 22, npm 10 or newer, Go 1.25.1 or newer, and Git.
 
 ```bash
 npm install
@@ -199,8 +203,10 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Image/video preview through Axon protocols
 - Workspace search with jump-to-line and binary/cache exclusions
 - Cmd+P project file search with file-first results and `>` command search
-- Source control modal, diffs, Git gutter markers, branch/stash workflows,
-  conflict helpers, worktree management, and a full commit graph view
+- Source control, side-by-side diffs, live Git line paint, branch/stash
+  workflows, conflict helpers, and worktree management
+- Git Graph editor tab with commit details, changed-file tree, comparisons,
+  and commit hover details
 - Problems panel with project-aware LSP diagnostics and copy actions
 - Problems as editor tabs opened from the status bar
 - Test explorer with project-aware provider discovery, target runs, and inline
@@ -214,18 +220,20 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
   header, and streaming responses
 - Settings UI and settings JSON
 - Extension-backed built-in themes, custom themes, and imported fonts
+- Code Snapshot editor tool with theme-aware syntax colors, configurable
+  presentation, watermarking, clipboard copy, and PNG export
 - Extension-host activation, command runtime, contribution registry, and
   built-in workbench feature routing
 - Splash screen and custom app icon/name
-- Low-latency LSP completion, hover, and diagnostics for TypeScript/JavaScript, TSX/JSX, Go,
-  Python, Rust, C/C++, Java, C#, Kotlin, PHP, Lua, Docker, and Tailwind CSS
+- Low-latency LSP completion, hover, diagnostics, navigation, rename, and
+  formatting across bundled and install-on-demand language servers
 - Tailwind CSS warnings, hover details, and variant-aware utility completions
 - Rich syntax coloring through Monaco, TextMate/Shiki grammars, LSP semantic
   tokens, Axon decorations, and language-specific fallbacks
 - Token inspector for debugging actual rendered syntax colors and semantic
   decoration output
-- Language tools modal for definition, references, rename, formatting, server
-  status, and file symbols
+- Workspace-aware Language Tools for detected languages, server installation,
+  lifecycle controls, status, install progress, and logs
 - Live LSP diagnostics routed into Problems
 - Format-on-save support with bundled Prettier fallback for common web and
   document languages when a language server does not format the file
