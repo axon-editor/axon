@@ -18,7 +18,6 @@ import {
   createSemanticTokenDecorations,
   installSemanticTokenDecorationStyles,
 } from "../../../services/lsp/renderer/semanticTokenDecorations";
-import { parseGitDiffLineDecorations } from "@axon-builtin-git/git/lib/gitDiffDecorations";
 import Tooltip from "../../shared/components/Tooltip";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import EditorBreadcrumbs from "./EditorBreadcrumbs";
@@ -48,6 +47,7 @@ import { useTrailingTask } from "./lib/useTrailingTask";
 import { useActiveFileServices } from "./lib/useActiveFileServices";
 import { useEditorIndentationSettings } from "./lib/useEditorIndentationSettings";
 import { useEditorZoomViewport } from "./lib/useEditorZoomViewport";
+import useGitLineDecorations from "./lib/useGitLineDecorations";
 interface Props {
   filePath: string;
   folderPath: string | null;
@@ -113,8 +113,6 @@ export default function SingleEditor({
   const semanticDecorationRequestRef = useRef(0);
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
-  const gitDecorationsRef =
-    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const semanticDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const goSyntaxDecorationsRef =
@@ -136,6 +134,14 @@ export default function SingleEditor({
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
   );
+  const scheduleGitDecorationRefresh = useGitLineDecorations({
+    editorRef,
+    editorReadyNonce,
+    filePath,
+    folderPath,
+    gitChange,
+    loading,
+  });
 
   const {
     changeFindQuery,
@@ -453,7 +459,6 @@ export default function SingleEditor({
       // edits around the same line can make translucent change colors appear to
       // stack darker than a single added/modified/deleted marker should.
       navigationDecorationsRef.current?.clear();
-      gitDecorationsRef.current?.clear();
       semanticDecorationsRef.current?.clear();
       goSyntaxDecorationsRef.current?.clear();
       clearFindDecorations();
@@ -531,83 +536,6 @@ export default function SingleEditor({
   ]);
 
   useEffect(() => {
-    const editor = editorRef.current;
-    if (loading) return;
-
-    if (!editor || !folderPath || !gitChange) {
-      gitDecorationsRef.current?.clear();
-      return;
-    }
-
-    let cancelled = false;
-    const loadGitDecorations = async () => {
-      try {
-        const diffResult = await window.axon.getGitDiff(
-          folderPath,
-          filePath,
-          gitChange.staged && !gitChange.unstaged,
-          gitChange.indexState === "untracked",
-        );
-        if (cancelled) return;
-
-        const model = editor.getModel();
-        if (!model || model.isDisposed()) return;
-
-        const lineDecorations = parseGitDiffLineDecorations(
-          diffResult.diff,
-          model.getLineCount(),
-        );
-
-        gitDecorationsRef.current ??= editor.createDecorationsCollection();
-        gitDecorationsRef.current.set(
-          lineDecorations.map((decoration) => ({
-            range: new monaco.Range(
-              decoration.lineNumber,
-              1,
-              decoration.lineNumber,
-              1,
-            ),
-            options: {
-              isWholeLine: true,
-              className: `axon-git-line axon-git-line--${decoration.kind}`,
-              linesDecorationsClassName: `axon-git-gutter axon-git-gutter--${decoration.kind}`,
-              glyphMarginClassName: `axon-git-glyph axon-git-glyph--${decoration.kind}`,
-              overviewRuler: {
-                color:
-                  decoration.kind === "added"
-                    ? "#7ee787"
-                    : decoration.kind === "modified"
-                      ? "#f2cc60"
-                      : "#ff7b72",
-                position: monaco.editor.OverviewRulerLane.Left,
-              },
-            },
-          })),
-        );
-      } catch (err) {
-        console.error("failed to load git editor decorations:", err);
-        gitDecorationsRef.current?.clear();
-      }
-    };
-
-    void loadGitDecorations();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    filePath,
-    folderPath,
-    gitChange?.absolutePath,
-    gitChange?.indexState,
-    gitChange?.staged,
-    gitChange?.unstaged,
-    gitChange?.worktreeState,
-    editorReadyNonce,
-    loading,
-  ]);
-
-  useEffect(() => {
     if (!visible || !navigationTarget || loading) return;
     revealNavigationTarget(navigationTarget);
   }, [
@@ -682,8 +610,6 @@ export default function SingleEditor({
       cancelled = true;
       navigationDecorationsRef.current?.clear();
       navigationDecorationsRef.current = null;
-      gitDecorationsRef.current?.clear();
-      gitDecorationsRef.current = null;
       semanticDecorationsRef.current?.clear();
       semanticDecorationsRef.current = null;
       goSyntaxDecorationsRef.current?.clear();
@@ -942,6 +868,7 @@ export default function SingleEditor({
       syncDocumentWithLanguageServer(current);
       scheduleSemanticTokenDecorations();
       scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 320);
+      scheduleGitDecorationRefresh();
 
       const model = editor.getModel();
       const position = editor.getPosition();
