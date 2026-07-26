@@ -107,8 +107,6 @@ export default function StatusBar({
   view,
 }: Props) {
   const languageLabel = getLanguageStatusLabel(language);
-  const axonAccent =
-    "linear-gradient(90deg, #ff6b5f 0%, #f2c94c 36%, #54d6b5 72%, #80c8e0 100%)";
   const activeControlClass =
     "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]";
   const idleControlClass =
@@ -125,7 +123,6 @@ export default function StatusBar({
       <div
         aria-hidden="true"
         className="axon-status-flow-strip absolute left-0 top-0 h-px w-full"
-        style={{ background: axonAccent }}
       />
       <div className="flex min-w-0 items-center gap-1 shrink-0">
         <Tooltip label="Toggle sidebar (Cmd+B)" side="top">

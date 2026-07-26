@@ -1,5 +1,7 @@
 import { type AxonSettings } from "@axon-editor/shared/settings";
-import SearchSelect, { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect";
+import SearchSelect, {
+  type SearchSelectItem,
+} from "@axon-editor/base/components/SearchSelect";
 import {
   EDITOR_CURSOR_BLINKING_ITEMS,
   EDITOR_CURSOR_STYLE_ITEMS,
@@ -100,6 +102,64 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        label="Quick suggestions"
+        description="Shows completion options automatically while you type. Manual completion remains available when disabled."
+      >
+        <SettingsToggle
+          checked={draft.editor.quickSuggestionsEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("quickSuggestionsEnabled", checked)
+          }
+          label={draft.editor.quickSuggestionsEnabled ? "Enabled" : "Disabled"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Trigger character suggestions"
+        description="Shows completions after language-specific characters such as a dot."
+      >
+        <SettingsToggle
+          checked={draft.editor.triggerCharacterSuggestionsEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("triggerCharacterSuggestionsEnabled", checked)
+          }
+          label={
+            draft.editor.triggerCharacterSuggestionsEnabled
+              ? "Enabled"
+              : "Disabled"
+          }
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Suggestion preview text"
+        description="Shows the selected completion as faint text ahead of the cursor."
+      >
+        <SettingsToggle
+          checked={draft.editor.suggestionPreviewEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("suggestionPreviewEnabled", checked)
+          }
+          label={draft.editor.suggestionPreviewEnabled ? "Visible" : "Hidden"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Word-based suggestions"
+        description="Suggests words already used in matching open files alongside language server completions."
+      >
+        <SettingsToggle
+          checked={draft.editor.wordBasedSuggestionsEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("wordBasedSuggestionsEnabled", checked)
+          }
+          label={
+            draft.editor.wordBasedSuggestionsEnabled ? "Enabled" : "Disabled"
+          }
+        />
+      </SettingsField>
+
+      <SettingsField
         label="Tab size"
         description="Sets indentation width for typing and formatting. Changing it switches to your fixed indentation settings."
       >
@@ -135,7 +195,9 @@ export default function EditorSettingsSection({
         <SettingsToggle
           checked={draft.editor.detectIndentation}
           onChange={(checked) => onUpdateEditor("detectIndentation", checked)}
-          label={draft.editor.detectIndentation ? "Automatic" : "Use my settings"}
+          label={
+            draft.editor.detectIndentation ? "Automatic" : "Use my settings"
+          }
         />
       </SettingsField>
 

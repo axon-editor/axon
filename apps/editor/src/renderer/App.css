@@ -191,7 +191,7 @@
 
   &::before,
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: -4.5px;
     border: 5px solid transparent;
@@ -286,47 +286,60 @@
 }
 
 .axon-status-flow-strip {
-  background-size: 240% 100%;
-  animation: axon-status-flow 4.8s linear infinite;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgb(255 107 95 / 18%),
+    rgb(242 201 76 / 18%),
+    rgb(84 214 181 / 18%),
+    rgb(128 200 224 / 18%)
+  );
+}
+
+.axon-status-flow-strip::after {
+  position: absolute;
+  inset: 0 auto 0 -38%;
+  width: 38%;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #ff6b5f 20%,
+    #f2c94c 42%,
+    #54d6b5 68%,
+    #80c8e0 82%,
+    transparent 100%
+  );
+  filter: drop-shadow(0 0 2px rgb(84 214 181 / 45%));
+  animation: axon-status-flow 3.6s ease-in-out infinite;
 }
 
 @keyframes axon-status-flow {
   from {
-    background-position: 0% 50%;
+    transform: translateX(0);
   }
   to {
-    background-position: 240% 50%;
+    transform: translateX(365%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .axon-status-flow-strip {
+  .axon-status-flow-strip::after {
     animation: none;
+    transform: translateX(165%);
   }
 }
 
 .axon-git-line--added {
-  background: color-mix(
-    in srgb,
-    var(--axon-editor-background) 94%,
-    #7ee787
-  );
+  background: color-mix(in srgb, var(--axon-editor-background) 94%, #7ee787);
 }
 
 .axon-git-line--modified {
-  background: color-mix(
-    in srgb,
-    var(--axon-editor-background) 94%,
-    #f2cc60
-  );
+  background: color-mix(in srgb, var(--axon-editor-background) 94%, #f2cc60);
 }
 
 .axon-git-line--deleted {
-  background: color-mix(
-    in srgb,
-    var(--axon-editor-background) 94%,
-    #ff7b72
-  );
+  background: color-mix(in srgb, var(--axon-editor-background) 94%, #ff7b72);
 }
 
 .axon-git-gutter {

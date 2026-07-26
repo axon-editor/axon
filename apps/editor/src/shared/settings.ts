@@ -1,6 +1,7 @@
 export const BUILT_IN_THEME_IDS = [
   "axon-dark",
   "axon-moonlight",
+  "axon-parchment",
   "sora",
   "zed-dark",
   "catppuccin-mocha",
@@ -20,11 +21,7 @@ export const AI_PROVIDER_IDS = ["local"] as const;
 
 export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
 
-export const UI_FONT_FAMILIES = [
-  ".AxonSans",
-  ".ZedSans",
-  "system-ui",
-] as const;
+export const UI_FONT_FAMILIES = [".AxonSans", ".ZedSans", "system-ui"] as const;
 
 export const EDITOR_FONT_FAMILIES = [
   ".AxonMono",
@@ -101,6 +98,7 @@ export type EditorCursorBlinking = (typeof EDITOR_CURSOR_BLINKING)[number];
 export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "axon-dark": "Axon Dark",
   "axon-moonlight": "Axon Moonlight",
+  "axon-parchment": "Axon Parchment",
   sora: "Sora",
   "zed-dark": "Zed Dark",
   "catppuccin-mocha": "Catppuccin Mocha",
@@ -198,6 +196,10 @@ export interface EditorSettings {
   scrollbarMarkersEnabled: boolean;
   snippetsEnabled: boolean;
   stickyScrollEnabled: boolean;
+  quickSuggestionsEnabled: boolean;
+  triggerCharacterSuggestionsEnabled: boolean;
+  suggestionPreviewEnabled: boolean;
+  wordBasedSuggestionsEnabled: boolean;
 }
 
 export interface AxonSettings {
@@ -263,6 +265,10 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     scrollbarMarkersEnabled: true,
     snippetsEnabled: true,
     stickyScrollEnabled: true,
+    quickSuggestionsEnabled: true,
+    triggerCharacterSuggestionsEnabled: true,
+    suggestionPreviewEnabled: true,
+    wordBasedSuggestionsEnabled: true,
   },
   ai: {
     enabled: true,
@@ -308,9 +314,7 @@ function isEditorBackgroundImageFit(
 ): value is EditorBackgroundImageFit {
   return (
     typeof value === "string" &&
-    EDITOR_BACKGROUND_IMAGE_FITS.includes(
-      value as EditorBackgroundImageFit,
-    )
+    EDITOR_BACKGROUND_IMAGE_FITS.includes(value as EditorBackgroundImageFit)
   );
 }
 
@@ -319,9 +323,7 @@ function isEditorMultiCursorModifier(
 ): value is EditorMultiCursorModifier {
   return (
     typeof value === "string" &&
-    EDITOR_MULTI_CURSOR_MODIFIERS.includes(
-      value as EditorMultiCursorModifier,
-    )
+    EDITOR_MULTI_CURSOR_MODIFIERS.includes(value as EditorMultiCursorModifier)
   );
 }
 
@@ -332,9 +334,7 @@ function isEditorCursorStyle(value: unknown): value is EditorCursorStyle {
   );
 }
 
-function isEditorCursorBlinking(
-  value: unknown,
-): value is EditorCursorBlinking {
+function isEditorCursorBlinking(value: unknown): value is EditorCursorBlinking {
   return (
     typeof value === "string" &&
     EDITOR_CURSOR_BLINKING.includes(value as EditorCursorBlinking)
@@ -557,9 +557,7 @@ export function normalizeSettings(value: unknown): AxonSettings {
         0,
         40,
       ),
-      backgroundImageFit: isEditorBackgroundImageFit(
-        editor.backgroundImageFit,
-      )
+      backgroundImageFit: isEditorBackgroundImageFit(editor.backgroundImageFit)
         ? editor.backgroundImageFit
         : DEFAULT_SETTINGS.editor.backgroundImageFit,
       breadcrumbsEnabled:
@@ -605,6 +603,22 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.stickyScrollEnabled === "boolean"
           ? editor.stickyScrollEnabled
           : DEFAULT_SETTINGS.editor.stickyScrollEnabled,
+      quickSuggestionsEnabled:
+        typeof editor.quickSuggestionsEnabled === "boolean"
+          ? editor.quickSuggestionsEnabled
+          : DEFAULT_SETTINGS.editor.quickSuggestionsEnabled,
+      triggerCharacterSuggestionsEnabled:
+        typeof editor.triggerCharacterSuggestionsEnabled === "boolean"
+          ? editor.triggerCharacterSuggestionsEnabled
+          : DEFAULT_SETTINGS.editor.triggerCharacterSuggestionsEnabled,
+      suggestionPreviewEnabled:
+        typeof editor.suggestionPreviewEnabled === "boolean"
+          ? editor.suggestionPreviewEnabled
+          : DEFAULT_SETTINGS.editor.suggestionPreviewEnabled,
+      wordBasedSuggestionsEnabled:
+        typeof editor.wordBasedSuggestionsEnabled === "boolean"
+          ? editor.wordBasedSuggestionsEnabled
+          : DEFAULT_SETTINGS.editor.wordBasedSuggestionsEnabled,
     },
     ai: {
       enabled:

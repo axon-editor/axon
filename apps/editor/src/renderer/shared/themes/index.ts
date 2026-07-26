@@ -60,7 +60,9 @@ function firstThemeColor(
   return fallback;
 }
 
-function completeThemeTokens(extensionTheme: ResolvedExtensionTheme): ThemeTokenMap {
+function completeThemeTokens(
+  extensionTheme: ResolvedExtensionTheme,
+): ThemeTokenMap {
   const editorBackground = firstThemeColor(extensionTheme, [
     "editor.background",
     "background",
@@ -153,7 +155,10 @@ export function resolveThemeTokens(
   settings: AxonSettings,
   extensionThemes: ResolvedExtensionTheme[] = [],
 ): ThemeTokenMap {
-  const extensionTheme = getRequiredTheme(settings.editor.themeId, extensionThemes);
+  const extensionTheme = getRequiredTheme(
+    settings.editor.themeId,
+    extensionThemes,
+  );
 
   // Theme colors are now owned by extension packages. Keeping runtime override
   // layering here would make the same built-in theme render differently from
@@ -198,6 +203,19 @@ function buildMonacoTheme(
       "input.foreground": tokens["editor.foreground"],
       "textLink.foreground": tokens["syntax.property"],
       "textPreformat.foreground": tokens["editor.foreground"],
+      "editorWidget.background": tokens["panel.background"],
+      "editorWidget.foreground": tokens["editor.foreground"],
+      "editorWidget.border": tokens["panel.border"],
+      "editorHoverWidget.background": tokens["panel.background"],
+      "editorHoverWidget.foreground": tokens["editor.foreground"],
+      "editorHoverWidget.border": tokens["panel.border"],
+      "editorHoverWidget.statusBarBackground": tokens["panel.overlay_hover"],
+      "editorSuggestWidget.background": tokens["panel.background"],
+      "editorSuggestWidget.foreground": tokens["editor.foreground"],
+      "editorSuggestWidget.border": tokens["panel.border"],
+      "editorSuggestWidget.selectedBackground": tokens["panel.overlay_hover"],
+      "editorSuggestWidget.highlightForeground": tokens["syntax.function"],
+      "editorSuggestWidget.focusHighlightForeground": tokens["syntax.function"],
       "terminal.background": tokens["terminal.background"],
       "terminal.foreground": tokens["terminal.foreground"],
       ...theme.monacoColors,
@@ -261,9 +279,10 @@ function defineAllThemes(
   }
 
   for (const extensionTheme of extensionThemes) {
-    const tokens = extensionTheme.id === activeThemeId && activeTokens
-      ? activeTokens
-      : completeThemeTokens(extensionTheme);
+    const tokens =
+      extensionTheme.id === activeThemeId && activeTokens
+        ? activeTokens
+        : completeThemeTokens(extensionTheme);
     const themeDefinition: AxonThemeDefinition = {
       id: extensionTheme.id,
       label: extensionTheme.label,
@@ -282,7 +301,10 @@ function defineAllThemes(
         buildMonacoTheme(themeDefinition, tokens, extensionTheme),
       );
     } catch (err) {
-      console.error(`failed to register extension theme ${extensionTheme.id}:`, err);
+      console.error(
+        `failed to register extension theme ${extensionTheme.id}:`,
+        err,
+      );
     }
   }
 }
@@ -317,6 +339,8 @@ export function registerAxonTheme(
   }
 }
 
-export function hasRegisteredAxonThemes(monacoInstance: MonacoInstance = monaco) {
+export function hasRegisteredAxonThemes(
+  monacoInstance: MonacoInstance = monaco,
+) {
   return registeredMonacos.has(monacoInstance);
 }

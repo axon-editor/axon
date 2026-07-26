@@ -7,7 +7,10 @@ import {
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { editorFontStack } from "../../shared/lib/fonts";
-import { getMonacoThemeId, registerAxonTheme } from "../../shared/lib/soraTheme";
+import {
+  getMonacoThemeId,
+  registerAxonTheme,
+} from "../../shared/lib/soraTheme";
 import EditorFindWidget from "./EditorFindWidget";
 import { createEditorFormattingOptions } from "./lib/editorFormattingOptions";
 
@@ -32,7 +35,10 @@ interface Props {
 
 function backgroundImageStyle(
   fit: EditorBackgroundImageFit,
-): Pick<CSSProperties, "backgroundPosition" | "backgroundRepeat" | "backgroundSize"> {
+): Pick<
+  CSSProperties,
+  "backgroundPosition" | "backgroundRepeat" | "backgroundSize"
+> {
   switch (fit) {
     case "cover":
       return {
@@ -104,7 +110,9 @@ export default function MonacoEditorSurface({
                 ? `blur(${editorSettings.backgroundImageBlur}px)`
                 : undefined,
             transform:
-              editorSettings.backgroundImageBlur > 0 ? "scale(1.04)" : undefined,
+              editorSettings.backgroundImageBlur > 0
+                ? "scale(1.04)"
+                : undefined,
             ...backgroundStyle,
           }}
         />
@@ -182,13 +190,19 @@ export default function MonacoEditorSurface({
               horizontal: "auto",
               useShadows: false,
             },
-            quickSuggestions: {
-              other: true,
-              comments: false,
-              strings: true,
-            },
+            quickSuggestions: editorSettings.quickSuggestionsEnabled
+              ? {
+                  other: true,
+                  comments: false,
+                  strings: true,
+                }
+              : false,
             quickSuggestionsDelay: 0,
-            suggestOnTriggerCharacters: true,
+            suggestOnTriggerCharacters:
+              editorSettings.triggerCharacterSuggestionsEnabled,
+            wordBasedSuggestions: editorSettings.wordBasedSuggestionsEnabled
+              ? "matchingDocuments"
+              : "off",
             hover: { enabled: true, delay: 100, sticky: true },
             acceptSuggestionOnCommitCharacter: true,
             snippetSuggestions: editorSettings.snippetsEnabled ? "top" : "none",
@@ -197,7 +211,7 @@ export default function MonacoEditorSurface({
               snippetsPreventQuickSuggestions: false,
               showInlineDetails: false,
               showStatusBar: false,
-              preview: true,
+              preview: editorSettings.suggestionPreviewEnabled,
             },
             tabCompletion: editorSettings.snippetsEnabled ? "on" : "off",
             renderLineHighlight: "line",

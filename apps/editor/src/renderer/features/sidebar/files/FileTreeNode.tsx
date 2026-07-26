@@ -14,13 +14,8 @@ import {
 } from "../../editor/lib/dragData";
 import { getFileIcon, getFolderIcon } from "./lib/fileIcons";
 import { type GitTreeDecoration } from "..";
-import InlineCreateRow, {
-  type InlineCreateTarget,
-} from "./InlineCreateRow";
-import {
-  type FileTreeOperation,
-  type ImportedExternalEntry,
-} from "./FileTree";
+import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
+import { type FileTreeOperation, type ImportedExternalEntry } from "./FileTree";
 
 interface Props {
   node: FileNode;
@@ -39,7 +34,10 @@ interface Props {
   operation?: FileTreeOperation | null;
   refreshNonce?: number;
   onInlineCreateCancel?: () => void;
-  onInlineCreateCreated?: (path: string, isDir: boolean) => void | Promise<void>;
+  onInlineCreateCreated?: (
+    path: string,
+    isDir: boolean,
+  ) => void | Promise<void>;
   depth?: number;
 }
 
@@ -87,7 +85,8 @@ const gitDecorationColors: Record<GitTreeDecoration["tone"], string> = {
   mixed: "#80c8e0",
 };
 
-const ignoredEntryColor = "color-mix(in srgb, var(--axon-editor-foreground) 56%, transparent)";
+const ignoredEntryColor =
+  "color-mix(in srgb, var(--axon-editor-foreground) 56%, transparent)";
 
 function normalizeTreePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -174,6 +173,7 @@ export default function FileTreeNode({
   );
 
   const dragCounter = useRef(0);
+  const fileRowRef = useRef<HTMLDivElement>(null);
 
   // holds the auto-expand timer so we can cancel it if the drag leaves
   const expandTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,10 +207,29 @@ export default function FileTreeNode({
   }, [node.children, node.path]);
 
   useEffect(() => {
-    if (revealPath && node.is_dir && revealPath.startsWith(`${node.path}/`)) {
+    const normalizedRevealPaths = [revealPath, activeFile]
+      .filter((path): path is string => Boolean(path))
+      .map(normalizeTreePath);
+    const normalizedNodePath = normalizeTreePath(node.path);
+    if (
+      node.is_dir &&
+      normalizedRevealPaths.some((path) =>
+        path.startsWith(`${normalizedNodePath}/`),
+      )
+    ) {
       setExpanded(true);
     }
-  }, [node.is_dir, node.path, revealPath]);
+  }, [activeFile, node.is_dir, node.path, revealPath]);
+
+  useEffect(() => {
+    if (
+      !node.is_dir &&
+      activeFile &&
+      normalizeTreePath(activeFile) === normalizeTreePath(node.path)
+    ) {
+      fileRowRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeFile, node.is_dir, node.path]);
 
   useEffect(() => {
     if (node.is_dir && inlineCreate?.parentPath === node.path) {
@@ -255,7 +274,8 @@ export default function FileTreeNode({
         if (
           currentChildren.some(
             (child) =>
-              normalizeTreePath(child.path) === normalizeTreePath(operation.path),
+              normalizeTreePath(child.path) ===
+              normalizeTreePath(operation.path),
           )
         ) {
           return currentChildren;
@@ -277,7 +297,8 @@ export default function FileTreeNode({
           const childPath = normalizeTreePath(child.path);
           const deletedPath = normalizeTreePath(operation.path);
           return (
-            childPath !== deletedPath && !childPath.startsWith(`${deletedPath}/`)
+            childPath !== deletedPath &&
+            !childPath.startsWith(`${deletedPath}/`)
           );
         });
       }
@@ -347,8 +368,9 @@ export default function FileTreeNode({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect =
-      hasExternalFileDrag(e.dataTransfer) ? "copy" : "move";
+    e.dataTransfer.dropEffect = hasExternalFileDrag(e.dataTransfer)
+      ? "copy"
+      : "move";
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -425,7 +447,11 @@ export default function FileTreeNode({
     createdPath: string,
     isDir: boolean,
   ) => {
-    if (node.is_dir && normalizeTreePath(getParentPath(createdPath)) === normalizeTreePath(node.path)) {
+    if (
+      node.is_dir &&
+      normalizeTreePath(getParentPath(createdPath)) ===
+        normalizeTreePath(node.path)
+    ) {
       // Expanded folders keep their own lazy child cache, so a root-level tree
       // refresh alone is not enough to reveal a newly created nested entry.
       // I insert the node into this folder's local cache immediately, then let
@@ -434,7 +460,8 @@ export default function FileTreeNode({
         const existingChildren = currentChildren ?? [];
         if (
           existingChildren.some(
-            (child) => normalizeTreePath(child.path) === normalizeTreePath(createdPath),
+            (child) =>
+              normalizeTreePath(child.path) === normalizeTreePath(createdPath),
           )
         ) {
           return existingChildren;
@@ -574,6 +601,7 @@ export default function FileTreeNode({
 
   return (
     <div
+      ref={fileRowRef}
       draggable
       onDragStart={handleDragStart}
       onDragEnter={handleDragEnter}

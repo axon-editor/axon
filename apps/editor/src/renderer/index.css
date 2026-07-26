@@ -8,7 +8,11 @@
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--axon-editor-foreground) 28%, transparent)
+  scrollbar-color: color-mix(
+      in srgb,
+      var(--axon-editor-foreground) 28%,
+      transparent
+    )
     transparent;
 }
 
@@ -81,7 +85,7 @@
 }
 
 .monaco-editor .suggest-widget {
-  border: 1px solid rgba(82, 93, 119, 0.42) !important;
+  border: 1px solid var(--axon-panel-border) !important;
   border-radius: 6px !important;
   overflow: hidden !important;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32) !important;
@@ -90,13 +94,13 @@
 }
 
 .monaco-editor .suggest-widget .monaco-list {
-  background: rgba(13, 16, 24, 0.98) !important;
+  background: var(--axon-panel-background) !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list-row,
 .monaco-editor .suggest-widget .monaco-list-row .label-name,
 .monaco-editor .suggest-widget .monaco-list-row .signature-label {
-  color: #c4cbd8 !important;
+  color: var(--axon-editor-foreground) !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list-row {
@@ -107,8 +111,8 @@
 }
 
 .monaco-editor .suggest-widget .monaco-list-row.focused {
-  background: rgba(93, 147, 176, 0.2) !important;
-  color: #edf6ff !important;
+  background: var(--axon-panel-overlay-hover) !important;
+  color: var(--axon-editor-foreground) !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list-row .contents {
@@ -124,12 +128,24 @@
 }
 
 .monaco-editor .suggest-widget .details {
-  border-left: 1px solid rgba(82, 93, 119, 0.35) !important;
-  background: rgba(13, 16, 24, 0.98) !important;
-  color: #c4cbd8 !important;
+  border-left: 1px solid var(--axon-panel-border) !important;
+  background: var(--axon-panel-background) !important;
+  color: var(--axon-editor-foreground) !important;
 }
 
 .monaco-editor .suggest-widget .monaco-highlighted-label .highlight {
-  color: #ffd58a !important;
+  color: var(--axon-syntax-function) !important;
   font-weight: 600 !important;
+}
+
+.monaco-editor .monaco-hover,
+.monaco-editor .monaco-hover .monaco-hover-content,
+.monaco-editor .monaco-hover .hover-row.status-bar {
+  border-color: var(--axon-panel-border) !important;
+  background: var(--axon-panel-background) !important;
+  color: var(--axon-editor-foreground) !important;
+}
+
+.monaco-editor .monaco-hover a {
+  color: var(--axon-syntax-function) !important;
 }

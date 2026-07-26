@@ -4,14 +4,10 @@
   "name": "Axon Themes",
   "publisher": "Axon",
   "version": "1.0.0",
-  "description": "Built-in Axon, Axon Moonlight, and Sora themes.",
+  "description": "Built-in Axon, Axon Moonlight, Axon Parchment, and Sora themes.",
   "author": "Axon",
-  "categories": [
-    "Themes"
-  ],
-  "activationEvents": [
-    "onStartup"
-  ],
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
   "contributes": {
     "themes": [
       {
@@ -23,6 +19,11 @@
         "id": "axon-moonlight",
         "label": "Axon Moonlight",
         "path": "./themes/axon-moonlight.json"
+      },
+      {
+        "id": "axon-parchment",
+        "label": "Axon Parchment",
+        "path": "./themes/axon-parchment.json"
       },
       {
         "id": "sora",

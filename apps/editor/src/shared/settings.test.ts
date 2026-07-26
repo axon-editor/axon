@@ -46,3 +46,32 @@ describe("editor formatting settings", () => {
     );
   });
 });
+
+describe("editor suggestion settings", () => {
+  it("preserves explicit completion preferences", () => {
+    const settings = normalizeSettings({
+      editor: {
+        quickSuggestionsEnabled: false,
+        triggerCharacterSuggestionsEnabled: false,
+        suggestionPreviewEnabled: false,
+        wordBasedSuggestionsEnabled: false,
+      },
+    });
+
+    expect(settings.editor).toMatchObject({
+      quickSuggestionsEnabled: false,
+      triggerCharacterSuggestionsEnabled: false,
+      suggestionPreviewEnabled: false,
+      wordBasedSuggestionsEnabled: false,
+    });
+  });
+
+  it("keeps suggestions enabled when older settings omit the preferences", () => {
+    const settings = normalizeSettings({ editor: {} });
+
+    expect(settings.editor.quickSuggestionsEnabled).toBe(true);
+    expect(settings.editor.triggerCharacterSuggestionsEnabled).toBe(true);
+    expect(settings.editor.suggestionPreviewEnabled).toBe(true);
+    expect(settings.editor.wordBasedSuggestionsEnabled).toBe(true);
+  });
+});

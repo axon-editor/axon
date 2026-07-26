@@ -328,7 +328,8 @@ function appendCreatedChild(
 ) {
   if (!tree) return tree;
   if (
-    normalizeTreePath(getParentPath(createdPath)) !== normalizeTreePath(tree.path)
+    normalizeTreePath(getParentPath(createdPath)) !==
+    normalizeTreePath(tree.path)
   ) {
     return tree;
   }
