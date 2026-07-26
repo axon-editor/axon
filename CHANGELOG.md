@@ -2,6 +2,27 @@
 
 ## Next
 
+## v1.3.2
+
+- Added Axon Parchment as a built-in light theme with complete editor, syntax,
+  Monaco widget, terminal, and ANSI colors.
+- Made LSP hover, autocomplete, and status-bar controls follow active theme
+  tokens instead of fixed dark-theme colors.
+- Added editor settings for automatic suggestions, trigger-character
+  suggestions, completion preview text, and word-based suggestions.
+- Revealed and activated files in the explorer after workspace search, quick
+  open, and language navigation, including files inside lazy nested folders.
+- Reworked the status accent into a thin left-to-right flowing streak with
+  reduced-motion support.
+- Preserved Git line paint when added, modified, or deleted content is removed,
+  restored, or replaced repeatedly in an open editor.
+- Stabilized live Markdown preview rendering during rapid edits and prevented
+  stale asynchronous renders from replacing newer content.
+- Made language-tool installation recover after file switches, renderer
+  remounts, completed downloads, cancellation, and interrupted activation.
+- Corrected React test-environment typing so CI resolves renderer tests without
+  false TypeScript failures.
+
 ## v1.3.1
 
 - Added a built-in code snapshot editor with selection capture, syntax-aware
