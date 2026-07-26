@@ -1,8 +1,5 @@
 import { type CSSProperties } from "react";
-import {
-  resolveThemeTokens,
-  type ThemeTokenMap,
-} from "../themes";
+import { resolveThemeTokens, type ThemeTokenMap } from "../themes";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 
 export type ResolvedThemeTokens = ThemeTokenMap;
@@ -40,6 +37,7 @@ export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
     "--axon-terminal-foreground": tokens["terminal.foreground"],
     "--axon-syntax-function": tokens["syntax.function"],
     "--axon-syntax-method": tokens["syntax.method"],
+    "--axon-warning-foreground": tokens["syntax.number"],
     "--axon-danger-foreground": tokens["syntax.keyword"],
   } as CSSProperties;
 }

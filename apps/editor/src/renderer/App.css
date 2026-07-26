@@ -287,19 +287,13 @@
 
 .axon-status-flow-strip {
   overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    rgb(255 107 95 / 18%),
-    rgb(242 201 76 / 18%),
-    rgb(84 214 181 / 18%),
-    rgb(128 200 224 / 18%)
-  );
+  background: var(--axon-panel-border);
 }
 
 .axon-status-flow-strip::after {
   position: absolute;
-  inset: 0 auto 0 -38%;
-  width: 38%;
+  inset: 0 auto 0 -12%;
+  width: 12%;
   content: "";
   background: linear-gradient(
     90deg,
@@ -310,8 +304,7 @@
     #80c8e0 82%,
     transparent 100%
   );
-  filter: drop-shadow(0 0 2px rgb(84 214 181 / 45%));
-  animation: axon-status-flow 3.6s ease-in-out infinite;
+  animation: axon-status-flow 3.2s ease-in-out infinite;
 }
 
 @keyframes axon-status-flow {
@@ -319,14 +312,14 @@
     transform: translateX(0);
   }
   to {
-    transform: translateX(365%);
+    transform: translateX(935%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .axon-status-flow-strip::after {
     animation: none;
-    transform: translateX(165%);
+    transform: translateX(435%);
   }
 }
 
