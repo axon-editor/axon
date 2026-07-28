@@ -408,7 +408,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               nativeControlInset={zenNativeControlInset}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center bg-[var(--axon-editor-background)] text-[12px] text-[#586478]">
+            <div className="flex flex-1 items-center justify-center bg-[var(--axon-editor-background)] text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
               loading editor...
             </div>
           )}

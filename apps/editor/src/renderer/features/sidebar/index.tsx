@@ -774,8 +774,8 @@ export default function Sidebar({
                 }
                 className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded transition-colors ${
                   trustedWorkspace
-                    ? "text-[#8fe3a2] hover:bg-[#152019]"
-                    : "text-[#ffb454] hover:bg-[#2b2113]"
+                    ? "text-[var(--axon-git-added)] hover:bg-[var(--axon-sidebar-hover-background)]"
+                    : "text-[var(--axon-warning-foreground)] hover:bg-[var(--axon-sidebar-hover-background)]"
                 }`}
                 style={{ WebkitAppRegion: "no-drag" } as any}
               >
@@ -879,7 +879,7 @@ export default function Sidebar({
             onPointerMove={handleResizeMove}
             onPointerUp={handleResizeEnd}
             onPointerCancel={handleResizeEnd}
-            className="absolute bottom-0 right-0 top-0 w-1 cursor-col-resize hover:bg-[#80c8e0]/60"
+            className="absolute bottom-0 right-0 top-0 w-1 cursor-col-resize hover:bg-[var(--axon-syntax-function)] hover:opacity-60"
             aria-hidden="true"
           />
         </div>
@@ -956,7 +956,7 @@ export default function Sidebar({
         <div className="axon-modal-overlay fixed inset-0 z-[110] flex items-center justify-center px-4">
           <div className="axon-modal-panel w-full max-w-sm rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 shadow-2xl">
             <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2b2113] text-[#ffb454]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-warning-foreground)]">
                 <ShieldAlert size={17} />
               </div>
               <div className="min-w-0">
@@ -984,7 +984,7 @@ export default function Sidebar({
               <button
                 type="button"
                 onClick={revokeWorkspaceTrust}
-                className="h-8 cursor-pointer rounded-md border border-[#5c3320] bg-[#2b2113] px-3 text-[12px] text-[#ffcf8a] transition-colors hover:border-[#ffb454] hover:text-[#fff4d6]"
+                className="h-8 cursor-pointer rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-warning-foreground)] transition-colors hover:border-[var(--axon-warning-foreground)] hover:text-[var(--axon-editor-foreground)]"
               >
                 Mark Untrusted
               </button>

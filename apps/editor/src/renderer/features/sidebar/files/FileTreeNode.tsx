@@ -70,7 +70,7 @@ function TreeGuides({ depth }: { depth: number }) {
       {Array.from({ length: depth }).map((_, index) => (
         <span
           key={index}
-          className="absolute top-0 bottom-0 w-px bg-[#222838]/70"
+          className="absolute top-0 bottom-0 w-px bg-[var(--axon-panel-border)] opacity-70"
           style={{ left: `${TREE_BASE_INDENT + index * TREE_DEPTH_WIDTH}px` }}
         />
       ))}
@@ -79,10 +79,10 @@ function TreeGuides({ depth }: { depth: number }) {
 }
 
 const gitDecorationColors: Record<GitTreeDecoration["tone"], string> = {
-  added: "#7ee787",
-  modified: "#f2cc60",
-  deleted: "#ff7b72",
-  mixed: "#80c8e0",
+  added: "var(--axon-git-added)",
+  modified: "var(--axon-git-modified)",
+  deleted: "var(--axon-git-deleted)",
+  mixed: "var(--axon-git-mixed)",
 };
 
 const ignoredEntryColor =
@@ -525,7 +525,7 @@ export default function FileTreeNode({
               : undefined,
             // cyan left border when dragging over to make the drop zone very obvious
             borderLeft: dragOver
-              ? "2px solid #80c8e0"
+              ? "2px solid var(--axon-syntax-function)"
               : "2px solid transparent",
             transition: "background-color 100ms, border-color 100ms",
           }}
@@ -545,7 +545,7 @@ export default function FileTreeNode({
           </span>
 
           {dragOver && (
-            <span className="relative z-10 ml-auto mr-2 text-[10px] text-[#80c8e0] shrink-0">
+            <span className="relative z-10 ml-auto mr-2 shrink-0 text-[10px] text-[var(--axon-syntax-function)]">
               drop here
             </span>
           )}
@@ -621,7 +621,9 @@ export default function FileTreeNode({
       style={{
         paddingLeft: `${rowPaddingLeft}px`,
         // cyan left border when this file is a drop target
-        borderLeft: dragOver ? "2px solid #80c8e0" : "2px solid transparent",
+        borderLeft: dragOver
+          ? "2px solid var(--axon-syntax-function)"
+          : "2px solid transparent",
         transition: "border-color 100ms",
       }}
     >

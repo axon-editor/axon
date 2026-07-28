@@ -37,6 +37,10 @@ export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
     "--axon-terminal-foreground": tokens["terminal.foreground"],
     "--axon-syntax-function": tokens["syntax.function"],
     "--axon-syntax-method": tokens["syntax.method"],
+    "--axon-git-added": tokens["syntax.string"],
+    "--axon-git-modified": tokens["syntax.number"],
+    "--axon-git-deleted": tokens["syntax.constant"],
+    "--axon-git-mixed": tokens["syntax.function"],
     "--axon-warning-foreground": tokens["syntax.number"],
     "--axon-danger-foreground": tokens["syntax.keyword"],
   } as CSSProperties;

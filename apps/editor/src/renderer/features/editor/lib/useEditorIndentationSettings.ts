@@ -8,6 +8,7 @@ export function useEditorIndentationSettings(
   editorSettings: EditorSettings,
   editorReadyNonce: number,
   loading: boolean,
+  visible: boolean,
 ) {
   useEffect(() => {
     const editor = editorRef.current;
@@ -19,6 +20,10 @@ export function useEditorIndentationSettings(
     // Monaco owns the live editor afterward. This keeps Settings previews and
     // saved values working without recreating the current tab or window.
     editor.updateOptions(createEditorFormattingOptions(editorSettings));
+    if (visible) {
+      editor.layout();
+      editor.render(true);
+    }
 
     // I apply indentation to the shared text model because Monaco does not
     // store it on an individual editor widget. This keeps split panes
@@ -47,5 +52,6 @@ export function useEditorIndentationSettings(
     editorSettings.insertSpaces,
     editorSettings.tabSize,
     loading,
+    visible,
   ]);
 }

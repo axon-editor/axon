@@ -101,7 +101,7 @@ function GhostTab({ path }: { path: string }) {
   const name = getTabDisplayName(path);
   return (
     <div
-      className="flex h-9 shrink-0 select-none items-center gap-1.5 border border-[#263047] bg-[#111720] px-3 text-[12px] text-[#e4ebf6] opacity-95 shadow-lg"
+      className="flex h-9 shrink-0 select-none items-center gap-1.5 border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-95 shadow-lg"
     >
       <span>{name}</span>
     </div>

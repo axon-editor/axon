@@ -141,6 +141,7 @@ export default function SingleEditor({
     folderPath,
     gitChange,
     loading,
+    themeTokens,
   });
 
   const {
@@ -546,7 +547,13 @@ export default function SingleEditor({
     visible,
   ]);
 
-  useEditorIndentationSettings(editorRef, editorSettings, editorReadyNonce, loading);
+  useEditorIndentationSettings(
+    editorRef,
+    editorSettings,
+    editorReadyNonce,
+    loading,
+    visible,
+  );
 
   useEditorActions({
     editorRef,

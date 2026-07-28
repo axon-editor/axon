@@ -21,8 +21,6 @@ export const AI_PROVIDER_IDS = ["local"] as const;
 
 export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
 
-export const UI_FONT_FAMILIES = [".AxonSans", ".ZedSans", "system-ui"] as const;
-
 export const EDITOR_FONT_FAMILIES = [
   ".AxonMono",
   ".ZedMono",
@@ -42,6 +40,13 @@ export const EDITOR_FONT_FAMILIES = [
   "SF Mono",
   "Menlo",
   "Monaco",
+] as const;
+
+export const UI_FONT_FAMILIES = [
+  ".AxonSans",
+  ".ZedSans",
+  "system-ui",
+  ...EDITOR_FONT_FAMILIES,
 ] as const;
 
 export type UiFontFamily = (typeof UI_FONT_FAMILIES)[number];

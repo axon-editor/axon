@@ -76,8 +76,8 @@ export default function InlineCreateRow({
       }}
       onMouseDown={(event) => event.stopPropagation()}
     >
-      <span className="flex h-4 w-3 shrink-0 items-center justify-center text-[#364050]" />
-      <span className="flex shrink-0 items-center text-[#80c8e0]">
+      <span className="flex h-4 w-3 shrink-0 items-center justify-center text-[var(--axon-editor-foreground)] opacity-35" />
+      <span className="flex shrink-0 items-center text-[var(--axon-syntax-function)]">
         {target.kind === "folder" ? (
           getFolderIcon(trimmedName || "new-folder", false, 14)
         ) : (

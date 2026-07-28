@@ -26,7 +26,9 @@ export function createEditorFormattingOptions(
       indentation: settings.indentationGuidesEnabled,
       highlightActiveIndentation:
         settings.indentationGuidesEnabled &&
-        settings.highlightActiveIndentationGuide,
+        settings.highlightActiveIndentationGuide
+          ? "always"
+          : false,
       bracketPairs: bracketGuidesVisible,
       bracketPairsHorizontal: bracketGuidesVisible,
       highlightActiveBracketPair: settings.bracketPairGuidesEnabled,

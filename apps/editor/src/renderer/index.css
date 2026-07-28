@@ -149,3 +149,12 @@
 .monaco-editor .monaco-hover a {
   color: var(--axon-syntax-function) !important;
 }
+
+.monaco-editor .lines-content .core-guide-indent {
+  --indent-color: color-mix(
+    in srgb,
+    var(--axon-panel-border) 78%,
+    transparent
+  ) !important;
+  --indent-color-active: var(--axon-syntax-function) !important;
+}

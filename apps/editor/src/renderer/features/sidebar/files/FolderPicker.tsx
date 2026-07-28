@@ -241,7 +241,7 @@ export default function FolderPicker({
                   <button
                     type="button"
                     onClick={onClearRecent}
-                    className="ml-auto flex h-6 cursor-pointer items-center gap-1 rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#ff7b72] hover:opacity-100"
+                    className="ml-auto flex h-6 cursor-pointer items-center gap-1 rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-danger-foreground)] hover:opacity-100"
                   >
                     <Trash2 size={11} />
                     clear
@@ -278,7 +278,7 @@ export default function FolderPicker({
                         type="button"
                         onClick={() => onRemoveRecent(folder)}
                         aria-label={`Remove ${name} from recent folders`}
-                        className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition-all hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#ff7b72] group-hover:opacity-55"
+                        className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition-all hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-danger-foreground)] group-hover:opacity-55"
                       >
                         <X size={12} />
                       </button>
@@ -341,7 +341,7 @@ export default function FolderPicker({
             {cloneError && (
               <div
                 role="alert"
-                className="mt-3 break-words text-[11px] leading-4 text-[#ff7b72]"
+                className="mt-3 break-words text-[11px] leading-4 text-[var(--axon-danger-foreground)]"
               >
                 {cloneError}
               </div>

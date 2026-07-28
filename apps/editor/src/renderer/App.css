@@ -324,15 +324,27 @@
 }
 
 .axon-git-line--added {
-  background: color-mix(in srgb, var(--axon-editor-background) 94%, #7ee787);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 94%,
+    var(--axon-git-added)
+  );
 }
 
 .axon-git-line--modified {
-  background: color-mix(in srgb, var(--axon-editor-background) 94%, #f2cc60);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 94%,
+    var(--axon-git-modified)
+  );
 }
 
 .axon-git-line--deleted {
-  background: color-mix(in srgb, var(--axon-editor-background) 94%, #ff7b72);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 94%,
+    var(--axon-git-deleted)
+  );
 }
 
 .axon-git-gutter {
@@ -341,15 +353,15 @@
 }
 
 .axon-git-gutter--added {
-  background: #7ee787;
+  background: var(--axon-git-added);
 }
 
 .axon-git-gutter--modified {
-  background: #f2cc60;
+  background: var(--axon-git-modified);
 }
 
 .axon-git-gutter--deleted {
-  background: #ff7b72;
+  background: var(--axon-git-deleted);
 }
 
 .axon-git-glyph::before {
@@ -363,17 +375,17 @@
 
 .axon-git-glyph--added::before {
   content: "+";
-  color: #7ee787;
+  color: var(--axon-git-added);
 }
 
 .axon-git-glyph--modified::before {
   content: "~";
-  color: #f2cc60;
+  color: var(--axon-git-modified);
 }
 
 .axon-git-glyph--deleted::before {
   content: "-";
-  color: #ff7b72;
+  color: var(--axon-git-deleted);
 }
 
 .axon-workspace-blank__title {

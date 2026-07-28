@@ -49,7 +49,7 @@ type DropdownType = "new" | "split" | "app" | null;
 const toolbarButtonBase =
   "flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors";
 const toolbarButtonIdle =
-  "text-[#586478] hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[#9aa4b8]";
+  "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-syntax-function)] hover:opacity-100";
 const toolbarButtonActive =
   "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]";
 const toolbarMenu =

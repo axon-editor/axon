@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import * as monaco from "monaco-editor";
 import { type GitChange } from "../../../../shared/git";
+import { type ResolvedThemeTokens } from "../../../shared/lib/themeTokens";
 import { computeGitLineDecorations } from "./gitLineDecorations";
 
 interface Options {
@@ -10,6 +11,7 @@ interface Options {
   folderPath: string | null;
   gitChange: GitChange | undefined;
   loading: boolean;
+  themeTokens: ResolvedThemeTokens;
 }
 
 export default function useGitLineDecorations({
@@ -19,6 +21,7 @@ export default function useGitLineDecorations({
   folderPath,
   gitChange,
   loading,
+  themeTokens,
 }: Options) {
   const collectionRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
@@ -58,16 +61,16 @@ export default function useGitLineDecorations({
           overviewRuler: {
             color:
               decoration.kind === "added"
-                ? "#7ee787"
+                ? themeTokens["syntax.string"]
                 : decoration.kind === "modified"
-                  ? "#f2cc60"
-                  : "#ff7b72",
+                  ? themeTokens["syntax.number"]
+                  : themeTokens["syntax.constant"],
             position: monaco.editor.OverviewRulerLane.Left,
           },
         },
       })),
     );
-  }, [editorRef]);
+  }, [editorRef, themeTokens]);
 
   const scheduleGitDecorationRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {

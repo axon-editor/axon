@@ -200,6 +200,8 @@ function buildMonacoTheme(
       "editorBracketHighlight.foreground6": tokens["syntax.bracket"],
       "editorBracketHighlight.unexpectedBracket.foreground":
         tokens["syntax.constant"],
+      "editorIndentGuide.background1": tokens["panel.border"],
+      "editorIndentGuide.activeBackground1": tokens["syntax.function"],
       "input.foreground": tokens["editor.foreground"],
       "textLink.foreground": tokens["syntax.property"],
       "textPreformat.foreground": tokens["editor.foreground"],

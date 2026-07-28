@@ -82,7 +82,7 @@ export default function PaneDivider({ direction, onResize }: Props) {
       }`}
     >
       <div
-        className={`absolute bg-[#222838] transition-colors group-hover:bg-[#80c8e0] ${
+        className={`absolute bg-[var(--axon-panel-border)] transition-colors group-hover:bg-[var(--axon-syntax-function)] ${
           direction === "horizontal"
             ? "inset-y-0 left-1/2 w-px -translate-x-1/2"
             : "inset-x-0 top-1/2 h-px -translate-y-1/2"

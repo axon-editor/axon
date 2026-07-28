@@ -70,10 +70,10 @@ export const SETTINGS_SECTIONS: Array<{
   },
 ];
 
-const UI_FONT_PRESENTATION: Record<
+const UI_FONT_PRESENTATION: Partial<Record<
   UiFontFamily,
   Pick<SearchSelectItem<UiFontFamily>, "label" | "previewFontFamily">
-> = {
+>> = {
   ".AxonSans": {
     label: "Axon Sans",
     previewFontFamily: "Inter Variable",
@@ -89,10 +89,14 @@ const UI_FONT_PRESENTATION: Record<
 };
 
 export const UI_FONT_ITEMS: SearchSelectItem<UiFontFamily>[] =
-  UI_FONT_FAMILIES.map((fontFamily) => ({
-    value: fontFamily,
-    ...UI_FONT_PRESENTATION[fontFamily],
-  }));
+  UI_FONT_FAMILIES.map((fontFamily) => {
+    const presentation = UI_FONT_PRESENTATION[fontFamily];
+    return {
+      value: fontFamily,
+      label: presentation?.label ?? fontFamily,
+      previewFontFamily: presentation?.previewFontFamily ?? fontFamily,
+    };
+  });
 
 export const EDITOR_FONT_ITEMS: SearchSelectItem<EditorFontFamily>[] =
   EDITOR_FONT_FAMILIES.map((fontFamily) => ({

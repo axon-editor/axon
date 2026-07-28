@@ -118,7 +118,7 @@ export default function MonacoEditorSurface({
         />
       ) : null}
       {saving && (
-        <div className="absolute top-2 right-4 text-[11px] text-[#586478] z-10">
+        <div className="absolute right-4 top-2 z-10 text-[11px] text-[var(--axon-editor-foreground)] opacity-55">
           saving...
         </div>
       )}

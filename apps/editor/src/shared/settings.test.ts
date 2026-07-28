@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
+import {
+  DEFAULT_SETTINGS,
+  EDITOR_FONT_FAMILIES,
+  UI_FONT_FAMILIES,
+  normalizeSettings,
+} from "./settings";
+
+describe("font settings", () => {
+  it("offers every editor font as a UI font", () => {
+    const uiFonts = new Set<string>(UI_FONT_FAMILIES);
+
+    for (const fontFamily of EDITOR_FONT_FAMILIES) {
+      expect(uiFonts.has(fontFamily)).toBe(true);
+    }
+  });
+});
 
 describe("editor formatting settings", () => {
   it("preserves explicit indentation and guide preferences", () => {
