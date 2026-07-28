@@ -58,6 +58,9 @@ interface PackageJson {
 export class TestManager {
   private readonly activeRuns = new Map<string, ChildProcessWithoutNullStreams>();
   private readonly runStartedAt = new Map<string, number>();
+  private readonly stoppingRuns = new Set<string>();
+  private pendingRunCount = 0;
+  private stopGeneration = 0;
   private readonly deps: TestManagerDependencies;
 
   constructor(deps: TestManagerDependencies) {
@@ -480,10 +483,28 @@ export class TestManager {
 
     const runId = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
     const { command, args } = this.getProviderCommand(provider, target);
-    const env = await getDeveloperToolSpawnEnvironment();
+    const runGeneration = this.stopGeneration;
+    this.pendingRunCount += 1;
+    let env: NodeJS.ProcessEnv;
+    try {
+      env = await getDeveloperToolSpawnEnvironment();
+    } finally {
+      this.pendingRunCount -= 1;
+    }
+    if (runGeneration !== this.stopGeneration) {
+      return {
+        ok: false,
+        message: `${target?.label ?? provider.label} was stopped before it started.`,
+        runId: null,
+        provider,
+        targetId: target?.id ?? null,
+      };
+    }
     const child = spawn(command, args, {
       cwd: provider.rootPath,
       env,
+      detached: process.platform !== "win32",
+      windowsHide: true,
     });
     this.activeRuns.set(runId, child);
     this.runStartedAt.set(runId, Date.now());
@@ -528,6 +549,7 @@ export class TestManager {
     ) => {
       if (hasFinished) return;
       hasFinished = true;
+      const wasStopping = this.stoppingRuns.delete(runId);
       this.activeRuns.delete(runId);
       const startedAt = this.runStartedAt.get(runId) ?? Date.now();
       this.runStartedAt.delete(runId);
@@ -539,7 +561,12 @@ export class TestManager {
         exitCode,
         signal,
         durationMs: Date.now() - startedAt,
-        status: signal ? "stopped" : exitCode === 0 ? "passed" : "failed",
+        status:
+          wasStopping || signal
+            ? "stopped"
+            : exitCode === 0
+              ? "passed"
+              : "failed",
       });
     };
 
@@ -571,13 +598,15 @@ export class TestManager {
   }
 
   stopAll(): TestStopResult {
-    let stopped = 0;
-    for (const child of this.activeRuns.values()) {
-      if (!child.killed) child.kill();
+    this.stopGeneration += 1;
+    const pending = this.pendingRunCount;
+    let stopped = pending;
+    for (const [runId, child] of this.activeRuns) {
+      if (this.stoppingRuns.has(runId)) continue;
+      this.stoppingRuns.add(runId);
+      this.terminateProcessTree(runId, child);
       stopped += 1;
     }
-    this.activeRuns.clear();
-    this.runStartedAt.clear();
     return {
       ok: true,
       message:
@@ -586,5 +615,46 @@ export class TestManager {
           : `Stopped ${stopped} active test run${stopped === 1 ? "" : "s"}.`,
       stopped,
     };
+  }
+
+  private terminateProcessTree(
+    runId: string,
+    child: ChildProcessWithoutNullStreams,
+  ) {
+    const pid = child.pid;
+    if (!pid) {
+      child.kill();
+      return;
+    }
+    if (process.platform === "win32") {
+      const killer = spawn(
+        "taskkill",
+        ["/pid", String(pid), "/t", "/f"],
+        { stdio: "ignore", windowsHide: true },
+      );
+      const fallback = () => {
+        if (this.activeRuns.get(runId) === child) child.kill();
+      };
+      killer.once("error", fallback);
+      killer.once("close", (code) => {
+        if (code !== 0) fallback();
+      });
+      return;
+    }
+
+    try {
+      process.kill(-pid, "SIGTERM");
+    } catch {
+      child.kill("SIGTERM");
+    }
+    const forceTimer = setTimeout(() => {
+      if (this.activeRuns.get(runId) !== child) return;
+      try {
+        process.kill(-pid, "SIGKILL");
+      } catch {
+        child.kill("SIGKILL");
+      }
+    }, 1500);
+    forceTimer.unref();
   }
 }

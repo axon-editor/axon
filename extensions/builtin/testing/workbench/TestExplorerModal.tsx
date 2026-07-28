@@ -181,11 +181,19 @@ export default function TestExplorerModal({
             },
           };
         });
+        const summary =
+          event.status === "stopped"
+            ? `${event.label} stopped after ${formatDuration(event.durationMs)}.`
+            : event.status === "passed"
+              ? `${event.label} passed in ${formatDuration(event.durationMs)}.`
+              : `${event.label} failed in ${formatDuration(event.durationMs)}.`;
         onOutput(
-          event.exitCode === 0
-            ? `${event.label} passed in ${formatDuration(event.durationMs)}.`
-            : `${event.label} failed in ${formatDuration(event.durationMs)}.`,
-          event.exitCode === 0 ? "success" : "error",
+          summary,
+          event.status === "stopped"
+            ? "warning"
+            : event.status === "passed"
+              ? "success"
+              : "error",
         );
       },
     );
@@ -259,6 +267,23 @@ export default function TestExplorerModal({
   const stopRuns = async () => {
     const result = await testingApi.stopAll();
     onOutput(result.message, result.stopped > 0 ? "warning" : "info");
+    if (result.stopped > 0) {
+      const stoppedAt = Date.now();
+      setRuns((current) =>
+        Object.fromEntries(
+          Object.entries(current).map(([key, run]) => [
+            key,
+            run.status === "running" || run.status === "queued"
+              ? {
+                  ...run,
+                  status: "stopped" as const,
+                  durationMs: stoppedAt - run.startedAt,
+                }
+              : run,
+          ]),
+        ),
+      );
+    }
   };
 
   if (!open) return null;
