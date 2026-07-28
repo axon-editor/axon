@@ -64,13 +64,10 @@ export function useLanguageToolInstallPrompt({
             recommendation.id,
           );
         if (cancelled) return;
+        if (isManagedLanguageToolProgressActive(activeProgress)) return;
         setStatus(recommendation);
         setProgress(activeProgress);
-        setInstallingToolId(
-          isManagedLanguageToolProgressActive(activeProgress)
-            ? recommendation.id
-            : null,
-        );
+        setInstallingToolId(null);
       })
       .catch((caughtError) => {
         if (!cancelled) {

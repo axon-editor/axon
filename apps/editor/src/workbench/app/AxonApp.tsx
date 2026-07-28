@@ -60,6 +60,7 @@ import {
 import "../../renderer/App.css";
 import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolInstallPrompt";
 import { useLanguageToolInstallPrompt } from "../../renderer/features/languageTools/useLanguageToolInstallPrompt";
+import { useManagedLanguageToolInstallations } from "../../renderer/features/languageTools/useManagedLanguageToolInstallations";
 import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
 import { detectLanguageServerLanguage, getModel } from "../../renderer/features/editor/lib/monacoModels";
 import {
@@ -192,6 +193,7 @@ export default function App({ initialExtensionState }: AppProps) {
     nonce: number;
   } | null>(null);
   const cliToolInstallPrompt = useCliToolInstallPrompt();
+  const languageToolInstallations = useManagedLanguageToolInstallations();
   const [workspaceTrustNonce, setWorkspaceTrustNonce] = useState(0);
   const sidebarSpotifyVisible = sidebarView === "spotify" && !sidebarCollapsed;
   const [spotifyState, spotifyActions] = useSpotify(sidebarSpotifyVisible);
@@ -869,6 +871,7 @@ export default function App({ initialExtensionState }: AppProps) {
         bottomPanelTab,
         cliToolInstallPrompt,
         languageToolInstallPrompt,
+        languageToolInstallations,
         cursorInfo,
         deletedFiles,
         diagnosticCounts,

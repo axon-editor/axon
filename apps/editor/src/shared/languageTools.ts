@@ -55,6 +55,7 @@ export interface ManagedLanguageToolStatus {
 
 export interface ManagedLanguageToolProgress {
   id: ManagedLanguageToolId;
+  label?: string;
   phase: ManagedLanguageToolPhase;
   transferred?: number;
   total?: number;

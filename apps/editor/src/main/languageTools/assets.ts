@@ -453,6 +453,7 @@ export class ManagedLanguageToolAssetService {
     const reader = response.body.getReader();
     const hash = createHash(asset.hashAlgorithm);
     let transferred = 0;
+    let lastProgressPublishedAt = 0;
     try {
       while (true) {
         signal.throwIfAborted();
@@ -466,15 +467,20 @@ export class ManagedLanguageToolAssetService {
         }
         hash.update(value);
         await file.write(value);
-        this.publish(targetWindow, {
-          id: entry.id,
-          phase: "downloading",
-          transferred,
-          total: asset.size,
-          percent: Math.min(100, (transferred / asset.size) * 100),
-        });
+        const now = Date.now();
+        if (transferred === asset.size || now - lastProgressPublishedAt >= 80) {
+          lastProgressPublishedAt = now;
+          this.publish(targetWindow, {
+            id: entry.id,
+            phase: "downloading",
+            transferred,
+            total: asset.size,
+            percent: Math.min(100, (transferred / asset.size) * 100),
+          });
+        }
       }
     } finally {
+      if (signal.aborted) await reader.cancel(signal.reason).catch(() => {});
       await file.close();
     }
 

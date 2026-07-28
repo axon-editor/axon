@@ -74,10 +74,10 @@ export default function LanguageToolsModal({
   const [managedTools, setManagedTools] = useState<ManagedLanguageToolStatus[]>(
     [],
   );
-  const [progress, setProgress] = useState<ManagedLanguageToolProgress | null>(
-    null,
+  const [progressByTool, setProgressByTool] = useState(
+    () => new Map<ManagedLanguageToolId, ManagedLanguageToolProgress>(),
   );
-  const [installingTool, setInstallingTool] =
+  const [uninstallingTool, setUninstallingTool] =
     useState<ManagedLanguageToolId | null>(null);
   const [workspaceAction, setWorkspaceAction] =
     useState<WorkspaceAction | null>(null);
@@ -98,14 +98,16 @@ export default function LanguageToolsModal({
       ]);
       setServers(nextServers);
       setManagedTools(nextTools);
-      const activeProgress = activeInstallations.find((candidate) =>
-        nextTools.some((tool) => tool.id === candidate.id),
-      );
-      setProgress(activeProgress ?? null);
-      setInstallingTool(
-        isManagedLanguageToolProgressActive(activeProgress ?? null)
-          ? (activeProgress?.id ?? null)
-          : null,
+      setProgressByTool(
+        new Map(
+          activeInstallations
+            .filter(
+              (candidate) =>
+                isManagedLanguageToolProgressActive(candidate) &&
+                nextTools.some((tool) => tool.id === candidate.id),
+            )
+            .map((candidate) => [candidate.id, candidate]),
+        ),
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -129,14 +131,13 @@ export default function LanguageToolsModal({
     if (!open) return;
     return window.axon.onManagedLanguageToolProgress((event) => {
       if (!managedTools.some((tool) => tool.id === event.id)) return;
-      setProgress(event);
-      setInstallingTool((current) =>
-        isManagedLanguageToolProgressActive(event)
-          ? event.id
-          : current === event.id
-            ? null
-            : current,
-      );
+      setProgressByTool((current) => {
+        const next = new Map(current);
+        if (isManagedLanguageToolProgressActive(event))
+          next.set(event.id, event);
+        else next.delete(event.id);
+        return next;
+      });
       if (!isManagedLanguageToolProgressActive(event)) {
         void refresh();
       }
@@ -170,7 +171,9 @@ export default function LanguageToolsModal({
   );
 
   const installTool = async (tool: ManagedLanguageToolStatus) => {
-    setInstallingTool(tool.id);
+    setProgressByTool((current) =>
+      new Map(current).set(tool.id, { id: tool.id, phase: "resolving" }),
+    );
     setMessage(null);
     try {
       const result = await window.axon.installManagedLanguageTool(tool.id);
@@ -182,18 +185,21 @@ export default function LanguageToolsModal({
           languageId: tool.languages[0],
         });
       }
-      await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
+      setProgressByTool((current) => {
+        const next = new Map(current);
+        next.delete(tool.id);
+        return next;
+      });
     } finally {
-      setInstallingTool(null);
-      setProgress(null);
+      await refresh();
     }
   };
 
   const uninstallTool = async (tool: ManagedLanguageToolStatus) => {
     if (!folderPath || tool.requiredBy.length > 0) return;
-    setInstallingTool(tool.id);
+    setUninstallingTool(tool.id);
     setMessage(null);
     try {
       await window.axon.stopLanguageServers(folderPath);
@@ -204,7 +210,7 @@ export default function LanguageToolsModal({
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
-      setInstallingTool(null);
+      setUninstallingTool(null);
     }
   };
 
@@ -235,7 +241,8 @@ export default function LanguageToolsModal({
 
   const renderToolActions = (tool: ManagedLanguageToolStatus | undefined) => {
     if (!tool) return null;
-    const busy = installingTool === tool.id;
+    const toolProgress = progressByTool.get(tool.id) ?? null;
+    const busy = isManagedLanguageToolProgressActive(toolProgress);
     if (busy) {
       return (
         <button
@@ -243,14 +250,14 @@ export default function LanguageToolsModal({
           onClick={() =>
             void window.axon.cancelManagedLanguageToolInstall(tool.id)
           }
-          disabled={progress?.phase === "cancelling"}
+          disabled={toolProgress?.phase === "cancelling"}
           className="flex h-7 cursor-pointer items-center gap-1.5 rounded px-2 text-[10px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
         >
           <Square size={10} />
-          {progress?.id === tool.id && progress.phase === "cancelling"
+          {toolProgress?.phase === "cancelling"
             ? "Cancelling"
-            : progress?.id === tool.id && progress.percent !== undefined
-              ? `Cancel ${progress.percent}%`
+            : toolProgress?.percent !== undefined
+              ? `Cancel ${Math.round(toolProgress.percent)}%`
               : "Cancel"}
         </button>
       );
@@ -282,7 +289,7 @@ export default function LanguageToolsModal({
                     : "Install"
             }
             onClick={() => void installTool(tool)}
-            disabled={!tool.supported || installingTool !== null}
+            disabled={!tool.supported || busy}
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-syntax-function)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-25"
           >
             {tool.installed ? <RefreshCw size={12} /> : <Download size={12} />}
@@ -294,7 +301,9 @@ export default function LanguageToolsModal({
               type="button"
               aria-label="Uninstall"
               onClick={() => void uninstallTool(tool)}
-              disabled={installingTool !== null || tool.requiredBy.length > 0}
+              disabled={
+                uninstallingTool !== null || busy || tool.requiredBy.length > 0
+              }
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#ff8b92] opacity-55 hover:bg-[#341b20] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-25"
             >
               <Trash2 size={12} />
@@ -417,10 +426,9 @@ export default function LanguageToolsModal({
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {visibleServers.map((server) => {
             const tool = toolsById.get(server.id as ManagedLanguageToolId);
-            const toolProgress =
-              installingTool === tool?.id && progress?.id === tool.id
-                ? progress
-                : null;
+            const toolProgress = tool
+              ? (progressByTool.get(tool.id) ?? null)
+              : null;
             return (
               <div
                 key={server.id}
@@ -492,22 +500,23 @@ export default function LanguageToolsModal({
                   {tool.label}
                 </div>
                 <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                  {installingTool === tool.id && progress?.id === tool.id
-                    ? installProgressLabel(progress)
+                  {progressByTool.has(tool.id)
+                    ? installProgressLabel(progressByTool.get(tool.id)!)
                     : tool.detail}
                 </div>
-                {installingTool === tool.id && progress?.id === tool.id ? (
+                {progressByTool.has(tool.id) ? (
                   <div className="mt-1.5 h-1 overflow-hidden rounded bg-[var(--axon-panel-overlay-hover)]">
                     <div
                       className={`h-full bg-[var(--axon-syntax-function)] transition-[width] duration-150 ${
-                        typeof progress.percent === "number"
+                        typeof progressByTool.get(tool.id)?.percent === "number"
                           ? ""
                           : "animate-pulse"
                       }`}
                       style={{
                         width:
-                          typeof progress.percent === "number"
-                            ? `${progress.percent}%`
+                          typeof progressByTool.get(tool.id)?.percent ===
+                          "number"
+                            ? `${progressByTool.get(tool.id)?.percent}%`
                             : "100%",
                       }}
                     />

@@ -2,12 +2,11 @@ import { execFile } from "child_process";
 import { createReadStream, createWriteStream } from "fs";
 import fs from "fs/promises";
 import path from "path";
-import { Transform } from "stream";
+import { Transform, type Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { promisify } from "util";
 import { createGunzip } from "zlib";
-import extractZip from "extract-zip";
-import { extract as extractTar, list as listTar } from "tar";
+import { extract as extractTar } from "tar";
 import { open as openZip, type Entry as ZipEntry } from "yauzl";
 
 const MAX_TOOL_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024;
@@ -27,77 +26,124 @@ function isZipSymbolicLink(entry: ZipEntry) {
   return (mode & 0o170000) === 0o120000;
 }
 
-async function validateZipArchive(archivePath: string, signal: AbortSignal) {
-  signal.throwIfAborted();
-  await new Promise<void>((resolve, reject) => {
-    openZip(archivePath, { lazyEntries: true }, (openError, zipFile) => {
-      if (openError || !zipFile) {
-        reject(openError ?? new Error("The ZIP archive could not be opened."));
-        return;
-      }
-
-      let entryCount = 0;
-      let extractedBytes = 0;
-      const abort = () => fail(signal.reason);
-      const fail = (error: Error) => {
-        signal.removeEventListener("abort", abort);
-        zipFile.close();
-        reject(error);
-      };
-
-      signal.addEventListener("abort", abort, { once: true });
-      zipFile.on("error", fail);
-      zipFile.on("entry", (entry) => {
-        if (signal.aborted) {
-          fail(signal.reason);
-          return;
-        }
-        entryCount += 1;
-        extractedBytes += entry.uncompressedSize;
-        if (!isSafeArchiveEntry(entry.fileName)) {
-          fail(new Error("The language tool ZIP contains an unsafe path."));
-          return;
-        }
-        if (isZipSymbolicLink(entry)) {
-          fail(new Error("The language tool ZIP contains a symbolic link."));
-          return;
-        }
-        if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-          fail(
-            new Error("The language tool ZIP expands beyond the allowed size."),
-          );
-          return;
-        }
-        zipFile.readEntry();
-      });
-      zipFile.on("end", () => {
-        signal.removeEventListener("abort", abort);
-        if (entryCount === 0) {
-          fail(new Error("The language tool ZIP is empty."));
-          return;
-        }
-        resolve();
-      });
-      zipFile.readEntry();
-    });
-  });
-}
-
 async function extractZipArchive(
   archivePath: string,
   destination: string,
   signal: AbortSignal,
 ) {
-  await validateZipArchive(archivePath, signal);
   signal.throwIfAborted();
-  await extractZip(archivePath, {
-    dir: destination,
-    onEntry: (entry) => {
-      signal.throwIfAborted();
-      if (!isSafeArchiveEntry(entry.fileName) || isZipSymbolicLink(entry)) {
-        throw new Error("The language tool ZIP changed after validation.");
-      }
-    },
+  await new Promise<void>((resolve, reject) => {
+    openZip(
+      archivePath,
+      { lazyEntries: true, autoClose: false, validateEntrySizes: true },
+      (openError, zipFile) => {
+        if (openError || !zipFile) {
+          reject(
+            openError ?? new Error("The ZIP archive could not be opened."),
+          );
+          return;
+        }
+        if (signal.aborted) {
+          zipFile.close();
+          reject(signal.reason);
+          return;
+        }
+
+        let settled = false;
+        let entryCount = 0;
+        let extractedBytes = 0;
+        const destinationRoot = path.resolve(destination);
+        const finish = (error?: Error) => {
+          if (settled) return;
+          settled = true;
+          signal.removeEventListener("abort", abort);
+          zipFile.close();
+          if (error) reject(error);
+          else resolve();
+        };
+        const abort = () =>
+          finish(
+            signal.reason instanceof Error
+              ? signal.reason
+              : new DOMException("The operation was aborted.", "AbortError"),
+          );
+
+        signal.addEventListener("abort", abort, { once: true });
+        zipFile.on("error", finish);
+        zipFile.on("entry", (entry) => {
+          void (async () => {
+            signal.throwIfAborted();
+            entryCount += 1;
+            extractedBytes += entry.uncompressedSize;
+            if (!isSafeArchiveEntry(entry.fileName)) {
+              throw new Error("The language tool ZIP contains an unsafe path.");
+            }
+            if (isZipSymbolicLink(entry)) {
+              throw new Error(
+                "The language tool ZIP contains a symbolic link.",
+              );
+            }
+            if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
+              throw new Error(
+                "The language tool ZIP expands beyond the allowed size.",
+              );
+            }
+
+            const normalizedName = entry.fileName.replace(/\\/g, "/");
+            const outputPath = path.resolve(
+              destinationRoot,
+              ...normalizedName.split("/").filter(Boolean),
+            );
+            if (
+              outputPath !== destinationRoot &&
+              !outputPath.startsWith(`${destinationRoot}${path.sep}`)
+            ) {
+              throw new Error("The language tool ZIP contains an unsafe path.");
+            }
+            if (normalizedName.endsWith("/")) {
+              await fs.mkdir(outputPath, { recursive: true });
+              signal.throwIfAborted();
+              zipFile.readEntry();
+              return;
+            }
+
+            await fs.mkdir(path.dirname(outputPath), { recursive: true });
+            signal.throwIfAborted();
+            const readStream = await new Promise<Readable>(
+              (resolveStream, rejectStream) => {
+                zipFile.openReadStream(entry, (streamError, stream) => {
+                  if (streamError || !stream) {
+                    rejectStream(
+                      streamError ??
+                        new Error("The ZIP entry could not be opened."),
+                    );
+                    return;
+                  }
+                  resolveStream(stream);
+                });
+              },
+            );
+            await pipeline(
+              readStream,
+              createWriteStream(outputPath, { flags: "wx", mode: 0o600 }),
+              { signal },
+            );
+            signal.throwIfAborted();
+            zipFile.readEntry();
+          })().catch((error) =>
+            finish(error instanceof Error ? error : new Error(String(error))),
+          );
+        });
+        zipFile.on("end", () => {
+          if (entryCount === 0) {
+            finish(new Error("The language tool ZIP is empty."));
+            return;
+          }
+          finish();
+        });
+        zipFile.readEntry();
+      },
+    );
   });
 }
 
@@ -111,46 +157,34 @@ async function extractTarArchive(
   let extractedBytes = 0;
   await pipeline(
     createReadStream(archivePath),
-    listTar({
+    extractTar({
+      cwd: destination,
       strict: true,
-      onReadEntry: (entry) => {
+      preservePaths: false,
+      unlink: true,
+      filter: (entryPath, entry) => {
         signal.throwIfAborted();
-        if (entry.meta) return;
+        if ("meta" in entry && entry.meta) return false;
         entryCount += 1;
         extractedBytes += entry.size;
-        if (!isSafeArchiveEntry(entry.path)) {
+        if (!isSafeArchiveEntry(entryPath)) {
           throw new Error("The language tool TAR contains an unsafe path.");
         }
-        if (!["File", "OldFile", "Directory"].includes(entry.type)) {
-          throw new Error(`The language tool TAR contains ${entry.type}.`);
+        const entryType = "type" in entry ? entry.type : "unknown entry type";
+        if (!["File", "OldFile", "Directory"].includes(entryType)) {
+          throw new Error(`The language tool TAR contains ${entryType}.`);
         }
         if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
           throw new Error(
             "The language tool TAR expands beyond the allowed size.",
           );
         }
+        return true;
       },
     }),
     { signal },
   );
   if (entryCount === 0) throw new Error("The language tool TAR is empty.");
-
-  await pipeline(
-    createReadStream(archivePath),
-    extractTar({
-      cwd: destination,
-      strict: true,
-      preservePaths: false,
-      unlink: true,
-      filter: (entryPath, entry) =>
-        !signal.aborted &&
-        isSafeArchiveEntry(entryPath) &&
-        ("type" in entry
-          ? ["File", "OldFile", "Directory"].includes(entry.type)
-          : false),
-    }),
-    { signal },
-  );
 }
 
 async function extractXzTarArchive(

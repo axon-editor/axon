@@ -2,6 +2,7 @@ import { setWorkspaceTrusted } from "../../../renderer/features/sidebar";
 import WorkspaceLoadingOverlay from "../../../renderer/shared/components/WorkspaceLoadingOverlay";
 import CliToolInstallPrompt from "../../../renderer/features/cli/CliToolInstallPrompt";
 import LanguageToolInstallPrompt from "../../../renderer/features/languageTools/LanguageToolInstallPrompt";
+import LanguageToolInstallStatus from "../../../renderer/features/languageTools/LanguageToolInstallStatus";
 import { getPathBasename } from "../lib/appPath";
 
 export default function WorkspaceSafetyOverlays(props: Record<string, any>) {
@@ -9,6 +10,8 @@ export default function WorkspaceSafetyOverlays(props: Record<string, any>) {
     appendOutput,
     cliToolInstallPrompt,
     languageToolInstallPrompt,
+    languageToolInstallations,
+    languageToolsOpen,
     loading,
     setWorkspaceTrustNonce,
     setWorkspaceTrustPromptPath,
@@ -67,6 +70,16 @@ export default function WorkspaceSafetyOverlays(props: Record<string, any>) {
       {loading && <WorkspaceLoadingOverlay />}
       <CliToolInstallPrompt prompt={cliToolInstallPrompt} />
       <LanguageToolInstallPrompt prompt={languageToolInstallPrompt} />
+      {!languageToolsOpen ? (
+        <LanguageToolInstallStatus
+          installations={languageToolInstallations}
+          hiddenToolId={
+            languageToolInstallPrompt.open
+              ? languageToolInstallPrompt.status?.id
+              : null
+          }
+        />
+      ) : null}
     </>
   );
 }

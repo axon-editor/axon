@@ -7,6 +7,7 @@ import type {
   ManagedLanguageToolProgress,
   ManagedLanguageToolStatus,
 } from "../../shared/languageTools";
+import { isManagedLanguageToolProgressActive } from "../../shared/languageTools";
 import {
   MANAGED_LANGUAGE_TOOL_CATALOG,
   getManagedLanguageToolCatalogEntry,
@@ -37,16 +38,43 @@ interface ManagedLanguageToolManagerDependencies {
   ) => void;
 }
 
+interface ActiveLanguageToolInstallation {
+  promise: Promise<ManagedLanguageToolInstallResult>;
+  controller: AbortController;
+  dependencyId?: ManagedLanguageToolId;
+  directRequested: boolean;
+  targetWindows: Set<BrowserWindow>;
+}
+
+function waitForInstallation(
+  promise: Promise<ManagedLanguageToolInstallResult>,
+  signal: AbortSignal,
+) {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<ManagedLanguageToolInstallResult>((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener("abort", abort);
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(
+      (result) => {
+        signal.removeEventListener("abort", abort);
+        resolve(result);
+      },
+      (error) => {
+        signal.removeEventListener("abort", abort);
+        reject(error);
+      },
+    );
+  });
+}
+
 export class ManagedLanguageToolManager {
   private readonly assets: ManagedLanguageToolAssetService;
   private readonly installations = new Map<
     ManagedLanguageToolId,
-    {
-      promise: Promise<ManagedLanguageToolInstallResult>;
-      controller: AbortController;
-      dependencyId?: ManagedLanguageToolId;
-      targetWindows: Set<BrowserWindow>;
-    }
+    ActiveLanguageToolInstallation
   >();
   private readonly latestProgress = new Map<
     ManagedLanguageToolId,
@@ -258,7 +286,14 @@ export class ManagedLanguageToolManager {
     targetWindow: BrowserWindow | null,
     progress: ManagedLanguageToolProgress,
   ) {
-    this.latestProgress.set(progress.id, progress);
+    const deliveredProgress = {
+      ...progress,
+      label:
+        progress.label ??
+        getManagedLanguageToolCatalogEntry(progress.id)?.label ??
+        progress.id,
+    };
+    this.latestProgress.set(progress.id, deliveredProgress);
     const targets = new Set<BrowserWindow>();
     if (targetWindow) targets.add(targetWindow);
     for (const window of this.installations.get(progress.id)?.targetWindows ??
@@ -266,7 +301,11 @@ export class ManagedLanguageToolManager {
       targets.add(window);
     }
     for (const window of targets) {
-      this.deps.sendToRenderer("languageTools:progress", progress, window);
+      this.deps.sendToRenderer(
+        "languageTools:progress",
+        deliveredProgress,
+        window,
+      );
     }
   }
 
@@ -281,12 +320,14 @@ export class ManagedLanguageToolManager {
   }
 
   listInstallProgress(targetWindow: BrowserWindow | null = null) {
-    return Array.from(this.installations.entries()).map(
+    return Array.from(this.installations.entries()).flatMap(
       ([id, installation]) => {
         if (targetWindow) installation.targetWindows.add(targetWindow);
-        return (
-          this.latestProgress.get(id) ?? { id, phase: "resolving" as const }
-        );
+        const progress = this.latestProgress.get(id) ?? {
+          id,
+          phase: "resolving" as const,
+        };
+        return isManagedLanguageToolProgressActive(progress) ? [progress] : [];
       },
     );
   }
@@ -512,9 +553,11 @@ export class ManagedLanguageToolManager {
   async install(
     id: ManagedLanguageToolId,
     targetWindow: BrowserWindow | null,
+    asDependency = false,
   ): Promise<ManagedLanguageToolInstallResult> {
     const activeInstallation = this.installations.get(id);
     if (activeInstallation) {
+      if (!asDependency) activeInstallation.directRequested = true;
       if (targetWindow) activeInstallation.targetWindows.add(targetWindow);
       const progress = this.getInstallProgress(id, targetWindow);
       if (progress && targetWindow) {
@@ -528,14 +571,10 @@ export class ManagedLanguageToolManager {
     }
 
     const controller = new AbortController();
-    const installation: {
-      promise: Promise<ManagedLanguageToolInstallResult>;
-      controller: AbortController;
-      dependencyId?: ManagedLanguageToolId;
-      targetWindows: Set<BrowserWindow>;
-    } = {
+    const installation: ActiveLanguageToolInstallation = {
       promise: Promise.resolve(null as never),
       controller,
+      directRequested: !asDependency,
       targetWindows: new Set(targetWindow ? [targetWindow] : []),
     };
     installation.promise = this.installOnce(
@@ -555,7 +594,7 @@ export class ManagedLanguageToolManager {
     id: ManagedLanguageToolId,
     targetWindow: BrowserWindow | null,
     signal: AbortSignal,
-    installation: { dependencyId?: ManagedLanguageToolId },
+    installation: ActiveLanguageToolInstallation,
   ): Promise<ManagedLanguageToolInstallResult> {
     const entry = getManagedLanguageToolCatalogEntry(id);
     if (!entry) throw new Error(`Unknown managed language tool: ${id}`);
@@ -576,16 +615,29 @@ export class ManagedLanguageToolManager {
         phase: "resolving",
         message: `Installing required ${dependencyStatus.label} runtime support.`,
       });
-      const dependencyResult = await this.install(
-        dependencyId,
-        targetWindow,
-      ).finally(() => {
+      let dependencyResult: ManagedLanguageToolInstallResult;
+      try {
+        dependencyResult = await waitForInstallation(
+          this.install(dependencyId, targetWindow, true),
+          signal,
+        );
+      } catch (error) {
+        if (signal.aborted) {
+          const message = `${entry.label} installation was cancelled.`;
+          this.publish(targetWindow, { id, phase: "cancelled", message });
+          return { ok: false, message, status: await this.getStatus(id) };
+        }
+        const detail = error instanceof Error ? error.message : String(error);
+        const message = `${entry.label} dependency installation failed: ${detail}`;
+        this.publish(targetWindow, { id, phase: "error", message });
+        return { ok: false, message, status: await this.getStatus(id) };
+      } finally {
         const currentParents = this.progressMirrors.get(dependencyId);
         currentParents?.delete(id);
         if (currentParents?.size === 0) {
           this.progressMirrors.delete(dependencyId);
         }
-      });
+      }
       installation.dependencyId = undefined;
       if (signal.aborted) {
         const message = `${entry.label} installation was cancelled.`;
@@ -675,7 +727,21 @@ export class ManagedLanguageToolManager {
       message: "Cancelling language tool installation.",
     });
     installation.controller.abort();
-    if (installation.dependencyId) this.cancel(installation.dependencyId);
+    if (installation.dependencyId) {
+      const dependencyInstallation = this.installations.get(
+        installation.dependencyId,
+      );
+      const dependencyParents = this.progressMirrors.get(
+        installation.dependencyId,
+      );
+      if (
+        dependencyInstallation &&
+        !dependencyInstallation.directRequested &&
+        (dependencyParents?.size ?? 0) <= 1
+      ) {
+        this.cancel(installation.dependencyId);
+      }
+    }
     return true;
   }
 
