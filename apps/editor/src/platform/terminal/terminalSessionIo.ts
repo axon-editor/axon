@@ -127,16 +127,27 @@ export function flushQueuedTerminalInput(session: TerminalSession) {
   }
 }
 
-function takeTerminalOutputBatch(session: TerminalSession) {
-  const firstChunk = session.outputQueue.shift();
+function takeTerminalOutputBatch(session: TerminalSession, maxBytes: number) {
+  let firstChunk = session.outputQueue.shift();
   if (!firstChunk) return null;
+  if (firstChunk.byteLength > maxBytes) {
+    const bytes =
+      typeof firstChunk.data === "string"
+        ? new TextEncoder().encode(firstChunk.data)
+        : firstChunk.data;
+    const head = bytes.slice(0, maxBytes);
+    const tail = bytes.slice(maxBytes);
+    firstChunk = { data: head, byteLength: head.byteLength };
+    session.outputQueue.unshift({ data: tail, byteLength: tail.byteLength });
+  }
 
   const chunks = [firstChunk];
   let byteLength = firstChunk.byteLength;
+  const batchLimit = Math.min(TERMINAL_WRITE_BATCH_BYTES, maxBytes);
 
   while (session.outputQueue.length > 0) {
     const nextChunk = session.outputQueue[0];
-    if (byteLength + nextChunk.byteLength > TERMINAL_WRITE_BATCH_BYTES) break;
+    if (byteLength + nextChunk.byteLength > batchLimit) break;
     chunks.push(session.outputQueue.shift()!);
     byteLength += nextChunk.byteLength;
   }
@@ -182,6 +193,35 @@ function takeTerminalOutputBatch(session: TerminalSession) {
   };
 }
 
+function splitTerminalOutput(data: string | ArrayBuffer) {
+  const bytes =
+    typeof data === "string"
+      ? new TextEncoder().encode(data)
+      : new Uint8Array(data);
+  if (bytes.byteLength <= TERMINAL_WRITE_BATCH_BYTES) {
+    return [
+      {
+        data: typeof data === "string" ? data : bytes,
+        byteLength: bytes.byteLength,
+      },
+    ];
+  }
+
+  const chunks = [];
+  for (
+    let offset = 0;
+    offset < bytes.byteLength;
+    offset += TERMINAL_WRITE_BATCH_BYTES
+  ) {
+    const chunk = bytes.slice(
+      offset,
+      Math.min(offset + TERMINAL_WRITE_BATCH_BYTES, bytes.byteLength),
+    );
+    chunks.push({ data: chunk, byteLength: chunk.byteLength });
+  }
+  return chunks;
+}
+
 function clearTerminalDrainTimer(session: TerminalSession) {
   if (session.outputDrainTimer === null) return;
   window.clearTimeout(session.outputDrainTimer);
@@ -210,7 +250,10 @@ function drainTerminalOutput(session: TerminalSession) {
     session.inFlightWriteBytes < TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES &&
     batchesWritten < TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN
   ) {
-    const batch = takeTerminalOutputBatch(session);
+    const batch = takeTerminalOutputBatch(
+      session,
+      TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES - session.inFlightWriteBytes,
+    );
     if (!batch) break;
 
     // queuedBytes represents bytes that have not reached xterm's write callback
@@ -257,13 +300,17 @@ export function writeTerminalOutput(
   session: TerminalSession,
   data: string | ArrayBuffer,
 ) {
-  const chunk = {
-    data: data instanceof ArrayBuffer ? new Uint8Array(data) : data,
-    byteLength: getOutputByteLength(data),
-  };
-  session.outputQueue.push(chunk);
-  session.queuedBytes += chunk.byteLength;
-  session.maxQueuedBytes = Math.max(session.maxQueuedBytes, session.queuedBytes);
+  const chunks = splitTerminalOutput(data);
+  const byteLength = chunks.reduce(
+    (total, chunk) => total + chunk.byteLength,
+    0,
+  );
+  session.outputQueue.push(...chunks);
+  session.queuedBytes += byteLength;
+  session.maxQueuedBytes = Math.max(
+    session.maxQueuedBytes,
+    session.queuedBytes,
+  );
   ensureTerminalHeartbeat(session);
   drainTerminalOutput(session);
 }

@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -153,7 +154,8 @@ func TestTerminalRejectsUntrustedBrowserOrigin(t *testing.T) {
 }
 
 func TestTerminalAcknowledgementCannotAdvancePastProducedOutput(t *testing.T) {
-	client := &terminalClient{acknowledgedOffset: 5}
+	client := newTerminalClient(nil, 5)
+	client.advanceScheduled(10)
 	session := &terminalSession{baseOffset: 4, totalBytes: 10}
 
 	session.acknowledge(client, 1_000_000)
@@ -162,37 +164,53 @@ func TestTerminalAcknowledgementCannotAdvancePastProducedOutput(t *testing.T) {
 	}
 }
 
-func TestTerminalBroadcastDetachesAckLaggingClient(t *testing.T) {
-	client := &terminalClient{
-		send: make(chan []byte, 1),
-		done: make(chan struct{}),
+func TestTerminalReplayUsesAcknowledgedBoundedChunks(t *testing.T) {
+	payload := make([]byte, 25<<20)
+	for index := range payload {
+		payload[index] = byte(index % 251)
 	}
+	client := newTerminalClient(nil, 0)
 	session := &terminalSession{
-		id:         "ack-lag-test",
+		id:         "bounded-replay-test",
 		clients:    map[*terminalClient]bool{client: true},
-		totalBytes: terminalClientMaxAckLagBytes + 1,
+		scrollback: payload,
+		totalBytes: int64(len(payload)),
 	}
 
-	session.broadcast([]byte("x"))
-
-	if len(session.clients) != 0 {
-		t.Fatalf("expected ack-lagging client to be detached, got %d clients", len(session.clients))
+	session.mu.Lock()
+	pumped := session.pumpClientLocked(client)
+	session.mu.Unlock()
+	if !pumped {
+		t.Fatal("expected replay pump to accept the initial delivery window")
 	}
-	if len(session.replayProtections) != 1 {
-		t.Fatalf("expected detached client replay offset to be protected")
+	acknowledged, scheduled := client.deliveryOffsets()
+	if acknowledged != 0 || scheduled != terminalClientFlowWindowBytes {
+		t.Fatalf("expected a %d-byte initial window, got ack=%d scheduled=%d", terminalClientFlowWindowBytes, acknowledged, scheduled)
 	}
-	select {
-	case <-client.done:
-	default:
-		t.Fatalf("expected detached client to be closed")
+	if len(client.send) != terminalClientFlowWindowBytes/terminalReplayChunkBytes {
+		t.Fatalf("expected replay to be split into bounded frames, got %d frames", len(client.send))
 	}
-
-	snapshot := session.health()
-	if snapshot.DetachedClients != 1 {
-		t.Fatalf("expected one detached client in health snapshot, got %d", snapshot.DetachedClients)
+	var replay bytes.Buffer
+	for {
+		for len(client.send) > 0 {
+			chunk := <-client.send
+			if len(chunk) > terminalReplayChunkBytes {
+				t.Fatalf("replay frame exceeded %d bytes: %d", terminalReplayChunkBytes, len(chunk))
+			}
+			replay.Write(chunk)
+			client.releasePendingBytes(len(chunk))
+		}
+		_, scheduled = client.deliveryOffsets()
+		if scheduled >= session.totalBytes {
+			break
+		}
+		session.acknowledge(client, scheduled)
 	}
-	if snapshot.TotalBytes == 0 {
-		t.Fatalf("expected health snapshot to include terminal byte count")
+	if !bytes.Equal(replay.Bytes(), payload) {
+		t.Fatalf("expected byte-exact replay of %d bytes, got %d", len(payload), replay.Len())
+	}
+	if len(session.clients) != 1 {
+		t.Fatalf("expected slow replay client to stay attached, got %d clients", len(session.clients))
 	}
 }
 

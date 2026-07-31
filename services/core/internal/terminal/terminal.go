@@ -70,6 +70,7 @@ type terminalClient struct {
 	done               chan struct{}
 	pendingBytes       int64
 	acknowledgedOffset int64
+	scheduledOffset    int64
 	mu                 sync.Mutex
 	closeOnce          sync.Once
 	drainCloseOnce     sync.Once
@@ -99,8 +100,9 @@ type terminalSessionHealth struct {
 const (
 	maxScrollbackBytes            = 96 << 20
 	terminalClientQueueSize       = 16384
-	terminalClientMaxAckLagBytes  = 48 << 20
 	terminalClientMaxPendingBytes = 24 << 20
+	terminalClientFlowWindowBytes = 4 << 20
+	terminalReplayChunkBytes      = 128 << 10
 	terminalReplayProtectionTTL   = 5 * time.Minute
 	websocketPongWait             = 70 * time.Second
 	websocketPingEvery            = 25 * time.Second
@@ -215,26 +217,27 @@ func getOrCreateSession(id string, cwd string) (*terminalSession, error) {
 	return createSession(id, cwd)
 }
 
-func (session *terminalSession) addClient(ws *websocket.Conn, replayFrom int64) (*terminalClient, []byte) {
+func (session *terminalSession) addClient(ws *websocket.Conn, replayFrom int64) *terminalClient {
 	session.mu.Lock()
 	defer session.mu.Unlock()
-	if session.closed {
-		return nil, nil
-	}
 	session.dropExpiredReplayProtections(time.Now())
 
 	if replayFrom >= session.totalBytes {
 		client := newTerminalClient(ws, session.totalBytes)
 		session.clients[client] = true
-		return client, nil
+		return client
 	}
 	if replayFrom < session.baseOffset {
 		replayFrom = session.baseOffset
 	}
 	client := newTerminalClient(ws, replayFrom)
 	session.clients[client] = true
-	start := int(replayFrom - session.baseOffset)
-	return client, append([]byte(nil), session.scrollback[start:]...)
+	if !session.pumpClientLocked(client) {
+		delete(session.clients, client)
+		client.close()
+		return nil
+	}
+	return client
 }
 
 func (session *terminalSession) removeClient(client *terminalClient) {
@@ -246,7 +249,19 @@ func (session *terminalSession) removeClient(client *terminalClient) {
 	if !session.closed {
 		session.protectReplayOffsetLocked(client.acknowledged(), time.Now())
 	}
+	removeSession := session.closed && len(session.clients) == 0
 	session.mu.Unlock()
+	if removeSession {
+		session.unregister()
+	}
+}
+
+func (session *terminalSession) unregister() {
+	terminalSessions.Lock()
+	if terminalSessions.items[session.id] == session {
+		delete(terminalSessions.items, session.id)
+	}
+	terminalSessions.Unlock()
 }
 
 func (session *terminalSession) protectReplayOffsetLocked(offset int64, now time.Time) {
@@ -279,7 +294,29 @@ func newTerminalClient(ws *websocket.Conn, acknowledgedOffset int64) *terminalCl
 		done: make(chan struct{}),
 	}
 	client.acknowledgedOffset = acknowledgedOffset
+	client.scheduledOffset = acknowledgedOffset
 	return client
+}
+
+func (session *terminalSession) pumpClientLocked(client *terminalClient) bool {
+	for {
+		acknowledged, scheduled := client.deliveryOffsets()
+		windowBytes := int64(terminalClientFlowWindowBytes) - (scheduled - acknowledged)
+		if windowBytes <= 0 || scheduled >= session.totalBytes {
+			return true
+		}
+		if scheduled < session.baseOffset {
+			return false
+		}
+
+		chunkBytes := min(int64(terminalReplayChunkBytes), windowBytes, session.totalBytes-scheduled)
+		start := int(scheduled - session.baseOffset)
+		end := start + int(chunkBytes)
+		if !client.enqueue(session.scrollback[start:end]) {
+			return false
+		}
+		client.advanceScheduled(scheduled + chunkBytes)
+	}
 }
 
 func (client *terminalClient) enqueue(data []byte) bool {
@@ -332,8 +369,25 @@ func (client *terminalClient) acknowledge(offset int64) {
 		return
 	}
 	client.mu.Lock()
+	if offset > client.scheduledOffset {
+		offset = client.scheduledOffset
+	}
 	if offset > client.acknowledgedOffset {
 		client.acknowledgedOffset = offset
+	}
+	client.mu.Unlock()
+}
+
+func (client *terminalClient) deliveryOffsets() (int64, int64) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	return client.acknowledgedOffset, client.scheduledOffset
+}
+
+func (client *terminalClient) advanceScheduled(offset int64) {
+	client.mu.Lock()
+	if offset > client.scheduledOffset {
+		client.scheduledOffset = offset
 	}
 	client.mu.Unlock()
 }
@@ -355,7 +409,27 @@ func (session *terminalSession) acknowledge(client *terminalClient, offset int64
 		offset = session.totalBytes
 	}
 	client.acknowledge(offset)
+	pumped := session.pumpClientLocked(client)
+	_, scheduled := client.deliveryOffsets()
+	closeAfterDrain := session.closed && scheduled >= session.totalBytes
+	removeSession := false
+	if !pumped {
+		delete(session.clients, client)
+		session.droppedClients++
+		removeSession = session.closed && len(session.clients) == 0
+	}
 	session.mu.Unlock()
+
+	if !pumped {
+		client.close()
+		if removeSession {
+			session.unregister()
+		}
+		return
+	}
+	if closeAfterDrain {
+		client.closeAfterDrain()
+	}
 }
 
 func (client *terminalClient) acknowledged() int64 {
@@ -496,41 +570,19 @@ func (session *terminalSession) broadcast(data []byte) {
 			session.baseOffset = trimTo
 		}
 	}
-	clients := make([]*terminalClient, 0, len(session.clients))
-	detachedClients := make([]*terminalClient, 0)
+	droppedClients := make([]*terminalClient, 0)
 	for client := range session.clients {
-		acknowledged := client.acknowledged()
-		if session.totalBytes-acknowledged > terminalClientMaxAckLagBytes {
-			// The renderer acknowledges bytes only after xterm has finished its
-			// async write callback. A long-running agent can make the websocket
-			// writer look healthy while the terminal view is actually tens of MB
-			// behind. Keeping that client attached lets the browser keep falling
-			// behind until the user sees missing or frozen output. Detaching here
-			// protects the acknowledged replay cursor, lets the PTY reader keep
-			// draining into session scrollback, and lets the renderer reconnect
-			// from the last painted byte once its local xterm queue is settled.
-			session.protectReplayOffsetLocked(acknowledged, now)
+		if !session.pumpClientLocked(client) {
+			session.protectReplayOffsetLocked(client.acknowledged(), now)
 			delete(session.clients, client)
-			session.detachedClients++
-			detachedClients = append(detachedClients, client)
-			continue
+			session.droppedClients++
+			droppedClients = append(droppedClients, client)
 		}
-		clients = append(clients, client)
 	}
 	session.mu.Unlock()
 
-	for _, client := range detachedClients {
+	for _, client := range droppedClients {
 		client.close()
-	}
-
-	for _, client := range clients {
-		if !client.enqueue(data) {
-			session.removeClient(client)
-			session.mu.Lock()
-			session.droppedClients++
-			session.mu.Unlock()
-			client.close()
-		}
 	}
 }
 
@@ -615,23 +667,32 @@ func (session *terminalSession) finish() {
 		return
 	}
 	session.closed = true
-	clients := make([]*terminalClient, 0, len(session.clients))
+	clientsToClose := make([]*terminalClient, 0, len(session.clients))
 	for client := range session.clients {
-		clients = append(clients, client)
+		if !session.pumpClientLocked(client) {
+			delete(session.clients, client)
+			session.droppedClients++
+			client.close()
+			continue
+		}
+		_, scheduled := client.deliveryOffsets()
+		if scheduled >= session.totalBytes {
+			clientsToClose = append(clientsToClose, client)
+		}
 	}
-	session.clients = map[*terminalClient]bool{}
+	removeImmediately := len(session.clients) == 0
 	session.mu.Unlock()
 
-	terminalSessions.Lock()
-	delete(terminalSessions.items, session.id)
-	terminalSessions.Unlock()
+	if removeImmediately {
+		session.unregister()
+	}
 
 	_ = session.ptmx.Close()
 	if session.cmd.Process != nil && session.cmd.ProcessState == nil {
 		_ = session.cmd.Process.Kill()
 	}
 	_ = session.cmd.Wait()
-	for _, client := range clients {
+	for _, client := range clientsToClose {
 		client.closeAfterDrain()
 	}
 }
@@ -696,7 +757,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, scrollback := session.addClient(
+	client := session.addClient(
 		ws,
 		parseReplayFrom(r.URL.Query().Get("replayFrom")),
 	)
@@ -707,11 +768,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		session.removeClient(client)
 	})
 	defer stopWriter()
-	if len(scrollback) > 0 {
-		if !client.enqueue(scrollback) {
-			session.removeClient(client)
-			return
-		}
+	session.mu.Lock()
+	_, scheduled := client.deliveryOffsets()
+	closeAfterReplay := session.closed && scheduled >= session.totalBytes
+	session.mu.Unlock()
+	if closeAfterReplay {
+		client.closeAfterDrain()
 	}
 	defer session.removeClient(client)
 

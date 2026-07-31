@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getOutputByteLength, type TerminalSession } from "./terminalProtocol";
+import { Terminal } from "@xterm/xterm";
+import {
+  getOutputByteLength,
+  TERMINAL_WRITE_BATCH_BYTES,
+  type TerminalSession,
+} from "./terminalProtocol";
 import {
   hasPendingTerminalOutput,
   writeTerminalOutput,
@@ -115,5 +120,87 @@ describe("terminal output accounting", () => {
 
     expect(term.scrollToBottom).not.toHaveBeenCalled();
     expect(term.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("splits oversized websocket frames before writing to xterm", () => {
+    const { session, written } = createSession();
+    const callbacks: Array<() => void> = [];
+    session.term!.write = vi.fn((data, callback) => {
+      written.push(data);
+      callbacks.push(callback);
+    });
+    const payload = new Uint8Array(TERMINAL_WRITE_BATCH_BYTES * 3 + 17);
+    payload.forEach((_value, index) => {
+      payload[index] = index % 251;
+    });
+
+    writeTerminalOutput(session, payload.buffer);
+
+    expect(written).toHaveLength(4);
+    expect(
+      written.every(
+        (chunk) => getOutputByteLength(chunk) <= TERMINAL_WRITE_BATCH_BYTES,
+      ),
+    ).toBe(true);
+    callbacks.splice(0).forEach((callback) => callback());
+    expect(session.receivedBytes).toBe(payload.byteLength);
+    expect(hasPendingTerminalOutput(session)).toBe(false);
+  });
+
+  it("preserves numbered output in a real xterm buffer while reading scrollback", async () => {
+    const terminal = new Terminal({ cols: 120, rows: 24, scrollback: 25_000 });
+    const { session } = createSession();
+    session.term = terminal;
+    session.atBottom = true;
+
+    const createLines = (start: number, count: number) =>
+      Array.from(
+        { length: count },
+        (_value, index) =>
+          `AXON_BUFFER_${String(start + index).padStart(5, "0")}\r\n`,
+      ).join("");
+
+    writeTerminalOutput(session, createLines(0, 8_000));
+    await vi.waitFor(() =>
+      expect(hasPendingTerminalOutput(session)).toBe(false),
+    );
+    animationFrames.splice(0).forEach((callback) => callback(0));
+    terminal.scrollToBottom();
+    terminal.scrollLines(-200);
+    session.atBottom = false;
+    const readingViewport = terminal.buffer.active.viewportY;
+
+    writeTerminalOutput(session, createLines(8_000, 6_000));
+    await vi.waitFor(() =>
+      expect(hasPendingTerminalOutput(session)).toBe(false),
+    );
+    animationFrames.splice(0).forEach((callback) => callback(0));
+    expect(terminal.buffer.active.viewportY).toBe(readingViewport);
+
+    terminal.scrollToBottom();
+    session.atBottom = true;
+    writeTerminalOutput(session, createLines(14_000, 6_000));
+    await vi.waitFor(() =>
+      expect(hasPendingTerminalOutput(session)).toBe(false),
+    );
+    animationFrames.splice(0).forEach((callback) => callback(0));
+    expect(terminal.buffer.active.viewportY).toBeGreaterThanOrEqual(
+      terminal.buffer.active.baseY - 1,
+    );
+
+    const renderedLines = new Set<string>();
+    for (let index = 0; index < terminal.buffer.active.length; index += 1) {
+      const line = terminal.buffer.active
+        .getLine(index)
+        ?.translateToString(true);
+      if (line) renderedLines.add(line);
+    }
+    for (let index = 0; index < 20_000; index += 1) {
+      expect(
+        renderedLines.has(`AXON_BUFFER_${String(index).padStart(5, "0")}`),
+      ).toBe(true);
+    }
+
+    terminal.dispose();
   });
 });
