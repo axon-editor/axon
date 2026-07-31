@@ -90,3 +90,19 @@ describe("editor suggestion settings", () => {
     expect(settings.editor.wordBasedSuggestionsEnabled).toBe(true);
   });
 });
+
+describe("line trace settings", () => {
+  it("preserves an explicit disabled preference", () => {
+    const settings = normalizeSettings({
+      editor: { lineTraceEnabled: false },
+    });
+
+    expect(settings.editor.lineTraceEnabled).toBe(false);
+  });
+
+  it("enables line trace for older settings", () => {
+    expect(normalizeSettings({ editor: {} }).editor.lineTraceEnabled).toBe(
+      true,
+    );
+  });
+});

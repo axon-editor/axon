@@ -205,6 +205,7 @@ export interface EditorSettings {
   triggerCharacterSuggestionsEnabled: boolean;
   suggestionPreviewEnabled: boolean;
   wordBasedSuggestionsEnabled: boolean;
+  lineTraceEnabled: boolean;
 }
 
 export interface AxonSettings {
@@ -274,6 +275,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     triggerCharacterSuggestionsEnabled: true,
     suggestionPreviewEnabled: true,
     wordBasedSuggestionsEnabled: true,
+    lineTraceEnabled: true,
   },
   ai: {
     enabled: true,
@@ -624,6 +626,10 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.wordBasedSuggestionsEnabled === "boolean"
           ? editor.wordBasedSuggestionsEnabled
           : DEFAULT_SETTINGS.editor.wordBasedSuggestionsEnabled,
+      lineTraceEnabled:
+        typeof editor.lineTraceEnabled === "boolean"
+          ? editor.lineTraceEnabled
+          : DEFAULT_SETTINGS.editor.lineTraceEnabled,
     },
     ai: {
       enabled:

@@ -15,6 +15,7 @@ import type {
 } from "../../shared/extensions";
 import type {
   GitActionResult,
+  GitBlameResult,
   GitBranchAction,
   GitBranchListResult,
   GitCloneResult,
@@ -300,6 +301,10 @@ declare global {
         untracked?: boolean,
       ) => Promise<GitDiffResult>;
       getGitFileBase: (folderPath: string, filePath: string) => Promise<string>;
+      getGitBlame: (
+        folderPath: string,
+        filePath: string,
+      ) => Promise<GitBlameResult>;
       getGitHistory: (
         folderPath: string,
         filePath?: string | null,

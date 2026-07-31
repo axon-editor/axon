@@ -4,6 +4,7 @@ import {
   type GitActionResult,
   type GitBranchAction,
   type GitBranchListResult,
+  type GitBlameResult,
   type GitCloneResult,
   type GitCloneProgressEvent,
   type GitConflictListResult,
@@ -18,6 +19,7 @@ import {
   type GitWorktreeAction,
   type GitWorktreeListResult,
 } from "../../shared/git";
+import { getGitBlame } from "./blame";
 import {
   getGitGraph,
   listGitConflicts,
@@ -163,6 +165,20 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
     async (_event, folderPath: string, filePath: string) => {
       if (!folderPath || !filePath || !fs.existsSync(folderPath)) return "";
       return getGitFileBase(folderPath, filePath);
+    },
+  );
+
+  ipcMain.handle(
+    "git:blame",
+    async (
+      _event,
+      folderPath: string,
+      filePath: string,
+    ): Promise<GitBlameResult> => {
+      if (!folderPath || !filePath || !fs.existsSync(folderPath)) {
+        return { path: null, lines: [] };
+      }
+      return getGitBlame(folderPath, filePath);
     },
   );
 

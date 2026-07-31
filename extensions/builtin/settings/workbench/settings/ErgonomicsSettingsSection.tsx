@@ -91,6 +91,17 @@ export default function ErgonomicsSettingsSection({
       </SettingsField>
 
       <SettingsField
+        label="Line Trace"
+        description="Shows the author, commit age, and summary for the committed line under the cursor."
+      >
+        <SettingsToggle
+          checked={draft.editor.lineTraceEnabled}
+          onChange={(checked) => onUpdateEditor("lineTraceEnabled", checked)}
+          label={draft.editor.lineTraceEnabled ? "Visible" : "Hidden"}
+        />
+      </SettingsField>
+
+      <SettingsField
         label="Code folding"
         description="Enables fold controls and folding keyboard commands."
       >

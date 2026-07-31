@@ -364,6 +364,13 @@
   background: var(--axon-git-deleted);
 }
 
+.monaco-editor .axon-line-trace {
+  color: var(--axon-editor-foreground);
+  font-size: 0.86em;
+  font-style: italic;
+  opacity: 0.42;
+}
+
 .axon-git-glyph::before {
   display: block;
   width: 100%;

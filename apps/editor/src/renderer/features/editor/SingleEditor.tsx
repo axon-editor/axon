@@ -48,6 +48,7 @@ import { useActiveFileServices } from "./lib/useActiveFileServices";
 import { useEditorIndentationSettings } from "./lib/useEditorIndentationSettings";
 import { useEditorZoomViewport } from "./lib/useEditorZoomViewport";
 import useGitLineDecorations from "./lib/useGitLineDecorations";
+import useGitLineTrace from "./lib/useGitLineTrace";
 interface Props {
   filePath: string;
   folderPath: string | null;
@@ -142,6 +143,15 @@ export default function SingleEditor({
     gitChange,
     loading,
     themeTokens,
+  });
+  useGitLineTrace({
+    editorRef,
+    editorReadyNonce,
+    enabled: editorSettings.lineTraceEnabled,
+    filePath,
+    folderPath,
+    loading,
+    visible,
   });
 
   const {

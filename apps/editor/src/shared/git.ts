@@ -33,6 +33,21 @@ export interface GitDiffResult {
   currentContent?: string;
 }
 
+export interface GitBlameLine {
+  lineNumber: number;
+  hash: string;
+  shortHash: string;
+  authorName: string;
+  authorEmail: string;
+  authorTime: number;
+  summary: string;
+}
+
+export interface GitBlameResult {
+  path: string | null;
+  lines: GitBlameLine[];
+}
+
 export interface GitActionResult {
   ok: boolean;
   message: string;

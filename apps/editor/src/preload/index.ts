@@ -29,6 +29,7 @@ import {
   type GitActionResult,
   type GitBranchAction,
   type GitBranchListResult,
+  type GitBlameResult,
   type GitCloneResult,
   type GitCloneProgressEvent,
   type GitConflictListResult,
@@ -400,6 +401,11 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("git:diff", folderPath, filePath, staged, untracked),
   getGitFileBase: (folderPath: string, filePath: string): Promise<string> =>
     ipcRenderer.invoke("git:baseFile", folderPath, filePath),
+  getGitBlame: (
+    folderPath: string,
+    filePath: string,
+  ): Promise<GitBlameResult> =>
+    ipcRenderer.invoke("git:blame", folderPath, filePath),
   getGitHistory: (
     folderPath: string,
     filePath?: string | null,
