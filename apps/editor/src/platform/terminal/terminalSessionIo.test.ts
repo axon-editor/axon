@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import {
   getOutputByteLength,
+  TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
   TERMINAL_WRITE_BATCH_BYTES,
   type TerminalSession,
 } from "./terminalProtocol";
@@ -14,7 +15,7 @@ function createSession() {
   const sent: string[] = [];
   const written: Array<string | Uint8Array> = [];
   const term = {
-    buffer: { active: { viewportY: 0, baseY: 0 } },
+    buffer: { active: { type: "normal", viewportY: 0, baseY: 0 } },
     rows: 24,
     write(data: string | Uint8Array, callback: () => void) {
       written.push(data);
@@ -41,8 +42,6 @@ function createSession() {
     lastAckedBytes: 0,
     ackTimer: null,
     atBottom: true,
-    refreshFrame: null,
-    heartbeatTimer: null,
     disposed: false,
   } as unknown as TerminalSession;
 
@@ -50,15 +49,8 @@ function createSession() {
 }
 
 describe("terminal output accounting", () => {
-  let animationFrames: FrameRequestCallback[];
-
   beforeEach(() => {
-    animationFrames = [];
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      animationFrames.push(callback);
-      return animationFrames.length;
-    });
-    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.useRealTimers();
   });
 
   it("counts UTF-8 bytes instead of JavaScript code units", () => {
@@ -78,35 +70,24 @@ describe("terminal output accounting", () => {
       type: "ack",
       offset: 12,
     });
-
-    animationFrames.splice(0).forEach((callback) => callback(0));
   });
 
-  it("preserves live-follow intent while xterm's viewport transiently lags", () => {
+  it("lets xterm own viewport movement while output commits", () => {
     const { session } = createSession();
     const callbacks: Array<() => void> = [];
     const term = session.term!;
     vi.mocked(term.scrollToBottom).mockClear();
     term.write = vi.fn((_data, callback) => callbacks.push(callback));
 
-    const buffer = term.buffer.active as { viewportY: number; baseY: number };
-    buffer.viewportY = 10;
-    buffer.baseY = 10;
     writeTerminalOutput(session, "first batch");
-
-    // xterm can advance baseY before its visible viewport catches up. The user
-    // has not scrolled here, so that transient coordinate mismatch must not turn
-    // off the session's persistent live-follow intent.
-    buffer.baseY = 20;
     writeTerminalOutput(session, "second batch");
 
     expect(callbacks).toHaveLength(2);
     callbacks[0]();
     callbacks[1]();
-    animationFrames.splice(0).forEach((callback) => callback(0));
 
-    expect(term.scrollToBottom).toHaveBeenCalledTimes(1);
-    expect(term.refresh).toHaveBeenCalledTimes(1);
+    expect(term.scrollToBottom).not.toHaveBeenCalled();
+    expect(term.refresh).not.toHaveBeenCalled();
   });
 
   it("does not pull a detached reader back to the live tail", () => {
@@ -116,10 +97,9 @@ describe("terminal output accounting", () => {
     vi.mocked(term.scrollToBottom).mockClear();
 
     writeTerminalOutput(session, "new output while reading scrollback");
-    animationFrames.splice(0).forEach((callback) => callback(0));
 
     expect(term.scrollToBottom).not.toHaveBeenCalled();
-    expect(term.refresh).toHaveBeenCalledTimes(1);
+    expect(term.refresh).not.toHaveBeenCalled();
   });
 
   it("splits oversized websocket frames before writing to xterm", () => {
@@ -147,6 +127,38 @@ describe("terminal output accounting", () => {
     expect(hasPendingTerminalOutput(session)).toBe(false);
   });
 
+  it("bounds bytes queued inside xterm until write callbacks commit", () => {
+    const { session, written } = createSession();
+    const callbacks: Array<() => void> = [];
+    session.term!.write = vi.fn((data, callback) => {
+      written.push(data);
+      callbacks.push(callback);
+    });
+    const payload = new Uint8Array(
+      TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES * 2 + 31,
+    );
+
+    writeTerminalOutput(session, payload.buffer);
+
+    expect(
+      written.reduce(
+        (total, chunk) => total + getOutputByteLength(chunk),
+        0,
+      ),
+    ).toBe(TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES);
+    expect(session.inFlightWriteBytes).toBe(
+      TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
+    );
+
+    while (callbacks.length > 0) {
+      callbacks.shift()!();
+    }
+
+    expect(session.receivedBytes).toBe(payload.byteLength);
+    expect(session.inFlightWriteBytes).toBe(0);
+    expect(hasPendingTerminalOutput(session)).toBe(false);
+  });
+
   it("preserves numbered output in a real xterm buffer while reading scrollback", async () => {
     const terminal = new Terminal({ cols: 120, rows: 24, scrollback: 25_000 });
     const { session } = createSession();
@@ -164,7 +176,6 @@ describe("terminal output accounting", () => {
     await vi.waitFor(() =>
       expect(hasPendingTerminalOutput(session)).toBe(false),
     );
-    animationFrames.splice(0).forEach((callback) => callback(0));
     terminal.scrollToBottom();
     terminal.scrollLines(-200);
     session.atBottom = false;
@@ -174,7 +185,6 @@ describe("terminal output accounting", () => {
     await vi.waitFor(() =>
       expect(hasPendingTerminalOutput(session)).toBe(false),
     );
-    animationFrames.splice(0).forEach((callback) => callback(0));
     expect(terminal.buffer.active.viewportY).toBe(readingViewport);
 
     terminal.scrollToBottom();
@@ -183,7 +193,6 @@ describe("terminal output accounting", () => {
     await vi.waitFor(() =>
       expect(hasPendingTerminalOutput(session)).toBe(false),
     );
-    animationFrames.splice(0).forEach((callback) => callback(0));
     expect(terminal.buffer.active.viewportY).toBeGreaterThanOrEqual(
       terminal.buffer.active.baseY - 1,
     );
@@ -200,6 +209,43 @@ describe("terminal output accounting", () => {
         renderedLines.has(`AXON_BUFFER_${String(index).padStart(5, "0")}`),
       ).toBe(true);
     }
+
+    terminal.dispose();
+  });
+
+  it("preserves ANSI agent output while the reader remains in scrollback", async () => {
+    const terminal = new Terminal({ cols: 100, rows: 20, scrollback: 10_000 });
+    const { session } = createSession();
+    session.term = terminal;
+
+    const createAnsiLines = (start: number, count: number) =>
+      Array.from({ length: count }, (_value, index) => {
+        const line = String(start + index).padStart(5, "0");
+        return `\x1b[?2026h\x1b[36mAXON_AGENT_${line}\x1b[0m\r\n\x1b[?2026l`;
+      }).join("");
+
+    writeTerminalOutput(session, createAnsiLines(0, 2_000));
+    await vi.waitFor(() =>
+      expect(hasPendingTerminalOutput(session)).toBe(false),
+    );
+    terminal.scrollToBottom();
+    terminal.scrollLines(-120);
+    session.atBottom = false;
+    const readingViewport = terminal.buffer.active.viewportY;
+
+    writeTerminalOutput(session, createAnsiLines(2_000, 2_000));
+    await vi.waitFor(() =>
+      expect(hasPendingTerminalOutput(session)).toBe(false),
+    );
+
+    expect(terminal.buffer.active.viewportY).toBe(readingViewport);
+    const rendered = Array.from(
+      { length: terminal.buffer.active.length },
+      (_value, index) =>
+        terminal.buffer.active.getLine(index)?.translateToString(true) ?? "",
+    ).join("\n");
+    expect(rendered).toContain("AXON_AGENT_00000");
+    expect(rendered).toContain("AXON_AGENT_03999");
 
     terminal.dispose();
   });

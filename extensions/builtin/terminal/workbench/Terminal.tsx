@@ -102,45 +102,14 @@ export default function Terminal({
     onHide,
   });
 
-  const getTerminalHealthLabel = useCallback((tab: { connected: boolean; health: {
-    receivedBytes: number;
-    ackedBytes: number;
-    queuedBytes: number;
-    inFlightWriteBytes: number;
-    maxQueuedBytes: number;
-    drainedChunks: number;
-    reconnectCount: number;
-    lastCloseCode: number | null;
-    lastCloseReason: string;
-  } }) => {
-    const pendingBytes = Math.max(
-      0,
-      tab.health.receivedBytes - tab.health.ackedBytes,
-    );
-    return [
-      tab.connected ? "Connected" : "Disconnected",
-      `received ${tab.health.receivedBytes} bytes`,
-      `acked ${tab.health.ackedBytes} bytes`,
-      `pending ${pendingBytes} bytes`,
-      `queued ${tab.health.queuedBytes} bytes`,
-      `in-flight ${tab.health.inFlightWriteBytes} bytes`,
-      `max queue ${tab.health.maxQueuedBytes} bytes`,
-      `drained ${tab.health.drainedChunks} chunks`,
-      `reconnects ${tab.health.reconnectCount}`,
-      tab.health.lastCloseCode
-        ? `last close ${tab.health.lastCloseCode}${tab.health.lastCloseReason ? ` ${tab.health.lastCloseReason}` : ""}`
-        : "no websocket close recorded",
-    ].join("\n");
-  }, []);
-
   const handleHide = useCallback(() => {
     setZoomed(false);
     onHide();
-  }, [onHide]);
+  }, [onHide, setZoomed]);
 
   const handleZoomToggle = useCallback(() => {
     setZoomed((currentZoomed) => !currentZoomed);
-  }, []);
+  }, [setZoomed]);
 
   const handleResizeStart = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -224,8 +193,6 @@ export default function Terminal({
                 label={tab.title}
                 active={activePanelTab === "terminal" && tab.id === activeTabId}
                 closeLabel={`Close ${tab.title}`}
-                tooltipLabel={getTerminalHealthLabel(tab)}
-                tooltipDelayMs={450}
                 closeButtonClassName="h-7 w-7"
                 onClick={() => {
                   setActiveTabId(tab.id);

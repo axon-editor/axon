@@ -1,6 +1,10 @@
 import { type CSSProperties } from "react";
 import { resolveThemeTokens, type ThemeTokenMap } from "../themes";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
+import {
+  gitAppearanceColors,
+  type ThemeAppearance,
+} from "../themes/themeAppearance";
 
 export type ResolvedThemeTokens = ThemeTokenMap;
 
@@ -13,7 +17,11 @@ export function resolveThemeTokensWithExtensions(
   return resolveThemeTokens(settings, extensionThemes);
 }
 
-export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
+export function createThemeCssVariables(
+  tokens: ResolvedThemeTokens,
+  appearance: ThemeAppearance = "dark",
+) {
+  const gitColors = gitAppearanceColors[appearance];
   // These variables are the bridge between axon.json and the React chrome.
   // They are resolved from the active built-in theme first, then user override
   // values are layered on top. That keeps defaults clean while still making
@@ -37,11 +45,14 @@ export function createThemeCssVariables(tokens: ResolvedThemeTokens) {
     "--axon-terminal-foreground": tokens["terminal.foreground"],
     "--axon-syntax-function": tokens["syntax.function"],
     "--axon-syntax-method": tokens["syntax.method"],
-    "--axon-git-added": tokens["syntax.string"],
-    "--axon-git-modified": tokens["syntax.number"],
-    "--axon-git-deleted": tokens["syntax.constant"],
-    "--axon-git-mixed": tokens["syntax.function"],
-    "--axon-warning-foreground": tokens["syntax.number"],
-    "--axon-danger-foreground": tokens["syntax.keyword"],
+    "--axon-git-added": gitColors.added,
+    "--axon-git-modified": gitColors.modified,
+    "--axon-git-deleted": gitColors.deleted,
+    "--axon-git-mixed": gitColors.mixed,
+    "--axon-info-foreground": gitColors.mixed,
+    "--axon-warning-foreground": gitColors.modified,
+    "--axon-danger-foreground": gitColors.deleted,
+    "--axon-danger-background": gitColors.dangerBackground,
+    colorScheme: appearance,
   } as CSSProperties;
 }

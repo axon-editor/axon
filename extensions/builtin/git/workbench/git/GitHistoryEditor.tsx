@@ -41,13 +41,13 @@ function AuthorAvatar({ commit }: { commit: GitHistoryCommit }) {
         src={commit.authorAvatarUrl}
         alt={commit.authorName}
         onError={() => setFailed(true)}
-        className="h-8 w-8 shrink-0 rounded-full bg-[#151923] object-cover"
+        className="h-8 w-8 shrink-0 rounded-full bg-[var(--axon-panel-overlay-hover)] object-cover"
       />
     );
   }
 
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#151923] text-[11px] font-medium text-[#80c8e0]">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--axon-panel-overlay-hover)] text-[11px] font-medium text-[var(--axon-info-foreground)]">
       {initials}
     </span>
   );
@@ -76,10 +76,10 @@ export default function GitHistoryEditor({
         <div className="flex min-w-0 items-center gap-3">
           <AuthorAvatar commit={commit} />
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-medium text-[#dce4f0]">
+            <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
               {getFileName(file.path)}
             </div>
-            <div className="truncate text-[10px] text-[#647086]">
+            <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
               {commit.shortHash} · {commit.authorName} ·{" "}
               {formatCommitDate(commit.date)}
             </div>
@@ -89,17 +89,17 @@ export default function GitHistoryEditor({
           type="button"
           onClick={onClose}
           aria-label="Close Git history diff"
-          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-white"
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
         >
           <X size={13} />
         </button>
       </div>
 
       <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-3">
-        <div className="text-[13px] font-medium text-[#dce4f0]">
+        <div className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">
           {commit.subject}
         </div>
-        <div className="mt-1 truncate text-[11px] text-[#647086]">
+        <div className="mt-1 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-55">
           {file.oldPath ? `${file.oldPath} -> ${file.path}` : file.path}
         </div>
       </div>

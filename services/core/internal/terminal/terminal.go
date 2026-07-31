@@ -879,8 +879,12 @@ func terminalEnvironment() []string {
 
 	nextPath := strings.Join(parts, string(os.PathListSeparator))
 	env = upsertEnvironmentValue(env, "PATH", nextPath)
+	env = upsertEnvironmentValue(env, "TERM", "xterm-256color")
+	env = upsertEnvironmentValue(env, "COLORTERM", "truecolor")
+	env = upsertEnvironmentValue(env, "TERM_PROGRAM", "Axon")
+	env = upsertEnvironmentValue(env, "AXON_TERM", "true")
 
-	return append(env, "TERM=xterm-256color")
+	return env
 }
 
 func upsertEnvironmentValue(env []string, key string, value string) []string {

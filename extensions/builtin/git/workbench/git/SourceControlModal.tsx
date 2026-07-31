@@ -71,7 +71,7 @@ function SourceControlSkeleton() {
           <div className="h-5 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
           <div className="min-w-0 space-y-1.5">
             <div className="h-3 w-3/4 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
-            <div className="h-2.5 w-full animate-pulse rounded bg-[#111722]" />
+            <div className="h-2.5 w-full animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
           </div>
         </div>
       ))}
@@ -84,8 +84,8 @@ function DiffSkeleton() {
     <div className="space-y-2 px-4 py-3">
       {[0, 1, 2, 3, 4, 5].map((item) => (
         <div key={item} className="grid grid-cols-[1fr_1fr] gap-3">
-          <div className="h-4 animate-pulse rounded bg-[#111722]" />
-          <div className="h-4 animate-pulse rounded bg-[#111722]" />
+          <div className="h-4 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
+          <div className="h-4 animate-pulse rounded bg-[var(--axon-panel-overlay-hover)]" />
         </div>
       ))}
     </div>
@@ -172,10 +172,7 @@ export default function SourceControlModal({
     }
   };
 
-  const runAction = async (
-    change: GitChange,
-    action: GitMutationAction,
-  ) => {
+  const runAction = async (change: GitChange, action: GitMutationAction) => {
     if (!folderPath) return;
     // Discard is destructive, so the renderer confirms before it asks the main
     // process to run the path-scoped Git operation. The main process still owns
@@ -244,7 +241,10 @@ export default function SourceControlModal({
     if (!folderPath) return;
     setCommitting(true);
     try {
-      const result = await commitSourceControlChanges(folderPath, commitMessage);
+      const result = await commitSourceControlChanges(
+        folderPath,
+        commitMessage,
+      );
       onOutput(result.message, result.ok ? "success" : "error");
       if (result.ok) {
         setCommitMessage("");
@@ -415,7 +415,10 @@ export default function SourceControlModal({
           <div className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)]">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
               <div className="flex min-w-0 items-center gap-2">
-                <GitBranch size={14} className="text-[var(--axon-syntax-function)]" />
+                <GitBranch
+                  size={14}
+                  className="text-[var(--axon-syntax-function)]"
+                />
                 <span className="truncate text-[12px] text-[var(--axon-editor-foreground)]">
                   {status?.branch ?? "no repository"}
                 </span>
@@ -432,7 +435,9 @@ export default function SourceControlModal({
                 </Tooltip>
                 <Tooltip label="Stage all changes" side="bottom">
                   <button
-                    onClick={() => void runBatchAction(unstagedChanges, "stage")}
+                    onClick={() =>
+                      void runBatchAction(unstagedChanges, "stage")
+                    }
                     disabled={
                       unstagedChanges.length === 0 ||
                       runningAction === "stage:all"
@@ -445,7 +450,9 @@ export default function SourceControlModal({
                 </Tooltip>
                 <Tooltip label="Unstage all staged files" side="bottom">
                   <button
-                    onClick={() => void runBatchAction(stagedChanges, "unstage")}
+                    onClick={() =>
+                      void runBatchAction(stagedChanges, "unstage")
+                    }
                     disabled={
                       stagedChanges.length === 0 ||
                       runningAction === "unstage:all"
@@ -498,9 +505,7 @@ export default function SourceControlModal({
                 </div>
               )}
 
-              {folderPath && loadingStatus && (
-                <SourceControlSkeleton />
-              )}
+              {folderPath && loadingStatus && <SourceControlSkeleton />}
 
               {folderPath && status && !status.isRepository && (
                 <div className="px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
@@ -552,12 +557,14 @@ export default function SourceControlModal({
               <div className="mt-2 flex items-center justify-between gap-2">
                 <button
                   type="button"
-                  onClick={() => void runBatchAction(unstagedChanges, "discard")}
+                  onClick={() =>
+                    void runBatchAction(unstagedChanges, "discard")
+                  }
                   disabled={
                     unstagedChanges.length === 0 ||
                     runningAction === "discard:all"
                   }
-                  className="h-7 cursor-pointer rounded-md px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[#2a1517] hover:text-[#ff7b72] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                  className="h-7 cursor-pointer rounded-md px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-danger-background)] hover:text-[var(--axon-danger-foreground)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                 >
                   discard all
                 </button>
@@ -631,16 +638,15 @@ export default function SourceControlModal({
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-[var(--axon-editor-background)]">
-              {loadingDiff && (
-                <DiffSkeleton />
-              )}
+              {loadingDiff && <DiffSkeleton />}
               {!loadingDiff && !selectedChange && (
                 <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                   Select a changed file to view diff context.
                 </div>
               )}
-              {!loadingDiff && selectedChange && (
-                selectedChangeIsMedia ? (
+              {!loadingDiff &&
+                selectedChange &&
+                (selectedChangeIsMedia ? (
                   selectedChangeIsDeleted ? (
                     <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
                       This media file was deleted, so Axon cannot preview it
@@ -664,8 +670,7 @@ export default function SourceControlModal({
                     No diff available yet. Save the file first if the change is
                     only in the editor buffer.
                   </div>
-                )
-              )}
+                ))}
             </div>
           </div>
         </div>
@@ -739,7 +744,9 @@ function ChangeGroup({
                 </GitActionButton>
                 <GitActionButton
                   label="Stage file"
-                  disabled={!canStage || runningAction === `stage:${change.path}`}
+                  disabled={
+                    !canStage || runningAction === `stage:${change.path}`
+                  }
                   onClick={() => onRunAction(change, "stage")}
                 >
                   <Plus size={12} />
@@ -799,7 +806,7 @@ function GitActionButton({
           disabled
             ? "cursor-not-allowed text-[var(--axon-editor-foreground)] opacity-30"
             : danger
-              ? "cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[#2a1517] hover:text-[#ff7b72] hover:opacity-100"
+              ? "cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-danger-background)] hover:text-[var(--axon-danger-foreground)] hover:opacity-100"
               : "cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-syntax-function)] hover:opacity-100"
         }`}
       >

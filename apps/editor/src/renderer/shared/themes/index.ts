@@ -13,6 +13,7 @@ import {
   type AxonThemeDefinition,
   type ThemeTokenMap,
 } from "./types";
+import { gitAppearanceColors, inferThemeAppearance } from "./themeAppearance";
 
 export type { ThemeTokenMap } from "./types";
 
@@ -172,6 +173,8 @@ function buildMonacoTheme(
   tokens: ThemeTokenMap = theme.tokens,
   extensionTheme?: ResolvedExtensionTheme,
 ) {
+  const appearance = extensionTheme?.appearance ?? inferThemeAppearance(tokens);
+  const gitColors = gitAppearanceColors[appearance];
   const themeData: monaco.editor.IStandaloneThemeData = {
     base: theme.base,
     inherit: true,
@@ -218,6 +221,11 @@ function buildMonacoTheme(
       "editorSuggestWidget.selectedBackground": tokens["panel.overlay_hover"],
       "editorSuggestWidget.highlightForeground": tokens["syntax.function"],
       "editorSuggestWidget.focusHighlightForeground": tokens["syntax.function"],
+      "diffEditor.insertedTextBackground": `${gitColors.added}30`,
+      "diffEditor.removedTextBackground": `${gitColors.deleted}30`,
+      "diffEditor.insertedLineBackground": `${gitColors.added}18`,
+      "diffEditor.removedLineBackground": `${gitColors.deleted}18`,
+      "diffEditor.diagonalFill": tokens["panel.border"],
       "terminal.background": tokens["terminal.background"],
       "terminal.foreground": tokens["terminal.foreground"],
       ...theme.monacoColors,
@@ -255,10 +263,11 @@ function defineAllThemes(
   activeSyntax: ResolvedExtensionTheme["syntax"] = {},
 ) {
   if (extensionThemes.length === 0 && activeTokens) {
+    const appearance = inferThemeAppearance(activeTokens);
     const themeDefinition: AxonThemeDefinition = {
       id: activeThemeId,
       label: activeThemeId,
-      base: "vs-dark",
+      base: appearance === "light" ? "vs" : "vs-dark",
       tokens: activeTokens,
       monacoColors: {},
       syntax: activeSyntax,
@@ -270,7 +279,7 @@ function defineAllThemes(
         label: activeThemeId,
         extensionId: "axon.runtime-theme",
         extensionName: "Axon Runtime Theme",
-        appearance: "dark",
+        appearance,
         tokens: activeTokens,
         syntax: activeSyntax,
         terminal: {},

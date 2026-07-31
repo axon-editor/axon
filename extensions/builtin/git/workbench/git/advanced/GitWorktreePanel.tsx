@@ -17,7 +17,9 @@ export default function GitWorktreePanel({
   onChanged,
   onOutput,
 }: Props) {
-  const [worktrees, setWorktrees] = useState<GitWorktreeListResult | null>(null);
+  const [worktrees, setWorktrees] = useState<GitWorktreeListResult | null>(
+    null,
+  );
   const [targetPath, setTargetPath] = useState("");
   const [branchName, setBranchName] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -150,7 +152,7 @@ export default function GitWorktreePanel({
                 aria-label={`Remove worktree ${worktree.path}`}
                 disabled={worktree.current || busyAction !== null}
                 onClick={() => void removeWorktree(worktree.path)}
-                className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[#2a1517] hover:text-[#ff7b72] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-danger-background)] hover:text-[var(--axon-danger-foreground)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <Trash2 size={11} />
               </button>
@@ -158,7 +160,9 @@ export default function GitWorktreePanel({
           </div>
         ))}
         {entries.length === 0 ? (
-          <div className="px-2 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-35">no worktrees</div>
+          <div className="px-2 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-35">
+            no worktrees
+          </div>
         ) : null}
       </div>
     </section>

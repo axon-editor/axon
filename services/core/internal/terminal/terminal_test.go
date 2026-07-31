@@ -6,12 +6,47 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+func TestTerminalEnvironmentAdvertisesAxonCapabilities(t *testing.T) {
+	t.Setenv("TERM", "dumb")
+	t.Setenv("COLORTERM", "legacy")
+	t.Setenv("TERM_PROGRAM", "Terminal.app")
+
+	env := terminalEnvironment()
+	wanted := map[string]string{
+		"TERM":         "xterm-256color",
+		"COLORTERM":    "truecolor",
+		"TERM_PROGRAM": "Axon",
+		"AXON_TERM":    "true",
+	}
+
+	for key, expected := range wanted {
+		prefix := key + "="
+		matches := 0
+		for _, entry := range env {
+			if strings.HasPrefix(entry, prefix) {
+				matches++
+				if entry != prefix+expected {
+					t.Fatalf("expected %s, got %s", prefix+expected, entry)
+				}
+			}
+		}
+		if matches != 1 {
+			t.Fatalf("expected one %s entry, got %d", key, matches)
+		}
+	}
+
+	if os.Getenv("TERM") != "dumb" {
+		t.Fatalf("terminal environment mutated the core process environment")
+	}
+}
 
 func terminalWebSocketURL(serverURL string, sessionID string) string {
 	parsed, _ := url.Parse(serverURL)

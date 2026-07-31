@@ -24,7 +24,6 @@ import {
   hasPendingTerminalOutput,
   isTerminalAtBottom,
   isVisibleTerminalContainer,
-  scheduleTerminalRefresh,
   sendOrQueueTerminalInput,
   sendWorkspaceCd,
   terminateDetachedSession,
@@ -92,9 +91,17 @@ export function useTerminalSessionManager({
     if (!session?.fitAddon || !session.ws) return;
     if (!isVisibleTerminalContainer(session.container)) return;
 
-    const wasAtBottom = session.term ? isTerminalAtBottom(session.term) : true;
-    session.fitAddon.fit();
+    const term = session.term;
+    const isAlternateBuffer = term?.buffer.active.type === "alternate";
+    const wasAtBottom = term ? isTerminalAtBottom(term) : true;
+    const viewportY = term?.buffer.active.viewportY ?? 0;
     const dims = session.fitAddon.proposeDimensions();
+    const dimensionsChanged = Boolean(
+      term && dims && (dims.cols !== term.cols || dims.rows !== term.rows),
+    );
+    if (dimensionsChanged) {
+      session.fitAddon.fit();
+    }
     if (
       dims &&
       session.ws.readyState === WebSocket.OPEN &&
@@ -110,11 +117,12 @@ export function useTerminalSessionManager({
         }),
       );
     }
-    if (session.term) {
-      if (wasAtBottom || session.atBottom) {
-        session.term.scrollToBottom();
+    if (term && dimensionsChanged && !isAlternateBuffer) {
+      if (wasAtBottom && session.atBottom) {
+        term.scrollToBottom();
+      } else {
+        term.scrollToLine(Math.min(viewportY, term.buffer.active.baseY));
       }
-      scheduleTerminalRefresh(session);
     }
   }, []);
 
@@ -202,17 +210,6 @@ export function useTerminalSessionManager({
     ) {
       window.clearTimeout(session.outputDrainTimer);
       session.outputDrainTimer = null;
-    }
-    if (session?.refreshFrame !== null && session?.refreshFrame !== undefined) {
-      window.cancelAnimationFrame(session.refreshFrame);
-      session.refreshFrame = null;
-    }
-    if (
-      session?.heartbeatTimer !== null &&
-      session?.heartbeatTimer !== undefined
-    ) {
-      window.clearInterval(session.heartbeatTimer);
-      session.heartbeatTimer = null;
     }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
@@ -307,8 +304,6 @@ export function useTerminalSessionManager({
       atBottom: true,
       lastResizeCols: null,
       lastResizeRows: null,
-      refreshFrame: null,
-      heartbeatTimer: null,
       disposed: false,
       terminating: false,
     };
@@ -701,14 +696,16 @@ export function useTerminalSessionManager({
     if (!terminalVisible || !activeTabId) return;
     const session = sessionsRef.current[activeTabId];
     if (!session?.term) return;
+    const term = session.term;
 
     window.requestAnimationFrame(() => {
       sendResize(activeTabId);
-      if (session.term && session.atBottom) {
-        session.term.scrollToBottom();
-      } else if (session.term) {
-        session.term.scrollToLine(
-          Math.max(0, Math.min(session.scrollLine, session.term.buffer.active.baseY)),
+      if (term.buffer.active.type === "alternate") return;
+      if (session.atBottom) {
+        term.scrollToBottom();
+      } else {
+        term.scrollToLine(
+          Math.max(0, Math.min(session.scrollLine, term.buffer.active.baseY)),
         );
       }
     });

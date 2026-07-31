@@ -87,7 +87,7 @@ function AuthorAvatar({
 
   return (
     <span
-      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-[var(--axon-sidebar-border)] bg-[var(--axon-sidebar-hover-background)] font-medium text-[#80c8e0]`}
+      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-[var(--axon-sidebar-border)] bg-[var(--axon-sidebar-hover-background)] font-medium text-[var(--axon-info-foreground)]`}
     >
       {initials}
     </span>

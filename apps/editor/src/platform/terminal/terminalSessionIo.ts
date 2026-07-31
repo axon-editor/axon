@@ -41,57 +41,6 @@ export function isTerminalAtBottom(term: XTerm) {
   return buffer.viewportY >= buffer.baseY - 1;
 }
 
-export function scheduleTerminalRefresh(session: TerminalSession) {
-  // xterm already batches normal writes internally, while Axon can have several
-  // write callbacks complete during the same browser frame. I coalesce both the
-  // follow and repaint work here so those callbacks cannot issue competing
-  // scrollToBottom calls while xterm is moving rows from the viewport into
-  // scrollback. session.atBottom is the user's persistent follow intent; it is
-  // deliberately not recalculated from xterm's transient buffer coordinates in
-  // this output path.
-  if (!session.term || session.refreshFrame !== null) return;
-
-  session.refreshFrame = window.requestAnimationFrame(() => {
-    session.refreshFrame = null;
-    if (!session.term || session.disposed) return;
-
-    if (session.atBottom) {
-      session.term.scrollToBottom();
-    }
-
-    // A full refresh is only a fallback after xterm has committed the burst.
-    // Refreshing while its parser still owns queued writes can repaint a moving
-    // viewport and was unnecessary because xterm paints those writes itself.
-    if (!hasPendingTerminalOutput(session)) {
-      session.term.refresh(0, Math.max(0, session.term.rows - 1));
-    }
-  });
-}
-
-function clearTerminalHeartbeat(session: TerminalSession) {
-  if (session.heartbeatTimer === null) return;
-  window.clearInterval(session.heartbeatTimer);
-  session.heartbeatTimer = null;
-}
-
-function ensureTerminalHeartbeat(session: TerminalSession) {
-  if (session.heartbeatTimer !== null) return;
-
-  // A busy agent can keep xterm's async write callback delayed long enough
-  // that relying on callback-driven refreshes alone still leaves the DOM
-  // visually stale. This heartbeat is deliberately small and bounded: it only
-  // runs while output is pending, and each tick goes through the same rAF
-  // coalescing as normal refreshes, so it cannot spin into one refresh per
-  // websocket chunk.
-  session.heartbeatTimer = window.setInterval(() => {
-    if (session.disposed || !hasPendingTerminalOutput(session)) {
-      clearTerminalHeartbeat(session);
-      return;
-    }
-    scheduleTerminalRefresh(session);
-  }, 120);
-}
-
 export function sendOrQueueTerminalInput(
   session: TerminalSession,
   data: string,
@@ -277,10 +226,8 @@ function drainTerminalOutput(session: TerminalSession) {
 
       const settled = !hasPendingTerminalOutput(session);
       sendTerminalAck(session, settled);
-      scheduleTerminalRefresh(session);
 
       if (settled) {
-        clearTerminalHeartbeat(session);
         clearTerminalDrainTimer(session);
         return;
       }
@@ -311,7 +258,6 @@ export function writeTerminalOutput(
     session.maxQueuedBytes,
     session.queuedBytes,
   );
-  ensureTerminalHeartbeat(session);
   drainTerminalOutput(session);
 }
 

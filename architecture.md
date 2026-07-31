@@ -307,9 +307,9 @@ Axon now has diagnostics at three levels:
 - Renderer command activation records slow activation calls in the Output panel
   so a sluggish contributed view or command is visible without flooding normal
   logs.
-- Terminal tabs expose session health in their tooltip: received bytes,
-  acknowledged bytes, pending bytes, queued bytes, peak queue size, drained
-  chunks, reconnect count, and the last websocket close code.
+- Terminal sessions track received, acknowledged, pending, queued, and peak
+  queue bytes alongside drained chunks, reconnects, and websocket close state
+  for internal health diagnostics without exposing them in the tab UI.
 
 Build scripts now print phase-specific failure summaries for shared package and
 core binary builds. The goal is that CI and local release failures point at the

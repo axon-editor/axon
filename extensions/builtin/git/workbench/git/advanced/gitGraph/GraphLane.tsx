@@ -1,6 +1,12 @@
 import { type GitGraphCommit } from "@axon-editor/shared/git";
 
-const colors = ["#33a7e8", "#e5b95c", "#42b883", "#9d90fc", "#e26d78"];
+const colors = [
+  "var(--axon-git-mixed)",
+  "var(--axon-git-modified)",
+  "var(--axon-git-added)",
+  "var(--axon-info-foreground)",
+  "var(--axon-git-deleted)",
+];
 
 export default function GraphLane({
   commit,

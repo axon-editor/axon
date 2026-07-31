@@ -3,7 +3,10 @@ import { getWorkspaceTrustState } from "../../../renderer/features/sidebar";
 import { isDiagnosticInWorkspace } from "@axon-builtin-problems/lib/diagnosticCache";
 import { getModel } from "../../../renderer/features/editor/lib/monacoModels";
 import { collectFileSymbols } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
-import { createThemeCssVariables, resolveThemeTokens } from "../../../renderer/shared/lib/themeTokens";
+import {
+  createThemeCssVariables,
+  resolveThemeTokens,
+} from "../../../renderer/shared/lib/themeTokens";
 import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { getEnabledExtensionThemes } from "../../../shared/extensions";
 
@@ -45,12 +48,13 @@ export function useAppDerivedState({
   settings,
   workspaceTrustNonce,
 }: AppDerivedStateOptions) {
-  const activePane = layout.panes.find((p: any) => p.id === layout.activePaneId);
+  const activePane = layout.panes.find(
+    (p: any) => p.id === layout.activePaneId,
+  );
   const workspaceTrusted = useMemo(
     () => getWorkspaceTrustState(folderPath) !== false,
     [folderPath, workspaceTrustNonce],
   );
-
 
   const extensionThemes = useMemo(
     () => getEnabledExtensionThemes(extensionState),
@@ -66,9 +70,15 @@ export function useAppDerivedState({
         ?.syntax ?? {},
     [extensionThemes, settings.editor.themeId],
   );
+  const themeAppearance = useMemo(
+    () =>
+      extensionThemes.find((theme: any) => theme.id === settings.editor.themeId)
+        ?.appearance ?? "dark",
+    [extensionThemes, settings.editor.themeId],
+  );
   const themeCssVariables = useMemo(
-    () => createThemeCssVariables(themeTokens),
-    [themeTokens],
+    () => createThemeCssVariables(themeTokens, themeAppearance),
+    [themeAppearance, themeTokens],
   );
   const appThemeCssVariables = useMemo(() => {
     if (!settings.editor.appTransparency) return themeCssVariables;

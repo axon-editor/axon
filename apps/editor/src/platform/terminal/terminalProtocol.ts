@@ -37,8 +37,6 @@ export interface TerminalSession {
   atBottom: boolean;
   lastResizeCols: number | null;
   lastResizeRows: number | null;
-  refreshFrame: number | null;
-  heartbeatTimer: number | null;
   disposed: boolean;
   terminating: boolean;
 }
@@ -73,8 +71,8 @@ export const TERMINAL_WRITE_BATCH_BYTES = 128 * 1024;
 // the middle ground: Axon can pipeline enough output to stay fast, but the
 // backend still has a small, exact acknowledged cursor to replay from if the
 // websocket detaches.
-export const TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES = 4 * 1024 * 1024;
-export const TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN = 16;
+export const TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES = 512 * 1024;
+export const TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN = 4;
 
 export function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -175,6 +173,7 @@ export function getOutputByteLength(data: unknown) {
     return byteLength;
   }
   if (data instanceof ArrayBuffer) return data.byteLength;
+  if (ArrayBuffer.isView(data)) return data.byteLength;
   if (data instanceof Blob) return data.size;
   return 0;
 }

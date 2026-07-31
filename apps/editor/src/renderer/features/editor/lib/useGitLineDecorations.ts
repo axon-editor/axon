@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import * as monaco from "monaco-editor";
 import { type GitChange } from "../../../../shared/git";
 import { type ResolvedThemeTokens } from "../../../shared/lib/themeTokens";
+import {
+  gitAppearanceColors,
+  inferThemeAppearance,
+} from "../../../shared/themes/themeAppearance";
 import { computeGitLineDecorations } from "./gitLineDecorations";
 
 interface Options {
@@ -44,6 +48,7 @@ export default function useGitLineDecorations({
       baseContent,
       model.getValue(),
     );
+    const gitColors = gitAppearanceColors[inferThemeAppearance(themeTokens)];
     collectionRef.current ??= editor.createDecorationsCollection();
     collectionRef.current.set(
       decorations.map((decoration) => ({
@@ -61,10 +66,10 @@ export default function useGitLineDecorations({
           overviewRuler: {
             color:
               decoration.kind === "added"
-                ? themeTokens["syntax.string"]
+                ? gitColors.added
                 : decoration.kind === "modified"
-                  ? themeTokens["syntax.number"]
-                  : themeTokens["syntax.constant"],
+                  ? gitColors.modified
+                  : gitColors.deleted,
             position: monaco.editor.OverviewRulerLane.Left,
           },
         },
