@@ -424,7 +424,7 @@ declare global {
         callback: (data?: { path?: string }) => void,
       ) => () => void;
       onGitChanged: (
-        callback: (event?: { folderPath?: string }) => void,
+        callback: (event?: { folderPath?: string; paths?: string[] }) => void,
       ) => () => void;
       onAiChatStreamEvent: (
         callback: (event: AiChatStreamEvent) => void,

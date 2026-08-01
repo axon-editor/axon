@@ -61,7 +61,7 @@ import {
 const isDev = process.env.NODE_ENV === "development";
 const axonDevServerUrl =
   process.env.AXON_DEV_SERVER_URL ?? "http://localhost:5173";
-const hasDevSingleInstanceLock = !isDev || app.requestSingleInstanceLock();
+const hasSingleInstanceLock = isDev || app.requestSingleInstanceLock();
 app.setName("Axon");
 const execFileAsync = promisify(execFile);
 
@@ -349,49 +349,16 @@ registerSettingsHandlers({
     await startLanguageServerForLanguage(folderPath, "python");
   },
 });
-const fileWatcherRegistry = registerFileWatcherHandlers((sender) =>
-  createFileWatcherManager((channel, payload) => {
-    if (!sender.isDestroyed()) sender.send(channel, payload);
-  }),
+const fileWatcherRegistry = registerFileWatcherHandlers((sendWatcherEvent) =>
+  createFileWatcherManager(sendWatcherEvent),
 );
 registerHtmlPreviewHandlers(getHtmlPreviewServer);
 registerTaskHandlers(taskManager);
 registerTestHandlers(testManager);
 
-if (!hasDevSingleInstanceLock) {
+if (!hasSingleInstanceLock) {
   app.quit();
 }
-
-app.on("second-instance", () => {
-  if (!isDev) return;
-
-  // The development runner can be started more than once while a Vite server
-  // is already alive. Without a single-instance guard, each Electron process
-  // gets its own Dock icon and its own renderer window, which looks like Axon
-  // is spawning copies of itself. The production app still owns normal
-  // multi-window behavior through the File menu; this path only collapses
-  // duplicate dev launches back onto the current main window.
-  const currentMainWindow = mainWindow as BrowserWindow | null;
-  let targetWindow: BrowserWindow | null = null;
-  if (currentMainWindow !== null && !currentMainWindow.isDestroyed()) {
-    targetWindow = currentMainWindow;
-  }
-  if (!targetWindow) {
-    for (const candidate of BrowserWindow.getAllWindows()) {
-      if (!candidate.isDestroyed()) {
-        targetWindow = candidate;
-        break;
-      }
-    }
-  }
-
-  if (!targetWindow) return;
-
-  if (targetWindow.isMinimized()) {
-    targetWindow.restore();
-  }
-  targetWindow.focus();
-});
 
 function getHtmlPreviewServer() {
   if (!htmlPreviewServer) {
@@ -515,7 +482,12 @@ registerSpotifyOpenUrlHandler({ sendToRenderer });
 app.on("second-instance", async (_event, argv) => {
   await handleSpotifySecondInstanceArg(argv, { sendToRenderer });
 
-  // Focus the existing window as normal.
+  if (!isDev) {
+    createManagedWindow({ restoreSession: false });
+    void deliverPendingAgentResumeRequest();
+    return;
+  }
+
   const existingWindow = BrowserWindow.getAllWindows()[0];
   if (existingWindow) {
     if (existingWindow.isMinimized()) existingWindow.restore();
@@ -537,7 +509,7 @@ app.on("open-file", (event, filePath) => {
 });
 
 app.whenReady().then(async () => {
-  if (!hasDevSingleInstanceLock) return;
+  if (!hasSingleInstanceLock) return;
 
   protocol.handle("axon", async (request) => {
     const requestUrl = new URL(request.url);

@@ -15,8 +15,14 @@ import { registerFileWatcherHandlers } from "./handlers";
 import type { FileWatcherManager } from "./watcher";
 
 class FakeSender extends EventEmitter {
+  readonly send = vi.fn();
+
   constructor(readonly id: number) {
     super();
+  }
+
+  isDestroyed() {
+    return false;
   }
 }
 
@@ -35,30 +41,43 @@ describe("file watcher IPC ownership", () => {
     ipcHandlers.clear();
   });
 
-  it("keeps watcher managers isolated per renderer window", async () => {
+  it("shares workspace watchers while keeping active file watchers per window", async () => {
     const managers: FileWatcherManager[] = [];
-    registerFileWatcherHandlers(() => {
+    const senders: Array<(channel: string, payload?: unknown) => void> = [];
+    registerFileWatcherHandlers((sendToRenderer) => {
       const manager = createManager();
       managers.push(manager);
+      senders.push(sendToRenderer);
       return manager;
     });
 
     const firstWindow = new FakeSender(1);
     const secondWindow = new FakeSender(2);
     const watchFolder = ipcHandlers.get("fs:watchFolder")!;
+    const watchFile = ipcHandlers.get("fs:watch")!;
 
     await watchFolder({ sender: firstWindow }, "/workspace/one");
-    await watchFolder({ sender: secondWindow }, "/workspace/two");
-    await watchFolder({ sender: firstWindow }, "/workspace/one-next");
+    await watchFolder({ sender: secondWindow }, "/workspace/one");
+    await watchFile({ sender: firstWindow }, "/workspace/one/first.ts");
+    await watchFile({ sender: secondWindow }, "/workspace/one/second.ts");
 
-    expect(managers).toHaveLength(2);
-    expect(managers[0].watchFolder).toHaveBeenCalledTimes(2);
-    expect(managers[1].watchFolder).toHaveBeenCalledTimes(1);
-    expect(managers[0].closeAll).not.toHaveBeenCalled();
-    expect(managers[1].closeAll).not.toHaveBeenCalled();
+    expect(managers).toHaveLength(3);
+    expect(managers[0].watchFolder).toHaveBeenCalledTimes(1);
+    senders[0]("git:changed", { folderPath: "/workspace/one" });
+    expect(firstWindow.send).toHaveBeenCalledWith("git:changed", {
+      folderPath: "/workspace/one",
+    });
+    expect(secondWindow.send).toHaveBeenCalledWith("git:changed", {
+      folderPath: "/workspace/one",
+    });
 
     firstWindow.emit("destroyed");
-    expect(managers[0].closeAll).toHaveBeenCalledTimes(1);
-    expect(managers[1].closeAll).not.toHaveBeenCalled();
+    expect(managers[1].closeAll).toHaveBeenCalledTimes(1);
+    expect(managers[2].closeAll).not.toHaveBeenCalled();
+    expect(managers[0].unwatchFolder).not.toHaveBeenCalled();
+
+    secondWindow.emit("destroyed");
+    expect(managers[2].closeAll).toHaveBeenCalledTimes(1);
+    expect(managers[0].unwatchFolder).toHaveBeenCalledTimes(1);
   });
 });

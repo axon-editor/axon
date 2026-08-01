@@ -198,4 +198,33 @@ describe("FileWatcherManager", () => {
       await fs.promises.rm(workspacePath, { recursive: true, force: true });
     }
   });
+
+  it("does not generate Git refresh work while a workspace is idle", async () => {
+    vi.useFakeTimers();
+    const workspacePath = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), "axon-idle-watcher-"),
+    );
+    const events: Array<{ channel: string; payload?: unknown }> = [];
+    const manager = new FileWatcherManager({
+      shouldPollWatchers: false,
+      shouldIgnoreWorkspaceWatchPath: () => false,
+      sendToRenderer: (channel, payload) => events.push({ channel, payload }),
+      getGitWatchPaths: async () => [path.join(workspacePath, ".git", "HEAD")],
+      stopLanguageServersForFolder: () => undefined,
+      notifyLanguageServersOfFileChange: () => undefined,
+      invalidateWorkspaceIndex: () => undefined,
+      createWatcher: () => createFakeWatcher(),
+    });
+
+    try {
+      await manager.watchFolder(workspacePath);
+      events.length = 0;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(events).toEqual([]);
+    } finally {
+      await manager.closeAll();
+      await fs.promises.rm(workspacePath, { recursive: true, force: true });
+      vi.useRealTimers();
+    }
+  });
 });

@@ -19,6 +19,16 @@ interface Options {
   visible: boolean;
 }
 
+interface LineTraceWidgetState {
+  added: boolean;
+  domNode: HTMLSpanElement;
+  position: {
+    column: number;
+    lineNumber: number;
+  };
+  widget: monaco.editor.IContentWidget;
+}
+
 export default function useGitLineTrace({
   editorRef,
   editorReadyNonce,
@@ -29,11 +39,45 @@ export default function useGitLineTrace({
   visible,
 }: Options) {
   const blameLinesRef = useRef<Map<number, GitBlameLine>>(new Map());
-  const collectionRef =
-    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const widgetRef = useRef<LineTraceWidgetState | null>(null);
   const requestRef = useRef(0);
   const refreshTimerRef = useRef<number | null>(null);
   const staleRef = useRef(false);
+
+  const clearWidget = useCallback(() => {
+    const editor = editorRef.current;
+    const current = widgetRef.current;
+    if (!current?.added || !editor) return;
+    editor.removeContentWidget(current.widget);
+    current.added = false;
+  }, [editorRef]);
+
+  const getWidget = useCallback(() => {
+    if (widgetRef.current) return widgetRef.current;
+    const domNode = document.createElement("span");
+    domNode.className = "axon-line-trace";
+    const position = {
+      column: 1,
+      lineNumber: 1,
+    };
+    const widget: monaco.editor.IContentWidget = {
+      allowEditorOverflow: false,
+      getDomNode: () => domNode,
+      getId: () => "axon.lineTrace",
+      getPosition: () => ({
+        position,
+        preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+      }),
+    };
+    const state: LineTraceWidgetState = {
+      added: false,
+      domNode,
+      position,
+      widget,
+    };
+    widgetRef.current = state;
+    return state;
+  }, []);
 
   const paintCurrentLine = useCallback(() => {
     const editor = editorRef.current;
@@ -47,36 +91,29 @@ export default function useGitLineTrace({
       !model ||
       !position
     ) {
-      collectionRef.current?.clear();
+      clearWidget();
       return;
     }
 
     const blameLine = blameLinesRef.current.get(position.lineNumber);
     if (!blameLine) {
-      collectionRef.current?.clear();
+      clearWidget();
       return;
     }
 
     const lineNumber = position.lineNumber;
     const endColumn = model.getLineMaxColumn(lineNumber);
-    collectionRef.current ??= editor.createDecorationsCollection();
-    collectionRef.current.set([
-      {
-        range: new monaco.Range(lineNumber, endColumn, lineNumber, endColumn),
-        options: {
-          hoverMessage: {
-            value: createLineTraceHover(blameLine),
-          },
-          after: {
-            content: createLineTraceLabel(blameLine),
-            inlineClassName: "axon-line-trace",
-            inlineClassNameAffectsLetterSpacing: true,
-            cursorStops: monaco.editor.InjectedTextCursorStops.None,
-          },
-        },
-      },
-    ]);
-  }, [editorRef, enabled, visible]);
+    const current = getWidget();
+    current.position.lineNumber = lineNumber;
+    current.position.column = endColumn;
+    current.domNode.textContent = createLineTraceLabel(blameLine);
+    current.domNode.title = createLineTraceHover(blameLine).replace(/\\/g, "");
+    if (!current.added) {
+      editor.addContentWidget(current.widget);
+      current.added = true;
+    }
+    editor.layoutContentWidget(current.widget);
+  }, [clearWidget, editorRef, enabled, getWidget, visible]);
 
   const loadBlame = useCallback(
     () => {
@@ -90,15 +127,13 @@ export default function useGitLineTrace({
       ) {
         requestRef.current += 1;
         blameLinesRef.current.clear();
-        collectionRef.current?.clear();
+        clearWidget();
         return;
       }
 
       const key = cacheKey(folderPath, filePath);
       const request = ++requestRef.current;
       staleRef.current = false;
-      blameLinesRef.current.clear();
-      collectionRef.current?.clear();
       const pending =
         blameCache.get(key) ?? window.axon.getGitBlame(folderPath, filePath);
       blameCache.set(key, pending);
@@ -115,9 +150,9 @@ export default function useGitLineTrace({
           if (request !== requestRef.current) return;
           blameCache.delete(key);
           blameLinesRef.current.clear();
-          collectionRef.current?.clear();
+          clearWidget();
         });
-    }, [editorRef, enabled, filePath, folderPath, loading, paintCurrentLine, visible]);
+    }, [clearWidget, editorRef, enabled, filePath, folderPath, loading, paintCurrentLine, visible]);
 
   useEffect(() => {
     loadBlame();
@@ -132,13 +167,13 @@ export default function useGitLineTrace({
     });
     const contentDisposable = editor.onDidChangeModelContent(() => {
       staleRef.current = true;
-      collectionRef.current?.clear();
+      clearWidget();
     });
     return () => {
       cursorDisposable.dispose();
       contentDisposable.dispose();
     };
-  }, [editorReadyNonce, editorRef, paintCurrentLine]);
+  }, [clearWidget, editorReadyNonce, editorRef, paintCurrentLine]);
 
   useEffect(() => {
     if (!folderPath) return;
@@ -155,6 +190,12 @@ export default function useGitLineTrace({
     };
     const cleanupGit = window.axon.onGitChanged((event) => {
       if (event?.folderPath && event.folderPath !== folderPath) return;
+      if (
+        event?.paths?.length &&
+        !event.paths.some((changedPath) => changedPath === filePath)
+      ) {
+        return;
+      }
       refresh();
     });
     const handleSaved = (event: Event) => {
@@ -179,8 +220,8 @@ export default function useGitLineTrace({
       if (refreshTimerRef.current !== null) {
         window.clearTimeout(refreshTimerRef.current);
       }
-      collectionRef.current?.clear();
-      collectionRef.current = null;
+      clearWidget();
+      widgetRef.current = null;
     };
-  }, []);
+  }, [clearWidget]);
 }

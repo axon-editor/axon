@@ -52,7 +52,6 @@ export class FileWatcherManager {
   private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingFolderChangedPaths = new Set<string>();
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private gitHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private gitDiscoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private gitWatcherSetupPromise: Promise<boolean> | null = null;
   private gitWatcherGeneration = 0;
@@ -144,10 +143,6 @@ export class FileWatcherManager {
       clearTimeout(this.gitDebounceTimer);
       this.gitDebounceTimer = null;
     }
-    if (this.gitHeartbeatTimer) {
-      clearInterval(this.gitHeartbeatTimer);
-      this.gitHeartbeatTimer = null;
-    }
     if (!this.gitWatcher) return;
     await this.gitWatcher.close();
     this.gitWatcher = null;
@@ -210,13 +205,6 @@ export class FileWatcherManager {
       );
     });
 
-    // Native `change` events can occasionally disappear in packaged Electron
-    // builds. I keep this heartbeat Git-only so decorations recover without
-    // turning the complete workspace watcher into an expensive polling walk.
-    this.gitHeartbeatTimer = setInterval(() => {
-      if (generation !== this.folderWatchGeneration) return;
-      this.deps.sendToRenderer("git:changed", { folderPath });
-    }, 1_500);
     return true;
   }
 
@@ -324,9 +312,6 @@ export class FileWatcherManager {
     const previousFolderPath = this.watchedFolderPath;
     await this.closeFolderWatcher();
     await this.closeGitWatcher();
-    // Watchers are owned per renderer window. Only stop language servers for the
-    // workspace this manager is replacing; stopping every session here makes a
-    // second Axon window silently tear down the first window's language tools.
     if (previousFolderPath && previousFolderPath !== folderPath) {
       await Promise.resolve(
         this.deps.stopLanguageServersForFolder(previousFolderPath),
@@ -371,7 +356,10 @@ export class FileWatcherManager {
           // feel live. I refresh Git status from the normal folder watcher too so
           // the tree and Git decorations move together after creates, imports,
           // edits, and deletes.
-          this.deps.sendToRenderer("git:changed", { folderPath });
+          this.deps.sendToRenderer("git:changed", {
+            folderPath,
+            paths: changedPaths,
+          });
         }, 90);
       };
 
