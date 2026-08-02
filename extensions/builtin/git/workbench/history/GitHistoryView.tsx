@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import {
   type GitCommitDiffResult,
   type GitFileState,
@@ -268,7 +268,26 @@ export default function GitHistoryView({
                     </div>
                   ) : null}
                   <div className="mt-2 space-y-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                    <div className="truncate">{selectedCommit.authorName}</div>
+                    {selectedCommit.authorProfileUrl ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void window.axon.openExternalLink(
+                            selectedCommit.authorProfileUrl,
+                          )
+                        }
+                        className="flex max-w-full cursor-pointer items-center gap-1 truncate hover:underline"
+                      >
+                        <span className="truncate">
+                          {selectedCommit.authorName}
+                        </span>
+                        <ExternalLink size={9} className="shrink-0" />
+                      </button>
+                    ) : (
+                      <div className="truncate">
+                        {selectedCommit.authorName}
+                      </div>
+                    )}
                     {selectedCommit.authorEmail ? (
                       <div className="truncate">
                         {selectedCommit.authorEmail}

@@ -39,6 +39,8 @@ export interface GitBlameLine {
   shortHash: string;
   authorName: string;
   authorEmail: string;
+  authorAvatarUrl?: string;
+  authorProfileUrl?: string;
   authorTime: number;
   summary: string;
 }
@@ -185,6 +187,7 @@ export interface GitHistoryCommit {
   authorName: string;
   authorEmail: string;
   authorAvatarUrl: string;
+  authorProfileUrl: string;
   date: string;
   relativeDate: string;
   body: string;

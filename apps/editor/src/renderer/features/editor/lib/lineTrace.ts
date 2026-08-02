@@ -6,16 +6,14 @@ function compactText(value: string, maxLength: number) {
   return `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
 }
 
-export function formatLineTraceAge(
-  authorTime: number,
-  now = Date.now(),
-) {
+export function formatLineTraceAge(authorTime: number, now = Date.now()) {
   if (authorTime <= 0) return "unknown";
   const elapsedSeconds = Math.max(0, Math.floor(now / 1000) - authorTime);
   if (elapsedSeconds < 60) return "now";
   if (elapsedSeconds < 3_600) return `${Math.floor(elapsedSeconds / 60)}m`;
   if (elapsedSeconds < 86_400) return `${Math.floor(elapsedSeconds / 3_600)}h`;
-  if (elapsedSeconds < 604_800) return `${Math.floor(elapsedSeconds / 86_400)}d`;
+  if (elapsedSeconds < 604_800)
+    return `${Math.floor(elapsedSeconds / 86_400)}d`;
   if (elapsedSeconds < 2_629_800) {
     return `${Math.floor(elapsedSeconds / 604_800)}w`;
   }
@@ -28,7 +26,7 @@ export function formatLineTraceAge(
 export function createLineTraceLabel(line: GitBlameLine, now = Date.now()) {
   const author = compactText(line.authorName || "Unknown author", 24);
   const summary = compactText(line.summary || line.shortHash, 48);
-  return `  ◆ ${author} · ${formatLineTraceAge(line.authorTime, now)} · ${summary}`;
+  return `  ${author} · ${formatLineTraceAge(line.authorTime, now)} · ${summary}`;
 }
 
 export function createLineTraceHover(line: GitBlameLine) {

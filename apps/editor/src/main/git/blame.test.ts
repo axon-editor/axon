@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseGitLinePorcelain } from "./blame";
+import { resolveGitAuthorIdentity } from "./authorIdentity";
 
 describe("Git line porcelain parser", () => {
   it("maps committed lines and ignores uncommitted worktree lines", () => {
@@ -28,6 +29,9 @@ describe("Git line porcelain parser", () => {
         shortHash: "12345678",
         authorName: "Gorden Archer",
         authorEmail: "gorden@example.com",
+        authorAvatarUrl:
+          resolveGitAuthorIdentity("gorden@example.com").avatarUrl,
+        authorProfileUrl: "",
         authorTime: 1720000000,
         summary: "refine editor trace",
       },

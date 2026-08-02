@@ -366,12 +366,75 @@
 
 .monaco-editor .axon-line-trace {
   color: var(--axon-editor-foreground);
+  font-family: var(--monaco-monospace-font);
   font-size: 0.86em;
   font-style: italic;
   margin-left: 16px;
   opacity: 0.38;
   pointer-events: auto;
   white-space: nowrap;
+}
+
+.axon-line-trace-popover {
+  position: fixed;
+  z-index: 100;
+  width: min(340px, calc(100vw - 20px));
+  padding: 10px 12px;
+  border: 1px solid var(--axon-panel-border);
+  border-radius: 6px;
+  background: var(--axon-panel-background);
+  box-shadow: 0 12px 36px color-mix(in srgb, #000 35%, transparent);
+  color: var(--axon-editor-foreground);
+  font-family: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.axon-line-trace-popover[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.axon-line-trace-popover__author {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.axon-line-trace-popover__identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.axon-line-trace-popover__avatar {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border: 1px solid var(--axon-panel-border);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.axon-line-trace-popover__summary {
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.45;
+  opacity: 0.72;
+}
+
+.axon-line-trace-popover__metadata {
+  margin-top: 8px;
+  font-family: inherit;
+  font-size: 10px;
+  opacity: 0.48;
 }
 
 .axon-git-glyph::before {

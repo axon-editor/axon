@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import {
   type GitCommitDiffResult,
   type GitHistoryCommit,
@@ -35,21 +35,30 @@ function AuthorAvatar({ commit }: { commit: GitHistoryCommit }) {
       .map((part) => part[0]?.toUpperCase())
       .join("") || "?";
 
-  if (commit.authorAvatarUrl && !failed) {
-    return (
+  const avatar = commit.authorAvatarUrl && !failed ? (
       <img
         src={commit.authorAvatarUrl}
         alt={commit.authorName}
         onError={() => setFailed(true)}
         className="h-8 w-8 shrink-0 rounded-full bg-[var(--axon-panel-overlay-hover)] object-cover"
       />
-    );
-  }
-
-  return (
+  ) : (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--axon-panel-overlay-hover)] text-[11px] font-medium text-[var(--axon-info-foreground)]">
       {initials}
     </span>
+  );
+
+  if (!commit.authorProfileUrl) return avatar;
+
+  return (
+    <button
+      type="button"
+      aria-label={`Open ${commit.authorName}'s profile`}
+      onClick={() => void window.axon.openExternalLink(commit.authorProfileUrl)}
+      className="cursor-pointer rounded-full"
+    >
+      {avatar}
+    </button>
   );
 }
 
@@ -82,6 +91,9 @@ export default function GitHistoryEditor({
             <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
               {commit.shortHash} · {commit.authorName} ·{" "}
               {formatCommitDate(commit.date)}
+              {commit.authorProfileUrl ? (
+                <ExternalLink size={9} className="ml-1 inline" />
+              ) : null}
             </div>
           </div>
         </div>

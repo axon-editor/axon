@@ -2,6 +2,7 @@ import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { type GitBlameLine, type GitBlameResult } from "../../shared/git";
+import { resolveGitAuthorIdentity } from "./authorIdentity";
 
 const execFileAsync = promisify(execFile);
 
@@ -48,9 +49,12 @@ export function parseGitLinePorcelain(output: string): GitBlameLine[] {
       current.summary = line.slice("summary ".length).trim();
     } else if (line.startsWith("\t")) {
       if (!/^0{40}$/.test(current.hash)) {
+        const authorIdentity = resolveGitAuthorIdentity(current.authorEmail);
         lines.push({
           ...current,
           shortHash: current.hash.slice(0, 8),
+          authorAvatarUrl: authorIdentity.avatarUrl,
+          authorProfileUrl: authorIdentity.profileUrl,
         });
       }
       current = undefined;

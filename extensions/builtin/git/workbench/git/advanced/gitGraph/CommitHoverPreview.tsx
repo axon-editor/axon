@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, GitCommitHorizontal, UserRound } from "lucide-react";
+import { CalendarDays, GitCommitHorizontal } from "lucide-react";
 import { type GitHistoryCommit } from "@axon-editor/shared/git";
+import CommitAuthorAvatar from "./CommitAuthorAvatar";
 
 export default function CommitHoverPreview({
   commit,
@@ -31,7 +32,8 @@ export default function CommitHoverPreview({
       ) : null}
       <div className="mt-3 grid gap-1.5 text-[10px] opacity-50">
         <span className="flex items-center gap-2">
-          <UserRound size={11} /> {commit.authorName}
+          <CommitAuthorAvatar commit={commit} className="h-5 w-5" />
+          {commit.authorName}
         </span>
         <span className="flex items-center gap-2">
           <CalendarDays size={11} /> {commit.date}

@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { execFile, spawn } from "child_process";
@@ -21,6 +20,7 @@ import {
   type GitStashListResult,
   type GitStatusResult,
 } from "../../shared/git";
+import { resolveGitAuthorIdentity } from "./authorIdentity";
 
 const execFileAsync = promisify(execFile);
 
@@ -219,29 +219,6 @@ function parseGitHistoryFile(root: string, line: string): GitHistoryFile | null 
   };
 }
 
-function getGitAuthorAvatarUrl(authorEmail: string) {
-  const normalizedEmail = authorEmail.trim().toLowerCase();
-  if (!normalizedEmail) return "";
-
-  const githubNoreplyMatch = normalizedEmail.match(
-    /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/,
-  );
-  if (githubNoreplyMatch?.[1]) {
-    return `https://github.com/${githubNoreplyMatch[1]}.png?size=96`;
-  }
-
-  // Git itself only stores the author email, not a profile image. I derive a
-  // public avatar URL in the main process so every renderer window receives a
-  // normal image source. I use d=404 instead of an identicon because Axon's Git
-  // history should show a real account image when one exists, then let the UI
-  // fall back to initials when there is no public avatar.
-  const emailHash = crypto
-    .createHash("md5")
-    .update(normalizedEmail)
-    .digest("hex");
-  return `https://www.gravatar.com/avatar/${emailHash}?s=96&d=404`;
-}
-
 function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
   const commitSeparator = "\x1e";
   const fieldSeparator = "\x1f";
@@ -263,6 +240,7 @@ function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
         body,
       ] = metaBlock.split(fieldSeparator);
       if (!hash || !shortHash) return null;
+      const authorIdentity = resolveGitAuthorIdentity(authorEmail || "");
 
       const files = filesBlock
         .split(/\r?\n/)
@@ -275,7 +253,8 @@ function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
         subject: subject || "(no subject)",
         authorName: authorName || "Unknown",
         authorEmail: authorEmail || "",
-        authorAvatarUrl: getGitAuthorAvatarUrl(authorEmail || ""),
+        authorAvatarUrl: authorIdentity.avatarUrl,
+        authorProfileUrl: authorIdentity.profileUrl,
         date: date || "",
         relativeDate: relativeDate || "",
         body: body || "",

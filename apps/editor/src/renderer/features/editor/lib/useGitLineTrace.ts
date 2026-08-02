@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import * as monaco from "monaco-editor";
 import { type GitBlameLine, type GitBlameResult } from "../../../../shared/git";
-import { createLineTraceHover, createLineTraceLabel } from "./lineTrace";
+import { createLineTraceLabel } from "./lineTrace";
+import {
+  createLineTracePopover,
+  type LineTracePopover,
+} from "./lineTracePopover";
 
 const blameCache = new Map<string, Promise<GitBlameResult>>();
 
@@ -22,6 +26,7 @@ interface Options {
 interface LineTraceWidgetState {
   added: boolean;
   domNode: HTMLSpanElement;
+  popover: LineTracePopover;
   position: {
     column: number;
     lineNumber: number;
@@ -56,6 +61,7 @@ export default function useGitLineTrace({
     if (widgetRef.current) return widgetRef.current;
     const domNode = document.createElement("span");
     domNode.className = "axon-line-trace";
+    const popover = createLineTracePopover(domNode);
     const position = {
       column: 1,
       lineNumber: 1,
@@ -72,6 +78,7 @@ export default function useGitLineTrace({
     const state: LineTraceWidgetState = {
       added: false,
       domNode,
+      popover,
       position,
       widget,
     };
@@ -107,7 +114,10 @@ export default function useGitLineTrace({
     current.position.lineNumber = lineNumber;
     current.position.column = endColumn;
     current.domNode.textContent = createLineTraceLabel(blameLine);
-    current.domNode.title = createLineTraceHover(blameLine).replace(/\\/g, "");
+    current.domNode.style.fontFamily = editor.getOption(
+      monaco.editor.EditorOption.fontInfo,
+    ).fontFamily;
+    current.popover.update(blameLine);
     if (!current.added) {
       editor.addContentWidget(current.widget);
       current.added = true;
@@ -221,6 +231,7 @@ export default function useGitLineTrace({
         window.clearTimeout(refreshTimerRef.current);
       }
       clearWidget();
+      widgetRef.current?.popover.dispose();
       widgetRef.current = null;
     };
   }, [clearWidget]);

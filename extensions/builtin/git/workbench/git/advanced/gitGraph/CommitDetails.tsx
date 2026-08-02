@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, GitCommitHorizontal } from "lucide-react";
+import { useMemo } from "react";
+import { CalendarDays, ExternalLink, GitCommitHorizontal } from "lucide-react";
 import { type GitHistoryCommit } from "@axon-editor/shared/git";
+import CommitAuthorAvatar from "./CommitAuthorAvatar";
 import CommitFileTree from "./CommitFileTree";
 import { buildGitGraphFileTree } from "./gitGraphTree";
 
@@ -11,15 +12,10 @@ export default function CommitDetails({
   commit: GitHistoryCommit | null;
   onOpenFile: (file: GitHistoryCommit["files"][number]) => void;
 }) {
-  const [avatarFailed, setAvatarFailed] = useState(false);
   const tree = useMemo(
     () => buildGitGraphFileTree(commit?.files ?? []),
     [commit],
   );
-
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [commit?.authorAvatarUrl]);
 
   if (!commit)
     return (
@@ -27,32 +23,28 @@ export default function CommitDetails({
         Select a commit to inspect its details and changed files.
       </div>
     );
-  const initials = commit.authorName
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
   return (
     <div className="h-full min-h-0 overflow-y-auto">
       <div className="border-b border-[var(--axon-panel-border)] p-4">
         <div className="flex items-center gap-3">
-          {commit.authorAvatarUrl && !avatarFailed ? (
-            <img
-              src={commit.authorAvatarUrl}
-              alt=""
-              onError={() => setAvatarFailed(true)}
-              className="h-10 w-10 rounded-full border border-[var(--axon-panel-border)] object-cover"
-            />
-          ) : (
-            <div className="grid h-10 w-10 place-items-center rounded-full border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] text-[11px] text-[var(--axon-editor-foreground)]">
-              {initials}
-            </div>
-          )}
+          <CommitAuthorAvatar commit={commit} className="h-10 w-10" />
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-medium text-[var(--axon-editor-foreground)]">
-              {commit.authorName}
-            </div>
+            {commit.authorProfileUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void window.axon.openExternalLink(commit.authorProfileUrl)
+                }
+                className="flex max-w-full cursor-pointer items-center gap-1.5 truncate text-[13px] font-medium text-[var(--axon-editor-foreground)] hover:underline"
+              >
+                <span className="truncate">{commit.authorName}</span>
+                <ExternalLink size={10} className="shrink-0 opacity-45" />
+              </button>
+            ) : (
+              <div className="truncate text-[13px] font-medium text-[var(--axon-editor-foreground)]">
+                {commit.authorName}
+              </div>
+            )}
             <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
               {commit.authorEmail}
             </div>
