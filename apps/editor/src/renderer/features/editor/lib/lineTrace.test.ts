@@ -25,7 +25,8 @@ describe("Axon Line Trace formatting", () => {
       now,
     );
 
-    expect(label).toContain("◆");
+    expect(label.startsWith("  ")).toBe(true);
+    expect(label).not.toContain("◆");
     expect(label).toContain("1h");
     expect(label.length).toBeLessThanOrEqual(87);
   });
