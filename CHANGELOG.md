@@ -2,6 +2,30 @@
 
 ## Next
 
+## v1.3.3
+
+- Stabilized terminal scrollback during sustained agent output so live writes no
+  longer displace, compress, or hide previously rendered lines.
+- Improved terminal and editor responsiveness when Axon runs multiple windows,
+  while retaining themed terminal contrast and colored explorer icons.
+- Added Axon Line Trace with faint inline Git attribution, author avatars,
+  profile links, and a delayed theme-aware commit popover.
+- Added Axon Black and Axon White as complete built-in themes and removed the
+  duplicate Minted theme entry.
+- Expanded Spotify with Liked Songs, remembered playback devices, a wider
+  theme-aware player, and an animated now-playing waveform.
+- Identified native app windows as `Axon - {folder}` and introduced a polished
+  production desktop icon.
+- Enabled folder moves in the explorer and changed editor-pane file drops to
+  open files directly instead of importing copies into the workspace.
+- Allowed exact LSP-returned dependency and standard-library sources to open
+  read-only without granting broad access to their parent directories.
+- Enabled hover, completion, navigation, and semantic tokens for authorized
+  external files when an active workspace language server is available.
+- Shortened syntax-color first paint by prioritizing TextMate tokens, merging
+  late LSP overlays in place, and reducing semantic and Go repaint delays.
+- Reduced fixed explorer watcher latency from roughly 180 ms to roughly 40 ms.
+
 ## v1.3.2
 
 - Added Axon Parchment as a built-in light theme with complete editor, syntax,
