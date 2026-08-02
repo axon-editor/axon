@@ -1,8 +1,21 @@
 import { useEffect } from "react";
-import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
-import { clearLanguageServerDiagnosticsFromMonaco, collectEditorDiagnostics, onEditorDiagnosticsChanged, syncLanguageServerDiagnosticsToMonaco, type EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
+import {
+  addRecentFolder,
+  getWorkspaceTrustState,
+} from "../../../renderer/features/sidebar";
+import {
+  clearLanguageServerDiagnosticsFromMonaco,
+  collectEditorDiagnostics,
+  onEditorDiagnosticsChanged,
+  syncLanguageServerDiagnosticsToMonaco,
+  type EditorDiagnostic,
+} from "@axon-builtin-problems/lib/diagnostics";
 import { updateLspDiagnosticCache } from "@axon-builtin-problems/lib/diagnosticCache";
-import { detectLanguageServerLanguage, getModel, updateModel } from "../../../renderer/features/editor/lib/monacoModels";
+import {
+  detectLanguageServerLanguage,
+  getModel,
+  updateModel,
+} from "../../../renderer/features/editor/lib/monacoModels";
 import { useGlobalEditorShortcuts } from "../../../renderer/features/editor/shortcuts/useGlobalEditorShortcuts";
 import { getTree, readFile } from "../../../renderer/shared/lib/api";
 import { createBundledFontFaces } from "../../../renderer/shared/lib/bundledFonts";
@@ -11,7 +24,10 @@ import {
   measureAxonPerformance,
 } from "../../../renderer/shared/lib/performanceMarks";
 import { registerAxonTheme } from "../../../renderer/shared/lib/soraTheme";
-import { loadWorkspaceSession, saveWorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
+import {
+  loadWorkspaceSession,
+  saveWorkspaceSession,
+} from "../../../renderer/shared/lib/workspaceSession";
 import { normalizeSettings } from "../../../shared/settings";
 import * as monaco from "monaco-editor";
 import { escapeCssString } from "./appPath";
@@ -412,7 +428,9 @@ export function useAxonAppEffects({
   }, [folderPath, settings.lsp.enabled]);
 
   useEffect(() => {
-    const diagnosticsByFile = (Object.values(lspDiagnosticsByFile) as EditorDiagnostic[][])
+    const diagnosticsByFile = (
+      Object.values(lspDiagnosticsByFile) as EditorDiagnostic[][]
+    )
       .flat()
       .reduce<Record<string, EditorDiagnostic[]>>(
         (nextDiagnostics, diagnostic: EditorDiagnostic) => {
@@ -506,17 +524,18 @@ export function useAxonAppEffects({
               setProjectDiagnostics((current: EditorDiagnostic[]) =>
                 current.filter((diagnostic) => diagnostic.path !== changedPath),
               );
-              setLspDiagnosticsByFile((current: Record<string, EditorDiagnostic[]>) =>
-                Object.fromEntries(
-                  Object.entries(current)
-                    .map(([key, diagnostics]) => [
-                      key,
-                      diagnostics.filter(
-                        (diagnostic) => diagnostic.path !== changedPath,
-                      ),
-                    ])
-                    .filter(([, diagnostics]) => diagnostics.length > 0),
-                ),
+              setLspDiagnosticsByFile(
+                (current: Record<string, EditorDiagnostic[]>) =>
+                  Object.fromEntries(
+                    Object.entries(current)
+                      .map(([key, diagnostics]) => [
+                        key,
+                        diagnostics.filter(
+                          (diagnostic) => diagnostic.path !== changedPath,
+                        ),
+                      ])
+                      .filter(([, diagnostics]) => diagnostics.length > 0),
+                  ),
               );
               setMonacoDiagnostics(collectEditorDiagnostics());
             })
@@ -541,7 +560,7 @@ export function useAxonAppEffects({
             }
           })
           .catch(console.error);
-      }, 90);
+      }, 16);
     });
     return () => {
       cleanup();
@@ -587,20 +606,22 @@ export function useAxonAppEffects({
   }, [folderPath, gitStatus?.isRepository, refreshGitStatus]);
 
   useEffect(() => {
-    const cleanupHtmlPreviewConsole = window.axon.onHtmlPreviewConsole((event) => {
-      const location = event.source
-        ? ` (${event.source}${event.line ? `:${event.line}` : ""})`
-        : "";
-      appendOutput(
-        "html preview",
-        `${event.message}${location}`,
-        event.level === "error"
-          ? "error"
-          : event.level === "warn"
-            ? "warning"
-            : "info",
-      );
-    });
+    const cleanupHtmlPreviewConsole = window.axon.onHtmlPreviewConsole(
+      (event) => {
+        const location = event.source
+          ? ` (${event.source}${event.line ? `:${event.line}` : ""})`
+          : "";
+        appendOutput(
+          "html preview",
+          `${event.message}${location}`,
+          event.level === "error"
+            ? "error"
+            : event.level === "warn"
+              ? "warning"
+              : "info",
+        );
+      },
+    );
     const cleanupOutput = window.axon.onTaskOutput((event) => {
       appendOutput(
         event.label,
@@ -773,7 +794,13 @@ export function useAxonAppEffects({
             "axon.workspace.tree.end",
           );
           addRecentFolder(nextFolderPath);
-          await handleFolderChange(nextFolderPath, fileTree, null, undefined, "cli");
+          await handleFolderChange(
+            nextFolderPath,
+            fileTree,
+            null,
+            undefined,
+            "cli",
+          );
           markAxonPerformance("axon.workspace.cliOpen.end", { source: "cli" });
           measureAxonPerformance(
             "axon.workspace.cliOpen",

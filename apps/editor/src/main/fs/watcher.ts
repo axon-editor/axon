@@ -62,7 +62,8 @@ export class FileWatcherManager {
 
   private createWatcher(paths: string | string[], options: ChokidarOptions) {
     return (
-      this.deps.createWatcher?.(paths, options) ?? chokidar.watch(paths, options)
+      this.deps.createWatcher?.(paths, options) ??
+      chokidar.watch(paths, options)
     );
   }
 
@@ -150,7 +151,8 @@ export class FileWatcherManager {
 
   private isRootGitMetadataPath(folderPath: string, candidatePath: string) {
     return (
-      path.resolve(candidatePath) === path.join(path.resolve(folderPath), ".git")
+      path.resolve(candidatePath) ===
+      path.join(path.resolve(folderPath), ".git")
     );
   }
 
@@ -235,17 +237,23 @@ export class FileWatcherManager {
     if (delay === undefined) return;
     this.gitDiscoveryTimer = setTimeout(() => {
       this.gitDiscoveryTimer = null;
-      void this.ensureGitWatcher(folderPath, generation).then((started) => {
-        if (!started) {
+      void this.ensureGitWatcher(folderPath, generation)
+        .then((started) => {
+          if (!started) {
+            this.scheduleGitWatcherDiscovery(
+              folderPath,
+              generation,
+              attempt + 1,
+            );
+          }
+        })
+        .catch((error) => {
+          console.warn(
+            `Git watcher discovery failed for ${folderPath}:`,
+            error instanceof Error ? error.message : error,
+          );
           this.scheduleGitWatcherDiscovery(folderPath, generation, attempt + 1);
-        }
-      }).catch((error) => {
-        console.warn(
-          `Git watcher discovery failed for ${folderPath}:`,
-          error instanceof Error ? error.message : error,
-        );
-        this.scheduleGitWatcherDiscovery(folderPath, generation, attempt + 1);
-      });
+        });
     }, delay);
   }
 
@@ -360,7 +368,7 @@ export class FileWatcherManager {
             folderPath,
             paths: changedPaths,
           });
-        }, 90);
+        }, 24);
       };
 
       this.folderWatcher.on("add", (changedPath) => {
@@ -435,10 +443,7 @@ export class FileWatcherManager {
         folderPath,
         generation,
       );
-      if (
-        !gitWatcherStarted &&
-        fs.existsSync(path.join(folderPath, ".git"))
-      ) {
+      if (!gitWatcherStarted && fs.existsSync(path.join(folderPath, ".git"))) {
         this.scheduleGitWatcherDiscovery(folderPath, generation);
       }
     } catch (err) {
