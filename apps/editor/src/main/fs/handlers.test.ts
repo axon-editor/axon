@@ -80,4 +80,25 @@ describe("file watcher IPC ownership", () => {
     expect(managers[2].closeAll).toHaveBeenCalledTimes(1);
     expect(managers[0].unwatchFolder).toHaveBeenCalledTimes(1);
   });
+
+  it("updates the native window title with the active workspace", async () => {
+    const setWorkspaceWindowTitle = vi.fn();
+    registerFileWatcherHandlers(
+      () => createManager(),
+      setWorkspaceWindowTitle,
+    );
+    const window = new FakeSender(1);
+
+    await ipcHandlers.get("fs:watchFolder")!(
+      { sender: window },
+      "/workspace/axon",
+    );
+    expect(setWorkspaceWindowTitle).toHaveBeenLastCalledWith(
+      window,
+      "/workspace/axon",
+    );
+
+    await ipcHandlers.get("fs:unwatchFolder")!({ sender: window });
+    expect(setWorkspaceWindowTitle).toHaveBeenLastCalledWith(window, null);
+  });
 });

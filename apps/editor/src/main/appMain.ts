@@ -349,8 +349,17 @@ registerSettingsHandlers({
     await startLanguageServerForLanguage(folderPath, "python");
   },
 });
-const fileWatcherRegistry = registerFileWatcherHandlers((sendWatcherEvent) =>
-  createFileWatcherManager(sendWatcherEvent),
+const fileWatcherRegistry = registerFileWatcherHandlers(
+  (sendWatcherEvent) => createFileWatcherManager(sendWatcherEvent),
+  (sender, folderPath) => {
+    const targetWindow = BrowserWindow.fromWebContents(sender);
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    const resolvedFolderPath = folderPath ? path.resolve(folderPath) : "";
+    const folderName = resolvedFolderPath
+      ? path.basename(resolvedFolderPath) || resolvedFolderPath
+      : "";
+    targetWindow.setTitle(folderName ? `Axon - ${folderName}` : "Axon");
+  },
 );
 registerHtmlPreviewHandlers(getHtmlPreviewServer);
 registerTaskHandlers(taskManager);

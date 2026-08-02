@@ -9,6 +9,10 @@ export function registerFileWatcherHandlers(
   createFileWatcherManager: (
     sendToRenderer: (channel: string, payload?: unknown) => void,
   ) => FileWatcherManager,
+  setWorkspaceWindowTitle: (
+    sender: WebContents,
+    folderPath: string | null,
+  ) => void = () => undefined,
 ) {
   const activeFileManagers = new Map<number, FileWatcherManager>();
   const boundSenders = new Set<number>();
@@ -76,7 +80,10 @@ export function registerFileWatcherHandlers(
     const senderId = sender.id;
     bindSenderLifecycle(sender);
     const key = path.resolve(folderPath);
-    if (workspaceBySender.get(senderId) === key) return;
+    if (workspaceBySender.get(senderId) === key) {
+      setWorkspaceWindowTitle(sender, folderPath);
+      return;
+    }
     await releaseWorkspace(senderId);
 
     let entry = workspaceWatchers.get(key);
@@ -105,16 +112,19 @@ export function registerFileWatcherHandlers(
         await manager.closeAll();
         throw error;
       }
+      setWorkspaceWindowTitle(sender, folderPath);
       return;
     }
 
     entry.subscribers.set(senderId, sender);
     workspaceBySender.set(senderId, key);
     await entry.ready;
+    setWorkspaceWindowTitle(sender, folderPath);
   });
 
   ipcMain.handle("fs:unwatchFolder", async (event) => {
     await releaseWorkspace(event.sender.id);
+    setWorkspaceWindowTitle(event.sender, null);
   });
 
   ipcMain.handle("fs:listProjectFiles", async (_event, folderPath: string) => {
