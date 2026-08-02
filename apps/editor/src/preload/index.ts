@@ -142,11 +142,28 @@ contextBridge.exposeInMainWorld("axon", {
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   authorizeWorkspaceRoot: (rootPath: string): Promise<string> =>
     ipcRenderer.invoke("workspace:authorizeKnownRoot", rootPath),
+  authorizeDroppedFiles: (
+    files: File[],
+    rootPath?: string | null,
+  ): Promise<string[]> => {
+    const filePaths = files
+      .map((file) => webUtils.getPathForFile(file))
+      .filter((path) => path.length > 0);
+    return ipcRenderer.invoke(
+      "workspace:authorizeDroppedFiles",
+      filePaths,
+      rootPath,
+    );
+  },
   readTextFile: (
     filePath: string,
     rootPath: string,
-  ): Promise<{ path: string; content: string }> =>
-    ipcRenderer.invoke("workspace:readTextFile", filePath, rootPath),
+  ): Promise<{
+    path: string;
+    content: string;
+    readOnly: boolean;
+    external: boolean;
+  }> => ipcRenderer.invoke("workspace:readTextFile", filePath, rootPath),
   writeTextFile: (
     filePath: string,
     content: string,

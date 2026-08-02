@@ -4,17 +4,11 @@
 // Clicking anywhere in the pane marks it as the active pane.
 import { useDroppable } from "@dnd-kit/core";
 import { useEffect, useRef, useState } from "react";
-import {
-  type EditorSettings,
-  type ThemeId,
-} from "../../../shared/settings";
+import { type EditorSettings, type ThemeId } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import { type EditorDiagnostic } from "../../../shared/diagnostics";
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
-import {
-  decodeFileTreeDragPayload,
-  FILE_TREE_DRAG_TYPE,
-} from "./lib/dragData";
+import { decodeFileTreeDragPayload, FILE_TREE_DRAG_TYPE } from "./lib/dragData";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import { type Pane } from "./lib/types";
@@ -31,7 +25,9 @@ import {
 import { isWelcomeTabPath } from "../onboarding/lib/welcomeTab";
 import { isProblemsTabPath } from "@axon-builtin-problems/lib/problemsTab";
 import ProblemsPanel from "@axon-builtin-problems/ProblemsPanel";
-import MediaPreview, { isMediaFile } from "@axon-builtin-media-preview/MediaPreview";
+import MediaPreview, {
+  isMediaFile,
+} from "@axon-builtin-media-preview/MediaPreview";
 import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import SingleEditor from "./SingleEditor";
@@ -59,9 +55,7 @@ interface Props {
   onOpenTerminal: () => void;
   onSelectTheme: (themeId: ThemeId) => void;
   themeItems: WelcomeThemeItem[];
-  onOpenNavigationTarget?: (
-    target: Omit<EditorNavigationTarget, "id">,
-  ) => void;
+  onOpenNavigationTarget?: (target: Omit<EditorNavigationTarget, "id">) => void;
   onDirtyChange: (filePath: string, dirty: boolean) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
@@ -205,26 +199,22 @@ export default function PaneInstance({
     nativeDragDepth.current = 0;
     setFileDragOver(false);
 
-    const externalPaths = window.axon.getDroppedFilePaths(
-      Array.from(event.dataTransfer.files),
-    );
-    if (externalPaths.length > 0) {
-      if (!folderPath) return;
-
-      // External pane drops are imports into the current workspace, not direct
-      // editor reads from an arbitrary filesystem location. The main-process
-      // import endpoint validates the target directory, rejects overwrites, and
-      // copies with exclusive creation before Axon opens the imported file.
+    const droppedFiles = Array.from(event.dataTransfer.files);
+    if (droppedFiles.length > 0) {
+      // The editor surface treats a native drop as "open", matching normal
+      // editor behavior. Importing is intentionally owned by the Files sidebar
+      // because only that target communicates that the user wants a copy added
+      // to the workspace rather than a temporary read-only tab.
       void window.axon
-        .importExternalEntries(externalPaths, folderPath)
-        .then((importedEntries) => {
-          const firstImportedFile = importedEntries.find((entry) => !entry.isDir);
-          if (!firstImportedFile) return;
-          onSelectFile(firstImportedFile.targetPath);
+        .authorizeDroppedFiles(droppedFiles, folderPath)
+        .then((authorizedPaths) => {
+          const firstFile = authorizedPaths[0];
+          if (!firstFile) return;
+          onSelectFile(firstFile);
           onActivate();
         })
         .catch((err) => {
-          console.error("pane external drop import failed:", err);
+          console.error("pane external file open failed:", err);
         });
       return;
     }
@@ -281,85 +271,85 @@ export default function PaneInstance({
           pane.openTabs
             .filter((path) => mountedTabs.has(path) || path === pane.activeFile)
             .map((path) => (
-            <div
-              key={path}
-              className="absolute inset-0"
-              style={{
-                display: path === pane.activeFile ? "flex" : "none",
-                flexDirection: "column",
-              }}
-            >
-              {isWelcomeTabPath(path) ? (
-                <WelcomeTab
-                  currentThemeId={currentThemeId}
-                  onOpenAgent={onOpenAgent}
-                  onOpenFolder={onOpenFolder}
-                  onOpenSettings={onOpenSettings}
-                  onOpenTerminal={onOpenTerminal}
-                  onSelectTheme={onSelectTheme}
-                  themes={themeItems}
-                />
-              ) : isProblemsTabPath(path) ? (
-                <ProblemsPanel
-                  activeFile={null}
-                  diagnostics={diagnostics}
-                  onOpenDiagnostic={(diagnostic) =>
-                    onOpenNavigationTarget?.({
-                      path: diagnostic.path,
-                      line: diagnostic.line,
-                      column: diagnostic.column,
-                      length: Math.max(
-                        1,
-                        (diagnostic.endColumn ?? diagnostic.column + 1) -
-                          diagnostic.column,
-                      ),
-                    })
-                  }
-                />
-              ) : isGitGraphTabPath(path) ? (
-                <GitGraphPanel folderPath={folderPath} variant="full" />
-              ) : isCodeSnapshotTabPath(path) ? (
-                <CodeSnapshot
-                  editorSettings={editorSettings}
-                  tabPath={path}
-                  themeSyntax={themeSyntax}
-                  themeTokens={themeTokens}
-                />
-              ) : isHtmlPreviewTabPath(path) ? (
-                <HtmlPreview
-                  filePath={getHtmlPreviewFilePath(path)}
-                  folderPath={folderPath}
-                />
-              ) : isMarkdownPreviewTabPath(path) ? (
-                <MarkdownPreviewTab
-                  filePath={getMarkdownPreviewFilePath(path)}
-                  folderPath={folderPath}
-                  onOpenFile={onOpenFile}
-                />
-              ) : isMediaFile(path) ? (
-                <MediaPreview filePath={path} />
-              ) : (
-                <SingleEditor
-                  filePath={path}
-                  folderPath={folderPath}
-                  visible={path === pane.activeFile && isActive}
-                  onDirtyChange={onDirtyChange}
-                  onOpenFile={onOpenFile}
-                  onOpenMarkdownPreviewTab={(markdownPath) =>
-                    onSelectFile(createMarkdownPreviewTabPath(markdownPath))
-                  }
-                  onOpenNavigationTarget={onOpenNavigationTarget}
-                  onCursorChange={isActive ? onCursorChange : () => {}}
-                  onLanguageChange={isActive ? onLanguageChange : () => {}}
-                  editorSettings={editorSettings}
-                  themeSyntax={themeSyntax}
-                  themeTokens={themeTokens}
-                  navigationTarget={navigationTarget}
-                  gitChanges={gitChanges}
-                />
-              )}
-            </div>
-          ))
+              <div
+                key={path}
+                className="absolute inset-0"
+                style={{
+                  display: path === pane.activeFile ? "flex" : "none",
+                  flexDirection: "column",
+                }}
+              >
+                {isWelcomeTabPath(path) ? (
+                  <WelcomeTab
+                    currentThemeId={currentThemeId}
+                    onOpenAgent={onOpenAgent}
+                    onOpenFolder={onOpenFolder}
+                    onOpenSettings={onOpenSettings}
+                    onOpenTerminal={onOpenTerminal}
+                    onSelectTheme={onSelectTheme}
+                    themes={themeItems}
+                  />
+                ) : isProblemsTabPath(path) ? (
+                  <ProblemsPanel
+                    activeFile={null}
+                    diagnostics={diagnostics}
+                    onOpenDiagnostic={(diagnostic) =>
+                      onOpenNavigationTarget?.({
+                        path: diagnostic.path,
+                        line: diagnostic.line,
+                        column: diagnostic.column,
+                        length: Math.max(
+                          1,
+                          (diagnostic.endColumn ?? diagnostic.column + 1) -
+                            diagnostic.column,
+                        ),
+                      })
+                    }
+                  />
+                ) : isGitGraphTabPath(path) ? (
+                  <GitGraphPanel folderPath={folderPath} variant="full" />
+                ) : isCodeSnapshotTabPath(path) ? (
+                  <CodeSnapshot
+                    editorSettings={editorSettings}
+                    tabPath={path}
+                    themeSyntax={themeSyntax}
+                    themeTokens={themeTokens}
+                  />
+                ) : isHtmlPreviewTabPath(path) ? (
+                  <HtmlPreview
+                    filePath={getHtmlPreviewFilePath(path)}
+                    folderPath={folderPath}
+                  />
+                ) : isMarkdownPreviewTabPath(path) ? (
+                  <MarkdownPreviewTab
+                    filePath={getMarkdownPreviewFilePath(path)}
+                    folderPath={folderPath}
+                    onOpenFile={onOpenFile}
+                  />
+                ) : isMediaFile(path) ? (
+                  <MediaPreview filePath={path} />
+                ) : (
+                  <SingleEditor
+                    filePath={path}
+                    folderPath={folderPath}
+                    visible={path === pane.activeFile && isActive}
+                    onDirtyChange={onDirtyChange}
+                    onOpenFile={onOpenFile}
+                    onOpenMarkdownPreviewTab={(markdownPath) =>
+                      onSelectFile(createMarkdownPreviewTabPath(markdownPath))
+                    }
+                    onOpenNavigationTarget={onOpenNavigationTarget}
+                    onCursorChange={isActive ? onCursorChange : () => {}}
+                    onLanguageChange={isActive ? onLanguageChange : () => {}}
+                    editorSettings={editorSettings}
+                    themeSyntax={themeSyntax}
+                    themeTokens={themeTokens}
+                    navigationTarget={navigationTarget}
+                    gitChanges={gitChanges}
+                  />
+                )}
+              </div>
+            ))
         )}
       </div>
     </div>

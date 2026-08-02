@@ -1,5 +1,6 @@
 import * as monaco from "monaco-editor";
 import { applyWorkspaceEdits } from "./workspaceEdits";
+import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
@@ -33,19 +34,12 @@ const lspNavigationLanguages = [
 
 const monacoNativeHoverLanguages = new Set(["typescript", "javascript"]);
 
-function isFileInsideWorkspace(filePath: string, folderPath: string) {
-  const normalizedFile = filePath.replace(/\\/g, "/");
-  const normalizedFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
-  return (
-    normalizedFile === normalizedFolder ||
-    normalizedFile.startsWith(`${normalizedFolder}/`)
-  );
-}
-
 function toLspRequestBase(model: monaco.editor.ITextModel) {
   const folderPath = window.axonCompletionWorkspacePath;
   const filePath = model.uri.fsPath;
-  if (!folderPath || !isFileInsideWorkspace(filePath, folderPath)) return null;
+  if (!folderPath || !canUseWorkspaceLanguageTools(filePath, folderPath)) {
+    return null;
+  }
 
   return {
     folderPath,
@@ -80,7 +74,10 @@ function toMonacoLocation(location: {
   };
 }
 
-function registerHoverProvider(monacoInstance: typeof monaco, languageId: string) {
+function registerHoverProvider(
+  monacoInstance: typeof monaco,
+  languageId: string,
+) {
   if (monacoNativeHoverLanguages.has(languageId)) return;
 
   monacoInstance.languages.registerHoverProvider(languageId, {
@@ -93,7 +90,11 @@ function registerHoverProvider(monacoInstance: typeof monaco, languageId: string
         line: position.lineNumber,
         column: position.column,
       });
-      if (token.isCancellationRequested || !result.ok || result.contents.length === 0) {
+      if (
+        token.isCancellationRequested ||
+        !result.ok ||
+        result.contents.length === 0
+      ) {
         return null;
       }
 
@@ -159,7 +160,10 @@ function registerReferenceProvider(
   });
 }
 
-function registerRenameProvider(monacoInstance: typeof monaco, languageId: string) {
+function registerRenameProvider(
+  monacoInstance: typeof monaco,
+  languageId: string,
+) {
   monacoInstance.languages.registerRenameProvider(languageId, {
     provideRenameEdits: async (model, position, newName, token) => {
       const base = toLspRequestBase(model);
@@ -184,16 +188,17 @@ function registerRenameProvider(monacoInstance: typeof monaco, languageId: strin
         };
       }
 
-      const edits = Object.entries(result.edits).flatMap(([filePath, fileEdits]) =>
-        fileEdits.map((edit) => ({
-          resource: monaco.Uri.file(filePath),
-          versionId: undefined,
-          textEdit: {
-            range: toMonacoRange(edit.range),
-            text: edit.newText,
-            forceMoveMarkers: true,
-          },
-        })),
+      const edits = Object.entries(result.edits).flatMap(
+        ([filePath, fileEdits]) =>
+          fileEdits.map((edit) => ({
+            resource: monaco.Uri.file(filePath),
+            versionId: undefined,
+            textEdit: {
+              range: toMonacoRange(edit.range),
+              text: edit.newText,
+              forceMoveMarkers: true,
+            },
+          })),
       );
 
       return { edits };
@@ -201,7 +206,10 @@ function registerRenameProvider(monacoInstance: typeof monaco, languageId: strin
   });
 }
 
-function registerFormatProvider(monacoInstance: typeof monaco, languageId: string) {
+function registerFormatProvider(
+  monacoInstance: typeof monaco,
+  languageId: string,
+) {
   monacoInstance.languages.registerDocumentFormattingEditProvider(languageId, {
     provideDocumentFormattingEdits: async (model, options, token) => {
       const base = toLspRequestBase(model);
@@ -310,8 +318,7 @@ function registerCodeActionProvider(
                   ? 3
                   : 4,
           code:
-            typeof marker.code === "string" ||
-            typeof marker.code === "number"
+            typeof marker.code === "string" || typeof marker.code === "number"
               ? marker.code
               : undefined,
           source: marker.source ?? undefined,
@@ -381,9 +388,7 @@ function registerCodeActionProvider(
   });
 }
 
-export function configureLspNavigation(
-  monacoInstance: typeof monaco = monaco,
-) {
+export function configureLspNavigation(monacoInstance: typeof monaco = monaco) {
   if (configuredMonacos.has(monacoInstance)) return;
   configuredMonacos.add(monacoInstance);
 
@@ -407,7 +412,9 @@ export function configureLspNavigation(
     async (_accessor, request) => {
       if (!request || typeof request !== "object") return;
       const result = await window.axon.executeLanguageServerCommand(
-        request as Parameters<typeof window.axon.executeLanguageServerCommand>[0],
+        request as Parameters<
+          typeof window.axon.executeLanguageServerCommand
+        >[0],
       );
       if (!result.ok) return;
       const folderPath = window.axonCompletionWorkspacePath;

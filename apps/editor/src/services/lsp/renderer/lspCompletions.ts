@@ -1,6 +1,7 @@
 import * as monaco from "monaco-editor";
 import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
 import type { LanguageServerCompletionItem } from "../../../shared/lsp";
+import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -152,7 +153,7 @@ const webTagSnippets = [
   },
   {
     label: "button",
-    insertText: "<button type=\"button\">$0</button>",
+    insertText: '<button type="button">$0</button>',
     detail: "HTML button element",
   },
   {
@@ -170,18 +171,32 @@ const webTagSnippets = [
 const htmlDocumentSnippet = {
   label: "!",
   insertText:
-    "<!doctype html>\n<html lang=\"${1:en}\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n  <title>${2:Document}</title>\n</head>\n<body>\n  $0\n</body>\n</html>",
+    '<!doctype html>\n<html lang="${1:en}">\n<head>\n  <meta charset="UTF-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n  <title>${2:Document}</title>\n</head>\n<body>\n  $0\n</body>\n</html>',
   detail: "HTML document template",
 };
 
-const emmetVoidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
+const emmetVoidTags = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "source",
+  "track",
+  "wbr",
+]);
 
 const dockerfileSnippets = [
   ["FROM", "FROM ${1:node:22-alpine}"],
   ["WORKDIR", "WORKDIR ${1:/app}"],
   ["COPY", "COPY ${1:.} ${2:.}"],
   ["RUN", "RUN ${1:npm install}"],
-  ["CMD", "CMD [\"${1:npm}\", \"${2:start}\"]"],
+  ["CMD", 'CMD ["${1:npm}", "${2:start}"]'],
   ["EXPOSE", "EXPOSE ${1:3000}"],
   ["ENV", "ENV ${1:NODE_ENV}=${2:production}"],
   ["ARG", "ARG ${1:VERSION}"],
@@ -344,17 +359,13 @@ function toMonacoRange(
   );
 }
 
-function isFileInsideWorkspace(filePath: string, folderPath: string) {
-  const normalizedFile = filePath.replace(/\\/g, "/");
-  const normalizedFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
-  return (
-    normalizedFile === normalizedFolder ||
-    normalizedFile.startsWith(`${normalizedFolder}/`)
-  );
-}
-
-function getLinePrefix(model: monaco.editor.ITextModel, position: monaco.Position) {
-  return model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+function getLinePrefix(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) {
+  return model
+    .getLineContent(position.lineNumber)
+    .slice(0, position.column - 1);
 }
 
 function getTailwindTokenContext(
@@ -397,8 +408,10 @@ function emmetEnabled() {
 }
 
 function isClassLikeCompletionContext(linePrefix: string) {
-  return /\b(class|className)\s*=\s*["'`][^"'`]*$/i.test(linePrefix) ||
-    /@apply\s+[^;{}]*$/i.test(linePrefix);
+  return (
+    /\b(class|className)\s*=\s*["'`][^"'`]*$/i.test(linePrefix) ||
+    /@apply\s+[^;{}]*$/i.test(linePrefix)
+  );
 }
 
 function isStyleAttributeCompletionContext(linePrefix: string) {
@@ -544,9 +557,16 @@ function registerWebTagSnippets(monacoInstance: typeof monaco) {
         const isHtmlDocumentSnippetContext =
           languageId === "html" &&
           linePrefix.trim() === "!" &&
-          model.getValueInRange(
-            new monacoInstance.Range(1, 1, position.lineNumber, position.column),
-          ).trim() === "!";
+          model
+            .getValueInRange(
+              new monacoInstance.Range(
+                1,
+                1,
+                position.lineNumber,
+                position.column,
+              ),
+            )
+            .trim() === "!";
         const range = isHtmlDocumentSnippetContext
           ? new monacoInstance.Range(
               position.lineNumber,
@@ -602,7 +622,10 @@ function registerWebTagSnippets(monacoInstance: typeof monaco) {
 }
 
 function parseEmmetAbbreviation(rawWord: string) {
-  const match = /^(?<tag>[A-Za-z][\w-]*)?(?<modifiers>(?:[.#][A-Za-z_][\w-]*)+)$/.exec(rawWord);
+  const match =
+    /^(?<tag>[A-Za-z][\w-]*)?(?<modifiers>(?:[.#][A-Za-z_][\w-]*)+)$/.exec(
+      rawWord,
+    );
   if (!match?.groups) return null;
 
   const tag = match.groups.tag || "div";
@@ -654,14 +677,13 @@ function registerEmmetAbbreviationProvider(monacoInstance: typeof monaco) {
         }
 
         const linePrefix = getLinePrefix(model, position);
-        const match = /([A-Za-z][\w-]*)?(?:[.#][A-Za-z_][\w-]*)+$/.exec(linePrefix);
+        const match = /([A-Za-z][\w-]*)?(?:[.#][A-Za-z_][\w-]*)+$/.exec(
+          linePrefix,
+        );
         if (!match) return { suggestions: [] };
 
         const abbreviation = parseEmmetAbbreviation(match[0]);
-        const insertText = buildEmmetSnippet(
-          abbreviation,
-          model.uri.fsPath,
-        );
+        const insertText = buildEmmetSnippet(abbreviation, model.uri.fsPath);
         if (!abbreviation || !insertText) return { suggestions: [] };
 
         return {
@@ -756,7 +778,7 @@ function registerPythonBuiltins(monacoInstance: typeof monaco) {
 function registerTailwindUtilityProvider(monacoInstance: typeof monaco) {
   for (const languageId of tailwindUtilityLanguages) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
-      triggerCharacters: ["\"", "'", "`", " ", "-", ":"],
+      triggerCharacters: ['"', "'", "`", " ", "-", ":"],
       provideCompletionItems: (model, position) => {
         const tokenContext = getTailwindTokenContext(model, position);
         const linePrefix = getLinePrefix(model, position);
@@ -827,7 +849,8 @@ function applyResolvedLspFields(
   const textEditRange = toMonacoRange(item.textEdit?.range);
   completion.detail = item.detail;
   completion.documentation = item.documentation;
-  completion.insertText = item.textEdit?.newText ?? item.insertText ?? item.label;
+  completion.insertText =
+    item.textEdit?.newText ?? item.insertText ?? item.label;
   completion.additionalTextEdits = item.additionalTextEdits?.map((edit) => ({
     range: toMonacoRange(edit.range)!,
     text: edit.newText,
@@ -844,7 +867,7 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
         ".",
         ":",
         "/",
-        "\"",
+        '"',
         "'",
         "<",
         "@",
@@ -878,7 +901,10 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
       provideCompletionItems: async (model, position, context, token) => {
         const folderPath = window.axonCompletionWorkspacePath;
         const filePath = model.uri.fsPath;
-        if (!folderPath || !isFileInsideWorkspace(filePath, folderPath)) {
+        if (
+          !folderPath ||
+          !canUseWorkspaceLanguageTools(filePath, folderPath)
+        ) {
           return { suggestions: [] };
         }
 
@@ -900,7 +926,7 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
           column: position.column,
           triggerCharacter:
             context.triggerKind ===
-              monacoInstance.languages.CompletionTriggerKind.TriggerCharacter
+            monacoInstance.languages.CompletionTriggerKind.TriggerCharacter
               ? context.triggerCharacter
               : undefined,
         });
@@ -964,7 +990,9 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
   }
 }
 
-export function configureLspCompletions(monacoInstance: typeof monaco = monaco) {
+export function configureLspCompletions(
+  monacoInstance: typeof monaco = monaco,
+) {
   if (configuredMonacos.has(monacoInstance)) return;
   configuredMonacos.add(monacoInstance);
 

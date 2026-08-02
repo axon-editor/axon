@@ -24,6 +24,7 @@ interface Props {
   findOpen: boolean;
   findQuery: string;
   saving: boolean;
+  readOnly: boolean;
   shouldUseTransparentEditorSurface: boolean;
   themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
@@ -77,6 +78,7 @@ export default function MonacoEditorSurface({
   findOpen,
   findQuery,
   saving,
+  readOnly,
   shouldUseTransparentEditorSurface,
   themeSyntax,
   themeTokens,
@@ -156,6 +158,10 @@ export default function MonacoEditorSurface({
           // pane-aware ref count.
           keepCurrentModel
           options={{
+            readOnly,
+            readOnlyMessage: {
+              value: "Dependency and standard-library source is read-only.",
+            },
             fontSize: editorSettings.fontSize,
             fontFamily: editorFontStack(editorSettings.fontFamily),
             fontWeight: String(editorSettings.fontWeight),

@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import {
-  Columns2,
-  Eye,
-  FileText,
-  FileWarning,
-} from "lucide-react";
+import { Columns2, Eye, FileText, FileWarning } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
 import { type GitChange } from "../../../shared/git";
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
@@ -18,6 +13,9 @@ import {
   createSemanticTokenDecorations,
   installSemanticTokenDecorationStyles,
 } from "../../../services/lsp/renderer/semanticTokenDecorations";
+import { registerExternalLanguageToolFile } from "../../../services/lsp/renderer/lspFileAccess";
+import { onSemanticTokensUpdated } from "../../../services/lsp/renderer/lspSemanticTokens";
+import { preloadTextMateLanguage } from "../../../services/lsp/renderer/textMateSemanticTokens";
 import Tooltip from "../../shared/components/Tooltip";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import EditorBreadcrumbs from "./EditorBreadcrumbs";
@@ -56,9 +54,7 @@ interface Props {
   onDirtyChange: (path: string, dirty: boolean) => void;
   onOpenFile?: (path: string) => void;
   onOpenMarkdownPreviewTab?: (path: string) => void;
-  onOpenNavigationTarget?: (
-    target: Omit<EditorNavigationTarget, "id">,
-  ) => void;
+  onOpenNavigationTarget?: (target: Omit<EditorNavigationTarget, "id">) => void;
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
@@ -96,6 +92,7 @@ export default function SingleEditor({
 }: Props) {
   const [liveContent, setLiveContent] = useState("");
   const [loading, setLoading] = useState(true);
+  const [readOnly, setReadOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("editor");
@@ -121,7 +118,11 @@ export default function SingleEditor({
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
   const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
-  const trackEditorZoomViewport = useEditorZoomViewport(editorRef, editorSettings.fontSize, editorSettings.lineHeight);
+  const trackEditorZoomViewport = useEditorZoomViewport(
+    editorRef,
+    editorSettings.fontSize,
+    editorSettings.lineHeight,
+  );
   const isMd = isMarkdown(filePath);
   const scheduleLiveContentUpdate = useTrailingTask();
   const scheduleGoSyntaxUpdate = useTrailingTask();
@@ -130,8 +131,7 @@ export default function SingleEditor({
     ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
     : "";
   const shouldUseTransparentEditorSurface =
-    editorSettings.appTransparency ||
-    Boolean(editorBackgroundImageUrl);
+    editorSettings.appTransparency || Boolean(editorBackgroundImageUrl);
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
   );
@@ -291,12 +291,7 @@ export default function SingleEditor({
       if (decoratedRanges.has(key)) return;
       decoratedRanges.add(key);
       decorations.push({
-        range: new monaco.Range(
-          lineNumber,
-          startColumn,
-          lineNumber,
-          endColumn,
-        ),
+        range: new monaco.Range(lineNumber, startColumn, lineNumber, endColumn),
         options: {
           inlineClassName: className,
         },
@@ -387,10 +382,12 @@ export default function SingleEditor({
       const editorNode = editor.getDomNode();
       if (editorNode) {
         editorNode.dataset.axonThemeId = editorSettings.themeId;
-        editorNode.dataset.axonThemeSyntaxCount =
-          String(Object.keys(themeSyntax).length);
-        editorNode.dataset.axonSemanticDecorationCount =
-          String(decorations.length);
+        editorNode.dataset.axonThemeSyntaxCount = String(
+          Object.keys(themeSyntax).length,
+        );
+        editorNode.dataset.axonSemanticDecorationCount = String(
+          decorations.length,
+        );
       }
 
       const retryKey = `${model.uri.toString()}::${modelVersion}::${editorSettings.themeId}`;
@@ -427,7 +424,7 @@ export default function SingleEditor({
   }, [editorSettings.themeId, themeSyntax, themeTokens]);
 
   const scheduleSemanticTokenDecorations = useCallback(
-    (delayMs = 175) => {
+    (delayMs = 48) => {
       if (semanticDecorationTimerRef.current) {
         window.clearTimeout(semanticDecorationTimerRef.current);
       }
@@ -503,8 +500,7 @@ export default function SingleEditor({
       // Search navigation should leave a clear visual anchor, but it should not
       // become another permanent editor marker. A decoration collection gives
       // us one replaceable highlight that is removed shortly after the jump.
-      navigationDecorationsRef.current ??=
-        editor.createDecorationsCollection();
+      navigationDecorationsRef.current ??= editor.createDecorationsCollection();
       navigationDecorationsRef.current.set([
         {
           range,
@@ -580,14 +576,18 @@ export default function SingleEditor({
     let acquiredModel = false;
 
     setLoading(true);
+    setReadOnly(false);
     setError(null);
     setPreviewMode("editor");
+    void preloadTextMateLanguage(detectLanguage(filePath));
 
     readFile(filePath)
       .then((fc) => {
         if (cancelled) return;
 
         setLiveContent(fc.content);
+        setReadOnly(fc.readOnly);
+        if (fc.external) registerExternalLanguageToolFile(fc.path);
         diskContentRef.current = fc.content;
         const model = acquireModel(filePath, fc.content);
         acquiredModel = true;
@@ -658,11 +658,26 @@ export default function SingleEditor({
     };
   }, [filePath]);
 
-  useActiveFileServices({ filePath, loading, syncDocument: syncDocumentWithLanguageServer, visible });
+  useEffect(
+    () =>
+      onSemanticTokensUpdated((modelUri) => {
+        const model = editorRef.current?.getModel();
+        if (!model || model.uri.toString() !== modelUri) return;
+        void refreshSemanticTokenDecorations();
+      }),
+    [refreshSemanticTokenDecorations],
+  );
+
+  useActiveFileServices({
+    filePath,
+    loading,
+    syncDocument: syncDocumentWithLanguageServer,
+    visible,
+  });
 
   const handleSave = useCallback(async () => {
     const path = filePathRef.current;
-    if (!path || saving) return;
+    if (!path || saving || readOnly) return;
     const editor = editorRef.current;
     if (!editor || editor.getModel()?.isDisposed()) return;
     setSaving(true);
@@ -701,7 +716,11 @@ export default function SingleEditor({
             versionAfterFormat === undefined ||
             versionBeforeFormat !== versionAfterFormat;
 
-          if (result.ok && result.edits.length > 0 && !modelChangedDuringFormat) {
+          if (
+            result.ok &&
+            result.edits.length > 0 &&
+            !modelChangedDuringFormat
+          ) {
             const viewStateBeforeFormat = editor.saveViewState();
             // I format the Monaco model before writing to disk so every split
             // attached to this shared model updates immediately. Writing a
@@ -751,7 +770,13 @@ export default function SingleEditor({
     } finally {
       setSaving(false);
     }
-  }, [editorSettings.formatOnSave, folderPath, onDirtyChange, saving]);
+  }, [
+    editorSettings.formatOnSave,
+    folderPath,
+    onDirtyChange,
+    readOnly,
+    saving,
+  ]);
 
   useEffect(() => {
     const handleMenuSave = (event: Event) => {
@@ -791,7 +816,13 @@ export default function SingleEditor({
     markEditorMounted(filePath);
     trackEditorZoomViewport(editor);
 
-    registerAxonTheme(monaco, editorSettings.themeId, themeTokens, [], themeSyntax);
+    registerAxonTheme(
+      monaco,
+      editorSettings.themeId,
+      themeTokens,
+      [],
+      themeSyntax,
+    );
     installSemanticTokenDecorationStyles(themeTokens, themeSyntax);
 
     // only attach model if it already exists from a previous readFile call
@@ -884,7 +915,7 @@ export default function SingleEditor({
       onDirtyChange(filePath, current !== diskContentRef.current);
       syncDocumentWithLanguageServer(current);
       scheduleSemanticTokenDecorations();
-      scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 320);
+      scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
       scheduleGitDecorationRefresh();
 
       const model = editor.getModel();
@@ -904,7 +935,10 @@ export default function SingleEditor({
         languageId === "typescriptreact";
 
       if (!canSuggestWebCode || !insertedSuggestCharacter) return;
-      if (currentWord.length === 0 && !event.changes.some((change) => change.text.includes("<"))) {
+      if (
+        currentWord.length === 0 &&
+        !event.changes.some((change) => change.text.includes("<"))
+      ) {
         return;
       }
 
@@ -1001,6 +1035,7 @@ export default function SingleEditor({
         findOpen={findOpen}
         findQuery={findQuery}
         saving={saving}
+        readOnly={readOnly}
         shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}
         themeSyntax={themeSyntax}
         themeTokens={themeTokens}

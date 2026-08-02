@@ -5,6 +5,7 @@ import {
 } from "../../../shared/lsp";
 import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
 import { createTextMateSemanticTokens } from "./textMateSemanticTokens";
+import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -42,7 +43,8 @@ const semanticTokenCache = new Map<
     promise: Promise<monaco.languages.SemanticTokens | null>;
   }
 >();
-const TEXTMATE_LSP_MERGE_WAIT_MS = 650;
+const TEXTMATE_LSP_MERGE_WAIT_MS = 80;
+const semanticTokenUpdateListeners = new Set<(modelUri: string) => void>();
 
 type AbsoluteSemanticToken = {
   line: number;
@@ -84,15 +86,6 @@ const symbolOwnedTokenTypes = new Set([
   "typeParameter",
 ]);
 
-function isFileInsideWorkspace(filePath: string, folderPath: string) {
-  const normalizedFile = filePath.replace(/\\/g, "/");
-  const normalizedFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
-  return (
-    normalizedFile === normalizedFolder ||
-    normalizedFile.startsWith(`${normalizedFolder}/`)
-  );
-}
-
 function getSemanticTokenCacheKey(model: monaco.editor.ITextModel) {
   return `${model.uri.toString()}::${model.getVersionId()}`;
 }
@@ -100,7 +93,9 @@ function getSemanticTokenCacheKey(model: monaco.editor.ITextModel) {
 function toLspRequestBase(model: monaco.editor.ITextModel) {
   const folderPath = window.axonCompletionWorkspacePath;
   const filePath = model.uri.fsPath;
-  if (!folderPath || !isFileInsideWorkspace(filePath, folderPath)) return null;
+  if (!folderPath || !canUseWorkspaceLanguageTools(filePath, folderPath)) {
+    return null;
+  }
 
   return {
     folderPath,
@@ -182,9 +177,7 @@ function encodeSemanticTokens(tokens: AbsoluteSemanticToken[]) {
     .forEach((token) => {
       const deltaLine = token.line - previousLine;
       const deltaCharacter =
-        deltaLine === 0
-          ? token.character - previousCharacter
-          : token.character;
+        deltaLine === 0 ? token.character - previousCharacter : token.character;
       data.push(
         deltaLine,
         deltaCharacter,
@@ -246,16 +239,24 @@ function mergeSemanticTokenLayers(input: {
     : null;
 }
 
+const languageServerOverlayTimedOut = Symbol("language-server-overlay-timeout");
+
 function waitForLanguageServerOverlay<T>(promise: Promise<T>) {
-  return Promise.race<T | null>([
+  return Promise.race<T | typeof languageServerOverlayTimedOut>([
     promise,
-    new Promise<null>((resolve) => {
-      window.setTimeout(() => resolve(null), TEXTMATE_LSP_MERGE_WAIT_MS);
+    new Promise<typeof languageServerOverlayTimedOut>((resolve) => {
+      window.setTimeout(
+        () => resolve(languageServerOverlayTimedOut),
+        TEXTMATE_LSP_MERGE_WAIT_MS,
+      );
     }),
   ]);
 }
 
-function createSemanticTokenPromise(model: monaco.editor.ITextModel) {
+function createSemanticTokenPromise(
+  model: monaco.editor.ITextModel,
+  cacheKey: string,
+) {
   const content = model.getValue();
   const languageId = model.getLanguageId();
   const base = toLspRequestBase(model);
@@ -266,13 +267,45 @@ function createSemanticTokenPromise(model: monaco.editor.ITextModel) {
   });
   if (!base) return textMatePromise;
 
-  const languageServerPromise = window.axon.getLanguageServerSemanticTokens(base);
+  const languageServerPromise =
+    window.axon.getLanguageServerSemanticTokens(base);
 
   return textMatePromise
     .then(async (textMateTokens) => {
       const result = textMateTokens
         ? await waitForLanguageServerOverlay(languageServerPromise)
         : await languageServerPromise;
+      if (result === languageServerOverlayTimedOut) {
+        // Grammar colors are useful immediately; project-aware LSP symbols are
+        // an enhancement and must not hold the first paint for a cold server.
+        // When the server eventually responds, I replace this model version's
+        // cache entry and notify mounted editors so they can repaint in place.
+        void languageServerPromise
+          .then((lateResult) => {
+            if (
+              !lateResult.ok ||
+              lateResult.data.length === 0 ||
+              model.isDisposed() ||
+              getSemanticTokenCacheKey(model) !== cacheKey
+            ) {
+              return;
+            }
+            const merged = mergeSemanticTokenLayers({
+              lsp: lateResult.data,
+              textMate: textMateTokens,
+              resultId: lateResult.resultId,
+            });
+            semanticTokenCache.set(cacheKey, {
+              versionId: model.getVersionId(),
+              promise: Promise.resolve(merged),
+            });
+            semanticTokenUpdateListeners.forEach((listener) =>
+              listener(model.uri.toString()),
+            );
+          })
+          .catch(() => undefined);
+        return textMateTokens;
+      }
       if (!result) return textMateTokens;
       if (!result.ok || result.data.length === 0) return textMateTokens;
 
@@ -301,7 +334,7 @@ export function getSemanticTokensForModel(model: monaco.editor.ITextModel) {
   const cached = semanticTokenCache.get(cacheKey);
   if (cached?.versionId === model.getVersionId()) return cached.promise;
 
-  const promise = createSemanticTokenPromise(model);
+  const promise = createSemanticTokenPromise(model, cacheKey);
   semanticTokenCache.set(cacheKey, {
     versionId: model.getVersionId(),
     promise,
@@ -312,6 +345,13 @@ export function getSemanticTokensForModel(model: monaco.editor.ITextModel) {
   }
 
   return promise;
+}
+
+export function onSemanticTokensUpdated(listener: (modelUri: string) => void) {
+  semanticTokenUpdateListeners.add(listener);
+  return () => {
+    semanticTokenUpdateListeners.delete(listener);
+  };
 }
 
 function registerSemanticTokensProvider(

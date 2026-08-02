@@ -326,7 +326,7 @@ registerGitHandlers({
     workspaceCapabilities.authorize(rendererId, rootPath, persist),
 });
 registerAiHandlers({ axonCorePort, axonCoreToken });
-registerLspHandlers();
+registerLspHandlers(workspaceCapabilities);
 registerManagedLanguageToolHandlers(
   new ManagedLanguageToolManager({ sendToRenderer }),
 );

@@ -28,6 +28,8 @@ export interface FileNode {
 export interface FileContent {
   path: string;
   content: string;
+  readOnly: boolean;
+  external: boolean;
 }
 
 export interface WorkspaceSearchResult {
@@ -94,7 +96,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // getTree fetches the recursive file tree for the given root path
 export async function getTree(path: string, root?: string): Promise<FileNode> {
-  const requestedRoot = root ??
+  const requestedRoot =
+    root ??
     (activeWorkspaceRoot && pathIsInsideRoot(path, activeWorkspaceRoot)
       ? activeWorkspaceRoot
       : path);
@@ -106,9 +109,23 @@ export async function getTree(path: string, root?: string): Promise<FileNode> {
 }
 
 // readFile fetches the content of a file at the given path
-export async function readFile(path: string, root?: string): Promise<FileContent> {
+export async function readFile(
+  path: string,
+  root?: string,
+): Promise<FileContent> {
   const requestedRoot = workspaceRootFor(path, root);
-  return window.axon.readTextFile(path, requestedRoot);
+  try {
+    return await window.axon.readTextFile(path, requestedRoot);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "The file could not be opened.";
+    throw new Error(
+      message.replace(
+        /^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/,
+        "",
+      ),
+    );
+  }
 }
 
 // writeFile saves content to a file at the given path
@@ -124,7 +141,11 @@ export async function createFile(path: string, root?: string): Promise<void> {
   await request("/fs/create", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, is_dir: false, root: workspaceRootFor(path, root) }),
+    body: JSON.stringify({
+      path,
+      is_dir: false,
+      root: workspaceRootFor(path, root),
+    }),
   });
 }
 
@@ -132,7 +153,11 @@ export async function createDir(path: string, root?: string): Promise<void> {
   await request("/fs/create", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, is_dir: true, root: workspaceRootFor(path, root) }),
+    body: JSON.stringify({
+      path,
+      is_dir: true,
+      root: workspaceRootFor(path, root),
+    }),
   });
 }
 

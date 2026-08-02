@@ -507,6 +507,8 @@ export default function FileTreeNode({
         onDrop={handleDrop}
       >
         <div
+          draggable
+          onDragStart={handleDragStart}
           onClick={() => setExpanded((p) => !p)}
           onContextMenu={(e) => onContextMenu(e, node)}
           className={`relative flex min-w-max items-center gap-1.5 whitespace-nowrap py-0.5 text-[12px] cursor-pointer transition-colors select-none

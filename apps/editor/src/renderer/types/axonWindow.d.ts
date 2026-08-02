@@ -124,10 +124,19 @@ declare global {
       createTerminalTicket: (workingDirectory: string) => Promise<string>;
       openFolder: () => Promise<string | null>;
       authorizeWorkspaceRoot: (rootPath: string) => Promise<string>;
+      authorizeDroppedFiles: (
+        files: File[],
+        rootPath?: string | null,
+      ) => Promise<string[]>;
       readTextFile: (
         filePath: string,
         rootPath: string,
-      ) => Promise<{ path: string; content: string }>;
+      ) => Promise<{
+        path: string;
+        content: string;
+        readOnly: boolean;
+        external: boolean;
+      }>;
       writeTextFile: (
         filePath: string,
         content: string,

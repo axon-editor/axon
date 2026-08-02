@@ -49,9 +49,15 @@ type TextMateLanguage = {
 };
 
 const textMateLanguages = new Map<string, TextMateLanguage>([
-  ["typescript", { id: "typescript", load: () => import("shiki/langs/typescript.mjs") }],
+  [
+    "typescript",
+    { id: "typescript", load: () => import("shiki/langs/typescript.mjs") },
+  ],
   ["typescriptreact", { id: "tsx", load: () => import("shiki/langs/tsx.mjs") }],
-  ["javascript", { id: "javascript", load: () => import("shiki/langs/javascript.mjs") }],
+  [
+    "javascript",
+    { id: "javascript", load: () => import("shiki/langs/javascript.mjs") },
+  ],
   ["javascriptreact", { id: "jsx", load: () => import("shiki/langs/jsx.mjs") }],
   ["go", { id: "go", load: () => import("shiki/langs/go.mjs") }],
   ["rust", { id: "rust", load: () => import("shiki/langs/rust.mjs") }],
@@ -70,7 +76,10 @@ const textMateLanguages = new Map<string, TextMateLanguage>([
   ["json", { id: "json", load: () => import("shiki/langs/json.mjs") }],
   ["yaml", { id: "yaml", load: () => import("shiki/langs/yaml.mjs") }],
   ["shell", { id: "shell", load: () => import("shiki/langs/shell.mjs") }],
-  ["dockerfile", { id: "dockerfile", load: () => import("shiki/langs/dockerfile.mjs") }],
+  [
+    "dockerfile",
+    { id: "dockerfile", load: () => import("shiki/langs/dockerfile.mjs") },
+  ],
   ["xml", { id: "xml", load: () => import("shiki/langs/xml.mjs") }],
   ["proto", { id: "proto", load: () => import("shiki/langs/proto.mjs") }],
   ["swift", { id: "swift", load: () => import("shiki/langs/swift.mjs") }],
@@ -88,9 +97,15 @@ const textMateLanguages = new Map<string, TextMateLanguage>([
   ["haskell", { id: "haskell", load: () => import("shiki/langs/haskell.mjs") }],
   ["erlang", { id: "erlang", load: () => import("shiki/langs/erlang.mjs") }],
   ["r", { id: "r", load: () => import("shiki/langs/r.mjs") }],
-  ["powershell", { id: "powershell", load: () => import("shiki/langs/powershell.mjs") }],
+  [
+    "powershell",
+    { id: "powershell", load: () => import("shiki/langs/powershell.mjs") },
+  ],
   ["asm", { id: "asm", load: () => import("shiki/langs/asm.mjs") }],
-  ["makefile", { id: "makefile", load: () => import("shiki/langs/makefile.mjs") }],
+  [
+    "makefile",
+    { id: "makefile", load: () => import("shiki/langs/makefile.mjs") },
+  ],
 ]);
 const tokenTypeIndexes = new Map<string, number>(
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES.map((tokenType, index) => [
@@ -185,6 +200,13 @@ function getHighlighter(language: TextMateLanguage) {
   return highlighterPromise;
 }
 
+export function preloadTextMateLanguage(languageId: string) {
+  const language = textMateLanguages.get(languageId);
+  return language
+    ? getHighlighter(language).then(() => undefined)
+    : Promise.resolve();
+}
+
 function createLineStarts(code: string) {
   const lineStarts = [0];
   for (let index = 0; index < code.length; index += 1) {
@@ -276,7 +298,10 @@ function resolvePythonFallbackTokenType(
   startColumnZeroBased: number,
 ) {
   const before = lineContent.slice(0, startColumnZeroBased);
-  const previousChar = previousMeaningfulCharacter(lineContent, startColumnZeroBased);
+  const previousChar = previousMeaningfulCharacter(
+    lineContent,
+    startColumnZeroBased,
+  );
   const nextChar = nextMeaningfulCharacter(
     lineContent,
     startColumnZeroBased + identifier.length,
@@ -321,23 +346,28 @@ function resolveFallbackTokenType(input: {
       input.lineContent,
       input.startColumnZeroBased + input.identifier.length,
     );
-    const scopedPythonType =
-      hasScope(input.scopeNames, "meta.attribute.python")
-        ? "property"
-        : hasScope(input.scopeNames, "variable.parameter.function.language.python")
-          ? "parameter"
-          : hasScope(input.scopeNames, "variable.language.special.self.python")
-            ? "selfKeyword"
-            : hasScope(input.scopeNames, "meta.function-call.python") &&
-                nextChar === "("
-              ? isClassLikeIdentifier(input.identifier)
-                ? "constructor"
-                : "function"
-              : null;
-    return scopedPythonType ?? resolvePythonFallbackTokenType(
-      input.lineContent,
-      input.identifier,
-      input.startColumnZeroBased,
+    const scopedPythonType = hasScope(input.scopeNames, "meta.attribute.python")
+      ? "property"
+      : hasScope(
+            input.scopeNames,
+            "variable.parameter.function.language.python",
+          )
+        ? "parameter"
+        : hasScope(input.scopeNames, "variable.language.special.self.python")
+          ? "selfKeyword"
+          : hasScope(input.scopeNames, "meta.function-call.python") &&
+              nextChar === "("
+            ? isClassLikeIdentifier(input.identifier)
+              ? "constructor"
+              : "function"
+            : null;
+    return (
+      scopedPythonType ??
+      resolvePythonFallbackTokenType(
+        input.lineContent,
+        input.identifier,
+        input.startColumnZeroBased,
+      )
     );
   }
 
@@ -450,7 +480,8 @@ export function resolveTextMateTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "keyword.operator")) return "operator";
   if (startsWithScope(scopeNames, "keyword")) return "keyword";
   if (hasScope(scopeNames, "storage.modifier")) return "modifier";
-  if (hasScope(scopeNames, "entity.name.function.constructor")) return "constructor";
+  if (hasScope(scopeNames, "entity.name.function.constructor"))
+    return "constructor";
   if (hasScope(scopeNames, "entity.name.function")) return "function";
   if (hasScope(scopeNames, "support.function")) return "function";
   if (hasScope(scopeNames, "entity.name.method")) return "method";
@@ -521,7 +552,8 @@ function pushRelativeToken(
   if (tokenTypeIndex === undefined || token.length <= 0) return;
 
   const deltaLine = token.line - state.line;
-  const deltaCharacter = deltaLine === 0 ? token.character - state.character : token.character;
+  const deltaCharacter =
+    deltaLine === 0 ? token.character - state.character : token.character;
   data.push(
     deltaLine,
     deltaCharacter,
@@ -581,8 +613,7 @@ export async function createTextMateSemanticTokens(input: {
         }
 
         const trimmedEnd = content.search(/\s+$/);
-        const visibleLength =
-          trimmedEnd >= 0 ? trimmedEnd : content.length;
+        const visibleLength = trimmedEnd >= 0 ? trimmedEnd : content.length;
         const tokenLength = visibleLength - trimmedStart;
         const scopeNames = getScopeNames(explanation.scopes);
         const tokenType = resolveTextMateTokenType(scopeNames);

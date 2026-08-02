@@ -19,6 +19,7 @@ import {
   syncDocumentWithLanguageServer,
 } from "./features";
 import { readSettingsForFolder } from "../settings/io";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 import {
   type LanguageServerCodeActionRequest,
   type LanguageServerCodeActionResult,
@@ -46,7 +47,9 @@ import {
   type LanguageServerStartForFileRequest,
 } from "../../shared/lsp";
 
-export function registerLspHandlers() {
+export function registerLspHandlers(
+  workspaceCapabilities?: WorkspaceCapabilityRegistry,
+) {
   ipcMain.handle("lsp:status", async (_event, folderPath: string) => {
     if (!folderPath || !fs.existsSync(folderPath)) return [];
     return getLanguageServerStatus(folderPath);
@@ -190,34 +193,74 @@ export function registerLspHandlers() {
   ipcMain.handle(
     "lsp:definition",
     async (
-      _event,
+      event,
       request: LanguageServerDefinitionRequest,
     ): Promise<LanguageServerDefinitionResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, locations: [] };
       }
+      if (workspaceCapabilities) {
+        try {
+          workspaceCapabilities.assertRoot(event.sender.id, request.folderPath);
+        } catch {
+          return {
+            ok: false,
+            message: "Open this workspace before navigating to definitions.",
+            locations: [],
+          };
+        }
+      }
 
       const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, locations: [] };
 
-      return getLanguageServerDefinitions(request);
+      const result = await getLanguageServerDefinitions(request);
+      if (result.ok && workspaceCapabilities) {
+        for (const location of result.locations) {
+          workspaceCapabilities.authorizeReadOnlyFile(
+            event.sender.id,
+            location.filePath,
+          );
+        }
+      }
+      return result;
     },
   );
 
   ipcMain.handle(
     "lsp:references",
     async (
-      _event,
+      event,
       request: LanguageServerReferencesRequest,
     ): Promise<LanguageServerReferencesResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, locations: [] };
       }
+      if (workspaceCapabilities) {
+        try {
+          workspaceCapabilities.assertRoot(event.sender.id, request.folderPath);
+        } catch {
+          return {
+            ok: false,
+            message: "Open this workspace before navigating to references.",
+            locations: [],
+          };
+        }
+      }
 
       const settings = await readSettingsForFolder(request.folderPath);
       if (!settings.lsp.enabled) return { ok: true, locations: [] };
 
-      return getLanguageServerReferences(request);
+      const result = await getLanguageServerReferences(request);
+      if (result.ok && workspaceCapabilities) {
+        for (const location of result.locations) {
+          workspaceCapabilities.authorizeReadOnlyFile(
+            event.sender.id,
+            location.filePath,
+          );
+        }
+      }
+      return result;
     },
   );
 
