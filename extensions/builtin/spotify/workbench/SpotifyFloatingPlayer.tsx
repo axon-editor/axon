@@ -17,8 +17,20 @@ import type {
   SpotifyPlaybackState,
   SpotifyPlayTrackRequest,
 } from "@axon-editor/shared/spotify";
-import { X } from "lucide-react";
+import {
+  Music2,
+  Pause,
+  Play,
+  Repeat1,
+  Repeat2,
+  Shuffle,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  X,
+} from "lucide-react";
 import SpotifyDeviceSelector from "./SpotifyDeviceSelector";
+import SpotifyWave from "./SpotifyWave";
 
 const POSITION_KEY = "axon:spotifyPlayerPos";
 const DEFAULT_POS = { x: 24, y: 80 };
@@ -76,6 +88,10 @@ export default function SpotifyFloatingPlayer({
   onRefreshDevices,
   onClose,
 }: Props) {
+  const playbackProgress = playback?.progress_ms ?? null;
+  const playbackItemId = playback?.item?.id ?? null;
+  const playbackDuration = playback?.item?.duration_ms ?? null;
+  const playbackIsPlaying = playback?.is_playing ?? false;
   const [pos, setPos] = useState(loadPos);
   const [dragging, setDragging] = useState(false);
   const [seekHover, setSeekHover] = useState(false);
@@ -90,27 +106,28 @@ export default function SpotifyFloatingPlayer({
 
   // Snap to server value on every poll tick.
   useEffect(() => {
-    if (!playback) return;
-    setLocalProgress(playback.progress_ms);
+    if (playbackProgress === null) return;
+    setLocalProgress(playbackProgress);
     setArtFailed(false);
     lastTickRef.current = Date.now();
-  }, [playback?.progress_ms, playback?.item?.id]);
+  }, [playbackItemId, playbackProgress]);
 
   // rAF loop for smooth progress bar.
   useEffect(() => {
-    if (!playback?.is_playing || !playback.item) {
+    if (!playbackIsPlaying || playbackDuration === null) {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
       return;
     }
-    const duration = playback.item.duration_ms;
+    const duration = playbackDuration;
     const tick = () => {
       const now = Date.now();
+      const elapsed = now - lastTickRef.current;
       lastTickRef.current = now;
       setLocalProgress((p) =>
-        Math.min(p + (now - lastTickRef.current), duration),
+        Math.min(p + elapsed, duration),
       );
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -118,7 +135,7 @@ export default function SpotifyFloatingPlayer({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [playback?.is_playing, playback?.item?.id]);
+  }, [playbackDuration, playbackIsPlaying, playbackItemId]);
 
   // Drag via pointer capture so moves don't break when leaving the element.
   const onDragStart = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -164,7 +181,7 @@ export default function SpotifyFloatingPlayer({
   const progress = Math.min(localProgress, duration);
   const pct = (progress / duration) * 100;
   const volume = playback?.device?.volume_percent ?? 50;
-  const isPlaying = playback?.is_playing ?? false;
+  const isPlaying = playbackIsPlaying;
   const shuffle = playback?.shuffle_state ?? false;
   const repeat = playback?.repeat_state ?? "off";
   const art = track?.album.images[0]?.url ?? null;
@@ -172,30 +189,23 @@ export default function SpotifyFloatingPlayer({
   return (
     <div
       ref={playerRef}
-      className="absolute z-50 select-none"
+      className="absolute z-50 select-none text-[var(--axon-editor-foreground)]"
       style={{
         left: pos.x,
         top: pos.y,
-        width: 280,
-        filter: "drop-shadow(0 12px 40px rgba(0,0,0,0.7))",
+        width: 320,
+        filter: "drop-shadow(0 12px 32px rgba(0,0,0,0.4))",
       }}
       onPointerMove={onDragMove}
       onPointerUp={onDragEnd}
       onPointerCancel={onDragEnd}
     >
-      <div
-        style={{
-          background: "linear-gradient(160deg, #141414 0%, #111318 100%)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: 14,
-          overflow: "hidden",
-        }}
-      >
+      <div className="overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
         <div
           className="relative w-full"
           style={{
             aspectRatio: "1/1",
-            background: "#0a0c10",
+            background: "var(--axon-panel-overlay-hover)",
             cursor: dragging ? "grabbing" : "grab",
           }}
           onPointerDown={onDragStart}
@@ -204,58 +214,34 @@ export default function SpotifyFloatingPlayer({
             <img
               src={art}
               alt={track?.album.name ?? ""}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               draggable={false}
               onError={() => setArtFailed(true)}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg width={40} height={40} viewBox="0 0 24 24" fill="#1a1e26">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
+            <div className="flex h-full w-full items-center justify-center">
+              <Music2
+                size={40}
+                className="text-[var(--axon-editor-foreground)] opacity-20"
+              />
             </div>
           )}
 
-          {isPlaying && (
-            <div
-              className="absolute rounded-full"
-              style={{
-                top: 10,
-                right: 10,
-                width: 7,
-                height: 7,
-                background: "#1db954",
-                boxShadow: "0 0 8px #1db954",
-              }}
+          <div className="absolute right-2.5 top-2.5 rounded border border-black/10 bg-black/55 px-1.5 py-1 text-white backdrop-blur-sm">
+            <SpotifyWave
+              active={isPlaying}
+              label={track ? `Playing now · ${track.name}` : "Nothing playing"}
             />
-          )}
+          </div>
 
           <button
-            className="absolute flex items-center justify-center rounded-full cursor-pointer transition-opacity opacity-60 hover:opacity-100"
-            style={{
-              top: 10,
-              left: 10,
-              width: 22,
-              height: 22,
-              background: "rgba(0,0,0,0.55)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#ccc",
-              fontSize: 14,
-              lineHeight: 1,
-            }}
+            className="absolute left-2.5 top-2.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-black/55 text-white opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100"
             onClick={onClose}
-            title="Hide player"
-            onPointerDown={(e) => e.stopPropagation()} // don't start drag
+            aria-label="Hide player"
+            onPointerDown={(e) => e.stopPropagation()}
           >
-            <X />
+            <X size={13} />
           </button>
-
-          <div
-            className="absolute bottom-2 left-0 right-0 text-center pointer-events-none"
-            style={{ fontSize: 9, color: "rgba(255,255,255,0.15)" }}
-          >
-            drag to move
-          </div>
         </div>
 
         <div className="flex flex-col gap-3 px-3 py-3">
@@ -269,24 +255,16 @@ export default function SpotifyFloatingPlayer({
           />
 
           <div>
-            <div
-              className="text-white font-semibold truncate"
-              style={{ fontSize: 12, letterSpacing: "-0.01em" }}
-              title={track?.name ?? "Nothing playing"}
-            >
+            <div className="truncate text-[12px] font-semibold text-[var(--axon-editor-foreground)]">
               {track?.name ?? "Nothing playing"}
             </div>
-            <div
-              className="truncate"
-              style={{ fontSize: 10, color: "#586478", marginTop: 2 }}
-            >
+            <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
               {track?.artists.map((a) => a.name).join(", ") ?? ""}
             </div>
           </div>
           <div>
             <div
-              className="relative rounded-full cursor-pointer"
-              style={{ height: 3, background: "rgba(255,255,255,0.1)" }}
+              className="relative h-1 cursor-pointer rounded-full bg-[var(--axon-panel-border)]"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 void onSeek(((e.clientX - rect.left) / rect.width) * duration);
@@ -298,27 +276,27 @@ export default function SpotifyFloatingPlayer({
                 className="absolute left-0 top-0 h-full rounded-full"
                 style={{
                   width: `${pct}%`,
-                  background: seekHover ? "#1db954" : "rgba(255,255,255,0.5)",
+                  background: seekHover
+                    ? "var(--axon-syntax-function)"
+                    : "var(--axon-editor-foreground)",
+                  opacity: seekHover ? 1 : 0.55,
                   transition: "background 0.15s",
                 }}
               />
               {seekHover && (
                 <div
-                  className="absolute top-1/2 rounded-full pointer-events-none"
+                  className="pointer-events-none absolute top-1/2 rounded-full"
                   style={{
                     left: `${pct}%`,
                     width: 9,
                     height: 9,
-                    background: "#fff",
+                    background: "var(--axon-editor-foreground)",
                     transform: "translate(-50%,-50%)",
                   }}
                 />
               )}
             </div>
-            <div
-              className="flex justify-between mt-1"
-              style={{ fontSize: 9, color: "#3a4050" }}
-            >
+            <div className="mt-1 flex justify-between text-[9px] text-[var(--axon-editor-foreground)] opacity-35">
               <span>{fmt(progress)}</span>
               <span>{fmt(duration)}</span>
             </div>
@@ -326,82 +304,55 @@ export default function SpotifyFloatingPlayer({
 
           <div className="flex items-center justify-between">
             <button
-              className="cursor-pointer transition-opacity"
-              style={{ opacity: shuffle ? 1 : 0.35, padding: 3 }}
+              type="button"
+              aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
+              className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--axon-panel-overlay-hover)] ${shuffle ? "text-[var(--axon-syntax-function)]" : "text-[var(--axon-editor-foreground)] opacity-35"}`}
               onClick={() => void onSetShuffle(!shuffle)}
-              title={shuffle ? "Shuffle on" : "Shuffle off"}
             >
-              <svg
-                width={13}
-                height={13}
-                viewBox="0 0 24 24"
-                fill={shuffle ? "#1db954" : "#ccc"}
-              >
-                <path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17zm4.76-.08 3.65 3.91-3.65 3.91V14h-1.89l-4.1-4.1 1.42-1.42 3.57 3.57V9.09h2zm0 10.91v-1.92L20 14l-4.65-4.98V7.1h-2v2.92L9.41 14l3.94 3.98V20h2z" />
-              </svg>
+              <Shuffle size={14} />
             </button>
 
             <button
-              className="cursor-pointer hover:opacity-70 transition-opacity"
-              style={{ opacity: 0.8, padding: 3 }}
+              type="button"
+              aria-label="Previous track"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-75 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
               onClick={() => void onPrevious()}
             >
-              <svg width={17} height={17} viewBox="0 0 24 24" fill="#fff">
-                <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
-              </svg>
+              <SkipBack size={17} fill="currentColor" />
             </button>
 
             <button
-              className="flex items-center justify-center rounded-full cursor-pointer transition-transform hover:scale-105 active:scale-95"
-              style={{
-                width: 36,
-                height: 36,
-                background: "#fff",
-                border: "none",
-                flexShrink: 0,
-              }}
+              type="button"
+              aria-label={isPlaying ? "Pause" : "Play"}
+              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--axon-editor-foreground)] text-[var(--axon-editor-background)] transition-transform hover:scale-105 active:scale-95"
               onClick={() => (isPlaying ? void onPause() : void onPlay({}))}
             >
               {isPlaying ? (
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="#000">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
+                <Pause size={15} fill="currentColor" />
               ) : (
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="#000">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+                <Play size={15} fill="currentColor" />
               )}
             </button>
 
             <button
-              className="cursor-pointer hover:opacity-70 transition-opacity"
-              style={{ opacity: 0.8, padding: 3 }}
+              type="button"
+              aria-label="Next track"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-75 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
               onClick={() => void onNext()}
             >
-              <svg width={17} height={17} viewBox="0 0 24 24" fill="#fff">
-                <path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z" />
-              </svg>
+              <SkipForward size={17} fill="currentColor" />
             </button>
 
             <button
-              className="cursor-pointer transition-opacity"
-              style={{ opacity: repeat === "off" ? 0.35 : 1, padding: 3 }}
+              type="button"
+              aria-label={`Repeat ${repeat}`}
+              className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--axon-panel-overlay-hover)] ${repeat === "off" ? "text-[var(--axon-editor-foreground)] opacity-35" : "text-[var(--axon-syntax-function)]"}`}
               onClick={cycleRepeat}
-              title={`Repeat: ${repeat}`}
             >
               {repeat === "track" ? (
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="#1db954">
-                  <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2v-5h-1l-2 1v1h1.5v3H13z" />
-                </svg>
+                <Repeat1 size={14} />
               ) : (
-                <svg
-                  width={13}
-                  height={13}
-                  viewBox="0 0 24 24"
-                  fill={repeat !== "off" ? "#1db954" : "#ccc"}
-                >
-                  <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
-                </svg>
+                <Repeat2 size={14} />
               )}
             </button>
           </div>
@@ -411,12 +362,12 @@ export default function SpotifyFloatingPlayer({
             onMouseEnter={() => setVolHover(true)}
             onMouseLeave={() => setVolHover(false)}
           >
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="#444">
-              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-            </svg>
+            <Volume2
+              size={12}
+              className="text-[var(--axon-editor-foreground)] opacity-40"
+            />
             <div
-              className="relative flex-1 rounded-full cursor-pointer"
-              style={{ height: 3, background: "rgba(255,255,255,0.08)" }}
+              className="relative h-1 flex-1 cursor-pointer rounded-full bg-[var(--axon-panel-border)]"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 void onSetVolume(
@@ -428,29 +379,23 @@ export default function SpotifyFloatingPlayer({
                 className="absolute left-0 top-0 h-full rounded-full"
                 style={{
                   width: `${volume}%`,
-                  background: volHover ? "#1db954" : "rgba(255,255,255,0.3)",
+                  background: volHover
+                    ? "var(--axon-syntax-function)"
+                    : "var(--axon-editor-foreground)",
+                  opacity: volHover ? 1 : 0.4,
                   transition: "background 0.15s",
                 }}
               />
             </div>
-            <span
-              style={{
-                fontSize: 9,
-                color: "#333",
-                minWidth: 22,
-                textAlign: "right",
-              }}
-            >
+            <span className="min-w-[22px] text-right text-[9px] text-[var(--axon-editor-foreground)] opacity-35">
               {volume}%
             </span>
           </div>
 
           {playback?.device && (
-            <div
-              className="truncate text-center"
-              style={{ fontSize: 9, color: "#2a2e38" }}
-            >
-              ▶ {playback.device.name}
+            <div className="flex items-center justify-center gap-1.5 truncate text-center text-[9px] text-[var(--axon-editor-foreground)] opacity-35">
+              <SpotifyWave active={isPlaying} className="scale-75" />
+              <span className="truncate">{playback.device.name}</span>
             </div>
           )}
         </div>

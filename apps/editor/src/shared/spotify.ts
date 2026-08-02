@@ -81,6 +81,11 @@ export interface SpotifyPlaylistTracksResult {
   next: string | null;
 }
 
+export interface SpotifyTracksResult extends SpotifyPlaylistTracksResult {
+  ok: boolean;
+  message?: string;
+}
+
 export interface SpotifyAuthResult {
   ok: boolean;
   message: string;
@@ -115,3 +120,5 @@ export interface SpotifyPlayTrackRequest {
   contextUri?: string;
   deviceId?: string | null;
 }
+
+export const SPOTIFY_LIKED_SONGS_ID = "axon:spotify:liked-songs";

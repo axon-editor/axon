@@ -169,6 +169,30 @@ export async function getPlaylistTracks(
   };
 }
 
+export async function getLikedTracks(
+  offset = 0,
+): Promise<SpotifyPlaylistTracksResult> {
+  const res = await spotifyFetch(
+    `/me/tracks?limit=50&offset=${offset}&market=from_token`,
+  );
+
+  if (!res.ok) return { items: [], total: 0, next: null };
+
+  const data = (await res.json()) as {
+    items: { track: SpotifyTrack | null }[];
+    total: number;
+    next: string | null;
+  };
+
+  return {
+    items: data.items
+      .map((item) => item.track)
+      .filter((track): track is SpotifyTrack => track !== null),
+    total: data.total,
+    next: data.next,
+  };
+}
+
 export async function play(
   trackUri?: string,
   contextUri?: string,

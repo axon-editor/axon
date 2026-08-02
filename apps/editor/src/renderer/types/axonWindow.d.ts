@@ -79,6 +79,7 @@ import type {
   SpotifyPlaylistsResult,
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
+  SpotifyTracksResult,
 } from "../../shared/spotify";
 import type { AxonSettings, CustomFont } from "../../shared/settings";
 import type {
@@ -462,6 +463,7 @@ declare global {
           total: number;
           next: string | null;
         }>;
+        getLikedTracks: (offset: number) => Promise<SpotifyTracksResult>;
         getPlaybackState: () => Promise<SpotifyPlaybackResult>;
         getDevices: () => Promise<SpotifyDevicesResult>;
         play: (

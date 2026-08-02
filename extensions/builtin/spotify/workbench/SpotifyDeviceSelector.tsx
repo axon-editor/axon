@@ -1,6 +1,6 @@
-// Small Spotify Connect device picker for the sidebar and player surfaces.
-// Device IDs are session-scoped, so the component only displays live devices
-// from Spotify and leaves persistence to Spotify itself.
+// This picker only renders live Spotify Connect devices. The owning hook stores
+// the selected device's name and type, then maps that identity back to a current
+// device ID whenever Spotify refreshes the list.
 import { RefreshCw, Speaker } from "lucide-react";
 import type { SpotifyDevice } from "@axon-editor/shared/spotify";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
@@ -48,7 +48,10 @@ export default function SpotifyDeviceSelector({
     <div
       className={`flex items-center gap-2 ${compact ? "px-0" : "px-3 py-2"}`}
     >
-      <Speaker size={12} className="shrink-0 text-[#586478]" />
+      <Speaker
+        size={12}
+        className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45"
+      />
       <div className="min-w-0 flex-1">
         <SearchSelect
           value={selectedDeviceId ?? NO_DEVICE_VALUE}
@@ -66,7 +69,7 @@ export default function SpotifyDeviceSelector({
           type="button"
           onClick={() => void onRefreshDevices()}
           aria-label="Refresh Spotify devices"
-          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[#586478] transition-colors hover:bg-[#151923] hover:text-[#1db954]"
+          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-syntax-function)] hover:opacity-100"
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
         </button>

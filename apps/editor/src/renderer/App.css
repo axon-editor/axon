@@ -555,6 +555,101 @@
   }
 }
 
+.axon-spotify-wave {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 14px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--axon-syntax-function);
+  outline: none;
+}
+
+.axon-spotify-wave__bar {
+  width: 2px;
+  height: 34%;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: center;
+  transition: height 160ms ease;
+}
+
+.axon-spotify-wave--active .axon-spotify-wave__bar {
+  animation: axonSpotifyWave 780ms ease-in-out infinite alternate;
+}
+
+.axon-spotify-wave--active .axon-spotify-wave__bar:nth-child(2) {
+  animation-delay: -520ms;
+}
+
+.axon-spotify-wave--active .axon-spotify-wave__bar:nth-child(3) {
+  animation-delay: -260ms;
+}
+
+.axon-spotify-wave--active .axon-spotify-wave__bar:nth-child(4) {
+  animation-delay: -650ms;
+}
+
+.axon-spotify-wave--active .axon-spotify-wave__bar:nth-child(5) {
+  animation-delay: -390ms;
+}
+
+.axon-spotify-wave__label {
+  position: absolute;
+  right: -4px;
+  bottom: calc(100% + 8px);
+  z-index: 95;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 24px));
+  overflow: hidden;
+  padding: 6px 9px;
+  border: 1px solid var(--axon-panel-border);
+  border-radius: 5px;
+  background: var(--axon-panel-background);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 28%, transparent);
+  color: var(--axon-editor-foreground);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  opacity: 0;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translateY(4px) scale(0.98);
+  transform-origin: bottom right;
+  transition:
+    opacity 140ms ease,
+    transform 160ms cubic-bezier(0.18, 0.9, 0.2, 1);
+  white-space: nowrap;
+}
+
+.axon-spotify-wave:hover .axon-spotify-wave__label,
+.axon-spotify-wave:focus-visible .axon-spotify-wave__label {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@keyframes axonSpotifyWave {
+  0% {
+    height: 24%;
+  }
+  45% {
+    height: 92%;
+  }
+  100% {
+    height: 48%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .axon-spotify-wave--active .axon-spotify-wave__bar {
+    height: 58%;
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .axon-modal-overlay,
   .axon-modal-panel,

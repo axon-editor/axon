@@ -12,6 +12,7 @@ import {
 import {
   getClientId,
   getDevices,
+  getLikedTracks,
   getMe,
   getPlaybackState,
   getPlaylistTracks,
@@ -34,6 +35,7 @@ import type {
   SpotifyPlaylistsResult,
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
+  SpotifyTracksResult,
 } from "../../shared/spotify";
 import { readSettingsFromDisk } from "../settings/io";
 import { getUserSettingsPath } from "../settings/paths";
@@ -183,6 +185,25 @@ export function registerSpotifyHandlers(): void {
           items: [],
           total: 0,
           next: null,
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "spotify:likedTracks",
+    async (_event, offset: number): Promise<SpotifyTracksResult> => {
+      try {
+        const result = await getLikedTracks(offset);
+        return { ok: true, ...result };
+      } catch (err) {
+        return {
+          ok: false,
+          items: [],
+          total: 0,
+          next: null,
+          message:
+            err instanceof Error ? err.message : "Failed to load liked songs.",
         };
       }
     },

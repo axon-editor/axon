@@ -115,6 +115,7 @@ import type {
   SpotifyPlaylistsResult,
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
+  SpotifyTracksResult,
 } from "../shared/spotify";
 
 const EXTENSION_IPC_CHANNELS = {
@@ -693,6 +694,8 @@ contextBridge.exposeInMainWorld("axon", {
       total: number;
       next: string | null;
     }> => ipcRenderer.invoke("spotify:playlistTracks", playlistId, offset),
+    getLikedTracks: (offset: number): Promise<SpotifyTracksResult> =>
+      ipcRenderer.invoke("spotify:likedTracks", offset),
     getPlaybackState: (): Promise<SpotifyPlaybackResult> =>
       ipcRenderer.invoke("spotify:playbackState"),
     getDevices: (): Promise<SpotifyDevicesResult> =>

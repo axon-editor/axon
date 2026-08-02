@@ -4,9 +4,12 @@
 // No useSpotify call here, App owns it.
 
 import { useEffect, useState } from "react";
+import { AudioLines, Music2 } from "lucide-react";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import SpotifyAuth from "./SpotifyAuth";
 import SpotifyDeviceSelector from "./SpotifyDeviceSelector";
 import SpotifyPlaylists from "./SpotifyPlaylists";
+import SpotifyWave from "./SpotifyWave";
 import type { SpotifyActions, SpotifyState } from "./lib/useSpotify";
 
 function NowPlayingArtwork({
@@ -32,9 +35,10 @@ function NowPlayingArtwork({
 
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <svg width={12} height={12} viewBox="0 0 24 24" fill="#333">
-        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-      </svg>
+      <Music2
+        size={12}
+        className="text-[var(--axon-editor-foreground)] opacity-35"
+      />
     </div>
   );
 }
@@ -54,17 +58,21 @@ export default function SpotifyPanel({
   spotifyState: state,
   spotifyActions: actions,
 }: Props) {
+  const refreshStatus = actions.refreshStatus;
+
   // When OAuth callback fires, re-check status so panel transitions to browser.
   useEffect(() => {
     return window.axon.spotify.onConnected(() => {
-      void actions.refreshStatus();
+      void refreshStatus();
     });
-  }, [actions.refreshStatus]);
+  }, [refreshStatus]);
 
   if (state.statusLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div style={{ fontSize: 11, color: "#2a2e38" }}>Loading...</div>
+        <div className="text-[11px] text-[var(--axon-editor-foreground)] opacity-40">
+          Loading...
+        </div>
       </div>
     );
   }
@@ -107,18 +115,8 @@ export default function SpotifyPanel({
           onPlay={actions.play}
         />
       </div>
-      <div
-        className="shrink-0 flex items-center gap-2 px-3"
-        style={{
-          height: 44,
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-          background: "#090c12",
-        }}
-      >
-        <div
-          className="rounded shrink-0 overflow-hidden"
-          style={{ width: 28, height: 28, background: "#111" }}
-        >
+      <div className="flex h-12 shrink-0 items-center gap-2.5 border-t border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3">
+        <div className="h-8 w-8 shrink-0 overflow-hidden rounded bg-[var(--axon-panel-overlay-hover)]">
           <NowPlayingArtwork
             src={track?.album.images[0]?.url}
             alt={track?.album.name ?? "Spotify artwork"}
@@ -128,56 +126,39 @@ export default function SpotifyPanel({
         <div className="flex-1 min-w-0">
           {track ? (
             <>
-              <div
-                className="truncate text-white"
-                style={{ fontSize: 10, fontWeight: 500 }}
-              >
+              <div className="truncate text-[11px] font-medium text-[var(--axon-editor-foreground)]">
                 {track.name}
               </div>
-              <div
-                className="truncate"
-                style={{ fontSize: 9, color: "#586478" }}
-              >
+              <div className="truncate text-[9px] text-[var(--axon-editor-foreground)] opacity-45">
                 {track.artists.map((a) => a.name).join(", ")}
               </div>
             </>
           ) : (
-            <div style={{ fontSize: 10, color: "#3a4050" }}>
+            <div className="text-[10px] text-[var(--axon-editor-foreground)] opacity-40">
               Nothing playing
             </div>
           )}
         </div>
 
-        {isPlaying && (
-          <div
-            className="rounded-full shrink-0"
-            style={{
-              width: 5,
-              height: 5,
-              background: "#1db954",
-              boxShadow: "0 0 5px #1db954",
-            }}
-          />
-        )}
+        <SpotifyWave
+          active={isPlaying}
+          label={track ? `Playing now · ${track.name}` : "Nothing playing"}
+        />
 
-        <button
-          className="flex items-center justify-center rounded cursor-pointer transition-colors shrink-0"
-          style={{
-            width: 24,
-            height: 24,
-            background: playerOpen ? "rgba(29,185,84,0.15)" : "transparent",
-            border: playerOpen
-              ? "1px solid rgba(29,185,84,0.3)"
-              : "1px solid rgba(255,255,255,0.06)",
-            color: playerOpen ? "#1db954" : "#586478",
-          }}
-          onClick={onTogglePlayer}
-          title={playerOpen ? "Hide player" : "Show player"}
-        >
-          <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9 19H7V5h2v14zm4 2h-2V3h2v18zm4-5h-2V8h2v8z" />
-          </svg>
-        </button>
+        <Tooltip label={playerOpen ? "Hide player" : "Show player"} side="top">
+          <button
+            type="button"
+            className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${
+              playerOpen
+                ? "border-[var(--axon-syntax-function)] bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]"
+                : "border-[var(--axon-panel-border)] text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+            }`}
+            onClick={onTogglePlayer}
+            aria-label={playerOpen ? "Hide player" : "Show player"}
+          >
+            <AudioLines size={13} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

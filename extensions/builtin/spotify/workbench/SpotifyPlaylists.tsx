@@ -2,11 +2,14 @@
 // Lists playlists, click to see tracks, back to return.
 
 import { useCallback, useState, type UIEvent } from "react";
+import { ChevronLeft, ChevronRight, Music2 } from "lucide-react";
 import type {
   SpotifyPlaylist,
   SpotifyPlayTrackRequest,
   SpotifyTrack,
 } from "@axon-editor/shared/spotify";
+import { SPOTIFY_LIKED_SONGS_ID } from "@axon-editor/shared/spotify";
+import SpotifyWave from "./SpotifyWave";
 
 function formatMs(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -15,9 +18,10 @@ function formatMs(ms: number): string {
 
 function MusicFallbackIcon({ size = 14 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="#333">
-      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-    </svg>
+    <Music2
+      size={size}
+      className="text-[var(--axon-editor-foreground)] opacity-35"
+    />
   );
 }
 
@@ -80,7 +84,6 @@ export default function SpotifyPlaylists({
   onBack,
   onPlay,
 }: Props) {
-  const [hoveredTrack, setHoveredTrack] = useState<string | null>(null);
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null;
   const handleTracksScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
@@ -99,24 +102,20 @@ export default function SpotifyPlaylists({
   if (activePlaylistId && activePlaylist) {
     return (
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div
-          className="flex items-center gap-2 px-3 py-2 shrink-0"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
-        >
+        <div className="flex shrink-0 items-center gap-2 border-b border-[var(--axon-panel-border)] px-3 py-2">
           <button
-            className="flex items-center justify-center rounded cursor-pointer transition-colors hover:bg-white/5 shrink-0"
-            style={{ width: 22, height: 22 }}
+            type="button"
+            aria-label="Back to playlists"
+            className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             onClick={onBack}
           >
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="#888">
-              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
-            </svg>
+            <ChevronLeft size={13} />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="text-white font-semibold truncate" style={{ fontSize: 11 }}>
+            <div className="truncate text-[11px] font-semibold text-[var(--axon-editor-foreground)]">
               {activePlaylist.name}
             </div>
-            <div style={{ fontSize: 9, color: "#555" }}>
+            <div className="text-[9px] text-[var(--axon-editor-foreground)] opacity-40">
               {tracks.length || loadingTracks
                 ? `${tracks.length}/${totalTracks || activePlaylist.tracks.total} tracks`
                 : `${activePlaylist.tracks.total} tracks`}
@@ -126,83 +125,56 @@ export default function SpotifyPlaylists({
 
         <div className="overflow-y-auto flex-1" onScroll={handleTracksScroll}>
           {loadingTracks ? (
-            <div className="px-3 py-3 text-[11px] text-[#3a4050]">
+            <div className="px-3 py-3 text-[11px] text-[var(--axon-editor-foreground)] opacity-40">
               Loading tracks...
             </div>
           ) : tracks.length === 0 ? (
-            <div className="px-3 py-3 text-[11px] text-[#3a4050]">
+            <div className="px-3 py-3 text-[11px] text-[var(--axon-editor-foreground)] opacity-40">
               No tracks found
             </div>
           ) : (
             <>
               {tracks.map((track, index) => {
                 const isActive = track.id === currentTrackId;
-                const isHovered = hoveredTrack === track.id;
-
                 return (
                   <button
                     key={`${track.id}-${index}`}
-                    className="w-full flex items-center gap-2.5 px-3 text-left cursor-pointer transition-colors"
-                    style={{
-                      height: 40,
-                      background: isHovered
-                        ? "rgba(255,255,255,0.03)"
-                        : "transparent",
-                      border: "none",
-                    }}
-                    onMouseEnter={() => setHoveredTrack(track.id)}
-                    onMouseLeave={() => setHoveredTrack(null)}
+                    className="flex h-10 w-full cursor-pointer items-center gap-2.5 px-3 text-left text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
                     onClick={() =>
                       void onPlay({
                         trackUri: track.uri,
-                        contextUri: activePlaylist.uri,
+                        contextUri:
+                          activePlaylist.id === SPOTIFY_LIKED_SONGS_ID
+                            ? undefined
+                            : activePlaylist.uri,
                       })
                     }
                   >
-                    <div
-                      className="flex items-center justify-center shrink-0"
-                      style={{ width: 14, fontSize: 9 }}
-                    >
+                    <div className="flex w-[18px] shrink-0 items-center justify-center text-[9px]">
                       {isActive ? (
-                        <div
-                          className="rounded-full"
-                          style={{
-                            width: 5,
-                            height: 5,
-                            background: "#1db954",
-                            boxShadow: "0 0 5px #1db954",
-                          }}
-                        />
+                        <SpotifyWave active className="scale-75" />
                       ) : (
-                        <span style={{ color: "#333" }}>{index + 1}</span>
+                        <span className="opacity-30">{index + 1}</span>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div
-                        className="truncate"
-                        style={{
-                          fontSize: 11,
-                          color: isActive ? "#1db954" : "#c8d0e0",
-                          fontWeight: isActive ? 600 : 400,
-                        }}
+                        className={`truncate text-[11px] ${isActive ? "font-semibold text-[var(--axon-syntax-function)]" : "text-[var(--axon-editor-foreground)]"}`}
                       >
                         {track.name}
                       </div>
-                      <div
-                        className="truncate"
-                        style={{ fontSize: 9, color: "#3a4050" }}
-                      >
+                      <div className="truncate text-[9px] text-[var(--axon-editor-foreground)] opacity-40">
                         {track.artists.map((artist) => artist.name).join(", ")}
                       </div>
                     </div>
-                    <div style={{ fontSize: 9, color: "#333", flexShrink: 0 }}>
+                    <div className="shrink-0 text-[9px] opacity-30">
                       {formatMs(track.duration_ms)}
                     </div>
                   </button>
                 );
               })}
               {loadingMoreTracks && (
-                <div className="px-3 py-3 text-[10px] text-[#3a4050]">
+                <div className="px-3 py-3 text-[10px] text-[var(--axon-editor-foreground)] opacity-40">
                   Loading more tracks...
                 </div>
               )}
@@ -216,47 +188,40 @@ export default function SpotifyPlaylists({
   // Playlist list
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div
-        className="px-3 py-2 shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
-      >
-        <span style={{ fontSize: 10, color: "#586478", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+      <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-3 py-2">
+        <span className="text-[10px] font-semibold uppercase text-[var(--axon-editor-foreground)] opacity-45">
           Playlists
         </span>
       </div>
       <div className="overflow-y-auto flex-1">
         {playlists.length === 0 ? (
-          <div className="px-3 py-3 text-[11px] text-[#3a4050]">
+          <div className="px-3 py-3 text-[11px] text-[var(--axon-editor-foreground)] opacity-40">
             No playlists found
           </div>
         ) : (
           playlists.map((playlist) => (
             <button
               key={playlist.id}
-              className="w-full flex items-center gap-2.5 px-3 text-left cursor-pointer transition-colors hover:bg-white/[0.03]"
-              style={{ height: 44, border: "none", background: "transparent" }}
+              className="flex h-11 w-full cursor-pointer items-center gap-2.5 px-3 text-left text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)]"
               onClick={() => void onLoadPlaylist(playlist.id)}
             >
-              <div
-                className="rounded shrink-0 overflow-hidden"
-                style={{ width: 30, height: 30, background: "#111", flexShrink: 0 }}
-              >
+              <div className="h-[30px] w-[30px] shrink-0 overflow-hidden rounded bg-[var(--axon-panel-overlay-hover)]">
                 <SpotifyArtwork
                   src={playlist.images[0]?.url}
                   alt={playlist.name}
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-white" style={{ fontSize: 11, fontWeight: 500 }}>
+                <div className="truncate text-[11px] font-medium text-[var(--axon-editor-foreground)]">
                   {playlist.name}
                 </div>
-                <div style={{ fontSize: 9, color: "#3a4050" }}>
-                  {playlist.tracks.total} tracks
+                <div className="text-[9px] text-[var(--axon-editor-foreground)] opacity-40">
+                  {playlist.id === SPOTIFY_LIKED_SONGS_ID
+                    ? "Saved tracks"
+                    : `${playlist.tracks.total} tracks`}
                 </div>
               </div>
-              <svg width={10} height={10} viewBox="0 0 24 24" fill="#333">
-                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-              </svg>
+              <ChevronRight size={11} className="shrink-0 opacity-30" />
             </button>
           ))
         )}
