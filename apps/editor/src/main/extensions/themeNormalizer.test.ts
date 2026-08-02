@@ -23,6 +23,45 @@ function contrastRatio(foreground: string, background: string) {
 }
 
 describe("built-in Axon themes", () => {
+  it.each([
+    ["axon-black", "Axon Black", "dark", "#000000"],
+    ["axon-white", "Axon White", "light", "#ffffff"],
+  ] as const)(
+    "normalizes %s with complete high-contrast surfaces",
+    (themeId, label, appearance, surface) => {
+      const [theme] = readExtensionTheme(
+        "axon.themes",
+        "Axon Themes",
+        themeId,
+        label,
+        path.resolve(
+          process.cwd(),
+          "..",
+          "..",
+          "extensions",
+          "builtin",
+          "themes",
+          "axon",
+          "themes",
+          `${themeId}.json`,
+        ),
+      );
+
+      expect(theme).toMatchObject({ id: themeId, label, appearance });
+      expect(theme.tokens["editor.background"]).toBe(surface);
+      expect(theme.tokens["terminal.background"]).toBe(surface);
+      expect(theme.tokens["sidebar.background"]).toBe(surface);
+
+      for (const style of Object.values(theme.syntax)) {
+        if (style.color) {
+          expect(contrastRatio(style.color, surface)).toBeGreaterThanOrEqual(
+            4.5,
+          );
+        }
+      }
+    },
+  );
+
   it("normalizes Axon Parchment as a complete light theme", () => {
     const [theme] = readExtensionTheme(
       "axon.themes",

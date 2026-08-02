@@ -6,8 +6,27 @@ const editorRoot = process.cwd();
 const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const jiti = createJiti(import.meta.url);
 
+function readExistingAxonTheme(themeId) {
+  const themePath = path.resolve(
+    workspaceRoot,
+    "extensions/builtin/themes/axon/themes",
+    `${themeId}.json`,
+  );
+  const theme = JSON.parse(fs.readFileSync(themePath, "utf8"));
+  return {
+    id: theme.id,
+    label: theme.name,
+    base: theme.appearance === "light" ? "vs" : "vs-dark",
+    tokens: theme.ui,
+    monacoColors: theme.monaco ?? {},
+    syntax: theme.syntax ?? {},
+  };
+}
+
 const { axonDarkTheme } = jiti("../src/renderer/shared/themes/axonDark.ts");
+const { axonMonochromeThemes } = jiti("../src/renderer/shared/themes/axonMonochrome.ts");
 const { axonMoonlightTheme } = jiti("../src/renderer/shared/themes/axonMoonlight.ts");
+const axonParchmentTheme = readExistingAxonTheme("axon-parchment");
 const { soraTheme } = jiti("../src/renderer/shared/themes/sora.ts");
 const { zedDarkTheme } = jiti("../src/renderer/shared/themes/zedDark.ts");
 const { catppuccinMochaTheme } = jiti("../src/renderer/shared/themes/catppuccinMocha.ts");
@@ -20,8 +39,14 @@ const themePackages = [
     folder: "axon",
     id: "axon.themes",
     name: "Axon Themes",
-    description: "Built-in Axon, Axon Moonlight, and Sora themes.",
-    themes: [axonDarkTheme, axonMoonlightTheme, soraTheme],
+    description: "Built-in Axon themes for dark, black, white, moonlight, parchment, and Sora appearances.",
+    themes: [
+      axonDarkTheme,
+      ...axonMonochromeThemes,
+      axonMoonlightTheme,
+      axonParchmentTheme,
+      soraTheme,
+    ],
   },
   {
     folder: "zed",
@@ -111,6 +136,12 @@ for (const themePackage of themePackages) {
   });
 
   for (const theme of themePackage.themes) {
-    writeJson(path.join(themesRoot, `${theme.id}.json`), themeJson(theme));
+    const themePath = path.join(themesRoot, `${theme.id}.json`);
+    const generatedTheme = themeJson(theme);
+    if (!generatedTheme.syntax && fs.existsSync(themePath)) {
+      const existingTheme = JSON.parse(fs.readFileSync(themePath, "utf8"));
+      if (existingTheme.syntax) generatedTheme.syntax = existingTheme.syntax;
+    }
+    writeJson(themePath, generatedTheme);
   }
 }

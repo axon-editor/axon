@@ -1,5 +1,7 @@
 export const BUILT_IN_THEME_IDS = [
   "axon-dark",
+  "axon-black",
+  "axon-white",
   "axon-moonlight",
   "axon-parchment",
   "sora",
@@ -102,6 +104,8 @@ export type EditorCursorBlinking = (typeof EDITOR_CURSOR_BLINKING)[number];
 
 export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "axon-dark": "Axon Dark",
+  "axon-black": "Axon Black",
+  "axon-white": "Axon White",
   "axon-moonlight": "Axon Moonlight",
   "axon-parchment": "Axon Parchment",
   sora: "Sora",

@@ -4,16 +4,30 @@
   "name": "Axon Themes",
   "publisher": "Axon",
   "version": "1.0.0",
-  "description": "Built-in Axon, Axon Moonlight, Axon Parchment, and Sora themes.",
+  "description": "Built-in Axon themes for dark, black, white, moonlight, parchment, and Sora appearances.",
   "author": "Axon",
-  "categories": ["Themes"],
-  "activationEvents": ["onStartup"],
+  "categories": [
+    "Themes"
+  ],
+  "activationEvents": [
+    "onStartup"
+  ],
   "contributes": {
     "themes": [
       {
         "id": "axon-dark",
         "label": "Axon Dark",
         "path": "./themes/axon-dark.json"
+      },
+      {
+        "id": "axon-black",
+        "label": "Axon Black",
+        "path": "./themes/axon-black.json"
+      },
+      {
+        "id": "axon-white",
+        "label": "Axon White",
+        "path": "./themes/axon-white.json"
       },
       {
         "id": "axon-moonlight",

@@ -19,11 +19,6 @@
         "id": "apathetic-ocean",
         "label": "Apathetic Ocean",
         "path": "./themes/apathetic-ocean.json"
-      },
-      {
-        "id": "minted",
-        "label": "Minted",
-        "path": "./themes/minted.json"
       }
     ]
   }
