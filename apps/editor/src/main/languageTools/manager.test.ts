@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { extractLanguageToolArchive, isSafeArchiveEntry } from "./archive";
 
 function createEmptyZip(fileName: string) {
@@ -72,6 +72,7 @@ describe("managed language tool archive validation", () => {
     const destination = path.join(root, "output");
     await fs.mkdir(destination);
     await fs.writeFile(archivePath, createEmptyZip("bin/tool"));
+    const onProgress = vi.fn();
 
     try {
       await extractLanguageToolArchive({
@@ -79,10 +80,12 @@ describe("managed language tool archive validation", () => {
         assetName: "tool.zip",
         destination,
         signal: new AbortController().signal,
+        onProgress,
       });
       await expect(
         fs.stat(path.join(destination, "bin/tool")),
       ).resolves.toBeDefined();
+      expect(onProgress).toHaveBeenCalled();
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

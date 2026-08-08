@@ -8,9 +8,13 @@ import { promisify } from "util";
 import { createGunzip } from "zlib";
 import { extract as extractTar } from "tar";
 import { open as openZip, type Entry as ZipEntry } from "yauzl";
+import { runWithActivityWatchdog } from "./activityWatchdog";
 
 const MAX_TOOL_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024;
+const EXTRACTION_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 const execFileAsync = promisify(execFile);
+
+type ExtractionActivity = (processedBytes?: number) => void;
 
 export function isSafeArchiveEntry(entry: string) {
   const normalized = entry.replace(/\\/g, "/").trim();
@@ -30,6 +34,7 @@ async function extractZipArchive(
   archivePath: string,
   destination: string,
   signal: AbortSignal,
+  onActivity: ExtractionActivity,
 ) {
   signal.throwIfAborted();
   await new Promise<void>((resolve, reject) => {
@@ -48,6 +53,7 @@ async function extractZipArchive(
           reject(signal.reason);
           return;
         }
+        onActivity();
 
         let settled = false;
         let entryCount = 0;
@@ -73,6 +79,7 @@ async function extractZipArchive(
         zipFile.on("entry", (entry) => {
           void (async () => {
             signal.throwIfAborted();
+            onActivity();
             entryCount += 1;
             extractedBytes += entry.uncompressedSize;
             if (!isSafeArchiveEntry(entry.fileName)) {
@@ -125,6 +132,7 @@ async function extractZipArchive(
             );
             await pipeline(
               readStream,
+              createActivityTransform(onActivity),
               createWriteStream(outputPath, { flags: "wx", mode: 0o600 }),
               { signal },
             );
@@ -151,12 +159,14 @@ async function extractTarArchive(
   archivePath: string,
   destination: string,
   signal: AbortSignal,
+  onActivity: ExtractionActivity,
 ) {
   signal.throwIfAborted();
   let entryCount = 0;
   let extractedBytes = 0;
   await pipeline(
     createReadStream(archivePath),
+    createActivityTransform(onActivity),
     extractTar({
       cwd: destination,
       strict: true,
@@ -191,12 +201,14 @@ async function extractXzTarArchive(
   archivePath: string,
   destination: string,
   signal: AbortSignal,
+  onActivity: ExtractionActivity,
 ) {
   const commandOptions = {
     encoding: "utf8" as const,
     maxBuffer: 16 * 1024 * 1024,
     signal,
   };
+  onActivity();
   const [{ stdout: names }, { stdout: verboseEntries }] = await Promise.all([
     execFileAsync("tar", ["-tJf", archivePath], commandOptions),
     execFileAsync("tar", ["-tvJf", archivePath], commandOptions),
@@ -221,6 +233,7 @@ async function extractXzTarArchive(
     ["-xJf", archivePath, "-C", destination, "--no-same-owner"],
     commandOptions,
   );
+  onActivity();
 }
 
 async function extractGzipExecutable(
@@ -228,6 +241,7 @@ async function extractGzipExecutable(
   assetName: string,
   destination: string,
   signal: AbortSignal,
+  onActivity: ExtractionActivity,
 ) {
   signal.throwIfAborted();
   const outputName = path.basename(assetName, ".gz");
@@ -252,6 +266,7 @@ async function extractGzipExecutable(
     createReadStream(archivePath),
     createGunzip(),
     sizeGuard,
+    createActivityTransform(onActivity),
     createWriteStream(path.join(destination, outputName), { mode: 0o600 }),
     { signal },
   );
@@ -262,28 +277,74 @@ export async function extractLanguageToolArchive(input: {
   assetName: string;
   destination: string;
   signal: AbortSignal;
+  onProgress?: (processedBytes: number) => void;
+  idleTimeoutMs?: number;
 }) {
-  if (input.assetName.endsWith(".zip") || input.assetName.endsWith(".vsix")) {
-    await extractZipArchive(input.archivePath, input.destination, input.signal);
-  } else if (input.assetName.endsWith(".tar.xz")) {
-    await extractXzTarArchive(
-      input.archivePath,
-      input.destination,
-      input.signal,
-    );
-  } else if (
-    input.assetName.endsWith(".gz") &&
-    !input.assetName.endsWith(".tar.gz")
-  ) {
-    await extractGzipExecutable(
-      input.archivePath,
-      input.assetName,
-      input.destination,
-      input.signal,
-    );
-  } else {
-    await extractTarArchive(input.archivePath, input.destination, input.signal);
-  }
+  let processedBytes = 0;
+  let lastProgressPublishedAt = 0;
+  await runWithActivityWatchdog({
+    signal: input.signal,
+    idleTimeoutMs: input.idleTimeoutMs ?? EXTRACTION_IDLE_TIMEOUT_MS,
+    timeoutMessage:
+      "Language tool extraction stopped because the archive made no progress for two minutes.",
+    operation: async (extractionSignal, markActivity) => {
+      const onActivity = (chunkBytes = 0) => {
+        markActivity();
+        processedBytes += chunkBytes;
+        const now = Date.now();
+        if (input.onProgress && now - lastProgressPublishedAt >= 100) {
+          lastProgressPublishedAt = now;
+          input.onProgress(processedBytes);
+        }
+      };
+
+      if (
+        input.assetName.endsWith(".zip") ||
+        input.assetName.endsWith(".vsix")
+      ) {
+        await extractZipArchive(
+          input.archivePath,
+          input.destination,
+          extractionSignal,
+          onActivity,
+        );
+      } else if (input.assetName.endsWith(".tar.xz")) {
+        await extractXzTarArchive(
+          input.archivePath,
+          input.destination,
+          extractionSignal,
+          onActivity,
+        );
+      } else if (
+        input.assetName.endsWith(".gz") &&
+        !input.assetName.endsWith(".tar.gz")
+      ) {
+        await extractGzipExecutable(
+          input.archivePath,
+          input.assetName,
+          input.destination,
+          extractionSignal,
+          onActivity,
+        );
+      } else {
+        await extractTarArchive(
+          input.archivePath,
+          input.destination,
+          extractionSignal,
+          onActivity,
+        );
+      }
+    },
+  });
+}
+
+function createActivityTransform(onActivity: ExtractionActivity) {
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      onActivity(chunk.length);
+      callback(null, chunk);
+    },
+  });
 }
 
 export async function findExecutable(

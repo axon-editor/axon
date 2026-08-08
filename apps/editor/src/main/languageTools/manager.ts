@@ -70,6 +70,12 @@ function waitForInstallation(
   });
 }
 
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export class ManagedLanguageToolManager {
   private readonly assets: ManagedLanguageToolAssetService;
   private readonly installations = new Map<
@@ -111,20 +117,36 @@ export class ManagedLanguageToolManager {
 
   private async cleanupStaleInstallationRoots(toolRoot: string) {
     const parentRoot = path.dirname(toolRoot);
-    const prefix = `${path.basename(toolRoot)}.installing-`;
+    const prefixes = [
+      `${path.basename(toolRoot)}.installing-`,
+      `${path.basename(toolRoot)}.previous-`,
+    ];
     const entries = await fs
       .readdir(parentRoot, { withFileTypes: true })
       .catch(() => []);
-    await Promise.all(
-      entries
-        .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix))
-        .map((entry) =>
-          fs.rm(path.join(parentRoot, entry.name), {
-            recursive: true,
-            force: true,
-          }),
+    for (const entry of entries) {
+      if (
+        !entry.isDirectory() ||
+        !prefixes.some((prefix) => entry.name.startsWith(prefix))
+      ) {
+        continue;
+      }
+      this.removePathInBackground(path.join(parentRoot, entry.name));
+    }
+  }
+
+  private removePathInBackground(candidatePath: string) {
+    // Recursive removal cannot be interrupted by AbortSignal. Keeping it out of
+    // the installation promise lets Cancel settle immediately even when a
+    // partial Java or Kotlin tree contains thousands of extracted files.
+    void fs
+      .rm(candidatePath, { recursive: true, force: true })
+      .catch((error) =>
+        console.warn(
+          `failed to clean language tool path ${candidatePath}:`,
+          error,
         ),
-    );
+      );
   }
 
   private getCatalogVersion(entry: ManagedLanguageToolCatalogEntry) {
@@ -351,6 +373,13 @@ export class ManagedLanguageToolManager {
         assetName: asset.name,
         destination: runtimeRoot,
         signal,
+        onProgress: (processedBytes) =>
+          this.publish(null, {
+            id: entry.id,
+            phase: "extracting",
+            transferred: processedBytes,
+            message: `Extracting package (${formatBytes(processedBytes)} processed).`,
+          }),
       });
       signal.throwIfAborted();
       onExtracted();
@@ -490,7 +519,7 @@ export class ManagedLanguageToolManager {
 
       await this.replaceToolRoot(toolRoot, stagingRoot, signal);
     } finally {
-      await fs.rm(stagingRoot, { recursive: true, force: true });
+      this.removePathInBackground(stagingRoot);
     }
   }
 
@@ -499,14 +528,13 @@ export class ManagedLanguageToolManager {
     stagingRoot: string,
     signal: AbortSignal,
   ) {
-    const previousRoot = `${toolRoot}.previous`;
+    const previousRoot = `${toolRoot}.previous-${process.pid}-${Date.now()}`;
     signal.throwIfAborted();
-    await fs.rm(previousRoot, { recursive: true, force: true });
     await fs.mkdir(path.dirname(toolRoot), { recursive: true });
     await fs.rename(toolRoot, previousRoot).catch(() => undefined);
     try {
       await fs.rename(stagingRoot, toolRoot);
-      await fs.rm(previousRoot, { recursive: true, force: true });
+      this.removePathInBackground(previousRoot);
     } catch (error) {
       await fs.rename(previousRoot, toolRoot).catch(() => undefined);
       throw error;
@@ -546,7 +574,7 @@ export class ManagedLanguageToolManager {
       );
       await this.replaceToolRoot(toolRoot, stagingRoot, signal);
     } finally {
-      await fs.rm(stagingRoot, { recursive: true, force: true });
+      this.removePathInBackground(stagingRoot);
     }
   }
 
@@ -714,7 +742,7 @@ export class ManagedLanguageToolManager {
       this.publish(targetWindow, { id, phase: "error", message });
       return { ok: false, message, status: await this.getStatus(id) };
     } finally {
-      await fs.rm(temporaryRoot, { recursive: true, force: true });
+      this.removePathInBackground(temporaryRoot);
     }
   }
 
