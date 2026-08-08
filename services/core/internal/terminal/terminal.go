@@ -6,6 +6,7 @@ package terminal
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -44,6 +45,7 @@ type terminalControlMessage struct {
 
 type terminalSession struct {
 	id                string
+	workspaceRoot     string
 	cmd               *exec.Cmd
 	ptmx              *os.File
 	clients           map[*terminalClient]bool
@@ -149,7 +151,9 @@ func createShellCommand(cwd string) *exec.Cmd {
 	return cmd
 }
 
-func createSession(id string, cwd string) (*terminalSession, error) {
+var errTerminalWorkspaceMismatch = errors.New("terminal session belongs to another workspace")
+
+func createSession(id string, cwd string, workspaceRoot string) (*terminalSession, error) {
 	if id == "" {
 		id = createTerminalSessionID()
 	}
@@ -162,12 +166,13 @@ func createSession(id string, cwd string) (*terminalSession, error) {
 	}
 
 	session := &terminalSession{
-		id:           id,
-		cmd:          cmd,
-		ptmx:         ptmx,
-		clients:      map[*terminalClient]bool{},
-		createdAt:    time.Now(),
-		lastOutputAt: time.Now(),
+		id:            id,
+		workspaceRoot: workspaceRoot,
+		cmd:           cmd,
+		ptmx:          ptmx,
+		clients:       map[*terminalClient]bool{},
+		createdAt:     time.Now(),
+		lastOutputAt:  time.Now(),
 	}
 
 	// The PTY reader belongs to the session instead of a single websocket
@@ -206,15 +211,18 @@ func createTerminalSessionID() string {
 	return "terminal-" + time.Now().Format("20060102150405.000000000")
 }
 
-func getOrCreateSession(id string, cwd string) (*terminalSession, error) {
+func getOrCreateSession(id string, cwd string, workspaceRoot string) (*terminalSession, error) {
 	terminalSessions.Lock()
 	if session := terminalSessions.items[id]; session != nil {
 		terminalSessions.Unlock()
+		if filepath.Clean(session.workspaceRoot) != filepath.Clean(workspaceRoot) {
+			return nil, errTerminalWorkspaceMismatch
+		}
 		return session, nil
 	}
 	terminalSessions.Unlock()
 
-	return createSession(id, cwd)
+	return createSession(id, cwd, workspaceRoot)
 }
 
 func (session *terminalSession) addClient(ws *websocket.Conn, replayFrom int64) *terminalClient {
@@ -751,6 +759,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	session, err := getOrCreateSession(
 		r.URL.Query().Get("sessionId"),
 		r.URL.Query().Get("cwd"),
+		r.URL.Query().Get("workspaceRoot"),
 	)
 	if err != nil {
 		log.Println("pty start error:", err)

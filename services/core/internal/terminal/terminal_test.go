@@ -2,11 +2,13 @@ package terminal
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -55,6 +57,8 @@ func terminalWebSocketURL(serverURL string, sessionID string) string {
 	query := parsed.Query()
 	query.Set("sessionId", sessionID)
 	query.Set("replayFrom", "0")
+	query.Set("cwd", os.TempDir())
+	query.Set("workspaceRoot", os.TempDir())
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
 }
@@ -265,6 +269,31 @@ func TestTerminalClientPendingBytesReleaseAfterWriteAccounting(t *testing.T) {
 	client.releasePendingBytes(5)
 	if client.pendingBytes != 0 {
 		t.Fatalf("expected pending bytes to release after write accounting, got %d", client.pendingBytes)
+	}
+}
+
+func TestTerminalReconnectRejectsAnotherWorkspace(t *testing.T) {
+	sessionID := "workspace-bound-session"
+	terminalSessions.Lock()
+	terminalSessions.items[sessionID] = &terminalSession{
+		id:            sessionID,
+		workspaceRoot: filepath.Join(string(os.PathSeparator), "workspace-a"),
+		clients:       map[*terminalClient]bool{},
+	}
+	terminalSessions.Unlock()
+	defer func() {
+		terminalSessions.Lock()
+		delete(terminalSessions.items, sessionID)
+		terminalSessions.Unlock()
+	}()
+
+	_, err := getOrCreateSession(
+		sessionID,
+		os.TempDir(),
+		filepath.Join(string(os.PathSeparator), "workspace-b"),
+	)
+	if !errors.Is(err, errTerminalWorkspaceMismatch) {
+		t.Fatalf("expected workspace mismatch, got %v", err)
 	}
 }
 

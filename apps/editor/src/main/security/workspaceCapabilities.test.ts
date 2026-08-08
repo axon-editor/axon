@@ -29,6 +29,23 @@ afterEach(() => {
 });
 
 describe("workspace read capabilities", () => {
+  it("resolves terminal ownership to the most specific approved workspace", () => {
+    const parent = createTemporaryDirectory("axon-parent-workspace-");
+    const nested = path.join(parent, "packages", "editor");
+    fs.mkdirSync(nested, { recursive: true });
+
+    const registry = new WorkspaceCapabilityRegistry();
+    registry.authorize(9, parent);
+    registry.authorize(9, nested);
+
+    expect(registry.resolveRootForPath(9, path.join(nested, "src"))).toBe(
+      fs.realpathSync(nested),
+    );
+    expect(() => registry.resolveRootForPath(10, nested)).toThrow(
+      "outside the renderer's approved workspaces",
+    );
+  });
+
   it("keeps LSP definition grants exact, read-only, and renderer-scoped", () => {
     const workspace = createTemporaryDirectory("axon-workspace-");
     const dependency = createTemporaryDirectory("axon-dependency-");

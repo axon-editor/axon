@@ -45,7 +45,7 @@ func TestTerminalTicketsAreSingleUse(t *testing.T) {
 		authenticatedRequest(
 			http.MethodPost,
 			"/terminal/ticket",
-			[]byte(`{"cwd":`+strconv.Quote(cwd)+`}`),
+			[]byte(`{"cwd":`+strconv.Quote(cwd)+`,"workspaceRoot":`+strconv.Quote(cwd)+`}`),
 		),
 	)
 	if recorder.Code != http.StatusOK {
@@ -66,7 +66,7 @@ func TestTerminalTicketsAreSingleUse(t *testing.T) {
 
 	request := httptest.NewRequest(
 		http.MethodGet,
-		"/terminal?ticket="+url.QueryEscape(response.Data.Ticket)+"&cwd="+url.QueryEscape(cwd),
+		"/terminal?ticket="+url.QueryEscape(response.Data.Ticket)+"&cwd="+url.QueryEscape(cwd)+"&workspaceRoot="+url.QueryEscape(cwd),
 		nil,
 	)
 	if !server.authenticated(request) {
@@ -82,16 +82,36 @@ func TestTerminalTicketRejectsDifferentWorkingDirectory(t *testing.T) {
 	approvedCwd := t.TempDir()
 	ticket := "scoped-ticket"
 	server.terminalTickets[ticket] = terminalTicket{
-		expiresAt: time.Now().Add(time.Minute),
-		cwd:       approvedCwd,
+		expiresAt:     time.Now().Add(time.Minute),
+		cwd:           approvedCwd,
+		workspaceRoot: approvedCwd,
 	}
 	request := httptest.NewRequest(
 		http.MethodGet,
-		"/terminal?ticket="+ticket+"&cwd="+url.QueryEscape(t.TempDir()),
+		"/terminal?ticket="+ticket+"&cwd="+url.QueryEscape(t.TempDir())+"&workspaceRoot="+url.QueryEscape(approvedCwd),
 		nil,
 	)
 	if server.authenticated(request) {
 		t.Fatal("terminal ticket was accepted for a different working directory")
+	}
+}
+
+func TestTerminalTicketRejectsDifferentWorkspaceRoot(t *testing.T) {
+	server := New(testCoreToken)
+	approvedRoot := t.TempDir()
+	ticket := "workspace-scoped-ticket"
+	server.terminalTickets[ticket] = terminalTicket{
+		expiresAt:     time.Now().Add(time.Minute),
+		cwd:           approvedRoot,
+		workspaceRoot: approvedRoot,
+	}
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/terminal?ticket="+ticket+"&cwd="+url.QueryEscape(approvedRoot)+"&workspaceRoot="+url.QueryEscape(t.TempDir()),
+		nil,
+	)
+	if server.authenticated(request) {
+		t.Fatal("terminal ticket was accepted for a different workspace root")
 	}
 }
 

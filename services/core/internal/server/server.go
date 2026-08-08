@@ -36,8 +36,9 @@ type Server struct {
 }
 
 type terminalTicket struct {
-	expiresAt time.Time
-	cwd       string
+	expiresAt     time.Time
+	cwd           string
+	workspaceRoot string
 }
 
 // New creates and returns a new Server instance.
@@ -233,7 +234,7 @@ func requestToken(r *http.Request) string {
 	return ""
 }
 
-func (s *Server) consumeTerminalTicket(ticket string, requestedCwd string) bool {
+func (s *Server) consumeTerminalTicket(ticket string, requestedCwd string, requestedWorkspaceRoot string) bool {
 	if ticket == "" {
 		return false
 	}
@@ -249,7 +250,11 @@ func (s *Server) consumeTerminalTicket(ticket string, requestedCwd string) bool 
 		return false
 	}
 	sameCwd, err := pathInsideWorkspace(capability.cwd, requestedCwd)
-	return err == nil && sameCwd && sameFilesystemPath(capability.cwd, requestedCwd)
+	if err != nil || !sameCwd || !sameFilesystemPath(capability.cwd, requestedCwd) {
+		return false
+	}
+	sameRoot, err := pathInsideWorkspace(capability.workspaceRoot, requestedWorkspaceRoot)
+	return err == nil && sameRoot && sameFilesystemPath(capability.workspaceRoot, requestedWorkspaceRoot)
 }
 
 func (s *Server) authenticated(r *http.Request) bool {
@@ -257,6 +262,7 @@ func (s *Server) authenticated(r *http.Request) bool {
 		return s.consumeTerminalTicket(
 			strings.TrimSpace(r.URL.Query().Get("ticket")),
 			r.URL.Query().Get("cwd"),
+			r.URL.Query().Get("workspaceRoot"),
 		)
 	}
 
@@ -284,21 +290,37 @@ func (s *Server) handleTerminalTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Cwd string `json:"cwd"`
+		Cwd           string `json:"cwd"`
+		WorkspaceRoot string `json:"workspaceRoot"`
 	}
 	limitRequestBody(w, r)
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Cwd == "" {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is required"})
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Cwd == "" || body.WorkspaceRoot == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal workspace and working directory are required"})
 		return
 	}
-	info, err := os.Stat(body.Cwd)
-	if err != nil || !info.IsDir() {
+	rootInfo, err := os.Stat(body.WorkspaceRoot)
+	if err != nil || !rootInfo.IsDir() {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal workspace is invalid"})
+		return
+	}
+	cwdInfo, err := os.Stat(body.Cwd)
+	if err != nil || !cwdInfo.IsDir() {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is invalid"})
+		return
+	}
+	resolvedWorkspaceRoot, err := filepath.EvalSymlinks(body.WorkspaceRoot)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal workspace is invalid"})
 		return
 	}
 	resolvedCwd, err := filepath.EvalSymlinks(body.Cwd)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is invalid"})
+		return
+	}
+	insideWorkspace, err := pathInsideWorkspace(resolvedWorkspaceRoot, resolvedCwd)
+	if err != nil || !insideWorkspace {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is outside its workspace"})
 		return
 	}
 
@@ -319,8 +341,9 @@ func (s *Server) handleTerminalTicket(w http.ResponseWriter, r *http.Request) {
 	// Fifteen seconds covers normal main-process IPC and WebSocket setup while
 	// keeping the capability too short-lived to become a second session secret.
 	s.terminalTickets[ticket] = terminalTicket{
-		expiresAt: now.Add(15 * time.Second),
-		cwd:       resolvedCwd,
+		expiresAt:     now.Add(15 * time.Second),
+		cwd:           resolvedCwd,
+		workspaceRoot: resolvedWorkspaceRoot,
 	}
 	s.terminalMu.Unlock()
 

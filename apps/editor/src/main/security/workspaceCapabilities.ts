@@ -100,6 +100,23 @@ export class WorkspaceCapabilityRegistry {
     return candidate;
   }
 
+  resolveRootForPath(rendererId: number, candidatePath: string) {
+    const candidate = canonicalWorkspacePath(candidatePath);
+    const roots = [...(this.rootsByRenderer.get(rendererId) ?? [])]
+      .filter((root) => pathInsideWorkspaceRoot(candidate, root))
+      .sort((left, right) => right.length - left.length);
+    const root = roots[0];
+    if (!root) {
+      throw new Error("Path is outside the renderer's approved workspaces.");
+    }
+
+    // Nested workspaces are valid, especially in monorepos. The most specific
+    // approved root is the one the terminal must retain because binding it to a
+    // broader parent would let a reconnect silently escape the project the user
+    // opened when the PTY was created.
+    return root;
+  }
+
   authorizeReadOnlyFile(rendererId: number, filePath: string) {
     const candidate = canonicalWorkspacePath(filePath);
     if (this.writableFilesByRenderer.get(rendererId)?.has(candidate)) {

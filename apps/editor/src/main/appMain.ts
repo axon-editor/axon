@@ -360,6 +360,8 @@ registerCoreProxyHandlers({
     workspaceCapabilities.assertRoot(rendererId, rootPath),
   assertWorkspacePath: (rendererId, candidatePath) =>
     workspaceCapabilities.assertPath(rendererId, candidatePath),
+  resolveWorkspaceRoot: (rendererId, candidatePath) =>
+    workspaceCapabilities.resolveRootForPath(rendererId, candidatePath),
 });
 registerDiagnosticsHandlers();
 registerExtensionHandlers();
