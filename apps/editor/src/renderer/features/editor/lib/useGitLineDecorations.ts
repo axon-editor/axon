@@ -7,6 +7,7 @@ import {
   inferThemeAppearance,
 } from "../../../shared/themes/themeAppearance";
 import { computeGitLineDecorations } from "./gitLineDecorations";
+import { isLargeDocumentModel } from "../../../../shared/largeDocument";
 
 interface Options {
   editorRef: RefObject<monaco.editor.IStandaloneCodeEditor | null>;
@@ -43,6 +44,10 @@ export default function useGitLineDecorations({
     const model = editor?.getModel();
     const baseContent = baseContentRef.current;
     if (!editor || !model || model.isDisposed() || baseContent === null) return;
+    if (isLargeDocumentModel(model)) {
+      collectionRef.current?.clear();
+      return;
+    }
 
     const decorations = computeGitLineDecorations(
       baseContent,
@@ -92,10 +97,18 @@ export default function useGitLineDecorations({
 
   useEffect(() => {
     const editor = editorRef.current;
+    const model = editor?.getModel();
     const request = ++requestRef.current;
     baseContentRef.current = null;
 
-    if (loading || !editor || !folderPath || !gitAbsolutePath) {
+    if (
+      loading ||
+      !editor ||
+      !folderPath ||
+      !gitAbsolutePath ||
+      !model ||
+      isLargeDocumentModel(model)
+    ) {
       collectionRef.current?.clear();
       return;
     }

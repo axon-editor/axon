@@ -2,6 +2,7 @@ import * as monaco from "monaco-editor";
 import { applyWorkspaceEdits } from "./workspaceEdits";
 import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
+import { isLargeDocumentModel } from "../../../shared/largeDocument";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -37,7 +38,11 @@ const monacoNativeHoverLanguages = new Set(["typescript", "javascript"]);
 function toLspRequestBase(model: monaco.editor.ITextModel) {
   const folderPath = window.axonCompletionWorkspacePath;
   const filePath = model.uri.fsPath;
-  if (!folderPath || !canUseWorkspaceLanguageTools(filePath, folderPath)) {
+  if (
+    isLargeDocumentModel(model) ||
+    !folderPath ||
+    !canUseWorkspaceLanguageTools(filePath, folderPath)
+  ) {
     return null;
   }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import * as monaco from "monaco-editor";
+import { isLargeDocumentModel } from "../../../../shared/largeDocument";
 
 interface Options {
   editorRef: RefObject<monaco.editor.IStandaloneCodeEditor | null>;
@@ -18,13 +19,16 @@ export function useEditorDiskBaseline({
   filePathRef,
   onDirtyChange,
 }: Options) {
-  const diskContentRef = useRef("");
+  const diskContentRef = useRef<string | null>("");
   const savedAlternativeVersionRef = useRef<number | null>(null);
 
   const recordLoadedDiskContent = useCallback(
     (model: monaco.editor.ITextModel, content: string) => {
-      diskContentRef.current = content;
-      const modelMatchesDisk = model.getValue() === content;
+      const largeDocument = isLargeDocumentModel(model);
+      diskContentRef.current = largeDocument ? null : content;
+      const modelMatchesDisk =
+        model.getValueLength() === content.length &&
+        model.getValue() === content;
       savedAlternativeVersionRef.current = modelMatchesDisk
         ? model.getAlternativeVersionId()
         : null;
@@ -35,7 +39,7 @@ export function useEditorDiskBaseline({
 
   const recordSynchronizedDiskContent = useCallback(
     (model: monaco.editor.ITextModel, content: string) => {
-      diskContentRef.current = content;
+      diskContentRef.current = isLargeDocumentModel(model) ? null : content;
       savedAlternativeVersionRef.current = model.getAlternativeVersionId();
     },
     [],
@@ -51,7 +55,10 @@ export function useEditorDiskBaseline({
     // unsaved edits. There is no saved alternative-version marker for that
     // state, so only this uncommon path compares text. Normal typing uses the
     // O(1) version check above instead of copying the entire document per key.
-    return model.getValue() !== diskContentRef.current;
+    return (
+      diskContentRef.current === null ||
+      model.getValue() !== diskContentRef.current
+    );
   }, []);
 
   useEffect(() => {
@@ -70,7 +77,9 @@ export function useEditorDiskBaseline({
       // event carries the exact content and Monaco version written to disk so
       // that later text remains dirty instead of being incorrectly marked as
       // saved by an asynchronous write completion.
-      diskContentRef.current = saveEvent.detail.content ?? model.getValue();
+      diskContentRef.current = isLargeDocumentModel(model)
+        ? null
+        : (saveEvent.detail.content ?? model.getValue());
       savedAlternativeVersionRef.current = contentStayedCurrent
         ? model.getAlternativeVersionId()
         : null;

@@ -50,6 +50,12 @@ import {
   createTypeScriptExternalProjectsRequest,
   discoverTypeScriptProjectConfigs,
 } from "../typescriptProjects";
+import { createSingleFlight } from "./singleFlight";
+
+const languageServerStartFlights = createSingleFlight<
+  string,
+  LanguageServerStartAttempt
+>();
 
 export function getReadyLanguageServerSession(request: {
   folderPath: string;
@@ -168,7 +174,8 @@ function normalizeSemanticTokensProvider(
   initializeResult: unknown,
 ): LanguageServerSemanticTokensProvider | null {
   if (!initializeResult || typeof initializeResult !== "object") return null;
-  const capabilities = (initializeResult as { capabilities?: unknown }).capabilities;
+  const capabilities = (initializeResult as { capabilities?: unknown })
+    .capabilities;
   if (!capabilities || typeof capabilities !== "object") return null;
   const provider = (capabilities as { semanticTokensProvider?: unknown })
     .semanticTokensProvider;
@@ -285,7 +292,8 @@ async function initializeLanguageServer(session: LanguageServerSession) {
     {
       processId: process.pid,
       rootUri: url.pathToFileURL(session.folderPath).toString(),
-      initializationOptions: await getLanguageServerInitializationOptions(session),
+      initializationOptions:
+        await getLanguageServerInitializationOptions(session),
       workspaceFolders: [
         {
           uri: url.pathToFileURL(session.folderPath).toString(),
@@ -460,7 +468,7 @@ async function initializeLanguageServer(session: LanguageServerSession) {
     });
 }
 
-export function startLanguageServerDefinition(
+function startLanguageServerDefinitionOnce(
   folderPath: string,
   definition: LanguageServerDefinition,
 ): Promise<LanguageServerStartAttempt> {
@@ -645,6 +653,24 @@ export function startLanguageServerDefinition(
   );
 }
 
+export function startLanguageServerDefinition(
+  folderPath: string,
+  definition: LanguageServerDefinition,
+): Promise<LanguageServerStartAttempt> {
+  const key = getLanguageServerSessionKey(folderPath, definition.id);
+
+  // Workspace startup, active-file warmup, completion, and navigation can all
+  // discover the same missing server at nearly the same time. The active map
+  // is populated only after the child emits `spawn`, so checking that map alone
+  // leaves an asynchronous gap where duplicate processes can be launched and
+  // one session overwrites the other. Sharing the complete start attempt by
+  // workspace/server key closes that gap and still clears after failure so the
+  // user can retry an install or repaired executable.
+  return languageServerStartFlights.run(key, () =>
+    startLanguageServerDefinitionOnce(folderPath, definition),
+  );
+}
+
 export function waitForReadyLanguageServerSession(
   key: string,
   timeoutMs = LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS,
@@ -686,7 +712,9 @@ export async function startRelevantLanguageServers(
 
   const startAttempts = startableServers
     .map((status) =>
-      LANGUAGE_SERVER_DEFINITIONS.find((candidate) => candidate.id === status.id),
+      LANGUAGE_SERVER_DEFINITIONS.find(
+        (candidate) => candidate.id === status.id,
+      ),
     )
     .filter((definition): definition is LanguageServerDefinition =>
       Boolean(definition),
@@ -850,9 +878,7 @@ export function getLanguageServerStatus(
   options: { relevantOnly?: boolean; languageId?: string } = {},
 ): Promise<LanguageServerStatus[]> {
   const activeLanguageServerIds = new Set(
-    options.languageId
-      ? resolveDocumentSyncServerIds(options.languageId)
-      : [],
+    options.languageId ? resolveDocumentSyncServerIds(options.languageId) : [],
   );
   const definitions = LANGUAGE_SERVER_DEFINITIONS.filter((definition) => {
     if (!options.relevantOnly) return true;

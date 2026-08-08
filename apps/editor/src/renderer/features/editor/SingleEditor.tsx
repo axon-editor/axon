@@ -3,6 +3,7 @@ import { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { Columns2, Eye, FileText, FileWarning } from "lucide-react";
 import { type EditorSettings } from "../../../shared/settings";
+import { isLargeDocumentModel } from "../../../shared/largeDocument";
 import { type GitChange } from "../../../shared/git";
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import { readFile, writeFile } from "../../shared/lib/api";
@@ -12,6 +13,7 @@ import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
 import {
   createSemanticTokenDecorations,
   installSemanticTokenDecorationStyles,
+  RICH_SEMANTIC_DECORATION_LANGUAGES,
 } from "../../../services/lsp/renderer/semanticTokenDecorations";
 import { registerExternalLanguageToolFile } from "../../../services/lsp/renderer/lspFileAccess";
 import { onSemanticTokensUpdated } from "../../../services/lsp/renderer/lspSemanticTokens";
@@ -28,6 +30,7 @@ import {
   getModel,
   detectLanguage,
   detectLanguageServerLanguage,
+  refreshModelLanguage,
 } from "./lib/monacoModels";
 import { collectFileSymbols } from "../sidebar/files/lib/fileSymbols";
 import { useEditorFind } from "./lib/useEditorFind";
@@ -66,15 +69,6 @@ interface Props {
   gitChanges?: GitChange[];
 }
 type PreviewMode = "editor" | "split";
-const richSemanticDecorationLanguages = new Set([
-  "typescript",
-  "typescriptreact",
-  "javascript",
-  "javascriptreact",
-  "go",
-  "rust",
-  "python",
-]);
 
 export default function SingleEditor({
   filePath,
@@ -93,6 +87,7 @@ export default function SingleEditor({
   gitChanges,
 }: Props) {
   const [liveContent, setLiveContent] = useState("");
+  const [largeDocument, setLargeDocument] = useState(false);
   const [loading, setLoading] = useState(true);
   const [readOnly, setReadOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,6 +214,7 @@ export default function SingleEditor({
     const model = editor?.getModel();
     const position = editor?.getPosition();
     if (!editor || !model || !position || !folderPath) return false;
+    if (isLargeDocumentModel(model)) return false;
 
     const languageId = detectLanguageServerLanguage(filePath);
     if (languageId === "plaintext") return false;
@@ -275,7 +271,7 @@ export default function SingleEditor({
     }
     lspSyncTimerRef.current = window.setTimeout(() => {
       const model = editorRef.current?.getModel();
-      if (!model || model.isDisposed()) return;
+      if (!model || model.isDisposed() || isLargeDocumentModel(model)) return;
       void window.axon.syncLanguageServerDocument({
         folderPath,
         filePath: filePathRef.current,
@@ -288,7 +284,8 @@ export default function SingleEditor({
   const refreshGoSyntaxDecorations = useCallback(() => {
     const editor = editorRef.current;
     const model = editor?.getModel();
-    if (!editor || !model || model.getLanguageId() !== "go") {
+    if (!editor || !model || model.getLanguageId() !== "go" ||
+        isLargeDocumentModel(model)) {
       goSyntaxDecorationsRef.current?.clear();
       return;
     }
@@ -363,7 +360,12 @@ export default function SingleEditor({
   const refreshSemanticTokenDecorations = useCallback(async () => {
     const editor = editorRef.current;
     const model = editor?.getModel();
-    if (!editor || !model || model.isDisposed()) {
+    if (
+      !editor ||
+      !model ||
+      model.isDisposed() ||
+      isLargeDocumentModel(model)
+    ) {
       semanticDecorationsRef.current?.clear();
       return;
     }
@@ -412,7 +414,7 @@ export default function SingleEditor({
           semanticDecorationRetryTimerRef.current = null;
         }
       } else if (
-        richSemanticDecorationLanguages.has(model.getLanguageId()) &&
+        RICH_SEMANTIC_DECORATION_LANGUAGES.has(model.getLanguageId()) &&
         semanticDecorationRetryRef.current.key !== retryKey
       ) {
         semanticDecorationRetryRef.current = { key: retryKey, count: 0 };
@@ -420,7 +422,7 @@ export default function SingleEditor({
 
       if (
         decorations.length === 0 &&
-        richSemanticDecorationLanguages.has(model.getLanguageId()) &&
+        RICH_SEMANTIC_DECORATION_LANGUAGES.has(model.getLanguageId()) &&
         semanticDecorationRetryRef.current.key === retryKey &&
         semanticDecorationRetryRef.current.count < 2 &&
         semanticDecorationRetryTimerRef.current === null
@@ -592,6 +594,7 @@ export default function SingleEditor({
     setLoading(true);
     setReadOnly(false);
     setError(null);
+    setLargeDocument(false);
     setPreviewMode("editor");
     void preloadTextMateLanguage(detectLanguage(filePath));
 
@@ -599,11 +602,13 @@ export default function SingleEditor({
       .then((fc) => {
         if (cancelled) return;
 
-        setLiveContent(fc.content);
         setReadOnly(fc.readOnly);
         if (fc.external) registerExternalLanguageToolFile(fc.path);
         const model = acquireModel(filePath, fc.content);
+        const nextLargeDocument = isLargeDocumentModel(model);
         acquiredModel = true;
+        setLargeDocument(nextLargeDocument);
+        setLiveContent(nextLargeDocument ? "" : fc.content);
         onDirtyChange(filePath, recordLoadedDiskContent(model, fc.content));
 
         // I attach the shared model only after this editor has acquired its
@@ -627,10 +632,12 @@ export default function SingleEditor({
 
     const cleanup = window.axon.onFileChanged(({ path, content }) => {
       if (path !== filePathRef.current) return;
-      setLiveContent(content);
       updateModel(filePath, content);
       const model = getModel(filePath);
       if (model && !model.isDisposed()) {
+        const nextLargeDocument = isLargeDocumentModel(model);
+        setLargeDocument(nextLargeDocument);
+        setLiveContent(nextLargeDocument ? "" : content);
         recordSynchronizedDiskContent(model, content);
       }
       window.requestAnimationFrame(() => {
@@ -696,26 +703,26 @@ export default function SingleEditor({
     const path = filePathRef.current;
     if (!path || saving || readOnly) return;
     const editor = editorRef.current;
-    if (!editor || editor.getModel()?.isDisposed()) return;
+    const model = editor?.getModel();
+    if (!editor || !model || model.isDisposed()) return;
     setSaving(true);
     try {
       const languageId = detectLanguageServerLanguage(path);
       if (
         editorSettings.formatOnSave &&
         folderPath &&
-        editor &&
+        !isLargeDocumentModel(model) &&
         languageId !== "plaintext"
       ) {
         try {
-          const model = editor.getModel();
-          const modelOptions = model?.getOptions();
+          const modelOptions = model.getOptions();
           // Formatting edits are computed against the exact text snapshot we
           // send to the language server. If the user keeps typing while the IPC
           // and LSP round trip is in flight, those returned line/column ranges
           // no longer point at the same code in the live Monaco model. Capturing
           // the model version here lets us discard stale edits instead of
           // applying them to the wrong text and corrupting the file.
-          const versionBeforeFormat = model?.getVersionId();
+          const versionBeforeFormat = model.getVersionId();
           const result = await window.axon.formatLanguageServerDocument({
             folderPath,
             filePath: path,
@@ -725,13 +732,9 @@ export default function SingleEditor({
             insertSpaces: modelOptions?.insertSpaces ?? true,
           });
 
-          const versionAfterFormat = model?.getVersionId();
+          const versionAfterFormat = model.getVersionId();
           const modelChangedDuringFormat =
-            !model ||
-            model.isDisposed() ||
-            versionBeforeFormat === undefined ||
-            versionAfterFormat === undefined ||
-            versionBeforeFormat !== versionAfterFormat;
+            model.isDisposed() || versionBeforeFormat !== versionAfterFormat;
 
           if (
             result.ok &&
@@ -743,7 +746,7 @@ export default function SingleEditor({
             // attached to this shared model updates immediately. Writing a
             // formatted string directly would save the file but leave the
             // visible editor stale until another refresh happens.
-            model?.pushEditOperations(
+            model.pushEditOperations(
               [],
               result.edits.map(toMonacoEdit),
               () => null,
@@ -753,7 +756,7 @@ export default function SingleEditor({
             // feel like it scrolled to the bottom of the file. Restoring the
             // pre-format view state keeps save non-navigational: the user's
             // cursor and viewport stay where they were before formatting ran.
-            if (viewStateBeforeFormat && !model?.isDisposed()) {
+            if (viewStateBeforeFormat && !model.isDisposed()) {
               editor.restoreViewState(viewStateBeforeFormat);
             }
           } else if (
@@ -776,14 +779,13 @@ export default function SingleEditor({
       }
 
       const currentContent = editor.getValue();
-      const model = editor.getModel();
-      const savedAlternativeVersion = model?.getAlternativeVersionId();
+      const savedAlternativeVersion = model.getAlternativeVersionId();
       await writeFile(path, currentContent, folderPath ?? path);
       window.dispatchEvent(
         new CustomEvent("axon:fileSaved", {
           detail: {
             path,
-            content: currentContent,
+            content: isLargeDocumentModel(model) ? undefined : currentContent,
             alternativeVersionId: savedAlternativeVersion,
           },
         }),
@@ -793,12 +795,7 @@ export default function SingleEditor({
     } finally {
       setSaving(false);
     }
-  }, [
-    editorSettings.formatOnSave,
-    folderPath,
-    readOnly,
-    saving,
-  ]);
+  }, [editorSettings.formatOnSave, folderPath, readOnly, saving]);
 
   useEffect(() => {
     const handleMenuSave = (event: Event) => {
@@ -909,33 +906,37 @@ export default function SingleEditor({
     editor.onDidChangeModelContent((event) => {
       const model = editor.getModel();
       if (!model || model.isDisposed()) return;
-      const lineCount = model.getLineCount();
-      const isLargeDocument = lineCount >= 2_000;
+      const isLargeDocument = isLargeDocumentModel(model);
+      refreshModelLanguage(filePath, model);
+      setLargeDocument(isLargeDocument);
       // Monaco owns the live text; React only needs a snapshot for secondary
       // state. Copying the complete buffer on every keystroke made long files
       // pay an O(document size) cost before Monaco could paint the typed text. A
       // trailing read keeps previews and breadcrumbs current without blocking
       // the input event itself.
-      scheduleLiveContentUpdate(
-        () => {
-          if (!model.isDisposed() && editor.getModel() === model) {
-            setLiveContent(model.getValue());
-          }
-        },
-        isMd && previewMode === "split" ? 80 : 240,
-      );
+      if (isLargeDocument) {
+        setLiveContent((current) => (current ? "" : current));
+      } else {
+        scheduleLiveContentUpdate(
+          () => {
+            if (!model.isDisposed() && editor.getModel() === model) {
+              setLiveContent(model.getValue());
+            }
+          },
+          isMd && previewMode === "split" ? 80 : 240,
+        );
+      }
       onDirtyChange(filePath, isModelDirty(model));
-      syncDocumentWithLanguageServer();
-      scheduleSemanticTokenDecorations(isLargeDocument ? 240 : 48);
-      scheduleGoSyntaxUpdate(
-        refreshGoSyntaxDecorations,
-        isLargeDocument ? 180 : 60,
-      );
+      if (!isLargeDocument) {
+        syncDocumentWithLanguageServer();
+        scheduleSemanticTokenDecorations(48);
+        scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
+      }
       // Git gutter markers are positional feedback for the line being edited,
       // so they should not inherit the longer semantic-color delay used by large
       // documents. The diff implementation is already bounded and the hook
       // coalesces typing bursts before repainting.
-      scheduleGitDecorationRefresh();
+      if (!isLargeDocument) scheduleGitDecorationRefresh();
 
       const position = editor.getPosition();
       if (!position) return;
@@ -993,8 +994,8 @@ export default function SingleEditor({
     [filePath],
   );
   const breadcrumbSymbols = useMemo(
-    () => collectFileSymbols(liveContent),
-    [liveContent],
+    () => (largeDocument ? [] : collectFileSymbols(liveContent)),
+    [largeDocument, liveContent],
   );
   const activeBreadcrumbSymbol = [...breadcrumbSymbols]
     .reverse()
@@ -1052,6 +1053,7 @@ export default function SingleEditor({
         findMatchCount={findMatchCount}
         findOpen={findOpen}
         findQuery={findQuery}
+        largeDocument={largeDocument}
         saving={saving}
         readOnly={readOnly}
         shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}

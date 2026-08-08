@@ -1,4 +1,5 @@
 import * as monaco from "monaco-editor";
+import { isLargeDocumentModel } from "../../../shared/largeDocument";
 import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
 import type { LanguageServerCompletionItem } from "../../../shared/lsp";
 import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
@@ -167,6 +168,8 @@ function collectLocalSymbolSuggestions(
   model: monaco.editor.ITextModel,
   position: monaco.Position,
 ) {
+  if (isLargeDocumentModel(model)) return [];
+
   const word = model.getWordUntilPosition(position);
   const prefix = word.word;
   if (prefix.length < 2) return [];
@@ -625,6 +628,7 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
         const folderPath = window.axonCompletionWorkspacePath;
         const filePath = model.uri.fsPath;
         if (
+          isLargeDocumentModel(model) ||
           !folderPath ||
           !canUseWorkspaceLanguageTools(filePath, folderPath)
         ) {

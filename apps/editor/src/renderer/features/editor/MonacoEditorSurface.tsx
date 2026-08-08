@@ -23,6 +23,7 @@ interface Props {
   findMatchCount: number;
   findOpen: boolean;
   findQuery: string;
+  largeDocument: boolean;
   saving: boolean;
   readOnly: boolean;
   shouldUseTransparentEditorSurface: boolean;
@@ -77,6 +78,7 @@ export default function MonacoEditorSurface({
   findMatchCount,
   findOpen,
   findQuery,
+  largeDocument,
   saving,
   readOnly,
   shouldUseTransparentEditorSurface,
@@ -88,6 +90,7 @@ export default function MonacoEditorSurface({
   onMoveFindSelection,
 }: Props) {
   const backgroundStyle = backgroundImageStyle(editorBackgroundImageFit);
+  const formattingOptions = createEditorFormattingOptions(editorSettings);
 
   return (
     <div
@@ -177,59 +180,93 @@ export default function MonacoEditorSurface({
             // time, doubling model decoration work on large files without
             // changing the visible result.
             "semanticHighlighting.enabled": false,
-            minimap: { enabled: editorSettings.minimapEnabled },
+            // Monaco already virtualizes view lines, but several optional
+            // editor features still build document-wide indexes. Large-file
+            // mode turns those secondary indexes off while normal navigation
+            // and editing remain available.
+            largeFileOptimizations: true,
+            matchBrackets: largeDocument ? "never" : "always",
+            occurrencesHighlight: largeDocument ? "off" : "singleFile",
+            selectionHighlight: !largeDocument,
+            links: !largeDocument,
+            colorDecorators: !largeDocument,
+            codeLens: !largeDocument,
+            inlayHints: { enabled: largeDocument ? "off" : "on" },
+            renderValidationDecorations: largeDocument ? "off" : "editable",
+            minimap: {
+              enabled: !largeDocument && editorSettings.minimapEnabled,
+            },
             scrollBeyondLastLine: true,
             lineNumbers: "on",
-            glyphMargin: true,
-            folding: editorSettings.codeFoldingEnabled,
-            showFoldingControls: editorSettings.codeFoldingEnabled
-              ? "mouseover"
-              : "never",
-            stickyScroll: { enabled: editorSettings.stickyScrollEnabled },
-            overviewRulerLanes: editorSettings.scrollbarMarkersEnabled ? 3 : 0,
-            hideCursorInOverviewRuler: !editorSettings.scrollbarMarkersEnabled,
+            glyphMargin: !largeDocument,
+            folding: !largeDocument && editorSettings.codeFoldingEnabled,
+            showFoldingControls:
+              !largeDocument && editorSettings.codeFoldingEnabled
+                ? "mouseover"
+                : "never",
+            stickyScroll: {
+              enabled: !largeDocument && editorSettings.stickyScrollEnabled,
+            },
+            overviewRulerLanes:
+              !largeDocument && editorSettings.scrollbarMarkersEnabled ? 3 : 0,
+            hideCursorInOverviewRuler:
+              largeDocument || !editorSettings.scrollbarMarkersEnabled,
             multiCursorModifier:
               editorSettings.multiCursorModifier === "ctrlCmd"
                 ? "ctrlCmd"
                 : "alt",
             multiCursorPaste: "spread",
             multiCursorMergeOverlapping: true,
-            bracketPairColorization: { enabled: true },
-            ...createEditorFormattingOptions(editorSettings),
+            bracketPairColorization: { enabled: !largeDocument },
+            ...formattingOptions,
+            guides: largeDocument
+              ? {
+                  indentation: false,
+                  highlightActiveIndentation: false,
+                  bracketPairs: false,
+                  bracketPairsHorizontal: false,
+                  highlightActiveBracketPair: false,
+                }
+              : formattingOptions.guides,
             scrollbar: {
               vertical: "auto",
               horizontal: "auto",
               useShadows: false,
             },
-            quickSuggestions: editorSettings.quickSuggestionsEnabled
-              ? {
-                  other: true,
-                  comments: false,
-                  strings: true,
-                }
-              : false,
+            quickSuggestions:
+              !largeDocument && editorSettings.quickSuggestionsEnabled
+                ? {
+                    other: true,
+                    comments: false,
+                    strings: true,
+                  }
+                : false,
             quickSuggestionsDelay: 0,
             suggestOnTriggerCharacters:
+              !largeDocument &&
               editorSettings.triggerCharacterSuggestionsEnabled,
-            wordBasedSuggestions: editorSettings.wordBasedSuggestionsEnabled
-              ? "matchingDocuments"
-              : "off",
-            hover: { enabled: true, delay: 100, sticky: true },
+            wordBasedSuggestions:
+              !largeDocument && editorSettings.wordBasedSuggestionsEnabled
+                ? "matchingDocuments"
+                : "off",
+            hover: { enabled: !largeDocument, delay: 100, sticky: true },
             acceptSuggestionOnCommitCharacter: true,
-            snippetSuggestions: editorSettings.snippetsEnabled ? "top" : "none",
+            snippetSuggestions:
+              !largeDocument && editorSettings.snippetsEnabled ? "top" : "none",
             suggest: {
-              showSnippets: editorSettings.snippetsEnabled,
+              showSnippets: !largeDocument && editorSettings.snippetsEnabled,
               snippetsPreventQuickSuggestions: false,
               showInlineDetails: false,
               showStatusBar: false,
               preview: editorSettings.suggestionPreviewEnabled,
             },
-            tabCompletion: editorSettings.snippetsEnabled ? "on" : "off",
+            tabCompletion:
+              !largeDocument && editorSettings.snippetsEnabled ? "on" : "off",
             renderLineHighlight: "line",
             padding: { top: 16 },
             cursorStyle: editorSettings.cursorStyle,
             cursorBlinking: editorSettings.cursorBlinking,
-            smoothScrolling: true,
+            smoothScrolling: !largeDocument,
           }}
         />
       </div>

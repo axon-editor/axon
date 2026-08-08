@@ -6,6 +6,7 @@ import {
   createLineTracePopover,
   type LineTracePopover,
 } from "./lineTracePopover";
+import { isLargeDocumentModel } from "../../../../shared/largeDocument";
 
 const blameCache = new Map<string, Promise<GitBlameResult>>();
 
@@ -125,44 +126,54 @@ export default function useGitLineTrace({
     editor.layoutContentWidget(current.widget);
   }, [clearWidget, editorRef, enabled, getWidget, visible]);
 
-  const loadBlame = useCallback(
-    () => {
-      const editor = editorRef.current;
-      if (
-        !enabled ||
-        !visible ||
-        loading ||
-        !editor?.getModel() ||
-        !folderPath
-      ) {
-        requestRef.current += 1;
+  const loadBlame = useCallback(() => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (
+      !enabled ||
+      !visible ||
+      loading ||
+      !model ||
+      isLargeDocumentModel(model) ||
+      !folderPath
+    ) {
+      requestRef.current += 1;
+      blameLinesRef.current.clear();
+      clearWidget();
+      return;
+    }
+
+    const key = cacheKey(folderPath, filePath);
+    const request = ++requestRef.current;
+    staleRef.current = false;
+    const pending =
+      blameCache.get(key) ?? window.axon.getGitBlame(folderPath, filePath);
+    blameCache.set(key, pending);
+
+    void pending
+      .then((result) => {
+        if (request !== requestRef.current) return;
+        blameLinesRef.current = new Map(
+          result.lines.map((line) => [line.lineNumber, line]),
+        );
+        paintCurrentLine();
+      })
+      .catch(() => {
+        if (request !== requestRef.current) return;
+        blameCache.delete(key);
         blameLinesRef.current.clear();
         clearWidget();
-        return;
-      }
-
-      const key = cacheKey(folderPath, filePath);
-      const request = ++requestRef.current;
-      staleRef.current = false;
-      const pending =
-        blameCache.get(key) ?? window.axon.getGitBlame(folderPath, filePath);
-      blameCache.set(key, pending);
-
-      void pending
-        .then((result) => {
-          if (request !== requestRef.current) return;
-          blameLinesRef.current = new Map(
-            result.lines.map((line) => [line.lineNumber, line]),
-          );
-          paintCurrentLine();
-        })
-        .catch(() => {
-          if (request !== requestRef.current) return;
-          blameCache.delete(key);
-          blameLinesRef.current.clear();
-          clearWidget();
-        });
-    }, [clearWidget, editorRef, enabled, filePath, folderPath, loading, paintCurrentLine, visible]);
+      });
+  }, [
+    clearWidget,
+    editorRef,
+    enabled,
+    filePath,
+    folderPath,
+    loading,
+    paintCurrentLine,
+    visible,
+  ]);
 
   useEffect(() => {
     loadBlame();

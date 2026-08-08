@@ -10,6 +10,16 @@ import {
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import { getSemanticTokensForModel } from "./lspSemanticTokens";
 
+export const RICH_SEMANTIC_DECORATION_LANGUAGES = new Set([
+  "typescript",
+  "typescriptreact",
+  "javascript",
+  "javascriptreact",
+  "go",
+  "rust",
+  "python",
+]);
+
 const SEMANTIC_STYLE_ELEMENT_ID = "axon-semantic-token-decoration-styles";
 const semanticTokenTypeNames = [...LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES];
 const semanticTokenModifierNames = [...LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS];

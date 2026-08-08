@@ -7,8 +7,19 @@ import { registerMonacoReactLanguages } from "./monacoReactLanguages";
 import { registerMonacoStructuredLanguages } from "./monacoStructuredLanguages";
 import { registerMonacoAdditionalLanguages } from "./monacoAdditionalLanguages";
 import { detectMonacoLanguage } from "./languageDetection";
+import {
+  LARGE_DOCUMENT_LANGUAGE_ID,
+  registerMonacoLargeDocumentLanguages,
+} from "./monacoLargeDocumentLanguages";
+import {
+  isLargeDocumentContent,
+  isLargeDocumentModel,
+} from "../../../../shared/largeDocument";
 
-export { detectLanguageServerLanguage, detectMonacoLanguage } from "./languageDetection";
+export {
+  detectLanguageServerLanguage,
+  detectMonacoLanguage,
+} from "./languageDetection";
 
 const models = new Map<string, monaco.editor.ITextModel>();
 const refCounts = new Map<string, number>();
@@ -22,6 +33,20 @@ export function detectLanguage(path: string): string {
   return detectMonacoLanguage(path);
 }
 
+export function refreshModelLanguage(
+  filePath: string,
+  model: monaco.editor.ITextModel,
+) {
+  const detectedLanguage = detectLanguage(filePath);
+  const modelLanguage = isLargeDocumentModel(model)
+    ? LARGE_DOCUMENT_LANGUAGE_ID
+    : detectedLanguage;
+  if (model.getLanguageId() !== modelLanguage) {
+    monaco.editor.setModelLanguage(model, modelLanguage);
+  }
+  return modelLanguage;
+}
+
 // acquireModel increments the ref count and returns the model.
 // Creates the model if it doesn't exist yet.
 // Always call this once per editor instance that opens a file.
@@ -32,6 +57,12 @@ export function acquireModel(
   registerMonacoReactLanguages();
   registerMonacoStructuredLanguages();
   registerMonacoAdditionalLanguages();
+  registerMonacoLargeDocumentLanguages();
+
+  const detectedLanguage = detectLanguage(filePath);
+  const modelLanguage = isLargeDocumentContent(content)
+    ? LARGE_DOCUMENT_LANGUAGE_ID
+    : detectedLanguage;
 
   const pendingDisposal = disposalTimers.get(filePath);
   if (pendingDisposal) {
@@ -42,10 +73,7 @@ export function acquireModel(
   const existing = models.get(filePath);
 
   if (existing && !existing.isDisposed()) {
-    const languageId = detectLanguage(filePath);
-    if (existing.getLanguageId() !== languageId) {
-      monaco.editor.setModelLanguage(existing, languageId);
-    }
+    refreshModelLanguage(filePath, existing);
     refCounts.set(filePath, (refCounts.get(filePath) ?? 0) + 1);
     return existing;
   }
@@ -56,21 +84,14 @@ export function acquireModel(
   // check if Monaco already has a model for this URI from a previous session
   const existingByUri = monaco.editor.getModel(uri);
   if (existingByUri && !existingByUri.isDisposed()) {
-    const languageId = detectLanguage(filePath);
-    if (existingByUri.getLanguageId() !== languageId) {
-      monaco.editor.setModelLanguage(existingByUri, languageId);
-    }
+    refreshModelLanguage(filePath, existingByUri);
     models.set(filePath, existingByUri);
     refCounts.set(filePath, (refCounts.get(filePath) ?? 0) + 1);
     notifyModelReady(filePath, existingByUri);
     return existingByUri;
   }
 
-  const model = monaco.editor.createModel(
-    content,
-    detectLanguage(filePath),
-    uri,
-  );
+  const model = monaco.editor.createModel(content, modelLanguage, uri);
 
   models.set(filePath, model);
   refCounts.set(filePath, 1);
@@ -105,7 +126,10 @@ export function releaseModel(filePath: string) {
       ) {
         model.dispose();
       }
-      if ((refCounts.get(filePath) ?? 0) <= 0 && models.get(filePath) === model) {
+      if (
+        (refCounts.get(filePath) ?? 0) <= 0 &&
+        models.get(filePath) === model
+      ) {
         models.delete(filePath);
         refCounts.delete(filePath);
       }
@@ -125,6 +149,7 @@ export function updateModel(filePath: string, content: string) {
   if (model.getValue() !== content) {
     model.setValue(content);
   }
+  refreshModelLanguage(filePath, model);
 }
 
 // getModel returns the model for a path if it exists and is not disposed

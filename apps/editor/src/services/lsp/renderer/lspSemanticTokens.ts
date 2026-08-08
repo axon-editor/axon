@@ -7,6 +7,7 @@ import { detectLanguageServerLanguage } from "../../../renderer/features/editor/
 import { createTextMateSemanticTokens } from "./textMateSemanticTokens";
 import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 import { mergeSemanticTokenLayers } from "./semanticTokenMerge";
+import { isLargeDocumentModel } from "../../../shared/largeDocument";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 
@@ -157,6 +158,12 @@ function createSemanticTokenPromise(
 }
 
 export function getSemanticTokensForModel(model: monaco.editor.ITextModel) {
+  // Semantic coloring currently materializes a complete text snapshot and a
+  // complete decoration stream. Large-file mode uses Monaco's lazy lexical
+  // tokenizer instead, so this guard must run before model.getValue() copies
+  // the entire buffer or either token provider begins parsing it.
+  if (isLargeDocumentModel(model)) return Promise.resolve(null);
+
   const cacheKey = getSemanticTokenCacheKey(model);
   const cached = semanticTokenCache.get(cacheKey);
   if (cached?.versionId === model.getVersionId()) return cached.promise;

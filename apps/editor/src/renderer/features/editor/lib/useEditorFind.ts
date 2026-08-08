@@ -6,6 +6,7 @@ import {
   type MutableRefObject,
 } from "react";
 import * as monaco from "monaco-editor";
+import { LARGE_DOCUMENT_FIND_MATCH_LIMIT } from "../../../../shared/largeDocument";
 
 interface UseEditorFindOptions {
   editorRef: MutableRefObject<monaco.editor.IStandaloneCodeEditor | null>;
@@ -59,6 +60,7 @@ export function useEditorFind({
         false,
         null,
         true,
+        LARGE_DOCUMENT_FIND_MATCH_LIMIT,
       );
       setFindMatchCount(matches.length);
       if (matches.length === 0) {
@@ -168,7 +170,10 @@ export function useEditorFind({
     const handleOpenFind = (event: Event) => {
       const findEvent = event as CustomEvent<{ path?: string }>;
       if (!visible || loading) return;
-      if (findEvent.detail?.path && findEvent.detail.path !== filePathRef.current) {
+      if (
+        findEvent.detail?.path &&
+        findEvent.detail.path !== filePathRef.current
+      ) {
         return;
       }
 
