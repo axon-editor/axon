@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, protocol } from "electron";
+import { app, BrowserWindow, dialog, Menu, protocol } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import { execFile } from "child_process";
@@ -99,7 +99,7 @@ let mainWindowReadyForCliOpen = false;
 // remains deterministic because the dev runner supplies AXON_CORE_PORT.
 const axonCorePort =
   process.env.AXON_CORE_PORT?.trim() ||
-  String(20_000 + randomBytes(2).readUInt16BE(0) % 30_000);
+  String(20_000 + (randomBytes(2).readUInt16BE(0) % 30_000));
 // Development supplies one process-scoped token to the independently launched
 // Go process. Packaged Axon generates a fresh secret for every app launch and
 // passes it only to its child core process and trusted preload bridge.
@@ -242,6 +242,48 @@ const bundledCore = createBundledCoreController({
   isDev,
   axonCorePort,
   axonCoreToken,
+  isShuttingDown: () => isQuitting,
+  onStatusChange: (status) => {
+    sendToRenderer("core:status", { status });
+  },
+  confirmRestart: async ({
+    reason,
+    terminalSessionCount,
+    exitCode,
+    exitSignal,
+  }) => {
+    const terminalImpact =
+      terminalSessionCount === null
+        ? "Axon could not determine how many terminal sessions are still running."
+        : terminalSessionCount === 1
+          ? "Restarting will end 1 terminal session and any command running inside it."
+          : `Restarting will end ${terminalSessionCount} terminal sessions and any commands running inside them.`;
+    const detail =
+      reason === "crashed"
+        ? `Axon Core exited unexpectedly${exitCode !== null && exitCode !== undefined ? ` with code ${exitCode}` : exitSignal ? ` after signal ${exitSignal}` : ""}. Its terminal processes have already stopped.`
+        : `Axon Core has stopped responding. ${terminalImpact}`;
+    const options = {
+      type: "warning" as const,
+      title: "Axon Core needs attention",
+      message:
+        reason === "crashed"
+          ? "Axon Core stopped unexpectedly"
+          : "Axon Core is not responding",
+      detail,
+      buttons:
+        reason === "crashed"
+          ? ["Restart Core", "Not Now"]
+          : ["Keep Waiting", "Restart Core"],
+      defaultId: 0,
+      cancelId: reason === "crashed" ? 1 : 0,
+      noLink: true,
+    };
+    const parent = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    const result = parent
+      ? await dialog.showMessageBox(parent, options)
+      : await dialog.showMessageBox(options);
+    return reason === "crashed" ? result.response === 0 : result.response === 1;
+  },
 });
 const taskManager = new TaskManager({
   sendToRenderer,
@@ -606,7 +648,7 @@ app.on("before-quit", async () => {
   testManager.stopAll();
   stopAllLanguageServers();
   bundledCore.stopBundledCoreWatchdog();
-  bundledCore.stopBundledAxonCore();
+  await bundledCore.stopBundledAxonCore();
   await fileWatcherRegistry.closeAll();
   await htmlPreviewServer?.close();
 });

@@ -8,6 +8,24 @@ export interface BundledCoreControllerDependencies {
   isDev: boolean;
   axonCorePort: string;
   axonCoreToken: string;
+  confirmRestart: (request: CoreRestartConfirmation) => Promise<boolean>;
+  isShuttingDown: () => boolean;
+  onStatusChange?: (status: CoreProcessStatus) => void;
+}
+
+export type CoreProcessStatus =
+  | "starting"
+  | "healthy"
+  | "unresponsive"
+  | "restarting"
+  | "stopped"
+  | "crashed";
+
+export interface CoreRestartConfirmation {
+  reason: "unresponsive" | "crashed";
+  terminalSessionCount: number | null;
+  exitCode?: number | null;
+  exitSignal?: NodeJS.Signals | null;
 }
 
 export function createBundledCoreController(
@@ -17,9 +35,39 @@ export function createBundledCoreController(
   let bundledCoreWatchdog: ReturnType<typeof setInterval> | null = null;
   let bundledCoreHealthFailures = 0;
   let bundledCoreRestarting = false;
+  let recoveryPromptActive = false;
+  let restartDeclinedUntil = 0;
+  const expectedCoreExits = new WeakSet<ChildProcess>();
 
   function getAxonCoreHealthUrl() {
     return `http://127.0.0.1:${deps.axonCorePort}/health`;
+  }
+
+  function reportStatus(status: CoreProcessStatus) {
+    deps.onStatusChange?.(status);
+  }
+
+  async function getTerminalSessionCount() {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 900);
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${deps.axonCorePort}/terminal/health`,
+        {
+          headers: { Authorization: `Bearer ${deps.axonCoreToken}` },
+          signal: controller.signal,
+        },
+      );
+      if (!response.ok) return null;
+      const snapshot = (await response.json()) as { sessionCount?: unknown };
+      return typeof snapshot.sessionCount === "number"
+        ? snapshot.sessionCount
+        : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   function createHealthProof() {
@@ -46,22 +94,26 @@ export function createBundledCoreController(
       const check = () => {
         if (settled) return;
         const { challenge, expectedProof } = createHealthProof();
-        const request = http.get(getAxonCoreHealthUrl(), {
-          headers: {
-            Authorization: `Bearer ${deps.axonCoreToken}`,
-            "X-Axon-Challenge": challenge,
+        const request = http.get(
+          getAxonCoreHealthUrl(),
+          {
+            headers: {
+              Authorization: `Bearer ${deps.axonCoreToken}`,
+              "X-Axon-Challenge": challenge,
+            },
           },
-        }, (response) => {
-          response.resume();
-          if (
-            response.statusCode === 200 &&
-            response.headers["x-axon-core-proof"] === expectedProof
-          ) {
-            settle(true);
-            return;
-          }
-          retry();
-        });
+          (response) => {
+            response.resume();
+            if (
+              response.statusCode === 200 &&
+              response.headers["x-axon-core-proof"] === expectedProof
+            ) {
+              settle(true);
+              return;
+            }
+            retry();
+          },
+        );
 
         request.on("error", retry);
         request.setTimeout(750, () => {
@@ -97,18 +149,22 @@ export function createBundledCoreController(
         resolve(value);
       };
       const { challenge, expectedProof } = createHealthProof();
-      const request = http.get(getAxonCoreHealthUrl(), {
-        headers: {
-          Authorization: `Bearer ${deps.axonCoreToken}`,
-          "X-Axon-Challenge": challenge,
+      const request = http.get(
+        getAxonCoreHealthUrl(),
+        {
+          headers: {
+            Authorization: `Bearer ${deps.axonCoreToken}`,
+            "X-Axon-Challenge": challenge,
+          },
         },
-      }, (response) => {
-        response.resume();
-        settle(
-          response.statusCode === 200 &&
-            response.headers["x-axon-core-proof"] === expectedProof,
-        );
-      });
+        (response) => {
+          response.resume();
+          settle(
+            response.statusCode === 200 &&
+              response.headers["x-axon-core-proof"] === expectedProof,
+          );
+        },
+      );
       request.once("error", () => settle(false));
       request.setTimeout(timeoutMs, () => {
         request.destroy();
@@ -118,7 +174,8 @@ export function createBundledCoreController(
   }
 
   function getBundledCorePath() {
-    const binaryName = process.platform === "win32" ? "axon-core.exe" : "axon-core";
+    const binaryName =
+      process.platform === "win32" ? "axon-core.exe" : "axon-core";
     return path.join(process.resourcesPath, "core", binaryName);
   }
 
@@ -137,7 +194,8 @@ export function createBundledCoreController(
     // desktop app. I still check for an already-running server first because
     // developers may launch a packaged build while testing a local core, and
     // blindly spawning another process would only create a port conflict.
-    bundledCoreProcess = spawn(corePath, [], {
+    reportStatus("starting");
+    const child = spawn(corePath, [], {
       env: {
         ...process.env,
         AXON_CORE_PORT: deps.axonCorePort,
@@ -145,31 +203,98 @@ export function createBundledCoreController(
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
+    bundledCoreProcess = child;
 
-    bundledCoreProcess.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (chunk) => {
       console.log(`[axon-core] ${chunk.toString().trimEnd()}`);
     });
-    bundledCoreProcess.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (chunk) => {
       console.error(`[axon-core] ${chunk.toString().trimEnd()}`);
     });
-    bundledCoreProcess.on("exit", () => {
-      bundledCoreProcess = null;
+    child.on("exit", (code, signal) => {
+      if (bundledCoreProcess === child) bundledCoreProcess = null;
+      if (expectedCoreExits.has(child) || deps.isShuttingDown()) {
+        reportStatus("stopped");
+        return;
+      }
+      reportStatus("crashed");
+      void requestCoreRestart({
+        reason: "crashed",
+        terminalSessionCount: 0,
+        exitCode: code,
+        exitSignal: signal,
+      });
     });
-    bundledCoreProcess.on("error", (err) => {
+    child.on("error", (err) => {
       console.error("failed to start bundled axon-core:", err);
-      bundledCoreProcess = null;
+      if (bundledCoreProcess === child) bundledCoreProcess = null;
     });
 
     const ready = await waitForAxonCore();
     if (!ready) {
       console.error("bundled axon-core did not become ready before timeout");
+      reportStatus("unresponsive");
+      return;
+    }
+    reportStatus("healthy");
+  }
+
+  async function stopBundledAxonCore() {
+    const child = bundledCoreProcess;
+    if (!child || child.killed) return;
+
+    expectedCoreExits.add(child);
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve();
+      };
+      const timeout = setTimeout(settle, 2000);
+      child.once("exit", settle);
+      child.kill();
+    });
+    if (bundledCoreProcess === child) bundledCoreProcess = null;
+  }
+
+  async function restartBundledAxonCore() {
+    bundledCoreRestarting = true;
+    reportStatus("restarting");
+    try {
+      await stopBundledAxonCore();
+      await startBundledAxonCore();
+    } finally {
+      bundledCoreRestarting = false;
     }
   }
 
-  function stopBundledAxonCore() {
-    if (!bundledCoreProcess || bundledCoreProcess.killed) return;
-    bundledCoreProcess.kill();
-    bundledCoreProcess = null;
+  async function requestCoreRestart(request: CoreRestartConfirmation) {
+    if (
+      recoveryPromptActive ||
+      bundledCoreRestarting ||
+      deps.isShuttingDown() ||
+      Date.now() < restartDeclinedUntil
+    ) {
+      return;
+    }
+
+    recoveryPromptActive = true;
+    try {
+      const confirmed = await deps.confirmRestart(request);
+      if (!confirmed) {
+        // A declined restart protects the user's terminal state. The cooldown
+        // prevents a watchdog that is still observing the same outage from
+        // reopening the destructive prompt every 45 seconds while they inspect
+        // or recover the process themselves.
+        restartDeclinedUntil = Date.now() + 5 * 60_000;
+        return;
+      }
+      await restartBundledAxonCore();
+    } finally {
+      recoveryPromptActive = false;
+    }
   }
 
   function startBundledCoreWatchdog() {
@@ -187,16 +312,16 @@ export function createBundledCoreController(
         bundledCoreHealthFailures += 1;
         if (bundledCoreHealthFailures < 3) return;
         bundledCoreHealthFailures = 0;
-        bundledCoreRestarting = true;
+        reportStatus("unresponsive");
 
-        // The bundled Go core owns file APIs and terminal PTYs. If it stops
-        // answering health checks after the app has been open for a long time,
-        // leaving the renderer to retry forever gives users a dead editor. The
-        // packaged app can recover by restarting only its child core process; dev
-        // mode is excluded because concurrently owns that process there.
-        stopBundledAxonCore();
-        await startBundledAxonCore();
-        bundledCoreRestarting = false;
+        // Core owns every PTY, so an automatic restart is data loss even when it
+        // makes filesystem APIs responsive again. I inspect terminal health only
+        // to explain the blast radius; the user remains the authority who decides
+        // whether recovery is worth ending those sessions.
+        await requestCoreRestart({
+          reason: "unresponsive",
+          terminalSessionCount: await getTerminalSessionCount(),
+        });
       });
     }, 15000);
   }
