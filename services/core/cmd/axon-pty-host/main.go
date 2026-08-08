@@ -27,13 +27,38 @@ func main() {
 		authToken = hex.EncodeToString(rawToken[:])
 	}
 
+	host := ptyhost.New(authToken)
+	controlPath := strings.TrimSpace(os.Getenv("AXON_PTY_CONTROL"))
+	if controlPath != "" {
+		controlListener, cleanup, err := listenControl(controlPath)
+		if err != nil {
+			log.Fatalf("failed to bind Axon PTY control transport: %v", err)
+		}
+		defer cleanup()
+		controlServer := &http.Server{
+			Handler:           host.ControlRouter(),
+			ReadHeaderTimeout: 5 * time.Second,
+			IdleTimeout:       30 * time.Second,
+			MaxHeaderBytes:    64 << 10,
+		}
+		go func() {
+			if err := controlServer.Serve(controlListener); err != nil && err != http.ErrServerClosed {
+				log.Printf("Axon PTY control transport stopped: %v", err)
+			}
+		}()
+	}
+
 	listener, err := net.Listen("tcp", "127.0.0.1:"+port)
 	if err != nil {
 		log.Fatalf("failed to bind Axon PTY host to loopback: %v", err)
 	}
 	log.Printf("Axon PTY host listening on %s", listener.Addr())
+	streamHandler := host.Router()
+	if controlPath != "" {
+		streamHandler = host.StreamRouter()
+	}
 	server := &http.Server{
-		Handler:           ptyhost.New(authToken).Router(),
+		Handler:           streamHandler,
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		MaxHeaderBytes:    1 << 20,

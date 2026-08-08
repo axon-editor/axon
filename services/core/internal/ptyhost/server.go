@@ -100,11 +100,28 @@ func (s *Server) authenticated(r *http.Request) bool {
 			r.URL.Query().Get("workspaceRoot"),
 		)
 	}
+	return s.authenticatedBearer(r)
+}
+
+func (s *Server) authenticatedBearer(r *http.Request) bool {
 	const bearerPrefix = "Bearer "
 	provided := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), bearerPrefix))
 	return strings.HasPrefix(r.Header.Get("Authorization"), bearerPrefix) &&
 		s.authToken != "" && len(provided) == len(s.authToken) &&
 		subtle.ConstantTimeCompare([]byte(provided), []byte(s.authToken)) == 1
+}
+
+func (s *Server) requireBearerAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.authenticatedBearer(r) {
+			writeJSON(w, http.StatusUnauthorized, map[string]any{
+				"status": "error",
+				"error":  "Axon PTY host authentication failed",
+			})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) requireAuthentication(next http.Handler) http.Handler {
@@ -214,7 +231,27 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Router exposes only terminal endpoints so PTY ownership remains isolated.
+// StreamRouter exposes only the WebSocket data path. In packaged builds, health
+// and ticket creation use the private control socket instead of this loopback
+// listener, so reusable credentials never need to accompany terminal bytes.
+func (s *Server) StreamRouter() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/terminal", terminal.Handler)
+	return corsMiddleware(s.requireAuthentication(mux))
+}
+
+// ControlRouter serves low-volume authenticated operations over a private Unix
+// socket or Windows named pipe. It intentionally has no terminal stream route.
+func (s *Server) ControlRouter() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/terminal/health", terminal.HealthHandler)
+	mux.HandleFunc("/terminal/ticket", s.handleTicket)
+	return s.requireBearerAuthentication(mux)
+}
+
+// Router combines stream and control routes for local development and tests
+// that intentionally run the PTY host on one disposable loopback listener.
 func (s *Server) Router() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)

@@ -13,6 +13,8 @@ export interface BundledServiceControllerDependencies {
   token: string;
   portEnvironmentVariable: string;
   tokenEnvironmentVariable: string;
+  controlSocketPath?: string | null;
+  controlEnvironmentVariable?: string;
   terminalHealthPath?: string;
   confirmRestart: (request: CoreRestartConfirmation) => Promise<boolean>;
   isShuttingDown: () => boolean;
@@ -47,8 +49,32 @@ export function createBundledServiceController(
   let restartDeclinedUntil = 0;
   const expectedCoreExits = new WeakSet<ChildProcess>();
 
-  function getHealthUrl() {
-    return `http://127.0.0.1:${deps.port}/health`;
+  function requestOptions(
+    requestPath: string,
+    headers: http.OutgoingHttpHeaders,
+  ) {
+    if (deps.controlSocketPath) {
+      return {
+        socketPath: deps.controlSocketPath,
+        path: requestPath,
+        headers,
+      } satisfies http.RequestOptions;
+    }
+    return {
+      hostname: "127.0.0.1",
+      port: Number(deps.port),
+      path: requestPath,
+      headers,
+    } satisfies http.RequestOptions;
+  }
+
+  function cleanupControlSocket() {
+    if (!deps.controlSocketPath || process.platform === "win32") return;
+    try {
+      fs.rmSync(deps.controlSocketPath, { force: true });
+    } catch {
+      // The host may have removed its own Unix socket during a graceful exit.
+    }
   }
 
   function reportStatus(status: CoreProcessStatus) {
@@ -57,26 +83,38 @@ export function createBundledServiceController(
 
   async function getTerminalSessionCount() {
     if (!deps.terminalHealthPath) return 0;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 900);
-    try {
-      const response = await fetch(
-        `http://127.0.0.1:${deps.port}${deps.terminalHealthPath}`,
-        {
-          headers: { Authorization: `Bearer ${deps.token}` },
-          signal: controller.signal,
+    return new Promise<number | null>((resolve) => {
+      const request = http.get(
+        requestOptions(deps.terminalHealthPath!, {
+          Authorization: `Bearer ${deps.token}`,
+        }),
+        (response) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+          response.on("end", () => {
+            try {
+              const snapshot = JSON.parse(
+                Buffer.concat(chunks).toString("utf8"),
+              ) as {
+                sessionCount?: unknown;
+              };
+              resolve(
+                typeof snapshot.sessionCount === "number"
+                  ? snapshot.sessionCount
+                  : null,
+              );
+            } catch {
+              resolve(null);
+            }
+          });
         },
       );
-      if (!response.ok) return null;
-      const snapshot = (await response.json()) as { sessionCount?: unknown };
-      return typeof snapshot.sessionCount === "number"
-        ? snapshot.sessionCount
-        : null;
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(timeout);
-    }
+      request.once("error", () => resolve(null));
+      request.setTimeout(900, () => {
+        request.destroy();
+        resolve(null);
+      });
+    });
   }
 
   function createHealthProof() {
@@ -104,13 +142,10 @@ export function createBundledServiceController(
         if (settled) return;
         const { challenge, expectedProof } = createHealthProof();
         const request = http.get(
-          getHealthUrl(),
-          {
-            headers: {
-              Authorization: `Bearer ${deps.token}`,
-              "X-Axon-Challenge": challenge,
-            },
-          },
+          requestOptions("/health", {
+            Authorization: `Bearer ${deps.token}`,
+            "X-Axon-Challenge": challenge,
+          }),
           (response) => {
             response.resume();
             if (
@@ -159,13 +194,10 @@ export function createBundledServiceController(
       };
       const { challenge, expectedProof } = createHealthProof();
       const request = http.get(
-        getHealthUrl(),
-        {
-          headers: {
-            Authorization: `Bearer ${deps.token}`,
-            "X-Axon-Challenge": challenge,
-          },
-        },
+        requestOptions("/health", {
+          Authorization: `Bearer ${deps.token}`,
+          "X-Axon-Challenge": challenge,
+        }),
         (response) => {
           response.resume();
           settle(
@@ -205,11 +237,15 @@ export function createBundledServiceController(
     // developers may launch a packaged build while testing a local core, and
     // blindly spawning another process would only create a port conflict.
     reportStatus("starting");
+    cleanupControlSocket();
     const child = spawn(servicePath, [], {
       env: {
         ...process.env,
         [deps.portEnvironmentVariable]: deps.port,
         [deps.tokenEnvironmentVariable]: deps.token,
+        ...(deps.controlSocketPath && deps.controlEnvironmentVariable
+          ? { [deps.controlEnvironmentVariable]: deps.controlSocketPath }
+          : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -271,6 +307,7 @@ export function createBundledServiceController(
       child.kill();
     });
     if (bundledCoreProcess === child) bundledCoreProcess = null;
+    cleanupControlSocket();
   }
 
   async function restart() {

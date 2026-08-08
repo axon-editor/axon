@@ -112,6 +112,16 @@ const axonCoreToken =
   process.env.AXON_CORE_TOKEN?.trim() || randomBytes(32).toString("hex");
 const axonPtyToken =
   process.env.AXON_PTY_TOKEN?.trim() || randomBytes(32).toString("hex");
+const axonPtyControlPath =
+  process.env.AXON_PTY_CONTROL?.trim() ||
+  (isDev
+    ? null
+    : process.platform === "win32"
+      ? `\\\\.\\pipe\\axon-pty-${process.pid}-${randomBytes(8).toString("hex")}`
+      : path.join(
+          app.getPath("temp"),
+          `axon-pty-${process.pid}-${randomBytes(8).toString("hex")}.sock`,
+        ));
 const axonReleaseApiUrl =
   "https://api.github.com/repos/axon-editor/axon/releases/latest";
 const axonReleasePageUrl =
@@ -310,6 +320,8 @@ const bundledPtyHost = createBundledServiceController({
   token: axonPtyToken,
   portEnvironmentVariable: "AXON_PTY_PORT",
   tokenEnvironmentVariable: "AXON_PTY_TOKEN",
+  controlSocketPath: axonPtyControlPath,
+  controlEnvironmentVariable: "AXON_PTY_CONTROL",
   terminalHealthPath: "/terminal/health",
   isShuttingDown: () => isQuitting,
   onStatusChange: (status) => sendToRenderer("pty:status", { status }),
@@ -388,6 +400,7 @@ registerCoreProxyHandlers({
   axonCoreToken,
   axonPtyPort,
   axonPtyToken,
+  axonPtyControlPath,
   assertWorkspaceRoot: (rendererId, rootPath) =>
     workspaceCapabilities.assertRoot(rendererId, rootPath),
   assertWorkspacePath: (rendererId, candidatePath) =>

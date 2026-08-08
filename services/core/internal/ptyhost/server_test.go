@@ -84,3 +84,24 @@ func TestTerminalRouteRejectsReusableTokenInQuery(t *testing.T) {
 		t.Fatal("terminal route accepted the reusable host token from a URL")
 	}
 }
+
+func TestPackagedRoutersKeepControlAndStreamRoutesSeparate(t *testing.T) {
+	host := New(testToken)
+	controlRecorder := httptest.NewRecorder()
+	host.ControlRouter().ServeHTTP(
+		controlRecorder,
+		authenticatedRequest(http.MethodGet, "/terminal", nil),
+	)
+	if controlRecorder.Code != http.StatusNotFound {
+		t.Fatalf("control transport exposed terminal stream: %d", controlRecorder.Code)
+	}
+
+	streamRecorder := httptest.NewRecorder()
+	host.StreamRouter().ServeHTTP(
+		streamRecorder,
+		authenticatedRequest(http.MethodGet, "/health", nil),
+	)
+	if streamRecorder.Code != http.StatusNotFound {
+		t.Fatalf("stream listener exposed control health: %d", streamRecorder.Code)
+	}
+}

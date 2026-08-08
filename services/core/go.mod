@@ -12,6 +12,7 @@ require github.com/gorilla/websocket v1.5.3
 
 require (
 	github.com/GordenArcher/godenv v1.0.0
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 )
 

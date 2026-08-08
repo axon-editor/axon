@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import http from "node:http";
 
 import type { CoreRequest, CoreResponse } from "../../shared/app";
 
@@ -7,6 +8,7 @@ interface CoreProxyDependencies {
   axonCoreToken: string;
   axonPtyPort: string;
   axonPtyToken: string;
+  axonPtyControlPath?: string | null;
   assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
   assertWorkspacePath: (rendererId: number, candidatePath: string) => string;
   resolveWorkspaceRoot: (rendererId: number, candidatePath: string) => string;
@@ -23,6 +25,67 @@ const rendererCoreRoutes = new Set([
   "/fs/search",
   "/fs/replace",
 ]);
+
+interface TerminalTicketPayload {
+  status?: string;
+  data?: { ticket?: string };
+  error?: string;
+}
+
+function requestTerminalTicket(input: {
+  body: string;
+  controlPath?: string | null;
+  port: string;
+  token: string;
+}) {
+  return new Promise<{ status: number; payload: TerminalTicketPayload }>(
+    (resolve, reject) => {
+      const request = http.request(
+        input.controlPath
+          ? {
+              socketPath: input.controlPath,
+              path: "/terminal/ticket",
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${input.token}`,
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(input.body),
+              },
+            }
+          : {
+              hostname: "127.0.0.1",
+              port: Number(input.port),
+              path: "/terminal/ticket",
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${input.token}`,
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(input.body),
+              },
+            },
+        (response) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+          response.on("end", () => {
+            try {
+              resolve({
+                status: response.statusCode ?? 500,
+                payload: JSON.parse(Buffer.concat(chunks).toString("utf8")),
+              });
+            } catch {
+              reject(new Error("Terminal host returned an invalid response."));
+            }
+          });
+        },
+      );
+      request.once("error", reject);
+      request.setTimeout(1500, () => {
+        request.destroy(new Error("Terminal host did not respond in time."));
+      });
+      request.end(input.body);
+    },
+  );
+}
 
 export function validateRendererCorePath(rawPath: string) {
   if (typeof rawPath !== "string" || !rawPath.startsWith("/")) {
@@ -44,6 +107,7 @@ export function registerCoreProxyHandlers({
   axonCoreToken,
   axonPtyPort,
   axonPtyToken,
+  axonPtyControlPath,
   assertWorkspaceRoot,
   assertWorkspacePath,
   resolveWorkspaceRoot,
@@ -109,32 +173,23 @@ export function registerCoreProxyHandlers({
     async (event, workingDirectory: string) => {
       const cwd = assertWorkspacePath(event.sender.id, workingDirectory);
       const workspaceRoot = resolveWorkspaceRoot(event.sender.id, cwd);
-      const response = await fetch(
-        `http://127.0.0.1:${axonPtyPort}/terminal/ticket`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${axonPtyToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ cwd, workspaceRoot }),
-        },
-      );
-      if (!response.ok) {
+      const response = await requestTerminalTicket({
+        body: JSON.stringify({ cwd, workspaceRoot }),
+        controlPath: axonPtyControlPath,
+        port: axonPtyPort,
+        token: axonPtyToken,
+      });
+      if (response.status < 200 || response.status >= 300) {
         throw new Error(
-          `Core rejected terminal ticket request (${response.status}).`,
+          `Terminal host rejected ticket request (${response.status}).`,
         );
       }
 
-      const payload = (await response.json()) as {
-        status?: string;
-        data?: { ticket?: string };
-        error?: string;
-      };
+      const payload = response.payload;
       const ticket = payload.data?.ticket;
       if (payload.status !== "ok" || !ticket) {
         throw new Error(
-          payload.error ?? "Core returned an invalid terminal ticket.",
+          payload.error ?? "Terminal host returned an invalid ticket.",
         );
       }
       return `ws://127.0.0.1:${axonPtyPort}/terminal?ticket=${encodeURIComponent(ticket)}&workspaceRoot=${encodeURIComponent(workspaceRoot)}&cwd=${encodeURIComponent(cwd)}`;
