@@ -7,7 +7,10 @@ import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";
 import { getSettingsPath } from "./paths";
 import { setClientId } from "../spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
-import { detectPythonVirtualEnvForWorkspace } from "../lsp/session";
+import {
+  detectPythonVirtualEnvForWorkspace,
+  getPythonInterpreterFromVirtualEnv,
+} from "../lsp/pythonEnvironment";
 
 interface SettingsHandlersDependencies {
   authorizeWorkspaceRoot: (
@@ -165,14 +168,15 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     const settingsPath = getSettingsPath(folderPath);
     const hasWorkspaceSettings =
       Boolean(folderPath) && fs.existsSync(settingsPath);
-    if (
-      folderPath &&
-      (!hasWorkspaceSettings ||
-        (!settings.lsp.pythonVirtualEnvPath &&
-          !settings.lsp.pythonInterpreterPath))
-    ) {
-      const detected = detectPythonVirtualEnvForWorkspace(folderPath);
-      if (detected.virtualEnvPath && detected.interpreterPath) {
+    const configuredPythonPath =
+      (settings.lsp.pythonInterpreterPath &&
+      fs.existsSync(settings.lsp.pythonInterpreterPath)
+        ? settings.lsp.pythonInterpreterPath
+        : "") ||
+      getPythonInterpreterFromVirtualEnv(settings.lsp.pythonVirtualEnvPath);
+    if (folderPath && (!hasWorkspaceSettings || !configuredPythonPath)) {
+      const detected = await detectPythonVirtualEnvForWorkspace(folderPath);
+      if (detected.interpreterPath) {
         // I return the detected environment in the in-memory settings shape so
         // Settings and Pyright agree immediately, but I do not write it to
         // axon.json until the user saves. That keeps auto-detection helpful

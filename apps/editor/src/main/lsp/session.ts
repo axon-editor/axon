@@ -18,6 +18,10 @@ import {
   type LanguageServerStartAttempt,
 } from "./definitions";
 import { getBundledAppFilePath, resolveBundledAppFilePath } from "./paths";
+import {
+  detectPythonVirtualEnvForWorkspace,
+  getPythonInterpreterFromVirtualEnv,
+} from "./pythonEnvironment";
 
 export interface LanguageServerSession {
   id: LanguageServerId;
@@ -140,58 +144,28 @@ export function getElectronNodeEnvironment() {
   };
 }
 
-export function getPythonInterpreterFromVirtualEnv(virtualEnvPath: string) {
-  if (!virtualEnvPath) return "";
-
-  const candidates =
-    process.platform === "win32"
-      ? [
-          path.join(virtualEnvPath, "Scripts", "python.exe"),
-          path.join(virtualEnvPath, "Scripts", "python"),
-        ]
-      : [
-          path.join(virtualEnvPath, "bin", "python3"),
-          path.join(virtualEnvPath, "bin", "python"),
-        ];
-
-  return candidates.find((candidate) => fs.existsSync(candidate)) ?? "";
-}
-
-export function detectPythonVirtualEnvForWorkspace(folderPath: string) {
-  if (!folderPath) return { virtualEnvPath: "", interpreterPath: "" };
-
-  const candidateNames = [".venv", "venv", "env", ".env", "virtualenv"];
-
-  for (const candidateName of candidateNames) {
-    const virtualEnvPath = path.join(folderPath, candidateName);
-    const interpreterPath = getPythonInterpreterFromVirtualEnv(virtualEnvPath);
-    if (interpreterPath) {
-      return { virtualEnvPath, interpreterPath };
-    }
-  }
-
-  return { virtualEnvPath: "", interpreterPath: "" };
-}
-
 export async function getPythonLanguageServerSettings(folderPath: string) {
   const settings = await readSettingsForFolder(folderPath);
   const hasWorkspaceSettings =
     Boolean(folderPath) && fs.existsSync(getWorkspaceSettingsPath(folderPath));
-  const detectedVirtualEnv = detectPythonVirtualEnvForWorkspace(folderPath);
+  const detectedVirtualEnv =
+    await detectPythonVirtualEnvForWorkspace(folderPath);
   const configuredInterpreterPath = hasWorkspaceSettings
     ? settings.lsp.pythonInterpreterPath
     : "";
   const configuredVirtualEnvPath = hasWorkspaceSettings
     ? settings.lsp.pythonVirtualEnvPath
     : "";
-  const pythonPath =
-    configuredInterpreterPath ||
-    getPythonInterpreterFromVirtualEnv(configuredVirtualEnvPath) ||
-    detectedVirtualEnv.interpreterPath;
+  const configuredPythonPath =
+    (configuredInterpreterPath && fs.existsSync(configuredInterpreterPath)
+      ? configuredInterpreterPath
+      : "") || getPythonInterpreterFromVirtualEnv(configuredVirtualEnvPath);
+  const pythonPath = configuredPythonPath || detectedVirtualEnv.interpreterPath;
   if (!pythonPath) return null;
 
-  const virtualEnvPath =
-    configuredVirtualEnvPath || detectedVirtualEnv.virtualEnvPath;
+  const virtualEnvPath = configuredPythonPath
+    ? configuredVirtualEnvPath
+    : detectedVirtualEnv.virtualEnvPath;
   const virtualEnvName = virtualEnvPath ? path.basename(virtualEnvPath) : "";
   const parentVirtualEnvPath = virtualEnvPath
     ? path.dirname(virtualEnvPath)
