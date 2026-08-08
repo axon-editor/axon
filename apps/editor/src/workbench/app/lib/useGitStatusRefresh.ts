@@ -1,6 +1,7 @@
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import { type GitStatusResult } from "../../../shared/git";
 import { type OutputEntryLevel } from "../../../platform/panel/bottomPanel";
+import { createLatestTaskQueue } from "./latestTaskQueue";
 
 interface GitStatusRefreshOptions {
   appendOutput: (
@@ -18,12 +19,19 @@ export function useGitStatusRefresh({
   setGitStatus,
 }: GitStatusRefreshOptions) {
   const requestIdRef = useRef(0);
-  const inFlightFolderRef = useRef<string | null>(null);
   const activeFolderPathRef = useRef<string | null>(folderPath);
   const lastSlowRefreshOutputRef = useRef(0);
+  const executeRefreshRef = useRef<
+    (options?: { silent?: boolean }) => Promise<void>
+  >(async () => undefined);
+  const refreshQueueRef = useRef(
+    createLatestTaskQueue((options?: { silent?: boolean }) =>
+      executeRefreshRef.current(options),
+    ),
+  );
   activeFolderPathRef.current = folderPath;
 
-  return useCallback(
+  executeRefreshRef.current = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!folderPath) {
         requestIdRef.current += 1;
@@ -32,8 +40,6 @@ export function useGitStatusRefresh({
       }
 
       const requestedFolderPath = folderPath;
-      if (inFlightFolderRef.current === requestedFolderPath) return;
-      inFlightFolderRef.current = requestedFolderPath;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
 
@@ -86,12 +92,13 @@ export function useGitStatusRefresh({
         console.error("failed to refresh git status:", err);
         appendOutput("git", "Failed to refresh Git status.", "error");
         setGitStatus(null);
-      } finally {
-        if (inFlightFolderRef.current === requestedFolderPath) {
-          inFlightFolderRef.current = null;
-        }
       }
     },
     [appendOutput, folderPath, setGitStatus],
+  );
+
+  return useCallback(
+    (options?: { silent?: boolean }) => refreshQueueRef.current.run(options),
+    [],
   );
 }

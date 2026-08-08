@@ -16,6 +16,8 @@ import { getFileIcon, getFolderIcon } from "./lib/fileIcons";
 import { type GitTreeDecoration } from "..";
 import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
 import { type FileTreeOperation, type ImportedExternalEntry } from "./FileTree";
+import { type FolderChangeEvent } from "../../../../shared/fs";
+import { shouldReloadFolderNode } from "./lib/treeRefresh";
 
 interface Props {
   node: FileNode;
@@ -32,7 +34,7 @@ interface Props {
   ignoredPaths?: Set<string>;
   inlineCreate?: InlineCreateTarget | null;
   operation?: FileTreeOperation | null;
-  refreshNonce?: number;
+  refreshRequest?: (FolderChangeEvent & { id: number }) | null;
   onInlineCreateCancel?: () => void;
   onInlineCreateCreated?: (
     path: string,
@@ -156,7 +158,7 @@ export default function FileTreeNode({
   ignoredPaths,
   inlineCreate,
   operation,
-  refreshNonce = 0,
+  refreshRequest = null,
   onInlineCreateCancel,
   onInlineCreateCreated,
   depth = 0,
@@ -240,10 +242,6 @@ export default function FileTreeNode({
   useEffect(() => {
     if (!node.is_dir || !expanded) return;
 
-    // Expanded folders keep a local child cache so they can stay open while the
-    // root tree refreshes. Disk watcher refreshes need to invalidate that cache
-    // too; otherwise a folder moved in from Finder can update Git decorations
-    // while the visible tree still shows the old children until a remount.
     let cancelled = false;
     getTree(node.path)
       .then((tree) => {
@@ -256,7 +254,34 @@ export default function FileTreeNode({
     return () => {
       cancelled = true;
     };
-  }, [expanded, node.is_dir, node.path, refreshNonce]);
+  }, [expanded, node.is_dir, node.path]);
+
+  useEffect(() => {
+    if (
+      !node.is_dir ||
+      !expanded ||
+      !refreshRequest ||
+      !shouldReloadFolderNode(node.path, refreshRequest)
+    ) {
+      return;
+    }
+
+    // Expanded folders own their loaded child arrays. A deep watcher event only
+    // refreshes the direct parent that can have gained or lost an entry, so one
+    // generated file no longer refetches every expanded folder in the workspace.
+    let cancelled = false;
+    getTree(node.path)
+      .then((tree) => {
+        if (!cancelled) setChildren(tree.children ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setChildren([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, node.is_dir, node.path, refreshRequest]);
 
   useEffect(() => {
     if (!operation || !node.is_dir) return;
@@ -591,7 +616,7 @@ export default function FileTreeNode({
               ignoredPaths={ignoredPaths}
               inlineCreate={inlineCreate}
               operation={operation}
-              refreshNonce={refreshNonce}
+              refreshRequest={refreshRequest}
               onInlineCreateCancel={onInlineCreateCancel}
               onInlineCreateCreated={onInlineCreateCreated}
               depth={depth + 1}

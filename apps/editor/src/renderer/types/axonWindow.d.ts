@@ -7,6 +7,7 @@ import type {
   CoreResponse,
 } from "../../shared/app";
 import type { EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
+import type { FolderChangeEvent } from "../../shared/fs";
 import type {
   ExtensionActionResult,
   ExtensionCommandExecutionResult,
@@ -431,7 +432,7 @@ declare global {
         callback: (data: { path: string; content: string }) => void,
       ) => () => void;
       onFolderChanged: (
-        callback: (data?: { path?: string }) => void,
+        callback: (data?: FolderChangeEvent) => void,
       ) => () => void;
       onGitChanged: (
         callback: (event?: { folderPath?: string; paths?: string[] }) => void,

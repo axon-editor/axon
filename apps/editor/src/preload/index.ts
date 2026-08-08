@@ -25,6 +25,7 @@ import {
   type AiRuntimeStatus,
 } from "../shared/ai";
 import { type EditorDiagnostic } from "../shared/diagnostics";
+import { type FolderChangeEvent } from "../shared/fs";
 import {
   type GitActionResult,
   type GitBranchAction,
@@ -609,8 +610,8 @@ contextBridge.exposeInMainWorld("axon", {
   },
 
   // notifies renderer when any file is created, deleted, or renamed in the folder
-  onFolderChanged: (callback: (data?: { path?: string }) => void) => {
-    const handler = (_: unknown, data?: { path?: string }) => callback(data);
+  onFolderChanged: (callback: (data?: FolderChangeEvent) => void) => {
+    const handler = (_: unknown, data?: FolderChangeEvent) => callback(data);
     ipcRenderer.on("fs:folderChanged", handler);
     return () => ipcRenderer.removeListener("fs:folderChanged", handler);
   },

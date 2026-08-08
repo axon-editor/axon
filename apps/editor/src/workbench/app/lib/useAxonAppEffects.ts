@@ -32,6 +32,10 @@ import { normalizeSettings } from "../../../shared/settings";
 import * as monaco from "monaco-editor";
 import { escapeCssString } from "./appPath";
 import type { EditorNavigationTarget } from "../../../renderer/features/editor/lib/navigation";
+import {
+  folderChanges,
+  shouldReloadWorkspaceRoot,
+} from "../../../renderer/features/sidebar/files/lib/treeRefresh";
 
 interface AxonAppEffectsOptions {
   activeLanguageServerStartRef: any;
@@ -509,9 +513,9 @@ export function useAxonAppEffects({
   useEffect(() => {
     const cleanup = window.axon.onFolderChanged((event) => {
       if (!folderPath) return;
-      const changedPath = event?.path;
+      const changes = folderChanges(event ?? {});
 
-      if (changedPath) {
+      changes.forEach(({ path: changedPath }) => {
         const changedModel = getModel(changedPath);
         const hasUnsavedChanges = layout.panes.some(
           (pane: any) => pane.dirtyFiles?.[changedPath] === true,
@@ -543,7 +547,9 @@ export function useAxonAppEffects({
               console.warn("failed to reload externally changed file:", err);
             });
         }
-      }
+      });
+
+      if (!shouldReloadWorkspaceRoot(folderPath, event ?? {})) return;
 
       if (folderRefreshTimerRef.current) {
         window.clearTimeout(folderRefreshTimerRef.current);

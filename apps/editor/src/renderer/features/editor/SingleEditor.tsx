@@ -920,7 +920,11 @@ export default function SingleEditor({
         refreshGoSyntaxDecorations,
         isLargeDocument ? 180 : 60,
       );
-      scheduleGitDecorationRefresh(isLargeDocument ? 240 : 120);
+      // Git gutter markers are positional feedback for the line being edited,
+      // so they should not inherit the longer semantic-color delay used by large
+      // documents. The diff implementation is already bounded and the hook
+      // coalesces typing bursts before repainting.
+      scheduleGitDecorationRefresh();
 
       const position = editor.getPosition();
       if (!position) return;

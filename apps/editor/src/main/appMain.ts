@@ -22,7 +22,10 @@ import { registerDiagnosticsHandlers } from "./diagnostics/handlers";
 import { registerExtensionHandlers } from "./extensions/handlers";
 import { registerFileWatcherHandlers } from "./fs/handlers";
 import { invalidateWorkspaceIndex } from "./fs/workspaceIndex";
-import { FileWatcherManager } from "./fs/watcher";
+import {
+  FileWatcherManager,
+  shouldIgnoreWorkspaceWatchPath,
+} from "./fs/watcher";
 import { registerGitHandlers } from "./git/handlers";
 import { getGitWatchPaths } from "./git/git";
 import { registerHtmlPreviewHandlers } from "./htmlPreview/handlers";
@@ -338,32 +341,7 @@ function createFileWatcherManager(
 ) {
   return new FileWatcherManager({
     shouldPollWatchers,
-    shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => {
-      const normalizedPath = candidatePath.replace(/\\/g, "/");
-      const segments = normalizedPath.split("/").filter(Boolean);
-
-      // Hidden project files are valid editor content. I only ignore folders/files
-      // that are implementation noise or generated output, because ignoring every
-      // dot-prefixed path makes newly created files such as .gitignore and release
-      // workflow files invisible until the core tree filter is changed too.
-      return segments.some((segment, index) => {
-        if (segment === ".git" || segment === ".DS_Store") return true;
-        if (
-          segment === "node_modules" ||
-          segment === "vendor" ||
-          segment === "dist" ||
-          segment === "release"
-        ) {
-          return true;
-        }
-
-        return (
-          segment === "build" &&
-          index < segments.length - 1 &&
-          segments[index + 1] === "core"
-        );
-      });
-    },
+    shouldIgnoreWorkspaceWatchPath,
     sendToRenderer: sendWatcherEvent,
     getGitWatchPaths,
     stopLanguageServersForFolder: async (folderPath) => {

@@ -5,6 +5,7 @@ import { type GitTreeDecoration } from "..";
 import FileTreeNode from "./FileTreeNode";
 import FileTreeLoading from "./FileTreeLoading";
 import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
+import { type FolderChangeEvent } from "../../../../shared/fs";
 
 export interface ImportedExternalEntry {
   sourcePath: string;
@@ -27,7 +28,7 @@ interface FileTreeProps {
   ignoredPaths: Set<string>;
   inlineCreate: InlineCreateTarget | null;
   operation: FileTreeOperation | null;
-  refreshNonce: number;
+  refreshRequest: (FolderChangeEvent & { id: number }) | null;
   onOpenFolderPicker: () => void;
   onOpenDroppedWorkspace: (path: string) => void | Promise<void>;
   onRootContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -59,7 +60,7 @@ export default function FileTree({
   ignoredPaths,
   inlineCreate,
   operation,
-  refreshNonce,
+  refreshRequest,
   onOpenFolderPicker,
   onOpenDroppedWorkspace,
   onRootContextMenu,
@@ -72,7 +73,8 @@ export default function FileTree({
 }: FileTreeProps) {
   const [emptyDragOver, setEmptyDragOver] = useState(false);
   const showEmptySidebar =
-    !loading && (!tree || ((tree.children?.length ?? 0) === 0 && !inlineCreate));
+    !loading &&
+    (!tree || ((tree.children?.length ?? 0) === 0 && !inlineCreate));
 
   const handleEmptyDragOver = (event: React.DragEvent) => {
     if (!hasExternalFileDrag(event.dataTransfer)) return;
@@ -177,7 +179,7 @@ export default function FileTree({
           ignoredPaths={ignoredPaths}
           inlineCreate={inlineCreate}
           operation={operation}
-          refreshNonce={refreshNonce}
+          refreshRequest={refreshRequest}
           onInlineCreateCancel={onInlineCreateCancel}
           onInlineCreateCreated={onInlineCreateCreated}
         />

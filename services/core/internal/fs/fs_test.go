@@ -87,6 +87,37 @@ func TestGetTreeSkipsGeneratedNoise(t *testing.T) {
 	}
 }
 
+func TestGetTreeLoadsLargeFlatFoldersWithoutDroppingEntries(t *testing.T) {
+	root := t.TempDir()
+	const fileCount = 1200
+
+	for index := 0; index < fileCount; index++ {
+		name := fmt.Sprintf("generated-%04d.ts", index)
+		if err := os.WriteFile(filepath.Join(root, name), nil, 0644); err != nil {
+			t.Fatalf("failed to create large-folder fixture %s: %v", name, err)
+		}
+	}
+	for _, directory := range []string{"api", "cmd", "src"} {
+		if err := os.Mkdir(filepath.Join(root, directory), 0755); err != nil {
+			t.Fatalf("failed to create fixture directory %s: %v", directory, err)
+		}
+	}
+
+	tree, err := GetTree(root)
+	if err != nil {
+		t.Fatalf("GetTree failed for a large flat folder: %v", err)
+	}
+	if len(tree.Children) != fileCount+3 {
+		t.Fatalf("expected %d children, got %d", fileCount+3, len(tree.Children))
+	}
+	for index, directory := range []string{"api", "cmd", "src"} {
+		child := tree.Children[index]
+		if child.Name != directory || !child.IsDir {
+			t.Fatalf("expected directory %s at index %d, got %#v", directory, index, child)
+		}
+	}
+}
+
 func TestReadFileRejectsBinaryContent(t *testing.T) {
 	root := t.TempDir()
 	binaryPath := filepath.Join(root, "axon-core")

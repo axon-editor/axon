@@ -1,10 +1,22 @@
-import chokidar, { type ChokidarOptions, type FSWatcher } from "chokidar";
+import chokidar, {
+  type ChokidarOptions,
+  type FSWatcher as ChokidarWatcher,
+} from "chokidar";
 import fs from "fs";
 import path from "path";
+import { type FolderChangeKind } from "../../shared/fs";
+
+type NativeWatcherListener = (
+  eventType: "rename" | "change",
+  fileName: string | Buffer | null,
+) => void;
 
 interface FileWatcherDependencies {
   shouldPollWatchers: boolean;
-  shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => boolean;
+  shouldIgnoreWorkspaceWatchPath: (
+    candidatePath: string,
+    folderPath?: string,
+  ) => boolean;
   sendToRenderer: (channel: string, payload?: unknown) => void;
   getGitWatchPaths: (folderPath: string) => Promise<string[]>;
   stopLanguageServersForFolder: (folderPath: string) => void | Promise<void>;
@@ -17,10 +29,17 @@ interface FileWatcherDependencies {
   createWatcher?: (
     paths: string | string[],
     options: ChokidarOptions,
-  ) => FSWatcher;
+  ) => ChokidarWatcher;
+  createNativeWatcher?: (
+    folderPath: string,
+    listener: NativeWatcherListener,
+  ) => Pick<fs.FSWatcher, "close">;
 }
 
-function waitForWatcherReady(watcher: FSWatcher, isCurrent: () => boolean) {
+function waitForWatcherReady(
+  watcher: ChokidarWatcher,
+  isCurrent: () => boolean,
+) {
   return new Promise<void>((resolve, reject) => {
     const finish = (callback: () => void) => {
       watcher.off("ready", handleReady);
@@ -44,13 +63,65 @@ function waitForWatcherReady(watcher: FSWatcher, isCurrent: () => boolean) {
 
 const GIT_DISCOVERY_RETRY_DELAYS_MS = [120, 400, 1_000] as const;
 
+const GENERATED_WORKSPACE_DIRECTORIES = new Set([
+  "node_modules",
+  "vendor",
+  "dist",
+  "release",
+  "build",
+  "out",
+  "target",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".ruff_cache",
+  ".gradle",
+  ".next",
+  ".turbo",
+  ".parcel-cache",
+  ".cache",
+  ".gocache",
+  "gocache",
+  "go-build",
+  "coverage",
+  "coverage-final",
+]);
+
+export function shouldIgnoreWorkspaceWatchPath(
+  candidatePath: string,
+  folderPath?: string,
+) {
+  const relativePath = folderPath
+    ? path.relative(path.resolve(folderPath), path.resolve(candidatePath))
+    : candidatePath;
+  const segments = relativePath.replace(/\\/g, "/").split("/").filter(Boolean);
+
+  // The ignore check must operate on workspace-relative segments. Inspecting
+  // the full absolute path made every event disappear when a project happened
+  // to live below an ancestor named `build`, `dist`, or `target`.
+  return segments.some((segment) => {
+    const normalizedSegment = segment.toLowerCase();
+    if (normalizedSegment === ".git" || normalizedSegment === ".ds_store") {
+      return true;
+    }
+    if (GENERATED_WORKSPACE_DIRECTORIES.has(normalizedSegment)) return true;
+    return (
+      normalizedSegment.startsWith(".cache") ||
+      normalizedSegment.startsWith("go-build") ||
+      normalizedSegment.includes("gocache") ||
+      normalizedSegment.endsWith("-cache")
+    );
+  });
+}
+
 export class FileWatcherManager {
-  private activeWatcher: FSWatcher | null = null;
-  private folderWatcher: FSWatcher | null = null;
-  private gitWatcher: FSWatcher | null = null;
+  private activeWatcher: ChokidarWatcher | null = null;
+  private folderWatcher: ChokidarWatcher | null = null;
+  private gitWatcher: ChokidarWatcher | null = null;
+  private nativeFolderWatcher: Pick<fs.FSWatcher, "close"> | null = null;
   private activeFileDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingFolderChangedPaths = new Set<string>();
+  private pendingFolderChanges = new Map<string, FolderChangeKind>();
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private gitDiscoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private gitWatcherSetupPromise: Promise<boolean> | null = null;
@@ -86,30 +157,7 @@ export class FileWatcherManager {
   }
 
   shouldIgnoreWorkspaceWatchPath(candidatePath: string) {
-    const normalizedPath = candidatePath.replace(/\\/g, "/");
-    const segments = normalizedPath.split("/").filter(Boolean);
-
-    // Hidden project files are valid editor content. I only ignore folders/files
-    // that are implementation noise or generated output, because ignoring every
-    // dot-prefixed path makes newly created files such as .gitignore and release
-    // workflow files invisible until the core tree filter is changed too.
-    return segments.some((segment, index) => {
-      if (segment === ".git" || segment === ".DS_Store") return true;
-      if (
-        segment === "node_modules" ||
-        segment === "vendor" ||
-        segment === "dist" ||
-        segment === "release"
-      ) {
-        return true;
-      }
-
-      return (
-        segment === "build" &&
-        index < segments.length - 1 &&
-        segments[index + 1] === "core"
-      );
-    });
+    return shouldIgnoreWorkspaceWatchPath(candidatePath);
   }
 
   async closeActiveWatcher() {
@@ -127,7 +175,9 @@ export class FileWatcherManager {
       clearTimeout(this.folderDebounceTimer);
       this.folderDebounceTimer = null;
     }
-    this.pendingFolderChangedPaths.clear();
+    this.pendingFolderChanges.clear();
+    this.nativeFolderWatcher?.close();
+    this.nativeFolderWatcher = null;
     if (!this.folderWatcher) return;
     await this.folderWatcher.close();
     this.folderWatcher = null;
@@ -329,47 +379,123 @@ export class FileWatcherManager {
     this.watchedFolderPath = folderPath;
 
     try {
+      const pythonEnvironmentRoots = new Set<string>();
+      const shouldIgnore = (
+        candidatePath: string,
+        candidateIsDirectory = false,
+      ) => {
+        if (
+          this.deps.shouldIgnoreWorkspaceWatchPath(candidatePath, folderPath)
+        ) {
+          return true;
+        }
+
+        const resolvedCandidatePath = path.resolve(candidatePath);
+        for (const environmentRoot of pythonEnvironmentRoots) {
+          if (
+            resolvedCandidatePath === environmentRoot ||
+            resolvedCandidatePath.startsWith(`${environmentRoot}${path.sep}`)
+          ) {
+            return true;
+          }
+        }
+
+        // Python environments can have any directory name. Detecting the
+        // interpreter-owned marker at the environment root avoids crawling and
+        // watching thousands of installed packages without hardcoding `.venv`,
+        // while ordinary project folders remain visible and watchable.
+        if (
+          candidateIsDirectory &&
+          fs.existsSync(path.join(resolvedCandidatePath, "pyvenv.cfg"))
+        ) {
+          pythonEnvironmentRoots.add(resolvedCandidatePath);
+          return true;
+        }
+        return false;
+      };
+
+      const notify = (changedPath: string, kind: FolderChangeKind) => {
+        if (shouldIgnore(changedPath)) return;
+        const currentKind = this.pendingFolderChanges.get(changedPath);
+        const nextKind =
+          kind === "change" && currentKind && currentKind !== "change"
+            ? currentKind
+            : kind;
+        this.pendingFolderChanges.set(changedPath, nextKind);
+        if (this.folderDebounceTimer) clearTimeout(this.folderDebounceTimer);
+
+        // Native and Chokidar events deliberately share one short queue. The
+        // native recursive watcher reports immediately while Chokidar may still
+        // be scanning; Chokidar then upgrades `unknown` rename events to an
+        // accurate create/delete kind without making the renderer refresh twice.
+        this.folderDebounceTimer = setTimeout(() => {
+          this.folderDebounceTimer = null;
+          if (generation !== this.folderWatchGeneration) return;
+          const changedEntries = [...this.pendingFolderChanges.entries()];
+          this.pendingFolderChanges.clear();
+          this.deps.invalidateWorkspaceIndex(folderPath);
+          this.deps.sendToRenderer("fs:folderChanged", {
+            changes: changedEntries.map(
+              ([changedEntryPath, changedEntryKind]) => ({
+                path: changedEntryPath,
+                kind: changedEntryKind,
+              }),
+            ),
+          });
+          this.deps.sendToRenderer("git:changed", {
+            folderPath,
+            paths: changedEntries.map(([changedEntryPath]) => changedEntryPath),
+          });
+        }, 24);
+      };
+
+      // fs.watch uses the operating system's recursive facility and starts
+      // without walking every descendant first. This closes the startup gap in
+      // large workspaces where an agent can create a deep file while Chokidar is
+      // still discovering directories. Tests that inject a fake Chokidar watcher
+      // stay deterministic unless they explicitly inject a native watcher too.
+      const createNativeWatcher =
+        this.deps.createNativeWatcher ??
+        (this.deps.createWatcher
+          ? null
+          : (rootPath: string, listener: NativeWatcherListener) =>
+              fs.watch(rootPath, { recursive: true }, listener));
+      if (createNativeWatcher) {
+        try {
+          this.nativeFolderWatcher = createNativeWatcher(
+            folderPath,
+            (eventType, fileName) => {
+              // Native `change` events can fire while an agent is still writing
+              // the file. Chokidar's awaitWriteFinish path owns content reloads
+              // so the renderer never reads and paints a partial intermediate
+              // file. Native rename events remain the immediate structural path.
+              if (eventType === "change") return;
+              const changedPath = fileName
+                ? path.resolve(folderPath, fileName.toString())
+                : folderPath;
+              notify(changedPath, "unknown");
+            },
+          );
+        } catch (error) {
+          console.warn(
+            `native workspace watcher failed for ${folderPath}:`,
+            error instanceof Error ? error.message : error,
+          );
+        }
+      }
+
       this.folderWatcher = this.createWatcher(folderPath, {
         ...this.buildWatcherOptions(),
-        ignored: (candidatePath) => {
+        ignored: (candidatePath, stats) => {
           // I keep the root .git boundary visible so a workspace can become a
           // repository after `git init`. Descendants still use the normal ignore
           // rule and are handled by the narrow Git watcher after discovery.
           if (this.isRootGitMetadataPath(folderPath, candidatePath)) {
             return false;
           }
-          return this.deps.shouldIgnoreWorkspaceWatchPath(candidatePath);
+          return shouldIgnore(candidatePath, stats?.isDirectory() ?? false);
         },
-        depth: 8,
       });
-
-      const notify = (changedPath: string) => {
-        this.pendingFolderChangedPaths.add(changedPath);
-        if (this.folderDebounceTimer) clearTimeout(this.folderDebounceTimer);
-        // The timer is stored on the manager, not as a local closure variable,
-        // because workspace switches close the watcher before the last debounce
-        // may have fired. closeFolderWatcher can now cancel this pending send
-        // and prevent a stale tree refresh for a folder that is no longer open.
-        this.folderDebounceTimer = setTimeout(() => {
-          this.folderDebounceTimer = null;
-          if (generation !== this.folderWatchGeneration) return;
-          const changedPaths = [...this.pendingFolderChangedPaths];
-          this.pendingFolderChangedPaths.clear();
-          this.deps.invalidateWorkspaceIndex(folderPath);
-          changedPaths.forEach((path) => {
-            this.deps.sendToRenderer("fs:folderChanged", { path });
-          });
-          // New untracked files and deleted files do not always mutate the small
-          // set of .git paths we watch quickly enough for the sidebar colors to
-          // feel live. I refresh Git status from the normal folder watcher too so
-          // the tree and Git decorations move together after creates, imports,
-          // edits, and deletes.
-          this.deps.sendToRenderer("git:changed", {
-            folderPath,
-            paths: changedPaths,
-          });
-        }, 24);
-      };
 
       this.folderWatcher.on("add", (changedPath) => {
         // LSP file-watch notifications intentionally bypass the debounced tree
@@ -381,7 +507,7 @@ export class FileWatcherManager {
           changedPath,
           "create",
         );
-        notify(changedPath);
+        notify(changedPath, "create");
         if (this.isRootGitMetadataPath(folderPath, changedPath)) {
           this.scheduleGitWatcherDiscovery(folderPath, generation);
         }
@@ -392,7 +518,7 @@ export class FileWatcherManager {
           changedPath,
           "change",
         );
-        notify(changedPath);
+        notify(changedPath, "change");
       });
       this.folderWatcher.on("unlink", (changedPath) => {
         this.deps.notifyLanguageServersOfFileChange(
@@ -400,21 +526,29 @@ export class FileWatcherManager {
           changedPath,
           "delete",
         );
-        notify(changedPath);
+        notify(changedPath, "delete");
         if (this.isRootGitMetadataPath(folderPath, changedPath)) {
           void this.closeGitWatcher();
         }
       });
       this.folderWatcher.on("addDir", (changedPath) => {
-        notify(changedPath);
+        notify(changedPath, "create");
         if (this.isRootGitMetadataPath(folderPath, changedPath)) {
           this.scheduleGitWatcherDiscovery(folderPath, generation);
+          this.deps.sendToRenderer("git:changed", {
+            folderPath,
+            paths: [changedPath],
+          });
         }
       });
       this.folderWatcher.on("unlinkDir", (changedPath) => {
-        notify(changedPath);
+        notify(changedPath, "delete");
         if (this.isRootGitMetadataPath(folderPath, changedPath)) {
           void this.closeGitWatcher();
+          this.deps.sendToRenderer("git:changed", {
+            folderPath,
+            paths: [changedPath],
+          });
         }
       });
       this.folderWatcher.on("error", (err) => {
@@ -436,7 +570,10 @@ export class FileWatcherManager {
       // One post-ready resync closes that startup window with a fixed amount of
       // work regardless of repository size.
       this.deps.invalidateWorkspaceIndex(folderPath);
-      this.deps.sendToRenderer("fs:folderChanged", { path: folderPath });
+      this.deps.sendToRenderer("fs:folderChanged", {
+        path: folderPath,
+        kind: "unknown",
+      });
       this.deps.sendToRenderer("git:changed", { folderPath });
 
       const gitWatcherStarted = await this.ensureGitWatcher(

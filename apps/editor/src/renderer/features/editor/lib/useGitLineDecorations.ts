@@ -78,7 +78,7 @@ export default function useGitLineDecorations({
   }, [editorRef, themeTokens]);
 
   const scheduleGitDecorationRefresh = useCallback(
-    (delayMs = 120) => {
+    (delayMs = 48) => {
       if (refreshTimerRef.current !== null) {
         window.clearTimeout(refreshTimerRef.current);
       }

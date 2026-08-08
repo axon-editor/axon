@@ -10,7 +10,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -195,49 +194,35 @@ func GetTree(rootPath string) (FileNode, error) {
 		return FileNode{}, err
 	}
 
-	// Separate directories and files so the sidebar can keep folder names above
-	// files while still preserving alphabetical order inside each group.
-	var dirs []os.DirEntry
-	var files []os.DirEntry
+	// os.ReadDir already returns entries sorted by filename. Building the two node
+	// groups in that order keeps folders above files without another O(n log n)
+	// sort or repeated lowercase allocations for directories with thousands of
+	// direct children.
+	var dirs []FileNode
+	var files []FileNode
 
 	for _, entry := range entries {
 		if shouldSkipEntry(entry.Name()) {
 			continue
 		}
 
+		child := FileNode{
+			Name:  entry.Name(),
+			Path:  filepath.Join(rootPath, entry.Name()),
+			IsDir: entry.IsDir(),
+		}
 		if entry.IsDir() {
-			dirs = append(dirs, entry)
+			dirs = append(dirs, child)
 		} else {
-			files = append(files, entry)
+			files = append(files, child)
 		}
 	}
-
-	sort.Slice(dirs, func(i, j int) bool {
-		return strings.ToLower(dirs[i].Name()) < strings.ToLower(dirs[j].Name())
-	})
-
-	sort.Slice(files, func(i, j int) bool {
-		return strings.ToLower(files[i].Name()) < strings.ToLower(files[j].Name())
-	})
 
 	// The renderer expands directories on demand, so I only return the direct
 	// children here. That keeps workspace fetches cheap and avoids paying the
 	// cost of walking every nested folder before the user has asked to see it.
-	for _, entry := range append(dirs, files...) {
-		childPath := filepath.Join(rootPath, entry.Name())
-		childInfo, err := entry.Info()
-		if err != nil {
-			continue
-		}
-
-		child := FileNode{
-			Name:  entry.Name(),
-			Path:  childPath,
-			IsDir: childInfo.IsDir(),
-		}
-
-		node.Children = append(node.Children, child)
-	}
+	node.Children = append(node.Children, dirs...)
+	node.Children = append(node.Children, files...)
 
 	return node, nil
 }

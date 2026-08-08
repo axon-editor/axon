@@ -4,7 +4,7 @@ import path from "path";
 import { EventEmitter } from "events";
 import { type ChokidarOptions, type FSWatcher } from "chokidar";
 import { describe, expect, it, vi } from "vitest";
-import { FileWatcherManager } from "./watcher";
+import { FileWatcherManager, shouldIgnoreWorkspaceWatchPath } from "./watcher";
 
 function createFakeWatcher() {
   const watcher = new EventEmitter() as EventEmitter & {
@@ -89,10 +89,15 @@ describe("FileWatcherManager", () => {
       watcher!.emit("change", secondPath);
       await new Promise((resolve) => setTimeout(resolve, 120));
 
-      const changedPaths = events
-        .filter((event) => event.channel === "fs:folderChanged")
-        .map((event) => (event.payload as { path: string }).path);
-      expect(changedPaths).toEqual([firstPath, secondPath]);
+      const folderEvent = events.find(
+        (event) => event.channel === "fs:folderChanged",
+      );
+      expect(folderEvent?.payload).toEqual({
+        changes: [
+          { path: firstPath, kind: "change" },
+          { path: secondPath, kind: "change" },
+        ],
+      });
     } finally {
       await manager.closeAll();
       await fs.promises.rm(workspacePath, { recursive: true, force: true });
@@ -124,8 +129,9 @@ describe("FileWatcherManager", () => {
 
       expect(events).toContainEqual({
         channel: "fs:folderChanged",
-        payload: { path: workspacePath },
+        payload: { path: workspacePath, kind: "unknown" },
       });
+      expect(createWatcher.mock.calls[0][1].depth).toBeUndefined();
       expect(events).toContainEqual({
         channel: "git:changed",
         payload: { folderPath: workspacePath },
@@ -152,9 +158,7 @@ describe("FileWatcherManager", () => {
         return watcher;
       },
     );
-    const getGitWatchPaths = vi.fn(async () =>
-      gitReady ? [headPath] : [],
-    );
+    const getGitWatchPaths = vi.fn(async () => (gitReady ? [headPath] : []));
     const manager = new FileWatcherManager({
       shouldPollWatchers: false,
       shouldIgnoreWorkspaceWatchPath: (candidatePath) =>
@@ -225,6 +229,139 @@ describe("FileWatcherManager", () => {
       await manager.closeAll();
       await fs.promises.rm(workspacePath, { recursive: true, force: true });
       vi.useRealTimers();
+    }
+  });
+
+  it("reports deep native changes before Chokidar finishes discovery", async () => {
+    vi.useFakeTimers();
+    const workspacePath = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), "axon-native-watcher-"),
+    );
+    const events: Array<{ channel: string; payload?: unknown }> = [];
+    const folderWatcher = new EventEmitter() as EventEmitter & {
+      close: () => Promise<void>;
+    };
+    folderWatcher.close = vi.fn(async () => undefined);
+    let nativeListener:
+      | ((eventType: "rename" | "change", fileName: string | null) => void)
+      | undefined;
+    const nativeClose = vi.fn();
+    const manager = new FileWatcherManager({
+      shouldPollWatchers: false,
+      shouldIgnoreWorkspaceWatchPath: () => false,
+      sendToRenderer: (channel, payload) => events.push({ channel, payload }),
+      getGitWatchPaths: async () => [],
+      stopLanguageServersForFolder: () => undefined,
+      notifyLanguageServersOfFileChange: () => undefined,
+      invalidateWorkspaceIndex: () => undefined,
+      createWatcher: () => folderWatcher as unknown as FSWatcher,
+      createNativeWatcher: (_folderPath, listener) => {
+        nativeListener = listener;
+        return { close: nativeClose };
+      },
+    });
+
+    try {
+      const watchPromise = manager.watchFolder(workspacePath);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(nativeListener).toBeTypeOf("function");
+
+      const deepRelativePath = path.join(
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "agent.ts",
+      );
+      nativeListener?.("rename", deepRelativePath);
+      await vi.advanceTimersByTimeAsync(24);
+
+      expect(events).toContainEqual({
+        channel: "fs:folderChanged",
+        payload: {
+          changes: [
+            {
+              path: path.join(workspacePath, deepRelativePath),
+              kind: "unknown",
+            },
+          ],
+        },
+      });
+
+      folderWatcher.emit("ready");
+      await watchPromise;
+    } finally {
+      await manager.closeAll();
+      expect(nativeClose).toHaveBeenCalled();
+      await fs.promises.rm(workspacePath, { recursive: true, force: true });
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores generated descendants without matching workspace ancestors", () => {
+    const workspacePath = path.join(os.tmpdir(), "build", "axon-project");
+
+    expect(
+      shouldIgnoreWorkspaceWatchPath(
+        path.join(workspacePath, "src", "main.ts"),
+        workspacePath,
+      ),
+    ).toBe(false);
+    expect(
+      shouldIgnoreWorkspaceWatchPath(
+        path.join(workspacePath, "target", "debug", "axon"),
+        workspacePath,
+      ),
+    ).toBe(true);
+  });
+
+  it("skips arbitrarily named Python environments by their marker", async () => {
+    const workspacePath = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), "axon-python-watch-"),
+    );
+    const environmentPath = path.join(workspacePath, "my-project-runtime");
+    await fs.promises.mkdir(environmentPath);
+    await fs.promises.writeFile(
+      path.join(environmentPath, "pyvenv.cfg"),
+      "home = /usr/local/bin\n",
+    );
+    let watcherOptions: ChokidarOptions | undefined;
+    const manager = new FileWatcherManager({
+      shouldPollWatchers: false,
+      shouldIgnoreWorkspaceWatchPath,
+      sendToRenderer: () => undefined,
+      getGitWatchPaths: async () => [],
+      stopLanguageServersForFolder: () => undefined,
+      notifyLanguageServersOfFileChange: () => undefined,
+      invalidateWorkspaceIndex: () => undefined,
+      createWatcher: (_paths, options) => {
+        watcherOptions = options;
+        return createFakeWatcher();
+      },
+    });
+
+    try {
+      await manager.watchFolder(workspacePath);
+      const ignored = watcherOptions?.ignored;
+      expect(typeof ignored).toBe("function");
+      if (typeof ignored === "function") {
+        expect(
+          ignored(environmentPath, {
+            isDirectory: () => true,
+          } as fs.Stats),
+        ).toBe(true);
+        expect(
+          ignored(path.join(environmentPath, "lib", "python", "site.py")),
+        ).toBe(true);
+      }
+    } finally {
+      await manager.closeAll();
+      await fs.promises.rm(workspacePath, { recursive: true, force: true });
     }
   });
 });
