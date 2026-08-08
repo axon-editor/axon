@@ -17,6 +17,5 @@ docs/.docusaurus/
 docs/.next/
 docs/build/
 docs/out/
-axon-vscode-architecture-comparison.md
 pr.md
 .env
