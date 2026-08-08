@@ -14,6 +14,7 @@ import {
 } from "./lib/settingsData";
 import { FONT_PRESET_VALUES } from "./lib/fontPresets";
 import {
+  getSettingsPythonWorkspaceEnvironment,
   importSettingsFont,
   selectSettingsBackgroundImage,
   selectSettingsPythonVirtualEnv,
@@ -35,6 +36,7 @@ import {
 
 interface Props {
   folderPath: string | null;
+  language: string;
   availableFonts: AxonSettings["customFonts"];
   extensionState: ExtensionState | null;
   settings: AxonSettings;
@@ -47,6 +49,7 @@ interface Props {
 
 export default function SettingsModal({
   folderPath,
+  language,
   availableFonts,
   extensionState,
   settings,
@@ -68,6 +71,7 @@ export default function SettingsModal({
   const [pythonEnvironmentMessage, setPythonEnvironmentMessage] = useState<
     string | null
   >(null);
+  const [pythonDetected, setPythonDetected] = useState(false);
   const previewReadyRef = useRef(false);
 
   const customFontItems = useMemo(
@@ -138,6 +142,41 @@ export default function SettingsModal({
         .includes(normalizedQuery),
     );
   }, [sectionQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPythonDetected(false);
+    setPythonEnvironmentMessage(null);
+    if (!folderPath) return;
+
+    getSettingsPythonWorkspaceEnvironment(folderPath, language)
+      .then((status) => {
+        if (cancelled) return;
+        setPythonDetected(status.pythonDetected);
+        if (!status.pythonDetected) return;
+
+        // Main owns interpreter discovery because it can inspect the workspace
+        // and developer shell safely. Mirroring its result into the draft makes
+        // the path fields truthful as soon as Settings opens, including Poetry,
+        // Pipenv, uv, pyenv, Conda, and arbitrarily named pyvenv.cfg folders.
+        setDraft((current) => ({
+          ...current,
+          lsp: {
+            ...current.lsp,
+            pythonVirtualEnvPath: status.virtualEnvPath,
+            pythonInterpreterPath: status.interpreterPath,
+          },
+        }));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("failed to detect workspace Python environment:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [folderPath, language]);
 
   useEffect(() => {
     if (!previewReadyRef.current) {
@@ -421,6 +460,7 @@ export default function SettingsModal({
                 onSelectPythonVirtualEnv={() => void selectPythonVirtualEnv()}
                 onUpdateLsp={updateLsp}
                 onViewLogs={onViewLogs}
+                pythonDetected={pythonDetected}
                 pythonEnvironmentMessage={pythonEnvironmentMessage}
               />
             )}

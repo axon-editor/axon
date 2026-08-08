@@ -18,6 +18,7 @@ interface LanguageServersSettingsSectionProps {
     value: AxonSettings["lsp"][K],
   ) => void;
   onViewLogs: () => void;
+  pythonDetected: boolean;
   pythonEnvironmentMessage: string | null;
 }
 
@@ -29,6 +30,7 @@ export default function LanguageServersSettingsSection({
   onSelectPythonVirtualEnv,
   onUpdateLsp,
   onViewLogs,
+  pythonDetected,
   pythonEnvironmentMessage,
 }: LanguageServersSettingsSectionProps) {
   return (
@@ -47,52 +49,54 @@ export default function LanguageServersSettingsSection({
         />
       </SettingsField>
 
-      <SettingsField
-        label="Python environment"
-        description="Select a workspace environment when Python imports are unavailable from the system interpreter."
-      >
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={onSelectPythonVirtualEnv}
-              disabled={!folderPath}
-              className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              <FolderOpen size={14} />
-              Select environment
-            </button>
-            <button
-              type="button"
-              onClick={onClearPythonVirtualEnv}
-              disabled={
-                !draft.lsp.pythonVirtualEnvPath &&
-                !draft.lsp.pythonInterpreterPath
-              }
-              className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              Clear
-            </button>
-          </div>
-          <SettingsTextInput
-            value={draft.lsp.pythonVirtualEnvPath}
-            onChange={(value) => onUpdateLsp("pythonVirtualEnvPath", value)}
-            placeholder=".venv path"
-            monospace
-          />
-          <SettingsTextInput
-            value={draft.lsp.pythonInterpreterPath}
-            onChange={(value) => onUpdateLsp("pythonInterpreterPath", value)}
-            placeholder="Python interpreter path"
-            monospace
-          />
-          {pythonEnvironmentMessage ? (
-            <div className="text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-55">
-              {pythonEnvironmentMessage}
+      {pythonDetected ? (
+        <SettingsField
+          label="Python environment"
+          description="Select a workspace environment when Python imports are unavailable from the detected interpreter."
+        >
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onSelectPythonVirtualEnv}
+                disabled={!folderPath}
+                className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <FolderOpen size={14} />
+                Select environment
+              </button>
+              <button
+                type="button"
+                onClick={onClearPythonVirtualEnv}
+                disabled={
+                  !draft.lsp.pythonVirtualEnvPath &&
+                  !draft.lsp.pythonInterpreterPath
+                }
+                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                Clear
+              </button>
             </div>
-          ) : null}
-        </div>
-      </SettingsField>
+            <SettingsTextInput
+              value={draft.lsp.pythonVirtualEnvPath}
+              onChange={(value) => onUpdateLsp("pythonVirtualEnvPath", value)}
+              placeholder="Virtual environment path"
+              monospace
+            />
+            <SettingsTextInput
+              value={draft.lsp.pythonInterpreterPath}
+              onChange={(value) => onUpdateLsp("pythonInterpreterPath", value)}
+              placeholder="Python interpreter path"
+              monospace
+            />
+            {pythonEnvironmentMessage ? (
+              <div className="text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-55">
+                {pythonEnvironmentMessage}
+              </div>
+            ) : null}
+          </div>
+        </SettingsField>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <button

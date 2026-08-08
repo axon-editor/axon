@@ -65,6 +65,7 @@ import type {
   LanguageServerSignatureHelpResult,
   LanguageServerStartForFileRequest,
   LanguageServerStatus,
+  PythonWorkspaceEnvironmentStatus,
 } from "../../shared/lsp";
 import type {
   ManagedLanguageToolId,
@@ -163,6 +164,10 @@ declare global {
         interpreterPath: string;
       } | null>;
       getSettings: (folderPath?: string | null) => Promise<AxonSettings>;
+      getPythonWorkspaceEnvironment: (
+        folderPath?: string | null,
+        activeLanguageId?: string,
+      ) => Promise<PythonWorkspaceEnvironmentStatus>;
       updateSettings: (
         settings: AxonSettings,
         folderPath?: string | null,

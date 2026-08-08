@@ -212,6 +212,7 @@ export default function WorkbenchOverlays(props: Record<string, any>) {
         {settingsOpen && settingsContribution && (
           <SettingsModal
             folderPath={folderPath}
+            language={language}
             availableFonts={availableFonts}
             extensionState={extensionState}
             settings={settings}

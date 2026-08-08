@@ -13,6 +13,13 @@ export function selectSettingsPythonVirtualEnv(folderPath: string | null) {
   return window.axon.selectPythonVirtualEnv(folderPath);
 }
 
+export function getSettingsPythonWorkspaceEnvironment(
+  folderPath: string | null,
+  activeLanguageId: string,
+) {
+  return window.axon.getPythonWorkspaceEnvironment(folderPath, activeLanguageId);
+}
+
 export function getSettingsLanguageServerStatus(
   folderPath: string,
 ): Promise<LanguageServerStatus[]> {

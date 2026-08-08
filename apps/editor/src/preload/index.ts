@@ -85,6 +85,7 @@ import {
   type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
+  type PythonWorkspaceEnvironmentStatus,
 } from "../shared/lsp";
 import {
   type ManagedLanguageToolId,
@@ -214,6 +215,15 @@ contextBridge.exposeInMainWorld("axon", {
   } | null> => ipcRenderer.invoke("dialog:selectPythonVirtualEnv", folderPath),
   getSettings: (folderPath?: string | null) =>
     ipcRenderer.invoke("settings:get", folderPath),
+  getPythonWorkspaceEnvironment: (
+    folderPath?: string | null,
+    activeLanguageId?: string,
+  ): Promise<PythonWorkspaceEnvironmentStatus> =>
+    ipcRenderer.invoke(
+      "settings:getPythonEnvironment",
+      folderPath,
+      activeLanguageId,
+    ),
   updateSettings: (settings: AxonSettings, folderPath?: string | null) =>
     ipcRenderer.invoke("settings:update", settings, folderPath),
   ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>

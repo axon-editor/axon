@@ -4,11 +4,24 @@ import fsPromises from "fs/promises";
 import path from "path";
 import { promisify } from "util";
 import { getDeveloperToolSpawnEnvironment } from "../process/environment";
+import { hasWorkspaceMarker } from "./workspaceMarkers";
 
 export interface PythonEnvironmentSelection {
   virtualEnvPath: string;
   interpreterPath: string;
 }
+
+export const PYTHON_WORKSPACE_MARKERS = [
+  "pyproject.toml",
+  "setup.py",
+  "setup.cfg",
+  "requirements.txt",
+  "Pipfile",
+  "poetry.lock",
+  "uv.lock",
+  "*.py",
+  "*.pyi",
+];
 
 const execFileAsync = promisify(execFile);
 const PYTHON_ENVIRONMENT_SCAN_DEPTH = 4;
@@ -40,6 +53,13 @@ const detectionCache = new Map<
     promise: Promise<PythonEnvironmentSelection>;
   }
 >();
+
+export function isPythonWorkspace(folderPath: string) {
+  return (
+    Boolean(folderPath) &&
+    hasWorkspaceMarker(folderPath, PYTHON_WORKSPACE_MARKERS)
+  );
+}
 
 export function getPythonInterpreterFromVirtualEnv(virtualEnvPath: string) {
   if (!virtualEnvPath) return "";

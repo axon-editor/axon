@@ -36,7 +36,6 @@ import {
   getLanguageServerInitializationOptions,
   getLanguageServerSessionKey,
   getPythonLanguageServerSettings,
-  hasWorkspaceMarker,
   notifyLanguageServerConfiguration,
   readLanguageServerMessages,
   rejectLanguageServerPendingRequests,
@@ -46,6 +45,7 @@ import {
   waitForLanguageServerSpawn,
   writeLanguageServerMessage,
 } from "../session";
+import { hasWorkspaceMarker } from "../workspaceMarkers";
 import {
   createTypeScriptExternalProjectsRequest,
   discoverTypeScriptProjectConfigs,

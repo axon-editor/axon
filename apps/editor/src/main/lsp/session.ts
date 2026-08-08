@@ -52,83 +52,8 @@ export interface LspSessionDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
 }
 
-const WORKSPACE_MARKER_SEARCH_DEPTH = 4;
-const WORKSPACE_MARKER_IGNORED_DIRECTORIES = new Set([
-  ".git",
-  ".gocache",
-  ".next",
-  ".nuxt",
-  ".svelte-kit",
-  ".turbo",
-  "build",
-  "coverage",
-  "dist",
-  "node_modules",
-  "target",
-  "vendor",
-  "__pycache__",
-]);
 const resolvedCommandPathCache = new Map<string, string>();
 const commandAvailabilityCache = new Map<string, boolean>();
-
-function directoryHasFileWithExtension(
-  folderPath: string,
-  extension: string,
-  depth = 0,
-): boolean {
-  if (depth > WORKSPACE_MARKER_SEARCH_DEPTH) return false;
-
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(folderPath, { withFileTypes: true });
-  } catch {
-    return false;
-  }
-
-  for (const entry of entries) {
-    if (entry.isFile() && entry.name.endsWith(extension)) return true;
-  }
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (WORKSPACE_MARKER_IGNORED_DIRECTORIES.has(entry.name)) continue;
-    if (entry.name.startsWith(".") && entry.name !== ".github") continue;
-
-    // The Settings LSP panel is refreshed often, so I keep this scan shallow
-    // and skip generated dependency folders. That still catches real project
-    // signals such as a .py file under src/, without turning every settings
-    // refresh into a full workspace search across node_modules, build outputs,
-    // or caches.
-    if (
-      directoryHasFileWithExtension(
-        path.join(folderPath, entry.name),
-        extension,
-        depth + 1,
-      )
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export function hasWorkspaceMarker(folderPath: string, markers: string[]) {
-  return markers.some((marker) => {
-    if (!marker.includes("*")) {
-      return fs.existsSync(path.join(folderPath, marker));
-    }
-
-    // Some project markers are intentionally glob-shaped because their real
-    // names are user-defined: C# projects use App.csproj/Solution.sln instead
-    // of a fixed filename. I only support a simple "*.<ext>" marker here so
-    // relevance checks stay cheap and predictable during settings refresh.
-    const extension = marker.startsWith("*.") ? marker.slice(1) : "";
-    if (!extension) return false;
-
-    return directoryHasFileWithExtension(folderPath, extension);
-  });
-}
 
 export function getLanguageServerSessionKey(
   folderPath: string,

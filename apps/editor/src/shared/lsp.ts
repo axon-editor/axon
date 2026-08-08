@@ -68,6 +68,12 @@ export interface LanguageServerLifecycleResult {
   servers: LanguageServerStatus[];
 }
 
+export interface PythonWorkspaceEnvironmentStatus {
+  pythonDetected: boolean;
+  virtualEnvPath: string;
+  interpreterPath: string;
+}
+
 export interface LanguageServerStartForFileRequest {
   folderPath: string;
   languageId: string;

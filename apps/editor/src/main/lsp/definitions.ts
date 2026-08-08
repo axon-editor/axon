@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { type LanguageServerId } from "../../shared/lsp";
 import { resolveBundledAppFilePath } from "./paths";
+import { PYTHON_WORKSPACE_MARKERS } from "./pythonEnvironment";
 
 export interface LanguageServerDefinition {
   id: LanguageServerId;
@@ -174,7 +175,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
     command: "pyright-langserver",
     args: ["--version"],
     launchArgs: ["--stdio"],
-    workspaceMarkers: ["pyproject.toml", "setup.py", "requirements.txt", "*.py"],
+    workspaceMarkers: PYTHON_WORKSPACE_MARKERS,
     installHint: "Bundled with Axon through pyright.",
     runtimeRequirement:
       "Select the project virtual environment when imports live outside the system Python.",

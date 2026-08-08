@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   findPythonVirtualEnvInWorkspace,
   getPythonInterpreterFromVirtualEnv,
+  isPythonWorkspace,
 } from "./pythonEnvironment";
 
 async function createPythonEnvironment(root: string, name: string) {
@@ -75,6 +76,45 @@ describe("Python environment discovery", () => {
       expect(getPythonInterpreterFromVirtualEnv(fakeEnvironment)).toBe(
         interpreterPath,
       );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("detects Python projects from nested source files and package markers", async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "axon-python-project-test-"),
+    );
+    try {
+      await fs.mkdir(path.join(root, "packages", "api", "src"), {
+        recursive: true,
+      });
+      await fs.writeFile(
+        path.join(root, "packages", "api", "src", "main.py"),
+        "print('axon')\n",
+      );
+
+      expect(isPythonWorkspace(root)).toBe(true);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not detect Python from generated dependency content alone", async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "axon-python-project-test-"),
+    );
+    try {
+      const dependencyPath = path.join(
+        root,
+        "node_modules",
+        "embedded-tool",
+        "main.py",
+      );
+      await fs.mkdir(path.dirname(dependencyPath), { recursive: true });
+      await fs.writeFile(dependencyPath, "print('dependency')\n");
+
+      expect(isPythonWorkspace(root)).toBe(false);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

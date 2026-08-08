@@ -1,6 +1,7 @@
 import { dialog, ipcMain } from "electron";
 import fs from "fs";
 import path from "path";
+import { type PythonWorkspaceEnvironmentStatus } from "../../shared/lsp";
 import { type AxonSettings, type CustomFont } from "../../shared/settings";
 import { readSettingsForFolder, writeSettingsToDisk } from "./io";
 import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";
@@ -10,7 +11,58 @@ import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
+  isPythonWorkspace,
 } from "../lsp/pythonEnvironment";
+
+const EMPTY_PYTHON_WORKSPACE_STATUS: PythonWorkspaceEnvironmentStatus = {
+  pythonDetected: false,
+  virtualEnvPath: "",
+  interpreterPath: "",
+};
+
+function getConfiguredPythonEnvironment(settings: AxonSettings) {
+  const directInterpreter = settings.lsp.pythonInterpreterPath;
+  if (directInterpreter && fs.existsSync(directInterpreter)) {
+    return {
+      virtualEnvPath: settings.lsp.pythonVirtualEnvPath,
+      interpreterPath: directInterpreter,
+    };
+  }
+
+  const environmentInterpreter = getPythonInterpreterFromVirtualEnv(
+    settings.lsp.pythonVirtualEnvPath,
+  );
+  return environmentInterpreter
+    ? {
+        virtualEnvPath: settings.lsp.pythonVirtualEnvPath,
+        interpreterPath: environmentInterpreter,
+      }
+    : null;
+}
+
+async function resolvePythonWorkspaceStatus(
+  folderPath: string,
+  settings: AxonSettings,
+  useConfiguredEnvironment: boolean,
+  activeLanguageId = "",
+): Promise<PythonWorkspaceEnvironmentStatus> {
+  const activeFileIsPython = activeLanguageId.trim().toLowerCase() === "python";
+  if (!activeFileIsPython && !isPythonWorkspace(folderPath)) {
+    return EMPTY_PYTHON_WORKSPACE_STATUS;
+  }
+
+  const configuredEnvironment = useConfiguredEnvironment
+    ? getConfiguredPythonEnvironment(settings)
+    : null;
+  const environment =
+    configuredEnvironment ??
+    (await detectPythonVirtualEnvForWorkspace(folderPath));
+  return {
+    pythonDetected: true,
+    virtualEnvPath: environment.virtualEnvPath,
+    interpreterPath: environment.interpreterPath,
+  };
+}
 
 interface SettingsHandlersDependencies {
   authorizeWorkspaceRoot: (
@@ -160,6 +212,27 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     },
   );
 
+  ipcMain.handle(
+    "settings:getPythonEnvironment",
+    async (
+      event,
+      folderPath?: string | null,
+      activeLanguageId?: string,
+    ) => {
+      if (!folderPath) return EMPTY_PYTHON_WORKSPACE_STATUS;
+      deps.assertWorkspaceRoot(event.sender.id, folderPath);
+
+      const settingsPath = getSettingsPath(folderPath);
+      const settings = await readSettingsForFolder(folderPath);
+      return resolvePythonWorkspaceStatus(
+        folderPath,
+        settings,
+        fs.existsSync(settingsPath),
+        activeLanguageId,
+      );
+    },
+  );
+
   ipcMain.handle("settings:get", async (event, folderPath?: string | null) => {
     if (folderPath) {
       deps.assertWorkspaceRoot(event.sender.id, folderPath);
@@ -168,13 +241,14 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     const settingsPath = getSettingsPath(folderPath);
     const hasWorkspaceSettings =
       Boolean(folderPath) && fs.existsSync(settingsPath);
-    const configuredPythonPath =
-      (settings.lsp.pythonInterpreterPath &&
-      fs.existsSync(settings.lsp.pythonInterpreterPath)
-        ? settings.lsp.pythonInterpreterPath
-        : "") ||
-      getPythonInterpreterFromVirtualEnv(settings.lsp.pythonVirtualEnvPath);
-    if (folderPath && (!hasWorkspaceSettings || !configuredPythonPath)) {
+    const pythonDetected = folderPath ? isPythonWorkspace(folderPath) : false;
+    const configuredPythonEnvironment =
+      getConfiguredPythonEnvironment(settings);
+    if (
+      folderPath &&
+      pythonDetected &&
+      (!hasWorkspaceSettings || !configuredPythonEnvironment)
+    ) {
       const detected = await detectPythonVirtualEnvForWorkspace(folderPath);
       if (detected.interpreterPath) {
         // I return the detected environment in the in-memory settings shape so
@@ -207,6 +281,19 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
           },
         };
       }
+    } else if (
+      folderPath &&
+      !hasWorkspaceSettings &&
+      !pythonDetected
+    ) {
+      return {
+        ...settings,
+        lsp: {
+          ...settings.lsp,
+          pythonVirtualEnvPath: "",
+          pythonInterpreterPath: "",
+        },
+      };
     }
     if (!folderPath) {
       writeSettingsToDisk(settings, settingsPath);
@@ -234,7 +321,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
           deps.notifyPythonConfigurationForFolder(session.folderPath);
         }
       }
-      if (folderPath) {
+      if (folderPath && isPythonWorkspace(folderPath)) {
         void deps.startPythonLanguageServerForFolder(folderPath);
       }
       if (!AXON_SPOTIFY_CLIENT_ID) {
