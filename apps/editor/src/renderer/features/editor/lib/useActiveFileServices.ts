@@ -1,11 +1,9 @@
 import { useEffect } from "react";
 
-import { getModel } from "./monacoModels";
-
 interface ActiveFileServicesOptions {
   filePath: string;
   loading: boolean;
-  syncDocument: (content: string) => void;
+  syncDocument: () => void;
   visible: boolean;
 }
 
@@ -17,8 +15,7 @@ export function useActiveFileServices({
 }: ActiveFileServicesOptions) {
   useEffect(() => {
     if (!visible || loading) return;
-    const model = getModel(filePath);
-    if (model && !model.isDisposed()) syncDocument(model.getValue());
+    syncDocument();
     void window.axon.watchFile(filePath);
     return () => {
       void window.axon.unwatchFile();

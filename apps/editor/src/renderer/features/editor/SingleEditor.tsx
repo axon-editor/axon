@@ -44,6 +44,7 @@ import { useEditorActions } from "./lib/useEditorActions";
 import { useTrailingTask } from "./lib/useTrailingTask";
 import { useActiveFileServices } from "./lib/useActiveFileServices";
 import { useEditorIndentationSettings } from "./lib/useEditorIndentationSettings";
+import { useEditorDiskBaseline } from "./lib/useEditorDiskBaseline";
 import { useEditorZoomViewport } from "./lib/useEditorZoomViewport";
 import useGitLineDecorations from "./lib/useGitLineDecorations";
 import useGitLineTrace from "./lib/useGitLineTrace";
@@ -116,8 +117,12 @@ export default function SingleEditor({
   const goSyntaxDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
-  const diskContentRef = useRef("");
   const filePathRef = useRef(filePath);
+  const {
+    isModelDirty,
+    recordLoadedDiskContent,
+    recordSynchronizedDiskContent,
+  } = useEditorDiskBaseline({ editorRef, filePathRef, onDirtyChange });
   const trackEditorZoomViewport = useEditorZoomViewport(
     editorRef,
     editorSettings.fontSize,
@@ -245,31 +250,30 @@ export default function SingleEditor({
     }
   }, [filePath, folderPath, onOpenNavigationTarget]);
 
-  const syncDocumentWithLanguageServer = useCallback(
-    (content: string) => {
-      if (!folderPath) return;
-      const languageId = detectLanguageServerLanguage(filePathRef.current);
-      if (languageId === "plaintext") return;
+  const syncDocumentWithLanguageServer = useCallback(() => {
+    if (!folderPath) return;
+    const languageId = detectLanguageServerLanguage(filePathRef.current);
+    if (languageId === "plaintext") return;
 
-      // Diagnostics are pushed by the language server after it sees the latest
-      // in-memory document. I debounce the full-text sync because users can
-      // type many edits in a burst, and sending every single keystroke through
-      // IPC would make the editor feel heavier without producing more useful
-      // diagnostics.
-      if (lspSyncTimerRef.current) {
-        window.clearTimeout(lspSyncTimerRef.current);
-      }
-      lspSyncTimerRef.current = window.setTimeout(() => {
-        void window.axon.syncLanguageServerDocument({
-          folderPath,
-          filePath: filePathRef.current,
-          languageId,
-          content,
-        });
-      }, 320);
-    },
-    [folderPath],
-  );
+    // Diagnostics are pushed by the language server after it sees the latest
+    // in-memory document. I debounce the full-text sync because users can
+    // type many edits in a burst, and sending every single keystroke through
+    // IPC would make the editor feel heavier without producing more useful
+    // diagnostics.
+    if (lspSyncTimerRef.current) {
+      window.clearTimeout(lspSyncTimerRef.current);
+    }
+    lspSyncTimerRef.current = window.setTimeout(() => {
+      const model = editorRef.current?.getModel();
+      if (!model || model.isDisposed()) return;
+      void window.axon.syncLanguageServerDocument({
+        folderPath,
+        filePath: filePathRef.current,
+        languageId,
+        content: model.getValue(),
+      });
+    }, 320);
+  }, [folderPath]);
 
   const refreshGoSyntaxDecorations = useCallback(() => {
     const editor = editorRef.current;
@@ -588,9 +592,9 @@ export default function SingleEditor({
         setLiveContent(fc.content);
         setReadOnly(fc.readOnly);
         if (fc.external) registerExternalLanguageToolFile(fc.path);
-        diskContentRef.current = fc.content;
         const model = acquireModel(filePath, fc.content);
         acquiredModel = true;
+        onDirtyChange(filePath, recordLoadedDiskContent(model, fc.content));
 
         // I attach the shared model only after this editor has acquired its
         // own reference. That keeps the model lifetime tied to real mounted
@@ -599,8 +603,8 @@ export default function SingleEditor({
         if (editorRef.current && !model.isDisposed()) {
           editorRef.current.setModel(model);
           window.requestAnimationFrame(() => {
-            void refreshSemanticTokenDecorations();
-            refreshGoSyntaxDecorations();
+            scheduleSemanticTokenDecorations();
+            scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
           });
         }
       })
@@ -614,11 +618,14 @@ export default function SingleEditor({
     const cleanup = window.axon.onFileChanged(({ path, content }) => {
       if (path !== filePathRef.current) return;
       setLiveContent(content);
-      diskContentRef.current = content;
       updateModel(filePath, content);
+      const model = getModel(filePath);
+      if (model && !model.isDisposed()) {
+        recordSynchronizedDiskContent(model, content);
+      }
       window.requestAnimationFrame(() => {
-        void refreshSemanticTokenDecorations();
-        refreshGoSyntaxDecorations();
+        scheduleSemanticTokenDecorations();
+        scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
       });
       onDirtyChange(filePath, false);
     });
@@ -759,11 +766,17 @@ export default function SingleEditor({
       }
 
       const currentContent = editor.getValue();
+      const model = editor.getModel();
+      const savedAlternativeVersion = model?.getAlternativeVersionId();
       await writeFile(path, currentContent, folderPath ?? path);
-      diskContentRef.current = currentContent;
-      onDirtyChange(path, false);
       window.dispatchEvent(
-        new CustomEvent("axon:fileSaved", { detail: { path } }),
+        new CustomEvent("axon:fileSaved", {
+          detail: {
+            path,
+            content: currentContent,
+            alternativeVersionId: savedAlternativeVersion,
+          },
+        }),
       );
     } catch (err: any) {
       console.error("save failed:", err.message);
@@ -773,7 +786,6 @@ export default function SingleEditor({
   }, [
     editorSettings.formatOnSave,
     folderPath,
-    onDirtyChange,
     readOnly,
     saving,
   ]);
@@ -789,26 +801,6 @@ export default function SingleEditor({
     window.addEventListener("axon:saveFile", handleMenuSave);
     return () => window.removeEventListener("axon:saveFile", handleMenuSave);
   }, [handleSave, visible]);
-
-  useEffect(() => {
-    const handleExternalSave = (event: Event) => {
-      const saveEvent = event as CustomEvent<{ path?: string }>;
-      if (saveEvent.detail?.path !== filePathRef.current) return;
-
-      // App-level save writes the shared Monaco model directly so Cmd/Ctrl+S
-      // still works when focus is outside this editor widget. This mounted
-      // editor still owns the dirty comparison baseline, so I refresh it here
-      // after any successful external save. Without this, a file could look
-      // clean immediately after saving and then become dirty again on the next
-      // edit because the editor was still comparing against the old disk text.
-      diskContentRef.current = editorRef.current?.getValue() ?? "";
-      onDirtyChange(filePathRef.current, false);
-    };
-
-    window.addEventListener("axon:fileSaved", handleExternalSave);
-    return () =>
-      window.removeEventListener("axon:fileSaved", handleExternalSave);
-  }, [onDirtyChange]);
 
   const handleEditorMount: OnMount = (editor) => {
     editorRef.current = editor;
@@ -904,23 +896,34 @@ export default function SingleEditor({
     });
 
     editor.onDidChangeModelContent((event) => {
-      const current = editor.getValue();
+      const model = editor.getModel();
+      if (!model || model.isDisposed()) return;
+      const lineCount = model.getLineCount();
+      const isLargeDocument = lineCount >= 2_000;
       // Monaco owns the live text; React only needs a snapshot for secondary
-      // state on every keystroke wastes a render and reparses file symbols while
-      // the user is still typing. A short trailing update keeps those secondary
+      // state. Copying the complete buffer on every keystroke made long files
+      // pay an O(document size) cost before Monaco could paint the typed text. A
+      // trailing read keeps previews and breadcrumbs current without blocking
+      // the input event itself.
       scheduleLiveContentUpdate(
-        () => setLiveContent(current),
+        () => {
+          if (!model.isDisposed() && editor.getModel() === model) {
+            setLiveContent(model.getValue());
+          }
+        },
         isMd && previewMode === "split" ? 80 : 240,
       );
-      onDirtyChange(filePath, current !== diskContentRef.current);
-      syncDocumentWithLanguageServer(current);
-      scheduleSemanticTokenDecorations();
-      scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
-      scheduleGitDecorationRefresh();
+      onDirtyChange(filePath, isModelDirty(model));
+      syncDocumentWithLanguageServer();
+      scheduleSemanticTokenDecorations(isLargeDocument ? 240 : 48);
+      scheduleGoSyntaxUpdate(
+        refreshGoSyntaxDecorations,
+        isLargeDocument ? 180 : 60,
+      );
+      scheduleGitDecorationRefresh(isLargeDocument ? 240 : 120);
 
-      const model = editor.getModel();
       const position = editor.getPosition();
-      if (!model || !position) return;
+      if (!position) return;
 
       const languageId = model.getLanguageId();
       const insertedSuggestCharacter = event.changes.some((change) =>

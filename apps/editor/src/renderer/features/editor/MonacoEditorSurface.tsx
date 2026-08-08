@@ -171,7 +171,12 @@ export default function MonacoEditorSurface({
             tabSize: editorSettings.tabSize,
             insertSpaces: editorSettings.insertSpaces,
             detectIndentation: editorSettings.detectIndentation,
-            "semanticHighlighting.enabled": true,
+            // Axon paints its merged TextMate/LSP tokens through one custom
+            // decoration collection. Enabling Monaco's semantic painter here
+            // makes the same full-document token stream get applied a second
+            // time, doubling model decoration work on large files without
+            // changing the visible result.
+            "semanticHighlighting.enabled": false,
             minimap: { enabled: editorSettings.minimapEnabled },
             scrollBeyondLastLine: true,
             lineNumbers: "on",

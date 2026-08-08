@@ -77,15 +77,18 @@ export default function useGitLineDecorations({
     );
   }, [editorRef, themeTokens]);
 
-  const scheduleGitDecorationRefresh = useCallback(() => {
-    if (refreshTimerRef.current !== null) {
-      window.clearTimeout(refreshTimerRef.current);
-    }
-    refreshTimerRef.current = window.setTimeout(() => {
-      refreshTimerRef.current = null;
-      paintCurrentModel();
-    }, 120);
-  }, [paintCurrentModel]);
+  const scheduleGitDecorationRefresh = useCallback(
+    (delayMs = 120) => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        paintCurrentModel();
+      }, delayMs);
+    },
+    [paintCurrentModel],
+  );
 
   useEffect(() => {
     const editor = editorRef.current;
