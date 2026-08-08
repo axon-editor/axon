@@ -17,7 +17,6 @@ docs/.docusaurus/
 docs/.next/
 docs/build/
 docs/out/
-axon-terminal-race-and-perf-fixes.md
-TERMINAL_AND_MANAGED_LANGUAGE_TOOLS.md
+axon-vscode-architecture-comparison.md
 pr.md
 .env
