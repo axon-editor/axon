@@ -12,6 +12,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import MermaidDiagram from "./MermaidDiagram";
 
 interface MarkdownPreviewProps {
   content: string;
@@ -180,6 +181,10 @@ function getClassNameFromNode(node: ReactNode): string | undefined {
   return undefined;
 }
 
+function getCodeLanguage(className?: string) {
+  return /language-([\w-]+)/.exec(className ?? "")?.[1]?.toLowerCase() ?? "text";
+}
+
 async function copyTextToClipboard(text: string) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -253,7 +258,7 @@ function CodeBlock({
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const language = /language-([\w-]+)/.exec(className ?? "")?.[1] ?? "text";
+  const language = getCodeLanguage(className);
   const code = useMemo(
     () => textFromNode(children).replace(/\n$/, ""),
     [children],
@@ -480,11 +485,13 @@ export default function MarkdownPreview({
         // every renderer path. Treating `pre` as the only fenced-code
         // entry point prevents single-backtick text like `7777` from
         // being mistaken for a full GitHub-style code block.
-        return (
-          <CodeBlock className={getClassNameFromNode(children)}>
-            {textFromNode(children)}
-          </CodeBlock>
-        );
+        const className = getClassNameFromNode(children);
+        const source = textFromNode(children).replace(/\n$/, "");
+        if (["mermaid", "mmd"].includes(getCodeLanguage(className))) {
+          return <MermaidDiagram source={source} />;
+        }
+
+        return <CodeBlock className={className}>{source}</CodeBlock>;
       },
       img: ({ src, alt, width, height, ...props }: any) => {
         const mediaStyle = getStyleObject(props.style);
