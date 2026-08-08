@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -307,9 +308,15 @@ func TestReplaceWorkspaceChangesAllTextFilesAndPreservesSkippedContent(t *testin
 		if readErr != nil || string(content) != "after after\n" {
 			t.Fatalf("unexpected replacement in %s: %q, %v", filePath, content, readErr)
 		}
-		info, statErr := os.Stat(filePath)
-		if statErr != nil || info.Mode().Perm() != 0o640 {
-			t.Fatalf("replacement changed permissions for %s", filePath)
+		if runtime.GOOS != "windows" {
+			// Windows does not expose POSIX permission bits with the same semantics
+			// as Unix filesystems. The replacement behavior above is still verified
+			// on every platform, while exact mode preservation remains asserted only
+			// where os.Chmod and FileMode.Perm represent the underlying permissions.
+			info, statErr := os.Stat(filePath)
+			if statErr != nil || info.Mode().Perm() != 0o640 {
+				t.Fatalf("replacement changed permissions for %s", filePath)
+			}
 		}
 	}
 	skippedContent, err := os.ReadFile(skippedPath)
