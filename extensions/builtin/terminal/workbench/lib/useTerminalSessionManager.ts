@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal as XTerm, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -40,6 +35,8 @@ export interface TerminalTab {
     queuedBytes: number;
     inFlightWriteBytes: number;
     maxQueuedBytes: number;
+    lastWriteCommitLatencyMs: number;
+    maxWriteCommitLatencyMs: number;
     drainedChunks: number;
     reconnectCount: number;
     lastCloseCode: number | null;
@@ -105,7 +102,8 @@ export function useTerminalSessionManager({
     if (
       dims &&
       session.ws.readyState === WebSocket.OPEN &&
-      (dims.cols !== session.lastResizeCols || dims.rows !== session.lastResizeRows)
+      (dims.cols !== session.lastResizeCols ||
+        dims.rows !== session.lastResizeRows)
     ) {
       session.lastResizeCols = dims.cols;
       session.lastResizeRows = dims.rows;
@@ -147,6 +145,8 @@ export function useTerminalSessionManager({
                 queuedBytes: session.queuedBytes,
                 inFlightWriteBytes: session.inFlightWriteBytes,
                 maxQueuedBytes: session.maxQueuedBytes,
+                lastWriteCommitLatencyMs: session.lastWriteCommitLatencyMs,
+                maxWriteCommitLatencyMs: session.maxWriteCommitLatencyMs,
                 drainedChunks: session.drainedChunks,
                 reconnectCount: session.reconnectCount,
                 lastCloseCode: session.lastCloseCode,
@@ -245,69 +245,76 @@ export function useTerminalSessionManager({
     }
   }, [disposeSession]);
 
-  const createTab = useCallback((sessionWorkingDirectory = workingDirectory) => {
-    const id = createTerminalId();
-    const title = getFolderName(sessionWorkingDirectory);
-    suppressAutoCreateRef.current = false;
+  const createTab = useCallback(
+    (sessionWorkingDirectory = workingDirectory) => {
+      const id = createTerminalId();
+      const title = getFolderName(sessionWorkingDirectory);
+      suppressAutoCreateRef.current = false;
 
-    setTabs((currentTabs) => [
-      ...currentTabs,
-      {
-        id,
-        title,
-        connected: false,
-        health: {
-          receivedBytes: 0,
-          ackedBytes: 0,
-          queuedBytes: 0,
-          inFlightWriteBytes: 0,
-          maxQueuedBytes: 0,
-          drainedChunks: 0,
-          reconnectCount: 0,
-          lastCloseCode: null,
-          lastCloseReason: "",
+      setTabs((currentTabs) => [
+        ...currentTabs,
+        {
+          id,
+          title,
+          connected: false,
+          health: {
+            receivedBytes: 0,
+            ackedBytes: 0,
+            queuedBytes: 0,
+            inFlightWriteBytes: 0,
+            maxQueuedBytes: 0,
+            lastWriteCommitLatencyMs: 0,
+            maxWriteCommitLatencyMs: 0,
+            drainedChunks: 0,
+            reconnectCount: 0,
+            lastCloseCode: null,
+            lastCloseReason: "",
+          },
         },
-      },
-    ]);
-    setActiveTabId(id);
-    sessionsRef.current[id] = {
-      container: null,
-      term: null,
-      fitAddon: null,
-      ws: null,
-      reconnectTimer: null,
-      resizeDebounceTimer: null,
-      resizeObserver: null,
-      dataDisposable: null,
-      multilineDisposable: null,
-      scrollDisposable: null,
-      workingDirectory: sessionWorkingDirectory,
-      cwdSynced: false,
-      receivedBytes: 0,
-      lastAckedBytes: 0,
-      ackTimer: null,
-      outputQueue: [],
-      outputWriting: false,
-      outputDrainTimer: null,
-      inFlightWriteBytes: 0,
-      pendingBinaryDecodes: 0,
-      queuedBytes: 0,
-      maxQueuedBytes: 0,
-      drainedChunks: 0,
-      reconnectCount: 0,
-      lastCloseCode: null,
-      lastCloseReason: "",
-      lastHealthUpdatedAt: 0,
-      inputQueue: [],
-      queuedInputBytes: 0,
-      scrollLine: 0,
-      atBottom: true,
-      lastResizeCols: null,
-      lastResizeRows: null,
-      disposed: false,
-      terminating: false,
-    };
-  }, [workingDirectory]);
+      ]);
+      setActiveTabId(id);
+      sessionsRef.current[id] = {
+        container: null,
+        term: null,
+        fitAddon: null,
+        ws: null,
+        reconnectTimer: null,
+        resizeDebounceTimer: null,
+        resizeObserver: null,
+        dataDisposable: null,
+        multilineDisposable: null,
+        scrollDisposable: null,
+        workingDirectory: sessionWorkingDirectory,
+        cwdSynced: false,
+        receivedBytes: 0,
+        lastAckedBytes: 0,
+        ackTimer: null,
+        outputQueue: [],
+        outputWriting: false,
+        outputDrainTimer: null,
+        inFlightWriteBytes: 0,
+        pendingBinaryDecodes: 0,
+        queuedBytes: 0,
+        maxQueuedBytes: 0,
+        lastWriteCommitLatencyMs: 0,
+        maxWriteCommitLatencyMs: 0,
+        drainedChunks: 0,
+        reconnectCount: 0,
+        lastCloseCode: null,
+        lastCloseReason: "",
+        lastHealthUpdatedAt: 0,
+        inputQueue: [],
+        queuedInputBytes: 0,
+        scrollLine: 0,
+        atBottom: true,
+        lastResizeCols: null,
+        lastResizeRows: null,
+        disposed: false,
+        terminating: false,
+      };
+    },
+    [workingDirectory],
+  );
 
   const closeTab = useCallback(
     (id: string) => {
@@ -397,24 +404,27 @@ export function useTerminalSessionManager({
 
           if (event.data instanceof Blob) {
             latestSession.pendingBinaryDecodes += 1;
-            void event.data.arrayBuffer().then((buffer) => {
-              const currentSession = sessionsRef.current[id];
-              if (!currentSession || currentSession.disposed) return;
-              currentSession.pendingBinaryDecodes = Math.max(
-                0,
-                currentSession.pendingBinaryDecodes - 1,
-              );
-              if (currentSession.ws !== ws) return;
-              writeTerminalOutput(currentSession, buffer);
-              scheduleTabHealthUpdate(id);
-            }).catch(() => {
-              const currentSession = sessionsRef.current[id];
-              if (!currentSession || currentSession.disposed) return;
-              currentSession.pendingBinaryDecodes = Math.max(
-                0,
-                currentSession.pendingBinaryDecodes - 1,
-              );
-            });
+            void event.data
+              .arrayBuffer()
+              .then((buffer) => {
+                const currentSession = sessionsRef.current[id];
+                if (!currentSession || currentSession.disposed) return;
+                currentSession.pendingBinaryDecodes = Math.max(
+                  0,
+                  currentSession.pendingBinaryDecodes - 1,
+                );
+                if (currentSession.ws !== ws) return;
+                writeTerminalOutput(currentSession, buffer);
+                scheduleTabHealthUpdate(id);
+              })
+              .catch(() => {
+                const currentSession = sessionsRef.current[id];
+                if (!currentSession || currentSession.disposed) return;
+                currentSession.pendingBinaryDecodes = Math.max(
+                  0,
+                  currentSession.pendingBinaryDecodes - 1,
+                );
+              });
             return;
           }
 
@@ -424,7 +434,11 @@ export function useTerminalSessionManager({
 
         ws.onclose = (event) => {
           const latestSession = sessionsRef.current[id];
-          if (!latestSession || latestSession.disposed || latestSession.terminating) {
+          if (
+            !latestSession ||
+            latestSession.disposed ||
+            latestSession.terminating
+          ) {
             return;
           }
           if (latestSession.ws !== ws) return;
@@ -493,11 +507,8 @@ export function useTerminalSessionManager({
         cursorStyle: "block",
         ignoreBracketedPasteMode: false,
         linkHandler: {
-          activate: (
-            event: MouseEvent,
-            uri: string,
-            _range: IBufferRange,
-          ) => openTerminalLink(event, uri),
+          activate: (event: MouseEvent, uri: string, _range: IBufferRange) =>
+            openTerminalLink(event, uri),
         },
         // Long-running local agents can produce far more output than a normal
         // shell session. Core protects reconnect replay by byte offset, while
@@ -583,7 +594,11 @@ export function useTerminalSessionManager({
       container.addEventListener("keydown", handleMultilineKeydown, true);
       session.multilineDisposable = {
         dispose: () => {
-          container.removeEventListener("keydown", handleMultilineKeydown, true);
+          container.removeEventListener(
+            "keydown",
+            handleMultilineKeydown,
+            true,
+          );
           container.removeEventListener("wheel", handleTerminalWheel, true);
           viewport?.removeEventListener(
             "pointerdown",

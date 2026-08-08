@@ -58,6 +58,8 @@ type terminalSession struct {
 	lastOutputAt      time.Time
 	detachedClients   int64
 	droppedClients    int64
+	lastBroadcastTime time.Duration
+	maxBroadcastTime  time.Duration
 	mu                sync.Mutex
 }
 
@@ -73,6 +75,8 @@ type terminalClient struct {
 	pendingBytes       int64
 	acknowledgedOffset int64
 	scheduledOffset    int64
+	lastWriteTime      time.Duration
+	maxWriteTime       time.Duration
 	mu                 sync.Mutex
 	closeOnce          sync.Once
 	drainCloseOnce     sync.Once
@@ -84,19 +88,22 @@ type terminalHealthSnapshot struct {
 }
 
 type terminalSessionHealth struct {
-	ID                string `json:"id"`
-	ClientCount       int    `json:"clientCount"`
-	ScrollbackBytes   int    `json:"scrollbackBytes"`
-	BaseOffset        int64  `json:"baseOffset"`
-	TotalBytes        int64  `json:"totalBytes"`
-	MaxAckLagBytes    int64  `json:"maxAckLagBytes"`
-	MaxPendingBytes   int64  `json:"maxPendingBytes"`
-	ReplayProtections int    `json:"replayProtections"`
-	DetachedClients   int64  `json:"detachedClients"`
-	DroppedClients    int64  `json:"droppedClients"`
-	CreatedAt         string `json:"createdAt"`
-	LastOutputAt      string `json:"lastOutputAt"`
-	Closed            bool   `json:"closed"`
+	ID                   string `json:"id"`
+	ClientCount          int    `json:"clientCount"`
+	ScrollbackBytes      int    `json:"scrollbackBytes"`
+	BaseOffset           int64  `json:"baseOffset"`
+	TotalBytes           int64  `json:"totalBytes"`
+	MaxAckLagBytes       int64  `json:"maxAckLagBytes"`
+	MaxPendingBytes      int64  `json:"maxPendingBytes"`
+	LastBroadcastMicros  int64  `json:"lastBroadcastMicros"`
+	MaxBroadcastMicros   int64  `json:"maxBroadcastMicros"`
+	MaxClientWriteMicros int64  `json:"maxClientWriteMicros"`
+	ReplayProtections    int    `json:"replayProtections"`
+	DetachedClients      int64  `json:"detachedClients"`
+	DroppedClients       int64  `json:"droppedClients"`
+	CreatedAt            string `json:"createdAt"`
+	LastOutputAt         string `json:"lastOutputAt"`
+	Closed               bool   `json:"closed"`
 }
 
 const (
@@ -457,6 +464,21 @@ func (client *terminalClient) healthStats(totalBytes int64) (ackLagBytes int64, 
 	return ackLagBytes, client.pendingBytes
 }
 
+func (client *terminalClient) recordWriteDuration(duration time.Duration) {
+	client.mu.Lock()
+	client.lastWriteTime = duration
+	if duration > client.maxWriteTime {
+		client.maxWriteTime = duration
+	}
+	client.mu.Unlock()
+}
+
+func (client *terminalClient) maxWriteDuration() time.Duration {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	return client.maxWriteTime
+}
+
 func (client *terminalClient) close() {
 	client.closeOnce.Do(func() {
 		close(client.done)
@@ -510,12 +532,15 @@ func (client *terminalClient) startWriter(onError func()) func() {
 				return
 			case data := <-client.send:
 				_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
+				writeStartedAt := time.Now()
 				if err := client.ws.WriteMessage(websocket.BinaryMessage, data); err != nil {
+					client.recordWriteDuration(time.Since(writeStartedAt))
 					client.releasePendingBytes(len(data))
 					client.close()
 					onError()
 					return
 				}
+				client.recordWriteDuration(time.Since(writeStartedAt))
 				client.releasePendingBytes(len(data))
 			case <-ticker.C:
 				_ = client.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
@@ -539,6 +564,7 @@ func (client *terminalClient) startWriter(onError func()) func() {
 }
 
 func (session *terminalSession) broadcast(data []byte) {
+	broadcastStartedAt := time.Now()
 	session.mu.Lock()
 	if session.closed {
 		session.mu.Unlock()
@@ -587,6 +613,10 @@ func (session *terminalSession) broadcast(data []byte) {
 			droppedClients = append(droppedClients, client)
 		}
 	}
+	session.lastBroadcastTime = time.Since(broadcastStartedAt)
+	if session.lastBroadcastTime > session.maxBroadcastTime {
+		session.maxBroadcastTime = session.lastBroadcastTime
+	}
 	session.mu.Unlock()
 
 	for _, client := range droppedClients {
@@ -600,6 +630,7 @@ func (session *terminalSession) health() terminalSessionHealth {
 
 	var maxAckLagBytes int64
 	var maxPendingBytes int64
+	var maxClientWriteTime time.Duration
 	for client := range session.clients {
 		// Health is the only cheap way to prove the renderer is keeping up
 		// during long agent streams. Detached/dropped counters tell us after
@@ -612,22 +643,28 @@ func (session *terminalSession) health() terminalSessionHealth {
 		if pendingBytes > maxPendingBytes {
 			maxPendingBytes = pendingBytes
 		}
+		if writeTime := client.maxWriteDuration(); writeTime > maxClientWriteTime {
+			maxClientWriteTime = writeTime
+		}
 	}
 
 	return terminalSessionHealth{
-		ID:                session.id,
-		ClientCount:       len(session.clients),
-		ScrollbackBytes:   len(session.scrollback),
-		BaseOffset:        session.baseOffset,
-		TotalBytes:        session.totalBytes,
-		MaxAckLagBytes:    maxAckLagBytes,
-		MaxPendingBytes:   maxPendingBytes,
-		ReplayProtections: len(session.replayProtections),
-		DetachedClients:   session.detachedClients,
-		DroppedClients:    session.droppedClients,
-		CreatedAt:         session.createdAt.Format(time.RFC3339Nano),
-		LastOutputAt:      session.lastOutputAt.Format(time.RFC3339Nano),
-		Closed:            session.closed,
+		ID:                   session.id,
+		ClientCount:          len(session.clients),
+		ScrollbackBytes:      len(session.scrollback),
+		BaseOffset:           session.baseOffset,
+		TotalBytes:           session.totalBytes,
+		MaxAckLagBytes:       maxAckLagBytes,
+		MaxPendingBytes:      maxPendingBytes,
+		LastBroadcastMicros:  session.lastBroadcastTime.Microseconds(),
+		MaxBroadcastMicros:   session.maxBroadcastTime.Microseconds(),
+		MaxClientWriteMicros: maxClientWriteTime.Microseconds(),
+		ReplayProtections:    len(session.replayProtections),
+		DetachedClients:      session.detachedClients,
+		DroppedClients:       session.droppedClients,
+		CreatedAt:            session.createdAt.Format(time.RFC3339Nano),
+		LastOutputAt:         session.lastOutputAt.Format(time.RFC3339Nano),
+		Closed:               session.closed,
 	}
 }
 

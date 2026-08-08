@@ -86,8 +86,16 @@ function takeTerminalOutputBatch(session: TerminalSession, maxBytes: number) {
         : firstChunk.data;
     const head = bytes.slice(0, maxBytes);
     const tail = bytes.slice(maxBytes);
-    firstChunk = { data: head, byteLength: head.byteLength };
-    session.outputQueue.unshift({ data: tail, byteLength: tail.byteLength });
+    firstChunk = {
+      data: head,
+      byteLength: head.byteLength,
+      queuedAtMs: firstChunk.queuedAtMs,
+    };
+    session.outputQueue.unshift({
+      data: tail,
+      byteLength: tail.byteLength,
+      queuedAtMs: firstChunk.queuedAtMs,
+    });
   }
 
   const chunks = [firstChunk];
@@ -106,6 +114,7 @@ function takeTerminalOutputBatch(session: TerminalSession, maxBytes: number) {
       data: firstChunk.data,
       byteLength,
       chunkCount: 1,
+      oldestQueuedAtMs: firstChunk.queuedAtMs,
     };
   }
 
@@ -115,6 +124,7 @@ function takeTerminalOutputBatch(session: TerminalSession, maxBytes: number) {
       data: chunks.map((chunk) => chunk.data).join(""),
       byteLength,
       chunkCount: chunks.length,
+      oldestQueuedAtMs: Math.min(...chunks.map((chunk) => chunk.queuedAtMs)),
     };
   }
 
@@ -139,10 +149,12 @@ function takeTerminalOutputBatch(session: TerminalSession, maxBytes: number) {
     data,
     byteLength,
     chunkCount: chunks.length,
+    oldestQueuedAtMs: Math.min(...chunks.map((chunk) => chunk.queuedAtMs)),
   };
 }
 
 function splitTerminalOutput(data: string | ArrayBuffer) {
+  const queuedAtMs = performance.now();
   const bytes =
     typeof data === "string"
       ? new TextEncoder().encode(data)
@@ -152,6 +164,7 @@ function splitTerminalOutput(data: string | ArrayBuffer) {
       {
         data: typeof data === "string" ? data : bytes,
         byteLength: bytes.byteLength,
+        queuedAtMs,
       },
     ];
   }
@@ -166,7 +179,7 @@ function splitTerminalOutput(data: string | ArrayBuffer) {
       offset,
       Math.min(offset + TERMINAL_WRITE_BATCH_BYTES, bytes.byteLength),
     );
-    chunks.push({ data: chunk, byteLength: chunk.byteLength });
+    chunks.push({ data: chunk, byteLength: chunk.byteLength, queuedAtMs });
   }
   return chunks;
 }
@@ -215,6 +228,15 @@ function drainTerminalOutput(session: TerminalSession) {
     batchesWritten += 1;
 
     session.term.write(batch.data, () => {
+      const commitLatencyMs = Math.max(
+        0,
+        performance.now() - batch.oldestQueuedAtMs,
+      );
+      session.lastWriteCommitLatencyMs = commitLatencyMs;
+      session.maxWriteCommitLatencyMs = Math.max(
+        session.maxWriteCommitLatencyMs ?? 0,
+        commitLatencyMs,
+      );
       session.receivedBytes += batch.byteLength;
       session.inFlightWriteBytes = Math.max(
         0,

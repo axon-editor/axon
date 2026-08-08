@@ -26,6 +26,8 @@ export interface TerminalSession {
   pendingBinaryDecodes: number;
   queuedBytes: number;
   maxQueuedBytes: number;
+  lastWriteCommitLatencyMs: number;
+  maxWriteCommitLatencyMs: number;
   drainedChunks: number;
   reconnectCount: number;
   lastCloseCode: number | null;
@@ -44,12 +46,12 @@ export interface TerminalSession {
 export interface TerminalOutputChunk {
   data: string | Uint8Array;
   byteLength: number;
+  queuedAtMs: number;
 }
 
 export const DEFAULT_TERMINAL_HEIGHT = 280;
 export const MIN_TERMINAL_HEIGHT = 180;
-export const MAX_RECONNECT_INPUT_BYTES =
-  TERMINAL_REPLAY.maxReconnectInputBytes;
+export const MAX_RECONNECT_INPUT_BYTES = TERMINAL_REPLAY.maxReconnectInputBytes;
 export const TERMINAL_ACK_BYTE_THRESHOLD = TERMINAL_REPLAY.ackByteThreshold;
 export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
 // Core owns durable byte replay, but xterm still owns the live visible history.

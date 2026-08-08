@@ -72,6 +72,21 @@ describe("terminal output accounting", () => {
     });
   });
 
+  it("measures websocket-to-xterm commit latency without reading output", () => {
+    const { session } = createSession();
+    const callbacks: Array<() => void> = [];
+    let now = 100;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    session.term!.write = vi.fn((_data, callback) => callbacks.push(callback));
+
+    writeTerminalOutput(session, "measured output");
+    now = 137;
+    callbacks[0]();
+
+    expect(session.lastWriteCommitLatencyMs).toBe(37);
+    expect(session.maxWriteCommitLatencyMs).toBe(37);
+  });
+
   it("lets xterm own viewport movement while output commits", () => {
     const { session } = createSession();
     const callbacks: Array<() => void> = [];
@@ -134,21 +149,14 @@ describe("terminal output accounting", () => {
       written.push(data);
       callbacks.push(callback);
     });
-    const payload = new Uint8Array(
-      TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES * 2 + 31,
-    );
+    const payload = new Uint8Array(TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES * 2 + 31);
 
     writeTerminalOutput(session, payload.buffer);
 
     expect(
-      written.reduce(
-        (total, chunk) => total + getOutputByteLength(chunk),
-        0,
-      ),
+      written.reduce((total, chunk) => total + getOutputByteLength(chunk), 0),
     ).toBe(TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES);
-    expect(session.inFlightWriteBytes).toBe(
-      TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
-    );
+    expect(session.inFlightWriteBytes).toBe(TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES);
 
     while (callbacks.length > 0) {
       callbacks.shift()!();

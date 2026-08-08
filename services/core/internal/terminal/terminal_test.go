@@ -298,15 +298,19 @@ func TestTerminalReconnectRejectsAnotherWorkspace(t *testing.T) {
 }
 
 func TestTerminalHealthSnapshotIncludesSessions(t *testing.T) {
+	client := newTerminalClient(nil, 2)
+	client.maxWriteTime = 20 * time.Microsecond
 	session := &terminalSession{
 		id: "health-test",
 		clients: map[*terminalClient]bool{
-			newTerminalClient(nil, 2): true,
+			client: true,
 		},
-		scrollback:   []byte("hello"),
-		totalBytes:   5,
-		createdAt:    time.Now(),
-		lastOutputAt: time.Now(),
+		scrollback:        []byte("hello"),
+		totalBytes:        5,
+		createdAt:         time.Now(),
+		lastOutputAt:      time.Now(),
+		lastBroadcastTime: 15 * time.Microsecond,
+		maxBroadcastTime:  30 * time.Microsecond,
 	}
 
 	terminalSessions.Lock()
@@ -330,6 +334,9 @@ func TestTerminalHealthSnapshotIncludesSessions(t *testing.T) {
 		}
 		if item.MaxAckLagBytes != 3 {
 			t.Fatalf("expected max ack lag to describe renderer distance, got %+v", item)
+		}
+		if item.LastBroadcastMicros != 15 || item.MaxBroadcastMicros != 30 || item.MaxClientWriteMicros != 20 {
+			t.Fatalf("unexpected terminal latency metrics: %+v", item)
 		}
 	}
 	if !found {
