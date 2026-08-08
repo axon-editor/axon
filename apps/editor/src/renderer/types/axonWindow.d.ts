@@ -148,6 +148,10 @@ declare global {
         suggestedPath: string,
         content: string,
       ) => Promise<string | null>;
+      saveMarkdownPdf: (
+        suggestedName: string,
+        documentHtml: string,
+      ) => Promise<string | null>;
       getCliToolStatus: () => Promise<CliToolStatus>;
       installCliTool: () => Promise<CliToolInstallResult>;
       getAgentResumeRequest: () => Promise<AgentResumeRequest | null>;

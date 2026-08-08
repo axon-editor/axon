@@ -20,6 +20,39 @@ export default function MarkdownPreviewTab({
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const handleContentChange = (nextContent: string) => {
+    const model = getModel(filePath);
+    if (model && !model.isDisposed()) {
+      model.pushEditOperations(
+        [],
+        [{ range: model.getFullModelRange(), text: nextContent }],
+        () => null,
+      );
+      return;
+    }
+
+    // A standalone preview can outlive its source editor model. In that case
+    // the task toggle is still a deliberate edit, so I persist it through the
+    // workspace capability instead of presenting an interactive checkbox that
+    // silently resets as soon as the preview rerenders.
+    setContent(nextContent);
+    const separatorIndex = Math.max(
+      filePath.lastIndexOf("/"),
+      filePath.lastIndexOf("\\"),
+    );
+    const writeRoot =
+      folderPath ?? (separatorIndex > 0 ? filePath.slice(0, separatorIndex) : filePath);
+    void window.axon
+      .writeTextFile(filePath, nextContent, writeRoot)
+      .catch((writeError) =>
+        setError(
+          writeError instanceof Error
+            ? writeError.message
+            : "The Markdown task could not be updated.",
+        ),
+      );
+  };
+
   useEffect(() => {
     let cancelled = false;
     let contentUpdateTimer: number | null = null;
@@ -85,6 +118,7 @@ export default function MarkdownPreviewTab({
       filePath={filePath}
       folderPath={folderPath}
       onOpenFile={onOpenFile}
+      onContentChange={handleContentChange}
     />
   );
 }

@@ -1,28 +1,85 @@
 import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import remarkMath from "remark-math";
+import remarkMdx from "remark-mdx";
+import { ExternalLink } from "lucide-react";
 import {
+  createContext,
   isValidElement,
   useCallback,
+  useContext,
+  useEffect,
   useMemo,
   useRef,
-  useState,
   type CSSProperties,
   type MouseEvent,
   type ReactNode,
 } from "react";
+import "katex/dist/katex.min.css";
 import MermaidDiagram from "./MermaidDiagram";
+import HighlightedCodeBlock from "./HighlightedCodeBlock";
+import {
+  FrontmatterPanel,
+  MarkdownCallout,
+  MarkdownReferences,
+} from "./MarkdownDocumentExtras";
+import MarkdownPreviewToolbar from "./MarkdownPreviewToolbar";
+import {
+  prepareMarkdownDocument,
+  remarkAxonCallouts,
+  remarkAxonSafeMdx,
+  remarkAxonSourceLines,
+  remarkAxonWikiLinksAndCitations,
+  remarkHideFrontmatter,
+  toggleMarkdownTask,
+} from "./lib/markdownDocument";
+import {
+  onMarkdownScroll,
+  publishMarkdownScroll,
+} from "./lib/markdownPreviewSync";
+import { markdownSanitizeSchema } from "./lib/markdownSanitize";
 
 interface MarkdownPreviewProps {
   content: string;
   filePath: string;
   folderPath: string | null;
   onOpenFile?: (path: string) => void;
+  onContentChange?: (content: string) => void;
 }
 
-const MARKDOWN_REHYPE_PLUGINS = [rehypeRaw];
-const MARKDOWN_REMARK_PLUGINS = [remarkGfm];
+const MARKDOWN_REHYPE_PLUGINS = [
+  rehypeRaw,
+  [rehypeSanitize, markdownSanitizeSchema] as [
+    typeof rehypeSanitize,
+    typeof markdownSanitizeSchema,
+  ],
+  rehypeKatex,
+];
+const MARKDOWN_REMARK_PLUGINS = [
+  remarkFrontmatter,
+  remarkGfm,
+  remarkMath,
+  remarkAxonCallouts,
+  remarkAxonWikiLinksAndCitations,
+  remarkAxonSourceLines,
+  remarkHideFrontmatter,
+];
+const MDX_REMARK_PLUGINS = [
+  remarkFrontmatter,
+  remarkGfm,
+  remarkMath,
+  remarkMdx,
+  remarkAxonCallouts,
+  remarkAxonWikiLinksAndCitations,
+  remarkAxonSafeMdx,
+  remarkAxonSourceLines,
+  remarkHideFrontmatter,
+];
+const TaskLineContext = createContext<number | null>(null);
 
 function getParentPath(filePath: string) {
   const separatorIndex = Math.max(
@@ -185,27 +242,6 @@ function getCodeLanguage(className?: string) {
   return /language-([\w-]+)/.exec(className ?? "")?.[1]?.toLowerCase() ?? "text";
 }
 
-async function copyTextToClipboard(text: string) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return;
-    } catch {
-      // Electron can expose the browser Clipboard API while still denying the
-      // actual write for the current document/scheme. Falling through to the
-      // preload bridge keeps the code-block button honest: if the native
-      // Electron clipboard succeeds, the UI can safely show the copied mark.
-    }
-  }
-
-  // Electron's renderer can lose access to the browser Clipboard API depending
-  // on the loaded scheme and permission state. The preload bridge keeps the
-  // renderer sandboxed while still using Electron's native clipboard in the
-  // main process, so the copy button behaves consistently in dev and packaged
-  // builds without relying on deprecated DOM commands.
-  await window.axon.copyText(text);
-}
-
 function getStyleObject(style: unknown): CSSProperties {
   if (typeof style === "string") {
     return style
@@ -250,55 +286,29 @@ function getFlowStyle(props: any): CSSProperties {
   };
 }
 
-function CodeBlock({
-  children,
-  className,
+function sourceLineFromProps(props: Record<string, unknown>) {
+  const line = props["data-source-line"];
+  return typeof line === "number" || typeof line === "string"
+    ? { "data-source-line": line }
+    : {};
+}
+
+function TaskCheckbox({
+  checked,
+  onToggle,
 }: {
-  children: ReactNode;
-  className?: string;
+  checked: boolean;
+  onToggle: (line: number, checked: boolean) => void;
 }) {
-  const [copied, setCopied] = useState(false);
-  const language = getCodeLanguage(className);
-  const code = useMemo(
-    () => textFromNode(children).replace(/\n$/, ""),
-    [children],
-  );
-
-  const handleCopy = async () => {
-    try {
-      await copyTextToClipboard(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch (err) {
-      console.error("failed to copy markdown code block:", err);
-    }
-  };
-
+  const line = useContext(TaskLineContext);
   return (
-    <div className="group relative my-4 overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
-      <pre className="m-0 overflow-x-auto p-4 text-[13px] leading-6 text-[var(--axon-editor-foreground)]">
-        <code className={className}>{children}</code>
-      </pre>
-      <div className="absolute right-2 top-2 flex items-center gap-2">
-        {language !== "text" ? (
-          <span className="rounded bg-[var(--axon-editor-background)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-0 transition-opacity group-hover:opacity-55">
-            {language}
-          </span>
-        ) : null}
-        <button
-          type="button"
-          onClick={handleCopy}
-          aria-label={copied ? "Copied code" : "Copy code"}
-          className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border shadow-sm transition-all ${
-            copied
-              ? "border-[#2ea043] bg-[#16351f] text-[#7ee787]"
-              : "border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] opacity-60 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-100"
-          }`}
-        >
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-        </button>
-      </div>
-    </div>
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={!line}
+      onChange={(event) => line && onToggle(line, event.currentTarget.checked)}
+      className="mr-2 translate-y-[1px] cursor-pointer accent-[var(--axon-syntax-function)] disabled:cursor-default"
+    />
   );
 }
 
@@ -307,10 +317,91 @@ export default function MarkdownPreview({
   filePath,
   folderPath,
   onOpenFile,
+  onContentChange,
 }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const articleRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef(content);
+  const scrollFrameRef = useRef<number | null>(null);
+  const suppressPreviewScrollRef = useRef(false);
   const headingSlugCounts = useRef(new Map<string, number>());
+  const preparedDocument = useMemo(
+    () => prepareMarkdownDocument(content),
+    [content],
+  );
+  const remarkPlugins = filePath.toLowerCase().endsWith(".mdx")
+    ? MDX_REMARK_PLUGINS
+    : MARKDOWN_REMARK_PLUGINS;
+  contentRef.current = content;
   headingSlugCounts.current.clear();
+
+  useEffect(
+    () =>
+      onMarkdownScroll((event) => {
+        if (event.filePath !== filePath || event.source !== "editor") return;
+        const preview = previewRef.current;
+        if (!preview) return;
+        const sourceBlocks = Array.from(
+          preview.querySelectorAll<HTMLElement>("[data-source-line]"),
+        );
+        const target = sourceBlocks.reduce<HTMLElement | null>((closest, block) => {
+          const line = Number(block.dataset.sourceLine);
+          if (!Number.isFinite(line) || line > event.line) return closest;
+          if (!closest) return block;
+          return Number(closest.dataset.sourceLine) < line ? block : closest;
+        }, null);
+        if (!target) return;
+
+        // Both panes publish scroll updates. The suppression flag covers the
+        // programmatic preview scroll through its next animation frame so one
+        // pane cannot continuously bounce tiny layout differences back to the
+        // other and make synchronized scrolling feel unstable.
+        suppressPreviewScrollRef.current = true;
+        preview.scrollTop = Math.max(0, target.offsetTop - 16);
+        window.requestAnimationFrame(() => {
+          suppressPreviewScrollRef.current = false;
+        });
+      }),
+    [filePath],
+  );
+
+  const handlePreviewScroll = useCallback(() => {
+    if (suppressPreviewScrollRef.current || scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const preview = previewRef.current;
+      if (!preview) return;
+      const viewportTop = preview.getBoundingClientRect().top + 20;
+      const blocks = Array.from(
+        preview.querySelectorAll<HTMLElement>("[data-source-line]"),
+      );
+      const visibleBlock = blocks.find(
+        (block) => block.getBoundingClientRect().bottom >= viewportTop,
+      );
+      const line = Number(visibleBlock?.dataset.sourceLine);
+      if (Number.isFinite(line)) {
+        publishMarkdownScroll({ filePath, line, source: "preview" });
+      }
+    });
+  }, [filePath]);
+
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleTaskToggle = useCallback(
+    (line: number, checked: boolean) => {
+      const currentContent = contentRef.current;
+      const nextContent = toggleMarkdownTask(currentContent, line, checked);
+      if (nextContent !== currentContent) onContentChange?.(nextContent);
+    },
+    [onContentChange],
+  );
 
   const getHeadingId = useCallback(
     (children: ReactNode, providedId?: string) => {
@@ -379,6 +470,10 @@ export default function MarkdownPreview({
         scrollToMarkdownHash(href);
         return;
       }
+      if (/^(data:|blob:)/i.test(href)) {
+        event.preventDefault();
+        return;
+      }
       if (isInlineReference(href)) return;
       event.preventDefault();
 
@@ -407,40 +502,48 @@ export default function MarkdownPreview({
 
   const markdownComponents = useMemo<Components>(
     () => ({
-      h1: ({ children, id }) => (
+      h1: ({ children, id, ...props }: any) => (
         <h1
           id={getHeadingId(children, id)}
+          {...sourceLineFromProps(props)}
           className="scroll-mt-4 mb-5 border-b border-[var(--axon-panel-border)] pb-3 text-[26px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
         >
           {children}
         </h1>
       ),
-      h2: ({ children, id }) => (
+      h2: ({ children, id, ...props }: any) => (
         <h2
           id={getHeadingId(children, id)}
+          {...sourceLineFromProps(props)}
           className="scroll-mt-4 mb-3 mt-8 border-b border-[var(--axon-panel-border)] pb-2 text-[20px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
         >
           {children}
         </h2>
       ),
-      h3: ({ children, id }) => (
+      h3: ({ children, id, ...props }: any) => (
         <h3
           id={getHeadingId(children, id)}
+          {...sourceLineFromProps(props)}
           className="scroll-mt-4 mb-2 mt-6 text-[16px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
         >
           {children}
         </h3>
       ),
-      h4: ({ children, id }) => (
+      h4: ({ children, id, ...props }: any) => (
         <h4
           id={getHeadingId(children, id)}
+          {...sourceLineFromProps(props)}
           className="scroll-mt-4 mb-2 mt-5 text-[14px] font-semibold leading-tight text-[var(--axon-editor-foreground)]"
         >
           {children}
         </h4>
       ),
       p: ({ children, ...props }: any) => (
-        <p className="my-4" style={getFlowStyle(props)}>
+        <p
+          className="my-4"
+          style={getFlowStyle(props)}
+          {...sourceLineFromProps(props)}
+        >
           {children}
         </p>
       ),
@@ -449,10 +552,56 @@ export default function MarkdownPreview({
           {children}
         </div>
       ),
-      div: ({ children, ...props }: any) => (
-        <div style={getFlowStyle(props)}>{children}</div>
+      div: ({ children, ...props }: any) => {
+        const componentName = props["data-mdx-component"];
+        return (
+          <div
+            style={getFlowStyle(props)}
+            {...sourceLineFromProps(props)}
+            className={
+              componentName
+                ? "my-4 border-l-2 border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-4 py-3"
+                : undefined
+            }
+          >
+            {componentName ? (
+              <div className="mb-2 text-[10px] font-semibold uppercase text-[var(--axon-syntax-function)]">
+                {componentName}
+              </div>
+            ) : null}
+            {children}
+          </div>
+        );
+      },
+      aside: ({ children, ...props }: any) => (
+        <MarkdownCallout kind={props["data-callout"]}>{children}</MarkdownCallout>
       ),
-      a: ({ children, href }) => (
+      details: ({ children, ...props }: any) => (
+        <details
+          open={props.open}
+          className="my-4 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-4 py-3"
+        >
+          {children}
+        </details>
+      ),
+      summary: ({ children }) => (
+        <summary className="cursor-pointer font-medium text-[var(--axon-editor-foreground)]">
+          {children}
+        </summary>
+      ),
+      span: ({ children, node: _node, ...props }: any) =>
+        props["data-mdx-badge"] ? (
+          <span className="inline-flex rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--axon-syntax-function)]">
+            {children}
+          </span>
+        ) : (
+          // KaTeX renders its layout as nested spans with generated classes and
+          // inline measurements. Preserving those ordinary span properties is
+          // required for fractions, superscripts, and display equations to keep
+          // their geometry after ReactMarkdown hands them to this component map.
+          <span {...props}>{children}</span>
+        ),
+      a: ({ children, href, ...props }: any) => (
         <a
           href={
             isExternalUrl(href ?? "") || isInlineReference(href ?? "")
@@ -461,17 +610,29 @@ export default function MarkdownPreview({
           }
           onClick={(event) => handleLinkClick(event, href)}
           rel="noreferrer"
+          data-citation={props["data-citation"]}
+          data-wiki-link={props["data-wiki-link"]}
+          data-footnote-ref={props["data-footnote-ref"]}
+          data-footnote-backref={props["data-footnote-backref"]}
+          aria-describedby={props["aria-describedby"]}
+          aria-label={props["aria-label"]}
           className="inline-flex items-center gap-1 text-[var(--axon-syntax-function)] underline-offset-4 hover:underline"
         >
           {children}
           {href && isExternalUrl(href) && <ExternalLink size={11} />}
         </a>
       ),
-      blockquote: ({ children }) => (
-        <blockquote className="my-2 border-l-[3px] border-[var(--axon-panel-border)] bg-transparent py-0.5 pl-3 pr-2 text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-55 [&>p]:my-0 [&>p+p]:mt-2">
-          {children}
-        </blockquote>
-      ),
+      blockquote: ({ children, ...props }: any) =>
+        props["data-callout"] ? (
+          <MarkdownCallout kind={props["data-callout"]}>{children}</MarkdownCallout>
+        ) : (
+          <blockquote
+            {...sourceLineFromProps(props)}
+            className="my-2 border-l-[3px] border-[var(--axon-panel-border)] bg-transparent py-0.5 pl-3 pr-2 text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-55 [&>p]:my-0 [&>p+p]:mt-2"
+          >
+            {children}
+          </blockquote>
+        ),
       code: ({ children, ...props }: any) => (
         <code
           className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[13px] text-[var(--axon-syntax-function)]"
@@ -480,7 +641,7 @@ export default function MarkdownPreview({
           {children}
         </code>
       ),
-      pre: ({ children }: any) => {
+      pre: ({ children, ...props }: any) => {
         // React Markdown no longer gives a dependable `inline` flag in
         // every renderer path. Treating `pre` as the only fenced-code
         // entry point prevents single-backtick text like `7777` from
@@ -488,10 +649,20 @@ export default function MarkdownPreview({
         const className = getClassNameFromNode(children);
         const source = textFromNode(children).replace(/\n$/, "");
         if (["mermaid", "mmd"].includes(getCodeLanguage(className))) {
-          return <MermaidDiagram source={source} />;
+          return (
+            <div {...sourceLineFromProps(props)}>
+              <MermaidDiagram source={source} />
+            </div>
+          );
         }
 
-        return <CodeBlock className={className}>{source}</CodeBlock>;
+        return (
+          <div {...sourceLineFromProps(props)}>
+            <HighlightedCodeBlock language={getCodeLanguage(className)}>
+              {source}
+            </HighlightedCodeBlock>
+          </div>
+        );
       },
       img: ({ src, alt, width, height, ...props }: any) => {
         const mediaStyle = getStyleObject(props.style);
@@ -560,15 +731,21 @@ export default function MarkdownPreview({
       ol: ({ children }) => (
         <ol className="my-4 list-decimal space-y-1 pl-6">{children}</ol>
       ),
-      li: ({ children }) => <li className="pl-1">{children}</li>,
+      li: ({ children, ...props }: any) => {
+        const sourceLine = Number(props["data-source-line"]);
+        return (
+          <TaskLineContext.Provider
+            value={Number.isFinite(sourceLine) ? sourceLine : null}
+          >
+            <li className="pl-1" {...sourceLineFromProps(props)}>
+              {children}
+            </li>
+          </TaskLineContext.Provider>
+        );
+      },
       input: ({ checked, type }) =>
         type === "checkbox" ? (
-          <input
-            type="checkbox"
-            checked={checked}
-            readOnly
-            className="mr-2 translate-y-[1px] accent-[var(--axon-syntax-function)]"
-          />
+          <TaskCheckbox checked={Boolean(checked)} onToggle={handleTaskToggle} />
         ) : null,
       table: ({ children }) => (
         <div className="my-5 overflow-x-auto rounded-md border border-[var(--axon-panel-border)]">
@@ -598,24 +775,44 @@ export default function MarkdownPreview({
           {children}
         </strong>
       ),
+      section: ({ children, ...props }: any) =>
+        props["data-footnotes"] ? (
+          <section className="mt-10 border-t border-[var(--axon-panel-border)] pt-4 text-[12px] opacity-80">
+            {children}
+          </section>
+        ) : (
+          <section>{children}</section>
+        ),
     }),
-    [filePath, folderPath, getHeadingId, handleLinkClick],
+    [filePath, folderPath, getHeadingId, handleLinkClick, handleTaskToggle],
   );
 
   return (
-    <div
-      ref={previewRef}
-      className="h-full overflow-y-auto bg-[var(--axon-editor-background)] px-5 py-6"
-    >
-      <article className="mx-auto w-full max-w-5xl text-[14px] leading-7 text-[var(--axon-editor-foreground)]">
-        <ReactMarkdown
-          rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
-          remarkPlugins={MARKDOWN_REMARK_PLUGINS}
-          components={markdownComponents}
+    <div className="flex h-full min-h-0 flex-col bg-[var(--axon-editor-background)]">
+      <MarkdownPreviewToolbar articleRef={articleRef} filePath={filePath} />
+      <div
+        ref={previewRef}
+        onScroll={handlePreviewScroll}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-6"
+      >
+        <article
+          ref={articleRef}
+          className="mx-auto w-full max-w-5xl text-[14px] leading-7 text-[var(--axon-editor-foreground)]"
         >
-          {content}
-        </ReactMarkdown>
-      </article>
+          <FrontmatterPanel
+            metadata={preparedDocument.frontmatter}
+            error={preparedDocument.frontmatterError}
+          />
+          <ReactMarkdown
+            rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
+            remarkPlugins={remarkPlugins}
+            components={markdownComponents}
+          >
+            {preparedDocument.content}
+          </ReactMarkdown>
+          <MarkdownReferences references={preparedDocument.references} />
+        </article>
+      </div>
     </div>
   );
 }

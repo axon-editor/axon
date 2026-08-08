@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { randomUUID } from "node:crypto";
 import {
   app,
   BrowserWindow,
@@ -239,6 +240,63 @@ export function registerAppHandlers({
       // so the renderer never receives arbitrary filesystem write capability.
       await fs.writeFile(result.filePath, decodeSnapshotPng(dataUrl));
       return result.filePath;
+    },
+  );
+
+  ipcMain.handle(
+    "dialog:saveMarkdownPdf",
+    async (_event, suggestedName: string, documentHtml: string) => {
+      if (
+        typeof documentHtml !== "string" ||
+        documentHtml.length === 0 ||
+        Buffer.byteLength(documentHtml, "utf8") > 8 * 1024 * 1024
+      ) {
+        throw new Error("The Markdown preview is empty or too large to export.");
+      }
+
+      const safeName = path.basename(suggestedName || "document.pdf");
+      const defaultPath = safeName.toLowerCase().endsWith(".pdf")
+        ? safeName
+        : `${safeName}.pdf`;
+      const result = await dialog.showSaveDialog({
+        title: "Export Markdown as PDF",
+        defaultPath,
+        filters: [{ name: "PDF document", extensions: ["pdf"] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+
+      const exportWindow = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          contextIsolation: true,
+          javascript: false,
+          nodeIntegration: false,
+          sandbox: true,
+        },
+      });
+      const temporaryPath = path.join(
+        app.getPath("temp"),
+        `axon-markdown-${randomUUID()}.html`,
+      );
+
+      try {
+        // PDF generation happens in an isolated, script-disabled renderer.
+        // This keeps workspace HTML and MDX from inheriting Axon's preload API
+        // while still allowing Chromium to lay out KaTeX, SVG diagrams, tables,
+        // and print CSS with the same fidelity as the visible preview.
+        await fs.writeFile(temporaryPath, documentHtml, "utf8");
+        await exportWindow.loadFile(temporaryPath);
+        const pdf = await exportWindow.webContents.printToPDF({
+          pageSize: "A4",
+          printBackground: true,
+          preferCSSPageSize: true,
+        });
+        await fs.writeFile(result.filePath, pdf);
+        return result.filePath;
+      } finally {
+        if (!exportWindow.isDestroyed()) exportWindow.destroy();
+        await fs.unlink(temporaryPath).catch(() => undefined);
+      }
     },
   );
 

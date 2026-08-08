@@ -33,7 +33,7 @@
       "protobufjs": "8.7.0"
     },
     "monaco-editor": {
-      "dompurify": "3.4.11"
+      "dompurify": "3.4.13"
     }
   }
 }

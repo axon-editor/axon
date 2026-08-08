@@ -177,6 +177,11 @@ contextBridge.exposeInMainWorld("axon", {
     content: string,
   ): Promise<string | null> =>
     ipcRenderer.invoke("dialog:saveFileAs", suggestedPath, content),
+  saveMarkdownPdf: (
+    suggestedName: string,
+    documentHtml: string,
+  ): Promise<string | null> =>
+    ipcRenderer.invoke("dialog:saveMarkdownPdf", suggestedName, documentHtml),
   getCliToolStatus: (): Promise<CliToolStatus> =>
     ipcRenderer.invoke("app:getCliToolStatus"),
   installCliTool: (): Promise<CliToolInstallResult> =>

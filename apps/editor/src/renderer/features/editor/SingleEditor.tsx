@@ -48,6 +48,7 @@ import { useEditorDiskBaseline } from "./lib/useEditorDiskBaseline";
 import { useEditorZoomViewport } from "./lib/useEditorZoomViewport";
 import useGitLineDecorations from "./lib/useGitLineDecorations";
 import useGitLineTrace from "./lib/useGitLineTrace";
+import { useMarkdownPreviewBridge } from "./lib/useMarkdownPreviewBridge";
 interface Props {
   filePath: string;
   folderPath: string | null;
@@ -129,6 +130,15 @@ export default function SingleEditor({
     editorSettings.lineHeight,
   );
   const isMd = isMarkdown(filePath);
+  const {
+    trackEditorScroll: trackMarkdownEditorScroll,
+    updateMarkdownContent,
+  } = useMarkdownPreviewBridge({
+    editorRef,
+    filePath,
+    isMarkdown: isMd,
+    setLiveContent,
+  });
   const scheduleLiveContentUpdate = useTrailingTask();
   const scheduleGoSyntaxUpdate = useTrailingTask();
   const editorBackgroundImagePath = editorSettings.backgroundImagePath.trim();
@@ -807,6 +817,7 @@ export default function SingleEditor({
     setEditorReadyNonce((nonce) => nonce + 1);
     markEditorMounted(filePath);
     trackEditorZoomViewport(editor);
+    trackMarkdownEditorScroll(editor);
 
     registerAxonTheme(
       monaco,
@@ -1114,6 +1125,7 @@ export default function SingleEditor({
                 filePath={filePath}
                 folderPath={folderPath}
                 onOpenFile={onOpenFile}
+                onContentChange={updateMarkdownContent}
               />
             </div>
           </>
