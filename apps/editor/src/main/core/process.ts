@@ -4,10 +4,16 @@ import path from "path";
 import { spawn, type ChildProcess } from "child_process";
 import { createHmac, randomBytes } from "crypto";
 
-export interface BundledCoreControllerDependencies {
+export interface BundledServiceControllerDependencies {
   isDev: boolean;
-  axonCorePort: string;
-  axonCoreToken: string;
+  service: "core" | "pty-host";
+  displayName: string;
+  binaryName: string;
+  port: string;
+  token: string;
+  portEnvironmentVariable: string;
+  tokenEnvironmentVariable: string;
+  terminalHealthPath?: string;
   confirmRestart: (request: CoreRestartConfirmation) => Promise<boolean>;
   isShuttingDown: () => boolean;
   onStatusChange?: (status: CoreProcessStatus) => void;
@@ -22,14 +28,16 @@ export type CoreProcessStatus =
   | "crashed";
 
 export interface CoreRestartConfirmation {
+  service: "core" | "pty-host";
+  displayName: string;
   reason: "unresponsive" | "crashed";
   terminalSessionCount: number | null;
   exitCode?: number | null;
   exitSignal?: NodeJS.Signals | null;
 }
 
-export function createBundledCoreController(
-  deps: BundledCoreControllerDependencies,
+export function createBundledServiceController(
+  deps: BundledServiceControllerDependencies,
 ) {
   let bundledCoreProcess: ChildProcess | null = null;
   let bundledCoreWatchdog: ReturnType<typeof setInterval> | null = null;
@@ -39,8 +47,8 @@ export function createBundledCoreController(
   let restartDeclinedUntil = 0;
   const expectedCoreExits = new WeakSet<ChildProcess>();
 
-  function getAxonCoreHealthUrl() {
-    return `http://127.0.0.1:${deps.axonCorePort}/health`;
+  function getHealthUrl() {
+    return `http://127.0.0.1:${deps.port}/health`;
   }
 
   function reportStatus(status: CoreProcessStatus) {
@@ -48,13 +56,14 @@ export function createBundledCoreController(
   }
 
   async function getTerminalSessionCount() {
+    if (!deps.terminalHealthPath) return 0;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 900);
     try {
       const response = await fetch(
-        `http://127.0.0.1:${deps.axonCorePort}/terminal/health`,
+        `http://127.0.0.1:${deps.port}${deps.terminalHealthPath}`,
         {
-          headers: { Authorization: `Bearer ${deps.axonCoreToken}` },
+          headers: { Authorization: `Bearer ${deps.token}` },
           signal: controller.signal,
         },
       );
@@ -72,7 +81,7 @@ export function createBundledCoreController(
 
   function createHealthProof() {
     const challenge = randomBytes(24).toString("hex");
-    const expectedProof = createHmac("sha256", deps.axonCoreToken)
+    const expectedProof = createHmac("sha256", deps.token)
       .update(challenge)
       .digest("hex");
     return { challenge, expectedProof };
@@ -95,10 +104,10 @@ export function createBundledCoreController(
         if (settled) return;
         const { challenge, expectedProof } = createHealthProof();
         const request = http.get(
-          getAxonCoreHealthUrl(),
+          getHealthUrl(),
           {
             headers: {
-              Authorization: `Bearer ${deps.axonCoreToken}`,
+              Authorization: `Bearer ${deps.token}`,
               "X-Axon-Challenge": challenge,
             },
           },
@@ -150,10 +159,10 @@ export function createBundledCoreController(
       };
       const { challenge, expectedProof } = createHealthProof();
       const request = http.get(
-        getAxonCoreHealthUrl(),
+        getHealthUrl(),
         {
           headers: {
-            Authorization: `Bearer ${deps.axonCoreToken}`,
+            Authorization: `Bearer ${deps.token}`,
             "X-Axon-Challenge": challenge,
           },
         },
@@ -173,20 +182,21 @@ export function createBundledCoreController(
     });
   }
 
-  function getBundledCorePath() {
-    const binaryName =
-      process.platform === "win32" ? "axon-core.exe" : "axon-core";
+  function getBundledServicePath() {
+    const binaryName = `${deps.binaryName}${process.platform === "win32" ? ".exe" : ""}`;
     return path.join(process.resourcesPath, "core", binaryName);
   }
 
-  async function startBundledAxonCore() {
+  async function start() {
     if (deps.isDev || bundledCoreProcess) return;
 
     if (await probeAxonCoreOnce(150)) return;
 
-    const corePath = getBundledCorePath();
-    if (!fs.existsSync(corePath)) {
-      console.error(`bundled axon-core binary was not found at ${corePath}`);
+    const servicePath = getBundledServicePath();
+    if (!fs.existsSync(servicePath)) {
+      console.error(
+        `bundled ${deps.displayName} binary was not found at ${servicePath}`,
+      );
       return;
     }
 
@@ -195,21 +205,21 @@ export function createBundledCoreController(
     // developers may launch a packaged build while testing a local core, and
     // blindly spawning another process would only create a port conflict.
     reportStatus("starting");
-    const child = spawn(corePath, [], {
+    const child = spawn(servicePath, [], {
       env: {
         ...process.env,
-        AXON_CORE_PORT: deps.axonCorePort,
-        AXON_CORE_TOKEN: deps.axonCoreToken,
+        [deps.portEnvironmentVariable]: deps.port,
+        [deps.tokenEnvironmentVariable]: deps.token,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
     bundledCoreProcess = child;
 
     child.stdout?.on("data", (chunk) => {
-      console.log(`[axon-core] ${chunk.toString().trimEnd()}`);
+      console.log(`[${deps.service}] ${chunk.toString().trimEnd()}`);
     });
     child.stderr?.on("data", (chunk) => {
-      console.error(`[axon-core] ${chunk.toString().trimEnd()}`);
+      console.error(`[${deps.service}] ${chunk.toString().trimEnd()}`);
     });
     child.on("exit", (code, signal) => {
       if (bundledCoreProcess === child) bundledCoreProcess = null;
@@ -219,6 +229,8 @@ export function createBundledCoreController(
       }
       reportStatus("crashed");
       void requestCoreRestart({
+        service: deps.service,
+        displayName: deps.displayName,
         reason: "crashed",
         terminalSessionCount: 0,
         exitCode: code,
@@ -226,20 +238,22 @@ export function createBundledCoreController(
       });
     });
     child.on("error", (err) => {
-      console.error("failed to start bundled axon-core:", err);
+      console.error(`failed to start bundled ${deps.displayName}:`, err);
       if (bundledCoreProcess === child) bundledCoreProcess = null;
     });
 
     const ready = await waitForAxonCore();
     if (!ready) {
-      console.error("bundled axon-core did not become ready before timeout");
+      console.error(
+        `bundled ${deps.displayName} did not become ready before timeout`,
+      );
       reportStatus("unresponsive");
       return;
     }
     reportStatus("healthy");
   }
 
-  async function stopBundledAxonCore() {
+  async function stop() {
     const child = bundledCoreProcess;
     if (!child || child.killed) return;
 
@@ -259,12 +273,12 @@ export function createBundledCoreController(
     if (bundledCoreProcess === child) bundledCoreProcess = null;
   }
 
-  async function restartBundledAxonCore() {
+  async function restart() {
     bundledCoreRestarting = true;
     reportStatus("restarting");
     try {
-      await stopBundledAxonCore();
-      await startBundledAxonCore();
+      await stop();
+      await start();
     } finally {
       bundledCoreRestarting = false;
     }
@@ -291,13 +305,13 @@ export function createBundledCoreController(
         restartDeclinedUntil = Date.now() + 5 * 60_000;
         return;
       }
-      await restartBundledAxonCore();
+      await restart();
     } finally {
       recoveryPromptActive = false;
     }
   }
 
-  function startBundledCoreWatchdog() {
+  function startWatchdog() {
     if (deps.isDev || bundledCoreWatchdog) return;
 
     bundledCoreWatchdog = setInterval(() => {
@@ -314,11 +328,13 @@ export function createBundledCoreController(
         bundledCoreHealthFailures = 0;
         reportStatus("unresponsive");
 
-        // Core owns every PTY, so an automatic restart is data loss even when it
-        // makes filesystem APIs responsive again. I inspect terminal health only
-        // to explain the blast radius; the user remains the authority who decides
-        // whether recovery is worth ending those sessions.
+        // A service supervisor must never guess whether restarting is harmless.
+        // The PTY host can report its exact live-session blast radius, while Core
+        // still owns in-flight filesystem and AI work. Both therefore use the
+        // same explicit recovery decision instead of a timeout-triggered kill.
         await requestCoreRestart({
+          service: deps.service,
+          displayName: deps.displayName,
           reason: "unresponsive",
           terminalSessionCount: await getTerminalSessionCount(),
         });
@@ -326,16 +342,16 @@ export function createBundledCoreController(
     }, 15000);
   }
 
-  function stopBundledCoreWatchdog() {
+  function stopWatchdog() {
     if (!bundledCoreWatchdog) return;
     clearInterval(bundledCoreWatchdog);
     bundledCoreWatchdog = null;
   }
 
   return {
-    startBundledAxonCore,
-    stopBundledAxonCore,
-    startBundledCoreWatchdog,
-    stopBundledCoreWatchdog,
+    start,
+    stop,
+    startWatchdog,
+    stopWatchdog,
   };
 }

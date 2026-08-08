@@ -6,10 +6,8 @@ package server
 
 import (
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,34 +16,23 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/ai"
 	"github.com/GordenArcher/axon-core/internal/fs"
-	"github.com/GordenArcher/axon-core/internal/terminal"
 )
 
 // Server is the core HTTP server struct.
 // Will hold shared dependencies (config, ai clients, etc) as we expand.
 type Server struct {
-	authToken       string
-	terminalMu      sync.Mutex
-	terminalTickets map[string]terminalTicket
-}
-
-type terminalTicket struct {
-	expiresAt     time.Time
-	cwd           string
-	workspaceRoot string
+	authToken string
 }
 
 // New creates and returns a new Server instance.
 func New(authToken string) *Server {
 	return &Server{
-		authToken:       strings.TrimSpace(authToken),
-		terminalTickets: make(map[string]terminalTicket),
+		authToken: strings.TrimSpace(authToken),
 	}
 }
 
@@ -213,12 +200,6 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/ai/models/pull/stream", s.handleAIModelPullStream)
 	mux.HandleFunc("/ai/chat/stream", s.handleAIChatStream)
 
-	// terminal WebSocket endpoint
-	// each connection spawns a real shell attached to a PTY
-	mux.HandleFunc("/terminal", terminal.Handler)
-	mux.HandleFunc("/terminal/health", terminal.HealthHandler)
-	mux.HandleFunc("/terminal/ticket", s.handleTerminalTicket)
-
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed
 	return corsMiddleware(s.requireAuthentication(mux))
@@ -234,38 +215,7 @@ func requestToken(r *http.Request) string {
 	return ""
 }
 
-func (s *Server) consumeTerminalTicket(ticket string, requestedCwd string, requestedWorkspaceRoot string) bool {
-	if ticket == "" {
-		return false
-	}
-
-	s.terminalMu.Lock()
-	defer s.terminalMu.Unlock()
-	capability, exists := s.terminalTickets[ticket]
-	// A ticket is deleted before the WebSocket upgrade continues. This makes it a
-	// true one-use capability: copying a terminal URL from logs, history, or a
-	// compromised renderer cannot be replayed to create another shell.
-	delete(s.terminalTickets, ticket)
-	if !exists || !time.Now().Before(capability.expiresAt) {
-		return false
-	}
-	sameCwd, err := pathInsideWorkspace(capability.cwd, requestedCwd)
-	if err != nil || !sameCwd || !sameFilesystemPath(capability.cwd, requestedCwd) {
-		return false
-	}
-	sameRoot, err := pathInsideWorkspace(capability.workspaceRoot, requestedWorkspaceRoot)
-	return err == nil && sameRoot && sameFilesystemPath(capability.workspaceRoot, requestedWorkspaceRoot)
-}
-
 func (s *Server) authenticated(r *http.Request) bool {
-	if r.URL.Path == "/terminal" {
-		return s.consumeTerminalTicket(
-			strings.TrimSpace(r.URL.Query().Get("ticket")),
-			r.URL.Query().Get("cwd"),
-			r.URL.Query().Get("workspaceRoot"),
-		)
-	}
-
 	providedToken := requestToken(r)
 	return s.authToken != "" && len(providedToken) == len(s.authToken) &&
 		subtle.ConstantTimeCompare([]byte(providedToken), []byte(s.authToken)) == 1
@@ -281,75 +231,6 @@ func (s *Server) requireAuthentication(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
-	})
-}
-
-func (s *Server) handleTerminalTicket(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeJSON(w, http.StatusMethodNotAllowed, Response{Status: "error", Error: "method not allowed"})
-		return
-	}
-	var body struct {
-		Cwd           string `json:"cwd"`
-		WorkspaceRoot string `json:"workspaceRoot"`
-	}
-	limitRequestBody(w, r)
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Cwd == "" || body.WorkspaceRoot == "" {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal workspace and working directory are required"})
-		return
-	}
-	rootInfo, err := os.Stat(body.WorkspaceRoot)
-	if err != nil || !rootInfo.IsDir() {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal workspace is invalid"})
-		return
-	}
-	cwdInfo, err := os.Stat(body.Cwd)
-	if err != nil || !cwdInfo.IsDir() {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is invalid"})
-		return
-	}
-	resolvedWorkspaceRoot, err := filepath.EvalSymlinks(body.WorkspaceRoot)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal workspace is invalid"})
-		return
-	}
-	resolvedCwd, err := filepath.EvalSymlinks(body.Cwd)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is invalid"})
-		return
-	}
-	insideWorkspace, err := pathInsideWorkspace(resolvedWorkspaceRoot, resolvedCwd)
-	if err != nil || !insideWorkspace {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Error: "terminal working directory is outside its workspace"})
-		return
-	}
-
-	randomTicket := make([]byte, 32)
-	if _, err := rand.Read(randomTicket); err != nil {
-		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Error: "could not create terminal capability"})
-		return
-	}
-	ticket := base64.RawURLEncoding.EncodeToString(randomTicket)
-	now := time.Now()
-
-	s.terminalMu.Lock()
-	for value, capability := range s.terminalTickets {
-		if !now.Before(capability.expiresAt) {
-			delete(s.terminalTickets, value)
-		}
-	}
-	// Fifteen seconds covers normal main-process IPC and WebSocket setup while
-	// keeping the capability too short-lived to become a second session secret.
-	s.terminalTickets[ticket] = terminalTicket{
-		expiresAt:     now.Add(15 * time.Second),
-		cwd:           resolvedCwd,
-		workspaceRoot: resolvedWorkspaceRoot,
-	}
-	s.terminalMu.Unlock()
-
-	writeJSON(w, http.StatusOK, Response{
-		Status: "ok",
-		Data:   map[string]string{"ticket": ticket},
 	})
 }
 

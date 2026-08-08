@@ -16,6 +16,10 @@ const builds = [
     outputName: `axon-core${executableSuffix}`,
   },
   {
+    packagePath: "./cmd/axon-pty-host",
+    outputName: `axon-pty-host${executableSuffix}`,
+  },
+  {
     packagePath: "./cmd/axon-agent",
     outputName: `axon${executableSuffix}`,
   },
@@ -30,10 +34,14 @@ mkdirSync(outputDir, { recursive: true });
 // then copies that exact binary into the desktop app.
 for (const build of builds) {
   const outputPath = path.join(outputDir, build.outputName);
-  const result = spawnSync("go", ["build", "-o", outputPath, build.packagePath], {
-    cwd: coreRoot,
-    stdio: "inherit",
-  });
+  const result = spawnSync(
+    "go",
+    ["build", "-o", outputPath, build.packagePath],
+    {
+      cwd: coreRoot,
+      stdio: "inherit",
+    },
+  );
 
   if (result.error) {
     summarizeSpawnFailure({ label: `core binary ${build.outputName}`, result });

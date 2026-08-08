@@ -17,7 +17,7 @@
   "main": "dist/main/index.js",
   "scripts": {
     "predev": "npm --prefix ../.. run build:packages && npm run patch:language-servers && node scripts/write-build-config.mjs && tsc -p tsconfig.main.json && npm run build:dev-cli",
-    "dev": "npm run prepare:extension-registry && npm run check:language-servers && cross-env AXON_CORE_TOKEN=axon-development-only concurrently -k -n core,renderer,electron \"cross-env AXON_CORE_PORT=17777 go -C ../../services/core run cmd/axon/main.go\" \"cross-env NODE_ENV=development VITE_AXON_CORE_URL=http://127.0.0.1:17777 vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development AXON_CORE_PORT=17777 AXON_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "dev": "npm run prepare:extension-registry && npm run check:language-servers && cross-env AXON_CORE_TOKEN=axon-development-only AXON_PTY_TOKEN=axon-development-terminal-only concurrently -k -n core,pty,renderer,electron \"cross-env AXON_CORE_PORT=17777 go -C ../../services/core run cmd/axon/main.go\" \"cross-env AXON_PTY_PORT=17778 go -C ../../services/core run cmd/axon-pty-host/main.go\" \"cross-env NODE_ENV=development VITE_AXON_CORE_URL=http://127.0.0.1:17777 vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development AXON_CORE_PORT=17777 AXON_PTY_PORT=17778 AXON_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "check:language-servers": "node scripts/check-language-servers.mjs",
     "build:language-servers": "node scripts/download-language-servers.mjs",
     "build:dev-cli": "node scripts/build-dev-cli.mjs",
@@ -50,7 +50,9 @@
     "directories": {
       "output": "release"
     },
-    "asarUnpack": ["node_modules/**/*"],
+    "asarUnpack": [
+      "node_modules/**/*"
+    ],
     "files": [
       "dist/main/**/*",
       "dist/preload/**/*",
@@ -59,7 +61,9 @@
       {
         "from": "../../extensions",
         "to": "extensions",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       "package.json",
       "node_modules/@ampproject/remapping/**/*",
@@ -784,7 +788,9 @@
       {
         "from": "build/language-servers",
         "to": "language-servers",
-        "filter": ["**/go/**/*"]
+        "filter": [
+          "**/go/**/*"
+        ]
       }
     ],
     "publish": [
@@ -796,18 +802,26 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build/axon.png"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "verifyUpdateCodeSignature": false,
       "icon": "build/axon.png"
     },
     "linux": {
       "category": "Development",
       "maintainer": "Gorden <GordenArcher@users.noreply.github.com>",
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "build/axon.png"
     }
   },

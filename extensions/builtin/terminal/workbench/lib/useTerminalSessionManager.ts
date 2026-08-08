@@ -3,7 +3,6 @@ import { Terminal as XTerm, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { TERMINAL_PROTOCOL } from "@axon/protocol";
-import { waitForCoreBackend } from "@axon-editor/renderer/shared/lib/coreBackend";
 import {
   createTerminalId,
   getFolderName,
@@ -360,28 +359,29 @@ export function useTerminalSessionManager({
       const abortController = new AbortController();
       connectionAbortRef.current[id] = abortController;
 
-      void waitForCoreBackend(abortController.signal).then(async (ready) => {
+      void (async () => {
         const currentSession = sessionsRef.current[id];
         if (abortController.signal.aborted || !currentSession?.term) return;
         if (currentSession.disposed) return;
-        delete connectionAbortRef.current[id];
 
-        if (!ready) {
-          updateTabConnection(id, false);
-          currentSession.term.write(
-            "\r\n\x1b[31mterminal backend is not reachable. Axon will retry shortly.\x1b[0m\r\n",
-          );
-          scheduleReconnect(currentSession, () => connectSession(id), 1500);
-          return;
-        }
-
-        const ws = new WebSocket(
-          await getTerminalBackendUrl(
+        let backendUrl: string;
+        try {
+          backendUrl = await getTerminalBackendUrl(
             currentSession.workingDirectory,
             id,
             currentSession.receivedBytes,
-          ),
-        );
+          );
+        } catch {
+          if (abortController.signal.aborted) return;
+          delete connectionAbortRef.current[id];
+          updateTabConnection(id, false);
+          scheduleReconnect(currentSession, () => connectSession(id), 1500);
+          return;
+        }
+        if (abortController.signal.aborted || currentSession.disposed) return;
+        delete connectionAbortRef.current[id];
+
+        const ws = new WebSocket(backendUrl);
         ws.binaryType = "arraybuffer";
         currentSession.ws = ws;
 

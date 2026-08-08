@@ -5,6 +5,8 @@ import type { CoreRequest, CoreResponse } from "../../shared/app";
 interface CoreProxyDependencies {
   axonCorePort: string;
   axonCoreToken: string;
+  axonPtyPort: string;
+  axonPtyToken: string;
   assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
   assertWorkspacePath: (rendererId: number, candidatePath: string) => string;
   resolveWorkspaceRoot: (rendererId: number, candidatePath: string) => string;
@@ -40,6 +42,8 @@ export function validateRendererCorePath(rawPath: string) {
 export function registerCoreProxyHandlers({
   axonCorePort,
   axonCoreToken,
+  axonPtyPort,
+  axonPtyToken,
   assertWorkspaceRoot,
   assertWorkspacePath,
   resolveWorkspaceRoot,
@@ -106,11 +110,11 @@ export function registerCoreProxyHandlers({
       const cwd = assertWorkspacePath(event.sender.id, workingDirectory);
       const workspaceRoot = resolveWorkspaceRoot(event.sender.id, cwd);
       const response = await fetch(
-        `http://127.0.0.1:${axonCorePort}/terminal/ticket`,
+        `http://127.0.0.1:${axonPtyPort}/terminal/ticket`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${axonCoreToken}`,
+            Authorization: `Bearer ${axonPtyToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ cwd, workspaceRoot }),
@@ -133,7 +137,7 @@ export function registerCoreProxyHandlers({
           payload.error ?? "Core returned an invalid terminal ticket.",
         );
       }
-      return `ws://127.0.0.1:${axonCorePort}/terminal?ticket=${encodeURIComponent(ticket)}&workspaceRoot=${encodeURIComponent(workspaceRoot)}&cwd=${encodeURIComponent(cwd)}`;
+      return `ws://127.0.0.1:${axonPtyPort}/terminal?ticket=${encodeURIComponent(ticket)}&workspaceRoot=${encodeURIComponent(workspaceRoot)}&cwd=${encodeURIComponent(cwd)}`;
     },
   );
 }

@@ -38,7 +38,10 @@ import { registerSettingsHandlers } from "./settings/handlers";
 import { registerUpdateHandlers } from "./updates/handlers";
 import { UpdateManager } from "./updates/updater";
 import { createMainProcessIpc } from "./core/ipc";
-import { createBundledCoreController } from "./core/process";
+import {
+  createBundledServiceController,
+  type CoreRestartConfirmation,
+} from "./core/process";
 import { registerCoreProxyHandlers } from "./core/proxy";
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { registerAiHandlers } from "./ai/handlers";
@@ -100,11 +103,15 @@ let mainWindowReadyForCliOpen = false;
 const axonCorePort =
   process.env.AXON_CORE_PORT?.trim() ||
   String(20_000 + (randomBytes(2).readUInt16BE(0) % 30_000));
+const axonPtyPort =
+  process.env.AXON_PTY_PORT?.trim() || String(Number(axonCorePort) + 1);
 // Development supplies one process-scoped token to the independently launched
 // Go process. Packaged Axon generates a fresh secret for every app launch and
 // passes it only to its child core process and trusted preload bridge.
 const axonCoreToken =
   process.env.AXON_CORE_TOKEN?.trim() || randomBytes(32).toString("hex");
+const axonPtyToken =
+  process.env.AXON_PTY_TOKEN?.trim() || randomBytes(32).toString("hex");
 const axonReleaseApiUrl =
   "https://api.github.com/repos/axon-editor/axon/releases/latest";
 const axonReleasePageUrl =
@@ -238,52 +245,75 @@ function queueCliOpenFolder(filePath: string) {
 
   deliverPendingCliOpenFolder();
 }
-const bundledCore = createBundledCoreController({
-  isDev,
-  axonCorePort,
-  axonCoreToken,
-  isShuttingDown: () => isQuitting,
-  onStatusChange: (status) => {
-    sendToRenderer("core:status", { status });
-  },
-  confirmRestart: async ({
-    reason,
-    terminalSessionCount,
-    exitCode,
-    exitSignal,
-  }) => {
-    const terminalImpact =
-      terminalSessionCount === null
-        ? "Axon could not determine how many terminal sessions are still running."
-        : terminalSessionCount === 1
-          ? "Restarting will end 1 terminal session and any command running inside it."
-          : `Restarting will end ${terminalSessionCount} terminal sessions and any commands running inside them.`;
-    const detail =
+async function confirmServiceRestart({
+  service,
+  displayName,
+  reason,
+  terminalSessionCount,
+  exitCode,
+  exitSignal,
+}: CoreRestartConfirmation) {
+  const terminalImpact =
+    terminalSessionCount === null
+      ? "Axon could not determine how many terminal sessions are still running."
+      : terminalSessionCount === 1
+        ? "Restarting will end 1 terminal session and any command running inside it."
+        : `Restarting will end ${terminalSessionCount} terminal sessions and any commands running inside them.`;
+  const processExit = `${exitCode !== null && exitCode !== undefined ? ` with code ${exitCode}` : exitSignal ? ` after signal ${exitSignal}` : ""}`;
+  const detail =
+    reason === "crashed"
+      ? service === "pty-host"
+        ? `${displayName} exited unexpectedly${processExit}. Its terminal processes have already stopped.`
+        : `${displayName} exited unexpectedly${processExit}. The isolated PTY host and running terminals were not stopped.`
+      : service === "pty-host"
+        ? `${displayName} has stopped responding. ${terminalImpact}`
+        : `${displayName} has stopped responding. Restarting interrupts in-flight filesystem and AI requests, but the isolated PTY host and running terminals stay alive.`;
+  const options = {
+    type: "warning" as const,
+    title: `${displayName} needs attention`,
+    message: `${displayName} ${reason === "crashed" ? "stopped unexpectedly" : "is not responding"}`,
+    detail,
+    buttons:
       reason === "crashed"
-        ? `Axon Core exited unexpectedly${exitCode !== null && exitCode !== undefined ? ` with code ${exitCode}` : exitSignal ? ` after signal ${exitSignal}` : ""}. Its terminal processes have already stopped.`
-        : `Axon Core has stopped responding. ${terminalImpact}`;
-    const options = {
-      type: "warning" as const,
-      title: "Axon Core needs attention",
-      message:
-        reason === "crashed"
-          ? "Axon Core stopped unexpectedly"
-          : "Axon Core is not responding",
-      detail,
-      buttons:
-        reason === "crashed"
-          ? ["Restart Core", "Not Now"]
-          : ["Keep Waiting", "Restart Core"],
-      defaultId: 0,
-      cancelId: reason === "crashed" ? 1 : 0,
-      noLink: true,
-    };
-    const parent = BrowserWindow.getFocusedWindow() ?? mainWindow;
-    const result = parent
-      ? await dialog.showMessageBox(parent, options)
-      : await dialog.showMessageBox(options);
-    return reason === "crashed" ? result.response === 0 : result.response === 1;
-  },
+        ? [`Restart ${displayName}`, "Not Now"]
+        : ["Keep Waiting", `Restart ${displayName}`],
+    defaultId: 0,
+    cancelId: reason === "crashed" ? 1 : 0,
+    noLink: true,
+  };
+  const parent = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  const result = parent
+    ? await dialog.showMessageBox(parent, options)
+    : await dialog.showMessageBox(options);
+  return reason === "crashed" ? result.response === 0 : result.response === 1;
+}
+
+const bundledCore = createBundledServiceController({
+  isDev,
+  service: "core",
+  displayName: "Axon Core",
+  binaryName: "axon-core",
+  port: axonCorePort,
+  token: axonCoreToken,
+  portEnvironmentVariable: "AXON_CORE_PORT",
+  tokenEnvironmentVariable: "AXON_CORE_TOKEN",
+  isShuttingDown: () => isQuitting,
+  onStatusChange: (status) => sendToRenderer("core:status", { status }),
+  confirmRestart: confirmServiceRestart,
+});
+const bundledPtyHost = createBundledServiceController({
+  isDev,
+  service: "pty-host",
+  displayName: "Axon Terminal Host",
+  binaryName: "axon-pty-host",
+  port: axonPtyPort,
+  token: axonPtyToken,
+  portEnvironmentVariable: "AXON_PTY_PORT",
+  tokenEnvironmentVariable: "AXON_PTY_TOKEN",
+  terminalHealthPath: "/terminal/health",
+  isShuttingDown: () => isQuitting,
+  onStatusChange: (status) => sendToRenderer("pty:status", { status }),
+  confirmRestart: confirmServiceRestart,
 });
 const taskManager = new TaskManager({
   sendToRenderer,
@@ -356,6 +386,8 @@ registerAppHandlers({
 registerCoreProxyHandlers({
   axonCorePort,
   axonCoreToken,
+  axonPtyPort,
+  axonPtyToken,
   assertWorkspaceRoot: (rendererId, rootPath) =>
     workspaceCapabilities.assertRoot(rendererId, rootPath),
   assertWorkspacePath: (rendererId, candidatePath) =>
@@ -598,7 +630,10 @@ app.whenReady().then(async () => {
   // BrowserWindow makes a normal packaged launch feel like Electron is stuck,
   // even though the renderer can already restore chrome, tabs, and the last
   // workspace while core finishes binding its local port.
-  const bundledCoreReady = bundledCore.startBundledAxonCore();
+  const bundledServicesReady = Promise.all([
+    bundledCore.start(),
+    bundledPtyHost.start(),
+  ]);
   // A cold `axon .` launch can queue an open-file request before the app is
   // ready. In that case restoring the previous session first is actively wrong:
   // the old workspace can become visible and persisted before the renderer
@@ -607,8 +642,9 @@ app.whenReady().then(async () => {
   createManagedWindow({
     restoreSession: pendingCliOpenFolderPath ? false : true,
   });
-  void bundledCoreReady.then(() => {
-    bundledCore.startBundledCoreWatchdog();
+  void bundledServicesReady.then(() => {
+    bundledCore.startWatchdog();
+    bundledPtyHost.startWatchdog();
     void warmUpAiRuntime({ axonCorePort, axonCoreToken });
   });
 
@@ -649,8 +685,9 @@ app.on("before-quit", async () => {
   taskManager.stopAll();
   testManager.stopAll();
   stopAllLanguageServers();
-  bundledCore.stopBundledCoreWatchdog();
-  await bundledCore.stopBundledAxonCore();
+  bundledCore.stopWatchdog();
+  bundledPtyHost.stopWatchdog();
+  await Promise.all([bundledCore.stop(), bundledPtyHost.stop()]);
   await fileWatcherRegistry.closeAll();
   await htmlPreviewServer?.close();
 });
