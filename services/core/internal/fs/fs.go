@@ -6,7 +6,6 @@
 package fs
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"os"
@@ -34,18 +33,6 @@ type FileContent struct {
 }
 
 var ErrBinaryFile = errors.New("binary files cannot be opened as text")
-var errSearchLimitReached = errors.New("search result limit reached")
-
-// SearchResult is a single workspace text match.
-// The renderer needs the exact file, line, and column so selecting a result can
-// become "open this file here" now and later "jump to this location" when the
-// editor exposes line/column navigation.
-type SearchResult struct {
-	Path    string `json:"path"`
-	Line    int    `json:"line"`
-	Column  int    `json:"column"`
-	Preview string `json:"preview"`
-}
 
 // ReplaceResult summarizes one workspace replace operation without returning
 // every changed file body across the process boundary.
@@ -311,114 +298,6 @@ func RenameEntry(sourcePath string, newName string) (string, error) {
 	}
 
 	return destPath, os.Rename(sourcePath, destPath)
-}
-
-// SearchWorkspace walks the project tree and returns text matches for query.
-// It intentionally skips the same noisy folders as GetTree so search feels
-// aligned with what the user sees in the sidebar, and it caps large files to
-// avoid freezing the local core process on generated bundles or binary assets.
-func SearchWorkspace(rootPath string, query string, maxResults int) ([]SearchResult, error) {
-	return SearchWorkspaceContext(context.Background(), rootPath, query, maxResults)
-}
-
-// SearchWorkspaceContext is the cancellable search path used by the HTTP
-// server. Search queries are fired while the user is typing, so an older query
-// must stop as soon as the renderer asks for a newer one. Without this context
-// check, the core can keep walking a large workspace for a search result the UI
-// will never display, which makes the next query feel slower than it should.
-func SearchWorkspaceContext(ctx context.Context, rootPath string, query string, maxResults int) ([]SearchResult, error) {
-	if maxResults <= 0 {
-		maxResults = 100
-	}
-
-	normalizedQuery := strings.ToLower(strings.TrimSpace(query))
-	if normalizedQuery == "" {
-		return []SearchResult{}, nil
-	}
-
-	results := []SearchResult{}
-	err := filepath.WalkDir(rootPath, func(path string, entry os.DirEntry, err error) error {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-		if len(results) >= maxResults {
-			return errSearchLimitReached
-		}
-		if err != nil {
-			return nil
-		}
-
-		if path != rootPath && shouldSkipSearchPath(rootPath, path) {
-			if entry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if entry.IsDir() {
-			return nil
-		}
-		if shouldSkipSearchFile(path) {
-			return nil
-		}
-
-		info, err := entry.Info()
-		if err != nil || info.Size() > 1024*1024 {
-			return nil
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			return nil
-		}
-		defer file.Close()
-
-		sample := make([]byte, 8192)
-		sampleSize, sampleErr := file.Read(sample)
-		if sampleErr != nil && sampleSize == 0 {
-			return nil
-		}
-		if isBinaryContent(sample[:sampleSize]) {
-			return nil
-		}
-		// The deferred close above still runs when this WalkDir callback
-		// returns, including this seek-error branch. Keeping the close lifetime
-		// tied to the callback avoids leaking descriptors while making the early
-		// skip paths cheap and easy to follow.
-		if _, err := file.Seek(0, 0); err != nil {
-			return nil
-		}
-
-		scanner := bufio.NewScanner(file)
-		scanner.Buffer(make([]byte, 1024), 1024*1024)
-		lineNumber := 0
-		for scanner.Scan() {
-			lineNumber++
-			line := scanner.Text()
-			column := strings.Index(strings.ToLower(line), normalizedQuery)
-			if column < 0 {
-				continue
-			}
-
-			results = append(results, SearchResult{
-				Path:    path,
-				Line:    lineNumber,
-				Column:  column + 1,
-				Preview: trimSearchPreview(line),
-			})
-
-			if len(results) >= maxResults {
-				return errSearchLimitReached
-			}
-		}
-
-		return nil
-	})
-	if errors.Is(err, errSearchLimitReached) {
-		return results, nil
-	}
-
-	return results, err
 }
 
 // ReplaceWorkspaceContext performs one bounded filesystem walk in Core instead
