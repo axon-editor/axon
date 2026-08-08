@@ -472,6 +472,7 @@
       "node_modules/mdast-util-find-and-replace/**/*",
       "node_modules/mdast-util-from-markdown/**/*",
       "node_modules/mdast-util-frontmatter/**/*",
+      "node_modules/mdast-util-frontmatter/node_modules/escape-string-regexp/**/*",
       "node_modules/mdast-util-gfm/**/*",
       "node_modules/mdast-util-gfm-autolink-literal/**/*",
       "node_modules/mdast-util-gfm-footnote/**/*",

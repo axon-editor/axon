@@ -210,6 +210,13 @@ export function useTerminalSessionManager({
       window.clearTimeout(session.outputDrainTimer);
       session.outputDrainTimer = null;
     }
+    if (
+      session?.outputRefreshFrame !== null &&
+      session?.outputRefreshFrame !== undefined
+    ) {
+      window.cancelAnimationFrame(session.outputRefreshFrame);
+      session.outputRefreshFrame = null;
+    }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
     session?.multilineDisposable?.dispose();
@@ -291,6 +298,7 @@ export function useTerminalSessionManager({
         outputQueue: [],
         outputWriting: false,
         outputDrainTimer: null,
+        outputRefreshFrame: null,
         inFlightWriteBytes: 0,
         pendingBinaryDecodes: 0,
         queuedBytes: 0,

@@ -33,6 +33,7 @@ function createSession() {
     outputQueue: [],
     outputWriting: false,
     outputDrainTimer: null,
+    outputRefreshFrame: null,
     inFlightWriteBytes: 0,
     pendingBinaryDecodes: 0,
     queuedBytes: 0,
@@ -87,10 +88,17 @@ describe("terminal output accounting", () => {
     expect(session.maxWriteCommitLatencyMs).toBe(37);
   });
 
-  it("lets xterm own viewport movement while output commits", () => {
+  it("coalesces committed output into one viewport repaint", () => {
     const { session } = createSession();
     const callbacks: Array<() => void> = [];
+    const frames: FrameRequestCallback[] = [];
     const term = session.term!;
+    const animationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        frames.push(callback);
+        return frames.length;
+      });
     vi.mocked(term.scrollToBottom).mockClear();
     term.write = vi.fn((_data, callback) => callbacks.push(callback));
 
@@ -101,20 +109,35 @@ describe("terminal output accounting", () => {
     callbacks[0]();
     callbacks[1]();
 
+    expect(frames).toHaveLength(1);
     expect(term.scrollToBottom).not.toHaveBeenCalled();
     expect(term.refresh).not.toHaveBeenCalled();
+    frames[0](16);
+    expect(term.refresh).toHaveBeenCalledOnce();
+    expect(term.refresh).toHaveBeenCalledWith(0, 23);
+    animationFrame.mockRestore();
   });
 
   it("does not pull a detached reader back to the live tail", () => {
     const { session } = createSession();
+    const frames: FrameRequestCallback[] = [];
     const term = session.term!;
     session.atBottom = false;
+    const animationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        frames.push(callback);
+        return frames.length;
+      });
     vi.mocked(term.scrollToBottom).mockClear();
 
     writeTerminalOutput(session, "new output while reading scrollback");
 
+    expect(frames).toHaveLength(1);
+    frames[0](16);
     expect(term.scrollToBottom).not.toHaveBeenCalled();
-    expect(term.refresh).not.toHaveBeenCalled();
+    expect(term.refresh).toHaveBeenCalledWith(0, 23);
+    animationFrame.mockRestore();
   });
 
   it("splits oversized websocket frames before writing to xterm", () => {

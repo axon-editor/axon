@@ -22,6 +22,7 @@ export interface TerminalSession {
   outputQueue: TerminalOutputChunk[];
   outputWriting: boolean;
   outputDrainTimer: number | null;
+  outputRefreshFrame: number | null;
   inFlightWriteBytes: number;
   pendingBinaryDecodes: number;
   queuedBytes: number;

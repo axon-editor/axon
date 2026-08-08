@@ -203,6 +203,26 @@ function scheduleTerminalDrain(session: TerminalSession) {
   }, 0);
 }
 
+function scheduleTerminalViewportRefresh(session: TerminalSession) {
+  if (session.outputRefreshFrame !== null || session.disposed || !session.term) {
+    return;
+  }
+
+  // xterm normally invalidates visible rows as its parser commits output, but
+  // Electron can leave a detached scrollback viewport stale while the buffer
+  // keeps growing below it. I request one full visible-viewport repaint after
+  // committed writes and coalesce every completion in the same animation frame.
+  // This preserves the reader's exact scroll position because refresh does not
+  // scroll, while the frame cap prevents a fast agent stream from scheduling a
+  // separate renderer pass for every 128 KB write callback.
+  session.outputRefreshFrame = window.requestAnimationFrame(() => {
+    session.outputRefreshFrame = null;
+    const term = session.term;
+    if (!term || session.disposed) return;
+    term.refresh(0, Math.max(0, term.rows - 1));
+  });
+}
+
 function drainTerminalOutput(session: TerminalSession) {
   if (!session.term || session.disposed) return;
 
@@ -245,6 +265,8 @@ function drainTerminalOutput(session: TerminalSession) {
       session.queuedBytes = Math.max(0, session.queuedBytes - batch.byteLength);
       session.drainedChunks += batch.chunkCount;
       session.outputWriting = session.inFlightWriteBytes > 0;
+
+      scheduleTerminalViewportRefresh(session);
 
       const settled = !hasPendingTerminalOutput(session);
       sendTerminalAck(session, settled);

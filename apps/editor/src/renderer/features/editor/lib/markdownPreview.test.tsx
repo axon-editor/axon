@@ -231,6 +231,39 @@ describe("MarkdownPreview", () => {
     expect(container.querySelector("pre span")?.textContent).toBe("const");
   });
 
+  it("recolorizes code fences when the active Axon theme changes", async () => {
+    vi.useFakeTimers();
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"```ts\nconst themed = true;\n```"}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30);
+    });
+
+    expect(monacoMock.colorize).toHaveBeenCalledTimes(1);
+
+    // Axon changes root theme tokens and Monaco's global theme together. The
+    // highlighted HTML must be regenerated after that switch because Monaco
+    // resolves each token color at colorize time; retaining the old HTML would
+    // leave preview fences painted with the previous theme until the Markdown
+    // source happened to change.
+    await act(async () => {
+      document.documentElement.style.setProperty(
+        "--axon-editor-background",
+        "#101010",
+      );
+      await Promise.resolve();
+    });
+
+    expect(monacoMock.colorize).toHaveBeenCalledTimes(2);
+  });
+
   it("renders math, GFM footnotes, callouts, and YAML frontmatter", async () => {
     const content = `---
 title: Markdown reference
