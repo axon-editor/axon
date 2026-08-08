@@ -119,7 +119,10 @@ func searchWorkspaceWithRipgrep(ctx context.Context, rootPath string, query stri
 			cancel()
 			break
 		}
-		if !matched || shouldSkipSearchPath(rootPath, result.Path) || shouldSkipSearchFile(result.Path) {
+		if !matched ||
+			shouldSkipSearchPath(rootPath, result.Path) ||
+			shouldSkipSearchFile(result.Path) ||
+			isInsidePythonVirtualEnvironment(rootPath, result.Path) {
 			continue
 		}
 
@@ -166,7 +169,6 @@ func ripgrepArguments(query string) []string {
 		"--fixed-strings",
 		"--ignore-case",
 		"--hidden",
-		"--no-ignore",
 		"--no-config",
 		"--max-filesize", "1M",
 	}
@@ -236,6 +238,33 @@ func (value ripgrepText) value() (string, error) {
 	return string(decoded), nil
 }
 
+func isInsidePythonVirtualEnvironment(rootPath string, candidatePath string) bool {
+	workspaceRoot := filepath.Clean(rootPath)
+	currentDirectory := filepath.Dir(filepath.Clean(candidatePath))
+	for currentDirectory != workspaceRoot {
+		relativePath, err := filepath.Rel(workspaceRoot, currentDirectory)
+		if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) {
+			return false
+		}
+
+		// pyvenv.cfg is created by Python's venv machinery at the environment
+		// root. Detecting the marker avoids guessing names such as .venv or env,
+		// so a workspace-specific name cannot make search index installed Python
+		// packages as project source.
+		if info, err := os.Stat(filepath.Join(currentDirectory, "pyvenv.cfg")); err == nil && !info.IsDir() {
+			return true
+		}
+
+		parentDirectory := filepath.Dir(currentDirectory)
+		if parentDirectory == currentDirectory {
+			return false
+		}
+		currentDirectory = parentDirectory
+	}
+
+	return false
+}
+
 func searchWorkspaceWithWalker(ctx context.Context, rootPath string, normalizedQuery string, maxResults int) ([]SearchResult, error) {
 	results := []SearchResult{}
 	err := filepath.WalkDir(rootPath, func(path string, entry os.DirEntry, err error) error {
@@ -255,7 +284,15 @@ func searchWorkspaceWithWalker(ctx context.Context, rootPath string, normalizedQ
 			}
 			return nil
 		}
-		if entry.IsDir() || shouldSkipSearchFile(path) {
+		if entry.IsDir() {
+			if path != rootPath {
+				if info, markerErr := os.Stat(filepath.Join(path, "pyvenv.cfg")); markerErr == nil && !info.IsDir() {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		if shouldSkipSearchFile(path) {
 			return nil
 		}
 

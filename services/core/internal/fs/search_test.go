@@ -88,6 +88,55 @@ func TestSearchWorkspaceFallsBackWhenRipgrepIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestSearchWorkspaceSkipsArbitrarilyNamedPythonEnvironment(t *testing.T) {
+	root := t.TempDir()
+	sourcePath := filepath.Join(root, "src", "main.py")
+	virtualEnvironmentRoot := filepath.Join(root, "company-runtime-2026")
+	installedPackagePath := filepath.Join(
+		virtualEnvironmentRoot,
+		"lib",
+		"python3.13",
+		"site-packages",
+		"dependency.py",
+	)
+	for _, file := range []struct {
+		path    string
+		content string
+	}{
+		{sourcePath, "marker = 'custom-environment-search'\n"},
+		{filepath.Join(virtualEnvironmentRoot, "pyvenv.cfg"), "home = /usr/local/bin\n"},
+		{installedPackagePath, "marker = 'custom-environment-search'\n"},
+	} {
+		if err := os.MkdirAll(filepath.Dir(file.path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file.path, []byte(file.content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	results, err := SearchWorkspace(root, "custom-environment-search", 20)
+	if err != nil {
+		t.Fatalf("SearchWorkspace failed: %v", err)
+	}
+	if len(results) != 1 || results[0].Path != sourcePath {
+		t.Fatalf("expected only project source outside the named environment, got %#v", results)
+	}
+
+	walkerResults, err := searchWorkspaceWithWalker(
+		context.Background(),
+		root,
+		"custom-environment-search",
+		20,
+	)
+	if err != nil {
+		t.Fatalf("Go search fallback failed: %v", err)
+	}
+	if len(walkerResults) != 1 || walkerResults[0].Path != sourcePath {
+		t.Fatalf("expected the fallback to skip the named environment, got %#v", walkerResults)
+	}
+}
+
 func TestSearchWorkspaceReturnsCancellationBeforeStartingRipgrep(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -100,9 +149,12 @@ func TestSearchWorkspaceReturnsCancellationBeforeStartingRipgrep(t *testing.T) {
 
 func TestRipgrepArgumentsPreserveAxonSearchScope(t *testing.T) {
 	arguments := strings.Join(ripgrepArguments("needle"), " ")
-	for _, expected := range []string{"--json", "--fixed-strings", "--ignore-case", "--hidden", "--no-ignore", "!**/node_modules/**", "-- needle ."} {
+	for _, expected := range []string{"--json", "--fixed-strings", "--ignore-case", "--hidden", "!**/node_modules/**", "-- needle ."} {
 		if !strings.Contains(arguments, expected) {
 			t.Fatalf("expected ripgrep arguments to include %q: %s", expected, arguments)
 		}
+	}
+	if strings.Contains(arguments, "--no-ignore") {
+		t.Fatal("ripgrep must honor project and global ignore files")
 	}
 }
