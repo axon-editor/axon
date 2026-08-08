@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "examples.axon-notes-language",
+  "name": "Axon Notes Language Example",
+  "publisher": "Axon Examples",
+  "version": "1.0.0",
+  "description": "Language metadata, editor configuration, and snippet contribution examples.",
+  "kind": "language",
+  "categories": ["Languages", "Snippets"],
+  "activationEvents": ["onLanguage:axon-notes"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "axon-notes",
+        "label": "Axon Notes",
+        "extensions": [".axn"],
+        "filenames": ["Axonfile"],
+        "aliases": ["Axon Notes", "axn"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "axon-notes",
+        "path": "./snippets/axon-notes.json"
+      }
+    ]
+  }
+}

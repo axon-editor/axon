@@ -23,7 +23,8 @@
     "build:editor-renderer": "npm --workspace axon run build:renderer",
     "lint": "eslint apps/editor/src extensions/builtin --config eslint.config.mjs",
     "test": "npm --workspace axon test && go -C services/core test ./...",
-    "check:line-count": "node tools/check-file-lines.mjs"
+    "check:line-count": "node tools/check-file-lines.mjs",
+    "check:examples": "npm run build:extension-api && node tools/check-extension-examples.mjs && tsc -p examples/extensions/runtime-api/tsconfig.json --noEmit"
   },
   "overrides": {
     "editorconfig": {

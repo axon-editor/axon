@@ -1,0 +1,48 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "examples.runtime-api",
+  "name": "Runtime API Example",
+  "publisher": "Axon Examples",
+  "version": "1.0.0",
+  "description": "A typed reference for Axon's executable extension runtime API.",
+  "kind": "mixed",
+  "main": "./dist/extension.js",
+  "categories": ["Developer Tools"],
+  "activationEvents": [
+    "onCommand:examples.runtime.hello",
+    "onTerminalProfile:examples.runtime.node"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "examples.runtime.hello",
+        "title": "Say Hello",
+        "category": "Examples",
+        "description": "Return a serializable greeting from an extension command."
+      }
+    ],
+    "terminalProfiles": [
+      {
+        "id": "examples.runtime.node",
+        "title": "Node REPL",
+        "command": "node",
+        "args": ["--interactive"]
+      }
+    ],
+    "debuggerProviders": [
+      {
+        "type": "examples.node",
+        "label": "Example Node Debugger",
+        "languages": ["javascript", "typescript"]
+      }
+    ],
+    "workspaceIndexProviders": [
+      {
+        "id": "examples.runtime.index",
+        "label": "Example Workspace Index",
+        "filePatterns": ["**/*.example"],
+        "activationEvent": "onWorkspaceContains:**/*.example"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "examples.circuit-night-theme",
+  "name": "Circuit Night Theme Example",
+  "publisher": "Axon Examples",
+  "version": "1.0.0",
+  "description": "A complete installable Axon theme extension example.",
+  "kind": "theme",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "example-circuit-night",
+        "label": "Circuit Night Example",
+        "path": "./themes/circuit-night.json"
+      }
+    ]
+  }
+}

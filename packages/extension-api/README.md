@@ -4,17 +4,16 @@ This package is the public contract between Axon's workbench and extension
 packages.
 
 The immediate goal is to stop extension work from depending on private editor
-internals. Built-in extensions and third-party extensions should describe their
-capabilities through `axon.extension.json`, then Axon's extension host can turn
-those declarations into commands, views, themes, icon themes, languages, agents,
-terminal profiles, and tools.
+internals. Built-in and third-party packages describe capabilities through
+`axon.extension.json`; trusted built-ins can additionally implement the typed
+`activate(context, api)` runtime contract.
 
 ## Package Shape
 
 ```text
-example-extension/
+my-extension/
   axon.extension.json
-  src/
+  src/                       # executable modules are trusted-built-in only today
   themes/
   icons/
 ```
@@ -30,7 +29,7 @@ example-extension/
   "kind": "theme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/axon-editor/axon/tree/main/example-extension"
+    "url": "https://github.com/axon-editor/axon/tree/main/examples/extensions/theme"
   },
   "activationEvents": ["onStartup"],
   "contributes": {
@@ -60,17 +59,19 @@ workspace/.axon/extensions/**/axon.extension.json
 there are downloadable; installing a package copies it into the user extensions
 root, where the normal loader treats it like any other installed extension.
 
-The repository root also contains `example-extension/` as a source template.
-Copy it into `extensions/marketplace/example-extension/` when you want the local
-registry to list it as downloadable.
+Working source examples live under `examples/extensions/`. Copy a declarative
+example into a workspace's `.axon/extensions/` folder for direct discovery, or
+into `extensions/marketplace/<package-name>/` when testing the local install
+flow.
 
 ## Download Flow
 
 An extension can be visible to Axon in three different states:
 
-- Source package: the folder an author edits, such as `example-extension/`.
+- Source package: the folder an author edits, such as
+  `examples/extensions/theme/`.
 - Registry package: a package listed for install, such as
-  `extensions/marketplace/example-extension/`.
+  `extensions/marketplace/example-theme/`.
 - Installed package: a copied package under the user extensions root.
 
 The marketplace contract in `src/marketplace.ts` is intentionally small. Local
@@ -81,3 +82,17 @@ changing the modal or install IPC contract.
 That separation matters because editing a source package should not mutate the
 installed copy that Axon is running. The install step creates a stable snapshot,
 then the extension loader reads that installed snapshot on the next refresh.
+
+## Runtime Status
+
+`src/runtime.ts` defines `ExtensionContext` and `AxonExtensionApi`. Runtime
+commands execute for trusted built-in extensions today. Terminal, debug, view,
+and workspace-index providers can register ownership and appear in runtime
+diagnostics, while their full provider execution paths are still being built.
+
+Executable user and workspace extensions are intentionally rejected. Running a
+third-party `main` module inside Electron's trusted main process would give it
+the application's privileges, so Axon will enable that path only through an
+isolated extension-host process. See
+[`../../examples/extensions/runtime-api`](../../examples/extensions/runtime-api)
+for a type-checked API example and the current limitation.

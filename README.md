@@ -91,8 +91,12 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 
 **Core**
 
-- Authenticated Go HTTP/WebSocket server bound to `127.0.0.1`
-- File system, workspace search, Git, terminal PTY, and local AI runtime routes
+- Authenticated `axon-core` service for file system, search, Git, and local AI
+  runtime routes
+- Isolated `axon-pty-host` process for shell ownership, replay, and terminal
+  streaming
+- Private Unix socket or Windows named-pipe control plane for packaged terminal
+  sessions, with a separate authenticated loopback WebSocket data stream
 
 ## Project Structure
 
@@ -107,11 +111,13 @@ axon/
 ├── services/
 │   └── core/                     # Go backend
 │       ├── cmd/axon/             # backend entry point
+│       ├── cmd/axon-pty-host/    # isolated PTY process entry point
 │       ├── cmd/axon-agent/       # terminal agent command installed as axon
 │       └── internal/
 │           ├── fs/               # file tree, text reads, writes, search
 │           ├── server/           # HTTP routes
-│           ├── terminal/         # PTY + websocket bridge
+│           ├── ptyhost/          # private control and terminal stream routers
+│           ├── terminal/         # PTY sessions, replay, and acknowledgements
 │           └── ai/               # model discovery, project context, and streaming chat
 ├── packages/
 │   ├── extension-api/            # manifest, registry, and runtime extension contracts
@@ -121,6 +127,7 @@ axon/
 ├── extensions/                   # built-in and marketplace extension packages
 │   ├── builtin/
 │   └── marketplace/
+├── examples/                     # extension manifests, themes, and runtime API usage
 ├── apps/
 │   └── editor/                   # Electron + React app
 │       └── src/
@@ -129,7 +136,7 @@ axon/
 │           ├── preload/          # safe contextBridge API
 │           ├── workbench/        # editor shell and built-in UI contributions
 │           └── renderer/         # editor, sidebar, onboarding, and shared UI features
-└── docs/                         # release, update, and LSP notes
+└── docs/                         # release, update, and language-tool notes
 ```
 
 ## Run Locally
@@ -161,6 +168,22 @@ npm --workspace axon run dist:linux
 ```
 
 Build output goes to `apps/editor/release/`.
+
+## Extension Examples
+
+Start with [`examples/README.md`](examples/README.md). The repository includes:
+
+- a theme extension that can be loaded from `.axon/extensions/` today;
+- a language metadata, configuration, and snippet manifest example;
+- a type-checked `activate(context, api)` example covering commands, terminal
+  profiles, debug configuration, workspace indexing, and disposal.
+
+The public contract lives in
+[`packages/extension-api`](packages/extension-api/README.md). Declarative user
+and workspace extensions are supported. Executable third-party modules remain
+disabled until Axon can run them in an isolated extension-host process; trusted
+built-ins currently exercise that runtime contract. `window.axon` is an
+internal preload bridge and is not a public extension API.
 
 ## Downloads
 
@@ -198,8 +221,11 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
   ownership in every Axon window
 - Split panes, draggable tabs, dirty indicators, and close prompts
 - Shared Monaco models across panes
-- Markdown preview and full-height HTML preview with browser logs in Output
-- Live Markdown preview tabs that stay connected to dirty editor content
+- Live Markdown preview tabs connected to dirty editor content, with GFM,
+  Mermaid diagrams, KaTeX math, footnotes, callouts, frontmatter, table of
+  contents, heading links, theme-aware code fences, copy actions, PDF export,
+  and editor/preview scroll synchronization
+- Full-height HTML preview with browser logs routed into Output
 - Image/video preview through Axon protocols
 - Workspace search with jump-to-line and binary/cache exclusions
 - Cmd+P project file search with file-first results and `>` command search
@@ -211,8 +237,9 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Problems as editor tabs opened from the status bar
 - Test explorer with project-aware provider discovery, target runs, and inline
   output
-- Integrated terminal with tabs, replay protection, and session health
-  diagnostics
+- Integrated terminal with tabs, isolated PTY ownership, bounded replay,
+  200,000-line xterm scrollback, committed-byte acknowledgements, frame-coalesced
+  scrollback repainting, and session health diagnostics
 - Built-in terminal workbench contribution loaded from the extension-oriented
   architecture
 - Interactive `axon` terminal sessions with workspace context, saved
@@ -222,8 +249,9 @@ More detail: [docs/UPDATES.md](docs/UPDATES.md).
 - Extension-backed built-in themes, custom themes, and imported fonts
 - Code Snapshot editor tool with theme-aware syntax colors, configurable
   presentation, watermarking, clipboard copy, and PNG export
-- Extension-host activation, command runtime, contribution registry, and
-  built-in workbench feature routing
+- Declarative user/workspace extension discovery plus trusted built-in runtime
+  activation, command execution, contribution registries, diagnostics, and
+  workbench feature routing
 - Splash screen and custom app icon/name
 - Low-latency LSP completion, hover, diagnostics, navigation, rename, and
   formatting across bundled and install-on-demand language servers

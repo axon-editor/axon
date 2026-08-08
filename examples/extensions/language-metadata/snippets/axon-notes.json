@@ -1,0 +1,11 @@
+{
+  "Document section": {
+    "prefix": "section",
+    "body": [
+      "section ${1:name} {",
+      "  ${2:content}",
+      "}"
+    ],
+    "description": "Create an Axon Notes section"
+  }
+}
