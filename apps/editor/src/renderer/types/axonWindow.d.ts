@@ -123,7 +123,7 @@ declare global {
       platform: string;
       coreRequest: (request: CoreRequest) => Promise<CoreResponse>;
       cancelCoreRequest: (requestId: string) => Promise<boolean>;
-      createTerminalTicket: (workingDirectory: string) => Promise<string>;
+      createTerminalTicket: (workingDirectory: string | null) => Promise<string>;
       openFolder: () => Promise<string | null>;
       authorizeWorkspaceRoot: (rootPath: string) => Promise<string>;
       authorizeDroppedFiles: (

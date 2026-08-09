@@ -12,10 +12,6 @@ export const goCallExclusions = new Set([
   "func",
 ]);
 
-export function isMarkdown(path: string): boolean {
-  return path.split(".").pop()?.toLowerCase() === "md";
-}
-
 export function normalizePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }

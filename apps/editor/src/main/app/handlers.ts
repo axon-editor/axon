@@ -27,7 +27,7 @@ import { decodeSnapshotPng } from "./snapshotPng";
 interface AppHandlerDependencies {
   windowSessionRestore: Map<number, boolean>;
   isExternalHandlerUrl: (href: string) => boolean;
-  consumePendingCliOpenFolder: () => string | null;
+  consumePendingCliOpenFolder: (rendererId: number) => string | null;
   isDev: boolean;
 }
 
@@ -191,8 +191,8 @@ export function registerAppHandlers({
     return windowSessionRestore.get(event.sender.id) !== false;
   });
 
-  ipcMain.handle("app:consumeCliOpenFolder", () =>
-    consumePendingCliOpenFolder(),
+  ipcMain.handle("app:consumeCliOpenFolder", (event) =>
+    consumePendingCliOpenFolder(event.sender.id),
   );
 
   ipcMain.handle("app:openDevTools", (event) => {

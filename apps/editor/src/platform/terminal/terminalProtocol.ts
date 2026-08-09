@@ -91,9 +91,6 @@ export async function getTerminalBackendUrl(
   sessionId: string,
   replayFrom = 0,
 ) {
-  if (!workingDirectory) {
-    throw new Error("A terminal requires an approved workspace directory.");
-  }
   const backendUrl = await getCoreWebSocketUrl(
     TERMINAL_PROTOCOL.endpoint,
     workingDirectory,

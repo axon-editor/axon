@@ -27,9 +27,9 @@ import { useEditorFind } from "../../lib/hooks/useEditorFind";
 import {
   encodeLocalPath,
   goCallExclusions,
-  isMarkdown,
   normalizePath,
 } from "../../lib/formatting/editorDocumentHelpers";
+import { isMarkdownFile } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import { markEditorMounted } from "../../lib/buffer/editorPerformance";
 import { type TokenInspectorReport } from "../../lib/inspection/tokenInspector";
 import { useEditorActions } from "../../lib/hooks/useEditorActions";
@@ -144,7 +144,7 @@ export default function SingleEditor({
     editorSettings.fontSize,
     editorSettings.lineHeight,
   );
-  const isMd = isMarkdown(filePath);
+  const isMd = isMarkdownFile(filePath);
   const {
     trackEditorScroll: trackMarkdownEditorScroll,
     updateMarkdownContent,

@@ -3,6 +3,29 @@ import fs from "fs";
 import path from "path";
 
 let bootSplashWindow: BrowserWindow | null = null;
+const pendingNativeOpenPaths: string[] = [];
+
+type AxonBootGlobals = typeof globalThis & {
+  closeAxonBootSplash?: () => void;
+  queueAxonNativeOpenPath?: (filePath: string) => void;
+  takeAxonBootWindow?: () => BrowserWindow | null;
+  takePendingAxonNativeOpenPaths?: () => string[];
+};
+
+// macOS can send open-file before app.whenReady resolves. appMain is loaded
+// after the splash becomes visible, so registering this listener there leaves a
+// real interval where `axon .` is accepted by Launch Services and then lost.
+// The entrypoint captures paths immediately and hands them to appMain once its
+// window coordinator exists.
+app.on("open-file", (event, filePath) => {
+  event.preventDefault();
+  const queueOpenPath = (globalThis as AxonBootGlobals).queueAxonNativeOpenPath;
+  if (queueOpenPath) {
+    queueOpenPath(filePath);
+    return;
+  }
+  pendingNativeOpenPaths.push(filePath);
+});
 
 // `axon://` has to be declared before Electron reaches the ready state. The
 // rest of the main process now loads after the boot splash exists, so this
@@ -221,19 +244,16 @@ function closeBootSplashWindow() {
   splashWindow.close();
 }
 
-(globalThis as typeof globalThis & {
-  closeAxonBootSplash?: () => void;
-  takeAxonBootWindow?: () => BrowserWindow | null;
-}).closeAxonBootSplash = closeBootSplashWindow;
+(globalThis as AxonBootGlobals).closeAxonBootSplash = closeBootSplashWindow;
 
-(globalThis as typeof globalThis & {
-  closeAxonBootSplash?: () => void;
-  takeAxonBootWindow?: () => BrowserWindow | null;
-}).takeAxonBootWindow = () => {
+(globalThis as AxonBootGlobals).takeAxonBootWindow = () => {
   const splashWindow = bootSplashWindow;
   bootSplashWindow = null;
   return splashWindow && !splashWindow.isDestroyed() ? splashWindow : null;
 };
+
+(globalThis as AxonBootGlobals).takePendingAxonNativeOpenPaths = () =>
+  pendingNativeOpenPaths.splice(0);
 
 app.whenReady().then(async () => {
   await createBootSplashWindow();

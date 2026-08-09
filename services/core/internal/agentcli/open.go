@@ -25,9 +25,9 @@ func openInEditor(targetPath string) error {
 	case "darwin":
 		return exec.Command("open", "-a", "Axon", absolutePath).Run()
 	case "linux":
-		return exec.Command("axon-editor", absolutePath).Start()
+		return exec.Command("axon-editor", "--axon-open-folder", absolutePath).Start()
 	case "windows":
-		return exec.Command("cmd", "/c", "start", "", "Axon", absolutePath).Run()
+		return exec.Command("cmd", "/c", "start", "", "Axon", "--axon-open-folder", absolutePath).Run()
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}

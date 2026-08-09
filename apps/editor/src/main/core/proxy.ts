@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 import http from "node:http";
 
 import type { CoreRequest, CoreResponse } from "../../shared/app";
@@ -170,9 +170,18 @@ export function registerCoreProxyHandlers({
 
   ipcMain.handle(
     "core:createTerminalTicket",
-    async (event, workingDirectory: string) => {
-      const cwd = assertWorkspacePath(event.sender.id, workingDirectory);
-      const workspaceRoot = resolveWorkspaceRoot(event.sender.id, cwd);
+    async (event, workingDirectory: string | null) => {
+      // Empty editor windows have no workspace capability yet, but users still
+      // expect File > New Window to provide a usable shell. Main chooses the
+      // home directory itself for that case; the renderer never receives a
+      // filesystem capability for home, and a non-empty renderer-supplied path
+      // must still pass the normal workspace boundary checks.
+      const cwd = workingDirectory
+        ? assertWorkspacePath(event.sender.id, workingDirectory)
+        : app.getPath("home");
+      const workspaceRoot = workingDirectory
+        ? resolveWorkspaceRoot(event.sender.id, cwd)
+        : cwd;
       const response = await requestTerminalTicket({
         body: JSON.stringify({ cwd, workspaceRoot }),
         controlPath: axonPtyControlPath,

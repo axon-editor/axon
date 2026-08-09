@@ -28,7 +28,10 @@ export async function authenticatedCoreFetch(
   }
 }
 
-export async function getCoreWebSocketUrl(path: string, workingDirectory: string) {
+export async function getCoreWebSocketUrl(
+  path: string,
+  workingDirectory: string | null,
+) {
   const baseUrl = new URL(
     await window.axon.createTerminalTicket(workingDirectory),
   );

@@ -139,7 +139,7 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("core:request", request),
   cancelCoreRequest: (requestId: string): Promise<boolean> =>
     ipcRenderer.invoke("core:cancelRequest", requestId),
-  createTerminalTicket: (workingDirectory: string): Promise<string> =>
+  createTerminalTicket: (workingDirectory: string | null): Promise<string> =>
     ipcRenderer.invoke("core:createTerminalTicket", workingDirectory),
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   authorizeWorkspaceRoot: (rootPath: string): Promise<string> =>

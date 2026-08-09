@@ -17,6 +17,7 @@ import {
   notifyLanguageServerConfiguration,
 } from "./lsp/session";
 import { registerAppHandlers } from "./app/handlers";
+import { findCliOpenFolderArgument } from "./app/cliOpenFolder";
 import { consumePendingAgentResumeRequest } from "./app/resumeRequest";
 import { registerDiagnosticsHandlers } from "./diagnostics/handlers";
 import { registerExtensionHandlers } from "./extensions/handlers";
@@ -95,8 +96,9 @@ function isExternalHandlerUrl(href: string) {
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const windowSessionRestore = new Map<number, boolean>();
-let pendingCliOpenFolderPath: string | null = null;
-let mainWindowReadyForCliOpen = false;
+const pendingCliOpenFolders = new Map<number, string>();
+const cliReadyRenderers = new Set<number>();
+let startupCliOpenFolderPath: string | null = null;
 // Packaged launches use a process-private high port. A native crash can leave
 // axon-core orphaned after its Electron parent disappears; reusing fixed port
 // 7777 then connects the next app launch to a Core holding yesterday's secret,
@@ -215,26 +217,28 @@ async function deliverPendingAgentResumeRequest() {
 // is deliberately not the only delivery path. The renderer also pulls the
 // pending value through `app:consumeCliOpenFolder` after mount, which closes the
 // startup race while keeping already-open windows responsive.
-function deliverPendingCliOpenFolder() {
-  if (!mainWindowReadyForCliOpen) return;
-  if (!pendingCliOpenFolderPath) return;
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    workspaceCapabilities.authorize(
-      mainWindow.webContents.id,
-      pendingCliOpenFolderPath,
-      true,
-    );
-  }
-  sendToRenderer("cli:open-folder", pendingCliOpenFolderPath);
+function deliverPendingCliOpenFolder(rendererId: number) {
+  if (!cliReadyRenderers.has(rendererId)) return;
+  const folderPath = pendingCliOpenFolders.get(rendererId);
+  if (!folderPath) return;
+
+  const targetWindow = BrowserWindow.getAllWindows().find(
+    (window) =>
+      !window.isDestroyed() && window.webContents.id === rendererId,
+  );
+  if (!targetWindow || targetWindow.webContents.isDestroyed()) return;
+
+  workspaceCapabilities.authorize(rendererId, folderPath, true);
+  sendToRenderer("cli:open-folder", folderPath, targetWindow);
 }
 
 // consumePendingCliOpenFolder is the reliable pull side of `axon .`. It clears
 // the queued path only when the renderer explicitly asks for it, so a folder
 // request cannot disappear just because Electron loaded before React effects
 // were registered.
-function consumePendingCliOpenFolder() {
-  const folderPath = pendingCliOpenFolderPath;
-  pendingCliOpenFolderPath = null;
+function consumePendingCliOpenFolder(rendererId: number) {
+  const folderPath = pendingCliOpenFolders.get(rendererId) ?? null;
+  pendingCliOpenFolders.delete(rendererId);
   return folderPath;
 }
 
@@ -246,17 +250,21 @@ function consumePendingCliOpenFolder() {
 // so I create a fresh managed window and let its `did-finish-load` handler
 // deliver the queued folder.
 function queueCliOpenFolder(filePath: string) {
-  pendingCliOpenFolderPath = filePath;
+  const folderPath = path.resolve(filePath);
 
-  const hasLiveWindow = BrowserWindow.getAllWindows().some(
-    (window) => !window.isDestroyed(),
-  );
-  if (app.isReady() && hasLiveWindow && mainWindowReadyForCliOpen) {
-    createManagedWindow({ restoreSession: false });
+  // Before appMain creates its first editor window, the only BrowserWindow is
+  // the reusable boot splash. Keep the folder for that window instead of
+  // creating a second editor beside it. Every later request receives its own
+  // managed window and renderer-specific queue entry.
+  if (!mainWindow) {
+    startupCliOpenFolderPath = folderPath;
     return;
   }
 
-  deliverPendingCliOpenFolder();
+  createManagedWindow({
+    restoreSession: false,
+    cliOpenFolderPath: folderPath,
+  });
 }
 async function confirmServiceRestart({
   service,
@@ -449,7 +457,12 @@ function getHtmlPreviewServer() {
   return htmlPreviewServer;
 }
 
-function createManagedWindow(options: { restoreSession?: boolean } = {}) {
+function createManagedWindow(
+  options: {
+    restoreSession?: boolean;
+    cliOpenFolderPath?: string | null;
+  } = {},
+) {
   const bootWindow = (
     globalThis as typeof globalThis & {
       takeAxonBootWindow?: () => BrowserWindow | null;
@@ -475,9 +488,14 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
   );
 
   mainWindow = createdWindow.window;
-  mainWindowReadyForCliOpen = false;
   const createdWebContentsId = createdWindow.window.webContents.id;
   windowSessionRestore.set(createdWebContentsId, createdWindow.restoreSession);
+  if (options.cliOpenFolderPath) {
+    pendingCliOpenFolders.set(
+      createdWebContentsId,
+      options.cliOpenFolderPath,
+    );
+  }
 
   if (!bootWindow) {
     const closeBootSplash = () => {
@@ -496,8 +514,8 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
     createdWindow.window.webContents.once("did-finish-load", closeBootSplash);
   }
   createdWindow.window.webContents.once("did-finish-load", () => {
-    mainWindowReadyForCliOpen = true;
-    deliverPendingCliOpenFolder();
+    cliReadyRenderers.add(createdWebContentsId);
+    deliverPendingCliOpenFolder(createdWebContentsId);
   });
 
   createdWindow.window.on("closed", () => {
@@ -507,12 +525,13 @@ function createManagedWindow(options: { restoreSession?: boolean } = {}) {
     // "Object has been destroyed" during native quit, which turns a normal app
     // shutdown into a scary main-process crash dialog.
     windowSessionRestore.delete(createdWebContentsId);
+    pendingCliOpenFolders.delete(createdWebContentsId);
+    cliReadyRenderers.delete(createdWebContentsId);
     workspaceCapabilities.releaseRenderer(createdWebContentsId);
     if (mainWindow === createdWindow.window) {
       mainWindow =
         BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??
         null;
-      mainWindowReadyForCliOpen = false;
     }
   });
 
@@ -558,6 +577,13 @@ registerSpotifyOpenUrlHandler({ sendToRenderer });
 app.on("second-instance", async (_event, argv) => {
   await handleSpotifySecondInstanceArg(argv, { sendToRenderer });
 
+  const cliOpenFolderPath = findCliOpenFolderArgument(argv);
+  if (cliOpenFolderPath) {
+    queueCliOpenFolder(cliOpenFolderPath);
+    void deliverPendingAgentResumeRequest();
+    return;
+  }
+
   if (!isDev) {
     createManagedWindow({ restoreSession: false });
     void deliverPendingAgentResumeRequest();
@@ -573,16 +599,15 @@ app.on("second-instance", async (_event, argv) => {
   void deliverPendingAgentResumeRequest();
 });
 
-// Handle `axon .` and `axon /path` -- macOS sends the folder path through
-// open-file when the CLI calls `open -a Axon <path>`. That event can arrive
-// before the renderer is alive, so I store the latest requested path and flush
-// it after the BrowserWindow finishes loading. Without the queue, Axon falls
-// back to the last restored workspace and makes `axon .` look like it opened
-// the wrong folder.
-app.on("open-file", (event, filePath) => {
-  event.preventDefault();
+type AxonBootGlobals = typeof globalThis & {
+  queueAxonNativeOpenPath?: (filePath: string) => void;
+  takePendingAxonNativeOpenPaths?: () => string[];
+};
+const bootGlobals = globalThis as AxonBootGlobals;
+bootGlobals.queueAxonNativeOpenPath = queueCliOpenFolder;
+for (const filePath of bootGlobals.takePendingAxonNativeOpenPaths?.() ?? []) {
   queueCliOpenFolder(filePath);
-});
+}
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
@@ -630,8 +655,11 @@ app.whenReady().then(async () => {
   // the old workspace can become visible and persisted before the renderer
   // consumes the CLI folder. Starting this window without restore makes the CLI
   // path the only workspace owner for that launch.
+  const cliOpenFolderPath = startupCliOpenFolderPath;
+  startupCliOpenFolderPath = null;
   createManagedWindow({
-    restoreSession: pendingCliOpenFolderPath ? false : true,
+    restoreSession: cliOpenFolderPath ? false : true,
+    cliOpenFolderPath,
   });
   void bundledServicesReady.then(() => {
     bundledCore.startWatchdog();
