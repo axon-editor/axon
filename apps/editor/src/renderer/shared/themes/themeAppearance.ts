@@ -57,7 +57,7 @@ export function appearanceBorderColor(
   // strength intact while making separators recede behind text and content.
   // Light themes keep their authored contrast because faint pale borders can
   // disappear completely against white or parchment backgrounds.
-  const appearanceMultiplier = appearance === "dark" ? 0.52 : 1;
+  const appearanceMultiplier = appearance === "dark" ? 0.4 : 1;
   const finalAlpha = Math.max(
     0,
     Math.min(1, baseAlpha * opacity * appearanceMultiplier),

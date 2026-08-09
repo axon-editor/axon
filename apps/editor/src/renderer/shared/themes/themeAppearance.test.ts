@@ -59,8 +59,8 @@ describe("theme appearance colors", () => {
   });
 
   it("softens dark UI borders without weakening light theme borders", () => {
-    expect(appearanceBorderColor("#222838", "dark")).toBe("#22283885");
-    expect(appearanceBorderColor("#00000033", "dark")).toBe("#0000001b");
+    expect(appearanceBorderColor("#222838", "dark")).toBe("#22283866");
+    expect(appearanceBorderColor("#00000033", "dark")).toBe("#00000014");
     expect(appearanceBorderColor("#c9bf96", "light")).toBe("#c9bf96");
   });
 });
