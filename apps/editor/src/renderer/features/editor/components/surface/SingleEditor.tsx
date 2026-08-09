@@ -180,7 +180,6 @@ export default function SingleEditor({
     enabled: editorSettings.lineTraceEnabled,
     filePath,
     folderPath,
-    enabled: languageServicesEnabled,
     loading,
     visible,
   });
@@ -623,6 +622,7 @@ export default function SingleEditor({
   }, [filePath]);
 
   useActiveFileServices({
+    enabled: languageServicesEnabled,
     filePath,
     folderPath,
     loading,
