@@ -49,6 +49,27 @@ describe("language tool activity watchdog", () => {
     }
   });
 
+  it("uses a longer idle timeout only for an unobservable extraction phase", async () => {
+    vi.useFakeTimers();
+    try {
+      const operation = runWithActivityWatchdog({
+        signal: new AbortController().signal,
+        idleTimeoutMs: 1000,
+        timeoutMessage: "Timed out.",
+        operation: async (_signal, markActivity) => {
+          await vi.advanceTimersByTimeAsync(900);
+          markActivity(3000);
+          await vi.advanceTimersByTimeAsync(2000);
+          return "complete";
+        },
+      });
+
+      await expect(operation).resolves.toBe("complete");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("propagates user cancellation without waiting for the timeout", async () => {
     const controller = new AbortController();
     const operation = runWithActivityWatchdog({

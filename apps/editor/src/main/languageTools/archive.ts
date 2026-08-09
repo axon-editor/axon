@@ -2,158 +2,27 @@ import { execFile } from "child_process";
 import { createReadStream, createWriteStream } from "fs";
 import fs from "fs/promises";
 import path from "path";
-import { Transform, type Readable } from "stream";
+import { Transform } from "stream";
 import { pipeline } from "stream/promises";
 import { promisify } from "util";
 import { createGunzip } from "zlib";
 import { extract as extractTar } from "tar";
-import { open as openZip, type Entry as ZipEntry } from "yauzl";
 import { runWithActivityWatchdog } from "./activityWatchdog";
+import {
+  isSafeArchiveEntry,
+  MAX_TOOL_EXTRACTED_BYTES,
+} from "./archiveSafety";
+import { extractZipArchive } from "./zipArchive";
 
-const MAX_TOOL_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024;
 const EXTRACTION_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 const execFileAsync = promisify(execFile);
 
-type ExtractionActivity = (processedBytes?: number) => void;
+type ExtractionActivity = (
+  processedBytes?: number,
+  idleTimeoutMs?: number,
+) => void;
 
-export function isSafeArchiveEntry(entry: string) {
-  const normalized = entry.replace(/\\/g, "/").trim();
-  if (!normalized || normalized.includes("\0")) return false;
-  if (normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized)) {
-    return false;
-  }
-  return !normalized.split("/").some((part: string) => part === "..");
-}
-
-function isZipSymbolicLink(entry: ZipEntry) {
-  const mode = (entry.externalFileAttributes >>> 16) & 0xffff;
-  return (mode & 0o170000) === 0o120000;
-}
-
-async function extractZipArchive(
-  archivePath: string,
-  destination: string,
-  signal: AbortSignal,
-  onActivity: ExtractionActivity,
-) {
-  signal.throwIfAborted();
-  await new Promise<void>((resolve, reject) => {
-    openZip(
-      archivePath,
-      { lazyEntries: true, autoClose: false, validateEntrySizes: true },
-      (openError, zipFile) => {
-        if (openError || !zipFile) {
-          reject(
-            openError ?? new Error("The ZIP archive could not be opened."),
-          );
-          return;
-        }
-        if (signal.aborted) {
-          zipFile.close();
-          reject(signal.reason);
-          return;
-        }
-        onActivity();
-
-        let settled = false;
-        let entryCount = 0;
-        let extractedBytes = 0;
-        const destinationRoot = path.resolve(destination);
-        const finish = (error?: Error) => {
-          if (settled) return;
-          settled = true;
-          signal.removeEventListener("abort", abort);
-          zipFile.close();
-          if (error) reject(error);
-          else resolve();
-        };
-        const abort = () =>
-          finish(
-            signal.reason instanceof Error
-              ? signal.reason
-              : new DOMException("The operation was aborted.", "AbortError"),
-          );
-
-        signal.addEventListener("abort", abort, { once: true });
-        zipFile.on("error", finish);
-        zipFile.on("entry", (entry) => {
-          void (async () => {
-            signal.throwIfAborted();
-            onActivity();
-            entryCount += 1;
-            extractedBytes += entry.uncompressedSize;
-            if (!isSafeArchiveEntry(entry.fileName)) {
-              throw new Error("The language tool ZIP contains an unsafe path.");
-            }
-            if (isZipSymbolicLink(entry)) {
-              throw new Error(
-                "The language tool ZIP contains a symbolic link.",
-              );
-            }
-            if (extractedBytes > MAX_TOOL_EXTRACTED_BYTES) {
-              throw new Error(
-                "The language tool ZIP expands beyond the allowed size.",
-              );
-            }
-
-            const normalizedName = entry.fileName.replace(/\\/g, "/");
-            const outputPath = path.resolve(
-              destinationRoot,
-              ...normalizedName.split("/").filter(Boolean),
-            );
-            if (
-              outputPath !== destinationRoot &&
-              !outputPath.startsWith(`${destinationRoot}${path.sep}`)
-            ) {
-              throw new Error("The language tool ZIP contains an unsafe path.");
-            }
-            if (normalizedName.endsWith("/")) {
-              await fs.mkdir(outputPath, { recursive: true });
-              signal.throwIfAborted();
-              zipFile.readEntry();
-              return;
-            }
-
-            await fs.mkdir(path.dirname(outputPath), { recursive: true });
-            signal.throwIfAborted();
-            const readStream = await new Promise<Readable>(
-              (resolveStream, rejectStream) => {
-                zipFile.openReadStream(entry, (streamError, stream) => {
-                  if (streamError || !stream) {
-                    rejectStream(
-                      streamError ??
-                        new Error("The ZIP entry could not be opened."),
-                    );
-                    return;
-                  }
-                  resolveStream(stream);
-                });
-              },
-            );
-            await pipeline(
-              readStream,
-              createActivityTransform(onActivity),
-              createWriteStream(outputPath, { flags: "wx", mode: 0o600 }),
-              { signal },
-            );
-            signal.throwIfAborted();
-            zipFile.readEntry();
-          })().catch((error) =>
-            finish(error instanceof Error ? error : new Error(String(error))),
-          );
-        });
-        zipFile.on("end", () => {
-          if (entryCount === 0) {
-            finish(new Error("The language tool ZIP is empty."));
-            return;
-          }
-          finish();
-        });
-        zipFile.readEntry();
-      },
-    );
-  });
-}
+export { isSafeArchiveEntry } from "./archiveSafety";
 
 async function extractTarArchive(
   archivePath: string,
@@ -286,10 +155,10 @@ export async function extractLanguageToolArchive(input: {
     signal: input.signal,
     idleTimeoutMs: input.idleTimeoutMs ?? EXTRACTION_IDLE_TIMEOUT_MS,
     timeoutMessage:
-      "Language tool extraction stopped because the archive made no progress for two minutes.",
+      "Language tool extraction stopped because the archive made no progress within the allowed time.",
     operation: async (extractionSignal, markActivity) => {
-      const onActivity = (chunkBytes = 0) => {
-        markActivity();
+      const onActivity = (chunkBytes = 0, idleTimeoutMs?: number) => {
+        markActivity(idleTimeoutMs);
         processedBytes += chunkBytes;
         const now = Date.now();
         if (input.onProgress && now - lastProgressPublishedAt >= 100) {
@@ -338,10 +207,13 @@ export async function extractLanguageToolArchive(input: {
   });
 }
 
-function createActivityTransform(onActivity: ExtractionActivity) {
+function createActivityTransform(
+  onActivity: ExtractionActivity,
+  idleTimeoutMs?: number,
+) {
   return new Transform({
     transform(chunk: Buffer, _encoding, callback) {
-      onActivity(chunk.length);
+      onActivity(chunk.length, idleTimeoutMs);
       callback(null, chunk);
     },
   });

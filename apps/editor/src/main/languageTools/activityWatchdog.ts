@@ -2,7 +2,10 @@ interface ActivityWatchdogOptions<T> {
   signal: AbortSignal;
   idleTimeoutMs: number;
   timeoutMessage: string;
-  operation: (signal: AbortSignal, markActivity: () => void) => Promise<T>;
+  operation: (
+    signal: AbortSignal,
+    markActivity: (idleTimeoutOverrideMs?: number) => void,
+  ) => Promise<T>;
 }
 
 // runWithActivityWatchdog gives long-running local work a child abort signal
@@ -22,14 +25,14 @@ export async function runWithActivityWatchdog<T>({
   let timeoutError: Error | null = null;
 
   const abortFromParent = () => controller.abort(signal.reason);
-  const markActivity = () => {
+  const markActivity = (idleTimeoutOverrideMs = idleTimeoutMs) => {
     if (controller.signal.aborted) return;
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => {
       timeoutError = new Error(timeoutMessage);
       timeoutError.name = "TimeoutError";
       controller.abort(timeoutError);
-    }, idleTimeoutMs);
+    }, idleTimeoutOverrideMs);
     timeout.unref?.();
   };
 
