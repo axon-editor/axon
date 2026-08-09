@@ -46,7 +46,6 @@ const semanticTokenCache = new Map<
   }
 >();
 const TEXTMATE_LSP_MERGE_WAIT_MS = 80;
-const semanticTokenUpdateListeners = new Set<(modelUri: string) => void>();
 
 function getSemanticTokenCacheKey(model: monaco.editor.ITextModel) {
   return `${model.uri.toString()}::${model.getVersionId()}`;
@@ -127,9 +126,12 @@ function createSemanticTokenPromise(
               versionId: model.getVersionId(),
               promise: Promise.resolve(merged),
             });
-            semanticTokenUpdateListeners.forEach((listener) =>
-              listener(model.uri.toString()),
-            );
+            // Keep the first completed paint for a model version stable. LSP
+            // startup is commonly triggered by hover or completion; forcing an
+            // immediate repaint here made unchanged identifiers switch from
+            // grammar colors to semantic colors while the user was reading.
+            // The merged result remains cached for the next normal paint cycle,
+            // so semantic detail is available without an unsolicited color jump.
           })
           .catch(() => undefined);
         return textMateTokens;
@@ -179,13 +181,6 @@ export function getSemanticTokensForModel(model: monaco.editor.ITextModel) {
   }
 
   return promise;
-}
-
-export function onSemanticTokensUpdated(listener: (modelUri: string) => void) {
-  semanticTokenUpdateListeners.add(listener);
-  return () => {
-    semanticTokenUpdateListeners.delete(listener);
-  };
 }
 
 function registerSemanticTokensProvider(

@@ -53,6 +53,7 @@ import { useSaveFileAs } from "./lib/useSaveFileAs";
 import { useGitStatusRefresh } from "./lib/useGitStatusRefresh";
 import { toMonacoEdit } from "./lib/monacoEdit";
 import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
+import { dispatchEditorSave } from "../../renderer/features/editor/lib/buffer/editorSave";
 import {
   AXON_OPEN_GIT_COMMIT_DIFF_EVENT,
   type OpenGitCommitDiffDetail,
@@ -628,17 +629,12 @@ export default function App({ initialExtensionState }: AppProps) {
   const handleSaveActiveFile = useCallback(() => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return;
-    const model = getModel(activeFile);
-    if (model && !model.isDisposed()) {
-      // Active file saves should go through the mounted SingleEditor when
-      // possible because that component owns Monaco view state. Formatting from
-      // the app shell can mutate the shared model without an editor instance to
-      // restore scroll, which made Save jump to the bottom on large files.
-      window.dispatchEvent(
-        new CustomEvent("axon:saveFile", { detail: { path: activeFile } }),
-      );
-      return;
-    }
+    // Active files prefer the mounted editor because it owns Monaco view state
+    // and can restore the viewport after formatting. A cached model may outlive
+    // its editor, however, so the cancelable event must be claimed explicitly;
+    // otherwise preview tabs and remounted panes would make Save do nothing.
+    if (dispatchEditorSave(activeFile)) return;
+
     void saveFileFromModel(activeFile).then((saved) => {
       if (!saved) {
         appendOutput("file", "Could not find editor buffer to save.", "error");

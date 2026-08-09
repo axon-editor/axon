@@ -12,6 +12,7 @@ import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
   isPythonWorkspace,
+  resolvePythonEnvironmentSelection,
 } from "../lsp/pythonEnvironment";
 
 const EMPTY_PYTHON_WORKSPACE_STATUS: PythonWorkspaceEnvironmentStatus = {
@@ -54,9 +55,13 @@ async function resolvePythonWorkspaceStatus(
   const configuredEnvironment = useConfiguredEnvironment
     ? getConfiguredPythonEnvironment(settings)
     : null;
-  const environment =
+  const selectedEnvironment =
     configuredEnvironment ??
     (await detectPythonVirtualEnvForWorkspace(folderPath));
+  const environment = await resolvePythonEnvironmentSelection(
+    selectedEnvironment,
+    folderPath,
+  );
   return {
     pythonDetected: true,
     virtualEnvPath: environment.virtualEnvPath,
@@ -205,9 +210,13 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
         );
       }
 
+      const resolvedEnvironment = await resolvePythonEnvironmentSelection(
+        { virtualEnvPath, interpreterPath },
+        folderPath ?? path.dirname(virtualEnvPath),
+      );
       return {
-        virtualEnvPath,
-        interpreterPath,
+        virtualEnvPath: resolvedEnvironment.virtualEnvPath,
+        interpreterPath: resolvedEnvironment.interpreterPath,
       };
     },
   );

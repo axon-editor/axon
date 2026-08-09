@@ -6,6 +6,8 @@ import {
   findPythonVirtualEnvInWorkspace,
   getPythonInterpreterFromVirtualEnv,
   isPythonWorkspace,
+  parsePythonRuntimeProbe,
+  resolvePythonEnvironmentSelection,
 } from "./pythonEnvironment";
 
 async function createPythonEnvironment(root: string, name: string) {
@@ -24,6 +26,82 @@ async function createPythonEnvironment(root: string, name: string) {
 }
 
 describe("Python environment discovery", () => {
+  it("reads the canonical interpreter and import paths from Python itself", () => {
+    expect(
+      parsePythonRuntimeProbe(
+        [
+          "launcher notice",
+          JSON.stringify({
+            executable: "/workspace/.venv/bin/python",
+            prefix: "/workspace/.venv",
+            basePrefix: "/usr/local",
+            importPaths: ["", "/workspace/src"],
+            sitePackages: ["/workspace/.venv/lib/python3.13/site-packages"],
+            userSite: "/home/user/.local/lib/python3.13/site-packages",
+          }),
+        ].join("\n"),
+      ),
+    ).toEqual({
+      executable: "/workspace/.venv/bin/python",
+      prefix: "/workspace/.venv",
+      basePrefix: "/usr/local",
+      importPaths: ["", "/workspace/src"],
+      sitePackages: ["/workspace/.venv/lib/python3.13/site-packages"],
+      userSite: "/home/user/.local/lib/python3.13/site-packages",
+    });
+  });
+
+  it("uses Python's package and editable import paths for language analysis", async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "axon-python-runtime-test-"),
+    );
+    try {
+      const environmentRoot = path.join(root, ".venv");
+      const interpreterPath = path.join(environmentRoot, "bin", "python");
+      const sitePackages = path.join(
+        environmentRoot,
+        "lib",
+        "python3.13",
+        "site-packages",
+      );
+      const editableSource = path.join(root, "packages", "api", "src");
+      const basePrefix = path.join(root, "system-python");
+      const standardLibrary = path.join(basePrefix, "lib", "python3.13");
+      await Promise.all(
+        [
+          path.dirname(interpreterPath),
+          sitePackages,
+          editableSource,
+          standardLibrary,
+        ].map((directory) => fs.mkdir(directory, { recursive: true })),
+      );
+      await fs.writeFile(interpreterPath, "python");
+
+      const resolved = await resolvePythonEnvironmentSelection(
+        { virtualEnvPath: environmentRoot, interpreterPath },
+        root,
+        {},
+        async () =>
+          JSON.stringify({
+            executable: interpreterPath,
+            prefix: environmentRoot,
+            basePrefix,
+            importPaths: [standardLibrary, sitePackages, editableSource],
+            sitePackages: [sitePackages],
+            userSite: "",
+          }),
+      );
+
+      expect(resolved).toEqual({
+        virtualEnvPath: environmentRoot,
+        interpreterPath,
+        importPaths: [sitePackages, editableSource],
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("finds an arbitrarily named environment from pyvenv.cfg", async () => {
     const root = await fs.mkdtemp(
       path.join(os.tmpdir(), "axon-python-env-test-"),

@@ -21,6 +21,7 @@ import { getBundledAppFilePath, resolveBundledAppFilePath } from "./paths";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
+  resolvePythonEnvironmentSelection,
 } from "./pythonEnvironment";
 
 export interface LanguageServerSession {
@@ -85,12 +86,20 @@ export async function getPythonLanguageServerSettings(folderPath: string) {
     (configuredInterpreterPath && fs.existsSync(configuredInterpreterPath)
       ? configuredInterpreterPath
       : "") || getPythonInterpreterFromVirtualEnv(configuredVirtualEnvPath);
-  const pythonPath = configuredPythonPath || detectedVirtualEnv.interpreterPath;
+  const selectedEnvironment = configuredPythonPath
+    ? {
+        virtualEnvPath: configuredVirtualEnvPath,
+        interpreterPath: configuredPythonPath,
+      }
+    : detectedVirtualEnv;
+  const resolvedEnvironment = await resolvePythonEnvironmentSelection(
+    selectedEnvironment,
+    folderPath,
+  );
+  const pythonPath = resolvedEnvironment.interpreterPath;
   if (!pythonPath) return null;
 
-  const virtualEnvPath = configuredPythonPath
-    ? configuredVirtualEnvPath
-    : detectedVirtualEnv.virtualEnvPath;
+  const virtualEnvPath = resolvedEnvironment.virtualEnvPath;
   const virtualEnvName = virtualEnvPath ? path.basename(virtualEnvPath) : "";
   const parentVirtualEnvPath = virtualEnvPath
     ? path.dirname(virtualEnvPath)
@@ -109,6 +118,7 @@ export async function getPythonLanguageServerSettings(folderPath: string) {
       venv: virtualEnvName,
       analysis: {
         autoSearchPaths: true,
+        extraPaths: resolvedEnvironment.importPaths ?? [],
         useLibraryCodeForTypes: true,
         diagnosticMode: "workspace",
       },

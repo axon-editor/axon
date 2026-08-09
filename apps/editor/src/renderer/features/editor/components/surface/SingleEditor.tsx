@@ -5,7 +5,6 @@ import { type EditorSettings } from "@axon-editor/shared/settings";
 import { isLargeDocumentModel } from "@axon-editor/shared/largeDocument";
 import { type GitChange } from "@axon-editor/shared/git";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
-import { writeFile } from "@axon-editor/renderer/shared/lib/api";
 import { type EditorNavigationTarget } from "../../lib/layout/navigation";
 import { registerAxonTheme } from "@axon-editor/renderer/shared/lib/soraTheme";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
@@ -14,7 +13,6 @@ import {
   installSemanticTokenDecorationStyles,
   RICH_SEMANTIC_DECORATION_LANGUAGES,
 } from "@axon-editor/services/lsp/renderer/semanticTokenDecorations";
-import { onSemanticTokensUpdated } from "@axon-editor/services/lsp/renderer/lspSemanticTokens";
 import EditorBreadcrumbHeader from "../navigation/EditorBreadcrumbHeader";
 import MonacoEditorSurface from "./MonacoEditorSurface";
 import TokenInspectorModal from "../navigation/TokenInspectorModal";
@@ -31,7 +29,6 @@ import {
   goCallExclusions,
   isMarkdown,
   normalizePath,
-  toMonacoEdit,
 } from "../../lib/formatting/editorDocumentHelpers";
 import { markEditorMounted } from "../../lib/buffer/editorPerformance";
 import { type TokenInspectorReport } from "../../lib/inspection/tokenInspector";
@@ -45,6 +42,11 @@ import useGitLineDecorations from "../../lib/git/useGitLineDecorations";
 import useGitLineTrace from "../../lib/git/useGitLineTrace";
 import { useMarkdownPreviewBridge } from "../../lib/hooks/useMarkdownPreviewBridge";
 import { useAxonBufferDocument } from "../../lib/buffer/useAxonBufferDocument";
+import { useEditorSave } from "../../lib/hooks/useEditorSave";
+import {
+  AXON_EDITOR_SAVE_EVENT,
+  type EditorSaveEventDetail,
+} from "../../lib/buffer/editorSave";
 import { EditorErrorState, EditorLoadingState } from "./EditorDocumentState";
 import MarkdownEditorModeToolbar, {
   type MarkdownPreviewMode,
@@ -83,7 +85,6 @@ export default function SingleEditor({
   navigationTarget,
   gitChanges,
 }: Props) {
-  const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<MarkdownPreviewMode>("editor");
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
@@ -128,6 +129,13 @@ export default function SingleEditor({
     recordLoadedDiskContent,
     recordSynchronizedDiskContent,
     refreshAfterAttachRef: refreshAfterBufferAttachRef,
+  });
+  const { save: handleSave, saving } = useEditorSave({
+    editorRef,
+    editorSettings,
+    filePathRef,
+    folderPath,
+    readOnly,
   });
   const trackEditorZoomViewport = useEditorZoomViewport(
     editorRef,
@@ -611,16 +619,6 @@ export default function SingleEditor({
     };
   }, [filePath]);
 
-  useEffect(
-    () =>
-      onSemanticTokensUpdated((modelUri) => {
-        const model = editorRef.current?.getModel();
-        if (!model || model.uri.toString() !== modelUri) return;
-        void refreshSemanticTokenDecorations();
-      }),
-    [refreshSemanticTokenDecorations],
-  );
-
   useActiveFileServices({
     filePath,
     loading,
@@ -628,114 +626,24 @@ export default function SingleEditor({
     visible,
   });
 
-  const handleSave = useCallback(async () => {
-    const path = filePathRef.current;
-    if (!path || saving || readOnly) return;
-    const editor = editorRef.current;
-    const model = editor?.getModel();
-    if (!editor || !model || model.isDisposed()) return;
-    setSaving(true);
-    try {
-      const languageId = detectLanguageServerLanguage(path);
-      if (
-        editorSettings.formatOnSave &&
-        folderPath &&
-        !isLargeDocumentModel(model) &&
-        languageId !== "plaintext"
-      ) {
-        try {
-          const modelOptions = model.getOptions();
-          // Formatting edits are computed against the exact text snapshot we
-          // send to the language server. If the user keeps typing while the IPC
-          // and LSP round trip is in flight, those returned line/column ranges
-          // no longer point at the same code in the live Monaco model. Capturing
-          // the model version here lets us discard stale edits instead of
-          // applying them to the wrong text and corrupting the file.
-          const versionBeforeFormat = model.getVersionId();
-          const result = await window.axon.formatLanguageServerDocument({
-            folderPath,
-            filePath: path,
-            languageId,
-            content: editor.getValue(),
-            tabSize: modelOptions?.tabSize ?? 2,
-            insertSpaces: modelOptions?.insertSpaces ?? true,
-          });
-
-          const versionAfterFormat = model.getVersionId();
-          const modelChangedDuringFormat =
-            model.isDisposed() || versionBeforeFormat !== versionAfterFormat;
-
-          if (
-            result.ok &&
-            result.edits.length > 0 &&
-            !modelChangedDuringFormat
-          ) {
-            const viewStateBeforeFormat = editor.saveViewState();
-            // I format the Monaco model before writing to disk so every split
-            // attached to this shared model updates immediately. Writing a
-            // formatted string directly would save the file but leave the
-            // visible editor stale until another refresh happens.
-            model.pushEditOperations(
-              [],
-              result.edits.map(toMonacoEdit),
-              () => null,
-            );
-            // Formatting can apply edits far away from the viewport. Monaco may
-            // reveal the last touched range after those edits, which makes save
-            // feel like it scrolled to the bottom of the file. Restoring the
-            // pre-format view state keeps save non-navigational: the user's
-            // cursor and viewport stay where they were before formatting ran.
-            if (viewStateBeforeFormat && !model.isDisposed()) {
-              editor.restoreViewState(viewStateBeforeFormat);
-            }
-          } else if (
-            result.ok &&
-            result.edits.length > 0 &&
-            modelChangedDuringFormat
-          ) {
-            // Skipping formatting here is intentional. The save below still
-            // writes the user's latest text to disk, and the next save can
-            // format a fresh snapshot. Applying stale ranges would be worse
-            // because it can delete or overwrite code typed during the format
-            // request.
-            console.warn(
-              "skipped format-on-save edits: model changed during LSP round trip",
-            );
-          }
-        } catch (err) {
-          console.error("format on save failed:", err);
-        }
-      }
-
-      const currentContent = editor.getValue();
-      const savedAlternativeVersion = model.getAlternativeVersionId();
-      await writeFile(path, currentContent, folderPath ?? path);
-      window.dispatchEvent(
-        new CustomEvent("axon:fileSaved", {
-          detail: {
-            path,
-            content: isLargeDocumentModel(model) ? undefined : currentContent,
-            alternativeVersionId: savedAlternativeVersion,
-          },
-        }),
-      );
-    } catch (err: any) {
-      console.error("save failed:", err.message);
-    } finally {
-      setSaving(false);
-    }
-  }, [editorSettings.formatOnSave, folderPath, readOnly, saving]);
-
   useEffect(() => {
     const handleMenuSave = (event: Event) => {
-      const saveEvent = event as CustomEvent<{ path?: string }>;
+      const saveEvent = event as CustomEvent<EditorSaveEventDetail>;
       if (saveEvent.detail?.path !== filePathRef.current) return;
       if (!visible) return;
+      const model = editorRef.current?.getModel();
+      if (!model || model.isDisposed()) return;
+
+      // preventDefault is an acknowledgement to the app shell, not browser UI
+      // suppression. It tells the dispatcher that this visible editor owns view
+      // restoration and queued format-on-save for the shared model.
+      saveEvent.preventDefault();
       void handleSave();
     };
 
-    window.addEventListener("axon:saveFile", handleMenuSave);
-    return () => window.removeEventListener("axon:saveFile", handleMenuSave);
+    window.addEventListener(AXON_EDITOR_SAVE_EVENT, handleMenuSave);
+    return () =>
+      window.removeEventListener(AXON_EDITOR_SAVE_EVENT, handleMenuSave);
   }, [handleSave, visible]);
 
   const handleEditorMount: OnMount = (editor) => {
@@ -804,9 +712,6 @@ export default function SingleEditor({
       },
     });
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
-      handleSave(),
-    );
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () =>
       openFind(),
     );
