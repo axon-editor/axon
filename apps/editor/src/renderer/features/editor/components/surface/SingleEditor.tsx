@@ -63,6 +63,7 @@ interface Props {
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
+  languageServicesEnabled: boolean;
   themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
@@ -80,6 +81,7 @@ export default function SingleEditor({
   onCursorChange,
   onLanguageChange,
   editorSettings,
+  languageServicesEnabled,
   themeSyntax,
   themeTokens,
   navigationTarget,
@@ -178,6 +180,7 @@ export default function SingleEditor({
     enabled: editorSettings.lineTraceEnabled,
     filePath,
     folderPath,
+    enabled: languageServicesEnabled,
     loading,
     visible,
   });
@@ -621,6 +624,7 @@ export default function SingleEditor({
 
   useActiveFileServices({
     filePath,
+    folderPath,
     loading,
     syncDocument: syncDocumentWithLanguageServer,
     visible,

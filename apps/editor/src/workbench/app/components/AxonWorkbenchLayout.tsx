@@ -394,6 +394,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               }}
               onOpenNavigationTarget={handleOpenNavigationTarget}
               editorSettings={settings.editor}
+              languageServicesEnabled={settings.lsp.enabled && workspaceTrusted}
               currentThemeId={settings.editor.themeId}
               themeItems={welcomeThemeItems}
               themeSyntax={themeSyntax}

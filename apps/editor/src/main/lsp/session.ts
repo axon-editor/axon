@@ -46,6 +46,7 @@ export interface LanguageServerSession {
       timeout: ReturnType<typeof setTimeout>;
     }
   >;
+  pendingDocumentSyncs: Map<string, LanguageServerDocumentSyncRequest>;
   syncedDocuments: Map<string, { version: number; languageId: string }>;
 }
 

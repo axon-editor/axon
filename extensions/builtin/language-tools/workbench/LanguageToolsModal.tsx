@@ -38,6 +38,9 @@ function statusClass(status: LanguageServerStatus["status"]) {
   if (status === "running") {
     return "bg-[#15321f] text-[#90c8a0]";
   }
+  if (status === "starting") {
+    return "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]";
+  }
   if (status === "available") {
     return "bg-[#1c2636] text-[#9fb7e8]";
   }
@@ -180,10 +183,11 @@ export default function LanguageToolsModal({
       setMessage(result.message);
       if (result.ok && folderPath && tool.languages[0]) {
         enableManagedLanguageToolPrompt(tool.id);
-        await window.axon.startLanguageServerForLanguage({
+        const startResult = await window.axon.startLanguageServerForLanguage({
           folderPath,
           languageId: tool.languages[0],
         });
+        setMessage(`${result.message} ${startResult.message}`);
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -438,6 +442,8 @@ export default function LanguageToolsModal({
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                     server.status === "running"
                       ? "bg-[#54d6b5]"
+                      : server.status === "starting"
+                        ? "bg-[var(--axon-syntax-function)]"
                       : server.status === "failed"
                         ? "bg-[#ff8b92]"
                         : "bg-[#586478]"

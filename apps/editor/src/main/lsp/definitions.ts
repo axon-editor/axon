@@ -198,6 +198,7 @@ export const LANGUAGE_SERVER_DEFINITIONS: LanguageServerDefinition[] = [
       "settings.gradle",
       "settings.gradle.kts",
       ".project",
+      "*.java",
     ],
     installHint: "Install JDT LS and Axon's private Java runtime from Language Tools.",
     managedBundle: {

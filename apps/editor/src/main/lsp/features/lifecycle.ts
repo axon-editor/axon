@@ -6,7 +6,6 @@ import {
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
   type LanguageServerLifecycleResult,
   type LanguageServerSemanticTokensProvider,
-  type LanguageServerStatus,
 } from "../../../shared/lsp";
 import {
   LANGUAGE_SERVER_DEFINITIONS,
@@ -24,9 +23,11 @@ import {
   LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES,
   LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS,
   LANGUAGE_SERVER_INITIALIZE_TIMEOUT_MS,
+  LANGUAGE_SERVER_START_READY_WAIT_MS,
   notifyLanguageServer,
   resolveDocumentSyncServerIds,
   resolveLanguageServerIdForMonacoLanguage,
+  syncLanguageServerDocument,
   stoppingLanguageServerKeys,
   warmingLanguageServerKeys,
 } from "../features";
@@ -35,7 +36,6 @@ import {
   emitLanguageServerLog,
   getLanguageServerInitializationOptions,
   getLanguageServerSessionKey,
-  getPythonLanguageServerSettings,
   notifyLanguageServerConfiguration,
   readLanguageServerMessages,
   rejectLanguageServerPendingRequests,
@@ -45,12 +45,13 @@ import {
   waitForLanguageServerSpawn,
   writeLanguageServerMessage,
 } from "../session";
-import { hasWorkspaceMarker } from "../workspaceMarkers";
 import {
   createTypeScriptExternalProjectsRequest,
   discoverTypeScriptProjectConfigs,
 } from "../typescriptProjects";
 import { createSingleFlight } from "./singleFlight";
+import { getLanguageServerWarmupTimeoutMs } from "./requestTimeouts";
+import { getLanguageServerStatus } from "./status";
 
 const languageServerStartFlights = createSingleFlight<
   string,
@@ -132,7 +133,13 @@ export async function getReadyOrWarmLanguageServerSession(request: {
   // become ready a moment later. I wait for the existing or just-started
   // session using the same bounded warm-up window as completion, then let the
   // caller decide how to report a true failure.
-  session = await waitForReadyLanguageServerSession(sessionKey);
+  session = await waitForReadyLanguageServerSession(
+    sessionKey,
+    getLanguageServerWarmupTimeoutMs(
+      serverId,
+      LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS,
+    ),
+  );
   if (!session) return ready;
 
   return { ok: true as const, message: "", session };
@@ -220,6 +227,7 @@ function normalizeSemanticTokensProvider(
 
 function disposeLanguageServerSession(session: LanguageServerSession) {
   session.disposed = true;
+  session.pendingDocumentSyncs.clear();
   clearPendingDiagnosticsForSession(session);
   if (session.initializeRetryTimer) {
     clearTimeout(session.initializeRetryTimer);
@@ -435,6 +443,10 @@ async function initializeLanguageServer(session: LanguageServerSession) {
       console.log("[LSP INIT OK]", session.id);
       session.initialized = true;
       session.initializeRetryCount = 0;
+      for (const request of session.pendingDocumentSyncs.values()) {
+        syncLanguageServerDocument(session, request);
+      }
+      session.pendingDocumentSyncs.clear();
       emitLanguageServerLog(session, "info", `${session.id} initialized.`);
     })
     .catch((err) => {
@@ -453,6 +465,25 @@ async function initializeLanguageServer(session: LanguageServerSession) {
       if (
         session.initializeRetryCount >= LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES
       ) {
+        const key = getLanguageServerSessionKey(
+          session.folderPath,
+          session.id,
+        );
+        const message = [
+          `${session.id} language server could not initialize.`,
+          session.stderr.trim(),
+        ]
+          .filter(Boolean)
+          .join("\n");
+        activeLanguageServerFailures.set(key, {
+          message,
+          timestamp: Date.now(),
+        });
+        stoppingLanguageServerKeys.add(key);
+        disposeLanguageServerSession(session);
+        rejectLanguageServerPendingRequests(session, new Error(message));
+        session.process.kill();
+        activeLanguageServers.delete(key);
         return;
       }
 
@@ -533,6 +564,7 @@ function startLanguageServerDefinitionOnce(
           stdoutBuffer: Buffer.alloc(0),
           semanticTokensProvider: null,
           pendingRequests: new Map(),
+          pendingDocumentSyncs: new Map(),
           syncedDocuments: new Map(),
         };
         if (session.id === "typescript") {
@@ -769,7 +801,31 @@ export async function startLanguageServerForLanguage(
       });
       continue;
     }
-    attempts.push(await startLanguageServerDefinition(folderPath, definition));
+    const attempt = await startLanguageServerDefinition(
+      folderPath,
+      definition,
+    );
+    if (attempt.ok) {
+      const sessionKey = getLanguageServerSessionKey(
+        folderPath,
+        definition.id,
+      );
+      const readySession = await waitForReadyLanguageServerSession(
+        sessionKey,
+        LANGUAGE_SERVER_START_READY_WAIT_MS,
+      );
+      if (readySession) {
+        attempt.message = `${definition.label} initialized.`;
+      } else if (activeLanguageServers.has(sessionKey)) {
+        attempt.message = `${definition.label} started and is still initializing.`;
+      } else {
+        attempt.ok = false;
+        attempt.message =
+          activeLanguageServerFailures.get(sessionKey)?.message ??
+          `${definition.label} stopped before initialization completed.`;
+      }
+    }
+    attempts.push(attempt);
   }
 
   const failedAttempts = attempts.filter((attempt) => !attempt.ok);
@@ -871,96 +927,4 @@ export async function stopAllLanguageServers(): Promise<LanguageServerLifecycleR
         : `Stopped ${beforeCount} language server${beforeCount === 1 ? "" : "s"}.`,
     servers: [],
   };
-}
-
-export function getLanguageServerStatus(
-  folderPath: string,
-  options: { relevantOnly?: boolean; languageId?: string } = {},
-): Promise<LanguageServerStatus[]> {
-  const activeLanguageServerIds = new Set(
-    options.languageId ? resolveDocumentSyncServerIds(options.languageId) : [],
-  );
-  const definitions = LANGUAGE_SERVER_DEFINITIONS.filter((definition) => {
-    if (!options.relevantOnly) return true;
-    const sessionKey = getLanguageServerSessionKey(folderPath, definition.id);
-    return (
-      activeLanguageServers.has(sessionKey) ||
-      activeLanguageServerIds.has(definition.id) ||
-      hasWorkspaceMarker(folderPath, definition.workspaceMarkers)
-    );
-  });
-
-  return Promise.all(
-    definitions.map(async (definition) => {
-      const resolved = resolveLanguageServerCommand(definition, folderPath);
-      const relevant = hasWorkspaceMarker(
-        folderPath,
-        definition.workspaceMarkers,
-      );
-      const available = await canRunCommand(resolved.command, resolved.args);
-      const sessionKey = getLanguageServerSessionKey(folderPath, definition.id);
-      const running = activeLanguageServers.has(sessionKey);
-      const lastFailure = activeLanguageServerFailures.get(sessionKey);
-      const failed = Boolean(lastFailure && !running);
-      const pythonSettings =
-        definition.id === "python"
-          ? await getPythonLanguageServerSettings(folderPath)
-          : null;
-      const pythonInterpreter =
-        definition.id === "python"
-          ? pythonSettings?.python.defaultInterpreterPath
-          : "";
-      const status = running
-        ? "running"
-        : failed
-          ? "failed"
-          : available
-            ? "available"
-            : "missing";
-      const bundled = Boolean(
-        definition.bundledNodeServer ||
-          definition.managedBundle ||
-          ["typescript", "docker", "tailwind"].includes(definition.id),
-      );
-
-      return {
-        id: definition.id,
-        label: definition.label,
-        languages: definition.languages,
-        status,
-        available,
-        relevant,
-        running,
-        startable: resolved.startable,
-        bundled,
-        command: resolved.command,
-        detail: failed
-          ? "Failed to start. Open LSP logs for details."
-          : running
-            ? bundled
-              ? "Running from Axon's bundled server"
-              : "Running from the system server"
-            : available
-              ? relevant
-                ? bundled
-                  ? "Bundled and ready for this workspace"
-                  : "Installed and ready for this workspace"
-                : bundled
-                  ? "Bundled, but no matching workspace markers found"
-                  : "Installed, but no matching workspace markers found"
-              : relevant
-                ? "Relevant, but the language server is not available"
-                : "Not available",
-        installHint: definition.installHint,
-        runtimeRequirement: definition.runtimeRequirement,
-        lastError: lastFailure?.message,
-        runtimeHint:
-          definition.id === "python"
-            ? pythonInterpreter
-              ? `Interpreter: ${pythonInterpreter}`
-              : "Using Pyright's default Python resolution"
-            : undefined,
-      };
-    }),
-  );
 }

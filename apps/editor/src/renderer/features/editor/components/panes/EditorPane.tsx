@@ -60,6 +60,7 @@ interface Props {
   ) => void;
   onClosePane: (paneId: string) => void;
   editorSettings: EditorSettings;
+  languageServicesEnabled: boolean;
   currentThemeId: ThemeId;
   themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
@@ -126,6 +127,7 @@ export default function EditorPane({
   onMoveTabBetweenPanes,
   onClosePane,
   editorSettings,
+  languageServicesEnabled,
   currentThemeId,
   themeSyntax,
   themeTokens,
@@ -294,6 +296,7 @@ export default function EditorPane({
                 onCursorChange={onCursorChange}
                 onLanguageChange={onLanguageChange}
                 editorSettings={editorSettings}
+                languageServicesEnabled={languageServicesEnabled}
                 currentThemeId={currentThemeId}
                 themeSyntax={themeSyntax}
                 themeTokens={themeTokens}

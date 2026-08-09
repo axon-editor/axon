@@ -27,6 +27,7 @@ import { LANGUAGE_SERVER_DEFINITIONS } from "../definitions";
 import { formatWithBundledPrettier } from "../formatting";
 import {
   canRunCommand,
+  emitLanguageServerLog,
   getLanguageServerSessionKey,
   resolveLanguageServerCommand,
   type LanguageServerSession,
@@ -49,6 +50,7 @@ import {
   startLanguageServerDefinition,
   waitForReadyLanguageServerSession,
 } from "./lifecycle";
+import { getLanguageServerHoverTimeoutMs } from "./requestTimeouts";
 
 export async function getLanguageServerCompletions(
   request: LanguageServerCompletionRequest,
@@ -193,6 +195,8 @@ export async function getLanguageServerHover(
     };
   }
 
+  await getReadyOrWarmLanguageServerSession(request);
+
   const sessions = serverIds
     .map((serverId) =>
       activeLanguageServers.get(
@@ -226,14 +230,19 @@ export async function getLanguageServerHover(
                 character: Math.max(0, request.column - 1),
               },
             },
-            900,
+            getLanguageServerHoverTimeoutMs(session.id),
           );
 
           return {
             sessionId: session.id,
             ...normalizeHoverResult(hoverResult),
           };
-        } catch {
+        } catch (error) {
+          emitLanguageServerLog(
+            session,
+            "error",
+            `Hover failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
           return {
             sessionId: session.id,
             contents: [],

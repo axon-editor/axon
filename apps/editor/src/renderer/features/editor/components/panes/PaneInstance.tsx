@@ -68,6 +68,7 @@ interface Props {
   onCursorChange: (line: number, col: number) => void;
   onLanguageChange: (lang: string) => void;
   editorSettings: EditorSettings;
+  languageServicesEnabled: boolean;
   currentThemeId: ThemeId;
   themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
@@ -105,6 +106,7 @@ export default function PaneInstance({
   onCursorChange,
   onLanguageChange,
   editorSettings,
+  languageServicesEnabled,
   currentThemeId,
   themeSyntax,
   themeTokens,
@@ -350,6 +352,7 @@ export default function PaneInstance({
                     onCursorChange={isActive ? onCursorChange : () => {}}
                     onLanguageChange={isActive ? onLanguageChange : () => {}}
                     editorSettings={editorSettings}
+                    languageServicesEnabled={languageServicesEnabled}
                     themeSyntax={themeSyntax}
                     themeTokens={themeTokens}
                     navigationTarget={navigationTarget}

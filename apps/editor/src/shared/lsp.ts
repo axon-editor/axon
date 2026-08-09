@@ -48,7 +48,7 @@ export interface LanguageServerStatus {
   id: LanguageServerId;
   label: string;
   languages: string[];
-  status: "running" | "available" | "missing" | "failed";
+  status: "starting" | "running" | "available" | "missing" | "failed";
   available: boolean;
   relevant: boolean;
   running: boolean;

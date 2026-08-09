@@ -116,10 +116,14 @@ export function useLanguageToolInstallPrompt({
       }
       enableManagedLanguageToolPrompt(status.id);
       const languageId = status.languages[0];
-      await window.axon.startLanguageServerForLanguage({
+      const startResult = await window.axon.startLanguageServerForLanguage({
         folderPath,
         languageId,
       });
+      if (!startResult.ok) {
+        setError(startResult.message);
+        return;
+      }
       setStatus((current) => (current?.id === toolId ? null : current));
       setProgress((current) => (current?.id === toolId ? null : current));
     } catch (caughtError) {

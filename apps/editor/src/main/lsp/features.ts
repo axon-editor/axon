@@ -45,6 +45,7 @@ export const LANGUAGE_SERVER_INITIALIZE_RETRY_DELAY_MS = 2_000;
 export const LANGUAGE_SERVER_INITIALIZE_MAX_RETRIES = 2;
 export const LANGUAGE_SERVER_COMPLETION_WARMUP_WAIT_MS = 8_000;
 export const LANGUAGE_SERVER_COMPLETION_WARMUP_POLL_MS = 80;
+export const LANGUAGE_SERVER_START_READY_WAIT_MS = 15_000;
 
 const lspWatchedFileChangeTypes = {
   create: 1,
@@ -544,7 +545,17 @@ export async function syncDocumentWithLanguageServer(
     const session = activeLanguageServers.get(
       getLanguageServerSessionKey(request.folderPath, serverId),
     );
-    if (!session?.initialized) continue;
+    if (!session) continue;
+
+    const normalizedRequest = {
+      ...request,
+      languageId: normalizedLanguageId,
+    };
+    if (!session.initialized) {
+      const uri = url.pathToFileURL(request.filePath).toString();
+      session.pendingDocumentSyncs.set(uri, normalizedRequest);
+      continue;
+    }
 
     // Session selection and didOpen must use the same protocol language id.
     // If a caller sends Monaco's stale "typescript" for a .tsx file, the old
@@ -552,10 +563,7 @@ export async function syncDocumentWithLanguageServer(
     // JSX-aware companions because server selection happened before extension
     // normalization. Passing the normalized value through keeps server routing
     // and document parser mode in lockstep.
-    syncLanguageServerDocument(session, {
-      ...request,
-      languageId: normalizedLanguageId,
-    });
+    syncLanguageServerDocument(session, normalizedRequest);
   }
 }
 
@@ -901,7 +909,6 @@ function normalizeLanguageServerDiagnosticSeverity(
 }
 
 export {
-  getLanguageServerStatus,
   getReadyLanguageServerSession,
   getReadyOrWarmLanguageServerSession,
   requestLanguageServer,
@@ -911,6 +918,7 @@ export {
   stopAllLanguageServers,
   stopRelevantLanguageServers,
 } from "./features/lifecycle";
+export { getLanguageServerStatus } from "./features/status";
 export {
   executeLanguageServerCommand,
   formatLanguageServerDocument,

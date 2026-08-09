@@ -77,18 +77,32 @@ export default function LanguageServersSettingsSection({
                 Clear
               </button>
             </div>
-            <SettingsTextInput
-              value={draft.lsp.pythonVirtualEnvPath}
-              onChange={(value) => onUpdateLsp("pythonVirtualEnvPath", value)}
-              placeholder="Virtual environment path"
-              monospace
-            />
-            <SettingsTextInput
-              value={draft.lsp.pythonInterpreterPath}
-              onChange={(value) => onUpdateLsp("pythonInterpreterPath", value)}
-              placeholder="Python interpreter path"
-              monospace
-            />
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
+                Project environment folder
+              </span>
+              <SettingsTextInput
+                value={draft.lsp.pythonVirtualEnvPath}
+                onChange={(value) =>
+                  onUpdateLsp("pythonVirtualEnvPath", value)
+                }
+                placeholder="No project environment detected"
+                monospace
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
+                Interpreter executable
+              </span>
+              <SettingsTextInput
+                value={draft.lsp.pythonInterpreterPath}
+                onChange={(value) =>
+                  onUpdateLsp("pythonInterpreterPath", value)
+                }
+                placeholder="Resolved automatically"
+                monospace
+              />
+            </label>
             {pythonEnvironmentMessage ? (
               <div className="text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-55">
                 {pythonEnvironmentMessage}

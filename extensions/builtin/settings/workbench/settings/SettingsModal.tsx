@@ -167,6 +167,13 @@ export default function SettingsModal({
             pythonInterpreterPath: status.interpreterPath,
           },
         }));
+        setPythonEnvironmentMessage(
+          status.virtualEnvPath
+            ? `Detected project environment: ${status.virtualEnvPath}`
+            : status.interpreterPath
+              ? "No project virtual environment was detected. Axon is using the interpreter shown below."
+              : "No Python environment or interpreter was detected for this workspace.",
+        );
       })
       .catch((error) => {
         if (cancelled) return;
