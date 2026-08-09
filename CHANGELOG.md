@@ -2,6 +2,36 @@
 
 ## Next
 
+## v1.3.4
+
+- Isolated terminal ownership in a dedicated PTY host so Core recovery no
+  longer terminates active shells or destroys their scrollback.
+- Moved packaged PTY control onto owner-only Unix sockets and Windows named
+  pipes while keeping authenticated terminal streams on private loopback IPC.
+- Preserved visible terminal history during sustained output with acknowledged
+  delivery, coalesced viewport repainting, and measurable commit latency.
+- Added cancellable ripgrep-backed workspace search with project-aware ignores,
+  virtual-environment detection, validated results, and a Go fallback.
+- Kept very large files responsive with bounded language work, lightweight
+  tokenization, linear semantic merging, and reduced document-wide indexing.
+- Added the Axon Buffer Engine with shared text caching, concurrent-read
+  deduplication, retained Monaco models, and explorer-driven prefetching.
+- Made explorer and Git state react promptly to deep external file changes while
+  avoiding redundant folder scans and stale trailing status refreshes.
+- Stabilized managed language-tool extraction, cancellation, activation, retry,
+  document synchronization, and JVM cold-start behavior.
+- Added project-aware Python environment discovery and automatic selection for
+  nested workspaces, monorepos, custom environment names, and ancestor folders.
+- Completed Markdown and MDX preview support with Mermaid, highlighted code,
+  math, frontmatter, callouts, citations, wiki links, task editing, synchronized
+  scrolling, printing, PDF export, and strict content sanitization.
+- Restored `axon .`, startup file routing, workspace-less secondary terminals,
+  and language intelligence after managed tools finish installing.
+- Reorganized editor modules, softened dark-theme borders, and made the native
+  boot shell follow the saved Axon theme without enabling costly transparency.
+- Refreshed extension documentation and added loadable language metadata,
+  runtime API, and theme examples.
+
 ## v1.3.3
 
 - Stabilized terminal scrollback during sustained agent output so live writes no
