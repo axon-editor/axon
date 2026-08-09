@@ -24,7 +24,7 @@ import {
   type OutputEntry,
 } from "@axon-editor/platform/panel/bottomPanel";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import ChromeTab from "@axon-editor/renderer/features/editor/ChromeTab";
+import ChromeTab from "@axon-editor/renderer/features/editor/components/tabs/ChromeTab";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import {
   BottomPanelContent,

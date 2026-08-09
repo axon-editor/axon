@@ -3,7 +3,7 @@ import {
   LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS,
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
 } from "../../../shared/lsp";
-import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
+import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { createTextMateSemanticTokens } from "./textMateSemanticTokens";
 import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 import { mergeSemanticTokenLayers } from "./semanticTokenMerge";

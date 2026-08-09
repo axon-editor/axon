@@ -2,6 +2,7 @@ import { type CSSProperties } from "react";
 import { resolveThemeTokens, type ThemeTokenMap } from "../themes";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import {
+  appearanceBorderColor,
   gitAppearanceColors,
   type ThemeAppearance,
 } from "../themes/themeAppearance";
@@ -22,6 +23,11 @@ export function createThemeCssVariables(
   appearance: ThemeAppearance = "dark",
 ) {
   const gitColors = gitAppearanceColors[appearance];
+  const panelBorder = appearanceBorderColor(tokens["panel.border"], appearance);
+  const sidebarBorder = appearanceBorderColor(
+    tokens["sidebar.border"],
+    appearance,
+  );
   // These variables are the bridge between axon.json and the React chrome.
   // They are resolved from the active built-in theme first, then user override
   // values are layered on top. That keeps defaults clean while still making
@@ -33,10 +39,10 @@ export function createThemeCssVariables(
     "--axon-toolbar-background": tokens["toolbar.background"],
     "--axon-sidebar-background": tokens["sidebar.background"],
     "--axon-sidebar-hover-background": tokens["sidebar.hover_background"],
-    "--axon-sidebar-border": tokens["sidebar.border"],
+    "--axon-sidebar-border": sidebarBorder,
     "--axon-tab-active-background": tokens["tab.active_background"],
     "--axon-panel-background": tokens["panel.background"],
-    "--axon-panel-border": tokens["panel.border"],
+    "--axon-panel-border": panelBorder,
     "--axon-panel-overlay-hover": tokens["panel.overlay_hover"],
     "--axon-editor-foreground": tokens["editor.foreground"],
     "--axon-editor-background": tokens["editor.background"],

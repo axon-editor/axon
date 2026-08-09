@@ -155,7 +155,11 @@ export function useGlobalEditorShortcuts({
         runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL);
         return;
       }
-      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key === ",") {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        event.key === ","
+      ) {
         event.preventDefault();
         runCommand(AXON_COMMANDS.OPEN_SETTINGS);
         return;

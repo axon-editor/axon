@@ -13,7 +13,11 @@ import {
   type AxonThemeDefinition,
   type ThemeTokenMap,
 } from "./types";
-import { gitAppearanceColors, inferThemeAppearance } from "./themeAppearance";
+import {
+  appearanceBorderColor,
+  gitAppearanceColors,
+  inferThemeAppearance,
+} from "./themeAppearance";
 
 export type { ThemeTokenMap } from "./types";
 
@@ -175,6 +179,7 @@ function buildMonacoTheme(
 ) {
   const appearance = extensionTheme?.appearance ?? inferThemeAppearance(tokens);
   const gitColors = gitAppearanceColors[appearance];
+  const uiBorder = appearanceBorderColor(tokens["panel.border"], appearance);
   const themeData: monaco.editor.IStandaloneThemeData = {
     base: theme.base,
     inherit: true,
@@ -210,14 +215,14 @@ function buildMonacoTheme(
       "textPreformat.foreground": tokens["editor.foreground"],
       "editorWidget.background": tokens["panel.background"],
       "editorWidget.foreground": tokens["editor.foreground"],
-      "editorWidget.border": tokens["panel.border"],
+      "editorWidget.border": uiBorder,
       "editorHoverWidget.background": tokens["panel.background"],
       "editorHoverWidget.foreground": tokens["editor.foreground"],
-      "editorHoverWidget.border": tokens["panel.border"],
+      "editorHoverWidget.border": uiBorder,
       "editorHoverWidget.statusBarBackground": tokens["panel.overlay_hover"],
       "editorSuggestWidget.background": tokens["panel.background"],
       "editorSuggestWidget.foreground": tokens["editor.foreground"],
-      "editorSuggestWidget.border": tokens["panel.border"],
+      "editorSuggestWidget.border": uiBorder,
       "editorSuggestWidget.selectedBackground": tokens["panel.overlay_hover"],
       "editorSuggestWidget.highlightForeground": tokens["syntax.function"],
       "editorSuggestWidget.focusHighlightForeground": tokens["syntax.function"],

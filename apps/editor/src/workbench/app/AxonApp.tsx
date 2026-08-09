@@ -18,8 +18,8 @@ import {
   createInitialLayout,
   openFileInPane,
   closeTabInPane,
-} from "../../renderer/features/editor/lib/layoutManager";
-import { type Layout } from "../../renderer/features/editor/lib/types";
+} from "../../renderer/features/editor/lib/layout/layoutManager";
+import { type Layout } from "../../renderer/features/editor/lib/layout/types";
 import {
   DEFAULT_SETTINGS,
   normalizeSettings,
@@ -37,7 +37,7 @@ import { type WorkspaceTask } from "../../shared/tasks";
 import { type UpdateInfo, type UpdateInstallState } from "../../shared/updates";
 import { type ExtensionState } from "../../shared/extensions";
 import { type AgentResumeRequest } from "../../shared/app";
-import { type EditorNavigationTarget } from "../../renderer/features/editor/lib/navigation";
+import { type EditorNavigationTarget } from "../../renderer/features/editor/lib/layout/navigation";
 import {
   type BottomPanelTab,
   type OutputEntry,
@@ -62,7 +62,7 @@ import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolI
 import { useLanguageToolInstallPrompt } from "../../renderer/features/languageTools/useLanguageToolInstallPrompt";
 import { useManagedLanguageToolInstallations } from "../../renderer/features/languageTools/useManagedLanguageToolInstallations";
 import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
-import { detectLanguageServerLanguage, getModel } from "../../renderer/features/editor/lib/monacoModels";
+import { detectLanguageServerLanguage, getModel } from "../../renderer/features/editor/lib/buffer/monacoModels";
 import {
   hasSeenAxonOnboarding,
   markAxonOnboardingSeen,

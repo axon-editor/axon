@@ -4,7 +4,7 @@ import type {
   ManagedLanguageToolStatus,
 } from "../../../shared/languageTools";
 import { isManagedLanguageToolProgressActive } from "../../../shared/languageTools";
-import { detectLanguageServerLanguage } from "../editor/lib/monacoModels";
+import { detectLanguageServerLanguage } from "../editor/lib/buffer/monacoModels";
 import {
   disableManagedLanguageToolPrompt,
   enableManagedLanguageToolPrompt,

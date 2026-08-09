@@ -1,7 +1,7 @@
 import * as React from "react";
 import Sidebar from "../../../renderer/features/sidebar";
-import EditorPane from "../../../renderer/features/editor/EditorPane";
-import EditorToolbar from "../../../renderer/features/editor/EditorToolbar";
+import EditorPane from "../../../renderer/features/editor/components/panes/EditorPane";
+import EditorToolbar from "../../../renderer/features/editor/components/toolbar/EditorToolbar";
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { type ThemeId } from "../../../shared/settings";
 import AppMenuButton from "../chrome/AppMenuButton";
@@ -14,8 +14,8 @@ import {
   replacePathInLayout,
   setDirtyInPane,
   setPinnedInPane,
-} from "../../../renderer/features/editor/lib/layoutManager";
-import { detectLanguage } from "../../../renderer/features/editor/lib/monacoModels";
+} from "../../../renderer/features/editor/lib/layout/layoutManager";
+import { detectLanguage } from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { fontStack } from "../../../renderer/shared/lib/fonts";
 import WorkbenchOverlays from "./WorkbenchOverlays";
 import WorkbenchStatusBar from "./WorkbenchStatusBar";

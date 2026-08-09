@@ -15,7 +15,7 @@ import {
   detectLanguageServerLanguage,
   getModel,
   updateModel,
-} from "../../../renderer/features/editor/lib/monacoModels";
+} from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { useGlobalEditorShortcuts } from "../../../renderer/features/editor/shortcuts/useGlobalEditorShortcuts";
 import { getTree, readFile } from "../../../renderer/shared/lib/api";
 import { createBundledFontFaces } from "../../../renderer/shared/lib/bundledFonts";
@@ -31,7 +31,7 @@ import {
 import { normalizeSettings } from "../../../shared/settings";
 import * as monaco from "monaco-editor";
 import { escapeCssString } from "./appPath";
-import type { EditorNavigationTarget } from "../../../renderer/features/editor/lib/navigation";
+import type { EditorNavigationTarget } from "../../../renderer/features/editor/lib/layout/navigation";
 import {
   folderChanges,
   shouldReloadWorkspaceRoot,

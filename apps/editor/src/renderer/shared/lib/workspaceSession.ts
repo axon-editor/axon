@@ -1,10 +1,10 @@
 import { type FileNode } from "./api";
-import { createInitialLayout } from "../../features/editor/lib/layoutManager";
-import { type Layout } from "../../features/editor/lib/types";
+import { createInitialLayout } from "../../features/editor/lib/layout/layoutManager";
+import { type Layout } from "../../features/editor/lib/layout/types";
 import {
   getTabFilePath,
   isVirtualTabPath,
-} from "../../features/editor/lib/tabIdentity";
+} from "../../features/editor/lib/layout/tabIdentity";
 import { isWelcomeTabPath } from "../../features/onboarding/lib/welcomeTab";
 import { isCodeSnapshotTabPath } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 import { type BottomPanelTab } from "../../../platform/panel/bottomPanel";

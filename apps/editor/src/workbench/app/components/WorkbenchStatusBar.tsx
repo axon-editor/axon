@@ -1,6 +1,6 @@
 import StatusBar from "../../../renderer/shared/components/StatusBar";
 import { AXON_COMMANDS } from "../../../shared/commands";
-import { isVirtualTabPath } from "../../../renderer/features/editor/lib/tabIdentity";
+import { isVirtualTabPath } from "../../../renderer/features/editor/lib/layout/tabIdentity";
 
 export default function WorkbenchStatusBar(props: Record<string, any>) {
   const {

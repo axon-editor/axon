@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { getWorkspaceTrustState } from "../../../renderer/features/sidebar";
 import { isDiagnosticInWorkspace } from "@axon-builtin-problems/lib/diagnosticCache";
-import { getModel } from "../../../renderer/features/editor/lib/monacoModels";
+import { getModel } from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { collectFileSymbols } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import {
   createThemeCssVariables,
@@ -9,6 +9,7 @@ import {
 } from "../../../renderer/shared/lib/themeTokens";
 import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { getEnabledExtensionThemes } from "../../../shared/extensions";
+import { appearanceBorderColor } from "../../../renderer/shared/themes/themeAppearance";
 
 function colorWithAlpha(color: string, alpha: number) {
   const normalizedColor = color.trim();
@@ -108,8 +109,9 @@ export function useAppDerivedState({
         themeTokens["sidebar.hover_background"],
         Math.min(1, opacity + 0.2),
       ),
-      "--axon-sidebar-border": colorWithAlpha(
+      "--axon-sidebar-border": appearanceBorderColor(
         themeTokens["sidebar.border"],
+        themeAppearance,
         Math.min(1, opacity + 0.25),
       ),
       "--axon-tab-active-background": colorWithAlpha(
@@ -120,8 +122,9 @@ export function useAppDerivedState({
         themeTokens["panel.background"],
         opacity,
       ),
-      "--axon-panel-border": colorWithAlpha(
+      "--axon-panel-border": appearanceBorderColor(
         themeTokens["panel.border"],
+        themeAppearance,
         Math.min(1, opacity + 0.25),
       ),
       "--axon-panel-overlay-hover": colorWithAlpha(
@@ -148,6 +151,7 @@ export function useAppDerivedState({
   }, [
     settings.editor.appBackgroundOpacity,
     settings.editor.appTransparency,
+    themeAppearance,
     themeCssVariables,
     themeTokens,
   ]);

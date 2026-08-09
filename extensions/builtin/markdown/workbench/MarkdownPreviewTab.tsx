@@ -3,7 +3,7 @@ import { readFile } from "@axon-editor/renderer/shared/lib/api";
 import {
   getModel,
   onModelReady,
-} from "@axon-editor/renderer/features/editor/lib/monacoModels";
+} from "@axon-editor/renderer/features/editor/lib/buffer/monacoModels";
 import MarkdownPreview from "./MarkdownPreview";
 
 interface Props {

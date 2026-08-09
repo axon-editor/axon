@@ -1,4 +1,7 @@
-import { type AxonSettings, normalizeSettings } from "../../../../shared/settings";
+import {
+  type AxonSettings,
+  normalizeSettings,
+} from "../../../../shared/settings";
 
 const MIN_EDITOR_FONT_SIZE = 10;
 const MAX_EDITOR_FONT_SIZE = 28;
@@ -25,7 +28,9 @@ export function settingsFromEditorFontZoomShortcut(
   const direction = editorFontZoomDirection(event);
   if (direction === 0) return null;
 
-  const nextFontSize = clampEditorFontSize(settings.editor.fontSize + direction);
+  const nextFontSize = clampEditorFontSize(
+    settings.editor.fontSize + direction,
+  );
   if (nextFontSize === settings.editor.fontSize) return null;
   const lineHeightRatio = settings.editor.lineHeight / settings.editor.fontSize;
   const nextLineHeight = Math.round(nextFontSize * lineHeightRatio);

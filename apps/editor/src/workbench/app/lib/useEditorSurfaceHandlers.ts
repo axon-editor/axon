@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { openFileInPane, splitPane } from "../../../renderer/features/editor/lib/layoutManager";
-import type { SplitDirection } from "../../../renderer/features/editor/lib/types";
+import { openFileInPane, splitPane } from "../../../renderer/features/editor/lib/layout/layoutManager";
+import type { SplitDirection } from "../../../renderer/features/editor/lib/layout/types";
 import { createHtmlPreviewTabPath } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import type { WorkspaceSearchResult } from "../../../renderer/shared/lib/api";
 import { AXON_OPEN_CODE_SNAPSHOT_EVENT } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";

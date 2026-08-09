@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { gitAppearanceColors, inferThemeAppearance } from "./themeAppearance";
+import {
+  appearanceBorderColor,
+  gitAppearanceColors,
+  inferThemeAppearance,
+} from "./themeAppearance";
 
 function luminance(color: string) {
   const channels = color
@@ -52,5 +56,11 @@ describe("theme appearance colors", () => {
     ]) {
       expect(contrastRatio(color, "#fff7d2")).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it("softens dark UI borders without weakening light theme borders", () => {
+    expect(appearanceBorderColor("#222838", "dark")).toBe("#22283885");
+    expect(appearanceBorderColor("#00000033", "dark")).toBe("#0000001b");
+    expect(appearanceBorderColor("#c9bf96", "light")).toBe("#c9bf96");
   });
 });

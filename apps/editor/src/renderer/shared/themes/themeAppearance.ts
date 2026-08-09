@@ -35,3 +35,35 @@ export function inferThemeAppearance(
     channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
   return luminance > 0.45 ? "light" : "dark";
 }
+
+export function appearanceBorderColor(
+  color: string,
+  appearance: ThemeAppearance,
+  opacity = 1,
+) {
+  const normalizedColor = color.trim();
+  const match = normalizedColor.match(
+    /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i,
+  );
+  if (!match) return color;
+  if (appearance === "light" && opacity >= 1) return color;
+
+  const [, red, green, blue, existingAlpha] = match;
+  const baseAlpha = existingAlpha
+    ? Number.parseInt(existingAlpha, 16) / 255
+    : 1;
+  // Dark editor surfaces need structure without a bright rectangle around
+  // every control. Multiplying the theme's own alpha keeps its hue and relative
+  // strength intact while making separators recede behind text and content.
+  // Light themes keep their authored contrast because faint pale borders can
+  // disappear completely against white or parchment backgrounds.
+  const appearanceMultiplier = appearance === "dark" ? 0.52 : 1;
+  const finalAlpha = Math.max(
+    0,
+    Math.min(1, baseAlpha * opacity * appearanceMultiplier),
+  );
+  const alphaHex = Math.round(finalAlpha * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `#${red}${green}${blue}${alphaHex}`;
+}

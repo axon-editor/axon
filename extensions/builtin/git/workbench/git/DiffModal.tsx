@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { type EditorSettings } from "@axon-editor/shared/settings";
 import { readFile } from "@axon-editor/renderer/shared/lib/api";
-import { getModel } from "@axon-editor/renderer/features/editor/lib/monacoModels";
+import { getModel } from "@axon-editor/renderer/features/editor/lib/buffer/monacoModels";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import GitDiffEditorView from "./GitDiffEditorView";

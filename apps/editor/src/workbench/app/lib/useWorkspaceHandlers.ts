@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
-import { createInitialLayout, openFileInPane } from "../../../renderer/features/editor/lib/layoutManager";
+import { createInitialLayout, openFileInPane } from "../../../renderer/features/editor/lib/layout/layoutManager";
 import { getTree, createFile, type FileNode } from "../../../renderer/shared/lib/api";
 import {
   markAxonPerformance,

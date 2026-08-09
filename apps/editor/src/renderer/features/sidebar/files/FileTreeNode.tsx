@@ -11,14 +11,14 @@ import { getTree, type FileNode } from "../../../shared/lib/api";
 import {
   encodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
-} from "../../editor/lib/dragData";
+} from "../../editor/lib/layout/dragData";
 import { getFileIcon, getFolderIcon } from "./lib/fileIcons";
 import { type GitTreeDecoration } from "..";
 import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
 import { type FileTreeOperation, type ImportedExternalEntry } from "./FileTree";
 import { type FolderChangeEvent } from "../../../../shared/fs";
 import { shouldReloadFolderNode } from "./lib/treeRefresh";
-import { prefetchAxonBuffer } from "../../editor/lib/axonBufferLoader";
+import { prefetchAxonBuffer } from "../../editor/lib/buffer/axonBufferLoader";
 
 interface Props {
   node: FileNode;

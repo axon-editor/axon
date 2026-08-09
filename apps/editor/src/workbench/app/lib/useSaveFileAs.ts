@@ -1,8 +1,8 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 
-import { getModel } from "../../../renderer/features/editor/lib/monacoModels";
-import { replacePathInLayout } from "../../../renderer/features/editor/lib/layoutManager";
-import type { Layout } from "../../../renderer/features/editor/lib/types";
+import { getModel } from "../../../renderer/features/editor/lib/buffer/monacoModels";
+import { replacePathInLayout } from "../../../renderer/features/editor/lib/layout/layoutManager";
+import type { Layout } from "../../../renderer/features/editor/lib/layout/types";
 
 interface SaveFileAsOptions {
   activeFile: string | null;

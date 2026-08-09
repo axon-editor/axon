@@ -1,6 +1,6 @@
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
-import { isVirtualTabPath } from "../../../renderer/features/editor/lib/tabIdentity";
+import { isVirtualTabPath } from "../../../renderer/features/editor/lib/layout/tabIdentity";
 import { type CommandPaletteCommand } from "@axon-builtin-search/lib/types";
 import {
   type ExtensionCommandContribution,

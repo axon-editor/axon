@@ -1,6 +1,6 @@
 import * as monaco from "monaco-editor";
 import { isLargeDocumentModel } from "../../../shared/largeDocument";
-import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/monacoModels";
+import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import type { LanguageServerCompletionItem } from "../../../shared/lsp";
 import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 import {

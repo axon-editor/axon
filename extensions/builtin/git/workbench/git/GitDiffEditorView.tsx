@@ -3,7 +3,7 @@ import { type EditorSettings } from "@axon-editor/shared/settings";
 import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
 import { getMonacoThemeId, registerAxonTheme } from "@axon-editor/renderer/shared/lib/soraTheme";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import { detectLanguage } from "@axon-editor/renderer/features/editor/lib/monacoModels";
+import { detectLanguage } from "@axon-editor/renderer/features/editor/lib/buffer/monacoModels";
 
 interface GitDiffEditorViewProps {
   filePath: string;

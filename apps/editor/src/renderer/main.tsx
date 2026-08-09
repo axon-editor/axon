@@ -14,9 +14,9 @@ import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { configureMonacoDiagnostics } from "../services/lsp/renderer/monacoDiagnostics";
 import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions";
 import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
-import { registerMonacoReactLanguages } from "./features/editor/lib/monacoReactLanguages";
-import { registerMonacoStructuredLanguages } from "./features/editor/lib/monacoStructuredLanguages";
-import { registerMonacoAdditionalLanguages } from "./features/editor/lib/monacoAdditionalLanguages";
+import { registerMonacoReactLanguages } from "./features/editor/lib/language/monacoReactLanguages";
+import { registerMonacoStructuredLanguages } from "./features/editor/lib/language/monacoStructuredLanguages";
+import { registerMonacoAdditionalLanguages } from "./features/editor/lib/language/monacoAdditionalLanguages";
 import { getEnabledExtensionThemes } from "../shared/extensions";
 import {
   markAxonPerformance,
