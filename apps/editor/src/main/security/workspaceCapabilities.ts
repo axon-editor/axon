@@ -5,6 +5,7 @@ import {
   canonicalWorkspacePath,
   pathInsideWorkspaceRoot,
 } from "./workspacePathPolicy";
+import { textFileCache } from "../files/textFileCache";
 
 interface StoredCapabilities {
   roots: string[];
@@ -252,24 +253,10 @@ export function registerWorkspaceCapabilityHandlers(
         event.sender.id,
         filePath,
       );
-      const info = await fs.promises.stat(authorizedPath);
-      if (!info.isFile()) throw new Error("Path is not a file.");
-      if (info.size > 32 * 1024 * 1024) {
-        throw new Error("File is too large to open in the text editor.");
-      }
-
-      const content = await fs.promises.readFile(authorizedPath);
-      const sample = content.subarray(0, Math.min(content.length, 8192));
-      if (sample.includes(0)) {
-        throw new Error("This file is binary and cannot be opened as text.");
-      }
-      const text = content.toString("utf8");
-      if (
-        text.includes("\uFFFD") &&
-        !Buffer.from(text, "utf8").equals(content)
-      ) {
-        throw new Error("This file is not valid UTF-8 text.");
-      }
+      // Authorization is deliberately checked before the process-wide cache.
+      // Cached bytes must improve speed without becoming a side channel that
+      // lets a second renderer read a path it was never allowed to access.
+      const text = await textFileCache.read(authorizedPath);
       return {
         path: authorizedPath,
         content: text,
@@ -292,6 +279,15 @@ export function registerWorkspaceCapabilityHandlers(
         filePath,
       );
       await fs.promises.writeFile(authorizedPath, content, "utf8");
+      try {
+        await textFileCache.recordWrite(authorizedPath, content);
+      } catch {
+        // The disk write has already succeeded. A formatter can replace or
+        // remove the path before the follow-up stat completes, so cache upkeep
+        // must fall back to invalidation instead of reporting a false save
+        // failure to the renderer.
+        textFileCache.invalidate(authorizedPath);
+      }
     },
   );
 }

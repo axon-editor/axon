@@ -6,7 +6,7 @@ import { type EditorSettings } from "../../../shared/settings";
 import { isLargeDocumentModel } from "../../../shared/largeDocument";
 import { type GitChange } from "../../../shared/git";
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
-import { readFile, writeFile } from "../../shared/lib/api";
+import { writeFile } from "../../shared/lib/api";
 import { type EditorNavigationTarget } from "./lib/navigation";
 import { registerAxonTheme } from "../../shared/lib/soraTheme";
 import { type ResolvedThemeTokens } from "../../shared/lib/themeTokens";
@@ -15,21 +15,17 @@ import {
   installSemanticTokenDecorationStyles,
   RICH_SEMANTIC_DECORATION_LANGUAGES,
 } from "../../../services/lsp/renderer/semanticTokenDecorations";
-import { registerExternalLanguageToolFile } from "../../../services/lsp/renderer/lspFileAccess";
 import { onSemanticTokensUpdated } from "../../../services/lsp/renderer/lspSemanticTokens";
-import { preloadTextMateLanguage } from "../../../services/lsp/renderer/textMateSemanticTokens";
 import Tooltip from "../../shared/components/Tooltip";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import EditorBreadcrumbs from "./EditorBreadcrumbs";
 import MonacoEditorSurface from "./MonacoEditorSurface";
 import TokenInspectorModal from "./TokenInspectorModal";
 import {
-  updateModel,
-  releaseModel,
-  acquireModel,
   getModel,
   detectLanguage,
   detectLanguageServerLanguage,
+  markModelDirty,
   refreshModelLanguage,
 } from "./lib/monacoModels";
 import { collectFileSymbols } from "../sidebar/files/lib/fileSymbols";
@@ -52,6 +48,7 @@ import { useEditorZoomViewport } from "./lib/useEditorZoomViewport";
 import useGitLineDecorations from "./lib/useGitLineDecorations";
 import useGitLineTrace from "./lib/useGitLineTrace";
 import { useMarkdownPreviewBridge } from "./lib/useMarkdownPreviewBridge";
+import { useAxonBufferDocument } from "./lib/useAxonBufferDocument";
 interface Props {
   filePath: string;
   folderPath: string | null;
@@ -86,11 +83,6 @@ export default function SingleEditor({
   navigationTarget,
   gitChanges,
 }: Props) {
-  const [liveContent, setLiveContent] = useState("");
-  const [largeDocument, setLargeDocument] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [readOnly, setReadOnly] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("editor");
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
@@ -114,11 +106,30 @@ export default function SingleEditor({
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
   const filePathRef = useRef(filePath);
+  const refreshAfterBufferAttachRef = useRef<() => void>(() => undefined);
   const {
     isModelDirty,
     recordLoadedDiskContent,
     recordSynchronizedDiskContent,
   } = useEditorDiskBaseline({ editorRef, filePathRef, onDirtyChange });
+  const {
+    error,
+    largeDocument,
+    liveContent,
+    loading,
+    readOnly,
+    setLargeDocument,
+    setLiveContent,
+  } = useAxonBufferDocument({
+    editorRef,
+    filePath,
+    filePathRef,
+    folderPath,
+    onDirtyChange,
+    recordLoadedDiskContent,
+    recordSynchronizedDiskContent,
+    refreshAfterAttachRef: refreshAfterBufferAttachRef,
+  });
   const trackEditorZoomViewport = useEditorZoomViewport(
     editorRef,
     editorSettings.fontSize,
@@ -284,8 +295,12 @@ export default function SingleEditor({
   const refreshGoSyntaxDecorations = useCallback(() => {
     const editor = editorRef.current;
     const model = editor?.getModel();
-    if (!editor || !model || model.getLanguageId() !== "go" ||
-        isLargeDocumentModel(model)) {
+    if (
+      !editor ||
+      !model ||
+      model.getLanguageId() !== "go" ||
+      isLargeDocumentModel(model)
+    ) {
       goSyntaxDecorationsRef.current?.clear();
       return;
     }
@@ -587,68 +602,14 @@ export default function SingleEditor({
     visible,
   });
 
+  refreshAfterBufferAttachRef.current = () => {
+    scheduleSemanticTokenDecorations();
+    scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    let acquiredModel = false;
-
-    setLoading(true);
-    setReadOnly(false);
-    setError(null);
-    setLargeDocument(false);
     setPreviewMode("editor");
-    void preloadTextMateLanguage(detectLanguage(filePath));
-
-    readFile(filePath)
-      .then((fc) => {
-        if (cancelled) return;
-
-        setReadOnly(fc.readOnly);
-        if (fc.external) registerExternalLanguageToolFile(fc.path);
-        const model = acquireModel(filePath, fc.content);
-        const nextLargeDocument = isLargeDocumentModel(model);
-        acquiredModel = true;
-        setLargeDocument(nextLargeDocument);
-        setLiveContent(nextLargeDocument ? "" : fc.content);
-        onDirtyChange(filePath, recordLoadedDiskContent(model, fc.content));
-
-        // I attach the shared model only after this editor has acquired its
-        // own reference. That keeps the model lifetime tied to real mounted
-        // editors instead of to a read that may have resolved after the tab was
-        // already closed.
-        if (editorRef.current && !model.isDisposed()) {
-          editorRef.current.setModel(model);
-          window.requestAnimationFrame(() => {
-            scheduleSemanticTokenDecorations();
-            scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
-          });
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    const cleanup = window.axon.onFileChanged(({ path, content }) => {
-      if (path !== filePathRef.current) return;
-      updateModel(filePath, content);
-      const model = getModel(filePath);
-      if (model && !model.isDisposed()) {
-        const nextLargeDocument = isLargeDocumentModel(model);
-        setLargeDocument(nextLargeDocument);
-        setLiveContent(nextLargeDocument ? "" : content);
-        recordSynchronizedDiskContent(model, content);
-      }
-      window.requestAnimationFrame(() => {
-        scheduleSemanticTokenDecorations();
-        scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
-      });
-      onDirtyChange(filePath, false);
-    });
-
     return () => {
-      cancelled = true;
       navigationDecorationsRef.current?.clear();
       navigationDecorationsRef.current = null;
       semanticDecorationsRef.current?.clear();
@@ -657,7 +618,6 @@ export default function SingleEditor({
       goSyntaxDecorationsRef.current = null;
       editorOpenerRef.current?.dispose();
       editorOpenerRef.current = null;
-      cleanup();
       if (suggestTimerRef.current) {
         window.clearTimeout(suggestTimerRef.current);
         suggestTimerRef.current = null;
@@ -674,11 +634,6 @@ export default function SingleEditor({
         window.clearTimeout(semanticDecorationRetryTimerRef.current);
         semanticDecorationRetryTimerRef.current = null;
       }
-      // Release only if the async read reached acquireModel. Closing a split
-      // quickly used to run this cleanup before the second editor acquired its
-      // reference, which could decrement the first pane's shared model and
-      // leave that still-open pane blank after Monaco disposed it.
-      if (acquiredModel) releaseModel(filePath);
     };
   }, [filePath]);
 
@@ -926,7 +881,9 @@ export default function SingleEditor({
           isMd && previewMode === "split" ? 80 : 240,
         );
       }
-      onDirtyChange(filePath, isModelDirty(model));
+      const dirty = isModelDirty(model);
+      markModelDirty(filePath, dirty);
+      onDirtyChange(filePath, dirty);
       if (!isLargeDocument) {
         syncDocumentWithLanguageServer();
         scheduleSemanticTokenDecorations(48);
@@ -1025,6 +982,14 @@ export default function SingleEditor({
     );
   }
 
+  if (loading) {
+    // The first open waits for a real Axon buffer instead of mounting Monaco
+    // against its implicit empty one-line model. Tree prefetch normally makes
+    // this branch too short to notice, and avoiding the temporary model removes
+    // both the visible flash and an orphan Monaco model allocation per file.
+    return <div className="h-full w-full bg-[var(--axon-editor-background)]" />;
+  }
+
   const breadcrumbNode = editorSettings.breadcrumbsEnabled ? (
     <EditorBreadcrumbs
       activeSymbol={activeBreadcrumbSymbol}
@@ -1054,6 +1019,7 @@ export default function SingleEditor({
         findOpen={findOpen}
         findQuery={findQuery}
         largeDocument={largeDocument}
+        modelUri={monaco.Uri.file(filePath).toString()}
         saving={saving}
         readOnly={readOnly}
         shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}

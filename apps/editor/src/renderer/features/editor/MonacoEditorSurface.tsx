@@ -24,6 +24,7 @@ interface Props {
   findOpen: boolean;
   findQuery: string;
   largeDocument: boolean;
+  modelUri: string;
   saving: boolean;
   readOnly: boolean;
   shouldUseTransparentEditorSurface: boolean;
@@ -79,6 +80,7 @@ export default function MonacoEditorSurface({
   findOpen,
   findQuery,
   largeDocument,
+  modelUri,
   saving,
   readOnly,
   shouldUseTransparentEditorSurface,
@@ -141,6 +143,7 @@ export default function MonacoEditorSurface({
       <div className="relative z-10 h-full min-h-0 w-full flex-1 overflow-hidden">
         <Editor
           height="100%"
+          path={modelUri}
           theme={getMonacoThemeId(editorSettings.themeId)}
           beforeMount={(monacoInstance) =>
             registerAxonTheme(

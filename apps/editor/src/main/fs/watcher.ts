@@ -5,6 +5,7 @@ import chokidar, {
 import fs from "fs";
 import path from "path";
 import { type FolderChangeKind } from "../../shared/fs";
+import { textFileCache } from "../files/textFileCache";
 
 type NativeWatcherListener = (
   eventType: "rename" | "change",
@@ -322,6 +323,7 @@ export class FileWatcherManager {
       this.activeFileDebounceTimer = setTimeout(() => {
         this.activeFileDebounceTimer = null;
         try {
+          textFileCache.invalidate(filePath);
           const content = fs.readFileSync(filePath, "utf-8");
           // The file watcher can still fire during reload/close. Sending through
           // the shared renderer helper keeps external disk changes useful while
@@ -416,6 +418,7 @@ export class FileWatcherManager {
 
       const notify = (changedPath: string, kind: FolderChangeKind) => {
         if (shouldIgnore(changedPath)) return;
+        textFileCache.invalidateTree(changedPath);
         const currentKind = this.pendingFolderChanges.get(changedPath);
         const nextKind =
           kind === "change" && currentKind && currentKind !== "change"

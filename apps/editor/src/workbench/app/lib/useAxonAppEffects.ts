@@ -525,6 +525,11 @@ export function useAxonAppEffects({
           void readFile(changedPath)
             .then((file) => {
               updateModel(changedPath, file.content);
+              window.dispatchEvent(
+                new CustomEvent("axon:fileSynchronized", {
+                  detail: { path: changedPath, content: file.content },
+                }),
+              );
               setProjectDiagnostics((current: EditorDiagnostic[]) =>
                 current.filter((diagnostic) => diagnostic.path !== changedPath),
               );

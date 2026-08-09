@@ -1,7 +1,3 @@
-// Manages shared Monaco editor models keyed by file path.
-// Multiple panes opening the same file share one model so edits
-// reflect instantly across all panes without saving.
-// Ref counting ensures the model is only disposed when all editors release it.
 import * as monaco from "monaco-editor";
 import { registerMonacoReactLanguages } from "./monacoReactLanguages";
 import { registerMonacoStructuredLanguages } from "./monacoStructuredLanguages";
@@ -16,18 +12,40 @@ import {
   isLargeDocumentModel,
 } from "../../../../shared/largeDocument";
 
+// Axon Buffer Engine owns document identity and lifecycle while Monaco remains
+// the proven text engine and renderer. Keeping those responsibilities separate
+// gives Axon fast path-keyed reuse without replacing editing, undo, selection,
+// or language integrations that already behave correctly.
+
 export {
   detectLanguageServerLanguage,
   detectMonacoLanguage,
 } from "./languageDetection";
 
-const models = new Map<string, monaco.editor.ITextModel>();
-const refCounts = new Map<string, number>();
+export interface AxonBufferMetadata {
+  external: boolean;
+  readOnly: boolean;
+}
+
+interface AxonBufferEntry {
+  dirty: boolean;
+  lastAccessed: number;
+  memoryBytes: number;
+  metadata: AxonBufferMetadata;
+  model: monaco.editor.ITextModel;
+  references: number;
+}
+
+const RETAINED_BUFFER_BUDGET = 64 * 1024 * 1024;
+const RETAINED_BUFFER_LIMIT = 48;
+const RETAINED_SINGLE_BUFFER_LIMIT = 32 * 1024 * 1024;
+const buffers = new Map<string, AxonBufferEntry>();
 const disposalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const modelListeners = new Map<
   string,
   Set<(model: monaco.editor.ITextModel) => void>
 >();
+let accessClock = 0;
 
 export function detectLanguage(path: string): string {
   return detectMonacoLanguage(path);
@@ -47,128 +65,199 @@ export function refreshModelLanguage(
   return modelLanguage;
 }
 
-// acquireModel increments the ref count and returns the model.
-// Creates the model if it doesn't exist yet.
-// Always call this once per editor instance that opens a file.
-export function acquireModel(
-  filePath: string,
-  content: string,
-): monaco.editor.ITextModel {
+function registerLanguages() {
   registerMonacoReactLanguages();
   registerMonacoStructuredLanguages();
   registerMonacoAdditionalLanguages();
   registerMonacoLargeDocumentLanguages();
+}
 
-  const detectedLanguage = detectLanguage(filePath);
-  const modelLanguage = isLargeDocumentContent(content)
-    ? LARGE_DOCUMENT_LANGUAGE_ID
-    : detectedLanguage;
+function estimateModelMemory(model: monaco.editor.ITextModel) {
+  return Math.max(1, model.getValueLength() * 2);
+}
 
-  const pendingDisposal = disposalTimers.get(filePath);
-  if (pendingDisposal) {
-    clearTimeout(pendingDisposal);
+function touch(entry: AxonBufferEntry) {
+  entry.lastAccessed = ++accessClock;
+}
+
+function cancelDisposal(filePath: string) {
+  const timer = disposalTimers.get(filePath);
+  if (!timer) return;
+  clearTimeout(timer);
+  disposalTimers.delete(filePath);
+}
+
+function disposeBuffer(filePath: string, expected: AxonBufferEntry) {
+  if (buffers.get(filePath) !== expected || expected.references > 0) return;
+  cancelDisposal(filePath);
+  if (!expected.model.isDisposed()) expected.model.dispose();
+  buffers.delete(filePath);
+}
+
+function scheduleDisposal(filePath: string, entry: AxonBufferEntry) {
+  cancelDisposal(filePath);
+  const timer = setTimeout(() => {
     disposalTimers.delete(filePath);
-  }
-
-  const existing = models.get(filePath);
-
-  if (existing && !existing.isDisposed()) {
-    refreshModelLanguage(filePath, existing);
-    refCounts.set(filePath, (refCounts.get(filePath) ?? 0) + 1);
-    return existing;
-  }
-
-  // create a fresh model, previous one may have been disposed
-  const uri = monaco.Uri.file(filePath);
-
-  // check if Monaco already has a model for this URI from a previous session
-  const existingByUri = monaco.editor.getModel(uri);
-  if (existingByUri && !existingByUri.isDisposed()) {
-    refreshModelLanguage(filePath, existingByUri);
-    models.set(filePath, existingByUri);
-    refCounts.set(filePath, (refCounts.get(filePath) ?? 0) + 1);
-    notifyModelReady(filePath, existingByUri);
-    return existingByUri;
-  }
-
-  const model = monaco.editor.createModel(content, modelLanguage, uri);
-
-  models.set(filePath, model);
-  refCounts.set(filePath, 1);
-  notifyModelReady(filePath, model);
-  return model;
+    disposeBuffer(filePath, entry);
+  }, 500);
+  disposalTimers.set(filePath, timer);
 }
 
-// releaseModel decrements ref count and disposes when no editors reference it.
-// Always call this in the cleanup of the useEffect that called acquireModel.
-export function releaseModel(filePath: string) {
-  const count = refCounts.get(filePath) ?? 0;
-  if (count <= 0) return;
+function trimRetainedBuffers() {
+  const retained = [...buffers.entries()]
+    .filter(([, entry]) => entry.references === 0 && !entry.dirty)
+    .sort((left, right) => left[1].lastAccessed - right[1].lastAccessed);
+  let retainedBytes = retained.reduce(
+    (total, [, entry]) => total + entry.memoryBytes,
+    0,
+  );
+  let retainedCount = retained.length;
 
-  if (count <= 1) {
-    const model = models.get(filePath);
-    refCounts.set(filePath, 0);
-
-    // Monaco models are shared by every mounted editor showing the same file.
-    // A split can be opened and closed before its async file read finishes, so
-    // disposal is delayed and cancellation-aware. If another pane reacquires the
-    // same model during that window, acquireModel clears this timer and the
-    // remaining editor keeps its model instead of being left with a disposed
-    // document.
-    const timer = setTimeout(() => {
-      disposalTimers.delete(filePath);
-
-      if (
-        model &&
-        models.get(filePath) === model &&
-        (refCounts.get(filePath) ?? 0) <= 0 &&
-        !model.isDisposed()
-      ) {
-        model.dispose();
-      }
-      if (
-        (refCounts.get(filePath) ?? 0) <= 0 &&
-        models.get(filePath) === model
-      ) {
-        models.delete(filePath);
-        refCounts.delete(filePath);
-      }
-    }, 500);
-
-    disposalTimers.set(filePath, timer);
-  } else {
-    refCounts.set(filePath, count - 1);
+  for (const [filePath, entry] of retained) {
+    if (
+      retainedBytes <= RETAINED_BUFFER_BUDGET &&
+      retainedCount <= RETAINED_BUFFER_LIMIT
+    ) {
+      break;
+    }
+    retainedBytes -= entry.memoryBytes;
+    retainedCount--;
+    disposeBuffer(filePath, entry);
   }
 }
 
-// updateModel pushes new content into the shared model.
-// All editors sharing the model see the update instantly.
-export function updateModel(filePath: string, content: string) {
-  const model = models.get(filePath);
-  if (!model || model.isDisposed()) return;
-  if (model.getValue() !== content) {
-    model.setValue(content);
-  }
-  refreshModelLanguage(filePath, model);
-}
-
-// getModel returns the model for a path if it exists and is not disposed
-export function getModel(
+function createBuffer(
   filePath: string,
-): monaco.editor.ITextModel | undefined {
-  const model = models.get(filePath);
-  if (!model || model.isDisposed()) return undefined;
-  return model;
+  content: string,
+  references: number,
+  metadata: AxonBufferMetadata = { external: false, readOnly: false },
+) {
+  registerLanguages();
+  const language = isLargeDocumentContent(content)
+    ? LARGE_DOCUMENT_LANGUAGE_ID
+    : detectLanguage(filePath);
+  const uri = monaco.Uri.file(filePath);
+  const model =
+    monaco.editor.getModel(uri) ??
+    monaco.editor.createModel(content, language, uri);
+  refreshModelLanguage(filePath, model);
+  const entry: AxonBufferEntry = {
+    dirty: false,
+    lastAccessed: ++accessClock,
+    memoryBytes: estimateModelMemory(model),
+    metadata,
+    model,
+    references,
+  };
+  buffers.set(filePath, entry);
+  notifyModelReady(filePath, model);
+  return entry;
+}
+
+// Acquiring an existing buffer is synchronous. This is the fast reopen path:
+// React can attach Monaco to the retained model during mount while disk metadata
+// is revalidated in the background, so users do not see a temporary one-line
+// document between selecting a file and seeing its text.
+export function acquireExistingModel(filePath: string) {
+  const entry = buffers.get(filePath);
+  if (!entry || entry.model.isDisposed()) return undefined;
+  cancelDisposal(filePath);
+  entry.references++;
+  touch(entry);
+  refreshModelLanguage(filePath, entry.model);
+  return entry.model;
+}
+
+export function acquireModel(filePath: string, content: string) {
+  const existing = acquireExistingModel(filePath);
+  if (existing) return existing;
+  return createBuffer(filePath, content, 1).model;
+}
+
+export function primeModel(
+  filePath: string,
+  content: string,
+  metadata: AxonBufferMetadata,
+) {
+  const existing = getModel(filePath);
+  if (existing) return existing;
+
+  // Prefetch owns no editor reference. The model stays eligible for immediate
+  // LRU eviction, which prevents a quick mouse sweep over the file tree from
+  // retaining an unbounded number of decoded files.
+  const entry = createBuffer(filePath, content, 0, metadata);
+  if (entry.memoryBytes > RETAINED_SINGLE_BUFFER_LIMIT) {
+    scheduleDisposal(filePath, entry);
+  } else {
+    trimRetainedBuffers();
+  }
+  return entry.model;
+}
+
+export function releaseModel(filePath: string) {
+  const entry = buffers.get(filePath);
+  if (!entry || entry.references <= 0) return;
+  entry.references--;
+  touch(entry);
+  entry.memoryBytes = estimateModelMemory(entry.model);
+  if (entry.references > 0) return;
+
+  // Unsaved models and very large models are not reusable cache entries. The
+  // short delayed disposal remains important for split-pane races, but clean
+  // normal-sized models now survive tab closure until the bounded LRU needs the
+  // memory, which makes common close/reopen workflows effectively immediate.
+  if (entry.dirty || entry.memoryBytes > RETAINED_SINGLE_BUFFER_LIMIT) {
+    scheduleDisposal(filePath, entry);
+    return;
+  }
+  trimRetainedBuffers();
+}
+
+export function markModelDirty(filePath: string, dirty: boolean) {
+  const entry = buffers.get(filePath);
+  if (!entry) return;
+  entry.dirty = dirty;
+  entry.memoryBytes = estimateModelMemory(entry.model);
+  touch(entry);
+  if (!dirty && entry.references === 0) trimRetainedBuffers();
+}
+
+export function isModelMarkedDirty(filePath: string) {
+  return buffers.get(filePath)?.dirty ?? false;
+}
+
+export function setModelMetadata(
+  filePath: string,
+  metadata: AxonBufferMetadata,
+) {
+  const entry = buffers.get(filePath);
+  if (entry) entry.metadata = metadata;
+}
+
+export function getModelMetadata(filePath: string) {
+  return buffers.get(filePath)?.metadata;
+}
+
+export function updateModel(filePath: string, content: string) {
+  const entry = buffers.get(filePath);
+  if (!entry || entry.model.isDisposed()) return;
+  if (entry.model.getValue() !== content) entry.model.setValue(content);
+  entry.memoryBytes = estimateModelMemory(entry.model);
+  touch(entry);
+  refreshModelLanguage(filePath, entry.model);
+}
+
+export function getModel(filePath: string) {
+  const entry = buffers.get(filePath);
+  if (!entry || entry.model.isDisposed()) return undefined;
+  touch(entry);
+  return entry.model;
 }
 
 export function onModelReady(
   filePath: string,
   listener: (model: monaco.editor.ITextModel) => void,
 ) {
-  // Some consumers, especially preview tabs, can mount before the source editor
-  // has created the shared Monaco model. Exposing a ready notification lets
-  // those consumers render the disk snapshot immediately, then reconnect to the
-  // live dirty document as soon as the editor model exists.
   const existing = getModel(filePath);
   if (existing) listener(existing);
 

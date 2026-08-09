@@ -18,6 +18,7 @@ import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
 import { type FileTreeOperation, type ImportedExternalEntry } from "./FileTree";
 import { type FolderChangeEvent } from "../../../../shared/fs";
 import { shouldReloadFolderNode } from "./lib/treeRefresh";
+import { prefetchAxonBuffer } from "../../editor/lib/axonBufferLoader";
 
 interface Props {
   node: FileNode;
@@ -176,6 +177,7 @@ export default function FileTreeNode({
 
   const dragCounter = useRef(0);
   const fileRowRef = useRef<HTMLDivElement>(null);
+  const prefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // holds the auto-expand timer so we can cancel it if the drag leaves
   const expandTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -192,6 +194,10 @@ export default function FileTreeNode({
     if (blinkInterval.current) {
       clearInterval(blinkInterval.current);
       blinkInterval.current = null;
+    }
+    if (prefetchTimer.current) {
+      clearTimeout(prefetchTimer.current);
+      prefetchTimer.current = null;
     }
     blinkCount.current = 0;
     setBlinking(false);
@@ -351,6 +357,20 @@ export default function FileTreeNode({
       }),
     );
     e.dataTransfer.effectAllowed = "copyMove";
+  };
+
+  const handleFilePointerEnter = () => {
+    if (node.is_dir || prefetchTimer.current) return;
+    prefetchTimer.current = setTimeout(() => {
+      prefetchTimer.current = null;
+      void prefetchAxonBuffer(node.path);
+    }, 90);
+  };
+
+  const handleFilePointerLeave = () => {
+    if (!prefetchTimer.current) return;
+    clearTimeout(prefetchTimer.current);
+    prefetchTimer.current = null;
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -635,6 +655,9 @@ export default function FileTreeNode({
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onPointerDown={() => void prefetchAxonBuffer(node.path)}
+      onPointerEnter={handleFilePointerEnter}
+      onPointerLeave={handleFilePointerLeave}
       onClick={() => onFileSelect(node.path)}
       onContextMenu={(e) => onContextMenu(e, node)}
       className={`relative flex min-w-max items-center gap-1.5 whitespace-nowrap py-1 text-[12px] cursor-pointer transition-colors

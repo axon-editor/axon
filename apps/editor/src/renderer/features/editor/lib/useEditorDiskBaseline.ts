@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import * as monaco from "monaco-editor";
 import { isLargeDocumentModel } from "../../../../shared/largeDocument";
+import { markModelDirty } from "./monacoModels";
 
 interface Options {
   editorRef: RefObject<monaco.editor.IStandaloneCodeEditor | null>;
@@ -12,6 +13,11 @@ interface FileSavedDetail {
   path?: string;
   content?: string;
   alternativeVersionId?: number;
+}
+
+interface FileSynchronizedDetail {
+  path?: string;
+  content?: string;
 }
 
 export function useEditorDiskBaseline({
@@ -32,17 +38,19 @@ export function useEditorDiskBaseline({
       savedAlternativeVersionRef.current = modelMatchesDisk
         ? model.getAlternativeVersionId()
         : null;
+      markModelDirty(filePathRef.current, !modelMatchesDisk);
       return !modelMatchesDisk;
     },
-    [],
+    [filePathRef],
   );
 
   const recordSynchronizedDiskContent = useCallback(
     (model: monaco.editor.ITextModel, content: string) => {
       diskContentRef.current = isLargeDocumentModel(model) ? null : content;
       savedAlternativeVersionRef.current = model.getAlternativeVersionId();
+      markModelDirty(filePathRef.current, false);
     },
-    [],
+    [filePathRef],
   );
 
   const isModelDirty = useCallback((model: monaco.editor.ITextModel) => {
@@ -83,11 +91,38 @@ export function useEditorDiskBaseline({
       savedAlternativeVersionRef.current = contentStayedCurrent
         ? model.getAlternativeVersionId()
         : null;
+      markModelDirty(filePathRef.current, !contentStayedCurrent);
       onDirtyChange(filePathRef.current, !contentStayedCurrent);
     };
 
+    const handleFileSynchronized = (event: Event) => {
+      const syncEvent = event as CustomEvent<FileSynchronizedDetail>;
+      if (
+        syncEvent.detail?.path !== filePathRef.current ||
+        typeof syncEvent.detail.content !== "string"
+      ) {
+        return;
+      }
+      const model = editorRef.current?.getModel();
+      if (!model || model.isDisposed()) return;
+
+      diskContentRef.current = isLargeDocumentModel(model)
+        ? null
+        : syncEvent.detail.content;
+      savedAlternativeVersionRef.current = model.getAlternativeVersionId();
+      markModelDirty(filePathRef.current, false);
+      onDirtyChange(filePathRef.current, false);
+    };
+
     window.addEventListener("axon:fileSaved", handleFileSaved);
-    return () => window.removeEventListener("axon:fileSaved", handleFileSaved);
+    window.addEventListener("axon:fileSynchronized", handleFileSynchronized);
+    return () => {
+      window.removeEventListener("axon:fileSaved", handleFileSaved);
+      window.removeEventListener(
+        "axon:fileSynchronized",
+        handleFileSynchronized,
+      );
+    };
   }, [editorRef, filePathRef, onDirtyChange]);
 
   return {
