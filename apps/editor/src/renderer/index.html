@@ -9,14 +9,21 @@
             content="default-src 'self' blob: data: axon:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob: axon:; media-src 'self' https: data: blob: axon:; font-src 'self' data: blob: axon:; connect-src 'self' ws: http://127.0.0.1:* http://localhost:*; worker-src 'self' blob:; frame-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'none';"
         />
         <title>Axon</title>
+        <script vite-ignore src="./boot-appearance.js"></script>
         <style>
+            :root {
+                --axon-boot-background: #313337;
+                --axon-boot-foreground: #bfbdb6;
+                --axon-boot-accent: #ffb353;
+            }
+
             html,
             body {
                 width: 100%;
                 height: 100%;
                 margin: 0;
                 overflow: hidden;
-                background: #080b11;
+                background: var(--axon-boot-background);
             }
 
             /*
@@ -33,7 +40,7 @@
                 height: 100dvh;
                 min-height: 100vh;
                 overflow: hidden;
-                background: #080b11;
+                background: var(--axon-boot-background);
             }
 
             .axon-splash {
@@ -46,10 +53,16 @@
                 justify-content: center;
                 gap: 24px;
                 overflow: hidden;
-                background:
-                    radial-gradient(circle at 50% 42%, rgba(128, 200, 224, 0.025), transparent 28%),
-                    linear-gradient(180deg, #10131b 0%, #080a10 100%);
-                color: #e6ebf5;
+                background: linear-gradient(
+                    180deg,
+                    color-mix(
+                        in srgb,
+                        var(--axon-boot-background) 94%,
+                        var(--axon-boot-foreground) 6%
+                    ),
+                    var(--axon-boot-background)
+                );
+                color: var(--axon-boot-foreground);
                 font-family:
                     Inter,
                     ui-sans-serif,
@@ -73,9 +86,14 @@
                 position: absolute;
                 width: 138px;
                 height: 138px;
-                border: 1px solid rgba(128, 200, 224, 0.12);
+                border: 1px solid
+                    color-mix(in srgb, var(--axon-boot-accent) 18%, transparent);
                 border-radius: 999px;
-                background: rgba(128, 200, 224, 0.01);
+                background: color-mix(
+                    in srgb,
+                    var(--axon-boot-accent) 3%,
+                    transparent
+                );
                 filter: blur(0.2px);
                 opacity: 0;
                 transform: scale(0.72);
@@ -111,14 +129,15 @@
                 font-size: 22px;
                 font-weight: 600;
                 letter-spacing: 0;
-                color: #f5f8ff;
+                color: var(--axon-boot-foreground);
             }
 
             .axon-splash__title span {
                 display: inline-block;
                 opacity: 0;
                 transform: translateY(8px);
-                text-shadow: 0 0 10px rgba(128, 200, 224, 0.08);
+                text-shadow: 0 0 10px
+                    color-mix(in srgb, var(--axon-boot-accent) 8%, transparent);
                 animation: axonLetterIn 520ms cubic-bezier(0.2, 0.86, 0.22, 1) forwards;
             }
 
@@ -129,7 +148,7 @@
                 background: linear-gradient(
                     90deg,
                     transparent,
-                    rgba(128, 200, 224, 0.68),
+                    var(--axon-boot-accent),
                     transparent
                 );
                 opacity: 0;

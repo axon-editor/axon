@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell } from "electron";
 import path from "path";
 import { type AxonCommand } from "../../shared/commands";
+import { readBootAppearance } from "../settings/bootAppearance";
 import { buildApplicationMenu } from "./menu";
 
 interface WindowDependencies {
@@ -55,6 +56,7 @@ function routeExternalNavigation(window: BrowserWindow) {
 
 export function createWindow(deps: WindowDependencies, options: CreateWindowOptions = {}) {
   const axonIconPath = deps.getAxonIconPath();
+  const bootAppearance = readBootAppearance();
   const restoreSession = options.restoreSession !== false;
 
   app.setAboutPanelOptions({
@@ -87,7 +89,7 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
           trafficLightPosition: deps.isMac ? { x: 14, y: 13 } : undefined,
           titleBarOverlay: deps.isWindows
             ? {
-                color: "#0f1117",
+                color: bootAppearance.background,
                 symbolColor: "#9aa4b8",
                 height: 36,
               }
@@ -105,7 +107,7 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
           // performance-gated transparency mode later.
           transparent: false,
           backgroundMaterial: deps.isWindows ? "mica" : undefined,
-          backgroundColor: "#0f1117",
+          backgroundColor: bootAppearance.background,
           icon: axonIconPath,
           webPreferences: {
             preload: path.join(__dirname, "../../preload/index.js"),
@@ -124,10 +126,23 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
   });
   routeExternalNavigation(window);
 
+  const bootAppearanceQuery = {
+    axonBootAppearance: bootAppearance.appearance,
+    axonBootBackground: bootAppearance.background,
+    axonBootForeground: bootAppearance.foreground,
+    axonBootAccent: bootAppearance.accent,
+  };
+
   if (deps.isDev) {
-    window.loadURL(deps.axonDevServerUrl);
+    const rendererUrl = new URL(deps.axonDevServerUrl);
+    Object.entries(bootAppearanceQuery).forEach(([key, value]) => {
+      rendererUrl.searchParams.set(key, value);
+    });
+    window.loadURL(rendererUrl.toString());
   } else {
-    window.loadFile(path.join(__dirname, "../../renderer/index.html"));
+    window.loadFile(path.join(__dirname, "../../renderer/index.html"), {
+      query: bootAppearanceQuery,
+    });
   }
 
   return {

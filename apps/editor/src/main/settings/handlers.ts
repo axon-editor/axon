@@ -8,6 +8,8 @@ import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";
 import { getSettingsPath } from "./paths";
 import { setClientId } from "../spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
+import { extensionHostService } from "../extensions/host/service";
+import { writeBootAppearance } from "./bootAppearance";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
@@ -306,6 +308,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     }
     if (!folderPath) {
       writeSettingsToDisk(settings, settingsPath);
+      writeBootAppearance(settings, extensionHostService.getState());
     }
     return settings;
   });
@@ -320,6 +323,12 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
         settings,
         getSettingsPath(folderPath),
       );
+      if (!folderPath) {
+        writeBootAppearance(
+          normalizedSettings,
+          extensionHostService.getState(),
+        );
+      }
 
       for (const session of deps.getActiveLanguageServers()) {
         if (

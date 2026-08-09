@@ -1,6 +1,10 @@
 import { app, BrowserWindow, protocol } from "electron";
 import fs from "fs";
 import path from "path";
+import {
+  readBootAppearance,
+  type BootAppearance,
+} from "./settings/bootAppearance";
 
 let bootSplashWindow: BrowserWindow | null = null;
 const pendingNativeOpenPaths: string[] = [];
@@ -62,7 +66,7 @@ function bootSplashImageDataUrl() {
   }
 }
 
-function bootSplashHtml(imageUrl: string) {
+function bootSplashHtml(imageUrl: string, appearance: BootAppearance) {
   const imageMarkup = imageUrl
     ? `<img class="axon-splash__mark" src="${imageUrl}" alt="" />`
     : `<div class="axon-splash__fallback-mark">A</div>`;
@@ -74,20 +78,25 @@ function bootSplashHtml(imageUrl: string) {
     <style>
       html,
       body {
+        --boot-background: ${appearance.background};
+        --boot-foreground: ${appearance.foreground};
+        --boot-accent: ${appearance.accent};
         width: 100%;
         height: 100%;
         margin: 0;
         overflow: hidden;
-        background: #080a10;
+        background: var(--boot-background);
       }
 
       body {
         display: grid;
         place-items: center;
-        background:
-          radial-gradient(circle at 50% 42%, rgba(128, 200, 224, 0.025), transparent 28%),
-          linear-gradient(180deg, #10131b 0%, #080a10 100%);
-        color: #e6ebf5;
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--boot-background) 94%, var(--boot-foreground) 6%),
+          var(--boot-background)
+        );
+        color: var(--boot-foreground);
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
@@ -111,9 +120,9 @@ function bootSplashHtml(imageUrl: string) {
         position: absolute;
         width: 138px;
         height: 138px;
-        border: 1px solid rgba(128, 200, 224, 0.12);
+        border: 1px solid color-mix(in srgb, var(--boot-accent) 18%, transparent);
         border-radius: 999px;
-        background: rgba(128, 200, 224, 0.01);
+        background: color-mix(in srgb, var(--boot-accent) 3%, transparent);
         opacity: 0.72;
         transform: scale(1);
       }
@@ -135,10 +144,10 @@ function bootSplashHtml(imageUrl: string) {
         place-items: center;
         width: 112px;
         height: 112px;
-        border: 1px solid rgba(128, 200, 224, 0.24);
+        border: 1px solid color-mix(in srgb, var(--boot-accent) 28%, transparent);
         border-radius: 30px;
-        background: rgba(128, 200, 224, 0.055);
-        color: #f5f8ff;
+        background: color-mix(in srgb, var(--boot-accent) 7%, transparent);
+        color: var(--boot-foreground);
         font-size: 56px;
         font-weight: 700;
         animation: axonMarkPulse 1200ms ease-in-out infinite alternate;
@@ -153,7 +162,7 @@ function bootSplashHtml(imageUrl: string) {
         font-size: 22px;
         font-weight: 600;
         letter-spacing: 0;
-        color: #f5f8ff;
+        color: var(--boot-foreground);
       }
 
       .axon-splash__wordline {
@@ -161,7 +170,7 @@ function bootSplashHtml(imageUrl: string) {
         height: 1px;
         margin-top: 7px;
         border-radius: 999px;
-        background: linear-gradient(90deg, transparent, rgba(128, 200, 224, 0.68), transparent);
+        background: linear-gradient(90deg, transparent, var(--boot-accent), transparent);
       }
 
       @keyframes axonMarkPulse {
@@ -186,6 +195,7 @@ function bootSplashHtml(imageUrl: string) {
 }
 
 async function createBootSplashWindow() {
+  const appearance = readBootAppearance();
   // This is the real editor window during its boot phase, not a second splash
   // window. The important detail is that the window is not shown until the
   // tiny splash document has loaded. If the BrowserWindow is shown first,
@@ -205,7 +215,7 @@ async function createBootSplashWindow() {
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     trafficLightPosition:
       process.platform === "darwin" ? { x: 14, y: 13 } : undefined,
-    backgroundColor: "#0f1117",
+    backgroundColor: appearance.background,
     transparent: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
@@ -226,7 +236,9 @@ async function createBootSplashWindow() {
 
   try {
     await splashWindow.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(bootSplashHtml(bootSplashImageDataUrl()))}`,
+      `data:text/html;charset=utf-8,${encodeURIComponent(
+        bootSplashHtml(bootSplashImageDataUrl(), appearance),
+      )}`,
     );
   } catch (err) {
     console.error("failed to load Axon boot splash:", err);
