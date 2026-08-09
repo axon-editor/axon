@@ -379,8 +379,9 @@ export function useTerminalSessionManager({
             id,
             currentSession.receivedBytes,
           );
-        } catch {
+        } catch (error) {
           if (abortController.signal.aborted) return;
+          console.error("terminal ticket request failed:", error);
           delete connectionAbortRef.current[id];
           updateTabConnection(id, false);
           scheduleReconnect(currentSession, () => connectSession(id), 1500);
@@ -490,7 +491,7 @@ export function useTerminalSessionManager({
             "\r\n\x1b[31mfailed to connect to terminal backend\x1b[0m\r\n",
           );
         };
-      });
+      })();
     },
     [
       scheduleReconnect,

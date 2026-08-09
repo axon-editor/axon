@@ -23,6 +23,24 @@ export default defineConfig({
         "markdown",
         "workbench",
       ),
+      "@xterm/addon-fit": path.resolve(
+        __dirname,
+        "node_modules",
+        "@xterm",
+        "addon-fit",
+      ),
+      "@xterm/addon-web-links": path.resolve(
+        __dirname,
+        "node_modules",
+        "@xterm",
+        "addon-web-links",
+      ),
+      "@xterm/xterm": path.resolve(
+        __dirname,
+        "node_modules",
+        "@xterm",
+        "xterm",
+      ),
       "lucide-react": path.resolve(__dirname, "node_modules", "lucide-react"),
       "react-markdown": path.resolve(
         __dirname,
