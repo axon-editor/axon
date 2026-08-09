@@ -4,6 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 import {
   findPythonVirtualEnvInWorkspace,
+  findPythonVirtualEnvNearWorkspace,
   getPythonInterpreterFromVirtualEnv,
   isPythonWorkspace,
   parsePythonRuntimeProbe,
@@ -134,6 +135,64 @@ describe("Python environment discovery", () => {
       expect(detected?.interpreterPath).toBe(expected.interpreterPath);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("finds one arbitrarily named environment beside the workspace", async () => {
+    const parent = await fs.mkdtemp(
+      path.join(os.tmpdir(), "axon-python-adjacent-env-test-"),
+    );
+    const workspace = path.join(parent, "project");
+    try {
+      await fs.mkdir(workspace);
+      const expected = await createPythonEnvironment(parent, "un_venv");
+
+      await expect(
+        findPythonVirtualEnvNearWorkspace(workspace),
+      ).resolves.toEqual({
+        virtualEnvPath: expected.environmentRoot,
+        interpreterPath: expected.interpreterPath,
+      });
+    } finally {
+      await fs.rm(parent, { recursive: true, force: true });
+    }
+  });
+
+  it("finds an environment three parent levels above a nested workspace", async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "axon-python-parent-env-test-"),
+    );
+    const workspace = path.join(root, "packages", "backend", "core");
+    try {
+      await fs.mkdir(workspace, { recursive: true });
+      const expected = await createPythonEnvironment(root, "un_venv");
+
+      await expect(
+        findPythonVirtualEnvNearWorkspace(workspace),
+      ).resolves.toEqual({
+        virtualEnvPath: expected.environmentRoot,
+        interpreterPath: expected.interpreterPath,
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not guess between multiple environments beside the workspace", async () => {
+    const parent = await fs.mkdtemp(
+      path.join(os.tmpdir(), "axon-python-adjacent-env-test-"),
+    );
+    const workspace = path.join(parent, "project");
+    try {
+      await fs.mkdir(workspace);
+      await createPythonEnvironment(parent, "frontend_venv");
+      await createPythonEnvironment(parent, "backend_venv");
+
+      await expect(
+        findPythonVirtualEnvNearWorkspace(workspace),
+      ).resolves.toBeNull();
+    } finally {
+      await fs.rm(parent, { recursive: true, force: true });
     }
   });
 

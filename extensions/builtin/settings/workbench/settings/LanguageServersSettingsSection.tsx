@@ -52,7 +52,7 @@ export default function LanguageServersSettingsSection({
       {pythonDetected ? (
         <SettingsField
           label="Python environment"
-          description="Select a workspace environment when Python imports are unavailable from the detected interpreter."
+          description="Axon detects environments inside or beside the workspace. Select one only to override the detected environment."
         >
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">

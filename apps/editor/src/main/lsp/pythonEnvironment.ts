@@ -28,6 +28,7 @@ const execFileAsync = promisify(execFile);
 const PYTHON_ENVIRONMENT_SCAN_DEPTH = 4;
 const PYTHON_ENVIRONMENT_SCAN_LIMIT = 800;
 const PYTHON_ENVIRONMENT_SCAN_CONCURRENCY = 32;
+const PYTHON_ENVIRONMENT_PARENT_SEARCH_DEPTH = 3;
 const PYTHON_ENVIRONMENT_CACHE_MS = 5000;
 const PYTHON_RUNTIME_CACHE_MS = 30_000;
 const PYTHON_RUNTIME_PROBE = `
@@ -334,6 +335,68 @@ export async function findPythonVirtualEnvInWorkspace(
   return null;
 }
 
+async function findDirectPythonEnvironments(
+  parentPath: string,
+  excludedChildPath: string,
+) {
+  const entries = await fsPromises
+    .readdir(parentPath, { withFileTypes: true })
+    .catch(() => []);
+  const candidates = await Promise.all(
+    entries
+      .filter(
+        (entry) =>
+          (entry.isDirectory() || entry.isSymbolicLink()) &&
+          path.join(parentPath, entry.name) !== excludedChildPath,
+      )
+      .map(async (entry) => {
+        const candidatePath = path.join(parentPath, entry.name);
+        if (!(await hasPythonEnvironmentMarker(candidatePath))) return null;
+        const interpreterPath =
+          getPythonInterpreterFromVirtualEnv(candidatePath);
+        return interpreterPath
+          ? { virtualEnvPath: candidatePath, interpreterPath }
+          : null;
+      }),
+  );
+  return candidates.filter(
+    (candidate): candidate is PythonEnvironmentSelection => Boolean(candidate),
+  );
+}
+
+export async function findPythonVirtualEnvNearWorkspace(
+  folderPath: string,
+): Promise<PythonEnvironmentSelection | null> {
+  if (!folderPath) return null;
+
+  const workspacePath = path.resolve(folderPath);
+  let branchPath = workspacePath;
+  for (
+    let depth = 0;
+    depth < PYTHON_ENVIRONMENT_PARENT_SEARCH_DEPTH;
+    depth += 1
+  ) {
+    const parentPath = path.dirname(branchPath);
+    if (parentPath === branchPath) return null;
+    const candidates = await findDirectPythonEnvironments(
+      parentPath,
+      branchPath,
+    );
+
+    // Monorepos are often opened from a nested backend or core folder while
+    // the environment remains beside the repository or one of its parent
+    // packages. I inspect up to three ancestor levels and prefer the nearest
+    // valid environment. Multiple candidates at the same level are ambiguous,
+    // so Axon leaves the choice to the user instead of attaching Pyright to a
+    // sibling project's dependencies based on directory order.
+    if (candidates.length === 1) return candidates[0];
+    if (candidates.length > 1) return null;
+    branchPath = parentPath;
+  }
+
+  return null;
+}
+
 function environmentNamePriority(name: string) {
   const normalizedName = name.toLowerCase();
   const preferredNames = [".venv", "venv", "env", ".env", "virtualenv"];
@@ -453,9 +516,18 @@ async function detectPythonEnvironment(
   const managedEnvironment = workspaceEnvironment
     ? null
     : await detectManagedPythonEnvironment(folderPath, environment);
+  const activeEnvironment =
+    workspaceEnvironment || managedEnvironment
+      ? null
+      : detectActivePythonEnvironment(environment);
+  const adjacentEnvironment =
+    workspaceEnvironment || managedEnvironment || activeEnvironment
+      ? null
+      : await findPythonVirtualEnvNearWorkspace(folderPath);
   const selection = workspaceEnvironment ??
     managedEnvironment ??
-    detectActivePythonEnvironment(environment) ??
+    activeEnvironment ??
+    adjacentEnvironment ??
     detectSystemPython(environment) ?? {
       virtualEnvPath: "",
       interpreterPath: "",
