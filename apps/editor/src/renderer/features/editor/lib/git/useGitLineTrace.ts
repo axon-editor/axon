@@ -56,7 +56,9 @@ export default function useGitLineTrace({
   const clearWidget = useCallback(() => {
     const editor = editorRef.current;
     const current = widgetRef.current;
-    if (!current?.added || !editor) return;
+    if (!current) return;
+    current.popover.hide();
+    if (!current.added || !editor) return;
     editor.removeContentWidget(current.widget);
     current.added = false;
   }, [editorRef]);
@@ -115,6 +117,12 @@ export default function useGitLineTrace({
     const lineNumber = position.lineNumber;
     const endColumn = model.getLineMaxColumn(lineNumber);
     const current = getWidget();
+    if (
+      current.position.lineNumber !== lineNumber ||
+      current.position.column !== endColumn
+    ) {
+      current.popover.hide();
+    }
     current.position.lineNumber = lineNumber;
     current.position.column = endColumn;
     current.domNode.textContent = createLineTraceLabel(blameLine);

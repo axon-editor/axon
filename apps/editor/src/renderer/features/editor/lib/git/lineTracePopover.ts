@@ -2,6 +2,7 @@ import { type GitBlameLine } from "@axon-editor/shared/git";
 
 export interface LineTracePopover {
   dispose: () => void;
+  hide: () => void;
   update: (line: GitBlameLine) => void;
 }
 
@@ -60,12 +61,21 @@ export function createLineTracePopover(
   document.body.appendChild(popover);
 
   let hoverTimer: number | null = null;
+  let pointerOverAnchor = false;
   let pointerPosition = { x: 0, y: 0 };
+  const hide = () => {
+    pointerOverAnchor = false;
+    if (hoverTimer !== null) window.clearTimeout(hoverTimer);
+    hoverTimer = null;
+    delete popover.dataset.visible;
+  };
   const show = (event: MouseEvent) => {
+    pointerOverAnchor = true;
     pointerPosition = { x: event.clientX, y: event.clientY };
     if (hoverTimer !== null) window.clearTimeout(hoverTimer);
     hoverTimer = window.setTimeout(() => {
       hoverTimer = null;
+      if (!pointerOverAnchor || !anchor.isConnected) return;
       popover.dataset.visible = "true";
       setPosition(popover, pointerPosition.x, pointerPosition.y);
     }, 2_000);
@@ -75,15 +85,28 @@ export function createLineTracePopover(
     if (popover.dataset.visible !== "true") return;
     setPosition(popover, event.clientX, event.clientY);
   };
-  const hide = () => {
-    if (hoverTimer !== null) window.clearTimeout(hoverTimer);
-    hoverTimer = null;
-    delete popover.dataset.visible;
+  const trackDocumentPointer = (event: MouseEvent) => {
+    if (!pointerOverAnchor && hoverTimer === null) return;
+    const target = event.target;
+    if (target instanceof Node && anchor.contains(target)) return;
+
+    // Monaco can detach or relocate a content widget while the pointer is on
+    // it. Browsers do not guarantee a mouseleave event for a detached node, so
+    // the document-level pointer check closes a popover that would otherwise
+    // remain stranded over the editor.
+    hide();
+  };
+  const hideWhenDocumentIsHidden = () => {
+    if (document.visibilityState !== "visible") hide();
   };
 
   anchor.addEventListener("mouseenter", show);
   anchor.addEventListener("mousemove", move);
   anchor.addEventListener("mouseleave", hide);
+  document.addEventListener("mousemove", trackDocumentPointer, true);
+  document.addEventListener("visibilitychange", hideWhenDocumentIsHidden);
+  window.addEventListener("blur", hide);
+  window.addEventListener("scroll", hide, true);
 
   return {
     update(line) {
@@ -104,11 +127,19 @@ export function createLineTracePopover(
           : "Unknown date";
       metadata.textContent = `${line.shortHash} · ${committedAt}`;
     },
+    hide,
     dispose() {
-      if (hoverTimer !== null) window.clearTimeout(hoverTimer);
+      hide();
       anchor.removeEventListener("mouseenter", show);
       anchor.removeEventListener("mousemove", move);
       anchor.removeEventListener("mouseleave", hide);
+      document.removeEventListener("mousemove", trackDocumentPointer, true);
+      document.removeEventListener(
+        "visibilitychange",
+        hideWhenDocumentIsHidden,
+      );
+      window.removeEventListener("blur", hide);
+      window.removeEventListener("scroll", hide, true);
       avatar.removeEventListener("error", hideAvatar);
       popover.remove();
     },
