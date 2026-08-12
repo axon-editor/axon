@@ -232,19 +232,25 @@ html.axon-native-glass #root {
   background: transparent !important;
 }
 
-html.axon-native-glass .axon-modal-overlay {
-  -webkit-backdrop-filter: blur(var(--axon-glass-modal-blur, 10px));
-  backdrop-filter: blur(var(--axon-glass-modal-blur, 10px));
-}
-
 html.axon-native-glass .axon-modal-panel {
-  background: transparent !important;
+  background: var(
+    --axon-modal-glass-background,
+    var(--axon-editor-background)
+  ) !important;
+  -webkit-backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
+    saturate(var(--axon-glass-surface-saturation, 100%));
+  backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
+    saturate(var(--axon-glass-surface-saturation, 100%));
 }
 
 html.axon-native-glass .axon-popup-surface,
 html.axon-native-glass .axon-popover,
 html.axon-native-glass .axon-context-menu {
   background: var(--axon-popup-background, var(--axon-panel-background)) !important;
+  -webkit-backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
+    saturate(var(--axon-glass-surface-saturation, 100%));
+  backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
+    saturate(var(--axon-glass-surface-saturation, 100%));
 }
 
 html.axon-native-glass .axon-select-control,

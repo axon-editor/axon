@@ -91,15 +91,27 @@ export function useAppDerivedState({
     if (settings.editor.appGlassMode === "off") return themeCssVariables;
 
     const opacity = settings.editor.appBackgroundOpacity;
-    const popupOpacity = Math.max(0.86, Math.min(0.96, opacity + 0.08));
+    const lightGlass = themeAppearance === "light";
+    const modalOpacity = lightGlass
+      ? Math.max(0.9, Math.min(0.96, opacity + 0.12))
+      : Math.max(0.78, Math.min(0.9, opacity + 0.04));
+    const popupOpacity = lightGlass
+      ? Math.max(0.94, Math.min(0.98, opacity + 0.14))
+      : Math.max(0.86, Math.min(0.96, opacity + 0.08));
 
     // Native vibrancy or material owns the expensive full-window blur. These
-    // alpha colors only tint that one shared backdrop, so sidebars, editor
-    // chrome, and panels participate without stacking CSS blur filters over
-    // continuously changing code and terminal output.
+    // alpha colors tint that shared backdrop for continuously visible editor
+    // surfaces. Only temporary modal and popup surfaces add a local CSS frost;
+    // light themes reduce backdrop saturation so desktop colors cannot muddy
+    // warm backgrounds such as Axon Parchment or weaken dark text contrast.
     return {
       ...themeCssVariables,
-      "--axon-glass-modal-blur": `${settings.editor.appBackgroundBlur}px`,
+      "--axon-glass-surface-blur": `${settings.editor.appBackgroundBlur * 2}px`,
+      "--axon-glass-surface-saturation": lightGlass ? "72%" : "108%",
+      "--axon-modal-glass-background": colorWithAlpha(
+        themeTokens["editor.background"],
+        modalOpacity,
+      ),
       "--axon-popup-background": colorWithAlpha(
         themeTokens["panel.background"],
         popupOpacity,

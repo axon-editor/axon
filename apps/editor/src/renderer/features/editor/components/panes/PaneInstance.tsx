@@ -271,12 +271,11 @@ export default function PaneInstance({
         {pane.openTabs.length === 0 && !folderPath ? (
           <EmptyPane
             onOpenFolder={onOpenFolder}
-            onNewFile={onNewFile}
             onSelectRecentFolder={onSelectRecentFolder}
             onClosePane={onCloseEmptyPane}
           />
         ) : pane.openTabs.length === 0 ? (
-          <WorkspaceBlankPane />
+          <WorkspaceBlankPane onNewFile={onNewFile} />
         ) : (
           pane.openTabs
             .filter((path) => mountedTabs.has(path) || path === pane.activeFile)

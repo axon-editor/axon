@@ -60,8 +60,8 @@ export function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
-        label="Modal blur"
-        description="Applies one temporary blur layer behind open modals. The native app material itself is blurred by the operating system."
+        label="Surface blur"
+        description="Controls the local blur and translucent glass directly behind modal and popup content. The surrounding app remains unblurred."
       >
         <SettingsNumberSlider
           min={0}

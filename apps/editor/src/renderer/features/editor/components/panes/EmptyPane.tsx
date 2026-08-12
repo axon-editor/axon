@@ -1,20 +1,18 @@
 // Welcome screen shown when a pane has no open files.
 // Shows the Axon logo, quick action buttons, and recent folders.
-import { FolderOpen, FilePlus, Clock, ChevronRight, X } from "lucide-react";
+import { FolderOpen, Clock, ChevronRight, X } from "lucide-react";
 import { publicAsset } from "@axon-editor/renderer/shared/lib/assets";
 import { getRecentFolders } from "@axon-editor/renderer/features/sidebar";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 
 interface Props {
   onOpenFolder: () => void;
-  onNewFile: () => void;
   onSelectRecentFolder: (path: string) => void;
   onClosePane?: () => void;
 }
 
 export default function EmptyPane({
   onOpenFolder,
-  onNewFile,
   onSelectRecentFolder,
   onClosePane,
 }: Props) {
@@ -54,20 +52,13 @@ export default function EmptyPane({
           </span>
         </div>
 
-        <div className="flex w-full gap-2">
+        <div className="flex w-full">
           <button
             onClick={onOpenFolder}
             className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3 py-2.5 text-[12px] text-[var(--axon-editor-foreground)] opacity-75 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
           >
             <FolderOpen size={13} className="shrink-0" />
             open folder
-          </button>
-          <button
-            onClick={onNewFile}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-3 py-2.5 text-[12px] text-[var(--axon-editor-foreground)] opacity-75 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
-          >
-            <FilePlus size={13} className="shrink-0" />
-            new file
           </button>
         </div>
 
