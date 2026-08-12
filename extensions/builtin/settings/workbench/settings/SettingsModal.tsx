@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Braces } from "lucide-react";
 import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
+import { type AiModelInfo } from "@axon-editor/shared/ai";
 import {
   getEnabledExtensionThemes,
   type ExtensionState,
@@ -73,6 +74,10 @@ export default function SettingsModal({
     string | null
   >(null);
   const [pythonDetected, setPythonDetected] = useState(false);
+  const [aiModels, setAiModels] = useState<AiModelInfo[]>([]);
+  const [aiModelsLoading, setAiModelsLoading] = useState(false);
+  const [aiModelsError, setAiModelsError] = useState<string | null>(null);
+  const [aiModelsRefreshNonce, setAiModelsRefreshNonce] = useState(0);
   const previewReadyRef = useRef(false);
 
   const customFontItems = useMemo(
@@ -185,6 +190,36 @@ export default function SettingsModal({
       cancelled = true;
     };
   }, [folderPath, language]);
+
+  useEffect(() => {
+    if (activeSection !== "ai") return;
+
+    let cancelled = false;
+    setAiModelsLoading(true);
+    setAiModelsError(null);
+
+    window.axon
+      .listAiModels(folderPath)
+      .then((models) => {
+        if (cancelled) return;
+        setAiModels(models);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAiModelsError(
+          error instanceof Error
+            ? error.message
+            : "Available Axon models could not be loaded.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setAiModelsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, aiModelsRefreshNonce, folderPath]);
 
   useEffect(() => {
     if (!previewReadyRef.current) {
@@ -494,7 +529,16 @@ export default function SettingsModal({
             )}
 
             {activeSection === "ai" && (
-              <AxonAgentSettingsSection draft={draft} onUpdateAi={updateAi} />
+              <AxonAgentSettingsSection
+                draft={draft}
+                models={aiModels}
+                modelsError={aiModelsError}
+                modelsLoading={aiModelsLoading}
+                onRefreshModels={() =>
+                  setAiModelsRefreshNonce((nonce) => nonce + 1)
+                }
+                onUpdateAi={updateAi}
+              />
             )}
           </div>
 
