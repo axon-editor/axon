@@ -408,11 +408,22 @@ export async function renameLanguageServerSymbol(
 export async function formatLanguageServerDocument(
   request: LanguageServerFormatRequest,
 ): Promise<LanguageServerFormatResult> {
-  const ready = getReadyLanguageServerSession(request);
-  if (!ready.ok || !ready.session) {
+  let prettierError: unknown = null;
+  try {
     const prettierResult = await formatWithBundledPrettier(request);
     if (prettierResult) return prettierResult;
-    return { ok: false, message: ready.message, edits: [] };
+  } catch (error) {
+    prettierError = error;
+  }
+
+  const ready = getReadyLanguageServerSession(request);
+  if (!ready.ok || !ready.session) {
+    return {
+      ok: false,
+      message:
+        prettierError instanceof Error ? prettierError.message : ready.message,
+      edits: [],
+    };
   }
 
   try {
@@ -439,17 +450,11 @@ export async function formatLanguageServerDocument(
       };
     }
 
-    const prettierResult = await formatWithBundledPrettier(request);
-    if (prettierResult) return prettierResult;
-
     return {
       ok: true,
       edits: [],
     };
   } catch (err) {
-    const prettierResult = await formatWithBundledPrettier(request);
-    if (prettierResult) return prettierResult;
-
     return {
       ok: false,
       message:

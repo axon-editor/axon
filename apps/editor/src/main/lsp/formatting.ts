@@ -76,6 +76,6 @@ export async function formatWithBundledPrettier(
   return {
     ok: true,
     edits: [createFullDocumentEdit(request.content, formattedText)],
-    message: "Formatted with Axon's default formatter.",
+    message: "Formatted with Prettier.",
   };
 }

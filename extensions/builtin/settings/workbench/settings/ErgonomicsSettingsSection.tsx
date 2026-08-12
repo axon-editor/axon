@@ -24,7 +24,7 @@ export default function ErgonomicsSettingsSection({
     >
       <SettingsField
         label="Format on save"
-        description="Runs the active language server formatter before writing the file. Saving still succeeds if a formatter is unavailable."
+        description="Runs Prettier for supported files and the active language server formatter for other languages before writing to disk."
       >
         <SettingsToggle
           checked={draft.editor.formatOnSave}
