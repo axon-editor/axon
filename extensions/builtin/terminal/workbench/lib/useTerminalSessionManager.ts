@@ -19,6 +19,7 @@ import {
   hasPendingTerminalOutput,
   isTerminalAtBottom,
   isVisibleTerminalContainer,
+  scheduleTerminalViewportRefresh,
   sendOrQueueTerminalInput,
   sendWorkspaceCd,
   terminateDetachedSession,
@@ -221,6 +222,7 @@ export function useTerminalSessionManager({
     ) {
       window.cancelAnimationFrame(session.outputRefreshFrame);
       session.outputRefreshFrame = null;
+      session.outputRefreshAfterFrame = false;
     }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
@@ -306,6 +308,7 @@ export function useTerminalSessionManager({
         outputWriting: false,
         outputDrainTimer: null,
         outputRefreshFrame: null,
+        outputRefreshAfterFrame: false,
         inFlightWriteBytes: 0,
         pendingBinaryDecodes: 0,
         queuedBytes: 0,
@@ -562,6 +565,17 @@ export function useTerminalSessionManager({
         // bottom always resumes following.
         if (viewportAtBottom || viewportGestureActive) {
           session.atBottom = viewportAtBottom;
+        }
+
+        // The output callback repaints whatever rows are visible while bytes
+        // are arriving. A reader can reveal different scrollback rows much
+        // later, after Chromium has discarded the old WebGL surface for those
+        // rows. Refreshing after xterm moves viewportY makes those newly exposed
+        // cells render immediately instead of waiting for an unrelated resize.
+        // The scheduler coalesces wheel and scrollbar bursts into one repaint
+        // per frame and never changes the user's scroll position.
+        if (!viewportAtBottom) {
+          scheduleTerminalViewportRefresh(session);
         }
       });
       connectSession(id);

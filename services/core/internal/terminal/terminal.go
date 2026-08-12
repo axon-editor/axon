@@ -924,9 +924,18 @@ func terminalEnvironment() []string {
 	}
 
 	nextPath := strings.Join(parts, string(os.PathListSeparator))
+	// NO_COLOR can belong to the process that launched Axon rather than the
+	// user's interactive shell. Letting that host-only flag leak into every PTY
+	// makes Codex, Claude, Git, test runners, and other capable tools silently
+	// flatten their output even though Axon provides a truecolor terminal. I
+	// remove it for the interactive PTY and advertise the standard color hints
+	// below. I deliberately do not set FORCE_COLOR because commands that are
+	// writing machine-readable output must still be allowed to disable styling.
+	env = removeEnvironmentValue(env, "NO_COLOR")
 	env = upsertEnvironmentValue(env, "PATH", nextPath)
 	env = upsertEnvironmentValue(env, "TERM", "xterm-256color")
 	env = upsertEnvironmentValue(env, "COLORTERM", "truecolor")
+	env = upsertEnvironmentValue(env, "CLICOLOR", "1")
 	env = upsertEnvironmentValue(env, "TERM_PROGRAM", "Axon")
 	env = upsertEnvironmentValue(env, "AXON_TERM", "true")
 
@@ -943,4 +952,16 @@ func upsertEnvironmentValue(env []string, key string, value string) []string {
 	}
 
 	return append(env, prefix+value)
+}
+
+func removeEnvironmentValue(env []string, key string) []string {
+	prefix := key + "="
+	filtered := env[:0]
+	for _, entry := range env {
+		if strings.HasPrefix(entry, prefix) {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return filtered
 }

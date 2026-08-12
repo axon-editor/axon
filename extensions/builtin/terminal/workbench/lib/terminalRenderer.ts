@@ -59,7 +59,14 @@ export function createTerminalRendererController(
     if (disposed || webglAddon || webglUnavailable) return;
     if (mode === "auto" && !supportsWebgl2()) return;
 
-    const nextAddon = new WebglAddon();
+    // Electron can recycle the compositor mailbox backing a WebGL canvas while
+    // terminal rows are outside the viewport. xterm still owns the correct text
+    // and ANSI color attributes, but the recycled surface can come back blank
+    // until a resize forces a complete redraw. Preserving the drawing buffer
+    // keeps the visible terminal canvas valid across those compositor passes.
+    // This is scoped to each visible terminal canvas, not the 200,000-line
+    // scrollback buffer, so it does not duplicate the terminal's full history.
+    const nextAddon = new WebglAddon(true);
     const lossDisposable = nextAddon.onContextLoss(() => {
       if (webglAddon !== nextAddon) return;
       fallBackToDom("context-loss");

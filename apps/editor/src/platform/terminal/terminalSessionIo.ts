@@ -203,7 +203,13 @@ function scheduleTerminalDrain(session: TerminalSession) {
   }, 0);
 }
 
-function scheduleTerminalViewportRefresh(session: TerminalSession) {
+export function scheduleTerminalViewportRefresh(
+  session: TerminalSession,
+  verifyAfterPaint = false,
+) {
+  if (verifyAfterPaint) {
+    session.outputRefreshAfterFrame = true;
+  }
   if (session.outputRefreshFrame !== null || session.disposed || !session.term) {
     return;
   }
@@ -217,9 +223,18 @@ function scheduleTerminalViewportRefresh(session: TerminalSession) {
   // separate renderer pass for every 128 KB write callback.
   session.outputRefreshFrame = window.requestAnimationFrame(() => {
     session.outputRefreshFrame = null;
+    const refreshAfterFrame = session.outputRefreshAfterFrame;
+    session.outputRefreshAfterFrame = false;
     const term = session.term;
     if (!term || session.disposed) return;
     term.refresh(0, Math.max(0, term.rows - 1));
+    if (refreshAfterFrame) {
+      // xterm's refresh invalidates the rows during this frame, while WebGL can
+      // submit the resulting canvas on the next compositor frame. A second
+      // repaint after the queue settles closes that one-frame gap for the final
+      // line without adding another repaint to every write in a live stream.
+      scheduleTerminalViewportRefresh(session);
+    }
   });
 }
 
@@ -266,9 +281,8 @@ function drainTerminalOutput(session: TerminalSession) {
       session.drainedChunks += batch.chunkCount;
       session.outputWriting = session.inFlightWriteBytes > 0;
 
-      scheduleTerminalViewportRefresh(session);
-
       const settled = !hasPendingTerminalOutput(session);
+      scheduleTerminalViewportRefresh(session, settled);
       sendTerminalAck(session, settled);
 
       if (settled) {

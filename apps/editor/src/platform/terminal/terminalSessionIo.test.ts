@@ -34,6 +34,7 @@ function createSession() {
     outputWriting: false,
     outputDrainTimer: null,
     outputRefreshFrame: null,
+    outputRefreshAfterFrame: false,
     inFlightWriteBytes: 0,
     pendingBinaryDecodes: 0,
     queuedBytes: 0,
@@ -88,7 +89,7 @@ describe("terminal output accounting", () => {
     expect(session.maxWriteCommitLatencyMs).toBe(37);
   });
 
-  it("coalesces committed output into one viewport repaint", () => {
+  it("coalesces output and verifies the final paint on the next frame", () => {
     const { session } = createSession();
     const callbacks: Array<() => void> = [];
     const frames: FrameRequestCallback[] = [];
@@ -115,6 +116,9 @@ describe("terminal output accounting", () => {
     frames[0](16);
     expect(term.refresh).toHaveBeenCalledOnce();
     expect(term.refresh).toHaveBeenCalledWith(0, 23);
+    expect(frames).toHaveLength(2);
+    frames[1](32);
+    expect(term.refresh).toHaveBeenCalledTimes(2);
     animationFrame.mockRestore();
   });
 
@@ -137,6 +141,8 @@ describe("terminal output accounting", () => {
     frames[0](16);
     expect(term.scrollToBottom).not.toHaveBeenCalled();
     expect(term.refresh).toHaveBeenCalledWith(0, 23);
+    frames[1](32);
+    expect(term.refresh).toHaveBeenCalledTimes(2);
     animationFrame.mockRestore();
   });
 

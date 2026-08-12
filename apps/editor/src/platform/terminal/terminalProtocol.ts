@@ -30,6 +30,7 @@ export interface TerminalSession {
   outputWriting: boolean;
   outputDrainTimer: number | null;
   outputRefreshFrame: number | null;
+  outputRefreshAfterFrame: boolean;
   inFlightWriteBytes: number;
   pendingBinaryDecodes: number;
   queuedBytes: number;

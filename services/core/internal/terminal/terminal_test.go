@@ -19,12 +19,15 @@ import (
 func TestTerminalEnvironmentAdvertisesAxonCapabilities(t *testing.T) {
 	t.Setenv("TERM", "dumb")
 	t.Setenv("COLORTERM", "legacy")
+	t.Setenv("CLICOLOR", "0")
 	t.Setenv("TERM_PROGRAM", "Terminal.app")
+	t.Setenv("NO_COLOR", "1")
 
 	env := terminalEnvironment()
 	wanted := map[string]string{
 		"TERM":         "xterm-256color",
 		"COLORTERM":    "truecolor",
+		"CLICOLOR":     "1",
 		"TERM_PROGRAM": "Axon",
 		"AXON_TERM":    "true",
 	}
@@ -47,6 +50,11 @@ func TestTerminalEnvironmentAdvertisesAxonCapabilities(t *testing.T) {
 
 	if os.Getenv("TERM") != "dumb" {
 		t.Fatalf("terminal environment mutated the core process environment")
+	}
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "NO_COLOR=") {
+			t.Fatalf("interactive terminal inherited NO_COLOR")
+		}
 	}
 }
 
