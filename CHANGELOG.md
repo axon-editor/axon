@@ -2,6 +2,31 @@
 
 ## Next
 
+## v1.3.5
+
+- Completed terminal scrollback rendering so displaced and trailing output
+  remains visible without moving a reader who has scrolled away from the tail.
+- Added resilient WebGL terminal rendering with automatic DOM fallback and
+  persisted acceleration controls.
+- Preserved shell and agent input shortcuts by reserving terminal clearing for
+  unmodified `Cmd+K` and allowing `Ctrl+K` to reach terminal programs.
+- Added one-second trailing Auto Save across visible and detached buffers, with
+  synchronized controls in File, Command Palette, and Settings.
+- Made bundled Prettier the primary formatter for supported web, configuration,
+  and Markdown files while retaining language-server formatting as fallback.
+- Reworked AI model settings around the searchable model catalog with download
+  state, descriptions, refresh feedback, and retained custom selections.
+- Added native application glass with platform materials, persisted startup
+  state, theme-aware surface contrast, and opaque interaction popups.
+- Kept editor font presets scoped to code so they no longer override the
+  interface font selected under Appearance.
+- Stabilized Axon Line Trace commit popovers across pointer movement, scrolling,
+  editor widget replacement, window blur, and document visibility changes.
+- Redesigned Open Folder with responsive workspace and recent-folder sections,
+  filtering, explicit browsing, and a persistent repository clone workflow.
+- Restored YAML language-server startup when npm places AJV 6 at the workspace
+  root by resolving the draft-04 adapter against YAML's compatible AJV 8.
+
 ## v1.3.4
 
 - Isolated terminal ownership in a dedicated PTY host so Core recovery no
