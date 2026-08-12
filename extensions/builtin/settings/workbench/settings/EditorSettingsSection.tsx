@@ -35,7 +35,7 @@ export default function EditorSettingsSection({
     >
       <SettingsField
         label="Font preset"
-        description="Applies a complete editor/UI font style while keeping letter spacing at 0."
+        description="Applies editor typography without changing the Axon interface font selected in Appearance."
       >
         <SearchSelect
           value={draft.editor.fontPreset}

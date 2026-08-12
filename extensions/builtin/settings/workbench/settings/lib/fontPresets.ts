@@ -5,7 +5,6 @@ export const FONT_PRESET_VALUES: Record<
   Pick<
     AxonSettings["editor"],
     | "fontPreset"
-    | "uiFontFamily"
     | "fontFamily"
     | "fontWeight"
     | "lineHeight"
@@ -15,7 +14,6 @@ export const FONT_PRESET_VALUES: Record<
 > = {
   "axon-default": {
     fontPreset: "axon-default",
-    uiFontFamily: ".AxonSans",
     fontFamily: ".AxonMono",
     fontWeight: 400,
     lineHeight: 22,
@@ -23,7 +21,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "zed-like": {
     fontPreset: "zed-like",
-    uiFontFamily: ".ZedSans",
     fontFamily: ".ZedMono",
     fontWeight: 400,
     lineHeight: 22,
@@ -31,7 +28,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "jetbrains-mono": {
     fontPreset: "jetbrains-mono",
-    uiFontFamily: ".AxonSans",
     fontFamily: "JetBrains Mono",
     fontWeight: 400,
     lineHeight: 23,
@@ -39,7 +35,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "sf-mono": {
     fontPreset: "sf-mono",
-    uiFontFamily: "system-ui",
     fontFamily: "SF Mono",
     fontWeight: 400,
     lineHeight: 22,
@@ -47,7 +42,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "fira-code": {
     fontPreset: "fira-code",
-    uiFontFamily: ".AxonSans",
     fontFamily: "Fira Code",
     fontWeight: 400,
     lineHeight: 23,
@@ -55,7 +49,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "geist-mono": {
     fontPreset: "geist-mono",
-    uiFontFamily: ".AxonSans",
     fontFamily: "Geist Mono",
     fontWeight: 400,
     lineHeight: 22,
@@ -63,7 +56,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "cascadia-code": {
     fontPreset: "cascadia-code",
-    uiFontFamily: ".AxonSans",
     fontFamily: "Cascadia Code",
     fontWeight: 400,
     lineHeight: 23,
@@ -71,7 +63,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "berkeley-mono": {
     fontPreset: "berkeley-mono",
-    uiFontFamily: ".AxonSans",
     fontFamily: "Berkeley Mono",
     fontWeight: 400,
     lineHeight: 22,
@@ -79,7 +70,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "monaspace-neon-nerd": {
     fontPreset: "monaspace-neon-nerd",
-    uiFontFamily: ".AxonSans",
     fontFamily: "Monaspace Neon NF",
     fontWeight: 400,
     lineHeight: 22,
@@ -87,7 +77,6 @@ export const FONT_PRESET_VALUES: Record<
   },
   "apathy-ocean": {
     fontPreset: "apathy-ocean",
-    uiFontFamily: ".AxonSans",
     fontFamily: "Monaspace Neon NF",
     fontSize: 11,
     fontWeight: 200,
