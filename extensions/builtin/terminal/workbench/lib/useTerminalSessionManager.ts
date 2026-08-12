@@ -13,6 +13,7 @@ import {
   type TerminalSession,
 } from "@axon-editor/platform/terminal/terminalProtocol";
 import { type getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
+import { type TerminalGpuAcceleration } from "@axon-editor/shared/settings";
 import {
   flushQueuedTerminalInput,
   hasPendingTerminalOutput,
@@ -23,6 +24,7 @@ import {
   terminateDetachedSession,
   writeTerminalOutput,
 } from "@axon-editor/platform/terminal/terminalSessionIo";
+import { createTerminalRendererController } from "./terminalRenderer";
 
 export interface TerminalTab {
   id: string;
@@ -47,6 +49,7 @@ interface UseTerminalSessionManagerOptions {
   activePanelTab: string;
   createNonce: number;
   createWorkingDirectory?: string | null;
+  gpuAcceleration: TerminalGpuAcceleration;
   open: boolean;
   terminalOptions: ReturnType<typeof getTerminalOptions>;
   terminalVisible: boolean;
@@ -57,6 +60,7 @@ interface UseTerminalSessionManagerOptions {
 export function useTerminalSessionManager({
   createNonce,
   createWorkingDirectory,
+  gpuAcceleration,
   open,
   terminalOptions,
   terminalVisible,
@@ -221,6 +225,7 @@ export function useTerminalSessionManager({
     session?.dataDisposable?.dispose();
     session?.multilineDisposable?.dispose();
     session?.scrollDisposable?.dispose();
+    session?.rendererController?.dispose();
     if (session) {
       session.disposed = true;
       session.terminating = terminate;
@@ -283,6 +288,7 @@ export function useTerminalSessionManager({
         container: null,
         term: null,
         fitAddon: null,
+        rendererController: null,
         ws: null,
         reconnectTimer: null,
         resizeDebounceTimer: null,
@@ -536,6 +542,11 @@ export function useTerminalSessionManager({
 
       session.term = term;
       session.fitAddon = fitAddon;
+      session.rendererController = createTerminalRendererController(term);
+      session.rendererController.sync(
+        terminalVisible && id === activeTabId,
+        gpuAcceleration,
+      );
       let viewportGestureActive = false;
       session.scrollDisposable = term.onScroll((line) => {
         session.scrollLine = line;
@@ -663,7 +674,15 @@ export function useTerminalSessionManager({
       });
       session.resizeObserver.observe(container);
     },
-    [connectSession, openTerminalLink, sendResize, terminalOptions],
+    [
+      activeTabId,
+      connectSession,
+      gpuAcceleration,
+      openTerminalLink,
+      sendResize,
+      terminalOptions,
+      terminalVisible,
+    ],
   );
 
   const resizeActiveTerminal = useCallback(() => {
@@ -715,6 +734,15 @@ export function useTerminalSessionManager({
     terminalVisible,
     workingDirectory,
   ]);
+
+  useEffect(() => {
+    for (const [id, session] of Object.entries(sessionsRef.current)) {
+      session.rendererController?.sync(
+        terminalVisible && id === activeTabId,
+        gpuAcceleration,
+      );
+    }
+  }, [activeTabId, gpuAcceleration, terminalVisible]);
 
   useEffect(() => {
     if (!terminalVisible || !activeTabId) return;

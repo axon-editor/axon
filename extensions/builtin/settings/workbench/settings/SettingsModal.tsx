@@ -23,6 +23,7 @@ import AppearanceSettingsSection from "./AppearanceSettingsSection";
 import AxonAgentSettingsSection from "./AxonAgentSettingsSection";
 import EditorSettingsSection from "./EditorSettingsSection";
 import ErgonomicsSettingsSection from "./ErgonomicsSettingsSection";
+import TerminalSettingsSection from "./TerminalSettingsSection";
 import LanguageServersSettingsSection from "./LanguageServersSettingsSection";
 import {
   BackgroundSettingsSection,
@@ -231,6 +232,19 @@ export default function SettingsModal({
     }));
   };
 
+  const updateTerminal = <K extends keyof AxonSettings["terminal"]>(
+    key: K,
+    value: AxonSettings["terminal"][K],
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      terminal: {
+        ...prev.terminal,
+        [key]: value,
+      },
+    }));
+  };
+
   const updateLsp = <K extends keyof AxonSettings["lsp"]>(
     key: K,
     value: AxonSettings["lsp"][K],
@@ -427,6 +441,13 @@ export default function SettingsModal({
                 editorFontItems={editorFontItems}
                 onApplyFontPreset={applyFontPreset}
                 onUpdateEditor={updateEditor}
+              />
+            )}
+
+            {activeSection === "terminal" && (
+              <TerminalSettingsSection
+                draft={draft}
+                onUpdateTerminal={updateTerminal}
               />
             )}
 

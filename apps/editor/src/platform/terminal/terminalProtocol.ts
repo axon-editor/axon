@@ -1,12 +1,19 @@
 import type { Terminal as XTerm } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_PROTOCOL, TERMINAL_REPLAY } from "@axon/protocol";
+import type { TerminalGpuAcceleration } from "../../shared/settings";
 import { getCoreWebSocketUrl } from "../../renderer/shared/lib/coreBackend";
+
+export interface TerminalRendererController {
+  dispose: () => void;
+  sync: (visible: boolean, mode: TerminalGpuAcceleration) => void;
+}
 
 export interface TerminalSession {
   container: HTMLDivElement | null;
   term: XTerm | null;
   fitAddon: FitAddon | null;
+  rendererController: TerminalRendererController | null;
   ws: WebSocket | null;
   reconnectTimer: number | null;
   resizeDebounceTimer: number | null;

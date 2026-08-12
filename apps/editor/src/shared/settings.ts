@@ -102,6 +102,10 @@ export const EDITOR_CURSOR_BLINKING = [
 ] as const;
 export type EditorCursorBlinking = (typeof EDITOR_CURSOR_BLINKING)[number];
 
+export const TERMINAL_GPU_ACCELERATION_VALUES = ["auto", "on", "off"] as const;
+export type TerminalGpuAcceleration =
+  (typeof TERMINAL_GPU_ACCELERATION_VALUES)[number];
+
 export const THEME_LABELS: Record<BuiltInThemeId, string> = {
   "axon-dark": "Axon Dark",
   "axon-black": "Axon Black",
@@ -214,6 +218,7 @@ export interface EditorSettings {
 
 export interface AxonSettings {
   editor: EditorSettings;
+  terminal: TerminalSettings;
   ai: AiSettings;
   lsp: LspSettings;
   theme_overrides: ThemeOverrides;
@@ -221,6 +226,10 @@ export interface AxonSettings {
   spotify: {
     clientId: string;
   };
+}
+
+export interface TerminalSettings {
+  gpuAcceleration: TerminalGpuAcceleration;
 }
 
 export interface LspSettings {
@@ -280,6 +289,9 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     suggestionPreviewEnabled: true,
     wordBasedSuggestionsEnabled: true,
     lineTraceEnabled: true,
+  },
+  terminal: {
+    gpuAcceleration: "auto",
   },
   ai: {
     enabled: true,
@@ -349,6 +361,15 @@ function isEditorCursorBlinking(value: unknown): value is EditorCursorBlinking {
   return (
     typeof value === "string" &&
     EDITOR_CURSOR_BLINKING.includes(value as EditorCursorBlinking)
+  );
+}
+
+function isTerminalGpuAcceleration(
+  value: unknown,
+): value is TerminalGpuAcceleration {
+  return (
+    typeof value === "string" &&
+    TERMINAL_GPU_ACCELERATION_VALUES.includes(value as TerminalGpuAcceleration)
   );
 }
 
@@ -447,6 +468,7 @@ export function normalizeUiFontFamily(value: unknown) {
 export function normalizeSettings(value: unknown): AxonSettings {
   const root = isRecord(value) ? value : {};
   const editor = isRecord(root.editor) ? root.editor : {};
+  const terminal = isRecord(root.terminal) ? root.terminal : {};
   const ai = isRecord(root.ai) ? root.ai : {};
   const lsp = isRecord(root.lsp) ? root.lsp : {};
 
@@ -634,6 +656,11 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.lineTraceEnabled === "boolean"
           ? editor.lineTraceEnabled
           : DEFAULT_SETTINGS.editor.lineTraceEnabled,
+    },
+    terminal: {
+      gpuAcceleration: isTerminalGpuAcceleration(terminal.gpuAcceleration)
+        ? terminal.gpuAcceleration
+        : DEFAULT_SETTINGS.terminal.gpuAcceleration,
     },
     ai: {
       enabled:

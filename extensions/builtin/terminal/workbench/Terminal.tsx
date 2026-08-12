@@ -18,7 +18,10 @@ import {
   Trash2,
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
-import type { EditorSettings } from "@axon-editor/shared/settings";
+import type {
+  EditorSettings,
+  TerminalSettings,
+} from "@axon-editor/shared/settings";
 import {
   type BottomPanelTab,
   type OutputEntry,
@@ -43,6 +46,7 @@ interface Props {
   createNonce: number;
   createWorkingDirectory?: string | null;
   editorSettings: EditorSettings;
+  terminalSettings: TerminalSettings;
   themeTokens: ResolvedThemeTokens;
   workingDirectory: string | null;
   activePanelTab: "terminal" | BottomPanelTab;
@@ -61,6 +65,7 @@ export default function Terminal({
   createNonce,
   createWorkingDirectory,
   editorSettings,
+  terminalSettings,
   themeTokens,
   workingDirectory,
   activePanelTab,
@@ -95,6 +100,7 @@ export default function Terminal({
     activePanelTab,
     createNonce,
     createWorkingDirectory,
+    gpuAcceleration: terminalSettings.gpuAcceleration,
     open,
     terminalOptions,
     terminalVisible,

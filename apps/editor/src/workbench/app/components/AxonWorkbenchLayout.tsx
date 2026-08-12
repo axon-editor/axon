@@ -421,6 +421,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
                 createNonce={terminalCreateNonce}
                 createWorkingDirectory={terminalCreateWorkingDirectory}
                 editorSettings={settings.editor}
+                terminalSettings={settings.terminal}
                 themeTokens={themeTokens}
                 workingDirectory={folderPath}
                 activePanelTab={

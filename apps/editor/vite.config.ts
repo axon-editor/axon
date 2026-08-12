@@ -187,6 +187,12 @@ export default defineConfig({
         "lib",
         "addon-web-links.js",
       ),
+      "@xterm/addon-webgl": dependencyPath(
+        "@xterm",
+        "addon-webgl",
+        "lib",
+        "addon-webgl.js",
+      ),
       "@xterm/xterm": dependencyPath("@xterm", "xterm"),
       "@monaco-editor/react": dependencyPath(
         "@monaco-editor",

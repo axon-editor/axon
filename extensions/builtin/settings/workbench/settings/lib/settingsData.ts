@@ -6,6 +6,7 @@ import {
   EDITOR_BACKGROUND_IMAGE_FITS,
   EDITOR_MULTI_CURSOR_MODIFIERS,
   FONT_PRESET_IDS,
+  TERMINAL_GPU_ACCELERATION_VALUES,
   UI_FONT_FAMILIES,
   type AiProviderId,
   type EditorSidebarSide,
@@ -15,6 +16,7 @@ import {
   type EditorBackgroundImageFit,
   type EditorMultiCursorModifier,
   type FontPresetId,
+  type TerminalGpuAcceleration,
   type UiFontFamily,
 } from "@axon-editor/shared/settings";
 import { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect";
@@ -22,6 +24,7 @@ import { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect
 export type SettingsSectionId =
   | "appearance"
   | "editor"
+  | "terminal"
   | "ergonomics"
   | "background"
   | "fonts"
@@ -42,6 +45,11 @@ export const SETTINGS_SECTIONS: Array<{
     id: "editor",
     label: "Editor",
     description: "Text, spacing, and ligatures",
+  },
+  {
+    id: "terminal",
+    label: "Terminal",
+    description: "Rendering and GPU acceleration",
   },
   {
     id: "ergonomics",
@@ -195,3 +203,18 @@ export const EDITOR_SIDEBAR_SIDE_ITEMS: SearchSelectItem<EditorSidebarSide>[] = 
   { value: "left", label: "Left" },
   { value: "right", label: "Right" },
 ];
+
+const TERMINAL_GPU_ACCELERATION_LABELS: Record<
+  TerminalGpuAcceleration,
+  string
+> = {
+  auto: "Auto",
+  on: "On",
+  off: "Off",
+};
+
+export const TERMINAL_GPU_ACCELERATION_ITEMS: SearchSelectItem<TerminalGpuAcceleration>[] =
+  TERMINAL_GPU_ACCELERATION_VALUES.map((mode) => ({
+    value: mode,
+    label: TERMINAL_GPU_ACCELERATION_LABELS[mode],
+  }));

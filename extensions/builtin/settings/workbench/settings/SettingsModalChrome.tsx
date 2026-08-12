@@ -6,6 +6,7 @@ import {
   Save,
   Search,
   Sparkles,
+  SquareTerminal,
   Type,
   Wifi,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import {
 const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
   appearance: Palette,
   editor: Type,
+  terminal: SquareTerminal,
   ergonomics: Keyboard,
   background: Image,
   ai: Sparkles,

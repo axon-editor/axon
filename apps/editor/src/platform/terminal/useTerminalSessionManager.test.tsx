@@ -58,6 +58,10 @@ vi.mock("@xterm/addon-web-links", () => ({
   WebLinksAddon: class {},
 }));
 
+vi.mock("@xterm/addon-webgl", () => ({
+  WebglAddon: class {},
+}));
+
 class FakeWebSocket {
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
@@ -87,6 +91,7 @@ function TerminalHarness() {
     activePanelTab: "terminal",
     createNonce: 0,
     createWorkingDirectory: null,
+    gpuAcceleration: "off",
     open: true,
     terminalOptions: {
       fontFamily: "monospace",

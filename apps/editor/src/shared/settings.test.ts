@@ -106,3 +106,20 @@ describe("line trace settings", () => {
     );
   });
 });
+
+describe("terminal settings", () => {
+  it("preserves an explicit GPU acceleration mode", () => {
+    expect(
+      normalizeSettings({ terminal: { gpuAcceleration: "off" } }).terminal
+        .gpuAcceleration,
+    ).toBe("off");
+  });
+
+  it("uses automatic GPU detection for older or invalid settings", () => {
+    expect(normalizeSettings({}).terminal.gpuAcceleration).toBe("auto");
+    expect(
+      normalizeSettings({ terminal: { gpuAcceleration: "canvas" } }).terminal
+        .gpuAcceleration,
+    ).toBe("auto");
+  });
+});

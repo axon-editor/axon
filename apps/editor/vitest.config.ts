@@ -35,6 +35,14 @@ export default defineConfig({
         "@xterm",
         "addon-web-links",
       ),
+      "@xterm/addon-webgl": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "node_modules",
+        "@xterm",
+        "addon-webgl",
+      ),
       "@xterm/xterm": path.resolve(
         __dirname,
         "node_modules",
