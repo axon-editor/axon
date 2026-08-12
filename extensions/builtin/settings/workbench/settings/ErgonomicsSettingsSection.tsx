@@ -23,6 +23,17 @@ export default function ErgonomicsSettingsSection({
       description="Control the editor behaviors that affect daily writing, navigation, and reading. Changes apply immediately so you can feel the difference without restarting Axon."
     >
       <SettingsField
+        label="Auto Save"
+        description="Writes dirty files after one second without requiring Command/Ctrl+S. The same toggle is available in the operating-system File menu."
+      >
+        <SettingsToggle
+          checked={draft.editor.autoSave}
+          onChange={(checked) => onUpdateEditor("autoSave", checked)}
+          label={draft.editor.autoSave ? "Enabled" : "Disabled"}
+        />
+      </SettingsField>
+
+      <SettingsField
         label="Format on save"
         description="Runs Prettier for supported files and the active language server formatter for other languages before writing to disk."
       >

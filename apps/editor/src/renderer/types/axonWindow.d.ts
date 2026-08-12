@@ -468,6 +468,7 @@ declare global {
         callback: (event: HtmlPreviewConsoleEvent) => void,
       ) => () => void;
       onMenuCommand: (callback: (command: AxonCommand) => void) => () => void;
+      setAutoSaveMenuChecked: (checked: boolean) => Promise<void>;
       spotify: {
         auth: () => Promise<SpotifyAuthResult>;
         disconnect: () => Promise<SpotifyActionResult>;

@@ -298,6 +298,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
             >
               {platform !== "darwin" ? (
                 <AppMenuButton
+                  autoSaveEnabled={settings.editor.autoSave}
                   hasWorkspace={!!folderPath}
                   onCommand={runCommand}
                 />

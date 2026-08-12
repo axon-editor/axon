@@ -17,6 +17,13 @@ describe("font settings", () => {
 });
 
 describe("editor formatting settings", () => {
+  it("preserves auto-save and defaults it off for older settings", () => {
+    expect(
+      normalizeSettings({ editor: { autoSave: true } }).editor.autoSave,
+    ).toBe(true);
+    expect(normalizeSettings({ editor: {} }).editor.autoSave).toBe(false);
+  });
+
   it("preserves explicit indentation and guide preferences", () => {
     const settings = normalizeSettings({
       editor: {

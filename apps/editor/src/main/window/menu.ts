@@ -1,6 +1,8 @@
 import { BrowserWindow, type MenuItemConstructorOptions } from "electron";
 import { AXON_COMMANDS, type AxonCommand } from "../../shared/commands";
 
+export const AXON_AUTO_SAVE_MENU_ITEM_ID = "axon-file-auto-save";
+
 function closeFocusedWindow() {
   const targetWindow = BrowserWindow.getFocusedWindow();
   targetWindow?.close();
@@ -117,6 +119,13 @@ export function buildApplicationMenu(
           label: "Save As...",
           accelerator: "CmdOrCtrl+Shift+S",
           click: () => sendMenuCommand(AXON_COMMANDS.SAVE_AS),
+        },
+        {
+          id: AXON_AUTO_SAVE_MENU_ITEM_ID,
+          label: "Auto Save",
+          type: "checkbox",
+          checked: false,
+          click: () => sendMenuCommand(AXON_COMMANDS.TOGGLE_AUTO_SAVE),
         },
         { type: "separator" },
         {

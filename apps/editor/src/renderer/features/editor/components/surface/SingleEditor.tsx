@@ -635,6 +635,7 @@ export default function SingleEditor({
       const saveEvent = event as CustomEvent<EditorSaveEventDetail>;
       if (saveEvent.detail?.path !== filePathRef.current) return;
       if (!visible) return;
+      if (saveEvent.defaultPrevented) return;
       const model = editorRef.current?.getModel();
       if (!model || model.isDisposed()) return;
 

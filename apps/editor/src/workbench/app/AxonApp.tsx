@@ -51,7 +51,8 @@ import { useWorkspaceHandlers } from "./lib/useWorkspaceHandlers";
 import { useEditorSurfaceHandlers } from "./lib/useEditorSurfaceHandlers";
 import { useSaveFileAs } from "./lib/useSaveFileAs";
 import { useGitStatusRefresh } from "./lib/useGitStatusRefresh";
-import { toMonacoEdit } from "./lib/monacoEdit";
+import { useAutoSave } from "./lib/useAutoSave";
+import { useSaveFileFromModel } from "./lib/useSaveFileFromModel";
 import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
 import { dispatchEditorSave } from "../../renderer/features/editor/lib/buffer/editorSave";
 import {
@@ -63,7 +64,6 @@ import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolI
 import { useLanguageToolInstallPrompt } from "../../renderer/features/languageTools/useLanguageToolInstallPrompt";
 import { useManagedLanguageToolInstallations } from "../../renderer/features/languageTools/useManagedLanguageToolInstallations";
 import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
-import { detectLanguageServerLanguage, getModel } from "../../renderer/features/editor/lib/buffer/monacoModels";
 import {
   hasSeenAxonOnboarding,
   markAxonOnboardingSeen,
@@ -430,6 +430,9 @@ export default function App({ initialExtensionState }: AppProps) {
     // slider movement or color keystroke to the app settings file.
     setSettings(normalizeSettings(nextSettings));
   }, []);
+  useEffect(() => {
+    void window.axon.setAutoSaveMenuChecked(settings.editor.autoSave);
+  }, [settings.editor.autoSave]);
   const handleOpenSettingsJson = async () => {
     try {
       const settingsPath = await window.axon.ensureSettingsFile(null, settings);
@@ -529,103 +532,20 @@ export default function App({ initialExtensionState }: AppProps) {
       appendOutput("task", `Failed to start ${task.label}.`, "error");
     }
   };
-  const saveFileFromModel = useCallback(
-    async (filePath: string) => {
-      const model = getModel(filePath);
-      if (!model || model.isDisposed()) return false;
-      const languageId = detectLanguageServerLanguage(filePath);
-      if (
-        settings.editor.formatOnSave &&
-        folderPath &&
-        workspaceTrusted &&
-        languageId !== "plaintext"
-      ) {
-        try {
-          const modelOptions = model.getOptions();
-          const versionBeforeFormat = model.getVersionId();
-          const result = await window.axon.formatLanguageServerDocument({
-            folderPath,
-            filePath,
-            languageId,
-            content: model.getValue(),
-            tabSize: modelOptions.tabSize,
-            insertSpaces: modelOptions.insertSpaces,
-          });
-          const modelChangedDuringFormat =
-            model.isDisposed() || versionBeforeFormat !== model.getVersionId();
-          if (result.ok && result.edits.length > 0 && !modelChangedDuringFormat) {
-            // Format-on-save works on the shared Monaco model before the disk
-            // write so every split showing this file receives the same edits.
-            // Formatting a detached string instead would let the saved text and
-            // the visible editor drift until the next model refresh.
-            model.pushEditOperations(
-              [],
-              result.edits.map(toMonacoEdit),
-              () => null,
-            );
-          } else if (
-            result.ok &&
-            result.edits.length > 0 &&
-            modelChangedDuringFormat
-          ) {
-            appendOutput(
-              "lsp",
-              "Skipped format-on-save because the file changed while formatting.",
-              "warning",
-            );
-          } else if (!result.ok && result.message) {
-            appendOutput("lsp", result.message, "warning");
-          }
-        } catch (err) {
-          appendOutput(
-            "lsp",
-            err instanceof Error ? err.message : "Format on save failed.",
-            "warning",
-          );
-        }
-      }
-      if (!folderPath) return false;
-      await writeFile(filePath, model.getValue(), folderPath);
-      if (folderPath && workspaceTrusted) {
-        if (languageId !== "plaintext") {
-          try {
-            await window.axon.syncLanguageServerDocument({
-              folderPath,
-              filePath,
-              languageId,
-              content: model.getValue(),
-            });
-          } catch (err) {
-            // Saving the file must never fail just because the language server
-            // is unavailable. Axon still pushes the latest saved content into
-            // LSP immediately so diagnostics refresh from the same text that
-            // hit disk, then falls back to the normal server reconnect/output
-            // path if the sync bridge is not ready yet.
-            console.error(
-              "failed to sync saved file with language server:",
-              err,
-            );
-          }
-        }
-      }
-      setLayout((prev) => ({
-        ...prev,
-        panes: prev.panes.map((pane) => ({
-          ...pane,
-          dirtyFiles: {
-            ...pane.dirtyFiles,
-            [filePath]: false,
-          },
-        })),
-      }));
-      window.dispatchEvent(
-        new CustomEvent("axon:fileSaved", { detail: { path: filePath } }),
-      );
-      appendOutput("file", `Saved ${filePath}`, "success");
-      return true;
-    },
-    [appendOutput, folderPath, settings.editor.formatOnSave],
-  );
+  const saveFileFromModel = useSaveFileFromModel({
+    appendOutput,
+    folderPath,
+    formatOnSave: settings.editor.formatOnSave,
+    setLayout,
+    workspaceTrusted,
+  });
+  useAutoSave({
+    enabled: settings.editor.autoSave,
+    panes: layout.panes,
+    saveDetachedFile: (filePath) =>
+      saveFileFromModel(filePath, { announce: false }),
+    onError: (message) => appendOutput("file", message, "error"),
+  });
   const handleSaveActiveFile = useCallback(() => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return;
@@ -647,6 +567,18 @@ export default function App({ initialExtensionState }: AppProps) {
     handleRefresh,
     setLayout,
   });
+  const handleToggleAutoSave = useCallback(() => {
+    void handleSettingsSave(
+      {
+        ...settings,
+        editor: {
+          ...settings.editor,
+          autoSave: !settings.editor.autoSave,
+        },
+      },
+      { announce: false },
+    );
+  }, [handleSettingsSave, settings]);
   const requestCloseTab = useCallback(
     async (paneId: string, filePath: string) => {
       const pane = layout.panes.find((candidate) => candidate.id === paneId);
@@ -723,6 +655,7 @@ export default function App({ initialExtensionState }: AppProps) {
     handleOpenSettingsJson,
     handleSaveActiveFile,
     handleSaveActiveFileAs,
+    handleToggleAutoSave,
     navigateDiagnostic,
     openProblemsTab,
     refreshGitStatus,

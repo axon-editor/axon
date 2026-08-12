@@ -19,6 +19,7 @@ interface AppCommandRunnerOptions {
   handleOpenSettingsJson: any;
   handleSaveActiveFile: any;
   handleSaveActiveFileAs: any;
+  handleToggleAutoSave: any;
   navigateDiagnostic: any;
   openProblemsTab: any;
   refreshGitStatus: any;
@@ -68,6 +69,7 @@ export function useAppCommandRunner({
   handleOpenSettingsJson,
   handleSaveActiveFile,
   handleSaveActiveFileAs,
+  handleToggleAutoSave,
   navigateDiagnostic,
   openProblemsTab,
   refreshGitStatus,
@@ -218,6 +220,9 @@ export function useAppCommandRunner({
           break;
         case AXON_COMMANDS.SAVE_AS:
           void handleSaveActiveFileAs();
+          break;
+        case AXON_COMMANDS.TOGGLE_AUTO_SAVE:
+          handleToggleAutoSave();
           break;
         case AXON_COMMANDS.CLOSE_TAB:
           handleCloseActiveTab();
@@ -442,6 +447,7 @@ export function useAppCommandRunner({
       handleOpenSettingsJson,
       handleSaveActiveFile,
       handleSaveActiveFileAs,
+      handleToggleAutoSave,
       navigateDiagnostic,
       refreshGitStatus,
       refreshProjectDiagnostics,

@@ -370,6 +370,17 @@ export function buildAppPaletteCommands({
         disabled: !activeFilePath,
       },
       {
+        id: AXON_COMMANDS.TOGGLE_AUTO_SAVE,
+        title: settings.editor.autoSave
+          ? "Disable Auto Save"
+          : "Enable Auto Save",
+        group: "File",
+        subtitle: settings.editor.autoSave
+          ? "Dirty files currently save after one second"
+          : "Save dirty files without Command/Ctrl+S",
+        keywords: ["save", "automatic", "autosave"],
+      },
+      {
         id: AXON_COMMANDS.CLOSE_TAB,
         title: "Close Active Tab",
         group: "File",

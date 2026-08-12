@@ -16,6 +16,7 @@ import {
   PanelBottom,
   PlaySquare,
   Save,
+  SaveAll,
   Search,
   Settings,
   SquareTerminal,
@@ -38,11 +39,16 @@ interface AppMenuSection {
 }
 
 interface Props {
+  autoSaveEnabled: boolean;
   hasWorkspace: boolean;
   onCommand: (command: AxonCommand) => void;
 }
 
-export default function AppMenuButton({ hasWorkspace, onCommand }: Props) {
+export default function AppMenuButton({
+  autoSaveEnabled,
+  hasWorkspace,
+  onCommand,
+}: Props) {
   const [open, setOpen] = useState(false);
   const sections = useMemo<AppMenuSection[]>(
     () => [
@@ -76,6 +82,15 @@ export default function AppMenuButton({ hasWorkspace, onCommand }: Props) {
             detail: "Write the active file to disk",
             icon: Save,
             command: AXON_COMMANDS.SAVE,
+          },
+          {
+            id: "auto-save",
+            label: "Auto Save",
+            detail: autoSaveEnabled
+              ? "Enabled - dirty files save after one second"
+              : "Disabled - files require a manual save",
+            icon: SaveAll,
+            command: AXON_COMMANDS.TOGGLE_AUTO_SAVE,
           },
           {
             id: "close-tab",
@@ -172,7 +187,7 @@ export default function AppMenuButton({ hasWorkspace, onCommand }: Props) {
         ],
       },
     ],
-    [],
+    [autoSaveEnabled],
   );
 
   useEffect(() => {
@@ -231,6 +246,7 @@ export default function AppMenuButton({ hasWorkspace, onCommand }: Props) {
                     action.command !== AXON_COMMANDS.OPEN_FOLDER &&
                     action.command !== AXON_COMMANDS.OPEN_COMMAND_PALETTE &&
                     action.command !== AXON_COMMANDS.OPEN_SETTINGS &&
+                    action.command !== AXON_COMMANDS.TOGGLE_AUTO_SAVE &&
                     action.command !== AXON_COMMANDS.ABOUT;
                   return (
                     <button

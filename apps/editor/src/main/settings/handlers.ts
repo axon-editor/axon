@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from "electron";
+import { dialog, ipcMain, Menu } from "electron";
 import fs from "fs";
 import path from "path";
 import { type PythonWorkspaceEnvironmentStatus } from "../../shared/lsp";
@@ -8,6 +8,7 @@ import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";
 import { getSettingsPath } from "./paths";
 import { setClientId } from "../spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
+import { AXON_AUTO_SAVE_MENU_ITEM_ID } from "../window/menu";
 import { extensionHostService } from "../extensions/host/service";
 import { writeBootAppearance } from "./bootAppearance";
 import {
@@ -87,6 +88,13 @@ interface SettingsHandlersDependencies {
 }
 
 export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
+  ipcMain.handle("menu:setAutoSaveChecked", (_event, checked: boolean) => {
+    const menuItem = Menu.getApplicationMenu()?.getMenuItemById(
+      AXON_AUTO_SAVE_MENU_ITEM_ID,
+    );
+    if (menuItem) menuItem.checked = Boolean(checked);
+  });
+
   ipcMain.handle("dialog:openFolder", async (event) => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],

@@ -709,6 +709,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.on("menu:command", handler);
     return () => ipcRenderer.removeListener("menu:command", handler);
   },
+  setAutoSaveMenuChecked: (checked: boolean): Promise<void> =>
+    ipcRenderer.invoke("menu:setAutoSaveChecked", checked),
 
   spotify: {
     auth: (): Promise<SpotifyAuthResult> => ipcRenderer.invoke("spotify:auth"),

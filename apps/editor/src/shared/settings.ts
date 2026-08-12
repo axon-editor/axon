@@ -201,6 +201,7 @@ export interface EditorSettings {
   breadcrumbsEnabled: boolean;
   codeFoldingEnabled: boolean;
   emmetEnabled: boolean;
+  autoSave: boolean;
   formatOnSave: boolean;
   minimapEnabled: boolean;
   multiCursorModifier: EditorMultiCursorModifier;
@@ -276,6 +277,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     breadcrumbsEnabled: true,
     codeFoldingEnabled: true,
     emmetEnabled: true,
+    autoSave: false,
     formatOnSave: false,
     minimapEnabled: false,
     multiCursorModifier: "alt",
@@ -605,6 +607,10 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.emmetEnabled === "boolean"
           ? editor.emmetEnabled
           : DEFAULT_SETTINGS.editor.emmetEnabled,
+      autoSave:
+        typeof editor.autoSave === "boolean"
+          ? editor.autoSave
+          : DEFAULT_SETTINGS.editor.autoSave,
       formatOnSave:
         typeof editor.formatOnSave === "boolean"
           ? editor.formatOnSave
