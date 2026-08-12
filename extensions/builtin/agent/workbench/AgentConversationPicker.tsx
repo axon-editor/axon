@@ -26,7 +26,7 @@ export default function AgentConversationPicker(props: Props) {
         </button>
       </Tooltip>
       {props.open ? (
-        <div className="absolute right-0 top-9 z-50 w-64 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-xl shadow-black/40">
+        <div className="axon-popup-surface absolute right-0 top-9 z-50 w-64 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-xl shadow-black/40">
           {props.conversationState.conversations
             .slice()
             .reverse()

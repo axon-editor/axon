@@ -469,7 +469,7 @@ export default function ExtensionsModal({
         minHeight: "min(560px, calc(100vh - 3rem))",
       }}
     >
-      <div className="flex h-full min-h-0 w-full flex-col bg-[var(--axon-panel-background)]">
+      <div className="flex h-full min-h-0 w-full flex-col bg-transparent">
         <div className="border-b border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">

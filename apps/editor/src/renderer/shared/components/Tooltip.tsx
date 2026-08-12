@@ -111,7 +111,7 @@ export default function Tooltip({
         createPortal(
           <span
             ref={tooltipRef}
-            className="pointer-events-none fixed z-[100] whitespace-nowrap rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-2 py-1 text-[11px] text-[var(--axon-editor-foreground)] shadow-xl"
+            className="axon-popup-surface axon-tooltip pointer-events-none fixed z-[100] whitespace-nowrap rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-2 py-1 text-[11px] text-[var(--axon-editor-foreground)] shadow-xl"
             style={{ top: position.top, left: position.left }}
           >
             {label}

@@ -21,7 +21,7 @@ export default function CommitHoverPreview({
   return createPortal(
     <div
       role="tooltip"
-      className={`pointer-events-none fixed z-[90] w-[min(360px,calc(100vw-24px))] rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-3 text-[var(--axon-editor-foreground)] shadow-2xl transition duration-150 ease-out ${visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"}`}
+      className={`axon-popup-surface pointer-events-none fixed z-[90] w-[min(360px,calc(100vw-24px))] rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-3 text-[var(--axon-editor-foreground)] shadow-2xl transition duration-150 ease-out ${visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"}`}
       style={position}
     >
       <div className="text-[12px] font-medium leading-5">{commit.subject}</div>

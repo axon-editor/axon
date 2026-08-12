@@ -26,6 +26,12 @@ function colorWithAlpha(color: string, alpha: number) {
   return `rgba(${Number.parseInt(red, 16)}, ${Number.parseInt(green, 16)}, ${Number.parseInt(blue, 16)}, ${finalAlpha})`;
 }
 
+function opaqueColor(color: string) {
+  const normalizedColor = color.trim();
+  const match = normalizedColor.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+  return match ? `#${match[1]}` : color;
+}
+
 interface AppDerivedStateOptions {
   extensionState: any;
   folderPath: string | null;
@@ -82,16 +88,25 @@ export function useAppDerivedState({
     [themeAppearance, themeTokens],
   );
   const appThemeCssVariables = useMemo(() => {
-    if (!settings.editor.appTransparency) return themeCssVariables;
+    if (settings.editor.appGlassMode === "off") return themeCssVariables;
 
     const opacity = settings.editor.appBackgroundOpacity;
+    const popupOpacity = Math.max(0.86, Math.min(0.96, opacity + 0.08));
 
-    // Electron's transparent BrowserWindow gives Axon a real transparent
-    // native canvas, but the renderer still decides which surfaces participate
-    // in that transparency. I only soften large background surfaces here so
-    // text, icons, syntax tokens, and controls stay fully opaque and readable.
+    // Native vibrancy or material owns the expensive full-window blur. These
+    // alpha colors only tint that one shared backdrop, so sidebars, editor
+    // chrome, and panels participate without stacking CSS blur filters over
+    // continuously changing code and terminal output.
     return {
       ...themeCssVariables,
+      "--axon-glass-modal-blur": `${settings.editor.appBackgroundBlur}px`,
+      "--axon-popup-background": colorWithAlpha(
+        themeTokens["panel.background"],
+        popupOpacity,
+      ),
+      "--axon-solid-popup-background": opaqueColor(
+        themeTokens["panel.background"],
+      ),
       "--axon-background": colorWithAlpha(themeTokens.background, opacity),
       "--axon-title-bar-background": colorWithAlpha(
         themeTokens["title_bar.background"],
@@ -149,12 +164,28 @@ export function useAppDerivedState({
       ),
     } as typeof themeCssVariables;
   }, [
+    settings.editor.appBackgroundBlur,
     settings.editor.appBackgroundOpacity,
-    settings.editor.appTransparency,
+    settings.editor.appGlassMode,
     themeAppearance,
     themeCssVariables,
     themeTokens,
   ]);
+
+  useEffect(() => {
+    const glassActive = settings.editor.appGlassMode !== "off";
+    document.documentElement.classList.toggle("axon-native-glass", glassActive);
+
+    void window.axon
+      .setWindowGlass(settings.editor.appGlassMode, themeTokens.background)
+      .catch((error) => {
+        console.warn("failed to synchronize native window glass:", error);
+      });
+
+    return () => {
+      document.documentElement.classList.remove("axon-native-glass");
+    };
+  }, [settings.editor.appGlassMode, themeTokens.background]);
 
   useEffect(() => {
     const roots = [document.documentElement, document.body].filter(Boolean);

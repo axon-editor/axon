@@ -161,7 +161,7 @@ export default function SingleEditor({
     ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
     : "";
   const shouldUseTransparentEditorSurface =
-    editorSettings.appTransparency || Boolean(editorBackgroundImageUrl);
+    editorSettings.appGlassMode !== "off" || Boolean(editorBackgroundImageUrl);
   const gitChange = gitChanges?.find(
     (change) => normalizePath(change.absolutePath) === normalizePath(filePath),
   );

@@ -1,4 +1,4 @@
-import { dialog, ipcMain, Menu } from "electron";
+import { BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import fs from "fs";
 import path from "path";
 import { type PythonWorkspaceEnvironmentStatus } from "../../shared/lsp";
@@ -11,6 +11,7 @@ import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
 import { AXON_AUTO_SAVE_MENU_ITEM_ID } from "../window/menu";
 import { extensionHostService } from "../extensions/host/service";
 import { writeBootAppearance } from "./bootAppearance";
+import { applyWindowGlass } from "../window/windowGlass";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
@@ -88,6 +89,17 @@ interface SettingsHandlersDependencies {
 }
 
 export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
+  ipcMain.handle(
+    "window:setGlass",
+    (event, mode: unknown, opaqueBackground: string) => {
+      applyWindowGlass(
+        BrowserWindow.fromWebContents(event.sender),
+        mode,
+        opaqueBackground,
+      );
+    },
+  );
+
   ipcMain.handle("menu:setAutoSaveChecked", (_event, checked: boolean) => {
     const menuItem = Menu.getApplicationMenu()?.getMenuItemById(
       AXON_AUTO_SAVE_MENU_ITEM_ID,

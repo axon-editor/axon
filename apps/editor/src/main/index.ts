@@ -5,6 +5,10 @@ import {
   readBootAppearance,
   type BootAppearance,
 } from "./settings/bootAppearance";
+import {
+  getWindowGlassBackground,
+  getWindowGlassConstructorOptions,
+} from "./window/windowGlass";
 
 let bootSplashWindow: BrowserWindow | null = null;
 const pendingNativeOpenPaths: string[] = [];
@@ -215,7 +219,11 @@ async function createBootSplashWindow() {
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     trafficLightPosition:
       process.platform === "darwin" ? { x: 14, y: 13 } : undefined,
-    backgroundColor: appearance.background,
+    ...getWindowGlassConstructorOptions(appearance.glassMode),
+    backgroundColor: getWindowGlassBackground(
+      appearance.glassMode,
+      appearance.background,
+    ),
     transparent: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),

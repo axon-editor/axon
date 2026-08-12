@@ -159,16 +159,6 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
       style={{
         ...appThemeCssVariables,
         background: "var(--axon-background)",
-        backdropFilter:
-          settings.editor.appTransparency &&
-          settings.editor.appBackgroundBlur > 0
-            ? `blur(${settings.editor.appBackgroundBlur}px)`
-            : undefined,
-        WebkitBackdropFilter:
-          settings.editor.appTransparency &&
-          settings.editor.appBackgroundBlur > 0
-            ? `blur(${settings.editor.appBackgroundBlur}px)`
-            : undefined,
         fontFamily: fontStack(
           settings.editor.uiFontFamily,
           "system-ui, sans-serif",

@@ -79,6 +79,9 @@ export const EDITOR_BACKGROUND_IMAGE_FITS = [
 export type EditorBackgroundImageFit =
   (typeof EDITOR_BACKGROUND_IMAGE_FITS)[number];
 
+export const APP_GLASS_MODES = ["off", "system", "live"] as const;
+export type AppGlassMode = (typeof APP_GLASS_MODES)[number];
+
 export const EDITOR_MULTI_CURSOR_MODIFIERS = ["alt", "ctrlCmd"] as const;
 export type EditorMultiCursorModifier =
   (typeof EDITOR_MULTI_CURSOR_MODIFIERS)[number];
@@ -191,7 +194,7 @@ export interface EditorSettings {
   indentationGuidesEnabled: boolean;
   highlightActiveIndentationGuide: boolean;
   bracketPairGuidesEnabled: boolean;
-  appTransparency: boolean;
+  appGlassMode: AppGlassMode;
   appBackgroundOpacity: number;
   appBackgroundBlur: number;
   backgroundImagePath: string;
@@ -267,9 +270,9 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     indentationGuidesEnabled: true,
     highlightActiveIndentationGuide: true,
     bracketPairGuidesEnabled: true,
-    appTransparency: false,
+    appGlassMode: "off",
     appBackgroundOpacity: 0.88,
-    appBackgroundBlur: 0,
+    appBackgroundBlur: 10,
     backgroundImagePath: "",
     backgroundImageOpacity: 0.14,
     backgroundImageBlur: 0,
@@ -442,6 +445,10 @@ function isEditorSidebarSide(value: unknown): value is EditorSidebarSide {
   return value === "left" || value === "right";
 }
 
+export function isAppGlassMode(value: unknown): value is AppGlassMode {
+  return APP_GLASS_MODES.some((mode) => mode === value);
+}
+
 export function normalizeUiFontFamily(value: unknown) {
   if (typeof value !== "string" || !value.trim()) {
     return DEFAULT_SETTINGS.editor.uiFontFamily;
@@ -560,10 +567,11 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.bracketPairGuidesEnabled === "boolean"
           ? editor.bracketPairGuidesEnabled
           : DEFAULT_SETTINGS.editor.bracketPairGuidesEnabled,
-      appTransparency:
-        typeof editor.appTransparency === "boolean"
-          ? editor.appTransparency
-          : DEFAULT_SETTINGS.editor.appTransparency,
+      appGlassMode: isAppGlassMode(editor.appGlassMode)
+        ? editor.appGlassMode
+        : editor.appTransparency === true
+          ? "system"
+          : DEFAULT_SETTINGS.editor.appGlassMode,
       appBackgroundOpacity: clampNumber(
         editor.appBackgroundOpacity,
         DEFAULT_SETTINGS.editor.appBackgroundOpacity,

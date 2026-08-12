@@ -69,6 +69,26 @@ describe("editor formatting settings", () => {
   });
 });
 
+describe("application glass settings", () => {
+  it("preserves explicit native glass modes", () => {
+    expect(
+      normalizeSettings({ editor: { appGlassMode: "live" } }).editor
+        .appGlassMode,
+    ).toBe("live");
+  });
+
+  it("migrates the previous transparency toggle to system glass", () => {
+    expect(
+      normalizeSettings({ editor: { appTransparency: true } }).editor
+        .appGlassMode,
+    ).toBe("system");
+    expect(
+      normalizeSettings({ editor: { appTransparency: false } }).editor
+        .appGlassMode,
+    ).toBe("off");
+  });
+});
+
 describe("editor suggestion settings", () => {
   it("preserves explicit completion preferences", () => {
     const settings = normalizeSettings({

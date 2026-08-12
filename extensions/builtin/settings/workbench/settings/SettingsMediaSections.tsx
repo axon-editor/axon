@@ -2,6 +2,7 @@ import { FolderOpen, Trash2, Upload } from "lucide-react";
 import { type AxonSettings } from "@axon-editor/shared/settings";
 import SearchSelect from "@axon-editor/base/components/SearchSelect";
 import {
+  APP_GLASS_MODE_ITEMS,
   EDITOR_BACKGROUND_IMAGE_FIT_ITEMS,
 } from "./lib/settingsData";
 import {
@@ -9,7 +10,6 @@ import {
   SettingsNumberSlider,
   SettingsSection,
   SettingsTextInput,
-  SettingsToggle,
 } from "./SettingsControls";
 
 type UpdateEditor = <K extends keyof AxonSettings["editor"]>(
@@ -31,22 +31,24 @@ export function BackgroundSettingsSection({
   return (
     <SettingsSection
       title="Background"
-      description="Control the app shell transparency and add a local image behind the code editor. The image path is saved in settings JSON and loaded through Axon's local file protocol."
+      description="Use the operating system's native window material independently of the active theme, and optionally add a local image behind the code editor."
     >
       <SettingsField
-        label="App transparency"
-        description="Lets the themed shell blend with the transparent native window instead of always painting an opaque app background."
+        label="App glass"
+        description="System Glass favors efficiency. Live Glass requests a continuously blurred native material where the operating system supports one."
       >
-        <SettingsToggle
-          checked={draft.editor.appTransparency}
-          onChange={(checked) => onUpdateEditor("appTransparency", checked)}
-          label={draft.editor.appTransparency ? "Enabled" : "Disabled"}
+        <SearchSelect
+          value={draft.editor.appGlassMode}
+          items={APP_GLASS_MODE_ITEMS}
+          onChange={(mode) => onUpdateEditor("appGlassMode", mode)}
+          ariaLabel="Application glass mode"
+          placeholder="Search glass modes..."
         />
       </SettingsField>
 
       <SettingsField
-        label="App opacity"
-        description="Allowed range 0.2-1. Text remains fully opaque; only the app background color changes."
+        label="Glass tint"
+        description="Controls how strongly the active theme colors tint the native material. Text, icons, and syntax colors remain opaque."
       >
         <SettingsNumberSlider
           min={0.2}
@@ -58,8 +60,8 @@ export function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
-        label="App blur"
-        description="Allowed range 0-40px. This blurs what shows behind Axon's transparent app shell."
+        label="Modal blur"
+        description="Applies one temporary blur layer behind open modals. The native app material itself is blurred by the operating system."
       >
         <SettingsNumberSlider
           min={0}

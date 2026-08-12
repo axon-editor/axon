@@ -139,7 +139,7 @@ export default function SearchSelect<T extends string>({
         aria-label={ariaLabel}
         aria-expanded={open}
         onClick={() => setOpen((currentOpen) => !currentOpen)}
-        className="flex h-8 w-full cursor-pointer items-center justify-between rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-2 text-left text-[12px] text-[var(--axon-editor-foreground)] outline-none transition-colors hover:bg-[var(--axon-panel-overlay-hover)] focus:border-[var(--axon-syntax-function)]"
+        className="axon-select-control flex h-8 w-full cursor-pointer items-center justify-between rounded border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-2 text-left text-[12px] text-[var(--axon-editor-foreground)] outline-none transition-colors hover:bg-[var(--axon-panel-overlay-hover)] focus:border-[var(--axon-syntax-function)]"
       >
         <span
           className="truncate"
@@ -160,7 +160,7 @@ export default function SearchSelect<T extends string>({
       </button>
 
       {open ? (
-        <div className="axon-popover absolute left-0 right-0 top-9 z-[120] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
+        <div className="axon-popover axon-select-popover absolute left-0 right-0 top-9 z-[120] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
           <div className="flex h-8 items-center gap-2 border-b border-[var(--axon-panel-border)] px-2">
             <Search size={13} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
             <input

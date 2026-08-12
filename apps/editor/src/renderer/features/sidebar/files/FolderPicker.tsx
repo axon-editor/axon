@@ -136,8 +136,6 @@ export default function FolderPicker({
       title="open project"
       onClose={onClose}
       width="w-[500px]"
-      animate={false}
-      closeDelayMs={0}
     >
       <div className="p-2">
         <div className="grid grid-cols-2 gap-1 rounded bg-[var(--axon-editor-background)] p-1">

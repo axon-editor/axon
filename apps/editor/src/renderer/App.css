@@ -226,6 +226,36 @@
   animation: none;
 }
 
+html.axon-native-glass,
+html.axon-native-glass body,
+html.axon-native-glass #root {
+  background: transparent !important;
+}
+
+html.axon-native-glass .axon-modal-overlay {
+  -webkit-backdrop-filter: blur(var(--axon-glass-modal-blur, 10px));
+  backdrop-filter: blur(var(--axon-glass-modal-blur, 10px));
+}
+
+html.axon-native-glass .axon-modal-panel {
+  background: transparent !important;
+}
+
+html.axon-native-glass .axon-popup-surface,
+html.axon-native-glass .axon-popover,
+html.axon-native-glass .axon-context-menu {
+  background: var(--axon-popup-background, var(--axon-panel-background)) !important;
+}
+
+html.axon-native-glass .axon-select-control,
+html.axon-native-glass .axon-select-popover,
+html.axon-native-glass .axon-tooltip {
+  background: var(
+    --axon-solid-popup-background,
+    var(--axon-panel-background)
+  ) !important;
+}
+
 .axon-modal-overlay--leaving {
   pointer-events: none;
 }

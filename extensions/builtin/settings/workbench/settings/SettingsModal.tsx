@@ -433,7 +433,7 @@ export default function SettingsModal({
         minHeight: "min(680px, calc(100vh - 3rem))",
       }}
     >
-      <div className="grid h-full min-h-0 w-full grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
+      <div className="grid h-full min-h-0 w-full grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-transparent shadow-2xl">
         <SettingsModalSidebar
           activeSection={activeSection}
           dirty={dirty}

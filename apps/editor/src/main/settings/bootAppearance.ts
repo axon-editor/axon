@@ -5,7 +5,12 @@ import type {
   ExtensionState,
   ResolvedExtensionTheme,
 } from "../../shared/extensions";
-import type { AxonSettings, ThemeColorToken } from "../../shared/settings";
+import {
+  isAppGlassMode,
+  type AppGlassMode,
+  type AxonSettings,
+  type ThemeColorToken,
+} from "../../shared/settings";
 
 export interface BootAppearance {
   themeId: string;
@@ -13,6 +18,7 @@ export interface BootAppearance {
   background: string;
   foreground: string;
   accent: string;
+  glassMode: AppGlassMode;
 }
 
 export const DEFAULT_BOOT_APPEARANCE: BootAppearance = {
@@ -21,6 +27,7 @@ export const DEFAULT_BOOT_APPEARANCE: BootAppearance = {
   background: "#313337",
   foreground: "#bfbdb6",
   accent: "#ffb353",
+  glassMode: "off",
 };
 
 function isHexColor(value: unknown): value is string {
@@ -61,7 +68,12 @@ export function resolveBootAppearance(
   extensionState: ExtensionState,
 ): BootAppearance {
   const theme = enabledThemes(extensionState).get(settings.editor.themeId);
-  if (!theme) return DEFAULT_BOOT_APPEARANCE;
+  if (!theme) {
+    return {
+      ...DEFAULT_BOOT_APPEARANCE,
+      glassMode: settings.editor.appGlassMode,
+    };
+  }
 
   const appearance = theme.appearance === "light" ? "light" : "dark";
   const fallbackBackground = appearance === "light" ? "#ffffff" : "#0e1018";
@@ -86,6 +98,7 @@ export function resolveBootAppearance(
       ["syntax.function", "syntax.property", "syntax.type"],
       fallbackAccent,
     ),
+    glassMode: settings.editor.appGlassMode,
   };
 }
 
@@ -114,6 +127,7 @@ export function readBootAppearance(): BootAppearance {
       background: opaqueHex(raw.background, DEFAULT_BOOT_APPEARANCE.background),
       foreground: opaqueHex(raw.foreground, DEFAULT_BOOT_APPEARANCE.foreground),
       accent: opaqueHex(raw.accent, DEFAULT_BOOT_APPEARANCE.accent),
+      glassMode: isAppGlassMode(raw.glassMode) ? raw.glassMode : "off",
     };
   } catch {
     return DEFAULT_BOOT_APPEARANCE;

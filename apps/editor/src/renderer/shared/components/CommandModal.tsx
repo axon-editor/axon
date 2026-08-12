@@ -116,9 +116,7 @@ export default function CommandModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center px-4 py-6 ${
-        animate ? "axon-modal-overlay" : ""
-      } ${overlayClassName} ${
+      className={`axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center px-4 py-6 ${overlayClassName} ${
         closing && animate ? "axon-modal-overlay--leaving" : ""
       }`}
     >

@@ -3,6 +3,11 @@ import path from "path";
 import { type AxonCommand } from "../../shared/commands";
 import { readBootAppearance } from "../settings/bootAppearance";
 import { buildApplicationMenu } from "./menu";
+import {
+  applyWindowGlass,
+  getWindowGlassBackground,
+  getWindowGlassConstructorOptions,
+} from "./windowGlass";
 
 interface WindowDependencies {
   axonDevServerUrl: string;
@@ -54,7 +59,10 @@ function routeExternalNavigation(window: BrowserWindow) {
   });
 }
 
-export function createWindow(deps: WindowDependencies, options: CreateWindowOptions = {}) {
+export function createWindow(
+  deps: WindowDependencies,
+  options: CreateWindowOptions = {},
+) {
   const axonIconPath = deps.getAxonIconPath();
   const bootAppearance = readBootAppearance();
   const restoreSession = options.restoreSession !== false;
@@ -94,20 +102,16 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
                 height: 36,
               }
             : undefined,
-          // I keep the native window opaque by default because macOS Mission
-          // Control has to live-composite every visible window while it animates
-          // the desktop. A transparent Electron window with vibrancy forces
-          // WindowServer and the GPU process to blend Axon's full editor surface
-          // even when the renderer is mostly painting opaque panels. That is
-          // exactly the path that makes the three-finger "show all apps"
-          // gesture feel slow on some Macs.
-          //
-          // The renderer still owns Axon's theme colors, but the native surface
-          // should stay cheap unless we deliberately build a separate
-          // performance-gated transparency mode later.
+          ...getWindowGlassConstructorOptions(bootAppearance.glassMode),
+          // Axon keeps a normal opaque BrowserWindow even when glass is active.
+          // The OS material sits behind Chromium and the renderer reveals it
+          // through alpha-tinted surfaces, avoiding Electron's layered
+          // transparent-window mode and its resize and Mission Control costs.
           transparent: false,
-          backgroundMaterial: deps.isWindows ? "mica" : undefined,
-          backgroundColor: bootAppearance.background,
+          backgroundColor: getWindowGlassBackground(
+            bootAppearance.glassMode,
+            bootAppearance.background,
+          ),
           icon: axonIconPath,
           webPreferences: {
             preload: path.join(__dirname, "../../preload/index.js"),
@@ -117,6 +121,8 @@ export function createWindow(deps: WindowDependencies, options: CreateWindowOpti
             backgroundThrottling: true,
           },
         });
+
+  applyWindowGlass(window, bootAppearance.glassMode, bootAppearance.background);
 
   window.setTitle("Axon");
 

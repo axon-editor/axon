@@ -1,5 +1,6 @@
 import {
   AI_PROVIDER_IDS,
+  APP_GLASS_MODES,
   EDITOR_FONT_FAMILIES,
   EDITOR_CURSOR_BLINKING,
   EDITOR_CURSOR_STYLES,
@@ -9,6 +10,7 @@ import {
   TERMINAL_GPU_ACCELERATION_VALUES,
   UI_FONT_FAMILIES,
   type AiProviderId,
+  type AppGlassMode,
   type EditorSidebarSide,
   type EditorFontFamily,
   type EditorCursorBlinking,
@@ -176,6 +178,31 @@ export const EDITOR_BACKGROUND_IMAGE_FIT_ITEMS: SearchSelectItem<EditorBackgroun
   EDITOR_BACKGROUND_IMAGE_FITS.map((fit) => ({
     value: fit,
     label: EDITOR_BACKGROUND_IMAGE_FIT_LABELS[fit],
+  }));
+
+const APP_GLASS_MODE_PRESENTATION: Record<
+  AppGlassMode,
+  Pick<SearchSelectItem<AppGlassMode>, "label" | "description">
+> = {
+  off: {
+    label: "Off",
+    description: "Use the active theme as an opaque application surface.",
+  },
+  system: {
+    label: "System Glass",
+    description: "Use macOS vibrancy or the efficient Windows Mica material.",
+  },
+  live: {
+    label: "Live Glass",
+    description:
+      "Use live native blur, including Windows Acrylic where available.",
+  },
+};
+
+export const APP_GLASS_MODE_ITEMS: SearchSelectItem<AppGlassMode>[] =
+  APP_GLASS_MODES.map((mode) => ({
+    value: mode,
+    ...APP_GLASS_MODE_PRESENTATION[mode],
   }));
 
 const MULTI_CURSOR_MODIFIER_LABELS: Record<EditorMultiCursorModifier, string> = {

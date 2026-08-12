@@ -83,7 +83,11 @@ import type {
   SpotifyStatusResult,
   SpotifyTracksResult,
 } from "../../shared/spotify";
-import type { AxonSettings, CustomFont } from "../../shared/settings";
+import type {
+  AppGlassMode,
+  AxonSettings,
+  CustomFont,
+} from "../../shared/settings";
 import type {
   TaskFinishedEvent,
   TaskOutputEvent,
@@ -176,6 +180,10 @@ declare global {
         settings: AxonSettings,
         folderPath?: string | null,
       ) => Promise<AxonSettings>;
+      setWindowGlass: (
+        mode: AppGlassMode,
+        opaqueBackground: string,
+      ) => Promise<void>;
       ensureSettingsFile: (
         folderPath?: string | null,
         settings?: AxonSettings,

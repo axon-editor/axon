@@ -22,7 +22,7 @@ export default function EditorFindWidget({
   onMoveSelection,
 }: Props) {
   return (
-    <div className="absolute right-4 top-3 z-20 flex h-8 items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
+    <div className="axon-popup-surface absolute right-4 top-3 z-20 flex h-8 items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
       <Search
         size={13}
         className="text-[var(--axon-editor-foreground)] opacity-45"

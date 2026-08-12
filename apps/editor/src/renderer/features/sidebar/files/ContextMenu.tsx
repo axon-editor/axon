@@ -157,7 +157,6 @@ export default function ContextMenu({
         // inside the sidebar tree. Keeping every color on shared theme tokens
         // makes the menu follow Ayu, One, and downloaded themes without needing
         // a separate sidebar-specific palette for floating UI.
-        backdropFilter: "blur(12px)",
       }}
     >
       {mode === "menu" && (

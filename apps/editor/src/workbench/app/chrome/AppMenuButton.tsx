@@ -229,7 +229,7 @@ export default function AppMenuButton({
 
       {open ? (
         <div
-          className="absolute left-1 top-9 z-[80] w-[320px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-2 shadow-[0_20px_70px_rgba(0,0,0,0.42)]"
+          className="axon-popup-surface absolute left-1 top-9 z-[80] w-[320px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-2 shadow-[0_20px_70px_rgba(0,0,0,0.42)]"
           style={{ animation: "axonContextIn 120ms ease-out" }}
           onPointerDown={(event) => event.stopPropagation()}
         >

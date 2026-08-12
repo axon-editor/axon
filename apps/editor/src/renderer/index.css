@@ -142,7 +142,10 @@
 .monaco-editor .monaco-hover .monaco-hover-content,
 .monaco-editor .monaco-hover .hover-row.status-bar {
   border-color: var(--axon-panel-border) !important;
-  background: var(--axon-panel-background) !important;
+  background: var(
+    --axon-solid-popup-background,
+    var(--axon-panel-background)
+  ) !important;
   color: var(--axon-editor-foreground) !important;
 }
 

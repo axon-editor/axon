@@ -4,7 +4,11 @@
 // can push file change events to the renderer without polling.
 
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { type AxonSettings, type CustomFont } from "../shared/settings";
+import {
+  type AppGlassMode,
+  type AxonSettings,
+  type CustomFont,
+} from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import {
   type AgentResumeRequest,
@@ -231,6 +235,11 @@ contextBridge.exposeInMainWorld("axon", {
     ),
   updateSettings: (settings: AxonSettings, folderPath?: string | null) =>
     ipcRenderer.invoke("settings:update", settings, folderPath),
+  setWindowGlass: (
+    mode: AppGlassMode,
+    opaqueBackground: string,
+  ): Promise<void> =>
+    ipcRenderer.invoke("window:setGlass", mode, opaqueBackground),
   ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>

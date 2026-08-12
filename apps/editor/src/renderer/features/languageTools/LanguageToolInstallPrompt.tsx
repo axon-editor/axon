@@ -32,7 +32,7 @@ export default function LanguageToolInstallPrompt({ prompt }: Props) {
                 : null);
 
   return (
-    <div className="fixed bottom-7 right-4 z-[76] w-[min(400px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.38)]">
+    <div className="axon-popup-surface fixed bottom-7 right-4 z-[76] w-[min(400px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.38)]">
       <div className="flex items-start gap-3 px-4 py-3">
         <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]">
           <Braces size={15} />
