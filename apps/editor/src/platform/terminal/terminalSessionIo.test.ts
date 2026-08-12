@@ -280,4 +280,38 @@ describe("terminal output accounting", () => {
 
     terminal.dispose();
   });
+
+  it("preserves just-scrolled-out lines while actively following the tail", async () => {
+    const terminal = new Terminal({ cols: 100, rows: 20, scrollback: 10_000 });
+    const { session } = createSession();
+    session.term = terminal;
+    session.atBottom = true;
+
+    const createBurst = (start: number, count: number) =>
+      Array.from({ length: count }, (_value, index) => {
+        const line = String(start + index).padStart(5, "0");
+        return `\x1b[?2026h\x1b[32mAXON_LIVE_${line}\x1b[0m\r\n\x1b[?2026l`;
+      }).join("");
+
+    for (let burst = 0; burst < 40; burst += 1) {
+      writeTerminalOutput(session, createBurst(burst * 25, 25));
+      terminal.scrollToBottom();
+    }
+
+    await vi.waitFor(() =>
+      expect(hasPendingTerminalOutput(session)).toBe(false),
+    );
+    terminal.scrollToBottom();
+
+    const bufferedOutput = Array.from(
+      { length: terminal.buffer.active.length },
+      (_value, index) =>
+        terminal.buffer.active.getLine(index)?.translateToString(true) ?? "",
+    ).join("\n");
+    expect(bufferedOutput).toContain("AXON_LIVE_00000");
+    expect(bufferedOutput).toContain("AXON_LIVE_00960");
+    expect(bufferedOutput).toContain("AXON_LIVE_00999");
+
+    terminal.dispose();
+  });
 });

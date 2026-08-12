@@ -25,6 +25,7 @@ import {
   writeTerminalOutput,
 } from "@axon-editor/platform/terminal/terminalSessionIo";
 import { createTerminalRendererController } from "./terminalRenderer";
+import { shouldClearTerminal } from "./terminalShortcuts";
 
 export interface TerminalTab {
   id: string;
@@ -650,10 +651,7 @@ export function useTerminalSessionManager({
           return false;
         }
 
-        const key = event.key.toLowerCase();
-        const isClearShortcut =
-          key === "k" && (event.metaKey || event.ctrlKey) && !event.shiftKey;
-        if (!isClearShortcut) return true;
+        if (!shouldClearTerminal(event)) return true;
 
         term.clear();
         return false;
