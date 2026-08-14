@@ -3,23 +3,28 @@ import {
   Check,
   Clock3,
   FolderOpen,
+  PanelsTopLeft,
   Search,
   Trash2,
   X,
 } from "lucide-react";
 import Tooltip from "../../../../shared/components/Tooltip";
+import { type OpenWorkspaceFolder } from "../../../../../shared/app";
 import {
+  getWorkspacePathComparisonKey,
   getWorkspaceRootName,
   type WorkspaceRoot,
 } from "../../../../shared/lib/workspaceRoots";
 
 interface Props {
   activeRootId: string | null;
+  openWorkspaceFolders: OpenWorkspaceFolder[];
   recentFolders: string[];
   workspaceRoots: WorkspaceRoot[];
   onBrowse: () => void;
   onClearRecent: () => void;
   onClearSession: () => void;
+  onFocusWorkspaceWindow: (rendererId: number) => void;
   onRemoveRecent: (path: string) => void;
   onSelect: (path: string) => void;
   onSelectWorkspaceRoot: (path: string) => void;
@@ -37,23 +42,43 @@ function getParentPath(path: string) {
 
 export default function FolderPickerLocal({
   activeRootId,
+  openWorkspaceFolders,
   recentFolders,
   workspaceRoots,
   onBrowse,
   onClearRecent,
   onClearSession,
+  onFocusWorkspaceWindow,
   onRemoveRecent,
   onSelect,
   onSelectWorkspaceRoot,
 }: Props) {
   const [query, setQuery] = useState("");
-  const workspacePaths = useMemo(
-    () => new Set(workspaceRoots.map((root) => root.path)),
-    [workspaceRoots],
+  const activeRootPath = useMemo(
+    () => workspaceRoots.find((root) => root.id === activeRootId)?.path ?? null,
+    [activeRootId, workspaceRoots],
+  );
+  const activeRootPathKey = activeRootPath
+    ? getWorkspacePathComparisonKey(activeRootPath, window.axon.platform)
+    : null;
+  const openWorkspacePaths = useMemo(
+    () =>
+      new Set(
+        openWorkspaceFolders.map((folder) =>
+          getWorkspacePathComparisonKey(folder.path, window.axon.platform),
+        ),
+      ),
+    [openWorkspaceFolders],
   );
   const availableRecentFolders = useMemo(
-    () => recentFolders.filter((path) => !workspacePaths.has(path)),
-    [recentFolders, workspacePaths],
+    () =>
+      recentFolders.filter(
+        (path) =>
+          !openWorkspacePaths.has(
+            getWorkspacePathComparisonKey(path, window.axon.platform),
+          ),
+      ),
+    [openWorkspacePaths, recentFolders],
   );
   const normalizedQuery = query.trim().toLowerCase();
   const filteredRecentFolders = useMemo(() => {
@@ -74,7 +99,8 @@ export default function FolderPickerLocal({
             Choose a folder
           </div>
           <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-            {workspaceRoots.length} workspace | {availableRecentFolders.length} recent
+            {openWorkspaceFolders.length} open | {availableRecentFolders.length}{" "}
+            recent
           </div>
         </div>
         <button
@@ -95,22 +121,31 @@ export default function FolderPickerLocal({
               className="text-[var(--axon-editor-foreground)] opacity-40"
             />
             <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-55">
-              Workspace
+              Open workspaces
             </span>
             <span className="ml-auto text-[10px] tabular-nums text-[var(--axon-editor-foreground)] opacity-30">
-              {workspaceRoots.length}
+              {openWorkspaceFolders.length}
             </span>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {workspaceRoots.length > 0 ? (
-              workspaceRoots.map((root) => {
-                const active = root.id === activeRootId;
+            {openWorkspaceFolders.length > 0 ? (
+              openWorkspaceFolders.map((root) => {
+                const active =
+                  root.currentWindow &&
+                  getWorkspacePathComparisonKey(
+                    root.path,
+                    window.axon.platform,
+                  ) === activeRootPathKey;
                 return (
                   <button
-                    key={root.id}
+                    key={root.path}
                     type="button"
-                    onClick={() => onSelectWorkspaceRoot(root.path)}
+                    onClick={() =>
+                      root.currentWindow
+                        ? onSelectWorkspaceRoot(root.path)
+                        : onFocusWorkspaceWindow(root.rendererId)
+                    }
                     className={`group flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors ${
                       active
                         ? "bg-[var(--axon-panel-overlay-hover)]"
@@ -138,6 +173,13 @@ export default function FolderPickerLocal({
                         size={13}
                         className="shrink-0 text-[var(--axon-syntax-function)]"
                       />
+                    ) : !root.currentWindow ? (
+                      <Tooltip label="Focus open Axon window" side="left">
+                        <PanelsTopLeft
+                          size={13}
+                          className="shrink-0 text-[var(--axon-editor-foreground)] opacity-35"
+                        />
+                      </Tooltip>
                     ) : null}
                   </button>
                 );

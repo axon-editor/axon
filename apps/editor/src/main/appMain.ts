@@ -36,6 +36,7 @@ import { registerTestHandlers } from "./tests/handlers";
 import { TestManager } from "./tests/tests";
 import { HtmlPreviewServer } from "./htmlPreview/server";
 import { createWindow } from "./window/createWindow";
+import { OpenWorkspaceRegistry } from "./window/openWorkspaceRegistry";
 import { readSettingsFromDisk } from "./settings/io";
 import { getAxonIconPath } from "./fonts/fonts";
 import { registerSettingsHandlers } from "./settings/handlers";
@@ -134,6 +135,8 @@ const axonReleasePageUrl =
 let htmlPreviewServer: HtmlPreviewServer | null = null;
 const workspaceCapabilities = new WorkspaceCapabilityRegistry();
 registerWorkspaceCapabilityHandlers(workspaceCapabilities);
+const openWorkspaceRegistry = new OpenWorkspaceRegistry();
+openWorkspaceRegistry.registerHandlers();
 const { sendToRenderer, sendMenuCommand } = createMainProcessIpc({
   getMainWindow: () => mainWindow,
 });
@@ -528,6 +531,7 @@ function createManagedWindow(
     pendingCliOpenFolders.delete(createdWebContentsId);
     cliReadyRenderers.delete(createdWebContentsId);
     workspaceCapabilities.releaseRenderer(createdWebContentsId);
+    openWorkspaceRegistry.release(createdWebContentsId);
     if (mainWindow === createdWindow.window) {
       mainWindow =
         BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??

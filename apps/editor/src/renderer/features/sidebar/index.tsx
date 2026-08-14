@@ -32,80 +32,21 @@ import type { SpotifyActions, SpotifyState } from "@axon-builtin-spotify/lib/use
 import { clearWorkspaceSession } from "../../shared/lib/workspaceSession";
 import { type WorkspaceRoot } from "../../shared/lib/workspaceRoots";
 import { useTreeRefreshRequest } from "./files/lib/useTreeRefreshRequest";
+import { useOpenWorkspaceFolders } from "./files/folderPicker/useOpenWorkspaceFolders";
+import {
+  addRecentFolder,
+  clearRecentFolders,
+  removeRecentFolder,
+  useRecentFolders,
+} from "./files/folderPicker/recentFolders";
+export {
+  addRecentFolder,
+  clearRecentFolders,
+  getRecentFolders,
+  removeRecentFolder,
+} from "./files/folderPicker/recentFolders";
 
-const RECENT_KEY = "axon:recentFolders";
 const WORKSPACE_TRUST_KEY = "axon:workspaceTrust";
-const MAX_RECENT = 10;
-
-interface RecentFolderRecord {
-  path: string;
-  lastOpenedAt: number;
-}
-
-function parseRecentFolders(): RecentFolderRecord[] {
-  try {
-    const rawValue = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
-    if (!Array.isArray(rawValue)) return [];
-
-    return rawValue
-      .map((item, index): RecentFolderRecord | null => {
-        if (typeof item === "string") {
-          return {
-            path: item,
-            lastOpenedAt: Date.now() - index,
-          };
-        }
-
-        if (
-          typeof item === "object" &&
-          item !== null &&
-          typeof item.path === "string"
-        ) {
-          return {
-            path: item.path,
-            lastOpenedAt:
-              typeof item.lastOpenedAt === "number"
-                ? item.lastOpenedAt
-                : Date.now() - index,
-          };
-        }
-
-        return null;
-      })
-      .filter((item): item is RecentFolderRecord => item !== null);
-  } catch {
-    return [];
-  }
-}
-
-function writeRecentFolders(records: RecentFolderRecord[]) {
-  localStorage.setItem(RECENT_KEY, JSON.stringify(records));
-}
-
-export function addRecentFolder(path: string) {
-  const records = parseRecentFolders().filter((record) => record.path !== path);
-  writeRecentFolders(
-    [{ path, lastOpenedAt: Date.now() }, ...records]
-      .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
-      .slice(0, MAX_RECENT),
-  );
-}
-
-export function getRecentFolders(): string[] {
-  const records = parseRecentFolders().sort(
-    (a, b) => b.lastOpenedAt - a.lastOpenedAt,
-  );
-  writeRecentFolders(records.slice(0, MAX_RECENT));
-  return records.map((record) => record.path);
-}
-
-export function removeRecentFolder(path: string) {
-  writeRecentFolders(parseRecentFolders().filter((record) => record.path !== path));
-}
-
-export function clearRecentFolders() {
-  localStorage.removeItem(RECENT_KEY);
-}
 
 function readWorkspaceTrust(): Record<string, boolean> {
   try {
@@ -469,7 +410,6 @@ export default function Sidebar({
   const treeRefreshRequest = useTreeRefreshRequest(folderPath);
   const [revokeTrustConfirmOpen, setRevokeTrustConfirmOpen] = useState(false);
   const [trustNonce, setTrustNonce] = useState(0);
-  const [recentNonce, setRecentNonce] = useState(0);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
 
   useEffect(() => {
@@ -494,10 +434,8 @@ export default function Sidebar({
     () => isWorkspaceTrusted(folderPath),
     [folderPath, trustNonce],
   );
-  const recentFolders = useMemo(
-    () => getRecentFolders(),
-    [folderPickerOpen, recentNonce],
-  );
+  const recentFolders = useRecentFolders(folderPickerOpen);
+  const openWorkspaceFolders = useOpenWorkspaceFolders(workspaceRoots);
 
   const toggleWorkspaceTrust = () => {
     if (!folderPath) return;
@@ -924,9 +862,10 @@ export default function Sidebar({
       )}
 
       {folderPickerOpen && (
-          <FolderPicker
+        <FolderPicker
           recentFolders={recentFolders}
           workspaceRoots={workspaceRoots}
+          openWorkspaceFolders={openWorkspaceFolders}
           activeRootId={activeRootId}
           onSelect={handleSelectRecent}
           onSelectWorkspaceRoot={(path) => {
@@ -934,11 +873,9 @@ export default function Sidebar({
           }}
           onRemoveRecent={(path) => {
             removeRecentFolder(path);
-            setRecentNonce((nonce) => nonce + 1);
           }}
           onClearRecent={() => {
             clearRecentFolders();
-            setRecentNonce((nonce) => nonce + 1);
           }}
           onClearSession={() => {
             clearWorkspaceSession();

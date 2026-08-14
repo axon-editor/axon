@@ -3,12 +3,14 @@ import { FolderOpen, GitFork } from "lucide-react";
 import CommandModal from "../../../shared/components/CommandModal";
 import { type WorkspaceRoot } from "../../../shared/lib/workspaceRoots";
 import { type GitCloneProgress } from "../../../../shared/git";
+import { type OpenWorkspaceFolder } from "../../../../shared/app";
 import FolderPickerClone from "./folderPicker/FolderPickerClone";
 import FolderPickerLocal from "./folderPicker/FolderPickerLocal";
 
 interface Props {
   recentFolders: string[];
   workspaceRoots?: WorkspaceRoot[];
+  openWorkspaceFolders?: OpenWorkspaceFolder[];
   activeRootId?: string | null;
   onSelect: (path: string) => void;
   onSelectWorkspaceRoot?: (path: string) => void;
@@ -33,6 +35,7 @@ const modes: Array<{
 export default function FolderPicker({
   recentFolders,
   workspaceRoots = [],
+  openWorkspaceFolders = [],
   activeRootId = null,
   onSelect,
   onSelectWorkspaceRoot,
@@ -162,6 +165,7 @@ export default function FolderPicker({
         <div className={mode === "local" ? "flex min-h-0 flex-1" : "hidden"}>
           <FolderPickerLocal
             activeRootId={activeRootId}
+            openWorkspaceFolders={openWorkspaceFolders}
             recentFolders={recentFolders}
             workspaceRoots={workspaceRoots}
             onBrowse={() => runAfterClose(onOpenNew)}
@@ -171,6 +175,11 @@ export default function FolderPicker({
             onSelect={(path) => runAfterClose(() => onSelect(path))}
             onSelectWorkspaceRoot={(path) =>
               runAfterClose(() => onSelectWorkspaceRoot?.(path))
+            }
+            onFocusWorkspaceWindow={(rendererId) =>
+              runAfterClose(() => {
+                void window.axon.focusOpenWorkspaceWindow(rendererId);
+              })
             }
           />
         </div>

@@ -16,6 +16,7 @@ import {
   type CliToolStatus,
   type CoreRequest,
   type CoreResponse,
+  type OpenWorkspaceFolder,
 } from "../shared/app";
 import {
   type AiChatRequest,
@@ -190,6 +191,26 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("app:getCliToolStatus"),
   installCliTool: (): Promise<CliToolInstallResult> =>
     ipcRenderer.invoke("app:installCliTool"),
+  updateOpenWorkspaceFolders: (
+    folderPaths: string[],
+  ): Promise<OpenWorkspaceFolder[]> =>
+    ipcRenderer.invoke("app:updateOpenWorkspaceFolders", folderPaths),
+  listOpenWorkspaceFolders: (): Promise<OpenWorkspaceFolder[]> =>
+    ipcRenderer.invoke("app:listOpenWorkspaceFolders"),
+  focusOpenWorkspaceWindow: (rendererId: number): Promise<boolean> =>
+    ipcRenderer.invoke("app:focusOpenWorkspaceWindow", rendererId),
+  onOpenWorkspaceFoldersChanged: (
+    callback: (folders: OpenWorkspaceFolder[]) => void,
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      folders: OpenWorkspaceFolder[],
+    ) => callback(folders);
+
+    ipcRenderer.on("app:openWorkspaceFoldersChanged", listener);
+    return () =>
+      ipcRenderer.removeListener("app:openWorkspaceFoldersChanged", listener);
+  },
   getAgentResumeRequest: (): Promise<AgentResumeRequest | null> =>
     ipcRenderer.invoke("app:getAgentResumeRequest"),
   saveAgentResumeRequest: (request: AgentResumeRequest): Promise<boolean> =>

@@ -20,6 +20,13 @@ export interface AgentResumeRequest {
   conversationId: string | null;
 }
 
+export interface OpenWorkspaceFolder {
+  path: string;
+  name: string;
+  rendererId: number;
+  currentWindow: boolean;
+}
+
 export interface CoreRequest {
   id: string;
   path: string;

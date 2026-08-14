@@ -9,6 +9,14 @@ export function getWorkspaceRootName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? "workspace";
 }
 
+export function getWorkspacePathComparisonKey(
+  workspacePath: string,
+  platform: string,
+) {
+  const normalized = workspacePath.replace(/\\/g, "/").replace(/\/+$/, "");
+  return platform === "linux" ? normalized : normalized.toLowerCase();
+}
+
 export function createWorkspaceRoot(
   path: string,
   trusted: boolean | null = null,

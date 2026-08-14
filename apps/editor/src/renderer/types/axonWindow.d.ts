@@ -5,6 +5,7 @@ import type {
   CliToolStatus,
   CoreRequest,
   CoreResponse,
+  OpenWorkspaceFolder,
 } from "../../shared/app";
 import type { EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
 import type { FolderChangeEvent } from "../../shared/fs";
@@ -127,7 +128,9 @@ declare global {
       platform: string;
       coreRequest: (request: CoreRequest) => Promise<CoreResponse>;
       cancelCoreRequest: (requestId: string) => Promise<boolean>;
-      createTerminalTicket: (workingDirectory: string | null) => Promise<string>;
+      createTerminalTicket: (
+        workingDirectory: string | null,
+      ) => Promise<string>;
       openFolder: () => Promise<string | null>;
       authorizeWorkspaceRoot: (rootPath: string) => Promise<string>;
       authorizeDroppedFiles: (
@@ -158,6 +161,14 @@ declare global {
       ) => Promise<string | null>;
       getCliToolStatus: () => Promise<CliToolStatus>;
       installCliTool: () => Promise<CliToolInstallResult>;
+      updateOpenWorkspaceFolders: (
+        folderPaths: string[],
+      ) => Promise<OpenWorkspaceFolder[]>;
+      listOpenWorkspaceFolders: () => Promise<OpenWorkspaceFolder[]>;
+      focusOpenWorkspaceWindow: (rendererId: number) => Promise<boolean>;
+      onOpenWorkspaceFoldersChanged: (
+        callback: (folders: OpenWorkspaceFolder[]) => void,
+      ) => () => void;
       getAgentResumeRequest: () => Promise<AgentResumeRequest | null>;
       saveAgentResumeRequest: (request: AgentResumeRequest) => Promise<boolean>;
       onAgentResumeRequest: (
