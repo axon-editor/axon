@@ -2,6 +2,8 @@
 
 ## Next
 
+- Removed active-theme tinting from native Glass editor, sidebar, panel,
+  terminal, and window chrome surfaces while retaining readable overlays.
 - Added Blank Ghibli, Sequoia, Snowfall, Uniform Midnight, and Vitesse Refined
   theme packs, and refreshed Axon Parchment with the Gruvbox Light Soft palette.
 - Improved Zed-theme imports with inherited surface colors, shorthand hex

@@ -9,28 +9,7 @@ import {
 } from "../../../renderer/shared/lib/themeTokens";
 import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { getEnabledExtensionThemes } from "../../../shared/extensions";
-import { appearanceBorderColor } from "../../../renderer/shared/themes/themeAppearance";
-
-function colorWithAlpha(color: string, alpha: number) {
-  const normalizedColor = color.trim();
-  const match = normalizedColor.match(
-    /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i,
-  );
-  if (!match) return color;
-
-  const [, red, green, blue, existingAlpha] = match;
-  const baseAlpha = existingAlpha
-    ? Number.parseInt(existingAlpha, 16) / 255
-    : 1;
-  const finalAlpha = Math.max(0, Math.min(1, alpha * baseAlpha));
-  return `rgba(${Number.parseInt(red, 16)}, ${Number.parseInt(green, 16)}, ${Number.parseInt(blue, 16)}, ${finalAlpha})`;
-}
-
-function opaqueColor(color: string) {
-  const normalizedColor = color.trim();
-  const match = normalizedColor.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
-  return match ? `#${match[1]}` : color;
-}
+import { createGlassThemeCssVariables } from "./glassTheme";
 
 interface AppDerivedStateOptions {
   extensionState: any;
@@ -90,91 +69,13 @@ export function useAppDerivedState({
   const appThemeCssVariables = useMemo(() => {
     if (settings.editor.appGlassMode === "off") return themeCssVariables;
 
-    const opacity = settings.editor.appBackgroundOpacity;
-    const lightGlass = themeAppearance === "light";
-    const modalOpacity = lightGlass
-      ? Math.max(0.9, Math.min(0.96, opacity + 0.12))
-      : Math.max(0.78, Math.min(0.9, opacity + 0.04));
-    const popupOpacity = lightGlass
-      ? Math.max(0.94, Math.min(0.98, opacity + 0.14))
-      : Math.max(0.86, Math.min(0.96, opacity + 0.08));
-
-    // Native vibrancy or material owns the expensive full-window blur. These
-    // alpha colors tint that shared backdrop for continuously visible editor
-    // surfaces. Only temporary modal and popup surfaces add a local CSS frost;
-    // light themes reduce backdrop saturation so desktop colors cannot muddy
-    // warm parchment-like backgrounds or weaken dark text contrast.
-    return {
-      ...themeCssVariables,
-      "--axon-glass-surface-blur": `${settings.editor.appBackgroundBlur * 2}px`,
-      "--axon-glass-surface-saturation": lightGlass ? "72%" : "108%",
-      "--axon-modal-glass-background": colorWithAlpha(
-        themeTokens["editor.background"],
-        modalOpacity,
-      ),
-      "--axon-popup-background": colorWithAlpha(
-        themeTokens["panel.background"],
-        popupOpacity,
-      ),
-      "--axon-solid-popup-background": opaqueColor(
-        themeTokens["panel.background"],
-      ),
-      "--axon-background": colorWithAlpha(themeTokens.background, opacity),
-      "--axon-title-bar-background": colorWithAlpha(
-        themeTokens["title_bar.background"],
-        opacity,
-      ),
-      "--axon-toolbar-background": colorWithAlpha(
-        themeTokens["toolbar.background"],
-        opacity,
-      ),
-      "--axon-sidebar-background": colorWithAlpha(
-        themeTokens["sidebar.background"],
-        opacity,
-      ),
-      "--axon-sidebar-hover-background": colorWithAlpha(
-        themeTokens["sidebar.hover_background"],
-        Math.min(1, opacity + 0.2),
-      ),
-      "--axon-sidebar-border": appearanceBorderColor(
-        themeTokens["sidebar.border"],
-        themeAppearance,
-        Math.min(1, opacity + 0.25),
-      ),
-      "--axon-tab-active-background": colorWithAlpha(
-        themeTokens["tab.active_background"],
-        opacity,
-      ),
-      "--axon-panel-background": colorWithAlpha(
-        themeTokens["panel.background"],
-        opacity,
-      ),
-      "--axon-panel-border": appearanceBorderColor(
-        themeTokens["panel.border"],
-        themeAppearance,
-        Math.min(1, opacity + 0.25),
-      ),
-      "--axon-panel-overlay-hover": colorWithAlpha(
-        themeTokens["panel.overlay_hover"],
-        Math.min(1, opacity + 0.2),
-      ),
-      "--axon-status-bar-background": colorWithAlpha(
-        themeTokens["status_bar.background"],
-        opacity,
-      ),
-      "--axon-editor-background": colorWithAlpha(
-        themeTokens["editor.background"],
-        opacity,
-      ),
-      "--axon-editor-gutter-background": colorWithAlpha(
-        themeTokens["editor.gutter.background"],
-        opacity,
-      ),
-      "--axon-terminal-background": colorWithAlpha(
-        themeTokens["terminal.background"],
-        opacity,
-      ),
-    } as typeof themeCssVariables;
+    return createGlassThemeCssVariables(
+      themeCssVariables,
+      themeTokens,
+      themeAppearance,
+      settings.editor.appBackgroundOpacity,
+      settings.editor.appBackgroundBlur,
+    );
   }, [
     settings.editor.appBackgroundBlur,
     settings.editor.appBackgroundOpacity,
@@ -189,7 +90,11 @@ export function useAppDerivedState({
     document.documentElement.classList.toggle("axon-native-glass", glassActive);
 
     void window.axon
-      .setWindowGlass(settings.editor.appGlassMode, themeTokens.background)
+      .setWindowGlass(
+        settings.editor.appGlassMode,
+        themeTokens.background,
+        themeAppearance,
+      )
       .catch((error) => {
         console.warn("failed to synchronize native window glass:", error);
       });
@@ -197,7 +102,11 @@ export function useAppDerivedState({
     return () => {
       document.documentElement.classList.remove("axon-native-glass");
     };
-  }, [settings.editor.appGlassMode, themeTokens.background]);
+  }, [
+    settings.editor.appGlassMode,
+    themeAppearance,
+    themeTokens.background,
+  ]);
 
   useEffect(() => {
     const roots = [document.documentElement, document.body].filter(Boolean);

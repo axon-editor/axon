@@ -259,8 +259,14 @@ contextBridge.exposeInMainWorld("axon", {
   setWindowGlass: (
     mode: AppGlassMode,
     opaqueBackground: string,
+    appearance: "light" | "dark",
   ): Promise<void> =>
-    ipcRenderer.invoke("window:setGlass", mode, opaqueBackground),
+    ipcRenderer.invoke(
+      "window:setGlass",
+      mode,
+      opaqueBackground,
+      appearance,
+    ),
   ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>

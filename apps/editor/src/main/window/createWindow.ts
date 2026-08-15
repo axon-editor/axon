@@ -7,6 +7,7 @@ import {
   applyWindowGlass,
   getWindowGlassBackground,
   getWindowGlassConstructorOptions,
+  synchronizeNativeGlassAppearance,
 } from "./windowGlass";
 
 interface WindowDependencies {
@@ -65,6 +66,10 @@ export function createWindow(
 ) {
   const axonIconPath = deps.getAxonIconPath();
   const bootAppearance = readBootAppearance();
+  synchronizeNativeGlassAppearance(
+    bootAppearance.glassMode,
+    bootAppearance.appearance,
+  );
   const restoreSession = options.restoreSession !== false;
 
   app.setAboutPanelOptions({
@@ -122,7 +127,12 @@ export function createWindow(
           },
         });
 
-  applyWindowGlass(window, bootAppearance.glassMode, bootAppearance.background);
+  applyWindowGlass(
+    window,
+    bootAppearance.glassMode,
+    bootAppearance.background,
+    bootAppearance.appearance,
+  );
 
   window.setTitle("Axon");
 

@@ -1,10 +1,12 @@
 import {
   type BrowserWindow,
   type BrowserWindowConstructorOptions,
+  nativeTheme,
 } from "electron";
 import { isAppGlassMode, type AppGlassMode } from "../../shared/settings";
 
 const TRANSPARENT_WINDOW_BACKGROUND = "#00000000";
+type NativeGlassAppearance = "light" | "dark";
 
 function supportsNativeGlass() {
   return process.platform === "darwin" || process.platform === "win32";
@@ -14,6 +16,26 @@ function safeOpaqueBackground(background: string) {
   return /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(background)
     ? background.slice(0, 7)
     : "#0e1018";
+}
+
+function isNativeGlassAppearance(
+  appearance: unknown,
+): appearance is NativeGlassAppearance {
+  return appearance === "light" || appearance === "dark";
+}
+
+export function synchronizeNativeGlassAppearance(
+  mode: AppGlassMode,
+  appearance: unknown,
+) {
+  // Native vibrancy follows Electron's nativeTheme rather than the colors in
+  // the renderer. Matching it to Axon's selected theme keeps dark text legible
+  // on light Glass and light text legible on dark Glass without placing any
+  // CSS color between the editor and the operating system's blurred material.
+  nativeTheme.themeSource =
+    mode !== "off" && isNativeGlassAppearance(appearance)
+      ? appearance
+      : "system";
 }
 
 export function getWindowGlassConstructorOptions(
@@ -53,11 +75,13 @@ export function applyWindowGlass(
   window: BrowserWindow | null,
   requestedMode: unknown,
   opaqueBackground: string,
+  appearance?: unknown,
 ) {
   if (!window || window.isDestroyed()) return;
 
   const mode = isAppGlassMode(requestedMode) ? requestedMode : "off";
   const background = getWindowGlassBackground(mode, opaqueBackground);
+  synchronizeNativeGlassAppearance(mode, appearance);
 
   try {
     if (process.platform === "darwin") {

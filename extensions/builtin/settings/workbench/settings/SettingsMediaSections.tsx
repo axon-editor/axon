@@ -47,8 +47,8 @@ export function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
-        label="Glass tint"
-        description="Controls how strongly the active theme colors tint the native material. Text, icons, and syntax colors remain opaque."
+        label="Overlay opacity"
+        description="Controls the readable backing behind modals and popups. The editor, sidebars, and persistent chrome remain untinted native glass."
       >
         <SettingsNumberSlider
           min={0.2}

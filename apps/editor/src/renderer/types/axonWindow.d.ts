@@ -194,6 +194,7 @@ declare global {
       setWindowGlass: (
         mode: AppGlassMode,
         opaqueBackground: string,
+        appearance: "light" | "dark",
       ) => Promise<void>;
       ensureSettingsFile: (
         folderPath?: string | null,

@@ -91,11 +91,17 @@ interface SettingsHandlersDependencies {
 export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
   ipcMain.handle(
     "window:setGlass",
-    (event, mode: unknown, opaqueBackground: string) => {
+    (
+      event,
+      mode: unknown,
+      opaqueBackground: string,
+      appearance: unknown,
+    ) => {
       applyWindowGlass(
         BrowserWindow.fromWebContents(event.sender),
         mode,
         opaqueBackground,
+        appearance,
       );
     },
   );

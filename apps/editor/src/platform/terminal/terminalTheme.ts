@@ -1,7 +1,7 @@
 import { type ITheme } from "@xterm/xterm";
 import type { BuiltInThemeId, EditorSettings } from "../../shared/settings";
 import { editorFontStack } from "../../renderer/shared/lib/fonts";
-import { type ResolvedThemeTokens } from "../../renderer/shared/lib/themeTokens";
+import type { ResolvedThemeTokens } from "../../renderer/shared/lib/themeTokens";
 
 const terminalThemes: Record<BuiltInThemeId, ITheme> = {
   "axon-dark": {
@@ -364,7 +364,14 @@ export function getTerminalOptions(
   return {
     theme: {
       ...theme,
-      background: themeTokens["terminal.background"],
+      // xterm paints its own canvas background instead of inheriting the
+      // terminal wrapper's CSS variable. Clearing that canvas while Glass is
+      // active is what lets the native material remain visible through the
+      // terminal instead of leaving one opaque theme-colored rectangle.
+      background:
+        editorSettings.appGlassMode === "off"
+          ? themeTokens["terminal.background"]
+          : "#00000000",
       foreground: themeTokens["terminal.foreground"],
     },
     fontFamily: editorFontStack(editorSettings.fontFamily),

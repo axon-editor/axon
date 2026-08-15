@@ -8,6 +8,7 @@ import {
 import {
   getWindowGlassBackground,
   getWindowGlassConstructorOptions,
+  synchronizeNativeGlassAppearance,
 } from "./window/windowGlass";
 
 let bootSplashWindow: BrowserWindow | null = null;
@@ -200,6 +201,10 @@ function bootSplashHtml(imageUrl: string, appearance: BootAppearance) {
 
 async function createBootSplashWindow() {
   const appearance = readBootAppearance();
+  synchronizeNativeGlassAppearance(
+    appearance.glassMode,
+    appearance.appearance,
+  );
   // This is the real editor window during its boot phase, not a second splash
   // window. The important detail is that the window is not shown until the
   // tiny splash document has loaded. If the BrowserWindow is shown first,
