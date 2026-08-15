@@ -181,7 +181,10 @@ func createSession(id string, cwd string, workspaceRoot string) (*terminalSessio
 		createdAt:     time.Now(),
 		lastOutputAt:  time.Now(),
 	}
+	return session, nil
+}
 
+func (session *terminalSession) startOutputReader() {
 	// The PTY reader belongs to the session instead of a single websocket
 	// because the UI can disappear independently of the shell. This lets Axon
 	// behave like mature editors: a renderer reload, sleep/wake, or temporary
@@ -190,7 +193,7 @@ func createSession(id string, cwd string, workspaceRoot string) (*terminalSessio
 	go func() {
 		buf := make([]byte, 32*1024)
 		for {
-			n, err := ptmx.Read(buf)
+			n, err := session.ptmx.Read(buf)
 			if n > 0 {
 				// Readers may legally return bytes and EOF together. Broadcasting the
 				// bytes first preserves the final command or agent output instead of
@@ -206,12 +209,6 @@ func createSession(id string, cwd string, workspaceRoot string) (*terminalSessio
 			}
 		}
 	}()
-
-	terminalSessions.Lock()
-	terminalSessions.items[id] = session
-	terminalSessions.Unlock()
-
-	return session, nil
 }
 
 func createTerminalSessionID() string {
@@ -227,9 +224,23 @@ func getOrCreateSession(id string, cwd string, workspaceRoot string) (*terminalS
 		}
 		return session, nil
 	}
-	terminalSessions.Unlock()
 
-	return createSession(id, cwd, workspaceRoot)
+	// Session lookup and registration are one operation. Two renderer windows can
+	// connect or reconnect at nearly the same instant; unlocking between lookup
+	// and creation allowed both requests to start a shell for the same ID, after
+	// which the second map write orphaned the first process. Holding the registry
+	// lock through PTY creation makes one shell the unambiguous owner. The reader
+	// starts only after registration so an immediately exiting shell can also
+	// remove itself from the registry correctly.
+	session, err := createSession(id, cwd, workspaceRoot)
+	if err != nil {
+		terminalSessions.Unlock()
+		return nil, err
+	}
+	terminalSessions.items[session.id] = session
+	terminalSessions.Unlock()
+	session.startOutputReader()
+	return session, nil
 }
 
 func (session *terminalSession) addClient(ws *websocket.Conn, replayFrom int64) *terminalClient {
@@ -372,10 +383,7 @@ func (client *terminalClient) releasePendingBytes(byteCount int) {
 		return
 	}
 	client.mu.Lock()
-	client.pendingBytes -= int64(byteCount)
-	if client.pendingBytes < 0 {
-		client.pendingBytes = 0
-	}
+	client.pendingBytes = max(0, client.pendingBytes-int64(byteCount))
 	client.mu.Unlock()
 }
 
@@ -457,10 +465,7 @@ func (client *terminalClient) healthStats(totalBytes int64) (ackLagBytes int64, 
 	client.mu.Lock()
 	defer client.mu.Unlock()
 
-	ackLagBytes = totalBytes - client.acknowledgedOffset
-	if ackLagBytes < 0 {
-		ackLagBytes = 0
-	}
+	ackLagBytes = max(0, totalBytes-client.acknowledgedOffset)
 	return ackLagBytes, client.pendingBytes
 }
 
@@ -908,7 +913,7 @@ func terminalEnvironment() []string {
 
 	seen := map[string]bool{}
 	parts := []string{}
-	for _, entry := range strings.Split(pathValue, string(os.PathListSeparator)) {
+	for entry := range strings.SplitSeq(pathValue, string(os.PathListSeparator)) {
 		if entry == "" || seen[entry] {
 			continue
 		}

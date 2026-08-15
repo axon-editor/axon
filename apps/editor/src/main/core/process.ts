@@ -16,6 +16,7 @@ export interface BundledServiceControllerDependencies {
   controlSocketPath?: string | null;
   controlEnvironmentVariable?: string;
   terminalHealthPath?: string;
+  preserveProcessOnHealthTimeout?: boolean;
   confirmRestart: (request: CoreRestartConfirmation) => Promise<boolean>;
   isShuttingDown: () => boolean;
   onStatusChange?: (status: CoreProcessStatus) => void;
@@ -46,7 +47,9 @@ export function createBundledServiceController(
   let bundledCoreHealthFailures = 0;
   let bundledCoreRestarting = false;
   let recoveryPromptActive = false;
+  let watchdogProbeActive = false;
   let restartDeclinedUntil = 0;
+  let lastReportedStatus: CoreProcessStatus | null = null;
   const expectedCoreExits = new WeakSet<ChildProcess>();
 
   function requestOptions(
@@ -78,6 +81,8 @@ export function createBundledServiceController(
   }
 
   function reportStatus(status: CoreProcessStatus) {
+    if (lastReportedStatus === status) return;
+    lastReportedStatus = status;
     deps.onStatusChange?.(status);
   }
 
@@ -352,30 +357,49 @@ export function createBundledServiceController(
     if (deps.isDev || bundledCoreWatchdog) return;
 
     bundledCoreWatchdog = setInterval(() => {
-      if (bundledCoreRestarting) return;
+      if (bundledCoreRestarting || watchdogProbeActive) return;
 
-      void waitForAxonCore(1200).then(async (healthy) => {
-        if (healthy) {
+      watchdogProbeActive = true;
+      void waitForAxonCore(1200)
+        .then(async (healthy) => {
+          if (healthy) {
+            bundledCoreHealthFailures = 0;
+            reportStatus("healthy");
+            return;
+          }
+
+          bundledCoreHealthFailures += 1;
+          if (bundledCoreHealthFailures < 3) return;
           bundledCoreHealthFailures = 0;
-          return;
-        }
+          reportStatus("unresponsive");
 
-        bundledCoreHealthFailures += 1;
-        if (bundledCoreHealthFailures < 3) return;
-        bundledCoreHealthFailures = 0;
-        reportStatus("unresponsive");
+          if (deps.preserveProcessOnHealthTimeout) {
+            // A terminal host can miss a short control-plane probe while several
+            // PTYs are simultaneously producing output. Its child-process exit
+            // event is the authoritative crash signal; restarting a process that
+            // is still alive would terminate every shell in every Axon window.
+            // I therefore keep probing and let the existing WebSockets recover
+            // naturally. A real host exit still follows the explicit crash path
+            // above, where the sessions have already ended and restart is safe.
+            console.warn(
+              `${deps.displayName} missed repeated health probes; preserving the running process and terminal sessions`,
+            );
+            return;
+          }
 
-        // A service supervisor must never guess whether restarting is harmless.
-        // The PTY host can report its exact live-session blast radius, while Core
-        // still owns in-flight filesystem and AI work. Both therefore use the
-        // same explicit recovery decision instead of a timeout-triggered kill.
-        await requestCoreRestart({
-          service: deps.service,
-          displayName: deps.displayName,
-          reason: "unresponsive",
-          terminalSessionCount: await getTerminalSessionCount(),
+          // A service supervisor must never guess whether restarting is harmless.
+          // Core owns in-flight filesystem and AI work, so it uses an explicit
+          // recovery decision instead of a timeout-triggered kill.
+          await requestCoreRestart({
+            service: deps.service,
+            displayName: deps.displayName,
+            reason: "unresponsive",
+            terminalSessionCount: await getTerminalSessionCount(),
+          });
+        })
+        .finally(() => {
+          watchdogProbeActive = false;
         });
-      });
     }, 15000);
   }
 

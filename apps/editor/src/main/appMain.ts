@@ -337,6 +337,7 @@ const bundledPtyHost = createBundledServiceController({
   controlSocketPath: axonPtyControlPath,
   controlEnvironmentVariable: "AXON_PTY_CONTROL",
   terminalHealthPath: "/terminal/health",
+  preserveProcessOnHealthTimeout: true,
   isShuttingDown: () => isQuitting,
   onStatusChange: (status) => sendToRenderer("pty:status", { status }),
   confirmRestart: confirmServiceRestart,
