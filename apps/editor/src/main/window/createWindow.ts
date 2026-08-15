@@ -79,7 +79,10 @@ export function createWindow(
     iconPath: axonIconPath,
   });
 
-  if (deps.isMac && app.dock) {
+  if (deps.isMac && deps.isDev && app.dock) {
+    // Packaged macOS builds already expose the generated icon.icns through the
+    // app bundle. Replacing it after launch causes the Dock to visibly switch
+    // icons, so only development needs an explicit runtime override.
     app.dock.setIcon(axonIconPath);
   }
 

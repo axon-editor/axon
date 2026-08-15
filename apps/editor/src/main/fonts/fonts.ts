@@ -115,19 +115,18 @@ export function listAvailableLocalFonts(): CustomFont[] {
 
 export function getAxonIconPath(isDev: boolean) {
   if (isDev) {
-    // Vite now packages static renderer assets from apps/editor/public so the app
-    // icon, splash logo, and file-tree assets all come from the same source of
-    // truth. I still keep the old renderer-local path as a fallback because
-    // older working trees may have the image there while someone is moving
-    // between release branches.
-    const devIcon = path.join(app.getAppPath(), "public/axon.png");
+    // The square application artwork and the transparent in-app Axon mark have
+    // different jobs. The Dock needs the square icon so macOS does not replace
+    // the bundle artwork with the older renderer logo when a dev window opens.
+    const devIcon = path.join(app.getAppPath(), "build/axon.png");
     if (fs.existsSync(devIcon)) return devIcon;
-
-    const legacyDevIcon = path.join(
-      app.getAppPath(),
-      "src/renderer/public/axon.png",
-    );
-    if (fs.existsSync(legacyDevIcon)) return legacyDevIcon;
+  } else if (process.platform === "darwin") {
+    // electron-builder generates this native icon from build/axon.png. Using
+    // the packaged resource for About keeps it identical to the Finder and Dock
+    // artwork instead of resolving dist/renderer/axon.png, which is deliberately
+    // the transparent logo used inside the workbench.
+    const packagedIcon = path.join(process.resourcesPath, "icon.icns");
+    if (fs.existsSync(packagedIcon)) return packagedIcon;
   }
 
   const builtIcon = path.join(__dirname, "../../renderer/axon.png");
