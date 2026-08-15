@@ -18,6 +18,7 @@ export const BUILT_IN_THEME_IDS = [
 
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
 export type ThemeId = BuiltInThemeId | string;
+export const DEFAULT_THEME_ID: BuiltInThemeId = "axon-black";
 
 export const AI_PROVIDER_IDS = ["local"] as const;
 
@@ -257,7 +258,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     fontPreset: "axon-default",
     uiFontFamily: ".AxonSans",
     sidebarSide: "left",
-    themeId: "ayu-dark",
+    themeId: DEFAULT_THEME_ID,
     fontFamily: ".AxonMono",
     fontSize: 14,
     lineHeight: 22,

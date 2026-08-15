@@ -7,6 +7,7 @@ import {
   createThemeCssVariables,
   resolveThemeTokens,
 } from "../../../renderer/shared/lib/themeTokens";
+import { resolveActiveTheme } from "../../../renderer/shared/themes";
 import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { getEnabledExtensionThemes } from "../../../shared/extensions";
 import { createGlassThemeCssVariables } from "./glassTheme";
@@ -46,22 +47,16 @@ export function useAppDerivedState({
     () => getEnabledExtensionThemes(extensionState),
     [extensionState],
   );
+  const activeTheme = useMemo(
+    () => resolveActiveTheme(settings.editor.themeId, extensionThemes),
+    [extensionThemes, settings.editor.themeId],
+  );
   const themeTokens = useMemo(
     () => resolveThemeTokens(settings, extensionThemes),
     [extensionThemes, settings],
   );
-  const themeSyntax = useMemo(
-    () =>
-      extensionThemes.find((theme: any) => theme.id === settings.editor.themeId)
-        ?.syntax ?? {},
-    [extensionThemes, settings.editor.themeId],
-  );
-  const themeAppearance = useMemo(
-    () =>
-      extensionThemes.find((theme: any) => theme.id === settings.editor.themeId)
-        ?.appearance ?? "dark",
-    [extensionThemes, settings.editor.themeId],
-  );
+  const themeSyntax = activeTheme.syntax;
+  const themeAppearance = activeTheme.appearance;
   const themeCssVariables = useMemo(
     () => createThemeCssVariables(themeTokens, themeAppearance),
     [themeAppearance, themeTokens],
@@ -207,6 +202,7 @@ export function useAppDerivedState({
     activeFileContent,
     activeFileSymbols,
     activePane,
+    activeThemeId: activeTheme.id,
     appThemeCssVariables,
     deletedFiles,
     diagnosticCounts,

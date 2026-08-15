@@ -6,6 +6,11 @@ import type {
   ResolvedExtensionTheme,
 } from "../../shared/extensions";
 import {
+  getEnabledExtensionThemes,
+  resolveExtensionTheme,
+} from "../../shared/extensions";
+import {
+  DEFAULT_THEME_ID,
   isAppGlassMode,
   type AppGlassMode,
   type AxonSettings,
@@ -22,11 +27,11 @@ export interface BootAppearance {
 }
 
 export const DEFAULT_BOOT_APPEARANCE: BootAppearance = {
-  themeId: "ayu-dark",
+  themeId: DEFAULT_THEME_ID,
   appearance: "dark",
-  background: "#313337",
-  foreground: "#bfbdb6",
-  accent: "#ffb353",
+  background: "#000000",
+  foreground: "#e8e8e8",
+  accent: "#67d8ef",
   glassMode: "off",
 };
 
@@ -52,22 +57,14 @@ function firstColor(
   return fallback;
 }
 
-function enabledThemes(extensionState: ExtensionState) {
-  const themesById = new Map<string, ResolvedExtensionTheme>();
-  for (const extension of extensionState.extensions) {
-    if (!extension.enabled) continue;
-    for (const theme of extension.themes) {
-      themesById.set(theme.id, theme);
-    }
-  }
-  return themesById;
-}
-
 export function resolveBootAppearance(
   settings: AxonSettings,
   extensionState: ExtensionState,
 ): BootAppearance {
-  const theme = enabledThemes(extensionState).get(settings.editor.themeId);
+  const theme = resolveExtensionTheme(
+    getEnabledExtensionThemes(extensionState),
+    settings.editor.themeId,
+  );
   if (!theme) {
     return {
       ...DEFAULT_BOOT_APPEARANCE,
@@ -81,7 +78,7 @@ export function resolveBootAppearance(
   const fallbackAccent = appearance === "light" ? "#17686e" : "#80c8e0";
 
   return {
-    themeId: settings.editor.themeId,
+    themeId: theme.id,
     appearance,
     background: firstColor(
       theme,

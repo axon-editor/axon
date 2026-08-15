@@ -41,6 +41,7 @@ interface AxonAppEffectsOptions {
   activeLanguageServerStartRef: any;
   activePane: any;
   activeRootId: any;
+  activeThemeId: any;
   allowSessionPersistenceRef: any;
   appendOutput: any;
   availableFonts: any;
@@ -100,6 +101,7 @@ export function useAxonAppEffects({
   activeLanguageServerStartRef,
   activePane,
   activeRootId,
+  activeThemeId,
   allowSessionPersistenceRef,
   appendOutput,
   availableFonts,
@@ -231,11 +233,11 @@ export function useAxonAppEffects({
     // tokens on every settings change.
     registerAxonTheme(
       monaco,
-      settings.editor.themeId,
+      activeThemeId,
       themeTokens,
       extensionThemes,
     );
-  }, [extensionThemes, settings.editor.themeId, themeTokens]);
+  }, [activeThemeId, extensionThemes, themeTokens]);
 
   useEffect(() => {
     if (

@@ -179,6 +179,7 @@ export default function App({ initialExtensionState }: AppProps) {
   const platform = window.axon.platform;
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);
+  const themeFallbackRepairAttemptedRef = useRef(false);
   const allowSessionPersistenceRef = useRef(true);
   const folderRefreshTimerRef = useRef<number | null>(null);
   const folderRefreshRequestRef = useRef(0);
@@ -202,6 +203,7 @@ export default function App({ initialExtensionState }: AppProps) {
     activeFileContent,
     activeFileSymbols,
     activePane,
+    activeThemeId,
     appThemeCssVariables,
     deletedFiles,
     diagnosticCounts,
@@ -423,6 +425,40 @@ export default function App({ initialExtensionState }: AppProps) {
       appendOutput("settings", "Failed to save settings.", "error");
     }
   }, [appendOutput]);
+  useEffect(() => {
+    // Rendering with a fallback is enough to survive this launch, but leaving
+    // the unavailable ID on disk would make every future launch repeat the
+    // same recovery path. Once the registry has loaded at least one theme, I
+    // silently persist the effective ID so the boot shell, renderer, and
+    // settings picker all begin the next session from the same valid value.
+    if (
+      !settingsHydrated ||
+      extensionThemes.length === 0 ||
+      themeFallbackRepairAttemptedRef.current
+    ) {
+      return;
+    }
+    themeFallbackRepairAttemptedRef.current = true;
+
+    if (settings.editor.themeId === activeThemeId) return;
+
+    void handleSettingsSave(
+      {
+        ...settings,
+        editor: {
+          ...settings.editor,
+          themeId: activeThemeId,
+        },
+      },
+      { announce: false },
+    );
+  }, [
+    activeThemeId,
+    extensionThemes.length,
+    handleSettingsSave,
+    settings,
+    settingsHydrated,
+  ]);
   const handleSettingsPreview = useCallback((nextSettings: AxonSettings) => {
     // SettingsModal owns the editable draft, but App owns the live theme and
     // editor options. Previewing through this callback keeps the shell, Monaco,
@@ -729,6 +765,7 @@ export default function App({ initialExtensionState }: AppProps) {
     activeLanguageServerStartRef,
     activePane,
     activeRootId,
+    activeThemeId,
     allowSessionPersistenceRef,
     appendOutput,
     availableFonts,

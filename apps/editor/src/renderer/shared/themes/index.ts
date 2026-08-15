@@ -1,11 +1,15 @@
 import * as monaco from "monaco-editor";
 import {
+  DEFAULT_THEME_ID,
   THEME_COLOR_TOKENS,
   type AxonSettings,
   type ThemeColorToken,
   type ThemeId,
 } from "../../../shared/settings";
-import { type ResolvedExtensionTheme } from "../../../shared/extensions";
+import {
+  resolveExtensionTheme,
+  type ResolvedExtensionTheme,
+} from "../../../shared/extensions";
 import {
   createSemanticTokenColors,
   createSemanticTokenRules,
@@ -27,22 +31,35 @@ type MonacoInstance = typeof monaco;
 
 const registeredMonacos = new WeakSet<MonacoInstance>();
 
-function getExtensionTheme(
-  themeId: ThemeId,
-  extensionThemes: ResolvedExtensionTheme[] = [],
-) {
-  return extensionThemes.find((theme) => theme.id === themeId);
-}
+// Themes normally come entirely from the extension registry. This minimal
+// in-process copy exists so a registry startup failure cannot prevent React
+// from mounting and leave the user with an unrecoverable blank window. It is
+// deliberately limited to foundational colors; normal startup still resolves
+// the complete Axon Black contribution, including its syntax palette.
+const emergencyAxonBlackTheme: ResolvedExtensionTheme = {
+  id: DEFAULT_THEME_ID,
+  label: "Axon Black",
+  extensionId: "axon.emergency-theme",
+  extensionName: "Axon Emergency Theme",
+  appearance: "dark",
+  tokens: {
+    background: "#000000",
+    "editor.background": "#000000",
+    "editor.foreground": "#e8e8e8",
+    "panel.background": "#000000",
+    "panel.border": "#202020",
+  },
+  syntax: {},
+  terminal: {},
+  monaco: {},
+};
 
-function getRequiredTheme(
+export function resolveActiveTheme(
   themeId: ThemeId,
-  extensionThemes: ResolvedExtensionTheme[],
+  extensionThemes: readonly ResolvedExtensionTheme[] = [],
 ) {
-  const selectedTheme = getExtensionTheme(themeId, extensionThemes);
-  if (selectedTheme) return selectedTheme;
-
-  throw new Error(
-    `Theme registry is not ready. Missing selected extension theme "${themeId}".`,
+  return (
+    resolveExtensionTheme(extensionThemes, themeId) ?? emergencyAxonBlackTheme
   );
 }
 
@@ -50,7 +67,7 @@ export function getThemeLabel(
   themeId: ThemeId,
   extensionThemes: ResolvedExtensionTheme[] = [],
 ) {
-  return getExtensionTheme(themeId, extensionThemes)?.label ?? themeId;
+  return resolveActiveTheme(themeId, extensionThemes).label;
 }
 
 function firstThemeColor(
@@ -160,7 +177,7 @@ export function resolveThemeTokens(
   settings: AxonSettings,
   extensionThemes: ResolvedExtensionTheme[] = [],
 ): ThemeTokenMap {
-  const extensionTheme = getRequiredTheme(
+  const extensionTheme = resolveActiveTheme(
     settings.editor.themeId,
     extensionThemes,
   );

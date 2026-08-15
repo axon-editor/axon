@@ -1,4 +1,5 @@
 import {
+  DEFAULT_THEME_ID,
   type ThemeColorToken,
   type ThemeOverride,
 } from "./settings";
@@ -104,6 +105,24 @@ export function getEnabledExtensionThemes(
   }
 
   return [...themesById.values()];
+}
+
+export function resolveExtensionTheme(
+  themes: readonly ResolvedExtensionTheme[],
+  requestedThemeId: string,
+) {
+  // A theme ID is persisted longer than any individual extension version. The
+  // selected contribution can therefore disappear after an extension is
+  // removed, disabled, renamed, or when a newer development build has written
+  // settings that an older installed build cannot provide. Axon Black is the
+  // stable product fallback; the first loaded contribution is only a final
+  // recovery path for a damaged installation where that built-in is missing.
+  return (
+    themes.find((theme) => theme.id === requestedThemeId) ??
+    themes.find((theme) => theme.id === DEFAULT_THEME_ID) ??
+    themes[0] ??
+    null
+  );
 }
 
 export interface ExtensionActionResult
