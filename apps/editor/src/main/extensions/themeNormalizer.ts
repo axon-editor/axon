@@ -10,20 +10,86 @@ import {
   type ResolvedExtensionTheme,
 } from "../../shared/extensions";
 
-const zedToAxonTokenMap: Record<string, ThemeColorToken> = {
-  background: "background",
-  "status_bar.background": "status_bar.background",
-  "title_bar.background": "title_bar.background",
-  "toolbar.background": "toolbar.background",
-  "tab.active_background": "tab.active_background",
-  "panel.background": "panel.background",
-  "panel.border": "panel.border",
-  "panel.overlay_hover": "panel.overlay_hover",
-  "editor.foreground": "editor.foreground",
-  "editor.background": "editor.background",
-  "editor.gutter.background": "editor.gutter.background",
-  "terminal.background": "terminal.background",
-  "terminal.foreground": "terminal.foreground",
+const zedToAxonTokenMap: Partial<
+  Record<ThemeColorToken, readonly string[]>
+> = {
+  background: ["background", "editor.background"],
+  "status_bar.background": [
+    "status_bar.background",
+    "surface.background",
+    "background",
+  ],
+  "title_bar.background": [
+    "title_bar.background",
+    "surface.background",
+    "background",
+  ],
+  "toolbar.background": [
+    "toolbar.background",
+    "editor.background",
+    "surface.background",
+    "background",
+  ],
+  "sidebar.background": [
+    "surface.background",
+    "panel.background",
+    "background",
+  ],
+  "sidebar.hover_background": [
+    "element.hover",
+    "ghost_element.hover",
+    "surface.background",
+    "background",
+  ],
+  "sidebar.border": ["border", "border.variant"],
+  "tab.active_background": [
+    "tab.active_background",
+    "editor.background",
+    "surface.background",
+  ],
+  "panel.background": [
+    "panel.background",
+    "surface.background",
+    "background",
+  ],
+  "panel.border": ["border", "border.variant"],
+  "panel.overlay_hover": [
+    "element.hover",
+    "ghost_element.hover",
+    "surface.background",
+    "background",
+  ],
+  "editor.foreground": ["editor.foreground", "text"],
+  "editor.background": ["editor.background", "background"],
+  "editor.gutter.background": [
+    "editor.gutter.background",
+    "editor.background",
+    "background",
+  ],
+  "terminal.background": [
+    "terminal.background",
+    "editor.background",
+    "background",
+  ],
+  "terminal.foreground": [
+    "terminal.foreground",
+    "editor.foreground",
+    "text",
+  ],
+};
+
+const zedToMonacoColorMap: Record<string, string> = {
+  "border.focused": "focusBorder",
+  "editor.active_line.background": "editor.lineHighlightBackground",
+  "editor.active_line_number": "editorLineNumber.activeForeground",
+  "editor.indent_guide": "editorIndentGuide.background1",
+  "editor.indent_guide_active": "editorIndentGuide.activeBackground1",
+  "editor.invisible": "editorWhitespace.foreground",
+  "editor.line_number": "editorLineNumber.foreground",
+  "scrollbar.thumb.background": "scrollbarSlider.background",
+  "scrollbar.thumb.hover_background": "scrollbarSlider.hoverBackground",
+  "search.match_background": "editor.findMatchBackground",
+  selection: "editor.selectionBackground",
 };
 
 const zedSyntaxToAxonTokenMap: Record<string, ThemeColorToken> = {
@@ -50,8 +116,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isHexColor(value: unknown): value is string {
-  return typeof value === "string" && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value);
+function normalizeHexColor(value: unknown) {
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  const match = trimmed.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  if (!match) return null;
+
+  const hex = match[1];
+  if (hex.length === 3 || hex.length === 4) {
+    return `#${Array.from(hex, (channel) => `${channel}${channel}`).join("")}`;
+  }
+  return `#${hex}`;
 }
 
 function normalizeFontStyle(value: unknown) {
@@ -62,11 +138,13 @@ function normalizeFontStyle(value: unknown) {
 }
 
 function normalizeSyntaxStyle(value: unknown): ExtensionThemeSyntaxStyle | null {
-  if (isHexColor(value)) return { color: value };
+  const directColor = normalizeHexColor(value);
+  if (directColor) return { color: directColor };
   if (!isRecord(value)) return null;
 
   const style: ExtensionThemeSyntaxStyle = {};
-  if (isHexColor(value.color)) style.color = value.color;
+  const color = normalizeHexColor(value.color);
+  if (color) style.color = color;
   const fontStyle = normalizeFontStyle(value.fontStyle ?? value.font_style);
   if (fontStyle) style.fontStyle = fontStyle;
   const fontWeight = value.fontWeight ?? value.font_weight;
@@ -90,8 +168,8 @@ function normalizeAxonTheme(
   const monaco: Record<string, string> = {};
 
   for (const token of THEME_COLOR_TOKENS) {
-    const color = rawTheme.ui?.[token];
-    if (isHexColor(color)) tokens[token] = color;
+    const color = normalizeHexColor(rawTheme.ui?.[token]);
+    if (color) tokens[token] = color;
   }
 
   for (const [scope, value] of Object.entries(rawTheme.syntax ?? {})) {
@@ -103,11 +181,13 @@ function normalizeAxonTheme(
   }
 
   for (const [key, value] of Object.entries(rawTheme.terminal ?? {})) {
-    if (isHexColor(value)) terminal[key] = value;
+    const color = normalizeHexColor(value);
+    if (color) terminal[key] = color;
   }
 
   for (const [key, value] of Object.entries(rawTheme.monaco ?? {})) {
-    if (isHexColor(value)) monaco[key] = value;
+    const color = normalizeHexColor(value);
+    if (color) monaco[key] = color;
   }
 
   return {
@@ -138,9 +218,19 @@ function normalizeZedTheme(
   const terminal: Record<string, string> = {};
   const monaco: Record<string, string> = {};
 
-  for (const [zedToken, axonToken] of Object.entries(zedToAxonTokenMap)) {
-    const color = style[zedToken];
-    if (isHexColor(color)) tokens[axonToken] = color;
+  // Zed themes describe more surfaces than Axon currently exposes, and older
+  // themes commonly leave the Axon-equivalent key null because Zed inherits it
+  // from `surface.background`, `text`, or `border`. Resolving those authored
+  // fallbacks here preserves the theme's hierarchy instead of allowing Axon's
+  // generic completion logic to flatten the sidebar, panels, and editor into
+  // unrelated default colors.
+  for (const [axonToken, zedTokens] of Object.entries(zedToAxonTokenMap)) {
+    for (const zedToken of zedTokens) {
+      const color = normalizeHexColor(style[zedToken]);
+      if (!color) continue;
+      tokens[axonToken as ThemeColorToken] = color;
+      break;
+    }
   }
 
   for (const [scope, value] of Object.entries(syntaxStyle)) {
@@ -154,8 +244,14 @@ function normalizeZedTheme(
   }
 
   for (const [key, value] of Object.entries(style)) {
-    if (key.startsWith("terminal.ansi.") && isHexColor(value)) {
-      terminal[key.replace("terminal.", "")] = value;
+    const color = normalizeHexColor(value);
+    if (key.startsWith("terminal.ansi.") && color) {
+      terminal[key.replace("terminal.", "")] = color;
+    }
+
+    const monacoKey = zedToMonacoColorMap[key];
+    if (monacoKey && color) {
+      monaco[monacoKey] = color;
     }
   }
 

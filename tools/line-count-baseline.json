@@ -1,3 +1,5 @@
 {
-  "apps/editor/src/main/lsp/features.ts": 2390
+  "apps/editor/src/main/lsp/features.ts": 2390,
+  "extensions/builtin/themes/snowfall/themes/snowfall.json": 1133,
+  "extensions/builtin/themes/vitesse-refined/themes/vitesse-refined.json": 3814
 }

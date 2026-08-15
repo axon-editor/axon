@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.blank-ghibli-theme",
+  "name": "Blank Ghibli",
+  "publisher": "kiritocode1",
+  "version": "1.0.0",
+  "description": "Blank Ghibli dark theme for Axon.",
+  "author": "kiritocode1",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "blank-ghibli",
+        "label": "Blank Ghibli",
+        "path": "./themes/blank-ghibli.json"
+      }
+    ]
+  }
+}

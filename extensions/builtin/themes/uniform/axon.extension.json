@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.uniform-theme",
+  "name": "Uniform",
+  "publisher": "blehner",
+  "version": "1.0.0",
+  "description": "Uniform Midnight dark theme for Axon.",
+  "author": "blehner",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "uniform-midnight",
+        "label": "Uniform Midnight",
+        "path": "./themes/uniform.json"
+      }
+    ]
+  }
+}

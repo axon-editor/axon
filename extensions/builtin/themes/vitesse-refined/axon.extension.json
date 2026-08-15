@@ -1,0 +1,20 @@
+{
+  "$schema": "https://axoneditor.com/schemas/extension/v0.1.0.json",
+  "id": "axon.vitesse-refined-theme",
+  "name": "Vitesse Refined",
+  "publisher": "Colin Lienard",
+  "version": "0.4.0",
+  "description": "Five Vitesse Refined light and dark theme variants for Axon.",
+  "author": "Colin Lienard",
+  "categories": ["Themes"],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "vitesse-refined",
+        "label": "Vitesse Refined",
+        "path": "./themes/vitesse-refined.json"
+      }
+    ]
+  }
+}

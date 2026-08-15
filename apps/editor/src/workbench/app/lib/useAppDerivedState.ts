@@ -103,7 +103,7 @@ export function useAppDerivedState({
     // alpha colors tint that shared backdrop for continuously visible editor
     // surfaces. Only temporary modal and popup surfaces add a local CSS frost;
     // light themes reduce backdrop saturation so desktop colors cannot muddy
-    // warm backgrounds such as Axon Parchment or weaken dark text contrast.
+    // warm parchment-like backgrounds or weaken dark text contrast.
     return {
       ...themeCssVariables,
       "--axon-glass-surface-blur": `${settings.editor.appBackgroundBlur * 2}px`,

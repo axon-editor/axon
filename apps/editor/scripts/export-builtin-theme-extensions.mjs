@@ -6,27 +6,9 @@ const editorRoot = process.cwd();
 const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const jiti = createJiti(import.meta.url);
 
-function readExistingAxonTheme(themeId) {
-  const themePath = path.resolve(
-    workspaceRoot,
-    "extensions/builtin/themes/axon/themes",
-    `${themeId}.json`,
-  );
-  const theme = JSON.parse(fs.readFileSync(themePath, "utf8"));
-  return {
-    id: theme.id,
-    label: theme.name,
-    base: theme.appearance === "light" ? "vs" : "vs-dark",
-    tokens: theme.ui,
-    monacoColors: theme.monaco ?? {},
-    syntax: theme.syntax ?? {},
-  };
-}
-
 const { axonDarkTheme } = jiti("../src/renderer/shared/themes/axonDark.ts");
 const { axonMonochromeThemes } = jiti("../src/renderer/shared/themes/axonMonochrome.ts");
 const { axonMoonlightTheme } = jiti("../src/renderer/shared/themes/axonMoonlight.ts");
-const axonParchmentTheme = readExistingAxonTheme("axon-parchment");
 const { soraTheme } = jiti("../src/renderer/shared/themes/sora.ts");
 const { zedDarkTheme } = jiti("../src/renderer/shared/themes/zedDark.ts");
 const { catppuccinMochaTheme } = jiti("../src/renderer/shared/themes/catppuccinMocha.ts");
@@ -44,8 +26,18 @@ const themePackages = [
       axonDarkTheme,
       ...axonMonochromeThemes,
       axonMoonlightTheme,
-      axonParchmentTheme,
       soraTheme,
+    ],
+    // Axon Parchment now deliberately keeps its upstream Zed collection shape.
+    // The exporter must retain its manifest entry without rewriting the file as
+    // a native Axon theme, otherwise running this maintenance script would
+    // discard the full Gruvbox palette and its richer syntax capture table.
+    preservedThemes: [
+      {
+        id: "axon-parchment",
+        label: "Axon Parchment",
+        path: "./themes/axon-parchment.json",
+      },
     ],
   },
   {
@@ -114,11 +106,14 @@ for (const themePackage of themePackages) {
     themePackage.folder,
   );
   const themesRoot = path.join(packageRoot, "themes");
-  const contributions = themePackage.themes.map((theme) => ({
-    id: theme.id,
-    label: theme.label,
-    path: `./themes/${theme.id}.json`,
-  }));
+  const contributions = [
+    ...themePackage.themes.map((theme) => ({
+      id: theme.id,
+      label: theme.label,
+      path: `./themes/${theme.id}.json`,
+    })),
+    ...(themePackage.preservedThemes ?? []),
+  ];
 
   writeJson(path.join(packageRoot, "axon.extension.json"), {
     $schema: "https://axoneditor.com/schemas/extension/v0.1.0.json",

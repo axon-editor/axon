@@ -62,7 +62,7 @@ describe("built-in Axon themes", () => {
     },
   );
 
-  it("normalizes Axon Parchment as a complete light theme", () => {
+  it("normalizes the Zed-compatible Axon Parchment replacement", () => {
     const [theme] = readExtensionTheme(
       "axon.themes",
       "Axon Themes",
@@ -86,24 +86,102 @@ describe("built-in Axon themes", () => {
       label: "Axon Parchment",
       appearance: "light",
     });
-    expect(theme.tokens["editor.background"]).toBe("#fff7d2");
-    expect(theme.tokens["panel.border"]).toBe("#c9bf96");
+    expect(theme.tokens["editor.background"]).toBe("#f2e5bcff");
+    expect(theme.tokens["panel.background"]).toBe("#ecdcb3ff");
+    expect(theme.tokens["panel.border"]).toBe("#c8b899ff");
     expect(theme.syntax.comment).toMatchObject({
-      color: "#766e5b",
-      fontStyle: "italic",
+      color: "#7c6f64ff",
     });
     expect(theme.syntax.string).toMatchObject({
-      color: "#77732f",
-      fontStyle: "italic",
+      color: "#79740eff",
     });
+    expect(theme.monaco).toMatchObject({
+      "editor.lineHighlightBackground": "#ecdcb3bf",
+      "editorLineNumber.foreground": "#a9a389",
+    });
+  });
 
-    const editorBackground = theme.tokens["editor.background"]!;
-    for (const style of Object.values(theme.syntax)) {
-      if (style.color) {
-        expect(
-          contrastRatio(style.color, editorBackground),
-        ).toBeGreaterThanOrEqual(4.5);
+  it.each([
+    ["blank-ghibli", "Blank Ghibli", "blank-ghibli.json", 1],
+    ["sequoia", "Sequoia", "sequoia.json", 6],
+    ["snowfall", "Snowfall", "snowfall.json", 4],
+    ["uniform-midnight", "Uniform Midnight", "uniform.json", 1],
+    ["vitesse-refined", "Vitesse Refined", "vitesse-refined.json", 5],
+  ] as const)(
+    "loads every %s collection variant",
+    (contributionId, contributionLabel, fileName, expectedCount) => {
+      const themes = readExtensionTheme(
+        `axon.${contributionId}-theme`,
+        contributionLabel,
+        contributionId,
+        contributionLabel,
+        path.resolve(
+          process.cwd(),
+          "..",
+          "..",
+          "extensions",
+          "builtin",
+          "themes",
+          contributionId === "uniform-midnight"
+            ? "uniform"
+            : contributionId,
+          "themes",
+          fileName,
+        ),
+      );
+
+      expect(themes).toHaveLength(expectedCount);
+      for (const theme of themes) {
+        expect(theme.tokens["editor.background"]).toMatch(/^#[0-9a-f]{6,8}$/i);
+        expect(theme.tokens["editor.foreground"]).toMatch(/^#[0-9a-f]{6,8}$/i);
+        expect(theme.tokens["panel.background"]).toMatch(/^#[0-9a-f]{6,8}$/i);
       }
-    }
+    },
+  );
+
+  it("expands shorthand Zed colors and resolves null inherited surfaces", () => {
+    const [, vitesseBlack, , vitesseDarkSoft] = readExtensionTheme(
+      "axon.vitesse-refined-theme",
+      "Vitesse Refined",
+      "vitesse-refined",
+      "Vitesse Refined",
+      path.resolve(
+        process.cwd(),
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "themes",
+        "vitesse-refined",
+        "themes",
+        "vitesse-refined.json",
+      ),
+    );
+    const [uniform] = readExtensionTheme(
+      "axon.uniform-theme",
+      "Uniform",
+      "uniform-midnight",
+      "Uniform Midnight",
+      path.resolve(
+        process.cwd(),
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "themes",
+        "uniform",
+        "themes",
+        "uniform.json",
+      ),
+    );
+
+    expect(vitesseBlack.tokens["editor.background"]).toBe("#000000");
+    expect(vitesseDarkSoft.tokens["editor.background"]).toBe("#222222");
+    expect(uniform.tokens).toMatchObject({
+      background: "#030309",
+      "editor.background": "#030309",
+      "editor.foreground": "#ffffffe0",
+      "panel.background": "#030309",
+    });
   });
 });

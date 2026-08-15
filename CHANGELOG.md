@@ -2,6 +2,11 @@
 
 ## Next
 
+- Added Blank Ghibli, Sequoia, Snowfall, Uniform Midnight, and Vitesse Refined
+  theme packs, and refreshed Axon Parchment with the Gruvbox Light Soft palette.
+- Improved Zed-theme imports with inherited surface colors, shorthand hex
+  expansion, and Monaco mappings for line, selection, guide, and scrollbar UI.
+
 ## v1.3.5
 
 - Completed terminal scrollback rendering so displaced and trailing output
