@@ -180,6 +180,7 @@ export default function App({ initialExtensionState }: AppProps) {
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);
   const themeFallbackRepairAttemptedRef = useRef(false);
+  const settingsSaveRequestRef = useRef(0);
   const allowSessionPersistenceRef = useRef(true);
   const folderRefreshTimerRef = useRef<number | null>(null);
   const folderRefreshRequestRef = useRef(0);
@@ -410,19 +411,24 @@ export default function App({ initialExtensionState }: AppProps) {
     options: { announce?: boolean } = { announce: true },
   ) => {
     const normalizedSettings = normalizeSettings(nextSettings);
+    const requestId = ++settingsSaveRequestRef.current;
     setSettings(normalizedSettings);
     try {
       const savedSettings = await window.axon.updateSettings(
         normalizedSettings,
         null,
       );
-      setSettings(normalizeSettings(savedSettings));
+      if (requestId === settingsSaveRequestRef.current) {
+        setSettings(normalizeSettings(savedSettings));
+      }
       if (options.announce !== false) {
         appendOutput("settings", "Saved settings.", "success");
       }
+      return true;
     } catch (err) {
       console.error("failed to save settings:", err);
       appendOutput("settings", "Failed to save settings.", "error");
+      return false;
     }
   }, [appendOutput]);
   useEffect(() => {
@@ -464,6 +470,7 @@ export default function App({ initialExtensionState }: AppProps) {
     // editor options. Previewing through this callback keeps the shell, Monaco,
     // terminal, and panels in sync with the current draft without writing every
     // slider movement or color keystroke to the app settings file.
+    settingsSaveRequestRef.current += 1;
     setSettings(normalizeSettings(nextSettings));
   }, []);
   useEffect(() => {

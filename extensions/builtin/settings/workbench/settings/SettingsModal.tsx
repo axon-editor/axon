@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Braces } from "lucide-react";
 import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
 import { type AiModelInfo } from "@axon-editor/shared/ai";
@@ -34,6 +34,7 @@ import {
   SettingsModalFooter,
   SettingsModalHeader,
   SettingsModalSidebar,
+  type SettingsSaveState,
 } from "./SettingsModalChrome";
 
 interface Props {
@@ -44,7 +45,9 @@ interface Props {
   settings: AxonSettings;
   onClose: () => void;
   onPreview: (settings: AxonSettings) => void;
-  onSave: (settings: AxonSettings) => void;
+  onSave: (
+    settings: AxonSettings,
+  ) => boolean | void | Promise<boolean | void>;
   onOpenLanguageTools: () => void;
   onViewLogs: () => void;
 }
@@ -78,7 +81,13 @@ export default function SettingsModal({
   const [aiModelsLoading, setAiModelsLoading] = useState(false);
   const [aiModelsError, setAiModelsError] = useState<string | null>(null);
   const [aiModelsRefreshNonce, setAiModelsRefreshNonce] = useState(0);
+  const [saveState, setSaveState] = useState<SettingsSaveState>("saved");
   const previewReadyRef = useRef(false);
+  const autoSaveReadyRef = useRef(false);
+  const saveTimerRef = useRef<number | null>(null);
+  const saveRequestRef = useRef(0);
+  const lastStartedSettingsJsonRef = useRef<string | null>(null);
+  const latestSettingsJsonRef = useRef<string | null>(null);
 
   const customFontItems = useMemo(
     () => {
@@ -135,6 +144,7 @@ export default function SettingsModal({
     () => JSON.stringify(normalizedDraft),
     [normalizedDraft],
   );
+  latestSettingsJsonRef.current = normalizedDraftJson;
   const dirty = normalizedDraftJson !== normalizedInitialSettingsJson;
   const settingsScopeLabel = folderPath
     ? folderPath.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? "workspace"
@@ -240,6 +250,70 @@ export default function SettingsModal({
 
     return () => clearTimeout(previewTimer);
   }, [normalizedDraft, normalizedDraftJson, onPreview]);
+
+  const persistSettings = useCallback(
+    (nextSettings: AxonSettings, nextSettingsJson: string) => {
+      if (lastStartedSettingsJsonRef.current === nextSettingsJson) return;
+
+      lastStartedSettingsJsonRef.current = nextSettingsJson;
+      const requestId = ++saveRequestRef.current;
+      setSaveState("saving");
+
+      void Promise.resolve(onSave(nextSettings))
+        .then((saved) => {
+          if (
+            requestId !== saveRequestRef.current ||
+            latestSettingsJsonRef.current !== nextSettingsJson
+          ) {
+            return;
+          }
+          if (saved === false) {
+            lastStartedSettingsJsonRef.current = null;
+            setSaveState("error");
+            return;
+          }
+          setSaveState("saved");
+        })
+        .catch((error) => {
+          if (
+            requestId !== saveRequestRef.current ||
+            latestSettingsJsonRef.current !== nextSettingsJson
+          ) {
+            return;
+          }
+          lastStartedSettingsJsonRef.current = null;
+          setSaveState("error");
+          console.error("failed to auto-save settings:", error);
+        });
+    },
+    [onSave],
+  );
+
+  useEffect(() => {
+    if (!autoSaveReadyRef.current) {
+      autoSaveReadyRef.current = true;
+      lastStartedSettingsJsonRef.current = normalizedDraftJson;
+      return;
+    }
+    if (lastStartedSettingsJsonRef.current === normalizedDraftJson) return;
+
+    // Preview remains fast enough for theme and editor controls to feel direct,
+    // while persistence waits for a short idle window. This keeps sliders and
+    // text fields from sending one IPC write per input event without bringing
+    // back a manual Apply or Save step.
+    setSaveState("saving");
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      persistSettings(normalizedDraft, normalizedDraftJson);
+    }, 300);
+
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, [normalizedDraft, normalizedDraftJson, persistSettings]);
 
   const updateEditor = <K extends keyof AxonSettings["editor"]>(
     key: K,
@@ -357,7 +431,7 @@ export default function SettingsModal({
         },
       }));
       setPythonEnvironmentMessage(
-        "Python virtual environment selected. Pyright will use it for external packages after you save settings.",
+        "Python virtual environment selected. Pyright will use it for external packages automatically.",
       );
     } catch (err) {
       setPythonEnvironmentMessage(
@@ -404,17 +478,15 @@ export default function SettingsModal({
     });
   };
 
-  const save = () => {
-    onSave(normalizedDraft);
-    onClose();
-  };
-
   const close = () => {
-    // Because the modal previews settings live, closing without saving needs
-    // to behave like Cancel in other editors: the visible app returns to the
-    // values that were active before the settings session began. Save bypasses
-    // this function and persists the current draft instead.
-    onPreview(initialSettingsRef.current);
+    // Closing can happen before the debounce expires through Escape, an outside
+    // click, or the footer action. Flush the newest normalized draft here so
+    // the modal never appears to apply a setting and then loses it on restart.
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    persistSettings(normalizedDraft, normalizedDraftJson);
     onClose();
   };
 
@@ -438,6 +510,7 @@ export default function SettingsModal({
           activeSection={activeSection}
           dirty={dirty}
           filteredSections={filteredSections}
+          saveState={saveState}
           sectionQuery={sectionQuery}
           onSectionChange={setActiveSection}
           onSectionQueryChange={setSectionQuery}
@@ -544,9 +617,9 @@ export default function SettingsModal({
 
           <SettingsModalFooter
             dirty={dirty}
-            onCancel={close}
+            onClose={close}
             onReset={resetDraft}
-            onSave={save}
+            saveState={saveState}
           />
         </div>
       </div>

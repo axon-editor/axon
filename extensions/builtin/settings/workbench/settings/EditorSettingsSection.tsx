@@ -31,7 +31,7 @@ export default function EditorSettingsSection({
   return (
     <SettingsSection
       title="Editor"
-      description="Tune code typography, indentation, spacing, and visual nesting guides. Changes preview in open editors before you save them."
+      description="Tune code typography, indentation, spacing, and visual nesting guides. Changes apply to open editors automatically."
     >
       <SettingsField
         label="Font preset"

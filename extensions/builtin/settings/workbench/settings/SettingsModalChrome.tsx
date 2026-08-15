@@ -1,9 +1,11 @@
 import {
+  AlertCircle,
+  Check,
   Image,
   Keyboard,
+  LoaderCircle,
   Palette,
   RotateCcw,
-  Save,
   Search,
   Sparkles,
   SquareTerminal,
@@ -14,6 +16,41 @@ import {
   SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from "./lib/settingsData";
+
+export type SettingsSaveState = "saved" | "saving" | "error";
+
+function SettingsSaveStatus({
+  dirty,
+  saveState,
+}: {
+  dirty: boolean;
+  saveState: SettingsSaveState;
+}) {
+  if (saveState === "saving") {
+    return (
+      <span className="flex items-center gap-1.5 opacity-65">
+        <LoaderCircle size={12} className="animate-spin" />
+        Saving settings...
+      </span>
+    );
+  }
+
+  if (saveState === "error") {
+    return (
+      <span className="flex items-center gap-1.5 text-[var(--axon-danger-foreground)] opacity-100">
+        <AlertCircle size={12} />
+        Settings could not be saved
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1.5 opacity-55">
+      <Check size={12} />
+      {dirty ? "Changes saved automatically" : "Settings save automatically"}
+    </span>
+  );
+}
 
 const sectionIcons: Record<SettingsSectionId, typeof Palette> = {
   appearance: Palette,
@@ -31,6 +68,7 @@ export function SettingsModalSidebar({
   dirty,
   filteredSections,
   sectionQuery,
+  saveState,
   onSectionChange,
   onSectionQueryChange,
 }: {
@@ -38,6 +76,7 @@ export function SettingsModalSidebar({
   dirty: boolean;
   filteredSections: typeof SETTINGS_SECTIONS;
   sectionQuery: string;
+  saveState: SettingsSaveState;
   onSectionChange: (section: SettingsSectionId) => void;
   onSectionQueryChange: (query: string) => void;
 }) {
@@ -88,8 +127,8 @@ export function SettingsModalSidebar({
         ) : null}
       </nav>
 
-      <div className="shrink-0 border-t border-[var(--axon-panel-border)] px-4 py-3 text-[11px] text-[var(--axon-editor-foreground)] opacity-55">
-        {dirty ? "Unsaved changes" : "Settings saved"}
+      <div className="shrink-0 border-t border-[var(--axon-panel-border)] px-4 py-3 text-[11px] text-[var(--axon-editor-foreground)]">
+        <SettingsSaveStatus dirty={dirty} saveState={saveState} />
       </div>
     </aside>
   );
@@ -139,21 +178,19 @@ export function SettingsModalHeader({
 
 export function SettingsModalFooter({
   dirty,
-  onCancel,
+  onClose,
   onReset,
-  onSave,
+  saveState,
 }: {
   dirty: boolean;
-  onCancel: () => void;
+  onClose: () => void;
   onReset: () => void;
-  onSave: () => void;
+  saveState: SettingsSaveState;
 }) {
   return (
     <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-t border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-5 py-3">
-      <div className="min-w-0 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
-        {dirty
-          ? "Review and save to keep these settings."
-          : "Settings are normalized before they are written."}
+      <div className="min-w-0 text-[11px] text-[var(--axon-editor-foreground)]">
+        <SettingsSaveStatus dirty={dirty} saveState={saveState} />
       </div>
       <div className="flex items-center gap-2">
         <button
@@ -167,19 +204,10 @@ export function SettingsModalFooter({
         </button>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={onClose}
           className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
         >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!dirty}
-          className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-syntax-function)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:border-[var(--axon-panel-border)] disabled:bg-transparent disabled:opacity-45"
-        >
-          <Save size={13} />
-          Save
+          Close
         </button>
       </div>
     </div>
