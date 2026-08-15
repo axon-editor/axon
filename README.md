@@ -100,8 +100,8 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 
 ## Project Structure
 
-See [architecture.md](architecture.md) for the full repository architecture,
-ownership boundaries, and migration direction.
+See the [Architecture Guide](architecture.md) for the full repository
+architecture, ownership boundaries, and migration direction.
 
 ```text
 axon/
@@ -171,15 +171,16 @@ Build output goes to `apps/editor/release/`.
 
 ## Extension Examples
 
-Start with [`examples/README.md`](examples/README.md). The repository includes:
+Start with the [Extension Examples](examples/README.md). The repository
+includes:
 
 - a theme extension that can be loaded from `.axon/extensions/` today;
 - a language metadata, configuration, and snippet manifest example;
 - a type-checked `activate(context, api)` example covering commands, terminal
   profiles, debug configuration, workspace indexing, and disposal.
 
-The public contract lives in
-[`packages/extension-api`](packages/extension-api/README.md). Declarative user
+The public contract lives in the
+[Extension API](packages/extension-api/README.md). Declarative user
 and workspace extensions are supported. Executable third-party modules remain
 disabled until Axon can run them in an isolated extension-host process; trusted
 built-ins currently exercise that runtime contract. `window.axon` is an
@@ -212,59 +213,11 @@ smoothest install-and-relaunch path. For that reason, the safest update path is:
 Windows and Linux builds do not require Apple notarization, but releases still
 need to be tested on their target platform before being treated as stable.
 
-More detail: [docs/UPDATES.md](docs/UPDATES.md).
+More detail: [Update Guide](docs/UPDATES.md).
 
 ## Current Features
 
-- Real folder/workspace opening
-- Lazy file tree with Git colors, ignored-path handling, and independent watcher
-  ownership in every Axon window
-- Split panes, draggable tabs, dirty indicators, and close prompts
-- Shared Monaco models across panes
-- Live Markdown preview tabs connected to dirty editor content, with GFM,
-  Mermaid diagrams, KaTeX math, footnotes, callouts, frontmatter, table of
-  contents, heading links, theme-aware code fences, copy actions, PDF export,
-  and editor/preview scroll synchronization
-- Full-height HTML preview with browser logs routed into Output
-- Image/video preview through Axon protocols
-- Workspace search with jump-to-line and binary/cache exclusions
-- Cmd+P project file search with file-first results and `>` command search
-- Source control, side-by-side diffs, live Git line paint, branch/stash
-  workflows, conflict helpers, and worktree management
-- Git Graph editor tab with commit details, changed-file tree, comparisons,
-  and commit hover details
-- Problems panel with project-aware LSP diagnostics and copy actions
-- Problems as editor tabs opened from the status bar
-- Test explorer with project-aware provider discovery, target runs, and inline
-  output
-- Integrated terminal with tabs, isolated PTY ownership, bounded replay,
-  200,000-line xterm scrollback, committed-byte acknowledgements, frame-coalesced
-  scrollback repainting, and session health diagnostics
-- Built-in terminal workbench contribution loaded from the extension-oriented
-  architecture
-- Interactive `axon` terminal sessions with workspace context, saved
-  conversations, `axon resume`, slash commands, model selection, animated CLI
-  header, and streaming responses
-- Settings UI and settings JSON
-- Extension-backed built-in themes, custom themes, and imported fonts
-- Code Snapshot editor tool with theme-aware syntax colors, configurable
-  presentation, watermarking, clipboard copy, and PNG export
-- Declarative user/workspace extension discovery plus trusted built-in runtime
-  activation, command execution, contribution registries, diagnostics, and
-  workbench feature routing
-- Splash screen and custom app icon/name
-- Low-latency LSP completion, hover, diagnostics, navigation, rename, and
-  formatting across bundled and install-on-demand language servers
-- Tailwind CSS warnings, hover details, and variant-aware utility completions
-- Rich syntax coloring through Monaco, TextMate/Shiki grammars, LSP semantic
-  tokens, Axon decorations, and language-specific fallbacks
-- Token inspector for debugging actual rendered syntax colors and semantic
-  decoration output
-- Workspace-aware Language Tools for detected languages, server installation,
-  lifecycle controls, status, install progress, and logs
-- Live LSP diagnostics routed into Problems
-- Format-on-save support with bundled Prettier fallback for common web and
-  document languages when a language server does not format the file
+See [Current Features](docs/CURRENT_FEATURES.md) for the complete feature list.
 
 ## Language Servers
 
@@ -291,12 +244,12 @@ staged outside the active installation, and cleaned up when cancelled or failed.
 This keeps the desktop installer smaller without removing syntax highlighting
 or workspace language detection.
 
-More detail: [docs/LANGUAGE_SERVERS.md](docs/LANGUAGE_SERVERS.md).
+More detail: [Language Server Guide](docs/LANGUAGE_SERVERS.md).
 
 ## Release Notes
 
-See [CHANGELOG.md](CHANGELOG.md) for the full history and
-[docs/releases/v1.3.5.md](docs/releases/v1.3.5.md) for the latest release
+See the [Changelog](CHANGELOG.md) for the full history and the
+[v1.3.5 Release Notes](docs/releases/v1.3.5.md) for the latest release
 notes.
 
 ## License
