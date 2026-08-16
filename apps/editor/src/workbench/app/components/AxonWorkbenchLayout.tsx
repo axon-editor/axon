@@ -104,7 +104,6 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
   const {
     agentSidebarWidth,
     agentContribution,
-    gitContribution,
     setAgentSidebarWidth,
     spotifyContribution,
     terminalContribution,
