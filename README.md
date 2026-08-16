@@ -249,7 +249,7 @@ More detail: [Language Server Guide](docs/LANGUAGE_SERVERS.md).
 ## Release Notes
 
 See the [Changelog](CHANGELOG.md) for the full history and the
-[v1.3.5 Release Notes](docs/releases/v1.3.5.md) for the latest release
+[v1.3.6 Release Notes](docs/releases/v1.3.6.md) for the latest release
 notes.
 
 ## License

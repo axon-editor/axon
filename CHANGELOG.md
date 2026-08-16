@@ -2,12 +2,34 @@
 
 ## Next
 
+## v1.3.6
+
 - Removed active-theme tinting from native Glass editor, sidebar, panel,
   terminal, and window chrome surfaces while retaining readable overlays.
 - Added Blank Ghibli, Sequoia, Snowfall, Uniform Midnight, and Vitesse Refined
   theme packs, and refreshed Axon Parchment with the Gruvbox Light Soft palette.
 - Improved Zed-theme imports with inherited surface colors, shorthand hex
   expansion, and Monaco mappings for line, selection, guide, and scrollbar UI.
+- Made Axon Black the resilient default when a persisted or extension-provided
+  theme is unavailable, including an emergency runtime fallback.
+- Applied Settings changes automatically with debounced persistence, close-time
+  flushing, stale-save protection, and an explicit reset path.
+- Synchronized active and recent workspace folders across every open window so
+  the same folder does not appear in conflicting picker sections.
+- Preserved independent terminal sessions across multiple Axon windows by
+  separating slow health probes from actual PTY host process exits.
+- Kept the packaged Axon icon stable in the macOS Dock instead of replacing it
+  with development or renderer artwork after launch.
+- Added a compact themed Monaco hover, centered breadcrumb navigation, and a
+  typed memoized editor-options builder.
+- Opened Git commit comparisons as editor tabs, cached graph and history data,
+  and added Git Graph beside Source Control in the status bar.
+- Made Git graphs, diffs, gutters, badges, dialogs, and worktree actions follow
+  the active theme instead of relying on fixed light or dark colors.
+- Moved the complete feature inventory out of the README into dedicated project
+  documentation while preserving readable links from the repository overview.
+- Restored strict renderer CI after the workbench Git contribution became an
+  unused local binding while remaining available to overlays through props.
 
 ## v1.3.5
 
