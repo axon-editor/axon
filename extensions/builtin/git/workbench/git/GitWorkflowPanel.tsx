@@ -175,7 +175,7 @@ export default function GitWorkflowPanel({
               value={newBranchName}
               onChange={(event) => setNewBranchName(event.target.value)}
               placeholder="new branch"
-              className="h-7 min-w-0 flex-1 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] opacity-30 focus:border-[var(--axon-syntax-function)]"
+              className="h-7 min-w-0 flex-1 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30 focus:border-[var(--axon-syntax-function)]"
             />
             <Tooltip label="Create branch with the typed name" side="bottom">
               <button
@@ -222,7 +222,7 @@ export default function GitWorkflowPanel({
               value={stashMessage}
               onChange={(event) => setStashMessage(event.target.value)}
               placeholder="stash message"
-              className="h-7 min-w-0 flex-1 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] opacity-30 focus:border-[var(--axon-syntax-function)]"
+              className="h-7 min-w-0 flex-1 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30 focus:border-[var(--axon-syntax-function)]"
             />
             <Tooltip
               label="Save uncommitted changes to Git stash and hide them from Source Control"

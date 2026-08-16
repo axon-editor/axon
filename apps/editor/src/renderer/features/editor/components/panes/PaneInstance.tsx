@@ -43,7 +43,11 @@ import WelcomeTab, {
   type WelcomeThemeItem,
 } from "@axon-editor/renderer/features/onboarding/WelcomeTab";
 import GitGraphPanel from "@axon-builtin-git/git/advanced/GitGraphPanel";
-import { isGitGraphTabPath } from "@axon-builtin-git/git/lib/gitGraphTab";
+import GitCommitDiffTab from "@axon-builtin-git/git/GitCommitDiffTab";
+import {
+  isGitCommitDiffTabPath,
+  isGitGraphTabPath,
+} from "@axon-builtin-git/git/lib/gitGraphTab";
 import CodeSnapshot from "@axon-builtin-code-snapshot/CodeSnapshot";
 import { isCodeSnapshotTabPath } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 
@@ -317,6 +321,14 @@ export default function PaneInstance({
                   />
                 ) : isGitGraphTabPath(path) ? (
                   <GitGraphPanel folderPath={folderPath} variant="full" />
+                ) : isGitCommitDiffTabPath(path) ? (
+                  <GitCommitDiffTab
+                    editorSettings={editorSettings}
+                    tabPath={path}
+                    themeSyntax={themeSyntax}
+                    themeTokens={themeTokens}
+                    onClose={() => onCloseTab(path)}
+                  />
                 ) : isCodeSnapshotTabPath(path) ? (
                   <CodeSnapshot
                     editorSettings={editorSettings}

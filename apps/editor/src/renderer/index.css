@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./features/editor/styles/monacoHover.css";
 @plugin "@tailwindcss/typography";
 @source "../base";
 @source "../platform";
@@ -136,21 +137,6 @@
 .monaco-editor .suggest-widget .monaco-highlighted-label .highlight {
   color: var(--axon-syntax-function) !important;
   font-weight: 600 !important;
-}
-
-.monaco-editor .monaco-hover,
-.monaco-editor .monaco-hover .monaco-hover-content,
-.monaco-editor .monaco-hover .hover-row.status-bar {
-  border-color: var(--axon-panel-border) !important;
-  background: var(
-    --axon-solid-popup-background,
-    var(--axon-panel-background)
-  ) !important;
-  color: var(--axon-editor-foreground) !important;
-}
-
-.monaco-editor .monaco-hover a {
-  color: var(--axon-syntax-function) !important;
 }
 
 .monaco-editor .lines-content .core-guide-indent {

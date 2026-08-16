@@ -8,6 +8,7 @@ import {
   Files,
   FlaskConical,
   GitBranch,
+  GitGraph,
   ListChecks,
   Music4,
   PanelLeft,
@@ -59,6 +60,7 @@ interface Props {
   warningCount: number;
   gitBranch: string | null;
   gitChangeCount: number;
+  gitGraphOpen: boolean;
   themeTokens: ResolvedThemeTokens;
   onToggleSidebar: () => void;
   onOpenWorkspaceSearch: () => void;
@@ -69,6 +71,7 @@ interface Props {
   onOpenCodeSnapshot: () => void;
   onOpenLanguageTools: () => void;
   onOpenSourceControl: () => void;
+  onOpenGitGraph: () => void;
   onOpenTests: () => void;
   onViewChange: (view: view) => void;
   view: view;
@@ -92,6 +95,7 @@ export default function StatusBar({
   warningCount,
   gitBranch,
   gitChangeCount,
+  gitGraphOpen,
   themeTokens,
   onToggleSidebar,
   onOpenWorkspaceSearch,
@@ -102,6 +106,7 @@ export default function StatusBar({
   onOpenCodeSnapshot,
   onOpenLanguageTools,
   onOpenSourceControl,
+  onOpenGitGraph,
   onOpenTests,
   onViewChange,
   view,
@@ -212,21 +217,34 @@ export default function StatusBar({
         ) : null}
 
         {gitBranch && (
-          <Tooltip label="Source control (Cmd+Shift+G)" side="top">
-            <button
-              onClick={onOpenSourceControl}
-              aria-label="Source control"
-              className={`flex h-5 cursor-pointer items-center gap-1 rounded px-2 transition-colors ${idleControlClass}`}
-            >
-              <GitBranch size={12} />
-              <span className="max-w-32 truncate">{gitBranch}</span>
-              {gitChangeCount > 0 && (
-                <span className="text-[var(--axon-syntax-function)]">
-                  {gitChangeCount}
-                </span>
-              )}
-            </button>
-          </Tooltip>
+          <>
+            <Tooltip label="Source control (Cmd+Shift+G)" side="top">
+              <button
+                onClick={onOpenSourceControl}
+                aria-label="Source control"
+                className={`flex h-5 cursor-pointer items-center gap-1 rounded px-2 transition-colors ${idleControlClass}`}
+              >
+                <GitBranch size={12} />
+                <span className="max-w-32 truncate">{gitBranch}</span>
+                {gitChangeCount > 0 && (
+                  <span className="text-[var(--axon-syntax-function)]">
+                    {gitChangeCount}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip label="Git Graph" side="top">
+              <button
+                type="button"
+                onClick={onOpenGitGraph}
+                aria-label="Open Git Graph"
+                aria-pressed={gitGraphOpen}
+                className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${gitGraphOpen ? activeControlClass : idleControlClass}`}
+              >
+                <GitGraph size={12} />
+              </button>
+            </Tooltip>
+          </>
         )}
       </div>
 

@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { type FileSymbol } from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";
 import BufferSymbolsPopover from "./BufferSymbolsPopover";
 
@@ -23,8 +24,41 @@ export default function EditorBreadcrumbs({
   onToggleOpen,
   onClose,
 }: Props) {
+  const breadcrumbRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    // The symbol browser is visually attached to the breadcrumb bar, but it is
+    // still an overlay over the editor. Listening at the document boundary lets
+    // any click outside that complete surface dismiss it, including clicks on a
+    // Monaco line, another pane, or the sidebar. Escape is handled here as well
+    // because keyboard focus may remain in Monaco instead of inside the popup.
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Node &&
+        breadcrumbRootRef.current?.contains(target)
+      ) {
+        return;
+      }
+      onClose();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [onClose, open]);
+
   return (
     <div
+      ref={breadcrumbRootRef}
       className="relative z-30 flex h-11 min-w-0 shrink-0 items-center gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)]"
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();

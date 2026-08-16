@@ -7,6 +7,7 @@ import {
   type GitHistoryFile,
   type GitHistoryResult,
 } from "@axon-editor/shared/git";
+import { getGitFileStateBadgeStyle } from "../git/lib/gitTheme";
 
 const stateLabels: Record<GitFileState, string> = {
   modified: "M",
@@ -325,7 +326,10 @@ export default function GitHistoryView({
                       onClick={() => void openCommitFile(selectedCommit, file)}
                       className="grid w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-2 px-3 py-2 text-left text-[var(--axon-editor-foreground)] opacity-72 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
                     >
-                      <span className="rounded bg-[var(--axon-sidebar-hover-background)] px-1.5 py-0.5 text-center text-[10px] text-[var(--axon-syntax-function)]">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-center text-[10px]"
+                        style={getGitFileStateBadgeStyle(file.status)}
+                      >
                         {stateLabels[file.status]}
                       </span>
                       <span className="min-w-0">

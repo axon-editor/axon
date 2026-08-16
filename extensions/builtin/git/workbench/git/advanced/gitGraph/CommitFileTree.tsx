@@ -7,6 +7,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { type GitGraphTreeNode } from "./gitGraphTree";
+import { getGitFileStateBadgeStyle } from "../../lib/gitTheme";
 
 export default function CommitFileTree({
   nodes,
@@ -59,7 +60,14 @@ export default function CommitFileTree({
             <FileCode2 size={12} className="opacity-45" />
           )}
           <span className="truncate">{node.name}</span>
-          <span className="text-right font-mono text-[10px] text-[var(--axon-syntax-function)]">
+          <span
+            className="rounded text-right font-mono text-[10px]"
+            style={
+              node.file
+                ? getGitFileStateBadgeStyle(node.file.status)
+                : undefined
+            }
+          >
             {node.file?.status.slice(0, 1).toUpperCase() ?? ""}
           </span>
         </button>

@@ -3,7 +3,7 @@ import { resolveThemeTokens, type ThemeTokenMap } from "../themes";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import {
   appearanceBorderColor,
-  gitAppearanceColors,
+  resolveThemeGitColors,
   type ThemeAppearance,
 } from "../themes/themeAppearance";
 
@@ -22,7 +22,7 @@ export function createThemeCssVariables(
   tokens: ResolvedThemeTokens,
   appearance: ThemeAppearance = "dark",
 ) {
-  const gitColors = gitAppearanceColors[appearance];
+  const gitColors = resolveThemeGitColors(tokens, appearance);
   const panelBorder = appearanceBorderColor(tokens["panel.border"], appearance);
   const sidebarBorder = appearanceBorderColor(
     tokens["sidebar.border"],

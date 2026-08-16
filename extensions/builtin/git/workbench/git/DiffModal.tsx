@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { type EditorSettings } from "@axon-editor/shared/settings";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { readFile } from "@axon-editor/renderer/shared/lib/api";
 import { getModel } from "@axon-editor/renderer/features/editor/lib/buffer/monacoModels";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
@@ -11,6 +12,7 @@ interface Props {
   filePath: string;
   folderPath: string | null;
   editorSettings: EditorSettings;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   onClose: () => void;
 }
@@ -19,6 +21,7 @@ export default function DiffModal({
   filePath,
   folderPath,
   editorSettings,
+  themeSyntax,
   themeTokens,
   onClose,
 }: Props) {
@@ -84,7 +87,7 @@ export default function DiffModal({
 
   return (
     <div className="axon-modal-overlay fixed inset-0 z-[70] flex items-center justify-center px-6 py-6">
-      <div className="axon-modal-panel flex h-[calc(100vh-3rem)] max-h-[900px] min-h-[min(660px,calc(100vh-3rem))] w-[min(1180px,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-2xl">
+      <div className="axon-modal-panel axon-git-modal-panel flex h-[calc(100vh-3rem)] max-h-[900px] min-h-[min(660px,calc(100vh-3rem))] w-[min(1180px,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]">
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
           <div className="min-w-0">
             <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
@@ -113,7 +116,7 @@ export default function DiffModal({
         )}
 
         {error && (
-          <div className="flex flex-1 items-center justify-center text-[13px] text-red-400">
+          <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--axon-danger-foreground)]">
             {error}
           </div>
         )}
@@ -124,6 +127,7 @@ export default function DiffModal({
             original={baseContent}
             modified={currentContent}
             editorSettings={editorSettings}
+            themeSyntax={themeSyntax}
             themeTokens={themeTokens}
           />
         )}

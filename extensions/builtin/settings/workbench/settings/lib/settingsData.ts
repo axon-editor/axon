@@ -27,7 +27,6 @@ export type SettingsSectionId =
   | "appearance"
   | "editor"
   | "terminal"
-  | "ergonomics"
   | "background"
   | "fonts"
   | "languageServers"
@@ -46,17 +45,12 @@ export const SETTINGS_SECTIONS: Array<{
   {
     id: "editor",
     label: "Editor",
-    description: "Text, spacing, and ligatures",
+    description: "Text, completion, navigation, and save behavior",
   },
   {
     id: "terminal",
     label: "Terminal",
     description: "Rendering and GPU acceleration",
-  },
-  {
-    id: "ergonomics",
-    label: "Ergonomics",
-    description: "Navigation, snippets, and folding",
   },
   {
     id: "background",

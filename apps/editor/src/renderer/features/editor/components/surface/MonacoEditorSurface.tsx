@@ -1,18 +1,17 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { type CSSProperties, type RefObject } from "react";
+import { type CSSProperties, type RefObject, useMemo } from "react";
 import {
   type EditorBackgroundImageFit,
   type EditorSettings,
 } from "@axon-editor/shared/settings";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
 import {
   getMonacoThemeId,
   registerAxonTheme,
 } from "@axon-editor/renderer/shared/lib/soraTheme";
 import EditorFindWidget from "./EditorFindWidget";
-import { createEditorFormattingOptions } from "../../lib/formatting/editorFormattingOptions";
+import { createEditorSurfaceOptions } from "../../lib/options/editorSurfaceOptions";
 
 interface Props {
   editorBackgroundImageFit: EditorBackgroundImageFit;
@@ -92,7 +91,15 @@ export default function MonacoEditorSurface({
   onMoveFindSelection,
 }: Props) {
   const backgroundStyle = backgroundImageStyle(editorBackgroundImageFit);
-  const formattingOptions = createEditorFormattingOptions(editorSettings);
+  const editorOptions = useMemo(
+    () =>
+      createEditorSurfaceOptions({
+        editorSettings,
+        largeDocument,
+        readOnly,
+      }),
+    [editorSettings, largeDocument, readOnly],
+  );
 
   return (
     <div
@@ -163,114 +170,7 @@ export default function MonacoEditorSurface({
           // monacoModels.ts remain the single owner of model disposal through its
           // pane-aware ref count.
           keepCurrentModel
-          options={{
-            readOnly,
-            readOnlyMessage: {
-              value: "Dependency and standard-library source is read-only.",
-            },
-            fontSize: editorSettings.fontSize,
-            fontFamily: editorFontStack(editorSettings.fontFamily),
-            fontWeight: String(editorSettings.fontWeight),
-            lineHeight: editorSettings.lineHeight,
-            letterSpacing: 0,
-            fontLigatures: editorSettings.fontLigatures,
-            tabSize: editorSettings.tabSize,
-            insertSpaces: editorSettings.insertSpaces,
-            detectIndentation: editorSettings.detectIndentation,
-            // Axon paints its merged TextMate/LSP tokens through one custom
-            // decoration collection. Enabling Monaco's semantic painter here
-            // makes the same full-document token stream get applied a second
-            // time, doubling model decoration work on large files without
-            // changing the visible result.
-            "semanticHighlighting.enabled": false,
-            // Monaco already virtualizes view lines, but several optional
-            // editor features still build document-wide indexes. Large-file
-            // mode turns those secondary indexes off while normal navigation
-            // and editing remain available.
-            largeFileOptimizations: true,
-            matchBrackets: largeDocument ? "never" : "always",
-            occurrencesHighlight: largeDocument ? "off" : "singleFile",
-            selectionHighlight: !largeDocument,
-            links: !largeDocument,
-            colorDecorators: !largeDocument,
-            codeLens: !largeDocument,
-            inlayHints: { enabled: largeDocument ? "off" : "on" },
-            renderValidationDecorations: largeDocument ? "off" : "editable",
-            minimap: {
-              enabled: !largeDocument && editorSettings.minimapEnabled,
-            },
-            scrollBeyondLastLine: true,
-            lineNumbers: "on",
-            glyphMargin: !largeDocument,
-            folding: !largeDocument && editorSettings.codeFoldingEnabled,
-            showFoldingControls:
-              !largeDocument && editorSettings.codeFoldingEnabled
-                ? "mouseover"
-                : "never",
-            stickyScroll: {
-              enabled: !largeDocument && editorSettings.stickyScrollEnabled,
-            },
-            overviewRulerLanes:
-              !largeDocument && editorSettings.scrollbarMarkersEnabled ? 3 : 0,
-            hideCursorInOverviewRuler:
-              largeDocument || !editorSettings.scrollbarMarkersEnabled,
-            multiCursorModifier:
-              editorSettings.multiCursorModifier === "ctrlCmd"
-                ? "ctrlCmd"
-                : "alt",
-            multiCursorPaste: "spread",
-            multiCursorMergeOverlapping: true,
-            bracketPairColorization: { enabled: !largeDocument },
-            ...formattingOptions,
-            guides: largeDocument
-              ? {
-                  indentation: false,
-                  highlightActiveIndentation: false,
-                  bracketPairs: false,
-                  bracketPairsHorizontal: false,
-                  highlightActiveBracketPair: false,
-                }
-              : formattingOptions.guides,
-            scrollbar: {
-              vertical: "auto",
-              horizontal: "auto",
-              useShadows: false,
-            },
-            quickSuggestions:
-              !largeDocument && editorSettings.quickSuggestionsEnabled
-                ? {
-                    other: true,
-                    comments: false,
-                    strings: true,
-                  }
-                : false,
-            quickSuggestionsDelay: 0,
-            suggestOnTriggerCharacters:
-              !largeDocument &&
-              editorSettings.triggerCharacterSuggestionsEnabled,
-            wordBasedSuggestions:
-              !largeDocument && editorSettings.wordBasedSuggestionsEnabled
-                ? "matchingDocuments"
-                : "off",
-            hover: { enabled: !largeDocument, delay: 100, sticky: true },
-            acceptSuggestionOnCommitCharacter: true,
-            snippetSuggestions:
-              !largeDocument && editorSettings.snippetsEnabled ? "top" : "none",
-            suggest: {
-              showSnippets: !largeDocument && editorSettings.snippetsEnabled,
-              snippetsPreventQuickSuggestions: false,
-              showInlineDetails: false,
-              showStatusBar: false,
-              preview: editorSettings.suggestionPreviewEnabled,
-            },
-            tabCompletion:
-              !largeDocument && editorSettings.snippetsEnabled ? "on" : "off",
-            renderLineHighlight: "line",
-            padding: { top: 16 },
-            cursorStyle: editorSettings.cursorStyle,
-            cursorBlinking: editorSettings.cursorBlinking,
-            smoothScrolling: !largeDocument,
-          }}
+          options={editorOptions}
         />
       </div>
     </div>

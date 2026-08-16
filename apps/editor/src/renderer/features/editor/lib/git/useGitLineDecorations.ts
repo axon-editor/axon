@@ -3,8 +3,8 @@ import * as monaco from "monaco-editor";
 import { type GitChange } from "@axon-editor/shared/git";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import {
-  gitAppearanceColors,
   inferThemeAppearance,
+  resolveThemeGitColors,
 } from "@axon-editor/renderer/shared/themes/themeAppearance";
 import { computeGitLineDecorations } from "./gitLineDecorations";
 import { isLargeDocumentModel } from "@axon-editor/shared/largeDocument";
@@ -53,7 +53,10 @@ export default function useGitLineDecorations({
       baseContent,
       model.getValue(),
     );
-    const gitColors = gitAppearanceColors[inferThemeAppearance(themeTokens)];
+    const gitColors = resolveThemeGitColors(
+      themeTokens,
+      inferThemeAppearance(themeTokens),
+    );
     collectionRef.current ??= editor.createDecorationsCollection();
     collectionRef.current.set(
       decorations.map((decoration) => ({

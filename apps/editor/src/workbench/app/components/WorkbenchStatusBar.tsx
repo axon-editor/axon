@@ -1,6 +1,7 @@
 import StatusBar from "../../../renderer/shared/components/StatusBar";
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { isVirtualTabPath } from "../../../renderer/features/editor/lib/layout/tabIdentity";
+import { AXON_GIT_GRAPH_TAB_PATH } from "@axon-builtin-git/git/lib/gitGraphTab";
 
 export default function WorkbenchStatusBar(props: Record<string, any>) {
   const {
@@ -13,6 +14,7 @@ export default function WorkbenchStatusBar(props: Record<string, any>) {
     folderPath,
     gitChangeCount,
     gitStatus,
+    handleFileSelect,
     language,
     languageToolsOpen,
     runCommand,
@@ -51,6 +53,7 @@ export default function WorkbenchStatusBar(props: Record<string, any>) {
           warningCount={diagnosticCounts.warning}
           gitBranch={gitStatus?.branch ?? null}
           gitChangeCount={gitChangeCount}
+          gitGraphOpen={activePane?.activeFile === AXON_GIT_GRAPH_TAB_PATH}
           themeTokens={themeTokens}
           onToggleSidebar={() => setSidebarCollapsed((p: boolean) => !p)}
           onOpenWorkspaceSearch={() =>
@@ -77,6 +80,7 @@ export default function WorkbenchStatusBar(props: Record<string, any>) {
           onOpenSourceControl={() =>
             runCommand(AXON_COMMANDS.OPEN_SOURCE_CONTROL)
           }
+          onOpenGitGraph={() => handleFileSelect(AXON_GIT_GRAPH_TAB_PATH)}
           onOpenTests={() => runCommand(AXON_COMMANDS.OPEN_TEST_EXPLORER)}
           view={sidebarView}
           onViewChange={(nextView) => {

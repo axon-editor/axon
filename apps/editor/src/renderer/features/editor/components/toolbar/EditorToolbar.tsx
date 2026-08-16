@@ -56,7 +56,7 @@ const toolbarButtonIdle =
 const toolbarButtonActive =
   "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]";
 const toolbarMenu =
-  "axon-popover absolute right-0 top-8 z-50 rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-1 shadow-2xl";
+  "axon-popover axon-select-popover absolute right-0 top-8 z-50 rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] py-1 shadow-2xl";
 const toolbarMenuItem =
   "flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-68 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100";
 

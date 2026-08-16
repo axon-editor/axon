@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { GitBranch, RefreshCw, Search } from "lucide-react";
 import {
   type GitGraphResult,
@@ -9,6 +9,10 @@ import { openGitCommitDiff } from "../lib/gitGraphTab";
 import CommitDetails from "./gitGraph/CommitDetails";
 import CommitRow from "./gitGraph/CommitRow";
 import RefChip from "./gitGraph/RefChip";
+import {
+  getCachedGitGraphData,
+  loadGitGraphData,
+} from "./gitGraph/gitGraphData";
 
 interface Props {
   folderPath: string | null;
@@ -19,36 +23,73 @@ export default function GitGraphPanel({
   folderPath,
   variant = "compact",
 }: Props) {
-  const [graph, setGraph] = useState<GitGraphResult | null>(null);
-  const [history, setHistory] = useState<GitHistoryResult | null>(null);
+  const initialData = folderPath ? getCachedGitGraphData(folderPath) : null;
+  const [graph, setGraph] = useState<GitGraphResult | null>(
+    initialData?.graph ?? null,
+  );
+  const [history, setHistory] = useState<GitHistoryResult | null>(
+    initialData?.history ?? null,
+  );
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(
+    async (forceRefresh = false) => {
+      if (!folderPath) {
+        setGraph(null);
+        setHistory(null);
+        return;
+      }
+      setLoading(true);
+      try {
+        const data = await loadGitGraphData(folderPath, forceRefresh);
+        setGraph(data.graph);
+        setHistory(data.history);
+        setSelectedHash(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [folderPath],
+  );
+
+  useEffect(() => {
+    let active = true;
     if (!folderPath) {
       setGraph(null);
       setHistory(null);
+      setSelectedHash(null);
       return;
     }
-    setLoading(true);
-    try {
-      const [nextGraph, nextHistory] = await Promise.all([
-        window.axon.getGitGraph(folderPath),
-        window.axon.getGitHistory(folderPath),
-      ]);
-      setGraph(nextGraph);
-      setHistory(nextHistory);
-      setSelectedHash(null);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    void refresh().catch((err) =>
-      console.error("failed to load Git graph:", err),
-    );
+    const cached = getCachedGitGraphData(folderPath);
+    if (cached) {
+      setGraph(cached.graph);
+      setHistory(cached.history);
+      setSelectedHash(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    void loadGitGraphData(folderPath)
+      .then((data) => {
+        if (!active) return;
+        setGraph(data.graph);
+        setHistory(data.history);
+        setSelectedHash(null);
+      })
+      .catch((err) => {
+        if (active) console.error("failed to load Git graph:", err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [folderPath]);
 
   const historyByHash = useMemo(
@@ -101,7 +142,11 @@ export default function GitGraphPanel({
           <button
             type="button"
             aria-label="Refresh commit graph"
-            onClick={() => void refresh()}
+            onClick={() =>
+              void refresh(true).catch((err) =>
+                console.error("failed to refresh Git graph:", err),
+              )
+            }
             className="ml-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
           >
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />

@@ -103,6 +103,7 @@ export default function WorkbenchOverlays(props: Record<string, any>) {
     tasksContribution,
     testExplorerOpen,
     testingContribution,
+    themeSyntax,
     themeTokens,
     tree,
     updateInfo,
@@ -273,6 +274,7 @@ export default function WorkbenchOverlays(props: Record<string, any>) {
             filePath={diffFilePath ?? activePane?.activeFile ?? ""}
             folderPath={folderPath}
             editorSettings={settings.editor}
+            themeSyntax={themeSyntax}
             themeTokens={themeTokens}
             onClose={() => {
               setDiffOpen(false);
@@ -297,6 +299,7 @@ export default function WorkbenchOverlays(props: Record<string, any>) {
             }}
             onGitStatusChanged={() => void refreshGitStatus({ silent: true })}
             editorSettings={settings.editor}
+            themeSyntax={themeSyntax}
             themeTokens={themeTokens}
             onOutput={(message, level = "info") =>
               appendOutput("git", message, level)

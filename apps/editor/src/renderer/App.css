@@ -271,6 +271,11 @@ html.axon-native-glass .axon-tooltip {
   will-change: opacity, translate, scale;
 }
 
+.axon-git-modal-panel {
+  box-shadow: 0 24px 80px
+    color-mix(in srgb, var(--axon-editor-foreground) 18%, transparent);
+}
+
 .axon-modal-panel--leaving {
   animation: axonModalPanelOut 150ms ease-in both;
 }

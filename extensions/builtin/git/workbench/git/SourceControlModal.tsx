@@ -19,6 +19,7 @@ import {
   type GitStatusResult,
 } from "@axon-editor/shared/git";
 import { type EditorSettings } from "@axon-editor/shared/settings";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import MediaPreview, {
@@ -26,6 +27,7 @@ import MediaPreview, {
 } from "@axon-builtin-media-preview/MediaPreview";
 import GitDiffEditorView from "./GitDiffEditorView";
 import GitWorkflowPanel from "./GitWorkflowPanel";
+import GitConfirmationDialog from "./GitConfirmationDialog";
 import {
   commitSourceControlChanges,
   copyGitText,
@@ -35,6 +37,7 @@ import {
   runSourceControlBatchAction,
   type GitMutationAction,
 } from "./lib/sourceControlApi";
+import { getGitFileStateBadgeStyle } from "./lib/gitTheme";
 
 interface Props {
   folderPath: string | null;
@@ -45,6 +48,7 @@ interface Props {
   onOpenGraph: () => void;
   onGitStatusChanged: () => void;
   editorSettings: EditorSettings;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   onOutput: (
     message: string,
@@ -93,10 +97,13 @@ function DiffSkeleton() {
 }
 
 function changeLabel(change: GitChange) {
-  if (change.indexState !== "unknown" && change.indexState !== "ignored") {
-    return stateLabels[change.indexState];
-  }
-  return stateLabels[change.worktreeState];
+  return stateLabels[changeState(change)];
+}
+
+function changeState(change: GitChange) {
+  return change.indexState !== "unknown" && change.indexState !== "ignored"
+    ? change.indexState
+    : change.worktreeState;
 }
 
 function getFileName(path: string) {
@@ -112,6 +119,7 @@ export default function SourceControlModal({
   onOpenGraph,
   onGitStatusChanged,
   editorSettings,
+  themeSyntax,
   themeTokens,
   onOutput,
 }: Props) {
@@ -124,6 +132,12 @@ export default function SourceControlModal({
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
   const [committing, setCommitting] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    confirmLabel: string;
+    description: string;
+    title: string;
+    run: () => void;
+  } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const selectedChangeIsMedia = selectedChange
     ? isMediaFile(selectedChange.absolutePath)
@@ -172,18 +186,23 @@ export default function SourceControlModal({
     }
   };
 
-  const runAction = async (change: GitChange, action: GitMutationAction) => {
+  const runAction = async (
+    change: GitChange,
+    action: GitMutationAction,
+    confirmed = false,
+  ) => {
     if (!folderPath) return;
-    // Discard is destructive, so the renderer confirms before it asks the main
-    // process to run the path-scoped Git operation. The main process still owns
-    // the shell boundary, but this keeps accidental clicks from silently
-    // deleting editor work.
-    if (
-      action === "discard" &&
-      !window.confirm(
-        `Discard unstaged changes in ${change.path}? This cannot be undone.`,
-      )
-    ) {
+    if (action === "discard" && !confirmed) {
+      // Native browser confirmation prompts cannot inherit Axon's active theme.
+      // I defer the destructive operation into the themed dialog instead, then
+      // re-enter this function with an explicit confirmation so the mutation
+      // path remains shared with stage and unstage.
+      setPendingConfirmation({
+        title: "Discard file changes?",
+        description: `Discard unstaged changes in ${change.path}? This cannot be undone.`,
+        confirmLabel: "Discard Changes",
+        run: () => void runAction(change, action, true),
+      });
       return;
     }
 
@@ -205,14 +224,16 @@ export default function SourceControlModal({
   const runBatchAction = async (
     changes: GitChange[],
     action: GitMutationAction,
+    confirmed = false,
   ) => {
     if (!folderPath || changes.length === 0) return;
-    if (
-      action === "discard" &&
-      !window.confirm(
-        `Discard unstaged changes in ${changes.length} file(s)? This cannot be undone.`,
-      )
-    ) {
+    if (action === "discard" && !confirmed) {
+      setPendingConfirmation({
+        title: "Discard all unstaged changes?",
+        description: `Discard unstaged changes in ${changes.length} file${changes.length === 1 ? "" : "s"}? This cannot be undone.`,
+        confirmLabel: "Discard All",
+        run: () => void runBatchAction(changes, action, true),
+      });
       return;
     }
 
@@ -344,15 +365,23 @@ export default function SourceControlModal({
   }, [open, folderPath]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPendingConfirmation(null);
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (pendingConfirmation) {
+        setPendingConfirmation(null);
+        return;
+      }
+      onClose();
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
+  }, [onClose, open, pendingConfirmation]);
 
   useEffect(() => {
     if (!folderPath || !selectedChange || selectedChangeIsMedia) {
@@ -386,7 +415,7 @@ export default function SourceControlModal({
     >
       <div
         ref={panelRef}
-        className="axon-modal-panel flex flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03]"
+        className="axon-modal-panel axon-git-modal-panel flex flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]"
         style={{
           width: "min(1180px, calc(100vw - 2rem))",
           height: "min(900px, calc(100vh - 3rem))",
@@ -663,6 +692,7 @@ export default function SourceControlModal({
                     original={diff?.baseContent ?? ""}
                     modified={diff?.currentContent ?? ""}
                     editorSettings={editorSettings}
+                    themeSyntax={themeSyntax}
                     themeTokens={themeTokens}
                   />
                 ) : (
@@ -674,6 +704,19 @@ export default function SourceControlModal({
             </div>
           </div>
         </div>
+        {pendingConfirmation ? (
+          <GitConfirmationDialog
+            title={pendingConfirmation.title}
+            description={pendingConfirmation.description}
+            confirmLabel={pendingConfirmation.confirmLabel}
+            onCancel={() => setPendingConfirmation(null)}
+            onConfirm={() => {
+              const run = pendingConfirmation.run;
+              setPendingConfirmation(null);
+              run();
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -722,7 +765,10 @@ function ChangeGroup({
             onClick={() => onSelect(change)}
             onDoubleClick={() => onOpenFile(change.absolutePath)}
           >
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-center text-[10px] text-[var(--axon-syntax-function)]">
+            <span
+              className="rounded px-1.5 py-0.5 text-center text-[10px]"
+              style={getGitFileStateBadgeStyle(changeState(change))}
+            >
               {changeLabel(change)}
             </span>
             <span className="min-w-0 pr-1">

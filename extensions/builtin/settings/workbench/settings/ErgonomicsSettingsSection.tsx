@@ -19,7 +19,7 @@ export default function ErgonomicsSettingsSection({
 }) {
   return (
     <SettingsSection
-      title="Ergonomics"
+      title="Editor behavior"
       description="Control the editor behaviors that affect daily writing, navigation, and reading. Changes apply immediately so you can feel the difference without restarting Axon."
     >
       <SettingsField

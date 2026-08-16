@@ -62,7 +62,7 @@ export default function BufferSymbolsPopover({
   );
 
   return (
-    <div className="axon-popup-surface absolute left-3 top-[42px] z-40 w-[min(560px,calc(100%-24px))] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_20px_54px_rgba(0,0,0,0.48)]">
+    <div className="axon-popup-surface absolute left-1/2 top-[42px] z-40 w-[min(560px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_20px_54px_rgba(0,0,0,0.48)]">
       <div className="border-b border-[var(--axon-panel-border)] px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <FileCode2

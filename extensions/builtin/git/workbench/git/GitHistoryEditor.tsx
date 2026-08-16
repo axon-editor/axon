@@ -6,6 +6,7 @@ import {
 } from "@axon-editor/shared/git";
 import { useState } from "react";
 import { type EditorSettings } from "@axon-editor/shared/settings";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import GitDiffEditorView from "./GitDiffEditorView";
 
@@ -35,18 +36,19 @@ function AuthorAvatar({ commit }: { commit: GitHistoryCommit }) {
       .map((part) => part[0]?.toUpperCase())
       .join("") || "?";
 
-  const avatar = commit.authorAvatarUrl && !failed ? (
+  const avatar =
+    commit.authorAvatarUrl && !failed ? (
       <img
         src={commit.authorAvatarUrl}
         alt={commit.authorName}
         onError={() => setFailed(true)}
         className="h-8 w-8 shrink-0 rounded-full bg-[var(--axon-panel-overlay-hover)] object-cover"
       />
-  ) : (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--axon-panel-overlay-hover)] text-[11px] font-medium text-[var(--axon-info-foreground)]">
-      {initials}
-    </span>
-  );
+    ) : (
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--axon-panel-overlay-hover)] text-[11px] font-medium text-[var(--axon-info-foreground)]">
+        {initials}
+      </span>
+    );
 
   if (!commit.authorProfileUrl) return avatar;
 
@@ -67,6 +69,7 @@ interface Props {
   file: GitHistoryFile;
   diff: GitCommitDiffResult;
   editorSettings: EditorSettings;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
   onClose: () => void;
 }
@@ -76,6 +79,7 @@ export default function GitHistoryEditor({
   file,
   diff,
   editorSettings,
+  themeSyntax,
   themeTokens,
   onClose,
 }: Props) {
@@ -122,6 +126,7 @@ export default function GitHistoryEditor({
           original={diff.baseContent ?? ""}
           modified={diff.currentContent ?? ""}
           editorSettings={editorSettings}
+          themeSyntax={themeSyntax}
           themeTokens={themeTokens}
         />
       </div>

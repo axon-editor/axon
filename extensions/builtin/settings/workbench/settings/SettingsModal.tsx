@@ -544,25 +544,24 @@ export default function SettingsModal({
             )}
 
             {activeSection === "editor" && (
-              <EditorSettingsSection
-                draft={draft}
-                editorFontItems={editorFontItems}
-                onApplyFontPreset={applyFontPreset}
-                onUpdateEditor={updateEditor}
-              />
+              <>
+                <EditorSettingsSection
+                  draft={draft}
+                  editorFontItems={editorFontItems}
+                  onApplyFontPreset={applyFontPreset}
+                  onUpdateEditor={updateEditor}
+                />
+                <ErgonomicsSettingsSection
+                  draft={draft}
+                  onUpdateEditor={updateEditor}
+                />
+              </>
             )}
 
             {activeSection === "terminal" && (
               <TerminalSettingsSection
                 draft={draft}
                 onUpdateTerminal={updateTerminal}
-              />
-            )}
-
-            {activeSection === "ergonomics" && (
-              <ErgonomicsSettingsSection
-                draft={draft}
-                onUpdateEditor={updateEditor}
               />
             )}
 

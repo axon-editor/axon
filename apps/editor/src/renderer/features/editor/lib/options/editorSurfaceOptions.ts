@@ -1,0 +1,147 @@
+import type * as monaco from "monaco-editor";
+import { type EditorSettings } from "@axon-editor/shared/settings";
+import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
+import { createEditorFormattingOptions } from "../formatting/editorFormattingOptions";
+
+interface EditorSurfaceOptionsInput {
+  editorSettings: EditorSettings;
+  largeDocument: boolean;
+  readOnly: boolean;
+}
+
+const EDITOR_INTERACTION_POLICY = {
+  hoverDelay: 100,
+  hoverHidingDelay: 80,
+  quickSuggestionsDelay: 0,
+  topPadding: 16,
+} as const;
+
+/**
+ * I keep Monaco's construction policy outside the React surface because these
+ * values serve two different owners. User choices come from Editor settings,
+ * while a smaller set of fixed values protects Axon's token pipeline, virtual
+ * tabs, and large-document mode. Keeping both groups in this typed builder
+ * makes that distinction explicit and prevents every surface render from
+ * manufacturing a new options object that Monaco then has to compare.
+ */
+export function createEditorSurfaceOptions({
+  editorSettings,
+  largeDocument,
+  readOnly,
+}: EditorSurfaceOptionsInput): monaco.editor.IStandaloneEditorConstructionOptions {
+  const documentFeaturesEnabled = !largeDocument;
+  const foldingEnabled =
+    documentFeaturesEnabled && editorSettings.codeFoldingEnabled;
+  const snippetsEnabled =
+    documentFeaturesEnabled && editorSettings.snippetsEnabled;
+  const formattingOptions = createEditorFormattingOptions(editorSettings);
+
+  return {
+    readOnly,
+    readOnlyMessage: {
+      value: "Dependency and standard-library source is read-only.",
+    },
+    fontSize: editorSettings.fontSize,
+    fontFamily: editorFontStack(editorSettings.fontFamily),
+    fontWeight: String(editorSettings.fontWeight),
+    lineHeight: editorSettings.lineHeight,
+    letterSpacing: 0,
+    fontLigatures: editorSettings.fontLigatures,
+    tabSize: editorSettings.tabSize,
+    insertSpaces: editorSettings.insertSpaces,
+    detectIndentation: editorSettings.detectIndentation,
+
+    // Axon owns one merged TextMate/LSP decoration stream. Monaco's parallel
+    // semantic painter would apply the same tokens again and double the model
+    // decoration work, especially on large files, without improving the UI.
+    "semanticHighlighting.enabled": false,
+    largeFileOptimizations: true,
+
+    matchBrackets: documentFeaturesEnabled ? "always" : "never",
+    occurrencesHighlight: documentFeaturesEnabled ? "singleFile" : "off",
+    selectionHighlight: documentFeaturesEnabled,
+    links: documentFeaturesEnabled,
+    colorDecorators: documentFeaturesEnabled,
+    codeLens: documentFeaturesEnabled,
+    inlayHints: { enabled: documentFeaturesEnabled ? "on" : "off" },
+    renderValidationDecorations: documentFeaturesEnabled ? "editable" : "off",
+    minimap: {
+      enabled: documentFeaturesEnabled && editorSettings.minimapEnabled,
+    },
+    scrollBeyondLastLine: true,
+    lineNumbers: "on",
+    glyphMargin: documentFeaturesEnabled,
+    folding: foldingEnabled,
+    showFoldingControls: foldingEnabled ? "mouseover" : "never",
+    stickyScroll: {
+      enabled: documentFeaturesEnabled && editorSettings.stickyScrollEnabled,
+    },
+    overviewRulerLanes:
+      documentFeaturesEnabled && editorSettings.scrollbarMarkersEnabled ? 3 : 0,
+    hideCursorInOverviewRuler:
+      !documentFeaturesEnabled || !editorSettings.scrollbarMarkersEnabled,
+    multiCursorModifier:
+      editorSettings.multiCursorModifier === "ctrlCmd" ? "ctrlCmd" : "alt",
+    multiCursorPaste: "spread",
+    multiCursorMergeOverlapping: true,
+    bracketPairColorization: { enabled: documentFeaturesEnabled },
+    ...formattingOptions,
+    guides: documentFeaturesEnabled
+      ? formattingOptions.guides
+      : {
+          indentation: false,
+          highlightActiveIndentation: false,
+          bracketPairs: false,
+          bracketPairsHorizontal: false,
+          highlightActiveBracketPair: false,
+        },
+    scrollbar: {
+      vertical: "auto",
+      horizontal: "auto",
+      useShadows: false,
+    },
+    quickSuggestions:
+      documentFeaturesEnabled && editorSettings.quickSuggestionsEnabled
+        ? {
+            other: true,
+            comments: false,
+            strings: true,
+          }
+        : false,
+    quickSuggestionsDelay: EDITOR_INTERACTION_POLICY.quickSuggestionsDelay,
+    suggestOnTriggerCharacters:
+      documentFeaturesEnabled &&
+      editorSettings.triggerCharacterSuggestionsEnabled,
+    wordBasedSuggestions:
+      documentFeaturesEnabled && editorSettings.wordBasedSuggestionsEnabled
+        ? "matchingDocuments"
+        : "off",
+
+    // Overflow widgets are clipped to the editor so hover content cannot cover
+    // Axon's breadcrumb row. Monaco first tries the space above the symbol and
+    // automatically falls below when the available viewport cannot contain it.
+    fixedOverflowWidgets: false,
+    hover: {
+      enabled: documentFeaturesEnabled,
+      delay: EDITOR_INTERACTION_POLICY.hoverDelay,
+      sticky: true,
+      hidingDelay: EDITOR_INTERACTION_POLICY.hoverHidingDelay,
+      above: true,
+    },
+    acceptSuggestionOnCommitCharacter: true,
+    snippetSuggestions: snippetsEnabled ? "top" : "none",
+    suggest: {
+      showSnippets: snippetsEnabled,
+      snippetsPreventQuickSuggestions: false,
+      showInlineDetails: false,
+      showStatusBar: false,
+      preview: editorSettings.suggestionPreviewEnabled,
+    },
+    tabCompletion: snippetsEnabled ? "on" : "off",
+    renderLineHighlight: "line",
+    padding: { top: EDITOR_INTERACTION_POLICY.topPadding },
+    cursorStyle: editorSettings.cursorStyle,
+    cursorBlinking: editorSettings.cursorBlinking,
+    smoothScrolling: documentFeaturesEnabled,
+  };
+}

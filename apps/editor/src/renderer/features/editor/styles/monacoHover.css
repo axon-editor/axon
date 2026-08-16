@@ -1,0 +1,283 @@
+@keyframes axonMonacoHoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.monaco-editor .monaco-resizable-hover,
+.monaco-editor .monaco-hover {
+  border-color: var(--axon-panel-border) !important;
+  border-radius: 7px !important;
+  background: var(
+    --axon-solid-popup-background,
+    var(--axon-panel-background)
+  ) !important;
+  color: var(--axon-editor-foreground) !important;
+  box-shadow: 0 14px 38px color-mix(in srgb, #000 32%, transparent) !important;
+}
+
+.monaco-editor .monaco-resizable-hover {
+  overflow: hidden !important;
+}
+
+.monaco-editor .monaco-resizable-hover > .monaco-hover {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.monaco-editor .monaco-hover {
+  min-width: min(180px, calc(100vw - 20px));
+  max-width: min(420px, calc(100vw - 20px)) !important;
+  font-family: var(--axon-ui-font-family, system-ui, sans-serif) !important;
+  font-size: 12px !important;
+  font-weight: 450;
+  line-height: 1.42 !important;
+  letter-spacing: 0;
+}
+
+.monaco-editor .monaco-hover.fade-in {
+  animation: axonMonacoHoverIn 130ms cubic-bezier(0.18, 0.9, 0.2, 1) both !important;
+  transform-origin: top left;
+}
+
+.monaco-editor .monaco-hover .monaco-hover-content {
+  max-height: min(320px, calc(100vh - 32px));
+  overflow: auto;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.monaco-editor .monaco-hover .hover-row {
+  position: relative;
+  border-color: color-mix(
+    in srgb,
+    var(--axon-panel-border) 74%,
+    transparent
+  ) !important;
+}
+
+.monaco-editor .monaco-hover .hover-row:not(:first-child):not(:empty) {
+  border-top: 1px solid
+    color-mix(in srgb, var(--axon-panel-border) 74%, transparent) !important;
+}
+
+.monaco-editor .monaco-hover .hover-row .hover-row-contents {
+  width: 100%;
+}
+
+.monaco-editor .monaco-hover .hover-contents:not(.html-hover-contents) {
+  padding: 6px 9px !important;
+}
+
+.monaco-editor .monaco-hover .markdown-hover:first-child .code-hover-contents {
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--axon-panel-border) 68%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 64%,
+    var(--axon-panel-background)
+  ) !important;
+}
+
+.monaco-editor .monaco-hover .markdown-hover:last-child .code-hover-contents {
+  border-bottom: 0;
+}
+
+.monaco-editor .monaco-hover p,
+.monaco-editor .monaco-hover ul,
+.monaco-editor .monaco-hover ol,
+.monaco-editor .monaco-hover blockquote {
+  margin-block: 4px;
+}
+
+.monaco-editor .monaco-hover .markdown-hover,
+.monaco-editor .monaco-hover .markdown-hover .hover-contents,
+.monaco-editor .monaco-hover .markdown-hover .rendered-markdown,
+.monaco-editor .monaco-hover .markdown-hover p,
+.monaco-editor .monaco-hover .markdown-hover li,
+.monaco-editor .monaco-hover .markdown-hover span {
+  font-size: 12px !important;
+  line-height: 1.46 !important;
+}
+
+.monaco-editor .monaco-hover ul,
+.monaco-editor .monaco-hover ol {
+  padding-left: 20px;
+}
+
+.monaco-editor .monaco-hover li + li {
+  margin-top: 2px;
+}
+
+.monaco-editor .monaco-hover h1,
+.monaco-editor .monaco-hover h2,
+.monaco-editor .monaco-hover h3,
+.monaco-editor .monaco-hover h4,
+.monaco-editor .monaco-hover h5,
+.monaco-editor .monaco-hover h6 {
+  margin: 6px 0 3px;
+  color: var(--axon-editor-foreground);
+  font-size: 1em;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.monaco-editor .monaco-hover blockquote {
+  padding-left: 8px;
+  border-left: 2px solid
+    color-mix(in srgb, var(--axon-syntax-method) 58%, transparent);
+  color: color-mix(
+    in srgb,
+    var(--axon-editor-foreground) 74%,
+    transparent
+  );
+}
+
+.monaco-editor .monaco-hover code,
+.monaco-editor .monaco-hover pre,
+.monaco-editor .monaco-hover .monaco-tokenized-source,
+.monaco-editor .monaco-hover .code-hover-contents {
+  font-family: var(--monaco-monospace-font) !important;
+}
+
+.monaco-editor .monaco-hover code {
+  padding: 1px 4px !important;
+  border: 1px solid
+    color-mix(in srgb, var(--axon-panel-border) 70%, transparent);
+  border-radius: 3px !important;
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 76%,
+    var(--axon-panel-background)
+  ) !important;
+  color: var(--axon-editor-foreground) !important;
+}
+
+.monaco-editor .monaco-hover pre,
+.monaco-editor .monaco-hover .monaco-tokenized-source {
+  margin: 0;
+  font-size: 12px !important;
+  line-height: 1.48 !important;
+  white-space: pre-wrap;
+}
+
+.monaco-editor .monaco-hover hr {
+  height: 1px;
+  margin: 6px -9px;
+  border: 0 !important;
+  background: color-mix(
+    in srgb,
+    var(--axon-panel-border) 72%,
+    transparent
+  );
+}
+
+.monaco-editor .monaco-hover a,
+.monaco-editor .monaco-hover .action-container a,
+.monaco-editor .monaco-hover .verbosity-actions .codicon.enabled {
+  color: var(--axon-syntax-function) !important;
+  text-decoration: none !important;
+}
+
+.monaco-editor .monaco-hover a:hover,
+.monaco-editor .monaco-hover .action-container a:hover {
+  color: var(--axon-syntax-method) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px;
+}
+
+.monaco-editor .monaco-hover .marker.hover-contents {
+  width: 100%;
+  font-family: var(--axon-ui-font-family, system-ui, sans-serif) !important;
+  font-size: 12px !important;
+  line-height: 1.46 !important;
+}
+
+.monaco-editor .monaco-hover .hover-row.status-bar,
+.monaco-editor .monaco-hover .hover-row .actions {
+  border-color: var(--axon-panel-border) !important;
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 52%,
+    var(--axon-panel-background)
+  ) !important;
+  color: color-mix(
+    in srgb,
+    var(--axon-editor-foreground) 74%,
+    transparent
+  ) !important;
+}
+
+.monaco-editor .monaco-hover .hover-row.status-bar {
+  min-height: 24px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--axon-panel-border) 74%, transparent) !important;
+  font-size: 10px !important;
+  line-height: 24px !important;
+}
+
+.monaco-editor .monaco-hover .hover-row.status-bar .actions {
+  align-items: center;
+  gap: 10px;
+  padding: 0 9px !important;
+}
+
+.monaco-editor
+  .monaco-hover
+  .hover-row.status-bar
+  .actions
+  .action-container {
+  margin: 0 !important;
+}
+
+.monaco-editor .monaco-hover .hover-copy-button {
+  top: 4px !important;
+  right: 5px !important;
+  width: 20px;
+  height: 20px;
+  padding: 0 !important;
+  border: 1px solid transparent;
+  border-radius: 4px !important;
+  color: var(--axon-editor-foreground) !important;
+  transition:
+    opacity 100ms ease,
+    background-color 100ms ease,
+    border-color 100ms ease;
+}
+
+.monaco-editor .monaco-hover .hover-copy-button:hover {
+  border-color: var(--axon-panel-border) !important;
+  background: var(--axon-panel-overlay-hover) !important;
+}
+
+.monaco-editor .monaco-hover .hover-copy-button .codicon {
+  color: inherit !important;
+  font-size: 12px !important;
+}
+
+.monaco-editor .monaco-hover .verbosity-actions {
+  border-right-color: var(--axon-panel-border) !important;
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-background) 52%,
+    var(--axon-panel-background)
+  );
+}
+
+.monaco-editor .monaco-hover :focus-visible {
+  outline: 1px solid var(--axon-syntax-function) !important;
+  outline-offset: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monaco-editor .monaco-hover.fade-in {
+    animation: none !important;
+  }
+}

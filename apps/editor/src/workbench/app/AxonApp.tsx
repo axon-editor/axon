@@ -27,12 +27,7 @@ import {
   type CustomFont,
 } from "../../shared/settings";
 import { type AiActionId } from "../../shared/ai";
-import {
-  type GitCommitDiffResult,
-  type GitHistoryCommit,
-  type GitHistoryFile,
-  type GitStatusResult,
-} from "../../shared/git";
+import { type GitStatusResult } from "../../shared/git";
 import { type WorkspaceTask } from "../../shared/tasks";
 import { type UpdateInfo, type UpdateInstallState } from "../../shared/updates";
 import { type ExtensionState } from "../../shared/extensions";
@@ -57,6 +52,7 @@ import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
 import { dispatchEditorSave } from "../../renderer/features/editor/lib/buffer/editorSave";
 import {
   AXON_OPEN_GIT_COMMIT_DIFF_EVENT,
+  releaseGitCommitDiffTab,
   type OpenGitCommitDiffDetail,
 } from "@axon-builtin-git/git/lib/gitGraphTab";
 import "../../renderer/App.css";
@@ -157,17 +153,14 @@ export default function App({ initialExtensionState }: AppProps) {
   const [sidebarView, setSidebarView] = useState<
     "files" | "history" | "spotify"
   >("files");
-  const [gitHistoryEditor, setGitHistoryEditor] = useState<{
-    commit: GitHistoryCommit;
-    file: GitHistoryFile;
-    diff: GitCommitDiffResult;
-  } | null>(null);
   useEffect(() => {
     const openCommitDiff = (event: Event) => {
-      const { commit, file, diff } = (
-        event as CustomEvent<OpenGitCommitDiffDetail>
-      ).detail;
-      setGitHistoryEditor({ commit, file, diff });
+      const { tabPath } = (event as CustomEvent<OpenGitCommitDiffDetail>)
+        .detail;
+      if (!tabPath) return;
+      setLayout((current) =>
+        openFileInPane(current, current.activePaneId, tabPath),
+      );
     };
     window.addEventListener(AXON_OPEN_GIT_COMMIT_DIFF_EVENT, openCommitDiff);
     return () =>
@@ -651,7 +644,14 @@ export default function App({ initialExtensionState }: AppProps) {
           }
         }
       }
-      setLayout((prev) => closeTabInPane(prev, paneId, filePath));
+      setLayout((prev) => {
+        const next = closeTabInPane(prev, paneId, filePath);
+        const tabStillOpen = next.panes.some((candidate) =>
+          candidate.openTabs.includes(filePath),
+        );
+        if (!tabStillOpen) releaseGitCommitDiffTab(filePath);
+        return next;
+      });
     },
     [appendOutput, layout.panes, saveFileFromModel],
   );
@@ -859,7 +859,6 @@ export default function App({ initialExtensionState }: AppProps) {
         folderPath,
         folderPickerOpen,
         gitChangeCount,
-        gitHistoryEditor,
         gitStatus,
         handleApplyAgentEdit,
         handleDownloadUpdate,
@@ -930,7 +929,6 @@ export default function App({ initialExtensionState }: AppProps) {
         setExtensionViewOpenId,
         setFileOutlineOpen,
         setFolderPickerOpen,
-        setGitHistoryEditor,
         setLanguage,
         setLanguageToolsOpen,
         setLayout,

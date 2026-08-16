@@ -20,13 +20,11 @@ import { fontStack } from "../../../renderer/shared/lib/fonts";
 import WorkbenchOverlays from "./WorkbenchOverlays";
 import WorkbenchStatusBar from "./WorkbenchStatusBar";
 import WorkspaceSafetyOverlays from "./WorkspaceSafetyOverlays";
+import { openGitCommitDiff } from "@axon-builtin-git/git/lib/gitGraphTab";
 
 const Terminal = React.lazy(() => import("@axon-builtin-terminal/Terminal"));
 const AxonAgentSidebar = React.lazy(
   () => import("@axon-builtin-agent/AxonAgentSidebar"),
-);
-const GitHistoryEditor = React.lazy(
-  () => import("@axon-builtin-git/git/GitHistoryEditor"),
 );
 const SpotifyFloatingPlayer = React.lazy(
   () => import("@axon-builtin-spotify/SpotifyFloatingPlayer"),
@@ -48,7 +46,6 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
     diagnostics,
     folderPath,
     folderPickerOpen,
-    gitHistoryEditor,
     gitStatus,
     handleApplyAgentEdit,
     handleFileSelect,
@@ -94,7 +91,6 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
     setBottomPanelOpen,
     setBottomPanelTab,
     setFolderPickerOpen,
-    setGitHistoryEditor,
     setLanguage,
     setLayout,
     setSidebarWidth,
@@ -152,20 +148,24 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
         end: platform === "win32" ? 150 : 0,
       }
     : undefined;
+  const uiFontFamily = fontStack(
+    settings.editor.uiFontFamily,
+    "system-ui, sans-serif",
+  );
 
   return (
     <div
       className="axon-app-root relative flex h-full w-full flex-col overflow-hidden"
-      style={{
-        ...appThemeCssVariables,
-        background: "var(--axon-background)",
-        fontFamily: fontStack(
-          settings.editor.uiFontFamily,
-          "system-ui, sans-serif",
-        ),
-        fontWeight: settings.editor.fontWeight,
-        letterSpacing: 0,
-      }}
+      style={
+        {
+          ...appThemeCssVariables,
+          "--axon-ui-font-family": uiFontFamily,
+          background: "var(--axon-background)",
+          fontFamily: uiFontFamily,
+          fontWeight: settings.editor.fontWeight,
+          letterSpacing: 0,
+        } as React.CSSProperties
+      }
     >
       {zenMode && (
         <>
@@ -211,7 +211,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               onWidthChange={setSidebarWidth}
               view={sidebarView}
               onOpenGitHistoryFile={(commit, file, diff) => {
-                setGitHistoryEditor({ commit, file, diff });
+                openGitCommitDiff({ commit, file, diff });
               }}
               onSplitFile={(filePath) => handleSplit("right", filePath)}
               onOpenInTerminal={handleOpenPathInTerminal}
@@ -323,18 +323,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
             </div>
           )}
 
-          {gitHistoryEditor && gitContribution ? (
-            <React.Suspense fallback={null}>
-              <GitHistoryEditor
-                commit={gitHistoryEditor.commit}
-                file={gitHistoryEditor.file}
-                diff={gitHistoryEditor.diff}
-                editorSettings={settings.editor}
-                themeTokens={themeTokens}
-                onClose={() => setGitHistoryEditor(null)}
-              />
-            </React.Suspense>
-          ) : settingsHydrated ? (
+          {settingsHydrated ? (
             <EditorPane
               layout={layout}
               folderPath={folderPath}

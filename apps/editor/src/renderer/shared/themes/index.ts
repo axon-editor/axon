@@ -19,7 +19,7 @@ import {
 } from "./types";
 import {
   appearanceBorderColor,
-  gitAppearanceColors,
+  resolveThemeGitColors,
   inferThemeAppearance,
 } from "./themeAppearance";
 
@@ -195,7 +195,7 @@ function buildMonacoTheme(
   extensionTheme?: ResolvedExtensionTheme,
 ) {
   const appearance = extensionTheme?.appearance ?? inferThemeAppearance(tokens);
-  const gitColors = gitAppearanceColors[appearance];
+  const gitColors = resolveThemeGitColors(tokens, appearance);
   const uiBorder = appearanceBorderColor(tokens["panel.border"], appearance);
   const themeData: monaco.editor.IStandaloneThemeData = {
     base: theme.base,

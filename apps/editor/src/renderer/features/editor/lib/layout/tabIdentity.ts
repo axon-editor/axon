@@ -7,7 +7,11 @@ import {
   isMarkdownPreviewTabPath,
 } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
 import { isProblemsTabPath } from "@axon-builtin-problems/lib/problemsTab";
-import { isGitGraphTabPath } from "@axon-builtin-git/git/lib/gitGraphTab";
+import {
+  getGitCommitDiffTabData,
+  isGitCommitDiffTabPath,
+  isGitGraphTabPath,
+} from "@axon-builtin-git/git/lib/gitGraphTab";
 import { isWelcomeTabPath } from "@axon-editor/renderer/features/onboarding/lib/welcomeTab";
 import {
   getCodeSnapshotSource,
@@ -25,6 +29,13 @@ export function getTabDisplayName(tabPath: string) {
   if (isWelcomeTabPath(tabPath)) return "Welcome to Axon";
   if (isProblemsTabPath(tabPath)) return "Problems";
   if (isGitGraphTabPath(tabPath)) return "Git Graph";
+  if (isGitCommitDiffTabPath(tabPath)) {
+    const data = getGitCommitDiffTabData(tabPath);
+    const fileName = data?.file.path.split(/[\\/]/).pop();
+    return fileName
+      ? `${fileName} (${data?.commit.shortHash ?? "Git"})`
+      : "Git comparison";
+  }
   if (isCodeSnapshotTabPath(tabPath)) return "Code Snapshot";
 
   const filePath = getTabFilePath(tabPath);
@@ -41,6 +52,12 @@ export function getTabTooltipLabel(tabPath: string) {
   if (isWelcomeTabPath(tabPath)) return "Welcome to Axon";
   if (isProblemsTabPath(tabPath)) return "Problems";
   if (isGitGraphTabPath(tabPath)) return "Repository commit graph";
+  if (isGitCommitDiffTabPath(tabPath)) {
+    const data = getGitCommitDiffTabData(tabPath);
+    return data
+      ? `${data.file.path} at ${data.commit.shortHash}`
+      : "Git commit comparison";
+  }
   if (isCodeSnapshotTabPath(tabPath)) {
     const source = getCodeSnapshotSource(tabPath);
     return source ? `Code snapshot: ${source.filePath}` : "Code snapshot";
@@ -57,6 +74,7 @@ export function isVirtualTabPath(tabPath: string) {
     isWelcomeTabPath(tabPath) ||
     isProblemsTabPath(tabPath) ||
     isGitGraphTabPath(tabPath) ||
+    isGitCommitDiffTabPath(tabPath) ||
     isCodeSnapshotTabPath(tabPath) ||
     isHtmlPreviewTabPath(tabPath) ||
     isMarkdownPreviewTabPath(tabPath)
