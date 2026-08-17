@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTerminalRendererController } from "../../../../../extensions/builtin/terminal/workbench/lib/terminalRenderer";
 
 interface MockWebglAddon {
+  clearTextureAtlas: ReturnType<typeof vi.fn>;
   dispose: ReturnType<typeof vi.fn>;
   emitContextLoss: () => void;
 }
@@ -12,6 +13,7 @@ const webglAddons = vi.hoisted(() => [] as MockWebglAddon[]);
 vi.mock("@xterm/addon-webgl", () => ({
   WebglAddon: class implements MockWebglAddon {
     private contextLossListener: (() => void) | null = null;
+    clearTextureAtlas = vi.fn();
     dispose = vi.fn();
 
     constructor() {
@@ -94,6 +96,25 @@ describe("terminal renderer controller", () => {
     expect(terminal.loadAddon).toHaveBeenCalledOnce();
 
     frame.mockRestore();
+  });
+
+  it("clears the WebGL cell cache when forcing a complete redraw", () => {
+    const { terminal, controller } = createTerminal();
+
+    controller.sync(true, "on");
+    controller.forceFullRedraw();
+
+    expect(webglAddons[0].clearTextureAtlas).toHaveBeenCalledOnce();
+    expect(terminal.refresh).not.toHaveBeenCalled();
+  });
+
+  it("refreshes visible rows directly when WebGL is disabled", () => {
+    const { terminal, controller } = createTerminal();
+
+    controller.sync(true, "off");
+    controller.forceFullRedraw();
+
+    expect(terminal.refresh).toHaveBeenCalledWith(0, 23);
   });
 
   it("does not retry a renderer that failed during initialization", () => {

@@ -85,6 +85,20 @@ export function createTerminalRendererController(
   };
 
   return {
+    forceFullRedraw() {
+      if (disposed) return;
+      if (webglAddon) {
+        // xterm's ordinary refresh can still reuse WebGL's cell model when the
+        // buffer text and attributes are unchanged. That is normally correct,
+        // but it cannot repair a canvas frame Electron's compositor failed to
+        // present. Clearing the atlas also clears that cached cell model and
+        // requests a genuinely complete viewport draw, which is the same useful
+        // part of a terminal resize without changing columns, rows, or reflow.
+        webglAddon.clearTextureAtlas();
+        return;
+      }
+      terminal.refresh(0, Math.max(0, terminal.rows - 1));
+    },
     sync(visible, mode) {
       if (!visible || mode === "off") {
         deactivateWebgl();

@@ -2,6 +2,8 @@
 
 ## Next
 
+- Fixed committed terminal output remaining visually stale under WebGL until a
+  manual resize forced the renderer to rebuild its cached viewport.
 - Fixed semantic token colors reverting to the previously applied theme after
   typing in an editor that remained mounted across a theme change.
 

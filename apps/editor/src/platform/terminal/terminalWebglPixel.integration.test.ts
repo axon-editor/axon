@@ -1,0 +1,107 @@
+// @vitest-environment node
+
+import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+interface WebglPixelResult {
+  blankLitRatio: number;
+  erasedLitRatio: number;
+  minimumScrollbackLitRatio: number;
+  minimumStreamingLitRatio: number;
+  repairedLitRatio: number;
+  renderedLitRatio: number;
+  retainedLineCount: number;
+  scrollbackFrameCount: number;
+  streamFrameCount: number;
+}
+
+const RESULT_PREFIX = "AXON_WEBGL_RESULT:";
+const require = createRequire(import.meta.url);
+
+function runElectronPixelFixture() {
+  return new Promise<WebglPixelResult>((resolve, reject) => {
+    const electronPath = require("electron") as string;
+    const fixturePath = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "fixtures",
+      "terminalWebglPixelFixture.cjs",
+    );
+    const child = spawn(electronPath, [fixturePath], {
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([name]) => name !== "ELECTRON_RUN_AS_NODE",
+        ),
+      ),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code, signal) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            `Electron WebGL fixture exited with ${code ?? signal}: ${stderr || stdout}`,
+          ),
+        );
+        return;
+      }
+      const resultLine = stdout
+        .split(/\r?\n/)
+        .find((line) => line.startsWith(RESULT_PREFIX));
+      if (!resultLine) {
+        reject(new Error(`Electron WebGL fixture returned no result: ${stdout}`));
+        return;
+      }
+      resolve(JSON.parse(resultLine.slice(RESULT_PREFIX.length)));
+    });
+  });
+}
+
+describe("terminal WebGL compositing", () => {
+  it(
+    "keeps 1,200 streamed lines visible and restores a stale WebGL surface",
+    async () => {
+      const result = await runElectronPixelFixture();
+
+      // This test intentionally asserts both halves of the regression. The
+      // buffer check proves the PTY bytes reached xterm, while the pixel ratios
+      // come from Electron's captured compositor output. A buffer-only test can
+      // pass while the user still sees a blank terminal, which is the exact gap
+      // this integration coverage is designed to close.
+      expect(result.retainedLineCount).toBe(1_200);
+      expect(result.streamFrameCount).toBe(30);
+      expect(result.scrollbackFrameCount).toBeGreaterThanOrEqual(100);
+      expect(result.minimumStreamingLitRatio).toBeGreaterThan(
+        result.blankLitRatio + 0.05,
+      );
+      expect(result.minimumScrollbackLitRatio).toBeGreaterThan(
+        result.blankLitRatio + 0.05,
+      );
+      expect(result.renderedLitRatio).toBeGreaterThan(
+        result.blankLitRatio + 0.05,
+      );
+      expect(result.erasedLitRatio).toBeLessThan(
+        result.renderedLitRatio - 0.05,
+      );
+      expect(result.repairedLitRatio).toBeGreaterThan(
+        result.erasedLitRatio + 0.05,
+      );
+      expect(
+        Math.abs(result.repairedLitRatio - result.renderedLitRatio),
+      ).toBeLessThan(0.002);
+    },
+    45_000,
+  );
+});

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import {
   getOutputByteLength,
+  TERMINAL_HARD_REFRESH_IDLE_MS,
   TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
   TERMINAL_WRITE_BATCH_BYTES,
   type TerminalSession,
@@ -33,6 +34,7 @@ function createSession() {
     outputQueue: [],
     outputWriting: false,
     outputDrainTimer: null,
+    outputHardRefreshTimer: null,
     outputRefreshFrame: null,
     outputRefreshAfterFrame: false,
     inFlightWriteBytes: 0,
@@ -120,6 +122,33 @@ describe("terminal output accounting", () => {
     frames[1](32);
     expect(term.refresh).toHaveBeenCalledTimes(2);
     animationFrame.mockRestore();
+  });
+
+  it("hard-invalidates the renderer once after committed output becomes quiet", () => {
+    vi.useFakeTimers();
+    const { session } = createSession();
+    const callbacks: Array<() => void> = [];
+    const forceFullRedraw = vi.fn();
+    session.rendererController = {
+      dispose: vi.fn(),
+      forceFullRedraw,
+      sync: vi.fn(),
+    };
+    session.term!.write = vi.fn((_data, callback) => callbacks.push(callback));
+
+    writeTerminalOutput(session, "first batch");
+    vi.advanceTimersByTime(TERMINAL_HARD_REFRESH_IDLE_MS);
+    expect(forceFullRedraw).not.toHaveBeenCalled();
+
+    callbacks.shift()!();
+    vi.advanceTimersByTime(TERMINAL_HARD_REFRESH_IDLE_MS - 1);
+    writeTerminalOutput(session, "second batch");
+    callbacks.shift()!();
+    vi.advanceTimersByTime(TERMINAL_HARD_REFRESH_IDLE_MS - 1);
+    expect(forceFullRedraw).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(forceFullRedraw).toHaveBeenCalledOnce();
   });
 
   it("does not pull a detached reader back to the live tail", () => {

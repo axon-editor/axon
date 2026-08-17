@@ -1,6 +1,7 @@
 import type { Terminal as XTerm } from "@xterm/xterm";
 import {
   MAX_RECONNECT_INPUT_BYTES,
+  TERMINAL_HARD_REFRESH_IDLE_MS,
   TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
   TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN,
   TERMINAL_WRITE_BATCH_BYTES,
@@ -203,6 +204,28 @@ function scheduleTerminalDrain(session: TerminalSession) {
   }, 0);
 }
 
+function scheduleTerminalHardRefresh(session: TerminalSession) {
+  if (session.outputHardRefreshTimer !== null) {
+    window.clearTimeout(session.outputHardRefreshTimer);
+  }
+
+  // A normal xterm refresh only marks rows dirty; WebGL may compare those rows
+  // with an identical cached cell model and skip drawing them. Electron can
+  // therefore retain a stale canvas even though xterm has committed every byte,
+  // explaining why resizing reveals the missing output. Debouncing this deeper
+  // renderer invalidation until the input burst is quiet avoids clearing the
+  // glyph atlas repeatedly while an agent is actively streaming.
+  session.outputHardRefreshTimer = window.setTimeout(() => {
+    session.outputHardRefreshTimer = null;
+    if (session.disposed) return;
+    if (hasPendingTerminalOutput(session)) {
+      scheduleTerminalHardRefresh(session);
+      return;
+    }
+    session.rendererController?.forceFullRedraw();
+  }, TERMINAL_HARD_REFRESH_IDLE_MS);
+}
+
 export function scheduleTerminalViewportRefresh(
   session: TerminalSession,
   verifyAfterPaint = false,
@@ -317,6 +340,7 @@ export function writeTerminalOutput(
     session.queuedBytes,
   );
   drainTerminalOutput(session);
+  scheduleTerminalHardRefresh(session);
 }
 
 export function hasPendingTerminalOutput(session: TerminalSession) {

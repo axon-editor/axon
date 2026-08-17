@@ -217,6 +217,13 @@ export function useTerminalSessionManager({
       session.outputDrainTimer = null;
     }
     if (
+      session?.outputHardRefreshTimer !== null &&
+      session?.outputHardRefreshTimer !== undefined
+    ) {
+      window.clearTimeout(session.outputHardRefreshTimer);
+      session.outputHardRefreshTimer = null;
+    }
+    if (
       session?.outputRefreshFrame !== null &&
       session?.outputRefreshFrame !== undefined
     ) {
@@ -307,6 +314,7 @@ export function useTerminalSessionManager({
         outputQueue: [],
         outputWriting: false,
         outputDrainTimer: null,
+        outputHardRefreshTimer: null,
         outputRefreshFrame: null,
         outputRefreshAfterFrame: false,
         inFlightWriteBytes: 0,
