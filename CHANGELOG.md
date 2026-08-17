@@ -2,6 +2,9 @@
 
 ## Next
 
+- Fixed semantic token colors reverting to the previously applied theme after
+  typing in an editor that remained mounted across a theme change.
+
 ## v1.3.6
 
 - Removed active-theme tinting from native Glass editor, sidebar, panel,

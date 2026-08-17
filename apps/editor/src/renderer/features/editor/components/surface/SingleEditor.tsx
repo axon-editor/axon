@@ -108,7 +108,7 @@ export default function SingleEditor({
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
   const filePathRef = useRef(filePath);
-  const refreshAfterBufferAttachRef = useRef<() => void>(() => undefined);
+  const refreshEditorTokensRef = useRef<() => void>(() => undefined);
   const {
     isModelDirty,
     recordLoadedDiskContent,
@@ -130,7 +130,7 @@ export default function SingleEditor({
     onDirtyChange,
     recordLoadedDiskContent,
     recordSynchronizedDiskContent,
-    refreshAfterAttachRef: refreshAfterBufferAttachRef,
+    refreshAfterAttachRef: refreshEditorTokensRef,
   });
   const { save: handleSave, saving } = useEditorSave({
     editorRef,
@@ -586,7 +586,14 @@ export default function SingleEditor({
     visible,
   });
 
-  refreshAfterBufferAttachRef.current = () => {
+  // Monaco installs its content-change listener once when the editor widget
+  // mounts, but React creates new semantic refresh callbacks whenever the
+  // active theme changes. Keeping the current callback behind this stable ref
+  // lets both buffer attachment and later keystrokes reach the newest theme
+  // tokens. Calling a callback captured by handleEditorMount would otherwise
+  // repaint the shared semantic stylesheet with whichever theme was active
+  // when this editor first opened.
+  refreshEditorTokensRef.current = () => {
     scheduleSemanticTokenDecorations();
     scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
   };
@@ -770,8 +777,7 @@ export default function SingleEditor({
       onDirtyChange(filePath, dirty);
       if (!isLargeDocument) {
         syncDocumentWithLanguageServer();
-        scheduleSemanticTokenDecorations(48);
-        scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
+        refreshEditorTokensRef.current();
       }
       // Git gutter markers are positional feedback for the line being edited,
       // so they should not inherit the longer semantic-color delay used by large
