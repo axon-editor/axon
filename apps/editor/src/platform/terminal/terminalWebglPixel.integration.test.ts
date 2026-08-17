@@ -34,10 +34,19 @@ function runElectronPixelFixture() {
     // isolated disposable VM and this process loads only Axon's local pixel-test
     // fixture, so disabling the Chromium process sandbox here lets the real
     // WebGL compositor test run without weakening Axon's packaged application
-    // or normal developer launches. Xvfb still supplies the virtual display.
+    // or normal developer launches. Xvfb supplies the virtual display, while
+    // Electron's bundled SwiftShader supplies a WebGL2 implementation because
+    // the runner has no hardware GPU and Chromium blocklists its virtual one.
     const electronArguments =
       process.platform === "linux" && process.env.CI
-        ? ["--no-sandbox", fixturePath]
+        ? [
+            "--no-sandbox",
+            "--ignore-gpu-blocklist",
+            "--enable-unsafe-swiftshader",
+            "--use-gl=angle",
+            "--use-angle=swiftshader",
+            fixturePath,
+          ]
         : [fixturePath];
     const child = spawn(electronPath, electronArguments, {
       env: Object.fromEntries(
