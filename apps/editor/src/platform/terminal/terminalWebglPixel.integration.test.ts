@@ -29,7 +29,17 @@ function runElectronPixelFixture() {
       "fixtures",
       "terminalWebglPixelFixture.cjs",
     );
-    const child = spawn(electronPath, [fixturePath], {
+    // GitHub's Ubuntu image installs Electron's chrome-sandbox without the
+    // root ownership and setuid mode Chromium requires. The runner itself is an
+    // isolated disposable VM and this process loads only Axon's local pixel-test
+    // fixture, so disabling the Chromium process sandbox here lets the real
+    // WebGL compositor test run without weakening Axon's packaged application
+    // or normal developer launches. Xvfb still supplies the virtual display.
+    const electronArguments =
+      process.platform === "linux" && process.env.CI
+        ? ["--no-sandbox", fixturePath]
+        : [fixturePath];
+    const child = spawn(electronPath, electronArguments, {
       env: Object.fromEntries(
         Object.entries(process.env).filter(
           ([name]) => name !== "ELECTRON_RUN_AS_NODE",
