@@ -129,6 +129,12 @@ describe("managed language tool catalog", () => {
 
   it("does not offer the amd64-only SQLS archive on ARM", () => {
     const sql = getManagedLanguageToolCatalogEntry("sql");
+    // SQLS moved from its original personal repository into the sqls-server
+    // organization. GitHub redirects the release API request, but the returned
+    // asset URL uses the new owner. Keeping the canonical owner pinned here is
+    // essential because Axon intentionally rejects release downloads whose
+    // repository path differs from the reviewed catalog source.
+    expect(sql?.repository).toBe("sqls-server/sqls");
     expect(sql?.assetNames["darwin-arm64"]).toBeUndefined();
     expect(sql?.assetNames["linux-arm64"]).toBeUndefined();
   });

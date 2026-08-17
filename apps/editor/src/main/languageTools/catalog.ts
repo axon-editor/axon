@@ -300,7 +300,7 @@ export const MANAGED_LANGUAGE_TOOL_CATALOG: ManagedLanguageToolCatalogEntry[] = 
     id: "sql",
     label: "SQL",
     languages: ["sql"],
-    repository: "lighttiger2505/sqls",
+    repository: "sqls-server/sqls",
     githubTag: "v0.2.48",
     expectedSha256ByPlatform: {
       "darwin-x64": "b44165ca597a4b4298d56657bc911aa3ca8a591befefde4e29566923c6229f3d",

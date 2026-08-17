@@ -2,6 +2,8 @@
 
 ## Next
 
+- Restored managed SQL language-server downloads after SQLS moved to its
+  canonical GitHub organization.
 - Fixed committed terminal output remaining visually stale under WebGL until a
   manual resize forced the renderer to rebuild its cached viewport.
 - Fixed semantic token colors reverting to the previously applied theme after
