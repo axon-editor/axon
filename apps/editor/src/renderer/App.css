@@ -231,6 +231,13 @@ html.axon-native-glass #root {
   background: transparent !important;
 }
 
+/* Rebuild Chromium's full-window layer after a workspace switch. Values this
+ * close to one quantize to the same visible alpha while still creating a new
+ * compositing boundary, so the native material remains completely untinted. */
+html.axon-workspace-repaint .axon-app-root {
+  opacity: 0.999999;
+}
+
 html.axon-native-glass .axon-modal-panel {
   background: var(
     --axon-modal-glass-background,
@@ -245,7 +252,10 @@ html.axon-native-glass .axon-modal-panel {
 html.axon-native-glass .axon-popup-surface,
 html.axon-native-glass .axon-popover,
 html.axon-native-glass .axon-context-menu {
-  background: var(--axon-popup-background, var(--axon-panel-background)) !important;
+  background: var(
+    --axon-popup-background,
+    var(--axon-panel-background)
+  ) !important;
   -webkit-backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
     saturate(var(--axon-glass-surface-saturation, 100%));
   backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))

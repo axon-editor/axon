@@ -10,6 +10,7 @@ import { resolveLanguageToolsWorkbenchContribution } from "@axon-builtin-languag
 import { resolveSpotifyWorkbenchContribution } from "@axon-builtin-spotify/lib/contribution";
 import { getEnabledExtensionThemes } from "../../shared/extensions";
 import AxonWorkbenchLayout from "./components/AxonWorkbenchLayout";
+import { WorkspaceRenderBoundary } from "./components/WorkspaceRenderBoundary";
 
 export function AxonAppView(props: Record<string, any>) {
   const { extensionState } = props;
@@ -67,20 +68,22 @@ export function AxonAppView(props: Record<string, any>) {
   );
 
   return (
-    <AxonWorkbenchLayout
-      {...props}
-      agentSidebarWidth={agentSidebarWidth}
-      agentContribution={agentContribution}
-      gitContribution={gitContribution}
-      languageToolsContribution={languageToolsContribution}
-      searchContribution={searchContribution}
-      setAgentSidebarWidth={setAgentSidebarWidth}
-      settingsContribution={settingsContribution}
-      spotifyContribution={spotifyContribution}
-      tasksContribution={tasksContribution}
-      terminalContribution={terminalContribution}
-      testingContribution={testingContribution}
-      welcomeThemeItems={welcomeThemeItems}
-    />
+    <WorkspaceRenderBoundary workspacePath={props.folderPath}>
+      <AxonWorkbenchLayout
+        {...props}
+        agentSidebarWidth={agentSidebarWidth}
+        agentContribution={agentContribution}
+        gitContribution={gitContribution}
+        languageToolsContribution={languageToolsContribution}
+        searchContribution={searchContribution}
+        setAgentSidebarWidth={setAgentSidebarWidth}
+        settingsContribution={settingsContribution}
+        spotifyContribution={spotifyContribution}
+        tasksContribution={tasksContribution}
+        terminalContribution={terminalContribution}
+        testingContribution={testingContribution}
+        welcomeThemeItems={welcomeThemeItems}
+      />
+    </WorkspaceRenderBoundary>
   );
 }
