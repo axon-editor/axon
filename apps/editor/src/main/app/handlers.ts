@@ -251,7 +251,9 @@ export function registerAppHandlers({
         documentHtml.length === 0 ||
         Buffer.byteLength(documentHtml, "utf8") > 8 * 1024 * 1024
       ) {
-        throw new Error("The Markdown preview is empty or too large to export.");
+        throw new Error(
+          "The Markdown preview is empty or too large to export.",
+        );
       }
 
       const safeName = path.basename(suggestedName || "document.pdf");

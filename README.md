@@ -13,7 +13,9 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 **Quick look**
 
 <p align="center">
-  <img src="docs/media/axon-demo-preview.gif" alt="Axon editor demo preview" width="760" />
+  <video src="docs/media/axon-demo-preview.mp4" autoplay muted loop playsinline width="760">
+    Axon workspace preview.
+  </video>
 </p>
 
 **Full demo**
@@ -28,55 +30,117 @@ panes, terminal, Git, search, settings, previews, and language-server support.
 
 <table>
   <tr>
-    <td colspan="3" align="center"><strong>Workspace and Navigation</strong></td>
+    <td colspan="3" align="center"><strong>Workspace Workflows</strong></td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/media/axon-screenshot-01.png" alt="Axon empty workspace" width="260" /><br />
-      <sub>Empty workspace</sub>
+      <img src="docs/media/axon-screenshot-01.png" alt="Axon editor with file tree and tabs" width="260" /><br />
+      <sub>Editor, file tree, and tabs</sub>
     </td>
     <td align="center">
-      <img src="docs/media/axon-screenshot-04.png" alt="Axon file tree and tabs" width="260" /><br />
-      <sub>File tree and tabs</sub>
+      <img src="docs/media/axon-screenshot-02.png" alt="Axon workspace picker" width="260" /><br />
+      <sub>Workspace picker</sub>
     </td>
     <td align="center">
-      <img src="docs/media/axon-screenshot-05.png" alt="Axon command palette" width="260" /><br />
-      <sub>Command palette</sub>
+      <img src="docs/media/axon-screenshot-03.png" alt="Axon clone repository workflow" width="260" /><br />
+      <sub>Clone repository</sub>
     </td>
   </tr>
   <tr>
-    <td colspan="3" align="center"><strong>Git and Review</strong></td>
+    <td colspan="3" align="center"><strong>Editing and Intelligence</strong></td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/media/axon-screenshot-02.png" alt="Axon source control panel" width="260" /><br />
+      <img src="docs/media/axon-screenshot-04.png" alt="Axon language hover documentation" width="260" /><br />
+      <sub>Language hover</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-05.png" alt="Axon code completion suggestions" width="260" /><br />
+      <sub>Code completion</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-06.png" alt="Axon Problems view" width="260" /><br />
+      <sub>Problems view</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>Git and Project Feedback</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-07.png" alt="Axon source control panel" width="260" /><br />
       <sub>Source control</sub>
     </td>
     <td align="center">
-      <img src="docs/media/axon-screenshot-03.png" alt="Axon side-by-side diff" width="260" /><br />
-      <sub>Side-by-side diff</sub>
+      <img src="docs/media/axon-screenshot-08.png" alt="Axon inline source control diff" width="260" /><br />
+      <sub>Inline diff</sub>
     </td>
     <td align="center">
-      <img src="docs/media/axon-screenshot-06.png" alt="Axon language server settings" width="260" /><br />
-      <sub>Language servers</sub>
+      <img src="docs/media/axon-screenshot-09.png" alt="Axon project output panel" width="260" /><br />
+      <sub>Project output</sub>
     </td>
   </tr>
   <tr>
-    <td colspan="3" align="center"><strong>Customization and Tools</strong></td>
+    <td colspan="3" align="center"><strong>Commands and Workspace Safety</strong></td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/media/axon-screenshot-07.png" alt="Axon appearance settings" width="260" /><br />
-      <sub>Appearance settings</sub>
+      <img src="docs/media/axon-screenshot-10.png" alt="Axon quick actions menu" width="260" /><br />
+      <sub>Quick actions</sub>
     </td>
     <td align="center">
-      <img src="docs/media/axon-screenshot-08.png" alt="Axon Spotify player" width="260" /><br />
-      <sub>Spotify player</sub>
+      <img src="docs/media/axon-screenshot-11.png" alt="Axon file tree actions" width="260" /><br />
+      <sub>File tree actions</sub>
     </td>
     <td align="center">
-      <img src="docs/media/axon-screenshot-09.png" alt="Axon terminal panel" width="260" /><br />
-      <sub>Terminal panel</sub>
+      <img src="docs/media/axon-screenshot-12.png" alt="Axon workspace trust confirmation" width="260" /><br />
+      <sub>Workspace trust</sub>
     </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>Language Intelligence Details</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-13.png" alt="Axon inline completion details" width="260" /><br />
+      <sub>Inline completion details</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-14.png" alt="Axon filtered completion suggestions" width="260" /><br />
+      <sub>Filtered suggestions</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-15.png" alt="Axon function signature information" width="260" /><br />
+      <sub>Function signatures</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-16.png" alt="Axon package documentation hover" width="260" /><br />
+      <sub>Package documentation</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-17.png" alt="Axon empty editor workspace" width="260" /><br />
+      <sub>Empty editor</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-18.png" alt="Axon focused editor workspace" width="260" /><br />
+      <sub>Focused workspace</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>Application Menus</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-19.png" alt="Axon application menu" width="260" /><br />
+      <sub>Application menu</sub>
+    </td>
+    <td align="center">
+      <img src="docs/media/axon-screenshot-20.png" alt="Axon create menu" width="260" /><br />
+      <sub>Create menu</sub>
+    </td>
+    <td></td>
   </tr>
 </table>
 
