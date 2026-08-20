@@ -15,6 +15,7 @@ import {
   setDirtyInPane,
   setPinnedInPane,
 } from "../../../renderer/features/editor/lib/layout/layoutManager";
+import { activatePane } from "../../../renderer/features/editor/lib/layout/paneActivation";
 import { detectLanguage } from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { fontStack } from "../../../renderer/shared/lib/fonts";
 import WorkbenchOverlays from "./WorkbenchOverlays";
@@ -327,7 +328,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               layout={layout}
               folderPath={folderPath}
               onActivatePane={(id) =>
-                setLayout((prev: any) => ({ ...prev, activePaneId: id }))
+                setLayout((prev: any) => activatePane(prev, id))
               }
               onSelectFile={(paneId, f) =>
                 setLayout((prev: any) => openFileInPane(prev, paneId, f))
