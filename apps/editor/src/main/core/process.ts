@@ -44,6 +44,7 @@ export function createBundledServiceController(
 ) {
   let bundledCoreProcess: ChildProcess | null = null;
   let bundledCoreWatchdog: ReturnType<typeof setInterval> | null = null;
+  let bundledCoreStartPromise: Promise<void> | null = null;
   let bundledCoreHealthFailures = 0;
   let bundledCoreRestarting = false;
   let recoveryPromptActive = false;
@@ -224,7 +225,7 @@ export function createBundledServiceController(
     return path.join(process.resourcesPath, "core", binaryName);
   }
 
-  async function start() {
+  async function startService() {
     if (deps.isDev || bundledCoreProcess) return;
 
     if (await probeAxonCoreOnce(150)) return;
@@ -269,6 +270,14 @@ export function createBundledServiceController(
         return;
       }
       reportStatus("crashed");
+      if (deps.service === "pty-host") {
+        // A crashed PTY host has already lost its shell processes, so leaving a
+        // modal restart prompt as the only recovery path only strands future
+        // terminal tabs on the dead Unix socket. The next ticket request calls
+        // ensureReady and starts a clean host lazily; this also avoids an
+        // uncontrolled respawn loop if the binary cannot start on this machine.
+        return;
+      }
       void requestCoreRestart({
         service: deps.service,
         displayName: deps.displayName,
@@ -292,6 +301,23 @@ export function createBundledServiceController(
       return;
     }
     reportStatus("healthy");
+  }
+
+  function start() {
+    if (bundledCoreStartPromise) return bundledCoreStartPromise;
+
+    // Renderer windows are created before bundled services finish their cold
+    // start, and a terminal can be opened during that interval. Serializing the
+    // start promise prevents the startup path and a recovery request from both
+    // observing an empty child slot and spawning competing PTY hosts on the
+    // same port and control socket.
+    const startPromise = startService().finally(() => {
+      if (bundledCoreStartPromise === startPromise) {
+        bundledCoreStartPromise = null;
+      }
+    });
+    bundledCoreStartPromise = startPromise;
+    return startPromise;
   }
 
   async function stop() {
@@ -324,6 +350,36 @@ export function createBundledServiceController(
     } finally {
       bundledCoreRestarting = false;
     }
+  }
+
+  async function ensureReady() {
+    if (deps.isDev) return;
+
+    // If cold start is already in progress, the ticket request should wait for
+    // that exact attempt instead of probing a socket that has not been bound yet
+    // and incorrectly treating normal startup as a crash.
+    if (bundledCoreStartPromise) await bundledCoreStartPromise;
+    if (await probeAxonCoreOnce(300)) return;
+
+    if (!bundledCoreProcess) {
+      await start();
+      if (await probeAxonCoreOnce(500)) return;
+    } else {
+      // A live child with a dead control transport cannot issue terminal
+      // tickets. Restarting may affect shells in another Axon window, so this
+      // path keeps the existing explicit recovery decision instead of killing
+      // the process behind the user's back.
+      reportStatus("unresponsive");
+      await requestCoreRestart({
+        service: deps.service,
+        displayName: deps.displayName,
+        reason: "unresponsive",
+        terminalSessionCount: await getTerminalSessionCount(),
+      });
+      if (await probeAxonCoreOnce(500)) return;
+    }
+
+    throw new Error(`${deps.displayName} is unavailable.`);
   }
 
   async function requestCoreRestart(request: CoreRestartConfirmation) {
@@ -410,6 +466,7 @@ export function createBundledServiceController(
   }
 
   return {
+    ensureReady,
     start,
     stop,
     startWatchdog,

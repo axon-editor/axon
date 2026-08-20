@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { readFile } from "@axon-editor/renderer/shared/lib/api";
 import {
   getModel,
@@ -12,46 +12,46 @@ interface Props {
   onOpenFile?: (path: string) => void;
 }
 
-export default function MarkdownPreviewTab({
-  filePath,
-  folderPath,
-  onOpenFile,
-}: Props) {
+function MarkdownPreviewTab({ filePath, folderPath, onOpenFile }: Props) {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const handleContentChange = (nextContent: string) => {
-    const model = getModel(filePath);
-    if (model && !model.isDisposed()) {
-      model.pushEditOperations(
-        [],
-        [{ range: model.getFullModelRange(), text: nextContent }],
-        () => null,
-      );
-      return;
-    }
+  const handleContentChange = useCallback(
+    (nextContent: string) => {
+      const model = getModel(filePath);
+      if (model && !model.isDisposed()) {
+        model.pushEditOperations(
+          [],
+          [{ range: model.getFullModelRange(), text: nextContent }],
+          () => null,
+        );
+        return;
+      }
 
-    // A standalone preview can outlive its source editor model. In that case
-    // the task toggle is still a deliberate edit, so I persist it through the
-    // workspace capability instead of presenting an interactive checkbox that
-    // silently resets as soon as the preview rerenders.
-    setContent(nextContent);
-    const separatorIndex = Math.max(
-      filePath.lastIndexOf("/"),
-      filePath.lastIndexOf("\\"),
-    );
-    const writeRoot =
-      folderPath ?? (separatorIndex > 0 ? filePath.slice(0, separatorIndex) : filePath);
-    void window.axon
-      .writeTextFile(filePath, nextContent, writeRoot)
-      .catch((writeError) =>
-        setError(
-          writeError instanceof Error
-            ? writeError.message
-            : "The Markdown task could not be updated.",
-        ),
+      // A standalone preview can outlive its source editor model. In that case
+      // the task toggle is still a deliberate edit, so I persist it through the
+      // workspace capability instead of presenting an interactive checkbox that
+      // silently resets as soon as the preview rerenders.
+      setContent(nextContent);
+      const separatorIndex = Math.max(
+        filePath.lastIndexOf("/"),
+        filePath.lastIndexOf("\\"),
       );
-  };
+      const writeRoot =
+        folderPath ??
+        (separatorIndex > 0 ? filePath.slice(0, separatorIndex) : filePath);
+      void window.axon
+        .writeTextFile(filePath, nextContent, writeRoot)
+        .catch((writeError) =>
+          setError(
+            writeError instanceof Error
+              ? writeError.message
+              : "The Markdown task could not be updated.",
+          ),
+        );
+    },
+    [filePath, folderPath],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -122,3 +122,10 @@ export default function MarkdownPreviewTab({
     />
   );
 }
+
+// Git status is intentionally refreshed in the workbench every two seconds.
+// The preview's file identity does not change during that heartbeat, so letting
+// the parent update walk this subtree would repeatedly parse Markdown and can
+// remount images, videos, highlighted code, and Mermaid output. Memoization
+// keeps the rendered document stable until one of its real inputs changes.
+export default memo(MarkdownPreviewTab);

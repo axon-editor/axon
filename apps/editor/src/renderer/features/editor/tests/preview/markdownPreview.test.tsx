@@ -11,6 +11,7 @@ import {
   vi,
 } from "vitest";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
+import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import { publishMarkdownScroll } from "@axon-builtin-markdown/lib/markdownPreviewSync";
 
 const mermaidMock = vi.hoisted(() => ({
@@ -26,6 +27,21 @@ const bridgeMock = vi.hoisted(() => ({
   openExternalLink: vi.fn(),
   saveMarkdownPdf: vi.fn(),
 }));
+const markdownFileMock = vi.hoisted(() => ({
+  readFile: vi.fn(),
+}));
+
+vi.mock("@axon-editor/renderer/shared/lib/api", () => ({
+  readFile: markdownFileMock.readFile,
+}));
+
+vi.mock(
+  "@axon-editor/renderer/features/editor/lib/buffer/monacoModels",
+  () => ({
+    getModel: () => null,
+    onModelReady: () => ({ dispose() {} }),
+  }),
+);
 
 vi.mock("mermaid", () => ({
   default: {
@@ -70,6 +86,10 @@ describe("MarkdownPreview", () => {
     bridgeMock.openExternalLink.mockReset();
     bridgeMock.saveMarkdownPdf.mockReset();
     bridgeMock.saveMarkdownPdf.mockResolvedValue("/tmp/README.pdf");
+    markdownFileMock.readFile.mockReset();
+    markdownFileMock.readFile.mockResolvedValue({
+      content: "![Preview](./preview.png)\n\nStable document",
+    });
     Object.defineProperty(window, "axon", {
       configurable: true,
       value: bridgeMock,
@@ -120,6 +140,42 @@ describe("MarkdownPreview", () => {
 
     expect(container.querySelector("img")).toBe(initialImage);
     expect(container.textContent).toContain("Second version");
+  });
+
+  it("does not repaint a preview during an unrelated workbench heartbeat", async () => {
+    const onOpenFile = vi.fn();
+    const preview = (
+      <MarkdownPreviewTab
+        filePath="/workspace/README.md"
+        folderPath="/workspace"
+        onOpenFile={onOpenFile}
+      />
+    );
+
+    await act(async () => {
+      root.render(preview);
+      await Promise.resolve();
+    });
+
+    const initialImage = container.querySelector("img");
+    expect(initialImage).not.toBeNull();
+
+    // Git polling rerenders Axon's workbench with the same Markdown inputs.
+    // The browser node is the useful regression signal: if the preview subtree
+    // remounts, images and videos visibly blink even though their URLs and the
+    // document content never changed.
+    await act(async () => {
+      root.render(
+        <MarkdownPreviewTab
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+          onOpenFile={onOpenFile}
+        />,
+      );
+    });
+
+    expect(markdownFileMock.readFile).toHaveBeenCalledOnce();
+    expect(container.querySelector("img")).toBe(initialImage);
   });
 
   it("renders Mermaid fences lazily with strict security and theme colors", async () => {

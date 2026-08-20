@@ -43,7 +43,13 @@ func main() {
 		}
 		go func() {
 			if err := controlServer.Serve(controlListener); err != nil && err != http.ErrServerClosed {
-				log.Printf("Axon PTY control transport stopped: %v", err)
+				// Ticket issuance and health checks live exclusively on this private
+				// transport. Keeping the WebSocket listener alive after the control
+				// socket fails creates a half-alive host that can preserve old streams
+				// but can never open a new terminal. Exiting makes the failure visible
+				// to Electron's service controller, which can recover the host on the
+				// next ticket request instead of retrying a refused socket forever.
+				log.Fatalf("Axon PTY control transport stopped: %v", err)
 			}
 		}()
 	}

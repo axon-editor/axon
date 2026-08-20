@@ -17,6 +17,7 @@ export interface TerminalSession {
   rendererController: TerminalRendererController | null;
   ws: WebSocket | null;
   reconnectTimer: number | null;
+  connectionFailureCount: number;
   resizeDebounceTimer: number | null;
   resizeObserver: ResizeObserver | null;
   dataDisposable: { dispose: () => void } | null;
@@ -91,6 +92,16 @@ export const TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN = 4;
 // short trailing delay lets normal xterm paints handle a live stream and repairs
 // the final composited frame once an agent's output burst becomes quiet.
 export const TERMINAL_HARD_REFRESH_IDLE_MS = 120;
+export const TERMINAL_TICKET_RECONNECT_MIN_MS = 1_500;
+export const TERMINAL_TICKET_RECONNECT_MAX_MS = 30_000;
+
+export function getTerminalTicketReconnectDelay(failureCount: number) {
+  const retryIndex = Math.max(0, Math.floor(failureCount) - 1);
+  return Math.min(
+    TERMINAL_TICKET_RECONNECT_MIN_MS * 2 ** Math.min(retryIndex, 5),
+    TERMINAL_TICKET_RECONNECT_MAX_MS,
+  );
+}
 
 export function createTerminalId() {
   return `terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`;

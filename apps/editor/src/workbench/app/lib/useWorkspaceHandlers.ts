@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
 import { createInitialLayout, openFileInPane } from "../../../renderer/features/editor/lib/layout/layoutManager";
 import { getTree, createFile, type FileNode } from "../../../renderer/shared/lib/api";
@@ -308,10 +308,18 @@ export function useWorkspaceHandlers({
     }
   };
 
-  // open a file in the active pane
-  const handleFileSelect = (filePath: string) => {
-    setLayout((prev: any) => openFileInPane(prev, prev.activePaneId, filePath));
-  };
+  // File selection is passed through every editor pane, including memoized
+  // Markdown previews. Keeping this callback stable prevents unrelated app
+  // state such as the two-second Git heartbeat from invalidating those panes;
+  // setLayout already supplies the current layout when a real selection occurs.
+  const handleFileSelect = useCallback(
+    (filePath: string) => {
+      setLayout((prev: any) =>
+        openFileInPane(prev, prev.activePaneId, filePath),
+      );
+    },
+    [setLayout],
+  );
 
   return {
     handleFileSelect,

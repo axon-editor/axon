@@ -5,6 +5,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { TERMINAL_PROTOCOL } from "@axon/protocol";
 import {
   createTerminalId,
+  getTerminalTicketReconnectDelay,
   getFolderName,
   getTerminalBackendUrl,
   sendTerminalAck,
@@ -130,9 +131,14 @@ export function useTerminalSessionManager({
   }, []);
 
   const updateTabConnection = useCallback((id: string, connected: boolean) => {
-    setTabs((currentTabs) =>
-      currentTabs.map((tab) => (tab.id === id ? { ...tab, connected } : tab)),
-    );
+    setTabs((currentTabs) => {
+      const currentTab = currentTabs.find((tab) => tab.id === id);
+      if (!currentTab || currentTab.connected === connected) return currentTabs;
+
+      return currentTabs.map((tab) =>
+        tab.id === id ? { ...tab, connected } : tab,
+      );
+    });
   }, []);
 
   const updateTabHealth = useCallback((id: string) => {
@@ -301,6 +307,7 @@ export function useTerminalSessionManager({
         rendererController: null,
         ws: null,
         reconnectTimer: null,
+        connectionFailureCount: 0,
         resizeDebounceTimer: null,
         resizeObserver: null,
         dataDisposable: null,
@@ -399,13 +406,30 @@ export function useTerminalSessionManager({
           );
         } catch (error) {
           if (abortController.signal.aborted) return;
-          console.error("terminal ticket request failed:", error);
+          currentSession.connectionFailureCount += 1;
+          if (
+            currentSession.connectionFailureCount === 1 ||
+            currentSession.connectionFailureCount % 5 === 0
+          ) {
+            // A missing backend used to write one identical console error per
+            // terminal tab every 1.5 seconds forever. Keeping the first error
+            // and periodic checkpoints preserves diagnostics without allowing
+            // one service outage to drown every other renderer signal.
+            console.error("terminal ticket request failed:", error);
+          }
           delete connectionAbortRef.current[id];
           updateTabConnection(id, false);
-          scheduleReconnect(currentSession, () => connectSession(id), 1500);
+          scheduleReconnect(
+            currentSession,
+            () => connectSession(id),
+            getTerminalTicketReconnectDelay(
+              currentSession.connectionFailureCount,
+            ),
+          );
           return;
         }
         if (abortController.signal.aborted || currentSession.disposed) return;
+        currentSession.connectionFailureCount = 0;
         delete connectionAbortRef.current[id];
 
         const ws = new WebSocket(backendUrl);

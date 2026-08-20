@@ -391,6 +391,7 @@ registerCoreProxyHandlers({
   axonPtyPort,
   axonPtyToken,
   axonPtyControlPath,
+  ensureTerminalHostReady: () => bundledPtyHost.ensureReady(),
   assertWorkspaceRoot: (rendererId, rootPath) =>
     workspaceCapabilities.assertRoot(rendererId, rootPath),
   assertWorkspacePath: (rendererId, candidatePath) =>

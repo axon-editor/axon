@@ -9,6 +9,7 @@ interface CoreProxyDependencies {
   axonPtyPort: string;
   axonPtyToken: string;
   axonPtyControlPath?: string | null;
+  ensureTerminalHostReady?: () => Promise<void>;
   assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
   assertWorkspacePath: (rendererId: number, candidatePath: string) => string;
   resolveWorkspaceRoot: (rendererId: number, candidatePath: string) => string;
@@ -108,6 +109,7 @@ export function registerCoreProxyHandlers({
   axonPtyPort,
   axonPtyToken,
   axonPtyControlPath,
+  ensureTerminalHostReady,
   assertWorkspaceRoot,
   assertWorkspacePath,
   resolveWorkspaceRoot,
@@ -182,6 +184,13 @@ export function registerCoreProxyHandlers({
       const workspaceRoot = workingDirectory
         ? resolveWorkspaceRoot(event.sender.id, cwd)
         : cwd;
+
+      // The renderer can request a terminal while the packaged PTY host is
+      // still starting, or immediately after an unexpected host exit. Waiting
+      // on the controller here makes terminal creation the recovery boundary:
+      // a dead child is replaced before the private ticket socket is used, so
+      // restored tabs do not retry ECONNREFUSED forever after a folder switch.
+      await ensureTerminalHostReady?.();
       const response = await requestTerminalTicket({
         body: JSON.stringify({ cwd, workspaceRoot }),
         controlPath: axonPtyControlPath,
