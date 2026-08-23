@@ -20,7 +20,6 @@ import {
   hasPendingTerminalOutput,
   isTerminalAtBottom,
   isVisibleTerminalContainer,
-  scheduleTerminalViewportRefresh,
   sendOrQueueTerminalInput,
   sendWorkspaceCd,
   terminateDetachedSession,
@@ -91,7 +90,7 @@ export function useTerminalSessionManager({
 
   const sendResize = useCallback((id: string) => {
     const session = sessionsRef.current[id];
-    if (!session?.fitAddon || !session.ws) return;
+    if (!session?.fitAddon) return;
     if (!isVisibleTerminalContainer(session.container)) return;
 
     const term = session.term;
@@ -107,7 +106,7 @@ export function useTerminalSessionManager({
     }
     if (
       dims &&
-      session.ws.readyState === WebSocket.OPEN &&
+      session.ws?.readyState === WebSocket.OPEN &&
       (dims.cols !== session.lastResizeCols ||
         dims.rows !== session.lastResizeRows)
     ) {
@@ -222,21 +221,6 @@ export function useTerminalSessionManager({
       window.clearTimeout(session.outputDrainTimer);
       session.outputDrainTimer = null;
     }
-    if (
-      session?.outputHardRefreshTimer !== null &&
-      session?.outputHardRefreshTimer !== undefined
-    ) {
-      window.clearTimeout(session.outputHardRefreshTimer);
-      session.outputHardRefreshTimer = null;
-    }
-    if (
-      session?.outputRefreshFrame !== null &&
-      session?.outputRefreshFrame !== undefined
-    ) {
-      window.cancelAnimationFrame(session.outputRefreshFrame);
-      session.outputRefreshFrame = null;
-      session.outputRefreshAfterFrame = false;
-    }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
     session?.multilineDisposable?.dispose();
@@ -321,9 +305,6 @@ export function useTerminalSessionManager({
         outputQueue: [],
         outputWriting: false,
         outputDrainTimer: null,
-        outputHardRefreshTimer: null,
-        outputRefreshFrame: null,
-        outputRefreshAfterFrame: false,
         inFlightWriteBytes: 0,
         pendingBinaryDecodes: 0,
         queuedBytes: 0,
@@ -578,7 +559,9 @@ export function useTerminalSessionManager({
 
       session.term = term;
       session.fitAddon = fitAddon;
-      session.rendererController = createTerminalRendererController(term);
+      session.rendererController = createTerminalRendererController(term, () =>
+        sendResize(id),
+      );
       session.rendererController.sync(
         terminalVisible && id === activeTabId,
         gpuAcceleration,
@@ -597,17 +580,6 @@ export function useTerminalSessionManager({
         // bottom always resumes following.
         if (viewportAtBottom || viewportGestureActive) {
           session.atBottom = viewportAtBottom;
-        }
-
-        // The output callback repaints whatever rows are visible while bytes
-        // are arriving. A reader can reveal different scrollback rows much
-        // later, after Chromium has discarded the old WebGL surface for those
-        // rows. Refreshing after xterm moves viewportY makes those newly exposed
-        // cells render immediately instead of waiting for an unrelated resize.
-        // The scheduler coalesces wheel and scrollbar bursts into one repaint
-        // per frame and never changes the user's scroll position.
-        if (!viewportAtBottom) {
-          scheduleTerminalViewportRefresh(session);
         }
       });
       connectSession(id);

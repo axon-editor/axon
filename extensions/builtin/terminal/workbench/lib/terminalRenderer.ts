@@ -26,28 +26,28 @@ function supportsWebgl2() {
 
 export function createTerminalRendererController(
   terminal: Terminal,
+  requestRefreshDimensions: () => void = () => undefined,
 ): TerminalRendererController {
   let contextLossDisposable: { dispose: () => void } | null = null;
   let webglAddon: WebglAddon | null = null;
   let webglUnavailable = false;
   let disposed = false;
 
-  const deactivateWebgl = () => {
+  const deactivateWebgl = (refreshDimensions = true) => {
     contextLossDisposable?.dispose();
     contextLossDisposable = null;
     const activeAddon = webglAddon;
     webglAddon = null;
     activeAddon?.dispose();
+    if (activeAddon && refreshDimensions && !disposed) {
+      requestRefreshDimensions();
+    }
   };
 
   const fallBackToDom = (reason: "context-loss" | "initialization") => {
     webglUnavailable = true;
     deactivateWebgl();
     if (disposed) return;
-
-    window.requestAnimationFrame(() => {
-      if (!disposed) terminal.refresh(0, Math.max(0, terminal.rows - 1));
-    });
     console.warn(
       reason === "context-loss"
         ? "terminal WebGL context was lost; using the DOM renderer for this session"
@@ -59,14 +59,12 @@ export function createTerminalRendererController(
     if (disposed || webglAddon || webglUnavailable) return;
     if (mode === "auto" && !supportsWebgl2()) return;
 
-    // Electron can recycle the compositor mailbox backing a WebGL canvas while
-    // terminal rows are outside the viewport. xterm still owns the correct text
-    // and ANSI color attributes, but the recycled surface can come back blank
-    // until a resize forces a complete redraw. Preserving the drawing buffer
-    // keeps the visible terminal canvas valid across those compositor passes.
-    // This is scoped to each visible terminal canvas, not the 200,000-line
-    // scrollback buffer, so it does not duplicate the terminal's full history.
-    const nextAddon = new WebglAddon(true);
+    // xterm owns both the WebGL drawing model and its frame invalidation. I keep
+    // the addon on its standard context configuration so Chromium can manage
+    // the drawing buffer normally; forcing a preserved buffer puts Axon on a
+    // renderer path that VS Code does not use and makes stale frames harder for
+    // the browser to discard.
+    const nextAddon = new WebglAddon();
     const lossDisposable = nextAddon.onContextLoss(() => {
       if (webglAddon !== nextAddon) return;
       fallBackToDom("context-loss");
@@ -76,29 +74,20 @@ export function createTerminalRendererController(
       terminal.loadAddon(nextAddon);
       webglAddon = nextAddon;
       contextLossDisposable = lossDisposable;
+      // DOM and WebGL can report different cell measurements for the same font.
+      // The host must fit again after the renderer changes or its PTY dimensions
+      // can describe a different grid from the canvas the user is looking at.
+      requestRefreshDimensions();
     } catch (error) {
       lossDisposable.dispose();
       nextAddon.dispose();
+      requestRefreshDimensions();
       fallBackToDom("initialization");
       console.error("failed to activate terminal WebGL renderer:", error);
     }
   };
 
   return {
-    forceFullRedraw() {
-      if (disposed) return;
-      if (webglAddon) {
-        // xterm's ordinary refresh can still reuse WebGL's cell model when the
-        // buffer text and attributes are unchanged. That is normally correct,
-        // but it cannot repair a canvas frame Electron's compositor failed to
-        // present. Clearing the atlas also clears that cached cell model and
-        // requests a genuinely complete viewport draw, which is the same useful
-        // part of a terminal resize without changing columns, rows, or reflow.
-        webglAddon.clearTextureAtlas();
-        return;
-      }
-      terminal.refresh(0, Math.max(0, terminal.rows - 1));
-    },
     sync(visible, mode) {
       if (!visible || mode === "off") {
         deactivateWebgl();
@@ -109,7 +98,7 @@ export function createTerminalRendererController(
     dispose() {
       if (disposed) return;
       disposed = true;
-      deactivateWebgl();
+      deactivateWebgl(false);
     },
   };
 }

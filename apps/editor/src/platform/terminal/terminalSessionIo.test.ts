@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import {
   getOutputByteLength,
-  TERMINAL_HARD_REFRESH_IDLE_MS,
   TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
   TERMINAL_WRITE_BATCH_BYTES,
   type TerminalSession,
@@ -34,9 +33,6 @@ function createSession() {
     outputQueue: [],
     outputWriting: false,
     outputDrainTimer: null,
-    outputHardRefreshTimer: null,
-    outputRefreshFrame: null,
-    outputRefreshAfterFrame: false,
     inFlightWriteBytes: 0,
     pendingBinaryDecodes: 0,
     queuedBytes: 0,
@@ -91,17 +87,13 @@ describe("terminal output accounting", () => {
     expect(session.maxWriteCommitLatencyMs).toBe(37);
   });
 
-  it("coalesces output and verifies the final paint on the next frame", () => {
+  it("leaves normal output rendering to xterm's internal scheduler", () => {
     const { session } = createSession();
     const callbacks: Array<() => void> = [];
-    const frames: FrameRequestCallback[] = [];
     const term = session.term!;
     const animationFrame = vi
       .spyOn(window, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        frames.push(callback);
-        return frames.length;
-      });
+      .mockImplementation(() => 1);
     vi.mocked(term.scrollToBottom).mockClear();
     term.write = vi.fn((_data, callback) => callbacks.push(callback));
 
@@ -112,67 +104,22 @@ describe("terminal output accounting", () => {
     callbacks[0]();
     callbacks[1]();
 
-    expect(frames).toHaveLength(1);
     expect(term.scrollToBottom).not.toHaveBeenCalled();
     expect(term.refresh).not.toHaveBeenCalled();
-    frames[0](16);
-    expect(term.refresh).toHaveBeenCalledOnce();
-    expect(term.refresh).toHaveBeenCalledWith(0, 23);
-    expect(frames).toHaveLength(2);
-    frames[1](32);
-    expect(term.refresh).toHaveBeenCalledTimes(2);
+    expect(animationFrame).not.toHaveBeenCalled();
     animationFrame.mockRestore();
-  });
-
-  it("hard-invalidates the renderer once after committed output becomes quiet", () => {
-    vi.useFakeTimers();
-    const { session } = createSession();
-    const callbacks: Array<() => void> = [];
-    const forceFullRedraw = vi.fn();
-    session.rendererController = {
-      dispose: vi.fn(),
-      forceFullRedraw,
-      sync: vi.fn(),
-    };
-    session.term!.write = vi.fn((_data, callback) => callbacks.push(callback));
-
-    writeTerminalOutput(session, "first batch");
-    vi.advanceTimersByTime(TERMINAL_HARD_REFRESH_IDLE_MS);
-    expect(forceFullRedraw).not.toHaveBeenCalled();
-
-    callbacks.shift()!();
-    vi.advanceTimersByTime(TERMINAL_HARD_REFRESH_IDLE_MS - 1);
-    writeTerminalOutput(session, "second batch");
-    callbacks.shift()!();
-    vi.advanceTimersByTime(TERMINAL_HARD_REFRESH_IDLE_MS - 1);
-    expect(forceFullRedraw).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(1);
-    expect(forceFullRedraw).toHaveBeenCalledOnce();
   });
 
   it("does not pull a detached reader back to the live tail", () => {
     const { session } = createSession();
-    const frames: FrameRequestCallback[] = [];
     const term = session.term!;
     session.atBottom = false;
-    const animationFrame = vi
-      .spyOn(window, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        frames.push(callback);
-        return frames.length;
-      });
     vi.mocked(term.scrollToBottom).mockClear();
 
     writeTerminalOutput(session, "new output while reading scrollback");
 
-    expect(frames).toHaveLength(1);
-    frames[0](16);
     expect(term.scrollToBottom).not.toHaveBeenCalled();
-    expect(term.refresh).toHaveBeenCalledWith(0, 23);
-    frames[1](32);
-    expect(term.refresh).toHaveBeenCalledTimes(2);
-    animationFrame.mockRestore();
+    expect(term.refresh).not.toHaveBeenCalled();
   });
 
   it("splits oversized websocket frames before writing to xterm", () => {

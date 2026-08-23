@@ -4,6 +4,7 @@ const { app, BrowserWindow } = require("electron");
 const RESULT_PREFIX = "AXON_WEBGL_RESULT:";
 const STREAM_BURST_LINES = 40;
 const STREAM_LINE_COUNT = 1_200;
+const STREAM_WRITES_PER_FRAME = 4;
 const editorRoot = path.resolve(__dirname, "../../../..");
 const xtermPath = require.resolve("@xterm/xterm", { paths: [editorRoot] });
 const webglAddonPath = require.resolve("@xterm/addon-webgl", {
@@ -88,10 +89,9 @@ async function run() {
         theme: { background: "#000000", foreground: "#ffffff" },
       });
       terminal.open(document.getElementById("terminal"));
-      const addon = new WebglAddon(true);
+      const addon = new WebglAddon();
       terminal.loadAddon(addon);
       globalThis.__axonPixelTerminal = terminal;
-      globalThis.__axonPixelWebglAddon = addon;
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const canvas = Array.from(document.querySelectorAll("canvas")).find(
         (candidate) => candidate.getContext("webgl2") !== null,
@@ -110,12 +110,26 @@ async function run() {
     for (
       let start = 0;
       start < STREAM_LINE_COUNT;
-      start += STREAM_BURST_LINES
+      start += STREAM_BURST_LINES * STREAM_WRITES_PER_FRAME
     ) {
-      const output = createVisibleOutput(start, STREAM_BURST_LINES);
+      const outputs = Array.from(
+        { length: STREAM_WRITES_PER_FRAME },
+        (_, writeIndex) => {
+          const writeStart = start + writeIndex * STREAM_BURST_LINES;
+          const remaining = STREAM_LINE_COUNT - writeStart;
+          return createVisibleOutput(
+            writeStart,
+            Math.max(0, Math.min(STREAM_BURST_LINES, remaining)),
+          );
+        },
+      ).filter(Boolean);
       await window.webContents.executeJavaScript(`
-        new Promise((resolve) =>
-          globalThis.__axonPixelTerminal.write(${JSON.stringify(output)}, resolve),
+        Promise.all(
+          ${JSON.stringify(outputs)}.map(
+            (output) => new Promise((resolve) =>
+              globalThis.__axonPixelTerminal.write(output, resolve),
+            ),
+          ),
         )
       `);
       await waitForCompositor(window);
@@ -141,29 +155,6 @@ async function run() {
       return count;
     })()`);
 
-    await window.webContents.executeJavaScript(`(() => {
-      const canvas = Array.from(document.querySelectorAll("canvas")).find(
-        (candidate) => candidate.getContext("webgl2") !== null,
-      );
-      const gl = canvas.getContext("webgl2");
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.disable(gl.SCISSOR_TEST);
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.finish();
-    })()`);
-    await waitForCompositor(window);
-    const erased = await window.webContents.capturePage();
-
-    // This is the production primitive used by forceFullRedraw. Unlike a text
-    // buffer assertion, the capture after this call proves that clearing xterm's
-    // cached cell model reaches Electron's final composited surface.
-    await window.webContents.executeJavaScript(
-      "globalThis.__axonPixelWebglAddon.clearTextureAtlas()",
-    );
-    await waitForCompositor(window);
-    const repaired = await window.webContents.capturePage();
-
     const maximumScrollLine = await window.webContents.executeJavaScript(
       "globalThis.__axonPixelTerminal.buffer.active.baseY",
     );
@@ -188,14 +179,14 @@ async function run() {
 
     return {
       blankLitRatio: litPixelRatio(blank),
-      erasedLitRatio: litPixelRatio(erased),
       minimumScrollbackLitRatio,
       minimumStreamingLitRatio,
-      repairedLitRatio: litPixelRatio(repaired),
       renderedLitRatio: litPixelRatio(rendered),
       retainedLineCount,
       scrollbackFrameCount,
-      streamFrameCount: STREAM_LINE_COUNT / STREAM_BURST_LINES,
+      streamFrameCount: Math.ceil(
+        STREAM_LINE_COUNT / (STREAM_BURST_LINES * STREAM_WRITES_PER_FRAME),
+      ),
     };
   } finally {
     window.destroy();

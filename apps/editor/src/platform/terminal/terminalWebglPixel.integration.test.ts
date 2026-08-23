@@ -8,10 +8,8 @@ import { describe, expect, it } from "vitest";
 
 interface WebglPixelResult {
   blankLitRatio: number;
-  erasedLitRatio: number;
   minimumScrollbackLitRatio: number;
   minimumStreamingLitRatio: number;
-  repairedLitRatio: number;
   renderedLitRatio: number;
   retainedLineCount: number;
   scrollbackFrameCount: number;
@@ -90,7 +88,7 @@ function runElectronPixelFixture() {
 
 describe("terminal WebGL compositing", () => {
   it(
-    "keeps 1,200 streamed lines visible and restores a stale WebGL surface",
+    "keeps 1,200 streamed lines visible without forced redraws",
     async () => {
       const result = await runElectronPixelFixture();
 
@@ -100,7 +98,7 @@ describe("terminal WebGL compositing", () => {
       // pass while the user still sees a blank terminal, which is the exact gap
       // this integration coverage is designed to close.
       expect(result.retainedLineCount).toBe(1_200);
-      expect(result.streamFrameCount).toBe(30);
+      expect(result.streamFrameCount).toBe(8);
       expect(result.scrollbackFrameCount).toBeGreaterThanOrEqual(100);
       expect(result.minimumStreamingLitRatio).toBeGreaterThan(
         result.blankLitRatio + 0.05,
@@ -111,15 +109,6 @@ describe("terminal WebGL compositing", () => {
       expect(result.renderedLitRatio).toBeGreaterThan(
         result.blankLitRatio + 0.05,
       );
-      expect(result.erasedLitRatio).toBeLessThan(
-        result.renderedLitRatio - 0.05,
-      );
-      expect(result.repairedLitRatio).toBeGreaterThan(
-        result.erasedLitRatio + 0.05,
-      );
-      expect(
-        Math.abs(result.repairedLitRatio - result.renderedLitRatio),
-      ).toBeLessThan(0.002);
     },
     45_000,
   );

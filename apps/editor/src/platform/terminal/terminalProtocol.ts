@@ -6,7 +6,6 @@ import { getCoreWebSocketUrl } from "../../renderer/shared/lib/coreBackend";
 
 export interface TerminalRendererController {
   dispose: () => void;
-  forceFullRedraw: () => void;
   sync: (visible: boolean, mode: TerminalGpuAcceleration) => void;
 }
 
@@ -31,9 +30,6 @@ export interface TerminalSession {
   outputQueue: TerminalOutputChunk[];
   outputWriting: boolean;
   outputDrainTimer: number | null;
-  outputHardRefreshTimer: number | null;
-  outputRefreshFrame: number | null;
-  outputRefreshAfterFrame: boolean;
   inFlightWriteBytes: number;
   pendingBinaryDecodes: number;
   queuedBytes: number;
@@ -87,11 +83,6 @@ export const TERMINAL_WRITE_BATCH_BYTES = 128 * 1024;
 // websocket detaches.
 export const TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES = 512 * 1024;
 export const TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN = 4;
-// A hard WebGL invalidation rebuilds the visible renderer cache, so doing it for
-// every websocket frame would throw away most of GPU rendering's benefit. This
-// short trailing delay lets normal xterm paints handle a live stream and repairs
-// the final composited frame once an agent's output burst becomes quiet.
-export const TERMINAL_HARD_REFRESH_IDLE_MS = 120;
 export const TERMINAL_TICKET_RECONNECT_MIN_MS = 1_500;
 export const TERMINAL_TICKET_RECONNECT_MAX_MS = 30_000;
 

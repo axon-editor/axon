@@ -1,7 +1,6 @@
 import type { Terminal as XTerm } from "@xterm/xterm";
 import {
   MAX_RECONNECT_INPUT_BYTES,
-  TERMINAL_HARD_REFRESH_IDLE_MS,
   TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
   TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN,
   TERMINAL_WRITE_BATCH_BYTES,
@@ -204,63 +203,6 @@ function scheduleTerminalDrain(session: TerminalSession) {
   }, 0);
 }
 
-function scheduleTerminalHardRefresh(session: TerminalSession) {
-  if (session.outputHardRefreshTimer !== null) {
-    window.clearTimeout(session.outputHardRefreshTimer);
-  }
-
-  // A normal xterm refresh only marks rows dirty; WebGL may compare those rows
-  // with an identical cached cell model and skip drawing them. Electron can
-  // therefore retain a stale canvas even though xterm has committed every byte,
-  // explaining why resizing reveals the missing output. Debouncing this deeper
-  // renderer invalidation until the input burst is quiet avoids clearing the
-  // glyph atlas repeatedly while an agent is actively streaming.
-  session.outputHardRefreshTimer = window.setTimeout(() => {
-    session.outputHardRefreshTimer = null;
-    if (session.disposed) return;
-    if (hasPendingTerminalOutput(session)) {
-      scheduleTerminalHardRefresh(session);
-      return;
-    }
-    session.rendererController?.forceFullRedraw();
-  }, TERMINAL_HARD_REFRESH_IDLE_MS);
-}
-
-export function scheduleTerminalViewportRefresh(
-  session: TerminalSession,
-  verifyAfterPaint = false,
-) {
-  if (verifyAfterPaint) {
-    session.outputRefreshAfterFrame = true;
-  }
-  if (session.outputRefreshFrame !== null || session.disposed || !session.term) {
-    return;
-  }
-
-  // xterm normally invalidates visible rows as its parser commits output, but
-  // Electron can leave a detached scrollback viewport stale while the buffer
-  // keeps growing below it. I request one full visible-viewport repaint after
-  // committed writes and coalesce every completion in the same animation frame.
-  // This preserves the reader's exact scroll position because refresh does not
-  // scroll, while the frame cap prevents a fast agent stream from scheduling a
-  // separate renderer pass for every 128 KB write callback.
-  session.outputRefreshFrame = window.requestAnimationFrame(() => {
-    session.outputRefreshFrame = null;
-    const refreshAfterFrame = session.outputRefreshAfterFrame;
-    session.outputRefreshAfterFrame = false;
-    const term = session.term;
-    if (!term || session.disposed) return;
-    term.refresh(0, Math.max(0, term.rows - 1));
-    if (refreshAfterFrame) {
-      // xterm's refresh invalidates the rows during this frame, while WebGL can
-      // submit the resulting canvas on the next compositor frame. A second
-      // repaint after the queue settles closes that one-frame gap for the final
-      // line without adding another repaint to every write in a live stream.
-      scheduleTerminalViewportRefresh(session);
-    }
-  });
-}
-
 function drainTerminalOutput(session: TerminalSession) {
   if (!session.term || session.disposed) return;
 
@@ -305,7 +247,6 @@ function drainTerminalOutput(session: TerminalSession) {
       session.outputWriting = session.inFlightWriteBytes > 0;
 
       const settled = !hasPendingTerminalOutput(session);
-      scheduleTerminalViewportRefresh(session, settled);
       sendTerminalAck(session, settled);
 
       if (settled) {
@@ -340,7 +281,6 @@ export function writeTerminalOutput(
     session.queuedBytes,
   );
   drainTerminalOutput(session);
-  scheduleTerminalHardRefresh(session);
 }
 
 export function hasPendingTerminalOutput(session: TerminalSession) {
