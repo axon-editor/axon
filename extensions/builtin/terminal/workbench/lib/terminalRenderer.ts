@@ -1,28 +1,6 @@
 import { WebglAddon } from "@xterm/addon-webgl";
 import type { Terminal } from "@xterm/xterm";
-import type { TerminalGpuAcceleration } from "@axon-editor/shared/settings";
 import type { TerminalRendererController } from "@axon-editor/platform/terminal/terminalProtocol";
-
-let webgl2Available: boolean | null = null;
-
-function supportsWebgl2() {
-  if (webgl2Available !== null) return webgl2Available;
-
-  try {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("webgl2", {
-      antialias: false,
-      depth: false,
-      preserveDrawingBuffer: false,
-    });
-    webgl2Available = context !== null;
-    context?.getExtension("WEBGL_lose_context")?.loseContext();
-  } catch {
-    webgl2Available = false;
-  }
-
-  return webgl2Available;
-}
 
 export function createTerminalRendererController(
   terminal: Terminal,
@@ -55,9 +33,8 @@ export function createTerminalRendererController(
     );
   };
 
-  const activateWebgl = (mode: TerminalGpuAcceleration) => {
+  const activateWebgl = () => {
     if (disposed || webglAddon || webglUnavailable) return;
-    if (mode === "auto" && !supportsWebgl2()) return;
 
     // xterm owns both the WebGL drawing model and its frame invalidation. I keep
     // the addon on its standard context configuration so Chromium can manage
@@ -89,11 +66,31 @@ export function createTerminalRendererController(
 
   return {
     sync(visible, mode) {
-      if (!visible || mode === "off") {
+      // `auto` deliberately keeps xterm's built-in DOM renderer. Axon's terminal
+      // tabs remain mounted while hidden and Electron may discard an unpreserved
+      // WebGL drawing surface without reporting context loss. In that state the
+      // xterm buffer is correct, background rectangles may still appear, and
+      // foreground glyph rows stay blank until a resize forces a full paint.
+      // The DOM renderer follows the same xterm parser and buffer but keeps its
+      // rendered rows in the document, so it does not depend on a retained GPU
+      // surface. Users can still select `on` to opt into WebGL explicitly.
+      if (mode !== "on") {
         deactivateWebgl();
         return;
       }
-      activateWebgl(mode);
+
+      // xterm already observes whether its screen intersects the viewport and
+      // pauses rendering while the terminal is hidden. Keep an existing WebGL
+      // addon attached across panel and tab visibility changes so the same GPU
+      // context is reused when the terminal becomes visible again. Disposing
+      // the addon for every hide/show cycle removes its canvas, but the current
+      // addon does not immediately release the underlying WebGL2 context. Those
+      // orphaned contexts accumulate until Chromium evicts a live terminal's
+      // renderer, leaving its buffer intact but its output missing until a
+      // resize forces a new full paint.
+      if (visible) {
+        activateWebgl();
+      }
     },
     dispose() {
       if (disposed) return;

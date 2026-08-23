@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import {
   getOutputByteLength,
-  TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
-  TERMINAL_WRITE_BATCH_BYTES,
   type TerminalSession,
 } from "./terminalProtocol";
 import {
@@ -21,8 +19,6 @@ function createSession() {
       written.push(data);
       callback();
     },
-    refresh: vi.fn(),
-    scrollToBottom: vi.fn(),
   };
   const session = {
     term,
@@ -30,18 +26,10 @@ function createSession() {
       readyState: WebSocket.OPEN,
       send: (value: string) => sent.push(value),
     },
-    outputQueue: [],
-    outputWriting: false,
-    outputDrainTimer: null,
-    inFlightWriteBytes: 0,
-    pendingBinaryDecodes: 0,
-    queuedBytes: 0,
-    maxQueuedBytes: 0,
-    drainedChunks: 0,
+    pendingXtermWriteBytes: 0,
     receivedBytes: 0,
     lastAckedBytes: 0,
     ackTimer: null,
-    atBottom: true,
     disposed: false,
   } as unknown as TerminalSession;
 
@@ -72,111 +60,50 @@ describe("terminal output accounting", () => {
     });
   });
 
-  it("measures websocket-to-xterm commit latency without reading output", () => {
-    const { session } = createSession();
+  it("passes websocket frames directly to xterm without re-batching them", () => {
+    const { session, written } = createSession();
     const callbacks: Array<() => void> = [];
-    let now = 100;
-    vi.spyOn(performance, "now").mockImplementation(() => now);
-    session.term!.write = vi.fn((_data, callback) => callbacks.push(callback));
+    session.term!.write = vi.fn((data, callback) => {
+      written.push(data);
+      callbacks.push(callback);
+    });
+    const binaryFrame = new Uint8Array([0x1b, 0x5b, 0x32, 0x53]);
 
-    writeTerminalOutput(session, "measured output");
-    now = 137;
-    callbacks[0]();
+    writeTerminalOutput(session, binaryFrame.buffer);
+    writeTerminalOutput(session, "next frame");
 
-    expect(session.lastWriteCommitLatencyMs).toBe(37);
-    expect(session.maxWriteCommitLatencyMs).toBe(37);
+    expect(written).toEqual([binaryFrame, "next frame"]);
+    expect(session.pendingXtermWriteBytes).toBe(14);
+    callbacks.splice(0).forEach((callback) => callback());
+    expect(session.pendingXtermWriteBytes).toBe(0);
   });
 
-  it("leaves normal output rendering to xterm's internal scheduler", () => {
-    const { session } = createSession();
+  it("acknowledges the cumulative stream only after all direct writes parse", () => {
+    const { session, sent } = createSession();
     const callbacks: Array<() => void> = [];
-    const term = session.term!;
-    const animationFrame = vi
-      .spyOn(window, "requestAnimationFrame")
-      .mockImplementation(() => 1);
-    vi.mocked(term.scrollToBottom).mockClear();
-    term.write = vi.fn((_data, callback) => callbacks.push(callback));
+    session.term!.write = vi.fn((_data, callback) => callbacks.push(callback));
 
     writeTerminalOutput(session, "first batch");
     writeTerminalOutput(session, "second batch");
 
     expect(callbacks).toHaveLength(2);
     callbacks[0]();
+    expect(session.receivedBytes).toBe(11);
+    expect(session.pendingXtermWriteBytes).toBe(12);
+    expect(sent).toHaveLength(0);
+
     callbacks[1]();
-
-    expect(term.scrollToBottom).not.toHaveBeenCalled();
-    expect(term.refresh).not.toHaveBeenCalled();
-    expect(animationFrame).not.toHaveBeenCalled();
-    animationFrame.mockRestore();
-  });
-
-  it("does not pull a detached reader back to the live tail", () => {
-    const { session } = createSession();
-    const term = session.term!;
-    session.atBottom = false;
-    vi.mocked(term.scrollToBottom).mockClear();
-
-    writeTerminalOutput(session, "new output while reading scrollback");
-
-    expect(term.scrollToBottom).not.toHaveBeenCalled();
-    expect(term.refresh).not.toHaveBeenCalled();
-  });
-
-  it("splits oversized websocket frames before writing to xterm", () => {
-    const { session, written } = createSession();
-    const callbacks: Array<() => void> = [];
-    session.term!.write = vi.fn((data, callback) => {
-      written.push(data);
-      callbacks.push(callback);
+    expect(session.receivedBytes).toBe(23);
+    expect(JSON.parse(sent.at(-1) ?? "{}")).toEqual({
+      type: "ack",
+      offset: 23,
     });
-    const payload = new Uint8Array(TERMINAL_WRITE_BATCH_BYTES * 3 + 17);
-    payload.forEach((_value, index) => {
-      payload[index] = index % 251;
-    });
-
-    writeTerminalOutput(session, payload.buffer);
-
-    expect(written).toHaveLength(4);
-    expect(
-      written.every(
-        (chunk) => getOutputByteLength(chunk) <= TERMINAL_WRITE_BATCH_BYTES,
-      ),
-    ).toBe(true);
-    callbacks.splice(0).forEach((callback) => callback());
-    expect(session.receivedBytes).toBe(payload.byteLength);
-    expect(hasPendingTerminalOutput(session)).toBe(false);
-  });
-
-  it("bounds bytes queued inside xterm until write callbacks commit", () => {
-    const { session, written } = createSession();
-    const callbacks: Array<() => void> = [];
-    session.term!.write = vi.fn((data, callback) => {
-      written.push(data);
-      callbacks.push(callback);
-    });
-    const payload = new Uint8Array(TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES * 2 + 31);
-
-    writeTerminalOutput(session, payload.buffer);
-
-    expect(
-      written.reduce((total, chunk) => total + getOutputByteLength(chunk), 0),
-    ).toBe(TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES);
-    expect(session.inFlightWriteBytes).toBe(TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES);
-
-    while (callbacks.length > 0) {
-      callbacks.shift()!();
-    }
-
-    expect(session.receivedBytes).toBe(payload.byteLength);
-    expect(session.inFlightWriteBytes).toBe(0);
-    expect(hasPendingTerminalOutput(session)).toBe(false);
   });
 
   it("preserves numbered output in a real xterm buffer while reading scrollback", async () => {
     const terminal = new Terminal({ cols: 120, rows: 24, scrollback: 25_000 });
     const { session } = createSession();
     session.term = terminal;
-    session.atBottom = true;
 
     const createLines = (start: number, count: number) =>
       Array.from(
@@ -191,7 +118,6 @@ describe("terminal output accounting", () => {
     );
     terminal.scrollToBottom();
     terminal.scrollLines(-200);
-    session.atBottom = false;
     const readingViewport = terminal.buffer.active.viewportY;
 
     writeTerminalOutput(session, createLines(8_000, 6_000));
@@ -201,7 +127,6 @@ describe("terminal output accounting", () => {
     expect(terminal.buffer.active.viewportY).toBe(readingViewport);
 
     terminal.scrollToBottom();
-    session.atBottom = true;
     writeTerminalOutput(session, createLines(14_000, 6_000));
     await vi.waitFor(() =>
       expect(hasPendingTerminalOutput(session)).toBe(false),
@@ -243,7 +168,6 @@ describe("terminal output accounting", () => {
     );
     terminal.scrollToBottom();
     terminal.scrollLines(-120);
-    session.atBottom = false;
     const readingViewport = terminal.buffer.active.viewportY;
 
     writeTerminalOutput(session, createAnsiLines(2_000, 2_000));
@@ -267,7 +191,6 @@ describe("terminal output accounting", () => {
     const terminal = new Terminal({ cols: 100, rows: 20, scrollback: 10_000 });
     const { session } = createSession();
     session.term = terminal;
-    session.atBottom = true;
 
     const createBurst = (start: number, count: number) =>
       Array.from({ length: count }, (_value, index) => {
@@ -293,6 +216,43 @@ describe("terminal output accounting", () => {
     expect(bufferedOutput).toContain("AXON_LIVE_00000");
     expect(bufferedOutput).toContain("AXON_LIVE_00960");
     expect(bufferedOutput).toContain("AXON_LIVE_00999");
+
+    terminal.dispose();
+  });
+
+  it("preserves rows displaced by a scroll-region command through the direct path", async () => {
+    const terminal = new Terminal({ cols: 20, rows: 10, scrollback: 100 });
+    const { session } = createSession();
+    session.term = terminal;
+
+    writeTerminalOutput(
+      session,
+      [
+        "0\r\n",
+        "1\r\n",
+        "2\r\n",
+        "3\r\n",
+        "4\r\n",
+        "5\r\n",
+        "6\r\n",
+        "7\r\n",
+        "8\r\n",
+        "9",
+        "\x1b[1;4r",
+        "\x1b[2S",
+        "replacement",
+      ].join(""),
+    );
+    await vi.waitFor(() =>
+      expect(hasPendingTerminalOutput(session)).toBe(false),
+    );
+
+    expect(terminal.buffer.active.baseY).toBe(2);
+    expect(
+      Array.from({ length: 4 }, (_value, index) =>
+        terminal.buffer.active.getLine(index)?.translateToString(true),
+      ),
+    ).toEqual(["0", "1", "replacement", "3"]);
 
     terminal.dispose();
   });

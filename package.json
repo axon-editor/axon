@@ -12,6 +12,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "npm --workspace axon run patch:xterm-scrollback",
     "dev": "npm --workspace axon run dev",
     "build": "npm run build:packages && npm --workspace axon run build",
     "build:packages": "node build/build-packages.mjs",

@@ -18,7 +18,6 @@ import { type TerminalGpuAcceleration } from "@axon-editor/shared/settings";
 import {
   flushQueuedTerminalInput,
   hasPendingTerminalOutput,
-  isTerminalAtBottom,
   isVisibleTerminalContainer,
   sendOrQueueTerminalInput,
   sendWorkspaceCd,
@@ -31,20 +30,6 @@ import { shouldClearTerminal } from "./terminalShortcuts";
 export interface TerminalTab {
   id: string;
   title: string;
-  connected: boolean;
-  health: {
-    receivedBytes: number;
-    ackedBytes: number;
-    queuedBytes: number;
-    inFlightWriteBytes: number;
-    maxQueuedBytes: number;
-    lastWriteCommitLatencyMs: number;
-    maxWriteCommitLatencyMs: number;
-    drainedChunks: number;
-    reconnectCount: number;
-    lastCloseCode: number | null;
-    lastCloseReason: string;
-  };
 }
 
 interface UseTerminalSessionManagerOptions {
@@ -74,7 +59,6 @@ export function useTerminalSessionManager({
   const [zoomed, setZoomed] = useState(false);
   const sessionsRef = useRef<Record<string, TerminalSession>>({});
   const connectionAbortRef = useRef<Record<string, AbortController>>({});
-  const healthFrameRef = useRef<Record<string, number>>({});
   const lastCreateNonceRef = useRef(createNonce);
   const suppressAutoCreateRef = useRef(false);
   const previousOpenRef = useRef(open);
@@ -99,9 +83,6 @@ export function useTerminalSessionManager({
     if (!isVisibleTerminalContainer(session.container)) return;
 
     const term = session.term;
-    const isAlternateBuffer = term?.buffer.active.type === "alternate";
-    const wasAtBottom = term ? isTerminalAtBottom(term) : true;
-    const viewportY = term?.buffer.active.viewportY ?? 0;
     const dims = session.fitAddon.proposeDimensions();
     const dimensionsChanged = Boolean(
       term && dims && (dims.cols !== term.cols || dims.rows !== term.rows),
@@ -125,71 +106,14 @@ export function useTerminalSessionManager({
         }),
       );
     }
-    if (term && dimensionsChanged && !isAlternateBuffer) {
-      if (wasAtBottom && session.atBottom) {
-        term.scrollToBottom();
-      } else {
-        term.scrollToLine(Math.min(viewportY, term.buffer.active.baseY));
-      }
-    }
   }, []);
-
-  const updateTabConnection = useCallback((id: string, connected: boolean) => {
-    setTabs((currentTabs) => {
-      const currentTab = currentTabs.find((tab) => tab.id === id);
-      if (!currentTab || currentTab.connected === connected) return currentTabs;
-
-      return currentTabs.map((tab) =>
-        tab.id === id ? { ...tab, connected } : tab,
-      );
-    });
-  }, []);
-
-  const updateTabHealth = useCallback((id: string) => {
-    const session = sessionsRef.current[id];
-    if (!session) return;
-
-    setTabs((currentTabs) =>
-      currentTabs.map((tab) =>
-        tab.id === id
-          ? {
-              ...tab,
-              health: {
-                receivedBytes: session.receivedBytes,
-                ackedBytes: session.lastAckedBytes,
-                queuedBytes: session.queuedBytes,
-                inFlightWriteBytes: session.inFlightWriteBytes,
-                maxQueuedBytes: session.maxQueuedBytes,
-                lastWriteCommitLatencyMs: session.lastWriteCommitLatencyMs,
-                maxWriteCommitLatencyMs: session.maxWriteCommitLatencyMs,
-                drainedChunks: session.drainedChunks,
-                reconnectCount: session.reconnectCount,
-                lastCloseCode: session.lastCloseCode,
-                lastCloseReason: session.lastCloseReason,
-              },
-            }
-          : tab,
-      ),
-    );
-  }, []);
-
-  const scheduleTabHealthUpdate = useCallback(
-    (id: string) => {
-      if (healthFrameRef.current[id] !== undefined) return;
-      healthFrameRef.current[id] = window.requestAnimationFrame(() => {
-        delete healthFrameRef.current[id];
-        updateTabHealth(id);
-      });
-    },
-    [updateTabHealth],
-  );
 
   const scheduleReconnect = useCallback(
     (session: TerminalSession, callback: () => void, delayMs: number) => {
-      // A terminal websocket can close while output is still draining and while
-      // a previous retry is already queued. Clearing the old timer here keeps
-      // reconnect attempts single-file per session instead of stacking several
-      // delayed connection attempts against the same PTY.
+      // A terminal websocket can close while xterm still has writes pending and
+      // while a previous retry is already queued. Clearing the old timer here
+      // keeps reconnect attempts single-file per session instead of stacking
+      // several delayed connection attempts against the same PTY.
       if (session.reconnectTimer) {
         window.clearTimeout(session.reconnectTimer);
       }
@@ -203,10 +127,6 @@ export function useTerminalSessionManager({
 
     connectionAbortRef.current[id]?.abort();
     delete connectionAbortRef.current[id];
-    if (healthFrameRef.current[id] !== undefined) {
-      window.cancelAnimationFrame(healthFrameRef.current[id]);
-      delete healthFrameRef.current[id];
-    }
     if (session?.reconnectTimer) {
       window.clearTimeout(session.reconnectTimer);
       session.reconnectTimer = null;
@@ -219,17 +139,9 @@ export function useTerminalSessionManager({
       window.clearTimeout(session.ackTimer);
       session.ackTimer = null;
     }
-    if (
-      session?.outputDrainTimer !== null &&
-      session?.outputDrainTimer !== undefined
-    ) {
-      window.clearTimeout(session.outputDrainTimer);
-      session.outputDrainTimer = null;
-    }
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
     session?.multilineDisposable?.dispose();
-    session?.scrollDisposable?.dispose();
     session?.rendererController?.dispose();
     if (session) {
       session.disposed = true;
@@ -272,20 +184,6 @@ export function useTerminalSessionManager({
         {
           id,
           title,
-          connected: false,
-          health: {
-            receivedBytes: 0,
-            ackedBytes: 0,
-            queuedBytes: 0,
-            inFlightWriteBytes: 0,
-            maxQueuedBytes: 0,
-            lastWriteCommitLatencyMs: 0,
-            maxWriteCommitLatencyMs: 0,
-            drainedChunks: 0,
-            reconnectCount: 0,
-            lastCloseCode: null,
-            lastCloseReason: "",
-          },
         },
       ]);
       setActiveTabId(id);
@@ -301,30 +199,14 @@ export function useTerminalSessionManager({
         resizeObserver: null,
         dataDisposable: null,
         multilineDisposable: null,
-        scrollDisposable: null,
         workingDirectory: sessionWorkingDirectory,
         cwdSynced: false,
         receivedBytes: 0,
         lastAckedBytes: 0,
         ackTimer: null,
-        outputQueue: [],
-        outputWriting: false,
-        outputDrainTimer: null,
-        inFlightWriteBytes: 0,
-        pendingBinaryDecodes: 0,
-        queuedBytes: 0,
-        maxQueuedBytes: 0,
-        lastWriteCommitLatencyMs: 0,
-        maxWriteCommitLatencyMs: 0,
-        drainedChunks: 0,
-        reconnectCount: 0,
-        lastCloseCode: null,
-        lastCloseReason: "",
-        lastHealthUpdatedAt: 0,
+        pendingXtermWriteBytes: 0,
         inputQueue: [],
         queuedInputBytes: 0,
-        scrollLine: 0,
-        atBottom: true,
         lastResizeCols: null,
         lastResizeRows: null,
         disposed: false,
@@ -404,7 +286,6 @@ export function useTerminalSessionManager({
             console.error("terminal ticket request failed:", error);
           }
           delete connectionAbortRef.current[id];
-          updateTabConnection(id, false);
           scheduleReconnect(
             currentSession,
             () => connectSession(id),
@@ -426,12 +307,10 @@ export function useTerminalSessionManager({
           const latestSession = sessionsRef.current[id];
           if (!latestSession || latestSession.disposed) return;
           if (latestSession.ws !== ws) return;
-          updateTabConnection(id, true);
           sendResize(id);
           sendWorkspaceCd(latestSession);
           flushQueuedTerminalInput(latestSession);
           sendTerminalAck(latestSession, true);
-          updateTabHealth(id);
         };
 
         ws.onmessage = (event) => {
@@ -439,37 +318,14 @@ export function useTerminalSessionManager({
           if (!latestSession || latestSession.disposed) return;
           if (latestSession.ws !== ws) return;
 
-          if (event.data instanceof Blob) {
-            latestSession.pendingBinaryDecodes += 1;
-            void event.data
-              .arrayBuffer()
-              .then((buffer) => {
-                const currentSession = sessionsRef.current[id];
-                if (!currentSession || currentSession.disposed) return;
-                currentSession.pendingBinaryDecodes = Math.max(
-                  0,
-                  currentSession.pendingBinaryDecodes - 1,
-                );
-                if (currentSession.ws !== ws) return;
-                writeTerminalOutput(currentSession, buffer);
-                scheduleTabHealthUpdate(id);
-              })
-              .catch(() => {
-                const currentSession = sessionsRef.current[id];
-                if (!currentSession || currentSession.disposed) return;
-                currentSession.pendingBinaryDecodes = Math.max(
-                  0,
-                  currentSession.pendingBinaryDecodes - 1,
-                );
-              });
-            return;
-          }
-
+          // binaryType is set to arraybuffer before the socket opens, so binary
+          // PTY frames arrive synchronously in websocket order. Passing that
+          // frame directly to xterm avoids an asynchronous Blob conversion that
+          // could let a later frame overtake an earlier one.
           writeTerminalOutput(latestSession, event.data);
-          scheduleTabHealthUpdate(id);
         };
 
-        ws.onclose = (event) => {
+        ws.onclose = () => {
           const latestSession = sessionsRef.current[id];
           if (
             !latestSession ||
@@ -481,11 +337,6 @@ export function useTerminalSessionManager({
           if (latestSession.ws !== ws) return;
 
           latestSession.ws = null;
-          latestSession.reconnectCount += 1;
-          latestSession.lastCloseCode = event.code;
-          latestSession.lastCloseReason = event.reason;
-          updateTabConnection(id, false);
-          updateTabHealth(id);
           const reconnectWhenOutputIsSettled = () => {
             const settledSession = sessionsRef.current[id];
             if (
@@ -521,13 +372,7 @@ export function useTerminalSessionManager({
         };
       })();
     },
-    [
-      scheduleReconnect,
-      scheduleTabHealthUpdate,
-      sendResize,
-      updateTabConnection,
-      updateTabHealth,
-    ],
+    [scheduleReconnect, sendResize],
   );
 
   const attachContainer = useCallback(
@@ -571,56 +416,7 @@ export function useTerminalSessionManager({
         terminalVisible && id === activeTabId,
         gpuAcceleration,
       );
-      let viewportGestureActive = false;
-      session.scrollDisposable = term.onScroll((line) => {
-        session.scrollLine = line;
-        const viewportAtBottom = isTerminalAtBottom(term);
-
-        // xterm emits scroll events both for real user navigation and while new
-        // output advances baseY. During a live burst, viewportY can briefly lag
-        // behind baseY even though the user is still following the tail. Treating
-        // that parser-driven event as user intent switches auto-follow off at the
-        // exact moment rows enter scrollback. Only an observed wheel, keyboard,
-        // or scrollbar gesture may detach a following terminal; reaching the
-        // bottom always resumes following.
-        if (viewportAtBottom || viewportGestureActive) {
-          session.atBottom = viewportAtBottom;
-        }
-      });
       connectSession(id);
-
-      const updateFollowAfterViewportGesture = () => {
-        window.requestAnimationFrame(() => {
-          if (!session.term || session.disposed) return;
-          session.scrollLine = session.term.buffer.active.viewportY;
-          session.atBottom = isTerminalAtBottom(session.term);
-        });
-      };
-      const handleTerminalWheel = (event: WheelEvent) => {
-        viewportGestureActive = true;
-        if (event.deltaY < 0) session.atBottom = false;
-        updateFollowAfterViewportGesture();
-        window.requestAnimationFrame(() => {
-          viewportGestureActive = false;
-        });
-      };
-      const viewport = container.querySelector<HTMLElement>(".xterm-viewport");
-      const handleViewportPointerDown = () => {
-        viewportGestureActive = true;
-      };
-      const handleViewportPointerUp = () => {
-        updateFollowAfterViewportGesture();
-        window.requestAnimationFrame(() => {
-          viewportGestureActive = false;
-        });
-      };
-
-      container.addEventListener("wheel", handleTerminalWheel, {
-        capture: true,
-        passive: true,
-      });
-      viewport?.addEventListener("pointerdown", handleViewportPointerDown);
-      window.addEventListener("pointerup", handleViewportPointerUp);
 
       const handleMultilineKeydown = (event: KeyboardEvent) => {
         const isEnter =
@@ -643,22 +439,10 @@ export function useTerminalSessionManager({
             handleMultilineKeydown,
             true,
           );
-          container.removeEventListener("wheel", handleTerminalWheel, true);
-          viewport?.removeEventListener(
-            "pointerdown",
-            handleViewportPointerDown,
-          );
-          window.removeEventListener("pointerup", handleViewportPointerUp);
         },
       };
       term.attachCustomKeyEventHandler((event) => {
         if (event.type !== "keydown") return true;
-
-        if (event.shiftKey && event.key === "PageUp") {
-          session.atBottom = false;
-        } else if (event.shiftKey && event.key === "PageDown") {
-          updateFollowAfterViewportGesture();
-        }
 
         const isEnter =
           event.key === "Enter" ||
@@ -769,36 +553,11 @@ export function useTerminalSessionManager({
     if (!terminalVisible || !activeTabId) return;
     const session = sessionsRef.current[activeTabId];
     if (!session?.term) return;
-    const term = session.term;
 
     window.requestAnimationFrame(() => {
       sendResize(activeTabId);
-      if (term.buffer.active.type === "alternate") return;
-      if (session.atBottom) {
-        term.scrollToBottom();
-      } else {
-        term.scrollToLine(
-          Math.max(0, Math.min(session.scrollLine, term.buffer.active.baseY)),
-        );
-      }
     });
   }, [activeTabId, sendResize, terminalVisible]);
-
-  useEffect(() => {
-    if (!terminalVisible) return;
-
-    const interval = window.setInterval(() => {
-      for (const id of Object.keys(sessionsRef.current)) {
-        const session = sessionsRef.current[id];
-        if (!session.term) continue;
-        if (!hasPendingTerminalOutput(session)) continue;
-        session.lastHealthUpdatedAt = Date.now();
-        updateTabHealth(id);
-      }
-    }, 750);
-
-    return () => window.clearInterval(interval);
-  }, [terminalVisible, updateTabHealth]);
 
   useEffect(() => {
     for (const id of Object.keys(sessionsRef.current)) {

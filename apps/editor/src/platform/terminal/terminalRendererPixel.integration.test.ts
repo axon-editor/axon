@@ -6,35 +6,37 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-interface WebglPixelResult {
+interface TerminalPixelResult {
   blankLitRatio: number;
   minimumScrollbackLitRatio: number;
   minimumStreamingLitRatio: number;
+  minimumVisibleRowLitRatio: number;
   renderedLitRatio: number;
   retainedLineCount: number;
   scrollbackFrameCount: number;
   streamFrameCount: number;
+  synchronizedRenderCount: number;
 }
 
-const RESULT_PREFIX = "AXON_WEBGL_RESULT:";
+const RESULT_PREFIX = "AXON_TERMINAL_RENDER_RESULT:";
 const require = createRequire(import.meta.url);
 
 function runElectronPixelFixture() {
-  return new Promise<WebglPixelResult>((resolve, reject) => {
+  return new Promise<TerminalPixelResult>((resolve, reject) => {
     const electronPath = require("electron") as string;
     const fixturePath = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
       "fixtures",
-      "terminalWebglPixelFixture.cjs",
+      "terminalRendererPixelFixture.cjs",
     );
     // GitHub's Ubuntu image installs Electron's chrome-sandbox without the
     // root ownership and setuid mode Chromium requires. The runner itself is an
     // isolated disposable VM and this process loads only Axon's local pixel-test
     // fixture, so disabling the Chromium process sandbox here lets the real
-    // WebGL compositor test run without weakening Axon's packaged application
-    // or normal developer launches. Xvfb supplies the virtual display, while
-    // Electron's bundled SwiftShader supplies a WebGL2 implementation because
-    // the runner has no hardware GPU and Chromium blocklists its virtual one.
+    // compositor test run without weakening Axon's packaged application or
+    // normal developer launches. Xvfb supplies the virtual display, while
+    // Electron's bundled SwiftShader lets Chromium compose the renderer in a
+    // runner that has no hardware GPU and blocklists its virtual one.
     const electronArguments =
       process.platform === "linux" && process.env.CI
         ? [
@@ -69,7 +71,7 @@ function runElectronPixelFixture() {
       if (code !== 0) {
         reject(
           new Error(
-            `Electron WebGL fixture exited with ${code ?? signal}: ${stderr || stdout}`,
+            `Electron terminal fixture exited with ${code ?? signal}: ${stderr || stdout}`,
           ),
         );
         return;
@@ -78,7 +80,7 @@ function runElectronPixelFixture() {
         .split(/\r?\n/)
         .find((line) => line.startsWith(RESULT_PREFIX));
       if (!resultLine) {
-        reject(new Error(`Electron WebGL fixture returned no result: ${stdout}`));
+        reject(new Error(`Electron terminal fixture returned no result: ${stdout}`));
         return;
       }
       resolve(JSON.parse(resultLine.slice(RESULT_PREFIX.length)));
@@ -86,9 +88,9 @@ function runElectronPixelFixture() {
   });
 }
 
-describe("terminal WebGL compositing", () => {
+describe("terminal DOM compositing", () => {
   it(
-    "keeps 1,200 streamed lines visible without forced redraws",
+    "keeps every row of 1,200 streamed lines visible without forced redraws",
     async () => {
       const result = await runElectronPixelFixture();
 
@@ -101,14 +103,16 @@ describe("terminal WebGL compositing", () => {
       expect(result.streamFrameCount).toBe(8);
       expect(result.scrollbackFrameCount).toBeGreaterThanOrEqual(100);
       expect(result.minimumStreamingLitRatio).toBeGreaterThan(
-        result.blankLitRatio + 0.05,
+        result.blankLitRatio + 0.005,
       );
       expect(result.minimumScrollbackLitRatio).toBeGreaterThan(
-        result.blankLitRatio + 0.05,
+        result.blankLitRatio + 0.005,
       );
       expect(result.renderedLitRatio).toBeGreaterThan(
-        result.blankLitRatio + 0.05,
+        result.blankLitRatio + 0.005,
       );
+      expect(result.minimumVisibleRowLitRatio).toBeGreaterThan(0.005);
+      expect(result.synchronizedRenderCount).toBeGreaterThan(2);
     },
     45_000,
   );

@@ -1,15 +1,12 @@
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
 
-const RESULT_PREFIX = "AXON_WEBGL_RESULT:";
+const RESULT_PREFIX = "AXON_TERMINAL_RENDER_RESULT:";
 const STREAM_BURST_LINES = 40;
 const STREAM_LINE_COUNT = 1_200;
 const STREAM_WRITES_PER_FRAME = 4;
 const editorRoot = path.resolve(__dirname, "../../../..");
 const xtermPath = require.resolve("@xterm/xterm", { paths: [editorRoot] });
-const webglAddonPath = require.resolve("@xterm/addon-webgl", {
-  paths: [editorRoot],
-});
 
 function litPixelRatio(image) {
   const bitmap = image.toBitmap();
@@ -30,12 +27,36 @@ function litPixelRatio(image) {
   return litPixels / (bitmap.length / 4);
 }
 
+function rowLitPixelRatios(image, rowCount) {
+  const bitmap = image.toBitmap();
+  const { width, height } = image.getSize();
+  const litPixels = Array.from({ length: rowCount }, () => 0);
+  const pixelCounts = Array.from({ length: rowCount }, () => 0);
+
+  for (let y = 0; y < height; y += 1) {
+    const row = Math.min(rowCount - 1, Math.floor((y * rowCount) / height));
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      pixelCounts[row] += 1;
+      if (
+        bitmap[offset] > 40 ||
+        bitmap[offset + 1] > 40 ||
+        bitmap[offset + 2] > 40
+      ) {
+        litPixels[row] += 1;
+      }
+    }
+  }
+
+  return litPixels.map((count, row) => count / pixelCounts[row]);
+}
+
 function createVisibleOutput(start, count) {
   return Array.from({ length: count }, (_, offset) => {
     const line = String(start + offset).padStart(4, "0");
     return (
-      "\x1b[47;30m" +
-      ` AXON_WEBGL_RETAINED_${line} `.padEnd(60, " ") +
+      "\x1b[97m" +
+      ` AXON_RENDER_RETAINED_${line} `.padEnd(60, " ") +
       "\x1b[0m\r\n"
     );
   }).join("");
@@ -50,6 +71,10 @@ async function waitForCompositor(window) {
   // for Chromium's compositor, not merely xterm's JavaScript write callback.
   window.webContents.invalidate();
   await new Promise((resolve) => setTimeout(resolve, 50));
+}
+
+async function captureTerminalScreen(window, screenBounds) {
+  return window.webContents.capturePage(screenBounds);
 }
 
 async function run() {
@@ -77,7 +102,6 @@ async function run() {
 
     const setup = await window.webContents.executeJavaScript(`(async () => {
       const { Terminal } = require(${JSON.stringify(xtermPath)});
-      const { WebglAddon } = require(${JSON.stringify(webglAddonPath)});
       const terminal = new Terminal({
         cols: 80,
         rows: 12,
@@ -89,21 +113,26 @@ async function run() {
         theme: { background: "#000000", foreground: "#ffffff" },
       });
       terminal.open(document.getElementById("terminal"));
-      const addon = new WebglAddon();
-      terminal.loadAddon(addon);
       globalThis.__axonPixelTerminal = terminal;
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const canvas = Array.from(document.querySelectorAll("canvas")).find(
-        (candidate) => candidate.getContext("webgl2") !== null,
-      );
-      return { hasWebglCanvas: Boolean(canvas) };
+      await new Promise((resolve) => terminal.write("\\x1b[?25l", resolve));
+      const screenBounds = document.querySelector(".xterm-screen").getBoundingClientRect();
+      return {
+        hasRenderedRows: Boolean(document.querySelector(".xterm-rows")),
+        screenBounds: {
+          x: Math.floor(screenBounds.x),
+          y: Math.floor(screenBounds.y),
+          width: Math.ceil(screenBounds.width),
+          height: Math.ceil(screenBounds.height),
+        },
+      };
     })()`);
-    if (!setup.hasWebglCanvas) {
-      throw new Error("Electron did not create an xterm WebGL2 canvas");
+    if (!setup.hasRenderedRows) {
+      throw new Error("Electron did not create xterm's DOM renderer rows");
     }
 
     await waitForCompositor(window);
-    const blank = await window.webContents.capturePage();
+    const blank = await captureTerminalScreen(window, setup.screenBounds);
 
     let minimumStreamingLitRatio = Number.POSITIVE_INFINITY;
     let rendered = blank;
@@ -133,7 +162,7 @@ async function run() {
         )
       `);
       await waitForCompositor(window);
-      rendered = await window.webContents.capturePage();
+      rendered = await captureTerminalScreen(window, setup.screenBounds);
       minimumStreamingLitRatio = Math.min(
         minimumStreamingLitRatio,
         litPixelRatio(rendered),
@@ -150,7 +179,7 @@ async function run() {
       let count = 0;
       for (let index = 0; index < ${STREAM_LINE_COUNT}; index += 1) {
         const line = String(index).padStart(4, "0");
-        if (retained.has("AXON_WEBGL_RETAINED_" + line)) count += 1;
+        if (retained.has("AXON_RENDER_RETAINED_" + line)) count += 1;
       }
       return count;
     })()`);
@@ -159,34 +188,86 @@ async function run() {
       "globalThis.__axonPixelTerminal.buffer.active.baseY",
     );
     let minimumScrollbackLitRatio = Number.POSITIVE_INFINITY;
+    let minimumVisibleRowLitRatio = Number.POSITIVE_INFINITY;
     let scrollbackFrameCount = 0;
     // Every twelve-line viewport is captured, not merely a few samples from the
     // start and end. Together with the exact numbered-buffer assertion above,
     // this catches the user's failure mode where the bytes remain available but
     // one or more historical terminal pages disappear from Electron's surface.
     for (let line = 0; line <= maximumScrollLine; line += 12) {
-      await window.webContents.executeJavaScript(
-        `globalThis.__axonPixelTerminal.scrollToLine(${line})`,
-      );
+      const visibleLines = await window.webContents.executeJavaScript(`(() => {
+        const terminal = globalThis.__axonPixelTerminal;
+        terminal.scrollToLine(${line});
+        const buffer = terminal.buffer.active;
+        return Array.from({ length: terminal.rows }, (_, row) =>
+          buffer.getLine(buffer.viewportY + row)?.translateToString(true).trim() ?? "",
+        );
+      })()`);
       await waitForCompositor(window);
-      const page = await window.webContents.capturePage();
+      const page = await captureTerminalScreen(window, setup.screenBounds);
       minimumScrollbackLitRatio = Math.min(
         minimumScrollbackLitRatio,
         litPixelRatio(page),
       );
+      const rowRatios = rowLitPixelRatios(page, visibleLines.length);
+      for (let row = 0; row < visibleLines.length; row += 1) {
+        if (!visibleLines[row]) continue;
+        minimumVisibleRowLitRatio = Math.min(
+          minimumVisibleRowLitRatio,
+          rowRatios[row],
+        );
+      }
       scrollbackFrameCount += 1;
     }
+
+    const synchronizedRenderCount =
+      await window.webContents.executeJavaScript(`new Promise((resolve) => {
+        const terminal = globalThis.__axonPixelTerminal;
+        let frame = 0;
+        let renderCount = 0;
+        const renderDisposable = terminal.onRender(() => {
+          renderCount += 1;
+        });
+        const deadline = performance.now() + 250;
+
+        // Agent TUIs use DEC mode 2026 to publish each completed screen update
+        // atomically. Queueing the next synchronized frame from xterm's write
+        // callback recreates a continuous agent stream: the parser completes
+        // one frame, requests its paint, and immediately receives the opening
+        // marker for the next frame. The renderer must commit completed frames
+        // here instead of allowing every queued animation frame to be skipped
+        // until the protocol's one-second safety timeout fires.
+        const writeNextFrame = () => {
+          const line = String(frame).padStart(5, "0");
+          const output =
+            "\\x1b[?2026h\\x1b[H\\x1b[48;2;42;42;42m\\x1b[97m" +
+            (" AXON_SYNC_FRAME_" + line + " ").padEnd(60, " ") +
+            "\\x1b[0m\\x1b[?2026l";
+          terminal.write(output, () => {
+            frame += 1;
+            if (performance.now() < deadline) {
+              writeNextFrame();
+              return;
+            }
+            renderDisposable.dispose();
+            resolve(renderCount);
+          });
+        };
+        writeNextFrame();
+      })`);
 
     return {
       blankLitRatio: litPixelRatio(blank),
       minimumScrollbackLitRatio,
       minimumStreamingLitRatio,
+      minimumVisibleRowLitRatio,
       renderedLitRatio: litPixelRatio(rendered),
       retainedLineCount,
       scrollbackFrameCount,
       streamFrameCount: Math.ceil(
         STREAM_LINE_COUNT / (STREAM_BURST_LINES * STREAM_WRITES_PER_FRAME),
       ),
+      synchronizedRenderCount,
     };
   } finally {
     window.destroy();

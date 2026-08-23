@@ -20,7 +20,7 @@ export default function TerminalSettingsSection({
     >
       <SettingsField
         label="GPU acceleration"
-        description="Auto uses WebGL when available and falls back to the DOM renderer when the GPU context is unavailable."
+        description="Auto uses xterm's reliable DOM renderer. Choose On to opt into WebGL acceleration."
       >
         <SearchSelect
           value={draft.terminal.gpuAcceleration}

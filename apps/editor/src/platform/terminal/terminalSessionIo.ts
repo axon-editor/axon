@@ -1,9 +1,5 @@
-import type { Terminal as XTerm } from "@xterm/xterm";
 import {
   MAX_RECONNECT_INPUT_BYTES,
-  TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES,
-  TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN,
-  TERMINAL_WRITE_BATCH_BYTES,
   getOutputByteLength,
   getTerminalBackendUrl,
   quoteShellPath,
@@ -34,11 +30,6 @@ export function sendWorkspaceCd(session: TerminalSession) {
   commands.push(" clear");
   session.ws.send(`${commands.join("; ")}\r`);
   session.cwdSynced = true;
-}
-
-export function isTerminalAtBottom(term: XTerm) {
-  const buffer = term.buffer.active;
-  return buffer.viewportY >= buffer.baseY - 1;
 }
 
 export function sendOrQueueTerminalInput(
@@ -76,222 +67,35 @@ export function flushQueuedTerminalInput(session: TerminalSession) {
   }
 }
 
-function takeTerminalOutputBatch(session: TerminalSession, maxBytes: number) {
-  let firstChunk = session.outputQueue.shift();
-  if (!firstChunk) return null;
-  if (firstChunk.byteLength > maxBytes) {
-    const bytes =
-      typeof firstChunk.data === "string"
-        ? new TextEncoder().encode(firstChunk.data)
-        : firstChunk.data;
-    const head = bytes.slice(0, maxBytes);
-    const tail = bytes.slice(maxBytes);
-    firstChunk = {
-      data: head,
-      byteLength: head.byteLength,
-      queuedAtMs: firstChunk.queuedAtMs,
-    };
-    session.outputQueue.unshift({
-      data: tail,
-      byteLength: tail.byteLength,
-      queuedAtMs: firstChunk.queuedAtMs,
-    });
-  }
-
-  const chunks = [firstChunk];
-  let byteLength = firstChunk.byteLength;
-  const batchLimit = Math.min(TERMINAL_WRITE_BATCH_BYTES, maxBytes);
-
-  while (session.outputQueue.length > 0) {
-    const nextChunk = session.outputQueue[0];
-    if (byteLength + nextChunk.byteLength > batchLimit) break;
-    chunks.push(session.outputQueue.shift()!);
-    byteLength += nextChunk.byteLength;
-  }
-
-  if (chunks.length === 1) {
-    return {
-      data: firstChunk.data,
-      byteLength,
-      chunkCount: 1,
-      oldestQueuedAtMs: firstChunk.queuedAtMs,
-    };
-  }
-
-  const allStrings = chunks.every((chunk) => typeof chunk.data === "string");
-  if (allStrings) {
-    return {
-      data: chunks.map((chunk) => chunk.data).join(""),
-      byteLength,
-      chunkCount: chunks.length,
-      oldestQueuedAtMs: Math.min(...chunks.map((chunk) => chunk.queuedAtMs)),
-    };
-  }
-
-  const data = new Uint8Array(byteLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    if (typeof chunk.data === "string") {
-      // Mixed string/binary batches are rare, but Blob replay and normal text
-      // output can meet during reconnect. Encoding the string here preserves
-      // byte-exact replay accounting while still letting xterm parse one larger
-      // write instead of many tiny writes.
-      const encoded = new TextEncoder().encode(chunk.data);
-      data.set(encoded, offset);
-      offset += encoded.byteLength;
-    } else {
-      data.set(chunk.data, offset);
-      offset += chunk.data.byteLength;
-    }
-  }
-
-  return {
-    data,
-    byteLength,
-    chunkCount: chunks.length,
-    oldestQueuedAtMs: Math.min(...chunks.map((chunk) => chunk.queuedAtMs)),
-  };
-}
-
-function splitTerminalOutput(data: string | ArrayBuffer) {
-  const queuedAtMs = performance.now();
-  const bytes =
-    typeof data === "string"
-      ? new TextEncoder().encode(data)
-      : new Uint8Array(data);
-  if (bytes.byteLength <= TERMINAL_WRITE_BATCH_BYTES) {
-    return [
-      {
-        data: typeof data === "string" ? data : bytes,
-        byteLength: bytes.byteLength,
-        queuedAtMs,
-      },
-    ];
-  }
-
-  const chunks = [];
-  for (
-    let offset = 0;
-    offset < bytes.byteLength;
-    offset += TERMINAL_WRITE_BATCH_BYTES
-  ) {
-    const chunk = bytes.slice(
-      offset,
-      Math.min(offset + TERMINAL_WRITE_BATCH_BYTES, bytes.byteLength),
-    );
-    chunks.push({ data: chunk, byteLength: chunk.byteLength, queuedAtMs });
-  }
-  return chunks;
-}
-
-function clearTerminalDrainTimer(session: TerminalSession) {
-  if (session.outputDrainTimer === null) return;
-  window.clearTimeout(session.outputDrainTimer);
-  session.outputDrainTimer = null;
-}
-
-function scheduleTerminalDrain(session: TerminalSession) {
-  if (session.outputDrainTimer !== null || session.disposed) return;
-
-  // A drain can intentionally stop after a bounded number of writes so a huge
-  // replay cannot monopolize one event-loop turn. If there is still room under
-  // the in-flight cap, this timer resumes the drain on the next turn without
-  // waiting for xterm callbacks to serially unlock the whole stream.
-  session.outputDrainTimer = window.setTimeout(() => {
-    session.outputDrainTimer = null;
-    drainTerminalOutput(session);
-  }, 0);
-}
-
-function drainTerminalOutput(session: TerminalSession) {
-  if (!session.term || session.disposed) return;
-
-  let batchesWritten = 0;
-  while (
-    session.outputQueue.length > 0 &&
-    session.inFlightWriteBytes < TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES &&
-    batchesWritten < TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN
-  ) {
-    const batch = takeTerminalOutputBatch(
-      session,
-      TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES - session.inFlightWriteBytes,
-    );
-    if (!batch) break;
-
-    // queuedBytes represents bytes that have not reached xterm's write callback
-    // yet, so I keep it high while the write is merely queued inside xterm. This
-    // is what makes reconnect replay exact: if the websocket closes while xterm
-    // is still parsing a batch, Axon waits and reconnects from the last committed
-    // byte instead of pretending the browser already painted it.
-    session.outputWriting = true;
-    session.inFlightWriteBytes += batch.byteLength;
-    batchesWritten += 1;
-
-    session.term.write(batch.data, () => {
-      const commitLatencyMs = Math.max(
-        0,
-        performance.now() - batch.oldestQueuedAtMs,
-      );
-      session.lastWriteCommitLatencyMs = commitLatencyMs;
-      session.maxWriteCommitLatencyMs = Math.max(
-        session.maxWriteCommitLatencyMs ?? 0,
-        commitLatencyMs,
-      );
-      session.receivedBytes += batch.byteLength;
-      session.inFlightWriteBytes = Math.max(
-        0,
-        session.inFlightWriteBytes - batch.byteLength,
-      );
-      session.queuedBytes = Math.max(0, session.queuedBytes - batch.byteLength);
-      session.drainedChunks += batch.chunkCount;
-      session.outputWriting = session.inFlightWriteBytes > 0;
-
-      const settled = !hasPendingTerminalOutput(session);
-      sendTerminalAck(session, settled);
-
-      if (settled) {
-        clearTerminalDrainTimer(session);
-        return;
-      }
-      drainTerminalOutput(session);
-    });
-  }
-
-  if (
-    session.outputQueue.length > 0 &&
-    session.inFlightWriteBytes < TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES
-  ) {
-    scheduleTerminalDrain(session);
-  }
-}
-
 export function writeTerminalOutput(
   session: TerminalSession,
   data: string | ArrayBuffer,
 ) {
-  const chunks = splitTerminalOutput(data);
-  const byteLength = chunks.reduce(
-    (total, chunk) => total + chunk.byteLength,
-    0,
-  );
-  session.outputQueue.push(...chunks);
-  session.queuedBytes += byteLength;
-  session.maxQueuedBytes = Math.max(
-    session.maxQueuedBytes,
-    session.queuedBytes,
-  );
-  drainTerminalOutput(session);
+  if (!session.term || session.disposed) return;
+
+  const byteLength = getOutputByteLength(data);
+  if (byteLength === 0) return;
+  const xtermData = typeof data === "string" ? data : new Uint8Array(data);
+
+  // xterm has its own ordered write buffer and parser scheduler. Passing each
+  // websocket frame straight through matches VS Code's terminal data path and
+  // avoids creating a second queue whose batching boundaries and callbacks can
+  // compete with xterm's rendering cadence. Axon tracks only the bytes awaiting
+  // xterm's callback because that is the minimum state reconnect needs: core may
+  // replay from receivedBytes only after xterm has committed those bytes.
+  session.pendingXtermWriteBytes += byteLength;
+  session.term.write(xtermData, () => {
+    session.receivedBytes += byteLength;
+    session.pendingXtermWriteBytes = Math.max(
+      0,
+      session.pendingXtermWriteBytes - byteLength,
+    );
+    sendTerminalAck(session, !hasPendingTerminalOutput(session));
+  });
 }
 
 export function hasPendingTerminalOutput(session: TerminalSession) {
-  return (
-    session.outputWriting ||
-    session.outputDrainTimer !== null ||
-    session.inFlightWriteBytes > 0 ||
-    session.pendingBinaryDecodes > 0 ||
-    session.outputQueue.length > 0 ||
-    session.queuedBytes > 0
-  );
+  return session.pendingXtermWriteBytes > 0;
 }
 
 export function isVisibleTerminalContainer(container: HTMLDivElement | null) {

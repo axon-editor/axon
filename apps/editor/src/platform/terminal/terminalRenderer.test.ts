@@ -58,7 +58,7 @@ describe("terminal renderer controller", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps WebGL limited to a visible terminal", () => {
+  it("keeps one WebGL context across terminal visibility changes", () => {
     const { terminal, controller, requestRefreshDimensions } = createTerminal();
 
     controller.sync(false, "on");
@@ -71,17 +71,44 @@ describe("terminal renderer controller", () => {
     expect(webglAddons[0].constructorArguments).toEqual([]);
     expect(requestRefreshDimensions).toHaveBeenCalledOnce();
 
+    // Hidden xterm instances pause their renderer through IntersectionObserver.
+    // Axon must not dispose and recreate WebGL here because the addon can leave
+    // its old context alive after removing the canvas, eventually forcing
+    // Chromium to evict the context that still belongs to a visible terminal.
     controller.sync(false, "on");
+    controller.sync(true, "on");
+    controller.sync(false, "on");
+    controller.sync(true, "on");
+
+    expect(webglAddons[0].dispose).not.toHaveBeenCalled();
+    expect(terminal.loadAddon).toHaveBeenCalledOnce();
+    expect(webglAddons).toHaveLength(1);
+    expect(requestRefreshDimensions).toHaveBeenCalledOnce();
+
+    controller.dispose();
+    expect(webglAddons[0].dispose).toHaveBeenCalledOnce();
+  });
+
+  it("disposes WebGL when GPU acceleration is disabled", () => {
+    const { terminal, controller, requestRefreshDimensions } = createTerminal();
+
+    controller.sync(true, "on");
+    controller.sync(false, "off");
+
     expect(webglAddons[0].dispose).toHaveBeenCalledOnce();
     expect(requestRefreshDimensions).toHaveBeenCalledTimes(2);
 
-    controller.sync(true, "on");
-    expect(terminal.loadAddon).toHaveBeenCalledTimes(2);
-    expect(webglAddons).toHaveLength(2);
-    expect(requestRefreshDimensions).toHaveBeenCalledTimes(3);
+    controller.sync(true, "off");
+    expect(terminal.loadAddon).toHaveBeenCalledOnce();
+  });
 
-    controller.dispose();
-    expect(webglAddons[1].dispose).toHaveBeenCalledOnce();
+  it("uses xterm's DOM renderer in automatic mode", () => {
+    const { terminal, controller } = createTerminal();
+
+    controller.sync(true, "auto");
+
+    expect(terminal.loadAddon).not.toHaveBeenCalled();
+    expect(webglAddons).toHaveLength(0);
   });
 
   it("falls back once after context loss and does not retry the session", () => {

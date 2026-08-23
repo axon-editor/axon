@@ -21,40 +21,18 @@ export interface TerminalSession {
   resizeObserver: ResizeObserver | null;
   dataDisposable: { dispose: () => void } | null;
   multilineDisposable: { dispose: () => void } | null;
-  scrollDisposable: { dispose: () => void } | null;
   workingDirectory: string | null;
   cwdSynced: boolean;
   receivedBytes: number;
   lastAckedBytes: number;
   ackTimer: number | null;
-  outputQueue: TerminalOutputChunk[];
-  outputWriting: boolean;
-  outputDrainTimer: number | null;
-  inFlightWriteBytes: number;
-  pendingBinaryDecodes: number;
-  queuedBytes: number;
-  maxQueuedBytes: number;
-  lastWriteCommitLatencyMs: number;
-  maxWriteCommitLatencyMs: number;
-  drainedChunks: number;
-  reconnectCount: number;
-  lastCloseCode: number | null;
-  lastCloseReason: string;
-  lastHealthUpdatedAt: number;
+  pendingXtermWriteBytes: number;
   inputQueue: string[];
   queuedInputBytes: number;
-  scrollLine: number;
-  atBottom: boolean;
   lastResizeCols: number | null;
   lastResizeRows: number | null;
   disposed: boolean;
   terminating: boolean;
-}
-
-export interface TerminalOutputChunk {
-  data: string | Uint8Array;
-  byteLength: number;
-  queuedAtMs: number;
 }
 
 export const DEFAULT_TERMINAL_HEIGHT = 280;
@@ -67,22 +45,6 @@ export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
 // terminal, so this stays large enough to avoid making older output disappear
 // from the rendered buffer while core protects reconnect integrity underneath.
 export const TERMINAL_SCROLLBACK_LINES = 200_000;
-// xterm parses escape sequences on the renderer thread. Batching tiny websocket
-// chunks helps throughput, but very large writes make the UI feel blocked while
-// xterm tokenizes the buffer. 128KB is large enough to avoid thousands of small
-// writes during agent streams while still giving the browser regular chances to
-// handle input and paint.
-export const TERMINAL_WRITE_BATCH_BYTES = 128 * 1024;
-// This is the important part of the terminal-output architecture. Core keeps the
-// durable append-only buffer, but the renderer must not serialize every chunk on
-// a single xterm callback because that makes long agent runs crawl. At the same
-// time, it also cannot push unbounded bytes into xterm because reconnect replay
-// is only safe after xterm has actually committed the bytes. The in-flight cap is
-// the middle ground: Axon can pipeline enough output to stay fast, but the
-// backend still has a small, exact acknowledged cursor to replay from if the
-// websocket detaches.
-export const TERMINAL_MAX_IN_FLIGHT_WRITE_BYTES = 512 * 1024;
-export const TERMINAL_MAX_WRITE_BATCHES_PER_DRAIN = 4;
 export const TERMINAL_TICKET_RECONNECT_MIN_MS = 1_500;
 export const TERMINAL_TICKET_RECONNECT_MAX_MS = 30_000;
 
