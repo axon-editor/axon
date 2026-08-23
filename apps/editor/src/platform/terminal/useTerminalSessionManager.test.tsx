@@ -21,6 +21,10 @@ const webLinksAddonMock = vi.hoisted(() => ({
   handlers: [] as Array<(event: MouseEvent, uri: string) => void>,
 }));
 
+const xtermMock = vi.hoisted(() => ({
+  focus: vi.fn(),
+}));
+
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     buffer = {
@@ -33,6 +37,9 @@ vi.mock("@xterm/xterm", () => ({
     attachCustomKeyEventHandler() {}
     clear() {}
     dispose() {}
+    focus() {
+      xtermMock.focus();
+    }
     loadAddon() {}
     open() {}
     paste() {}
@@ -157,6 +164,7 @@ describe("useTerminalSessionManager", () => {
     terminalBridgeMock.openExternalLink.mockReset();
     terminalBridgeMock.openExternalLink.mockResolvedValue(undefined);
     webLinksAddonMock.handlers.length = 0;
+    xtermMock.focus.mockReset();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -187,6 +195,17 @@ describe("useTerminalSessionManager", () => {
     expect(terminalBridgeMock.createTerminalTicket).toHaveBeenCalledWith(
       "/workspace",
     );
+  });
+
+  it("focuses xterm when its terminal panel becomes active", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(xtermMock.focus).toHaveBeenCalled();
   });
 
   it("lets a link mouseup reach xterm's document selection listener", async () => {

@@ -554,6 +554,13 @@ export function useTerminalSessionManager({
     const session = sessionsRef.current[activeTabId];
     if (!session?.term) return;
 
+    // The active terminal is an interactive application surface. Restoring its
+    // xterm textarea focus when the panel or tab becomes active keeps control
+    // chords on xterm's normal keyboard pipeline instead of leaving focus on
+    // the editor button that opened the panel. xterm remains responsible for
+    // encoding the key according to the terminal application's active keyboard
+    // protocol; Axon only establishes which surface owns the keyboard.
+    session.term.focus();
     window.requestAnimationFrame(() => {
       sendResize(activeTabId);
     });
