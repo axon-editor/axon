@@ -82,7 +82,12 @@ export function useTerminalSessionManager({
 
   const openTerminalLink = useCallback((event: MouseEvent, uri: string) => {
     event.preventDefault();
-    event.stopPropagation();
+    // xterm activates a link from its terminal-level `mouseup` listener, then
+    // finishes text selection from a document-level listener for the same
+    // event. Let the event bubble so xterm can remove the temporary drag
+    // listeners before opening the external browser. Stopping propagation here
+    // leaves selection active, so moving the pointer after returning to Axon
+    // incorrectly extends a selection from the original link click.
     void window.axon.openExternalLink(uri).catch((err) => {
       console.error("failed to open terminal link:", err);
     });

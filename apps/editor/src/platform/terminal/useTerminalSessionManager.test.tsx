@@ -17,6 +17,10 @@ const terminalBridgeMock = vi.hoisted(() => ({
   openExternalLink: vi.fn(),
 }));
 
+const webLinksAddonMock = vi.hoisted(() => ({
+  handlers: [] as Array<(event: MouseEvent, uri: string) => void>,
+}));
+
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     buffer = {
@@ -55,7 +59,11 @@ vi.mock("@xterm/addon-fit", () => ({
 }));
 
 vi.mock("@xterm/addon-web-links", () => ({
-  WebLinksAddon: class {},
+  WebLinksAddon: class {
+    constructor(handler: (event: MouseEvent, uri: string) => void) {
+      webLinksAddonMock.handlers.push(handler);
+    }
+  },
 }));
 
 vi.mock("@xterm/addon-webgl", () => ({
@@ -147,6 +155,8 @@ describe("useTerminalSessionManager", () => {
       "ws://127.0.0.1:17778/terminal?ticket=test-ticket",
     );
     terminalBridgeMock.openExternalLink.mockReset();
+    terminalBridgeMock.openExternalLink.mockResolvedValue(undefined);
+    webLinksAddonMock.handlers.length = 0;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -177,5 +187,43 @@ describe("useTerminalSessionManager", () => {
     expect(terminalBridgeMock.createTerminalTicket).toHaveBeenCalledWith(
       "/workspace",
     );
+  });
+
+  it("lets a link mouseup reach xterm's document selection listener", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const linkHandler = webLinksAddonMock.handlers[0];
+    expect(linkHandler).toBeDefined();
+
+    // xterm starts selection on the terminal element, but owns the matching
+    // mouseup cleanup listener on the document so dragging can continue beyond
+    // the viewport. Reproduce that event boundary to ensure Axon's link opener
+    // does not trap the mouseup inside the terminal again.
+    const linkTarget = document.createElement("div");
+    const onDocumentMouseUp = vi.fn();
+    linkTarget.addEventListener("mouseup", (event) => {
+      linkHandler(event, "https://example.com/docs");
+    });
+    document.addEventListener("mouseup", onDocumentMouseUp);
+    document.body.appendChild(linkTarget);
+
+    try {
+      linkTarget.dispatchEvent(
+        new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+      );
+
+      expect(onDocumentMouseUp).toHaveBeenCalledOnce();
+      expect(terminalBridgeMock.openExternalLink).toHaveBeenCalledWith(
+        "https://example.com/docs",
+      );
+    } finally {
+      document.removeEventListener("mouseup", onDocumentMouseUp);
+      linkTarget.remove();
+    }
   });
 });
