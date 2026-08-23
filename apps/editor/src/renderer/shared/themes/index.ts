@@ -195,7 +195,7 @@ function buildMonacoTheme(
   extensionTheme?: ResolvedExtensionTheme,
 ) {
   const appearance = extensionTheme?.appearance ?? inferThemeAppearance(tokens);
-  const gitColors = resolveThemeGitColors(tokens, appearance);
+  const gitColors = resolveThemeGitColors(appearance);
   const uiBorder = appearanceBorderColor(tokens["panel.border"], appearance);
   const themeData: monaco.editor.IStandaloneThemeData = {
     base: theme.base,
@@ -243,15 +243,35 @@ function buildMonacoTheme(
       "editorSuggestWidget.selectedBackground": tokens["panel.overlay_hover"],
       "editorSuggestWidget.highlightForeground": tokens["syntax.function"],
       "editorSuggestWidget.focusHighlightForeground": tokens["syntax.function"],
-      "diffEditor.insertedTextBackground": `${gitColors.added}30`,
-      "diffEditor.removedTextBackground": `${gitColors.deleted}30`,
-      "diffEditor.insertedLineBackground": `${gitColors.added}18`,
-      "diffEditor.removedLineBackground": `${gitColors.deleted}18`,
       "diffEditor.diagonalFill": tokens["panel.border"],
       "terminal.background": tokens["terminal.background"],
       "terminal.foreground": tokens["terminal.foreground"],
       ...theme.monacoColors,
       ...(extensionTheme?.monaco ?? {}),
+      // Git paint is semantic application state, not theme syntax. Keep these
+      // assignments after contributed Monaco colors so a theme can style the
+      // editor without turning additions red, deletions green, or modifications
+      // into an unrelated syntax accent. Alpha changes visual weight only; the
+      // underlying green/gold/red/cyan meanings remain stable everywhere.
+      "diffEditor.insertedTextBackground": `${gitColors.added}30`,
+      "diffEditor.removedTextBackground": `${gitColors.deleted}30`,
+      "diffEditor.insertedLineBackground": `${gitColors.added}18`,
+      "diffEditor.removedLineBackground": `${gitColors.deleted}18`,
+      "editorGutter.addedBackground": `${gitColors.added}b3`,
+      "editorGutter.modifiedBackground": `${gitColors.modified}b3`,
+      "editorGutter.deletedBackground": `${gitColors.deleted}b3`,
+      "editorOverviewRuler.addedForeground": `${gitColors.added}cc`,
+      "editorOverviewRuler.modifiedForeground": `${gitColors.modified}cc`,
+      "editorOverviewRuler.deletedForeground": `${gitColors.deleted}cc`,
+      "minimapGutter.addedBackground": `${gitColors.added}b3`,
+      "minimapGutter.modifiedBackground": `${gitColors.modified}b3`,
+      "minimapGutter.deletedBackground": `${gitColors.deleted}b3`,
+      "gitDecoration.addedResourceForeground": gitColors.added,
+      "gitDecoration.untrackedResourceForeground": gitColors.added,
+      "gitDecoration.modifiedResourceForeground": gitColors.modified,
+      "gitDecoration.deletedResourceForeground": gitColors.deleted,
+      "gitDecoration.renamedResourceForeground": gitColors.mixed,
+      "gitDecoration.conflictingResourceForeground": gitColors.modified,
     },
   };
 

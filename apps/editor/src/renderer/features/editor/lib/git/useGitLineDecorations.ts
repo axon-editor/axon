@@ -53,10 +53,7 @@ export default function useGitLineDecorations({
       baseContent,
       model.getValue(),
     );
-    const gitColors = resolveThemeGitColors(
-      themeTokens,
-      inferThemeAppearance(themeTokens),
-    );
+    const gitColors = resolveThemeGitColors(inferThemeAppearance(themeTokens));
     collectionRef.current ??= editor.createDecorationsCollection();
     collectionRef.current.set(
       decorations.map((decoration) => ({

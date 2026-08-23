@@ -3,6 +3,7 @@ import {
   appearanceBorderColor,
   gitAppearanceColors,
   inferThemeAppearance,
+  resolveThemeGitColors,
 } from "./themeAppearance";
 
 function luminance(color: string) {
@@ -56,6 +57,11 @@ describe("theme appearance colors", () => {
     ]) {
       expect(contrastRatio(color, "#fff7d2")).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it("resolves Git paint from fixed semantic palettes", () => {
+    expect(resolveThemeGitColors("light")).toBe(gitAppearanceColors.light);
+    expect(resolveThemeGitColors("dark")).toBe(gitAppearanceColors.dark);
   });
 
   it("softens dark UI borders without weakening light theme borders", () => {

@@ -19,31 +19,14 @@ export const gitAppearanceColors = {
   },
 } as const;
 
-function opaqueThemeColor(color: string) {
-  const match = color.trim().match(/^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i);
-  return match ? `#${match[1]}` : color;
-}
-
-export function resolveThemeGitColors(
-  tokens: ThemeTokenMap,
-  appearance: ThemeAppearance,
-) {
-  const added = opaqueThemeColor(tokens["syntax.string"]);
-  const modified = opaqueThemeColor(tokens["syntax.number"]);
-  const deleted = opaqueThemeColor(tokens["syntax.constant"]);
-  const mixed = opaqueThemeColor(tokens["syntax.function"]);
-
-  // Git state should belong to the selected theme, but destructive backgrounds
-  // still need less visual weight than their foreground. Mixing the theme's
-  // own deleted color into its panel surface preserves that palette and keeps
-  // the result readable on both pale and dark themes.
-  return {
-    added,
-    modified,
-    deleted,
-    mixed,
-    dangerBackground: `color-mix(in srgb, ${deleted} ${appearance === "light" ? 12 : 18}%, ${tokens["panel.background"]})`,
-  };
+export function resolveThemeGitColors(appearance: ThemeAppearance) {
+  // Git colors communicate repository state, so they must not borrow syntax
+  // colors from the active editor theme. A theme may legitimately render
+  // strings as red or constants as green; mapping those tokens onto Git would
+  // reverse the familiar added/deleted meaning and make source control harder
+  // to scan. These two fixed palettes preserve green, gold, red, and cyan as
+  // stable semantics while adjusting only their contrast for light surfaces.
+  return gitAppearanceColors[appearance];
 }
 
 export function inferThemeAppearance(

@@ -22,7 +22,7 @@ export function createThemeCssVariables(
   tokens: ResolvedThemeTokens,
   appearance: ThemeAppearance = "dark",
 ) {
-  const gitColors = resolveThemeGitColors(tokens, appearance);
+  const gitColors = resolveThemeGitColors(appearance);
   const panelBorder = appearanceBorderColor(tokens["panel.border"], appearance);
   const sidebarBorder = appearanceBorderColor(
     tokens["sidebar.border"],
