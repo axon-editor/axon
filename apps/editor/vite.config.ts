@@ -249,7 +249,13 @@ export default defineConfig({
     // module directly and startup fails with "does not provide an export named
     // default", leaving Electron on the boot splash. Excluding Monaco keeps the
     // worker plugin in control of those imports.
-    exclude: ["monaco-editor"],
+    // Axon carries a narrow xterm parser correction until xtermjs/xterm.js#6011
+    // lands upstream. Vite's dependency optimizer keys its cache from package
+    // metadata, so mutating the installed runtime does not invalidate an xterm
+    // bundle created before that correction existed. Serving xterm directly
+    // guarantees development and production execute the same patched module;
+    // the stale optimized bundle was why restarting Axon did not fix lost rows.
+    exclude: ["monaco-editor", "@xterm/xterm"],
   },
   // The renderer lives under src/renderer, but Axon's static assets live at
   // editor/public so they can be shared by the app icon, release packaging, and
