@@ -2,12 +2,36 @@
 
 ## Next
 
+## v1.3.7
+
 - Restored managed SQL language-server downloads after SQLS moved to its
   canonical GitHub organization.
-- Fixed committed terminal output remaining visually stale under WebGL until a
-  manual resize forced the renderer to rebuild its cached viewport.
 - Fixed semantic token colors reverting to the previously applied theme after
   typing in an editor that remained mounted across a theme change.
+- Kept terminal output stable during long-running streams by delegating ordered
+  writes, scrolling, and redraw scheduling to xterm instead of Axon's former
+  manual rendering pipeline.
+- Corrected xterm scroll-region handling so full-viewport CSI scroll operations
+  retain displaced rows in scrollback rather than overwriting terminal history.
+- Prevented Vite's development prebundle from serving an unpatched xterm copy,
+  keeping development and packaged terminal behavior aligned.
+- Preserved terminal application shortcuts such as Codex transcript access by
+  restoring xterm focus and exempting terminal input from editor-level capture
+  handlers.
+- Released xterm's document-level selection state after opening terminal links,
+  preventing pointer movement from selecting text when returning from a browser.
+- Stabilized Markdown and MDX previews across clicks, Git refreshes, and layout
+  updates so media, Mermaid diagrams, and rendered content remain mounted.
+- Recovered the packaged PTY host before issuing new terminal tickets, with
+  bounded reconnect backoff after genuine service failures.
+- Prevented stale Chromium frames from appearing through native Glass after a
+  workspace switch by remounting workspace state and pulsing the compositor.
+- Standardized Git paints on semantic green, gold, red, and cyan palettes across
+  explorer decorations, gutters, minimaps, rulers, and diff backgrounds.
+- Added real Electron terminal pixel coverage for sustained output and complete
+  scrollback traversal, including WebGL2 execution under Linux CI.
+- Refreshed the Axon product gallery with current workspace, editor, Git,
+  language-intelligence, diagnostics, and project-output workflows.
 
 ## v1.3.6
 
