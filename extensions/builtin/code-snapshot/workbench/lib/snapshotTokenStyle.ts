@@ -1,8 +1,9 @@
 import type { ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import {
   createDefaultCaptureEntries,
+  createLayeredCaptureStyleMap,
   findCapturesForMonacoToken,
-  resolveCaptureStyleForInspector,
+  resolveCaptureStyle,
 } from "@axon-editor/renderer/shared/themes/captureRegistry";
 import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/themes/syntaxTheme";
 import type { ThemeTokenMap } from "@axon-editor/renderer/shared/themes/types";
@@ -17,10 +18,10 @@ export function createSnapshotTokenStyleResolver(
   themeTokens: ThemeTokenMap,
   themeSyntax: Record<string, ExtensionThemeSyntaxStyle>,
 ) {
-  const entries = [
-    ...createDefaultCaptureEntries(themeTokens),
-    ...createExtensionSyntaxThemeEntries(themeSyntax),
-  ];
+  const styles = createLayeredCaptureStyleMap([
+    createDefaultCaptureEntries(themeTokens),
+    createExtensionSyntaxThemeEntries(themeSyntax),
+  ]);
 
   // I resolve snapshot colors through Monaco's capture table instead of
   // treating tokenizer names as CSS classes. Values such as `string.key.json`
@@ -31,7 +32,7 @@ export function createSnapshotTokenStyleResolver(
   return (monacoToken: string): SnapshotTokenStyle => {
     const capture =
       findCapturesForMonacoToken(monacoToken)[0]?.capture ?? "primary";
-    const style = resolveCaptureStyleForInspector(capture, entries);
+    const style = resolveCaptureStyle(capture, styles)?.style ?? null;
     const fontStyles = new Set(style?.fontStyle?.split(/\s+/).filter(Boolean));
 
     return {

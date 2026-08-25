@@ -4,10 +4,10 @@ import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { getSemanticTokensForModel } from "@axon-editor/services/lsp/renderer/lspSemanticTokens";
 import { getTextMateSemanticTokenStatus } from "@axon-editor/services/lsp/renderer/textMateSemanticTokens";
 import {
-  createCaptureStyleMap,
   createDefaultCaptureEntries,
+  createLayeredCaptureStyleMap,
   findCapturesForMonacoToken,
-  resolveCaptureStyleForInspector,
+  resolveCaptureStyle,
   type AxonTokenCaptureMatch,
 } from "@axon-editor/renderer/shared/themes/captureRegistry";
 import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/themes/syntaxTheme";
@@ -189,15 +189,12 @@ function toCaptureDetails(
   tokens: ThemeTokenMap,
   syntax: Record<string, ExtensionThemeSyntaxStyle>,
 ): TokenInspectorCapture[] {
-  const defaultEntries = [
-    ...createDefaultCaptureEntries(tokens),
-    ...createExtensionSyntaxThemeEntries(syntax),
-  ];
+  const styles = createLayeredCaptureStyleMap([
+    createDefaultCaptureEntries(tokens),
+    createExtensionSyntaxThemeEntries(syntax),
+  ]);
   return matches.map((match) => {
-    const style = resolveCaptureStyleForInspector(
-      match.capture,
-      defaultEntries,
-    );
+    const style = resolveCaptureStyle(match.capture, styles)?.style ?? null;
     return {
       capture: match.capture,
       matchedToken: match.token,
@@ -245,9 +242,9 @@ export async function inspectEditorToken(
   );
   const word = model.getWordAtPosition(position)?.word ?? "";
   const semanticToken = await getSemanticTokenAtPosition(model, position);
-  const semanticStyles = createCaptureStyleMap([
-    ...createDefaultCaptureEntries(themeTokens),
-    ...createExtensionSyntaxThemeEntries(themeSyntax),
+  const semanticStyles = createLayeredCaptureStyleMap([
+    createDefaultCaptureEntries(themeTokens),
+    createExtensionSyntaxThemeEntries(themeSyntax),
   ]);
   const resolvedSemanticCapture = semanticToken
     ? resolveHighlightCapture(

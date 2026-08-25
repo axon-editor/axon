@@ -192,6 +192,13 @@ make `function.method` italic, and override only the foreground for
 `function.method.call`. Foreground, background, font style, font weight,
 underline, and strikethrough survive the final CSS paint boundary.
 
+Theme inheritance and Axon's fallback theme are separate layers. An authored
+parent capture in the active theme wins over a more-specific fallback capture;
+for example, a theme's plain `keyword` style also governs `keyword.control`
+instead of inheriting Axon's fallback italic. The fallback layer is consulted
+only when the active theme has no matching capture ancestry. This preserves the
+theme author's typography as well as its colors.
+
 ## The Part That Made It Look Hopeless
 
 The most annoying part was that the architecture still looked broken after the

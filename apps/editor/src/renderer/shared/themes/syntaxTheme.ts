@@ -1,5 +1,6 @@
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import {
+  createLayeredCaptureStyleMap,
   createDefaultCaptureEntries,
   createMonacoTokenRulesFromCaptures,
   type SyntaxEntry,
@@ -10,14 +11,14 @@ import { type ThemeTokenMap } from "./types";
 export type { SyntaxEntry, SyntaxStyle };
 
 export class AxonSyntaxTheme {
-  private readonly entries: SyntaxEntry[];
+  private readonly layers: SyntaxEntry[][];
 
-  constructor(entries: SyntaxEntry[]) {
-    this.entries = entries;
+  constructor(layers: SyntaxEntry[][]) {
+    this.layers = layers;
   }
 
   merge(entries: SyntaxEntry[]) {
-    return new AxonSyntaxTheme([...this.entries, ...entries]);
+    return new AxonSyntaxTheme([...this.layers, entries]);
   }
 
   toMonacoRules() {
@@ -27,12 +28,14 @@ export class AxonSyntaxTheme {
     // Tree-sitter captures all name syntax differently; keeping the capture
     // layer in the middle lets Axon get richer coloring without hard-coding
     // every language directly into each theme.
-    return createMonacoTokenRulesFromCaptures(this.entries);
+    return createMonacoTokenRulesFromCaptures(
+      createLayeredCaptureStyleMap(this.layers),
+    );
   }
 }
 
 export function createAxonSyntaxTheme(tokens: ThemeTokenMap) {
-  return new AxonSyntaxTheme(createDefaultCaptureEntries(tokens));
+  return new AxonSyntaxTheme([createDefaultCaptureEntries(tokens)]);
 }
 
 export function createExtensionSyntaxThemeEntries(
@@ -40,15 +43,20 @@ export function createExtensionSyntaxThemeEntries(
 ): SyntaxEntry[] {
   return Object.entries(syntax)
     .filter(([, style]) => Object.keys(style).length > 0)
-    .map(([captureName, style]) => [
-      captureName,
-      {
-        color: style.color,
-        fontStyle: style.fontStyle,
-        fontWeight: style.fontWeight ?? undefined,
-        backgroundColor: style.backgroundColor,
-        underline: style.underline,
-        strikethrough: style.strikethrough,
-      },
-    ]);
+    .map(([captureName, style]) => {
+      const entry: SyntaxStyle = {};
+      if (style.color !== undefined) entry.color = style.color;
+      if (style.fontStyle !== undefined) entry.fontStyle = style.fontStyle;
+      if (style.fontWeight !== undefined && style.fontWeight !== null) {
+        entry.fontWeight = style.fontWeight;
+      }
+      if (style.backgroundColor !== undefined) {
+        entry.backgroundColor = style.backgroundColor;
+      }
+      if (style.underline !== undefined) entry.underline = style.underline;
+      if (style.strikethrough !== undefined) {
+        entry.strikethrough = style.strikethrough;
+      }
+      return [captureName, entry];
+    });
 }

@@ -23,6 +23,37 @@ export function createCaptureStyleMap(entries: Iterable<SyntaxEntry>) {
   return styles;
 }
 
+export function createLayeredCaptureStyleMap(layers: Iterable<SyntaxEntry>[]) {
+  const styleLayers = layers.map((entries) => createCaptureStyleMap(entries));
+  const captureNames = new Set(
+    styleLayers.flatMap((styles) => [...styles.keys()]),
+  );
+  const activeStyles = new Map<string, SyntaxStyle>();
+
+  for (const captureName of captureNames) {
+    for (let index = styleLayers.length - 1; index >= 0; index -= 1) {
+      const resolved = resolveCaptureStyle(
+        captureName,
+        styleLayers[index] ?? new Map(),
+      );
+      if (!resolved) continue;
+
+      // A theme's broader authored capture is stronger than a more specific
+      // fallback capture. For example, Ayu's `keyword` style must also govern
+      // `keyword.control`; otherwise Axon's fallback italic leaks through even
+      // though the active theme never requested it.
+      if (resolved.capture === "primary" && captureName !== "primary") {
+        continue;
+      }
+
+      activeStyles.set(captureName, resolved.style);
+      break;
+    }
+  }
+
+  return activeStyles;
+}
+
 export function hexToMonaco(color: string) {
   return color.replace(/^#/, "").slice(0, 6);
 }
@@ -326,7 +357,7 @@ export function createDefaultCaptureEntries(
       { color: tokens["syntax.keyword"], fontStyle: "italic" },
     ],
     ["keyword.operator", { color: tokens["syntax.operator"] }],
-    ["import", { color: tokens["syntax.import"], fontStyle: "italic" }],
+    ["import", { color: tokens["syntax.import"] }],
     ["label", { color: tokens["syntax.property"] }],
     ["link_text", { color: tokens["syntax.property"] }],
     ["link_uri", { color: tokens["syntax.string"] }],
@@ -490,16 +521,6 @@ function scoreTokenRule(
   const captureSpecificity = captureName.split(".").length * 10;
   const exactSuffixBonus = expandedToken === sourceToken ? 0 : 1;
   return tokenSpecificity + captureSpecificity + exactSuffixBonus;
-}
-
-export function resolveCaptureStyleForInspector(
-  captureName: string,
-  entries: Iterable<SyntaxEntry>,
-) {
-  return (
-    resolveCaptureStyle(captureName, createCaptureStyleMap(entries))?.style ??
-    null
-  );
 }
 
 export function resolveCaptureStyle(

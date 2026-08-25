@@ -3,8 +3,8 @@ import { type ThemeTokenMap } from "../../../renderer/shared/themes/types";
 import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
 import { getSemanticTokensForModel } from "./lspSemanticTokens";
 import {
-  createCaptureStyleMap,
   createDefaultCaptureEntries,
+  createLayeredCaptureStyleMap,
   resolveCaptureStyle,
   type SyntaxStyle,
 } from "../../../renderer/shared/themes/captureRegistry";
@@ -66,11 +66,10 @@ export function installSemanticTokenDecorationStyles(
   tokens: ThemeTokenMap,
   syntax: Record<string, ExtensionThemeSyntaxStyle> = {},
 ) {
-  const entries = [
-    ...createDefaultCaptureEntries(tokens),
-    ...createExtensionSyntaxThemeEntries(syntax),
-  ];
-  const styles = createCaptureStyleMap(entries);
+  const styles = createLayeredCaptureStyleMap([
+    createDefaultCaptureEntries(tokens),
+    createExtensionSyntaxThemeEntries(syntax),
+  ]);
   let styleElement = document.getElementById(SEMANTIC_STYLE_ELEMENT_ID);
   if (!styleElement) {
     styleElement = document.createElement("style");
@@ -153,9 +152,9 @@ export async function createSemanticTokenDecorations(
   const semanticTokens = await getSemanticTokensForModel(model);
   if (!semanticTokens || semanticTokens.tokens.length === 0) return [];
 
-  const styles = createCaptureStyleMap([
-    ...createDefaultCaptureEntries(tokens),
-    ...createExtensionSyntaxThemeEntries(syntax),
+  const styles = createLayeredCaptureStyleMap([
+    createDefaultCaptureEntries(tokens),
+    createExtensionSyntaxThemeEntries(syntax),
   ]);
   const decorations: monaco.editor.IModelDeltaDecoration[] = [];
   for (const token of semanticTokens.tokens) {

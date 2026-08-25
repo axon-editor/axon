@@ -490,6 +490,12 @@ export function resolveTextMateTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "entity.name.interface")) return "interface";
   if (hasScope(scopeNames, "entity.name.enum")) return "enum";
   if (hasScope(scopeNames, "variable.other.enummember")) return "enumMember";
+  if (
+    hasScope(scopeNames, "entity.name.package") ||
+    hasScope(scopeNames, "entity.name.type.package")
+  ) {
+    return "namespace";
+  }
   if (hasScope(scopeNames, "entity.name.type.alias")) return "typeAlias";
   if (hasScope(scopeNames, "entity.name.type")) return "type";
   if (hasScope(scopeNames, "support.type.primitive")) return "builtinType";
@@ -566,6 +572,21 @@ export function resolveTextMateCaptureCandidates(input: {
     input.lineContent,
     input.startColumnZeroBased,
   );
+  // A dot normally promotes the following identifier to a property or method,
+  // but qualified type names such as `http.ResponseWriter` already have stronger
+  // grammar identity. Preserving that type prevents the generic member rule from
+  // repainting the real type name as a property while its qualifier is neutral.
+  const qualifiedType =
+    previousCharacter === "." &&
+    [
+      "type",
+      "typeAlias",
+      "typeParameter",
+      "class",
+      "interface",
+      "enum",
+      "builtinType",
+    ].includes(input.tokenType);
 
   if (startsWithScope(scopeNames, "comment.block.documentation")) {
     candidates.push("comment.doc");
@@ -578,6 +599,8 @@ export function resolveTextMateCaptureCandidates(input: {
   }
   if (hasScope(scopeNames, "constant.language.boolean")) {
     candidates.push("boolean", "constant.builtin");
+  } else if (hasScope(scopeNames, "constant.language")) {
+    candidates.push("constant.builtin", "constant");
   }
   if (hasScope(scopeNames, "constant.numeric.float")) {
     candidates.push("number.float", "float");
@@ -635,11 +658,13 @@ export function resolveTextMateCaptureCandidates(input: {
   } else if (
     hasScope(scopeNames, "entity.name.method") ||
     hasScope(scopeNames, "meta.method") ||
-    previousCharacter === "."
+    (previousCharacter === "." && nextCharacter === "(" && !qualifiedType)
   ) {
     candidates.push(
       nextCharacter === "(" ? "function.method.call" : "function.method",
     );
+  } else if (previousCharacter === "." && !qualifiedType) {
+    candidates.push("property", "variable.member");
   } else if (
     input.tokenType === "function" &&
     (nextCharacter === "(" || hasScope(scopeNames, "meta.function-call"))
@@ -660,12 +685,33 @@ export function resolveTextMateCaptureCandidates(input: {
   ) {
     candidates.unshift("type.class.definition");
   }
+  const bracketToken = /^[()[\]{}]+$/.test(input.identifier);
   if (hasScope(scopeNames, "punctuation.definition.tag")) {
     candidates.push("tag.delimiter", "punctuation.bracket");
-  } else if (hasScope(scopeNames, "punctuation.section")) {
+  } else if (bracketToken || hasScope(scopeNames, "punctuation.section")) {
     candidates.push("punctuation.bracket");
   } else if (hasScope(scopeNames, "punctuation.separator")) {
     candidates.push("punctuation.delimiter");
+  } else if (startsWithScope(scopeNames, "punctuation")) {
+    candidates.push("punctuation");
+  }
+  if (
+    hasScope(scopeNames, "entity.name.package") ||
+    hasScope(scopeNames, "entity.name.type.package")
+  ) {
+    candidates.unshift("namespace", "module");
+  }
+  if (
+    input.languageId === "go" &&
+    nextCharacter === "." &&
+    /^[A-Za-z_]\w*$/.test(input.identifier)
+  ) {
+    // Go's TextMate grammar scopes `http` as a type in type expressions and as
+    // a variable in calls, even though both positions are the package side of a
+    // selector. The following dot is the stable boundary, so the qualifier gets
+    // namespace identity while the identifier after the dot keeps its own type,
+    // method, property, or constant capture.
+    candidates.unshift("namespace", "module");
   }
   if (hasScope(scopeNames, "entity.other.attribute-name")) {
     candidates.push("tag.attribute", "attribute");
