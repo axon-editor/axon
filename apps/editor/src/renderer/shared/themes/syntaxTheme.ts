@@ -9,16 +9,6 @@ import { type ThemeTokenMap } from "./types";
 
 export type { SyntaxEntry, SyntaxStyle };
 
-function normalizeFontStyle(style: ExtensionThemeSyntaxStyle) {
-  const parts = [
-    style.fontStyle,
-    style.fontWeight === "bold" || style.fontWeight === 700 ? "bold" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return parts || undefined;
-}
-
 export class AxonSyntaxTheme {
   private readonly entries: SyntaxEntry[];
 
@@ -49,12 +39,16 @@ export function createExtensionSyntaxThemeEntries(
   syntax: Record<string, ExtensionThemeSyntaxStyle>,
 ): SyntaxEntry[] {
   return Object.entries(syntax)
-    .filter(([, style]) => typeof style.color === "string")
+    .filter(([, style]) => Object.keys(style).length > 0)
     .map(([captureName, style]) => [
       captureName,
       {
-        color: style.color ?? "#d8dee9",
-        fontStyle: normalizeFontStyle(style),
+        color: style.color,
+        fontStyle: style.fontStyle,
+        fontWeight: style.fontWeight ?? undefined,
+        backgroundColor: style.backgroundColor,
+        underline: style.underline,
+        strikethrough: style.strikethrough,
       },
     ]);
 }

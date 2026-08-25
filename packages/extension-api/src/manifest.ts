@@ -160,6 +160,9 @@ export interface ExtensionThemeSyntaxStyle {
   color?: string;
   fontStyle?: string;
   fontWeight?: number | string | null;
+  backgroundColor?: string;
+  underline?: boolean;
+  strikethrough?: boolean;
 }
 
 export interface ExtensionThemeDefinition {

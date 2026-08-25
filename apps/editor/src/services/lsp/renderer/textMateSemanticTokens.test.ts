@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createTextMateSemanticTokens,
   resolveContextualTokenType,
+  resolveTextMateCaptureCandidates,
   resolveTextMateTokenType,
 } from "./textMateSemanticTokens";
 
@@ -49,5 +51,83 @@ describe("resolveTextMateTokenType", () => {
         startColumnZeroBased: 15,
       }),
     ).toBe("string");
+  });
+});
+
+describe("resolveTextMateCaptureCandidates", () => {
+  it("keeps method-call identity instead of flattening it to method", () => {
+    expect(
+      resolveTextMateCaptureCandidates({
+        scopeNames: [
+          "source.ts",
+          "meta.function-call.ts",
+          "entity.name.method.ts",
+        ],
+        tokenType: "method",
+        languageId: "typescript",
+        lineContent: "service.fetch()",
+        identifier: "fetch",
+        startColumnZeroBased: 8,
+      })[0],
+    ).toBe("function.method.call");
+  });
+
+  it("keeps detailed JSON property and string escape captures", () => {
+    const propertyCaptures = resolveTextMateCaptureCandidates({
+      scopeNames: [
+        "source.json",
+        "string.quoted.double.json",
+        "support.type.property-name.json",
+      ],
+      tokenType: "property",
+      languageId: "json",
+      lineContent: '"command": "build\\n"',
+      identifier: '"command"',
+      startColumnZeroBased: 0,
+    });
+    const escapeCaptures = resolveTextMateCaptureCandidates({
+      scopeNames: [
+        "source.json",
+        "string.quoted.double.json",
+        "constant.character.escape.json",
+      ],
+      tokenType: "string",
+      languageId: "json",
+      lineContent: '"build\\n"',
+      identifier: "\\n",
+      startColumnZeroBased: 6,
+    });
+
+    expect(propertyCaptures[0]).toBe("property.json_key");
+    expect(escapeCaptures[0]).toBe("string.escape");
+  });
+});
+
+describe("createTextMateSemanticTokens", () => {
+  it("retains detailed captures from real grammar output", async () => {
+    const typescript = await createTextMateSemanticTokens({
+      languageId: "typescript",
+      content: "service.fetch()",
+    });
+    const json = await createTextMateSemanticTokens({
+      languageId: "json",
+      content: '{"command": "build\\n"}',
+    });
+
+    expect(
+      typescript?.tokens.some((token) =>
+        token.captureCandidates.includes("function.method.call"),
+      ),
+    ).toBe(true);
+    expect(
+      json?.tokens.some((token) =>
+        token.captureCandidates.includes("property.json_key"),
+      ),
+    ).toBe(true);
+    expect(
+      json?.tokens.some((token) =>
+        token.captureCandidates.includes("string.escape"),
+      ),
+    ).toBe(true);
   });
 });

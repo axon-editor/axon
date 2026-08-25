@@ -1,49 +1,23 @@
-import * as monaco from "monaco-editor";
-import {
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS,
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
-} from "../../../shared/lsp";
+import type * as monaco from "monaco-editor";
 import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { createTextMateSemanticTokens } from "./textMateSemanticTokens";
 import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
-import { mergeSemanticTokenLayers } from "./semanticTokenMerge";
+import {
+  decodeLanguageServerSemanticTokens,
+  mergeHighlightTokenLayers,
+  type HighlightTokenSet,
+} from "./highlightTokenMerge";
 import { isLargeDocumentModel } from "../../../shared/largeDocument";
-
-const configuredMonacos = new WeakSet<typeof monaco>();
-
-const semanticTokenLanguages = [
-  "typescript",
-  "typescriptreact",
-  "javascript",
-  "javascriptreact",
-  "go",
-  "rust",
-  "python",
-  "java",
-  "csharp",
-  "kotlin",
-  "php",
-  "lua",
-  "cpp",
-  "c",
-  "html",
-  "css",
-  "scss",
-  "less",
-  "json",
-  "yaml",
-  "shell",
-  "dockerfile",
-  "xml",
-  "proto",
-];
 
 const semanticTokenCache = new Map<
   string,
   {
     versionId: number;
-    promise: Promise<monaco.languages.SemanticTokens | null>;
+    promise: Promise<HighlightTokenSet | null>;
   }
+>();
+const semanticTokenUpdateListeners = new Set<
+  (model: monaco.editor.ITextModel) => void
 >();
 const TEXTMATE_LSP_MERGE_WAIT_MS = 80;
 
@@ -96,6 +70,17 @@ function createSemanticTokenPromise(
 
   const languageServerPromise =
     window.axon.getLanguageServerSemanticTokens(base);
+  const decodeLanguageServerResult = (
+    result: Awaited<typeof languageServerPromise>,
+  ) =>
+    result.ok && result.data.length > 0
+      ? decodeLanguageServerSemanticTokens({
+          data: result.data,
+          legend: result.legend,
+          languageId,
+          resultId: result.resultId,
+        })
+      : null;
 
   return textMatePromise
     .then(async (textMateTokens) => {
@@ -117,8 +102,8 @@ function createSemanticTokenPromise(
             ) {
               return;
             }
-            const merged = mergeSemanticTokenLayers({
-              lsp: lateResult.data,
+            const merged = mergeHighlightTokenLayers({
+              lsp: decodeLanguageServerResult(lateResult),
               textMate: textMateTokens,
               resultId: lateResult.resultId,
             });
@@ -126,12 +111,14 @@ function createSemanticTokenPromise(
               versionId: model.getVersionId(),
               promise: Promise.resolve(merged),
             });
-            // Keep the first completed paint for a model version stable. LSP
-            // startup is commonly triggered by hover or completion; forcing an
-            // immediate repaint here made unchanged identifiers switch from
-            // grammar colors to semantic colors while the user was reading.
-            // The merged result remains cached for the next normal paint cycle,
-            // so semantic detail is available without an unsolicited color jump.
+
+            // The first paint already consumed the grammar-only promise, so
+            // replacing this cache entry cannot update the mounted decoration
+            // collection by itself. I notify only after the same model version
+            // has received a valid merged result; the editor then reads this
+            // completed cache entry without starting another language-server
+            // request or showing stale colors from an older buffer version.
+            semanticTokenUpdateListeners.forEach((listener) => listener(model));
           })
           .catch(() => undefined);
         return textMateTokens;
@@ -139,8 +126,8 @@ function createSemanticTokenPromise(
       if (!result) return textMateTokens;
       if (!result.ok || result.data.length === 0) return textMateTokens;
 
-      return mergeSemanticTokenLayers({
-        lsp: result.data,
+      return mergeHighlightTokenLayers({
+        lsp: decodeLanguageServerResult(result),
         textMate: textMateTokens,
         resultId: result.resultId,
       });
@@ -149,10 +136,7 @@ function createSemanticTokenPromise(
       try {
         const result = await languageServerPromise;
         if (!result.ok || result.data.length === 0) return null;
-        return {
-          data: Uint32Array.from(result.data),
-          resultId: result.resultId,
-        };
+        return decodeLanguageServerResult(result);
       } catch {
         return null;
       }
@@ -183,30 +167,13 @@ export function getSemanticTokensForModel(model: monaco.editor.ITextModel) {
   return promise;
 }
 
-function registerSemanticTokensProvider(
-  monacoInstance: typeof monaco,
-  languageId: string,
+export function onDidUpdateSemanticTokens(
+  listener: (model: monaco.editor.ITextModel) => void,
 ) {
-  monacoInstance.languages.registerDocumentSemanticTokensProvider(languageId, {
-    getLegend: () => ({
-      tokenTypes: [...LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES],
-      tokenModifiers: [...LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS],
-    }),
-    provideDocumentSemanticTokens: async (model, _lastResultId, token) => {
-      const result = await getSemanticTokensForModel(model);
-      if (token.isCancellationRequested) return null;
-
-      return result;
+  semanticTokenUpdateListeners.add(listener);
+  return {
+    dispose: () => {
+      semanticTokenUpdateListeners.delete(listener);
     },
-    releaseDocumentSemanticTokens: () => undefined,
-  });
-}
-
-export function configureLspSemanticTokens(monacoInstance: typeof monaco) {
-  if (configuredMonacos.has(monacoInstance)) return;
-  configuredMonacos.add(monacoInstance);
-
-  semanticTokenLanguages.forEach((languageId) => {
-    registerSemanticTokensProvider(monacoInstance, languageId);
-  });
+  };
 }

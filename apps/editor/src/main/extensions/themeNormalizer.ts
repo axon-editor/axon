@@ -10,9 +10,7 @@ import {
   type ResolvedExtensionTheme,
 } from "../../shared/extensions";
 
-const zedToAxonTokenMap: Partial<
-  Record<ThemeColorToken, readonly string[]>
-> = {
+const zedToAxonTokenMap: Partial<Record<ThemeColorToken, readonly string[]>> = {
   background: ["background", "editor.background"],
   "status_bar.background": [
     "status_bar.background",
@@ -47,11 +45,7 @@ const zedToAxonTokenMap: Partial<
     "editor.background",
     "surface.background",
   ],
-  "panel.background": [
-    "panel.background",
-    "surface.background",
-    "background",
-  ],
+  "panel.background": ["panel.background", "surface.background", "background"],
   "panel.border": ["border", "border.variant"],
   "panel.overlay_hover": [
     "element.hover",
@@ -71,11 +65,7 @@ const zedToAxonTokenMap: Partial<
     "editor.background",
     "background",
   ],
-  "terminal.foreground": [
-    "terminal.foreground",
-    "editor.foreground",
-    "text",
-  ],
+  "terminal.foreground": ["terminal.foreground", "editor.foreground", "text"],
 };
 
 const zedToMonacoColorMap: Record<string, string> = {
@@ -131,13 +121,20 @@ function normalizeHexColor(value: unknown) {
 }
 
 function normalizeFontStyle(value: unknown) {
-  if (value === "italic" || value === "bold" || value === "underline") {
-    return value;
-  }
-  return undefined;
+  if (typeof value !== "string") return {};
+  const parts = new Set(value.trim().split(/\s+/));
+  const style: ExtensionThemeSyntaxStyle = {};
+  if (parts.has("italic")) style.fontStyle = "italic";
+  if (parts.has("normal")) style.fontStyle = "normal";
+  if (parts.has("bold")) style.fontWeight = "bold";
+  if (parts.has("underline")) style.underline = true;
+  if (parts.has("strikethrough")) style.strikethrough = true;
+  return style;
 }
 
-function normalizeSyntaxStyle(value: unknown): ExtensionThemeSyntaxStyle | null {
+function normalizeSyntaxStyle(
+  value: unknown,
+): ExtensionThemeSyntaxStyle | null {
   const directColor = normalizeHexColor(value);
   if (directColor) return { color: directColor };
   if (!isRecord(value)) return null;
@@ -145,11 +142,18 @@ function normalizeSyntaxStyle(value: unknown): ExtensionThemeSyntaxStyle | null 
   const style: ExtensionThemeSyntaxStyle = {};
   const color = normalizeHexColor(value.color);
   if (color) style.color = color;
-  const fontStyle = normalizeFontStyle(value.fontStyle ?? value.font_style);
-  if (fontStyle) style.fontStyle = fontStyle;
+  Object.assign(style, normalizeFontStyle(value.fontStyle ?? value.font_style));
   const fontWeight = value.fontWeight ?? value.font_weight;
   if (typeof fontWeight === "number" || typeof fontWeight === "string") {
     style.fontWeight = fontWeight;
+  }
+  const backgroundColor = normalizeHexColor(
+    value.backgroundColor ?? value.background_color,
+  );
+  if (backgroundColor) style.backgroundColor = backgroundColor;
+  if (typeof value.underline === "boolean") style.underline = value.underline;
+  if (typeof value.strikethrough === "boolean") {
+    style.strikethrough = value.strikethrough;
   }
 
   return Object.keys(style).length > 0 ? style : null;
@@ -295,7 +299,9 @@ export function readExtensionTheme(
           contributionId,
           contributionLabel,
           theme,
-          zedThemes.length === 1 ? contributionId : `${contributionId}-${index + 1}`,
+          zedThemes.length === 1
+            ? contributionId
+            : `${contributionId}-${index + 1}`,
         ),
       );
   }

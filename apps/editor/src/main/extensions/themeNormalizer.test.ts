@@ -122,9 +122,7 @@ describe("built-in Axon themes", () => {
           "extensions",
           "builtin",
           "themes",
-          contributionId === "uniform-midnight"
-            ? "uniform"
-            : contributionId,
+          contributionId === "uniform-midnight" ? "uniform" : contributionId,
           "themes",
           fileName,
         ),
@@ -174,6 +172,23 @@ describe("built-in Axon themes", () => {
         "uniform.json",
       ),
     );
+    const [, snowfallWithBackground] = readExtensionTheme(
+      "axon.snowfall-theme",
+      "Snowfall",
+      "snowfall",
+      "Snowfall",
+      path.resolve(
+        process.cwd(),
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "themes",
+        "snowfall",
+        "themes",
+        "snowfall.json",
+      ),
+    );
 
     expect(vitesseBlack.tokens["editor.background"]).toBe("#000000");
     expect(vitesseDarkSoft.tokens["editor.background"]).toBe("#222222");
@@ -182,6 +197,10 @@ describe("built-in Axon themes", () => {
       "editor.background": "#030309",
       "editor.foreground": "#ffffffe0",
       "panel.background": "#030309",
+    });
+    expect(uniform.syntax.link_text).toMatchObject({ underline: true });
+    expect(snowfallWithBackground.syntax.character).toMatchObject({
+      backgroundColor: "#74968933",
     });
   });
 });

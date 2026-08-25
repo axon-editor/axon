@@ -143,6 +143,14 @@ export default function TokenInspectorModal({
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  Sem source
+                </dt>
+                <dd className="font-mono text-[var(--axon-editor-foreground)]">
+                  {report.semanticTokenSource ?? "none"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
                   Sem range
                 </dt>
                 <dd className="font-mono text-[var(--axon-editor-foreground)]">
@@ -155,6 +163,22 @@ export default function TokenInspectorModal({
                 </dt>
                 <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)] opacity-70">
                   {report.semanticSelector ?? "none"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  Candidates
+                </dt>
+                <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)] opacity-70">
+                  {report.semanticCaptureCandidates.join(", ") || "none"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[var(--axon-editor-foreground)] opacity-50">
+                  TM scopes
+                </dt>
+                <dd className="min-w-0 truncate font-mono text-[var(--axon-editor-foreground)] opacity-70">
+                  {report.textMateScopeNames.join(", ") || "none"}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">

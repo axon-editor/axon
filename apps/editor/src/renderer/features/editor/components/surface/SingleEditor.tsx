@@ -13,6 +13,7 @@ import {
   installSemanticTokenDecorationStyles,
   RICH_SEMANTIC_DECORATION_LANGUAGES,
 } from "@axon-editor/services/lsp/renderer/semanticTokenDecorations";
+import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/lspSemanticTokens";
 import EditorBreadcrumbHeader from "../navigation/EditorBreadcrumbHeader";
 import MonacoEditorSurface from "./MonacoEditorSurface";
 import TokenInspectorModal from "../navigation/TokenInspectorModal";
@@ -26,7 +27,6 @@ import {
 import { useEditorFind } from "../../lib/hooks/useEditorFind";
 import {
   encodeLocalPath,
-  goCallExclusions,
   normalizePath,
 } from "../../lib/formatting/editorDocumentHelpers";
 import { isMarkdownFile } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
@@ -104,8 +104,6 @@ export default function SingleEditor({
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const semanticDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
-  const goSyntaxDecorationsRef =
-    useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const editorOpenerRef = useRef<monaco.IDisposable | null>(null);
   const filePathRef = useRef(filePath);
   const refreshEditorTokensRef = useRef<() => void>(() => undefined);
@@ -155,7 +153,6 @@ export default function SingleEditor({
     setLiveContent,
   });
   const scheduleLiveContentUpdate = useTrailingTask();
-  const scheduleGoSyntaxUpdate = useTrailingTask();
   const editorBackgroundImagePath = editorSettings.backgroundImagePath.trim();
   const editorBackgroundImageUrl = editorBackgroundImagePath
     ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
@@ -276,86 +273,6 @@ export default function SingleEditor({
     }, 320);
   }, [folderPath]);
 
-  const refreshGoSyntaxDecorations = useCallback(() => {
-    const editor = editorRef.current;
-    const model = editor?.getModel();
-    if (
-      !editor ||
-      !model ||
-      model.getLanguageId() !== "go" ||
-      isLargeDocumentModel(model)
-    ) {
-      goSyntaxDecorationsRef.current?.clear();
-      return;
-    }
-
-    const decorations: monaco.editor.IModelDeltaDecoration[] = [];
-    const decoratedRanges = new Set<string>();
-    const addDecoration = (
-      lineNumber: number,
-      startColumn: number,
-      endColumn: number,
-      className: string,
-    ) => {
-      const key = `${lineNumber}:${startColumn}:${endColumn}`;
-      if (decoratedRanges.has(key)) return;
-      decoratedRanges.add(key);
-      decorations.push({
-        range: new monaco.Range(lineNumber, startColumn, lineNumber, endColumn),
-        options: {
-          inlineClassName: className,
-        },
-      });
-    };
-
-    for (let lineNumber = 1; lineNumber <= model.getLineCount(); lineNumber++) {
-      const line = model.getLineContent(lineNumber);
-      const commentStart = line.indexOf("//");
-      const searchableLine =
-        commentStart >= 0 ? line.slice(0, commentStart) : line;
-
-      const declarationPattern =
-        /\bfunc\s+(\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
-      let declarationMatch: RegExpExecArray | null;
-      while ((declarationMatch = declarationPattern.exec(searchableLine))) {
-        const receiver = declarationMatch[1];
-        const name = declarationMatch[2];
-        const nameStart =
-          declarationMatch.index + declarationMatch[0].indexOf(name);
-        addDecoration(
-          lineNumber,
-          nameStart + 1,
-          nameStart + name.length + 1,
-          receiver ? "axon-go-method-token" : "axon-go-function-token",
-        );
-      }
-
-      const callPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g;
-      let callMatch: RegExpExecArray | null;
-      while ((callMatch = callPattern.exec(searchableLine))) {
-        const name = callMatch[1];
-        if (goCallExclusions.has(name)) continue;
-        const nameStart = callMatch.index;
-        const previousCharacter = searchableLine[nameStart - 1];
-        addDecoration(
-          lineNumber,
-          nameStart + 1,
-          nameStart + name.length + 1,
-          previousCharacter === "."
-            ? "axon-go-method-token"
-            : "axon-go-function-token",
-        );
-      }
-    }
-
-    // Monaco's bundled Go grammar does not identify function names as a
-    // distinct token; it reports them as plain identifiers. I add these inline
-    // decorations only for Go so the theme can still color function and method
-    // names without weakening identifier colors for every other language.
-    goSyntaxDecorationsRef.current ??= editor.createDecorationsCollection();
-    goSyntaxDecorationsRef.current.set(decorations);
-  }, []);
-
   const refreshSemanticTokenDecorations = useCallback(async () => {
     const editor = editorRef.current;
     const model = editor?.getModel();
@@ -452,6 +369,14 @@ export default function SingleEditor({
   );
 
   useEffect(() => {
+    const subscription = onDidUpdateSemanticTokens((updatedModel) => {
+      if (editorRef.current?.getModel() !== updatedModel) return;
+      scheduleSemanticTokenDecorations(0);
+    });
+    return () => subscription.dispose();
+  }, [scheduleSemanticTokenDecorations]);
+
+  useEffect(() => {
     filePathRef.current = filePath;
   }, [filePath]);
 
@@ -483,7 +408,6 @@ export default function SingleEditor({
       // stack darker than a single added/modified/deleted marker should.
       navigationDecorationsRef.current?.clear();
       semanticDecorationsRef.current?.clear();
-      goSyntaxDecorationsRef.current?.clear();
       clearFindDecorations();
 
       editorOpenerRef.current?.dispose();
@@ -546,7 +470,6 @@ export default function SingleEditor({
       );
       installSemanticTokenDecorationStyles(themeTokens, themeSyntax);
       void refreshSemanticTokenDecorations();
-      refreshGoSyntaxDecorations();
     }
   }, [
     visible,
@@ -554,7 +477,6 @@ export default function SingleEditor({
     themeSyntax,
     themeTokens,
     refreshSemanticTokenDecorations,
-    refreshGoSyntaxDecorations,
   ]);
 
   useEffect(() => {
@@ -595,7 +517,6 @@ export default function SingleEditor({
   // when this editor first opened.
   refreshEditorTokensRef.current = () => {
     scheduleSemanticTokenDecorations();
-    scheduleGoSyntaxUpdate(refreshGoSyntaxDecorations, 60);
   };
 
   useEffect(() => {
@@ -605,8 +526,6 @@ export default function SingleEditor({
       navigationDecorationsRef.current = null;
       semanticDecorationsRef.current?.clear();
       semanticDecorationsRef.current = null;
-      goSyntaxDecorationsRef.current?.clear();
-      goSyntaxDecorationsRef.current = null;
       editorOpenerRef.current?.dispose();
       editorOpenerRef.current = null;
       if (suggestTimerRef.current) {
@@ -833,7 +752,6 @@ export default function SingleEditor({
 
     onLanguageChange(detectLanguage(filePath));
     void refreshSemanticTokenDecorations();
-    refreshGoSyntaxDecorations();
   };
 
   if (error) {

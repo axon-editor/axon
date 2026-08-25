@@ -1,7 +1,8 @@
 import {
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS,
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
-} from "../../../shared/lsp";
+  semanticCaptureCandidates,
+  type HighlightToken,
+  type HighlightTokenSet,
+} from "./highlightTokenMerge";
 
 type ShikiHighlighter = {
   codeToTokens: (
@@ -107,19 +108,6 @@ const textMateLanguages = new Map<string, TextMateLanguage>([
     { id: "makefile", load: () => import("shiki/langs/makefile.mjs") },
   ],
 ]);
-const tokenTypeIndexes = new Map<string, number>(
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES.map((tokenType, index) => [
-    tokenType,
-    index,
-  ]),
-);
-const tokenModifierIndexes = new Map<string, number>(
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS.map((modifier, index) => [
-    modifier,
-    index,
-  ]),
-);
-
 let highlighterFoundationPromise: Promise<{
   shiki: ShikiModule;
   engine: unknown;
@@ -405,11 +393,10 @@ export function resolveContextualTokenType(input: {
 }
 
 function pushFallbackIdentifierTokens(input: {
-  data: number[];
+  tokens: HighlightToken[];
   languageId: string;
   lineContent: string;
   lineIndex: number;
-  relativeState: { line: number; character: number };
   explanationContent: string;
   explanationStartColumnZeroBased: number;
   scopeNames: string[];
@@ -433,12 +420,20 @@ function pushFallbackIdentifierTokens(input: {
     // call targets as plain `source.*` text. Rather than making every unknown
     // identifier colorful, this fallback only promotes identifiers whose local
     // syntax context is unambiguous enough to avoid noisy false positives.
-    pushRelativeToken(input.data, input.relativeState, {
+    pushHighlightToken(input.tokens, {
       line: input.lineIndex,
       character: startColumnZeroBased,
       length: identifier.length,
       tokenType,
-      tokenModifiers: 0,
+      modifiers: [],
+      captureCandidates: semanticCaptureCandidates(
+        tokenType,
+        [],
+        input.languageId,
+      ),
+      source: "fallback",
+      languageId: input.languageId,
+      scopeNames: input.scopeNames,
     });
   }
 }
@@ -463,6 +458,9 @@ export function resolveTextMateTokenType(scopeNames: string[]) {
     return "operator";
   }
   if (hasScope(scopeNames, "constant.language.boolean.yaml")) return "keyword";
+  if (hasScope(scopeNames, "regexp") || hasScope(scopeNames, "regex")) {
+    return "regexp";
+  }
   // YAML keys carry both `string.unquoted.*` and `entity.name.tag.yaml`.
   // Structural scopes must be handled before generic strings or every key
   // collapses back to normal text coloring.
@@ -480,6 +478,7 @@ export function resolveTextMateTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "keyword.operator")) return "operator";
   if (startsWithScope(scopeNames, "keyword")) return "keyword";
   if (hasScope(scopeNames, "storage.modifier")) return "modifier";
+  if (hasScope(scopeNames, "entity.name.function.preprocessor")) return "macro";
   if (hasScope(scopeNames, "entity.name.function.constructor"))
     return "constructor";
   if (hasScope(scopeNames, "entity.name.function")) return "function";
@@ -490,6 +489,7 @@ export function resolveTextMateTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "support.class")) return "class";
   if (hasScope(scopeNames, "entity.name.interface")) return "interface";
   if (hasScope(scopeNames, "entity.name.enum")) return "enum";
+  if (hasScope(scopeNames, "variable.other.enummember")) return "enumMember";
   if (hasScope(scopeNames, "entity.name.type.alias")) return "typeAlias";
   if (hasScope(scopeNames, "entity.name.type")) return "type";
   if (hasScope(scopeNames, "support.type.primitive")) return "builtinType";
@@ -497,78 +497,194 @@ export function resolveTextMateTokenType(scopeNames: string[]) {
   if (hasScope(scopeNames, "storage.type")) return "type";
   if (hasScope(scopeNames, "entity.name.tag")) return "tag";
   if (hasScope(scopeNames, "entity.other.attribute-name")) return "attribute";
+  if (hasScope(scopeNames, "entity.name.namespace")) return "namespace";
+  if (hasScope(scopeNames, "entity.name.module")) return "namespace";
+  if (hasScope(scopeNames, "entity.name.decorator")) return "decorator";
   if (hasScope(scopeNames, "meta.jsx.children")) return "text";
   if (hasScope(scopeNames, "punctuation.definition.tag")) return "operator";
+  if (startsWithScope(scopeNames, "punctuation")) return "operator";
   if (hasScope(scopeNames, "variable.other.property")) return "property";
   if (hasScope(scopeNames, "variable.other.object.property")) return "property";
   if (hasScope(scopeNames, "meta.object-literal.key")) return "property";
   if (hasScope(scopeNames, "support.variable.property")) return "property";
   if (hasScope(scopeNames, "constant.language")) return "variable";
+  if (hasScope(scopeNames, "constant.other")) return "variable";
   if (hasScope(scopeNames, "variable.other.constant")) return "variable";
   if (startsWithScope(scopeNames, "variable")) return "variable";
   if (startsWithScope(scopeNames, "constant")) return "variable";
   if (startsWithScope(scopeNames, "storage")) return "keyword";
+  if (startsWithScope(scopeNames, "markup")) return "text";
   return null;
 }
 
 function resolveTokenModifiers(scopeNames: string[]) {
-  let modifiers = 0;
+  const modifiers: string[] = [];
   if (
     hasScope(scopeNames, "keyword.control.import") ||
     hasScope(scopeNames, "keyword.operator.expression.import")
   ) {
-    modifiers |= 1 << (tokenModifierIndexes.get("import") ?? 0);
+    modifiers.push("import");
   }
   if (hasScope(scopeNames, "variable.other.constant")) {
-    modifiers |= 1 << (tokenModifierIndexes.get("readonly") ?? 0);
+    modifiers.push("readonly");
   }
   if (hasScope(scopeNames, "constant.language")) {
-    modifiers |= 1 << (tokenModifierIndexes.get("builtin") ?? 0);
+    modifiers.push("builtin");
   }
   if (hasScope(scopeNames, "variable.language")) {
-    modifiers |= 1 << (tokenModifierIndexes.get("defaultLibrary") ?? 0);
+    modifiers.push("defaultLibrary");
   }
   if (hasScope(scopeNames, "support.")) {
-    modifiers |= 1 << (tokenModifierIndexes.get("defaultLibrary") ?? 0);
+    modifiers.push("defaultLibrary");
   }
   if (hasScope(scopeNames, "meta.definition")) {
-    modifiers |= 1 << (tokenModifierIndexes.get("declaration") ?? 0);
+    modifiers.push("declaration");
   }
-  return modifiers;
+  return [...new Set(modifiers)];
 }
 
-function pushRelativeToken(
-  data: number[],
-  state: { line: number; character: number },
-  token: {
-    line: number;
-    character: number;
-    length: number;
-    tokenType: string;
-    tokenModifiers: number;
-  },
-) {
-  const tokenTypeIndex = tokenTypeIndexes.get(token.tokenType);
-  if (tokenTypeIndex === undefined || token.length <= 0) return;
+function pushHighlightToken(tokens: HighlightToken[], token: HighlightToken) {
+  if (token.length <= 0 || token.captureCandidates.length === 0) return;
+  tokens.push(token);
+}
 
-  const deltaLine = token.line - state.line;
-  const deltaCharacter =
-    deltaLine === 0 ? token.character - state.character : token.character;
-  data.push(
-    deltaLine,
-    deltaCharacter,
-    token.length,
-    tokenTypeIndex,
-    token.tokenModifiers,
+export function resolveTextMateCaptureCandidates(input: {
+  scopeNames: string[];
+  tokenType: string;
+  languageId: string;
+  lineContent: string;
+  identifier: string;
+  startColumnZeroBased: number;
+}) {
+  const candidates: string[] = [];
+  const { scopeNames } = input;
+  const nextCharacter = nextMeaningfulCharacter(
+    input.lineContent,
+    input.startColumnZeroBased + input.identifier.length,
   );
-  state.line = token.line;
-  state.character = token.character;
+  const previousCharacter = previousMeaningfulCharacter(
+    input.lineContent,
+    input.startColumnZeroBased,
+  );
+
+  if (startsWithScope(scopeNames, "comment.block.documentation")) {
+    candidates.push("comment.doc");
+  }
+  if (
+    hasScope(scopeNames, "string.quoted.docstring") ||
+    hasScope(scopeNames, "string.documentation")
+  ) {
+    candidates.push("string.documentation", "string.doc");
+  }
+  if (hasScope(scopeNames, "constant.language.boolean")) {
+    candidates.push("boolean", "constant.builtin");
+  }
+  if (hasScope(scopeNames, "constant.numeric.float")) {
+    candidates.push("number.float", "float");
+  }
+  if (hasScope(scopeNames, "constant.character.escape")) {
+    candidates.push("string.escape", "character.special");
+  }
+  if (hasScope(scopeNames, "regexp") || hasScope(scopeNames, "regex")) {
+    candidates.push("string.regex", "string.regexp");
+  }
+  if (hasScope(scopeNames, "string.special.path")) {
+    candidates.push("string.special.path");
+  } else if (hasScope(scopeNames, "string.special")) {
+    candidates.push("string.special");
+  }
+  if (
+    hasScope(scopeNames, "support.type.property-name.json") ||
+    hasScope(scopeNames, "string.key.json") ||
+    hasScope(scopeNames, "key.json")
+  ) {
+    candidates.push("property.json_key", "property");
+  }
+  if (hasScope(scopeNames, "keyword.control.import")) {
+    candidates.push("keyword.import", "import");
+  }
+  if (hasScope(scopeNames, "keyword.control.export")) {
+    candidates.push("keyword.export");
+  }
+  if (hasScope(scopeNames, "keyword.control.return")) {
+    candidates.push("keyword.return");
+  }
+  if (hasScope(scopeNames, "keyword.control.conditional")) {
+    candidates.push("keyword.conditional");
+  }
+  if (hasScope(scopeNames, "keyword.control.repeat")) {
+    candidates.push("keyword.repeat");
+  }
+  if (hasScope(scopeNames, "keyword.control.exception")) {
+    candidates.push("keyword.exception");
+  }
+  if (
+    hasScope(scopeNames, "keyword.control") &&
+    hasScope(scopeNames, "return")
+  ) {
+    candidates.push("keyword.return");
+  }
+  if (hasScope(scopeNames, "meta.preprocessor")) {
+    candidates.push("preproc", "keyword.directive");
+  }
+  if (hasScope(scopeNames, "entity.name.function.preprocessor")) {
+    candidates.push("function.macro", "constant.macro");
+  }
+  if (hasScope(scopeNames, "entity.name.function.constructor")) {
+    candidates.push("constructor");
+  } else if (
+    hasScope(scopeNames, "entity.name.method") ||
+    hasScope(scopeNames, "meta.method") ||
+    previousCharacter === "."
+  ) {
+    candidates.push(
+      nextCharacter === "(" ? "function.method.call" : "function.method",
+    );
+  } else if (
+    input.tokenType === "function" &&
+    (nextCharacter === "(" || hasScope(scopeNames, "meta.function-call"))
+  ) {
+    candidates.push("function.call");
+  }
+  if (
+    input.tokenType === "function" &&
+    (hasScope(scopeNames, "meta.definition") ||
+      hasScope(scopeNames, "meta.function.declaration"))
+  ) {
+    candidates.unshift("function.definition");
+  }
+  if (
+    input.tokenType === "class" &&
+    (hasScope(scopeNames, "meta.definition") ||
+      hasScope(scopeNames, "meta.class"))
+  ) {
+    candidates.unshift("type.class.definition");
+  }
+  if (hasScope(scopeNames, "punctuation.definition.tag")) {
+    candidates.push("tag.delimiter", "punctuation.bracket");
+  } else if (hasScope(scopeNames, "punctuation.section")) {
+    candidates.push("punctuation.bracket");
+  } else if (hasScope(scopeNames, "punctuation.separator")) {
+    candidates.push("punctuation.delimiter");
+  }
+  if (hasScope(scopeNames, "entity.other.attribute-name")) {
+    candidates.push("tag.attribute", "attribute");
+  }
+
+  candidates.push(
+    ...semanticCaptureCandidates(
+      input.tokenType,
+      resolveTokenModifiers(scopeNames),
+      input.languageId,
+    ),
+  );
+  return [...new Set(candidates)];
 }
 
 export async function createTextMateSemanticTokens(input: {
   languageId: string;
   content: string;
-}) {
+}): Promise<HighlightTokenSet | null> {
   const language = textMateLanguages.get(input.languageId);
   if (!language) return null;
 
@@ -577,14 +693,14 @@ export async function createTextMateSemanticTokens(input: {
 
   const lineStarts = createLineStarts(input.content);
   const lineContents = input.content.split(/\n/);
-  const tokenData: number[] = [];
-  const relativeState = { line: 0, character: 0 };
+  const highlightTokens: HighlightToken[] = [];
 
-  // Shiki supplies the same TextMate scope stack VS Code themes are built
-  // around. I only use it as a structural tokenizer here; Axon's active theme
-  // still decides the final colors through Monaco semanticTokenColors. This
-  // keeps grammar richness independent from the temporary tokenizer theme used
-  // to make Shiki emit scope explanations.
+  // Shiki's temporary theme exists only to make the grammar return explanation
+  // scopes. I retain those scopes and derive ordered Axon capture candidates;
+  // the active editor theme resolves their final style later. Keeping grammar
+  // identity separate from the temporary Shiki palette prevents GitHub Dark
+  // from leaking into the UI and lets a theme distinguish a method call from a
+  // declaration without retokenizing the document for every theme switch.
   const shikiTokens = highlighter.codeToTokens(input.content, {
     lang: language.id,
     theme: "github-dark",
@@ -621,11 +737,10 @@ export async function createTextMateSemanticTokens(input: {
           explanationOffset - lineStart + trimmedStart;
         if (!tokenType) {
           pushFallbackIdentifierTokens({
-            data: tokenData,
+            tokens: highlightTokens,
             languageId: input.languageId,
             lineContent,
             lineIndex,
-            relativeState,
             explanationContent: content,
             explanationStartColumnZeroBased: explanationOffset - lineStart,
             scopeNames,
@@ -641,22 +756,29 @@ export async function createTextMateSemanticTokens(input: {
           startColumnZeroBased,
         });
 
-        pushRelativeToken(tokenData, relativeState, {
+        const modifiers = resolveTokenModifiers(scopeNames);
+        pushHighlightToken(highlightTokens, {
           line: lineIndex,
           character: startColumnZeroBased,
           length: tokenLength,
           tokenType: contextualTokenType,
-          tokenModifiers: resolveTokenModifiers(scopeNames),
+          modifiers,
+          captureCandidates: resolveTextMateCaptureCandidates({
+            scopeNames,
+            tokenType: contextualTokenType,
+            languageId: input.languageId,
+            lineContent,
+            identifier: content.slice(trimmedStart, visibleLength),
+            startColumnZeroBased,
+          }),
+          source: "textmate",
+          languageId: input.languageId,
+          scopeNames,
         });
         explanationOffset += content.length;
       });
     });
   });
 
-  return tokenData.length > 0
-    ? {
-        data: Uint32Array.from(tokenData),
-        resultId: undefined,
-      }
-    : null;
+  return highlightTokens.length > 0 ? { tokens: highlightTokens } : null;
 }

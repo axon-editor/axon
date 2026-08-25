@@ -1,20 +1,20 @@
 import * as monaco from "monaco-editor";
 import { type ThemeTokenMap } from "@axon-editor/renderer/shared/themes";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
-import {
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS,
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
-} from "@axon-editor/shared/lsp";
 import { getSemanticTokensForModel } from "@axon-editor/services/lsp/renderer/lspSemanticTokens";
 import { getTextMateSemanticTokenStatus } from "@axon-editor/services/lsp/renderer/textMateSemanticTokens";
 import {
+  createCaptureStyleMap,
   createDefaultCaptureEntries,
   findCapturesForMonacoToken,
   resolveCaptureStyleForInspector,
   type AxonTokenCaptureMatch,
 } from "@axon-editor/renderer/shared/themes/captureRegistry";
 import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/themes/syntaxTheme";
-import { createSemanticTokenColors } from "@axon-editor/renderer/shared/themes/types";
+import {
+  resolveHighlightCapture,
+  semanticClassName,
+} from "@axon-editor/services/lsp/renderer/semanticTokenDecorations";
 
 export interface TokenInspectorCapture {
   capture: string;
@@ -46,8 +46,11 @@ export interface TokenInspectorReport {
   activeThemeId: string | null;
   activeThemeSyntaxCount: number;
   semanticDecorationCount: number;
+  semanticTokenSource: string | null;
   semanticTokenType: string | null;
   semanticTokenModifiers: string[];
+  semanticCaptureCandidates: string[];
+  textMateScopeNames: string[];
   semanticTokenRange: string | null;
   semanticSelector: string | null;
   semanticExpectedColor: string | null;
@@ -58,78 +61,34 @@ export interface TokenInspectorReport {
   linePreview: string;
 }
 
-function decodeSemanticModifiers(bits: number) {
-  const modifiers: string[] = [];
-  for (
-    let index = 0;
-    index < LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS.length;
-    index += 1
-  ) {
-    if ((bits & (1 << index)) === 0) continue;
-    modifiers.push(LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS[index]);
-  }
-  return modifiers;
-}
-
 async function getSemanticTokenAtPosition(
   model: monaco.editor.ITextModel,
   position: monaco.Position,
 ) {
   const semanticTokens = await getSemanticTokensForModel(model);
-  if (!semanticTokens || semanticTokens.data.length === 0) return null;
+  if (!semanticTokens || semanticTokens.tokens.length === 0) return null;
 
-  let line = 1;
-  let column = 1;
-  for (let offset = 0; offset < semanticTokens.data.length; offset += 5) {
-    const deltaLine = semanticTokens.data[offset] ?? 0;
-    const deltaColumn = semanticTokens.data[offset + 1] ?? 0;
-    line += deltaLine;
-    column = deltaLine === 0 ? column + deltaColumn : deltaColumn + 1;
-
-    const length = semanticTokens.data[offset + 2] ?? 0;
-    const tokenType =
-      LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES[
-        semanticTokens.data[offset + 3] ?? -1
-      ];
-    const modifierBits = semanticTokens.data[offset + 4] ?? 0;
-    const endColumn = column + length;
+  for (const token of semanticTokens.tokens) {
+    const line = token.line + 1;
+    const column = token.character + 1;
+    const endColumn = column + token.length;
     if (
-      tokenType &&
       position.lineNumber === line &&
       position.column >= column &&
-      position.column <= endColumn
+      position.column < endColumn
     ) {
       return {
-        type: tokenType,
-        modifiers: decodeSemanticModifiers(modifierBits),
+        type: token.tokenType,
+        modifiers: token.modifiers,
+        captureCandidates: token.captureCandidates,
+        source: token.source,
+        scopeNames: token.scopeNames ?? [],
         range: `${line}:${column}-${endColumn}`,
       };
     }
   }
 
   return null;
-}
-
-function semanticClassName(selector: string) {
-  return `axon-sem-${selector.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
-}
-
-function resolveSemanticSelector(
-  tokenType: string | null,
-  modifiers: string[],
-  colors: Record<string, string>,
-) {
-  if (!tokenType) return null;
-
-  const exactSelector = [tokenType, ...modifiers].join(".");
-  if (colors[exactSelector]) return exactSelector;
-
-  for (const modifier of modifiers) {
-    const modifierSelector = `${tokenType}.${modifier}`;
-    if (colors[modifierSelector]) return modifierSelector;
-  }
-
-  return colors[tokenType] ? tokenType : null;
 }
 
 interface RuntimeLineTokens {
@@ -286,15 +245,26 @@ export async function inspectEditorToken(
   );
   const word = model.getWordAtPosition(position)?.word ?? "";
   const semanticToken = await getSemanticTokenAtPosition(model, position);
-  const semanticColors: Record<string, string> = createSemanticTokenColors(
-    themeTokens,
-    themeSyntax,
-  );
-  const semanticSelector = resolveSemanticSelector(
-    semanticToken?.type ?? null,
-    semanticToken?.modifiers ?? [],
-    semanticColors,
-  );
+  const semanticStyles = createCaptureStyleMap([
+    ...createDefaultCaptureEntries(themeTokens),
+    ...createExtensionSyntaxThemeEntries(themeSyntax),
+  ]);
+  const resolvedSemanticCapture = semanticToken
+    ? resolveHighlightCapture(
+        {
+          line: position.lineNumber - 1,
+          character: position.column - 1,
+          length: Math.max(1, word.length),
+          tokenType: semanticToken.type,
+          modifiers: semanticToken.modifiers,
+          captureCandidates: semanticToken.captureCandidates,
+          source: semanticToken.source,
+          languageId,
+        },
+        semanticStyles,
+      )
+    : null;
+  const semanticSelector = resolvedSemanticCapture?.capture ?? null;
   const renderedStyle = getRenderedTokenStyle(editor, inspectedPosition);
   const editorNode = editor.getDomNode();
   const textMateStatus = getTextMateSemanticTokenStatus();
@@ -342,12 +312,15 @@ export async function inspectEditorToken(
     semanticDecorationCount: Number.isFinite(semanticDecorationCount)
       ? semanticDecorationCount
       : 0,
+    semanticTokenSource: semanticToken?.source ?? null,
     semanticTokenType: semanticToken?.type ?? null,
     semanticTokenModifiers: semanticToken?.modifiers ?? [],
+    semanticCaptureCandidates: semanticToken?.captureCandidates ?? [],
+    textMateScopeNames: semanticToken?.scopeNames ?? [],
     semanticTokenRange: semanticToken?.range ?? null,
     semanticSelector,
     semanticExpectedColor: semanticSelector
-      ? (semanticColors[semanticSelector] ?? null)
+      ? (resolvedSemanticCapture?.style.color ?? null)
       : null,
     semanticDecorationClassName: semanticSelector
       ? semanticClassName(semanticSelector)

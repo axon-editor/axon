@@ -1,7 +1,6 @@
 import { type AxonThemeDefinition } from "./types";
 import {
   moonlightMonacoColors,
-  moonlightSemanticTokenColors,
   moonlightTokenRules,
 } from "./axonMoonlightData";
 
@@ -47,5 +46,4 @@ export const axonMoonlightTheme: AxonThemeDefinition = {
   },
   monacoColors: moonlightMonacoColors,
   tokenRules: moonlightTokenRules,
-  semanticTokenColors: moonlightSemanticTokenColors,
 };

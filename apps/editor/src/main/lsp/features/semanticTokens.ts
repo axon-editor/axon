@@ -5,29 +5,11 @@ import {
   type LanguageServerSemanticTokensResult,
 } from "../../../shared/lsp";
 import { syncLanguageServerDocument } from "../features";
-import { requestLanguageServer, getReadyOrWarmLanguageServerSession } from "./lifecycle";
+import {
+  requestLanguageServer,
+  getReadyOrWarmLanguageServerSession,
+} from "./lifecycle";
 
-const axonSemanticTokenTypeIndexes = new Map<string, number>(
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES.map((tokenType, index) => [
-    tokenType,
-    index,
-  ]),
-);
-const axonSemanticTokenModifierIndexes = new Map<string, number>(
-  LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS.map((modifier, index) => [
-    modifier,
-    index,
-  ]),
-);
-const semanticTokenTypeAliases = new Map<string, string>([
-  ["member", "property"],
-  ["builtin", "builtinType"],
-  ["escapeSequence", "string"],
-]);
-const semanticTokenModifierAliases = new Map<string, string>([
-  ["readOnly", "readonly"],
-  ["modifying", "modification"],
-]);
 const loggedSemanticTokenLegends = new Set<string>();
 
 function normalizeSemanticTokenData(result: unknown) {
@@ -48,46 +30,6 @@ function normalizeSemanticTokenData(result: unknown) {
     resultId:
       typeof rawResult.resultId === "string" ? rawResult.resultId : undefined,
   };
-}
-
-function remapTokenModifierBits(
-  serverModifiers: string[],
-  serverModifierBits: number,
-) {
-  let axonModifierBits = 0;
-  for (let serverIndex = 0; serverIndex < serverModifiers.length; serverIndex += 1) {
-    if ((serverModifierBits & (1 << serverIndex)) === 0) continue;
-    const rawModifier = serverModifiers[serverIndex];
-    const modifier = semanticTokenModifierAliases.get(rawModifier) ??
-      rawModifier;
-    const axonIndex = axonSemanticTokenModifierIndexes.get(modifier);
-    if (axonIndex === undefined) continue;
-    axonModifierBits |= 1 << axonIndex;
-  }
-  return axonModifierBits;
-}
-
-function remapSemanticTokenData(
-  data: number[],
-  serverLegend: { tokenTypes: string[]; tokenModifiers: string[] },
-) {
-  const variableTokenIndex =
-    axonSemanticTokenTypeIndexes.get("variable") ?? 0;
-  const remapped = [...data];
-
-  for (let offset = 0; offset < remapped.length; offset += 5) {
-    const rawServerTokenType = serverLegend.tokenTypes[remapped[offset + 3]];
-    const serverTokenType = semanticTokenTypeAliases.get(rawServerTokenType) ??
-      rawServerTokenType;
-    remapped[offset + 3] =
-      axonSemanticTokenTypeIndexes.get(serverTokenType) ?? variableTokenIndex;
-    remapped[offset + 4] = remapTokenModifierBits(
-      serverLegend.tokenModifiers,
-      remapped[offset + 4],
-    );
-  }
-
-  return remapped;
 }
 
 export async function getLanguageServerSemanticTokens(
@@ -161,10 +103,10 @@ export async function getLanguageServerSemanticTokens(
       ok: true,
       serverId: ready.session.id,
       legend: {
-        tokenTypes: [...LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES],
-        tokenModifiers: [...LANGUAGE_SERVER_SEMANTIC_TOKEN_MODIFIERS],
+        tokenTypes: [...provider.legend.tokenTypes],
+        tokenModifiers: [...provider.legend.tokenModifiers],
       },
-      data: remapSemanticTokenData(normalized.data, provider.legend),
+      data: normalized.data,
       resultId: normalized.resultId,
     };
   } catch (err) {

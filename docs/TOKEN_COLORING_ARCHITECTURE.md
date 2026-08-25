@@ -141,8 +141,15 @@ The pipeline is:
 - LSP semantic tokens add symbol-level knowledge when the server is ready.
 - TextMate/Shiki grammars add real grammar scopes where Monaco's Monarch
   tokenizer is too shallow.
-- Axon's semantic decoration layer paints the final rich colors directly over
-  Monaco ranges when Monaco's built-in paint path is not strong enough.
+- TextMate scopes become named capture candidates such as
+  `function.method.call`, `property.json_key`, and `string.escape`; they are not
+  compressed into Monaco's fixed semantic-token legend before theming.
+- Language-server tokens keep the server's original token names and modifiers,
+  so an extension-specific type can still match an equally specific theme
+  capture instead of silently becoming a generic variable.
+- Axon's semantic decoration layer resolves those names through the active
+  capture hierarchy and paints the final styles directly over Monaco ranges
+  when Monaco's built-in paint path is not strong enough.
 - Language-specific fallback rules fill practical gaps such as Go member access,
   Python imports, Python aliases, and method/property chains.
 
@@ -157,6 +164,33 @@ Axon owns the IDE experience. If Monaco gives Axon enough information and paints
 it correctly, good. If Monaco gives Axon weak tokens, LSP and TextMate improve
 them. If Monaco has the correct token but does not paint it the way the active
 theme expects, Axon's decoration layer applies the final visual result.
+
+When LSP takes longer than the first-paint window, the completed result replaces
+the grammar-only cache entry and notifies the mounted editor to repaint that
+exact model version. Caching a richer result without invalidating the visible
+decoration collection leaves correct data invisible, so cache replacement and
+paint invalidation are one operation in this architecture.
+
+## Named Highlight Tokens
+
+The renderer deliberately does not use Monaco's five-integer semantic-token
+encoding as Axon's internal source of truth. That encoding requires every token
+index to refer to one fixed legend, which previously forced TextMate and every
+language server through a small canonical list. Detailed captures and unknown
+server token types were lost before the active theme was consulted.
+
+Axon's internal highlight token now carries its token name, modifiers, source,
+language id, TextMate scope stack, and ordered capture candidates. The merge
+still resolves overlaps before Monaco receives decorations, but it merges named
+ranges rather than numeric legend indexes. The final CSS class represents the
+resolved theme capture, so changing a theme updates the style without changing
+the token's grammatical identity.
+
+Capture styles inherit property by property from `primary` through their parent
+and most-specific child. A theme can therefore give `function` a foreground,
+make `function.method` italic, and override only the foreground for
+`function.method.call`. Foreground, background, font style, font weight,
+underline, and strikethrough survive the final CSS paint boundary.
 
 ## The Part That Made It Look Hopeless
 
@@ -284,8 +318,10 @@ The working architecture is:
 - TextMate scopes improve grammar richness.
 - LSP semantic tokens improve symbol meaning.
 - Axon fallbacks repair common high-value gaps.
-- Axon decorations apply the final paint where Monaco's built-in semantic paint
-  path is not enough.
+- Named capture candidates preserve grammar and server identity until the active
+  theme resolves them.
+- Axon decorations apply the complete resolved style where Monaco's built-in
+  semantic paint path is not enough.
 - The token inspector proves which layer produced the final result.
 
 Future language improvements should add better grammar coverage, better

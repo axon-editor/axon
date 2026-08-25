@@ -1,17 +1,6 @@
 import * as monaco from "monaco-editor";
 import { type LanguageServerTextEdit } from "@axon-editor/shared/lsp";
 
-export const goCallExclusions = new Set([
-  "if",
-  "for",
-  "switch",
-  "select",
-  "return",
-  "defer",
-  "go",
-  "func",
-]);
-
 export function normalizePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }

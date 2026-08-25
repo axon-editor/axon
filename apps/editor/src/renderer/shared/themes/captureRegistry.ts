@@ -2,11 +2,26 @@ import { type editor } from "monaco-editor";
 import { type ThemeTokenMap } from "./types";
 
 export interface SyntaxStyle {
-  color: string;
+  color?: string;
   fontStyle?: string;
+  fontWeight?: number | string;
+  backgroundColor?: string;
+  underline?: boolean;
+  strikethrough?: boolean;
 }
 
 export type SyntaxEntry = [string, SyntaxStyle];
+
+export function createCaptureStyleMap(entries: Iterable<SyntaxEntry>) {
+  const styles = new Map<string, SyntaxStyle>();
+  for (const [captureName, style] of entries) {
+    styles.set(captureName, {
+      ...(styles.get(captureName) ?? {}),
+      ...style,
+    });
+  }
+  return styles;
+}
 
 export function hexToMonaco(color: string) {
   return color.replace(/^#/, "").slice(0, 6);
@@ -279,7 +294,9 @@ export const AXON_CAPTURE_ALIASES: Record<AxonCaptureName, string[]> = {
   variant: ["variant", "enumMember"],
 };
 
-export function createDefaultCaptureEntries(tokens: ThemeTokenMap): SyntaxEntry[] {
+export function createDefaultCaptureEntries(
+  tokens: ThemeTokenMap,
+): SyntaxEntry[] {
   return [
     ["attribute", { color: tokens["syntax.attribute"] }],
     ["boolean", { color: tokens["syntax.constant"], fontStyle: "italic" }],
@@ -292,7 +309,10 @@ export function createDefaultCaptureEntries(tokens: ThemeTokenMap): SyntaxEntry[
     ["diff.plus", { color: tokens["syntax.string"] }],
     ["embedded", { color: tokens["editor.foreground"] }],
     ["emphasis", { color: tokens["syntax.variable"], fontStyle: "italic" }],
-    ["emphasis.strong", { color: tokens["syntax.variable"], fontStyle: "bold" }],
+    [
+      "emphasis.strong",
+      { color: tokens["syntax.variable"], fontStyle: "bold" },
+    ],
     ["enum", { color: tokens["syntax.type"] }],
     ["function", { color: tokens["syntax.function"] }],
     ["function.builtin", { color: tokens["syntax.function"] }],
@@ -301,7 +321,10 @@ export function createDefaultCaptureEntries(tokens: ThemeTokenMap): SyntaxEntry[
     ["function.special", { color: tokens["syntax.function"] }],
     ["hint", { color: tokens["syntax.property"], fontStyle: "bold" }],
     ["keyword", { color: tokens["syntax.keyword"], fontStyle: "italic" }],
-    ["keyword.control", { color: tokens["syntax.keyword"], fontStyle: "italic" }],
+    [
+      "keyword.control",
+      { color: tokens["syntax.keyword"], fontStyle: "italic" },
+    ],
     ["keyword.operator", { color: tokens["syntax.operator"] }],
     ["import", { color: tokens["syntax.import"], fontStyle: "italic" }],
     ["label", { color: tokens["syntax.property"] }],
@@ -339,11 +362,17 @@ export function createDefaultCaptureEntries(tokens: ThemeTokenMap): SyntaxEntry[
     ["type.interface", { color: tokens["syntax.interface"] }],
     ["type.struct", { color: tokens["syntax.type"] }],
     ["variable", { color: tokens["syntax.variable"] }],
-    ["variable.builtin", { color: tokens["syntax.constant"], fontStyle: "italic" }],
+    [
+      "variable.builtin",
+      { color: tokens["syntax.constant"], fontStyle: "italic" },
+    ],
     ["variable.member", { color: tokens["syntax.property"] }],
     ["variable.mutable", { color: tokens["syntax.variable"] }],
     ["variable.parameter", { color: tokens["syntax.parameter"] }],
-    ["variable.special", { color: tokens["syntax.constant"], fontStyle: "italic" }],
+    [
+      "variable.special",
+      { color: tokens["syntax.constant"], fontStyle: "italic" },
+    ],
     ["variant", { color: tokens["syntax.constant"] }],
   ];
 }
@@ -351,10 +380,7 @@ export function createDefaultCaptureEntries(tokens: ThemeTokenMap): SyntaxEntry[
 export function createMonacoTokenRulesFromCaptures(
   entries: Iterable<SyntaxEntry>,
 ): editor.ITokenThemeRule[] {
-  const styles = new Map<string, SyntaxStyle>();
-  for (const [captureName, style] of entries) {
-    styles.set(captureName, style);
-  }
+  const styles = createCaptureStyleMap(entries);
 
   const captureNames = new Set([
     ...Object.keys(AXON_CAPTURE_ALIASES),
@@ -366,15 +392,24 @@ export function createMonacoTokenRulesFromCaptures(
   >();
 
   for (const captureName of captureNames) {
-    const style = resolveCaptureStyle(captureName, styles);
-    if (!style) continue;
+    const resolved = resolveCaptureStyle(captureName, styles);
+    if (!resolved) continue;
+    const { style } = resolved;
     for (const token of AXON_CAPTURE_ALIASES[captureName] ?? [captureName]) {
       for (const expandedToken of expandMonacoTokenAliases(token)) {
         const rule: editor.ITokenThemeRule = {
           token: expandedToken,
-          foreground: hexToMonaco(style.color),
         };
-        if (style.fontStyle) rule.fontStyle = style.fontStyle;
+        if (style.color) rule.foreground = hexToMonaco(style.color);
+        const monacoFontStyle = [
+          style.fontStyle === "italic" ? "italic" : "",
+          style.fontWeight === "bold" || style.fontWeight === 700 ? "bold" : "",
+          style.underline ? "underline" : "",
+          style.strikethrough ? "strikethrough" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        if (monacoFontStyle) rule.fontStyle = monacoFontStyle;
 
         const score = scoreTokenRule(captureName, token, expandedToken);
         const existing = rulesByToken.get(expandedToken);
@@ -416,7 +451,9 @@ export function findCapturesForMonacoToken(
 
   return matches.sort((a, b) => {
     if (a.match !== b.match) return a.match === "exact" ? -1 : 1;
-    return b.token.length - a.token.length || a.capture.localeCompare(b.capture);
+    return (
+      b.token.length - a.token.length || a.capture.localeCompare(b.capture)
+    );
   });
 }
 
@@ -459,24 +496,33 @@ export function resolveCaptureStyleForInspector(
   captureName: string,
   entries: Iterable<SyntaxEntry>,
 ) {
-  return resolveCaptureStyle(captureName, new Map(entries)) ?? null;
+  return (
+    resolveCaptureStyle(captureName, createCaptureStyleMap(entries))?.style ??
+    null
+  );
 }
 
-function resolveCaptureStyle(
+export function resolveCaptureStyle(
   captureName: string,
   styles: ReadonlyMap<string, SyntaxStyle>,
 ) {
-  // Axon treats Zed-compatible syntax names as the design-level color API.
-  // Grammars can emit very specific captures such as function.method.call or
-  // string.special.symbol; walking toward the parent capture preserves that
-  // richness without forcing every theme to define every child name.
+  const hierarchy: string[] = [];
   let current = captureName;
   while (current) {
-    const style = styles.get(current);
-    if (style) return style;
+    hierarchy.unshift(current);
     const dotIndex = current.lastIndexOf(".");
     if (dotIndex === -1) break;
     current = current.slice(0, dotIndex);
   }
-  return styles.get("primary");
+
+  let matchedCapture = styles.has("primary") ? "primary" : null;
+  let resolved: SyntaxStyle = { ...(styles.get("primary") ?? {}) };
+  for (const candidate of hierarchy) {
+    const style = styles.get(candidate);
+    if (!style) continue;
+    resolved = { ...resolved, ...style };
+    matchedCapture = candidate;
+  }
+
+  return matchedCapture ? { capture: matchedCapture, style: resolved } : null;
 }

@@ -327,14 +327,6 @@ html.axon-native-glass .axon-tooltip {
   color: #f7fbff;
 }
 
-.axon-go-function-token {
-  color: var(--axon-syntax-function) !important;
-}
-
-.axon-go-method-token {
-  color: var(--axon-syntax-method) !important;
-}
-
 .axon-status-flow-strip {
   overflow: hidden;
   background: var(--axon-panel-border);
