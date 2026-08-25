@@ -39,6 +39,50 @@ export interface CoreRestartConfirmation {
   exitSignal?: NodeJS.Signals | null;
 }
 
+function hasChildExited(child: ChildProcess) {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
+// `child.killed` only proves that Node successfully sent a signal; it does not
+// prove the operating system reaped the process. I wait for the actual exit
+// state because clearing the controller slot while the child is still alive
+// lets a replacement race the old process for the same port and socket.
+function waitForChildExit(child: ChildProcess, timeoutMs: number) {
+  if (hasChildExited(child)) return Promise.resolve(true);
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const settle = (exited: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      child.off("exit", onExit);
+      resolve(exited);
+    };
+    const onExit = () => settle(true);
+    const timeout = setTimeout(() => settle(hasChildExited(child)), timeoutMs);
+    child.once("exit", onExit);
+  });
+}
+
+export async function terminateChildProcess(
+  child: ChildProcess,
+  options: { graceTimeoutMs?: number; forceTimeoutMs?: number } = {},
+) {
+  let exited = hasChildExited(child);
+  if (exited) return true;
+
+  if (!child.killed) child.kill();
+  exited = await waitForChildExit(child, options.graceTimeoutMs ?? 2000);
+  if (exited) return true;
+
+  // A host that ignores graceful termination must not be detached from the
+  // controller. Force termination gets one final bounded wait; returning false
+  // keeps the caller from unlinking a control socket that a live child owns.
+  child.kill(process.platform === "win32" ? undefined : "SIGKILL");
+  return waitForChildExit(child, options.forceTimeoutMs ?? 2000);
+}
+
 export function createBundledServiceController(
   deps: BundledServiceControllerDependencies,
 ) {
@@ -322,21 +366,16 @@ export function createBundledServiceController(
 
   async function stop() {
     const child = bundledCoreProcess;
-    if (!child || child.killed) return;
+    if (!child) return;
 
     expectedCoreExits.add(child);
-    await new Promise<void>((resolve) => {
-      let settled = false;
-      const settle = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        resolve();
-      };
-      const timeout = setTimeout(settle, 2000);
-      child.once("exit", settle);
-      child.kill();
-    });
+    const exited = await terminateChildProcess(child);
+    if (!exited) {
+      throw new Error(
+        `bundled ${deps.displayName} did not exit after termination`,
+      );
+    }
+
     if (bundledCoreProcess === child) bundledCoreProcess = null;
     cleanupControlSocket();
   }

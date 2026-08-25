@@ -96,6 +96,8 @@ function isExternalHandlerUrl(href: string) {
 }
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+let shutdownComplete = false;
+let shutdownPromise: Promise<void> | null = null;
 const windowSessionRestore = new Map<number, boolean>();
 const pendingCliOpenFolders = new Map<number, string>();
 const cliReadyRenderers = new Set<number>();
@@ -226,8 +228,7 @@ function deliverPendingCliOpenFolder(rendererId: number) {
   if (!folderPath) return;
 
   const targetWindow = BrowserWindow.getAllWindows().find(
-    (window) =>
-      !window.isDestroyed() && window.webContents.id === rendererId,
+    (window) => !window.isDestroyed() && window.webContents.id === rendererId,
   );
   if (!targetWindow || targetWindow.webContents.isDestroyed()) return;
 
@@ -496,10 +497,7 @@ function createManagedWindow(
   const createdWebContentsId = createdWindow.window.webContents.id;
   windowSessionRestore.set(createdWebContentsId, createdWindow.restoreSession);
   if (options.cliOpenFolderPath) {
-    pendingCliOpenFolders.set(
-      createdWebContentsId,
-      options.cliOpenFolderPath,
-    );
+    pendingCliOpenFolders.set(createdWebContentsId, options.cliOpenFolderPath);
   }
 
   if (!bootWindow) {
@@ -705,14 +703,38 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", async () => {
+app.on("before-quit", (event) => {
+  if (shutdownComplete) return;
+
+  // Electron does not await a Promise returned by an event listener. I hold the
+  // first quit request here and issue a second one only after owned services and
+  // resources settle, otherwise their children can survive the Electron parent
+  // with a stream port still open but an unusable terminal control socket.
+  event.preventDefault();
+  if (shutdownPromise) return;
+
   isQuitting = true;
   taskManager.stopAll();
   testManager.stopAll();
-  stopAllLanguageServers();
   bundledCore.stopWatchdog();
   bundledPtyHost.stopWatchdog();
-  await Promise.all([bundledCore.stop(), bundledPtyHost.stop()]);
-  await fileWatcherRegistry.closeAll();
-  await htmlPreviewServer?.close();
+  shutdownPromise = (async () => {
+    const serviceResults = await Promise.allSettled([
+      stopAllLanguageServers(),
+      bundledCore.stop(),
+      bundledPtyHost.stop(),
+    ]);
+    const resourceResults = await Promise.allSettled([
+      fileWatcherRegistry.closeAll(),
+      htmlPreviewServer?.close(),
+    ]);
+    for (const result of [...serviceResults, ...resourceResults]) {
+      if (result.status === "rejected") {
+        console.error("Axon shutdown cleanup failed:", result.reason);
+      }
+    }
+  })().finally(() => {
+    shutdownComplete = true;
+    app.quit();
+  });
 });
