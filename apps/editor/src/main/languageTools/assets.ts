@@ -7,8 +7,16 @@ import {
   getManagedLanguageToolPlatformKey,
   type ManagedLanguageToolCatalogEntry,
 } from "./catalog";
+import { runWithActivityWatchdog } from "./activityWatchdog";
 
 const MAX_TOOL_ARCHIVE_BYTES = 512 * 1024 * 1024;
+const DOWNLOAD_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
+const DOWNLOAD_MAX_ATTEMPTS = 2;
+
+interface ManagedLanguageToolAssetServiceOptions {
+  downloadIdleTimeoutMs?: number;
+  downloadMaxAttempts?: number;
+}
 
 interface GitHubReleaseAsset {
   name?: string;
@@ -126,12 +134,23 @@ function isAllowedPinnedHttpsUrl(candidate: string) {
 }
 
 export class ManagedLanguageToolAssetService {
+  private readonly downloadIdleTimeoutMs: number;
+  private readonly downloadMaxAttempts: number;
+
   constructor(
     private readonly publish: (
       targetWindow: BrowserWindow | null,
       progress: ManagedLanguageToolProgress,
     ) => void,
-  ) {}
+    options: ManagedLanguageToolAssetServiceOptions = {},
+  ) {
+    this.downloadIdleTimeoutMs =
+      options.downloadIdleTimeoutMs ?? DOWNLOAD_IDLE_TIMEOUT_MS;
+    this.downloadMaxAttempts = Math.max(
+      1,
+      Math.floor(options.downloadMaxAttempts ?? DOWNLOAD_MAX_ATTEMPTS),
+    );
+  }
 
   async resolveAsset(
     entry: ManagedLanguageToolCatalogEntry,
@@ -425,69 +444,133 @@ export class ManagedLanguageToolAssetService {
     targetWindow: BrowserWindow | null,
     signal: AbortSignal,
   ) {
-    const response = await fetch(asset.downloadUrl, {
-      signal,
-      headers: { "User-Agent": `Axon/${app.getVersion()}` },
-    });
-    if (!response.ok || !response.body) {
-      throw new Error(`Tool download failed with HTTP ${response.status}.`);
-    }
-    if (
-      asset.downloadUrl.startsWith("https://open-vsx.org/") &&
-      !isAllowedOpenVsxDownloadResponse(response.url)
-    ) {
-      throw new Error(
-        "The language tool download redirected to an untrusted host.",
-      );
-    }
-    if (
-      isAllowedPinnedHttpsUrl(asset.downloadUrl) &&
-      !isAllowedPinnedHttpsUrl(response.url)
-    ) {
-      throw new Error(
-        "The language tool download redirected to an untrusted host.",
-      );
-    }
+    for (let attempt = 1; attempt <= this.downloadMaxAttempts; attempt += 1) {
+      signal.throwIfAborted();
+      try {
+        await this.downloadAssetOnce(
+          entry,
+          asset,
+          destination,
+          targetWindow,
+          signal,
+        );
+        return;
+      } catch (error) {
+        const timedOut =
+          error instanceof Error && error.name === "TimeoutError";
+        if (
+          !timedOut ||
+          signal.aborted ||
+          attempt >= this.downloadMaxAttempts
+        ) {
+          throw error;
+        }
 
-    const file = await fs.open(destination, "w", 0o600);
-    const reader = response.body.getReader();
-    const hash = createHash(asset.hashAlgorithm);
-    let transferred = 0;
-    let lastProgressPublishedAt = 0;
-    try {
-      while (true) {
-        signal.throwIfAborted();
-        const { done, value } = await reader.read();
-        if (done) break;
-        transferred += value.byteLength;
-        if (transferred > asset.size || transferred > MAX_TOOL_ARCHIVE_BYTES) {
+        // A stalled response can leave fetch waiting forever without emitting
+        // an error or closing the body. Retrying from a truncated destination
+        // is safer than appending because the replacement response may not
+        // honor ranges, and the final checksum still verifies every byte.
+        this.publish(targetWindow, {
+          id: entry.id,
+          phase: "downloading",
+          transferred: 0,
+          total: asset.size,
+          percent: 0,
+          message: `${entry.label} download stalled. Retrying automatically (${attempt + 1}/${this.downloadMaxAttempts}).`,
+        });
+      }
+    }
+  }
+
+  private async downloadAssetOnce(
+    entry: ManagedLanguageToolCatalogEntry,
+    asset: ResolvedToolAsset,
+    destination: string,
+    targetWindow: BrowserWindow | null,
+    signal: AbortSignal,
+  ) {
+    await runWithActivityWatchdog({
+      signal,
+      idleTimeoutMs: this.downloadIdleTimeoutMs,
+      timeoutMessage: `${entry.label} download stopped because no data was received within the allowed time.`,
+      operation: async (downloadSignal, markActivity) => {
+        const response = await fetch(asset.downloadUrl, {
+          signal: downloadSignal,
+          headers: { "User-Agent": `Axon/${app.getVersion()}` },
+        });
+        if (!response.ok || !response.body) {
+          throw new Error(`Tool download failed with HTTP ${response.status}.`);
+        }
+        if (
+          asset.downloadUrl.startsWith("https://open-vsx.org/") &&
+          !isAllowedOpenVsxDownloadResponse(response.url)
+        ) {
           throw new Error(
-            "The language tool download exceeded its declared size.",
+            "The language tool download redirected to an untrusted host.",
           );
         }
-        hash.update(value);
-        await file.write(value);
-        const now = Date.now();
-        if (transferred === asset.size || now - lastProgressPublishedAt >= 80) {
-          lastProgressPublishedAt = now;
-          this.publish(targetWindow, {
-            id: entry.id,
-            phase: "downloading",
-            transferred,
-            total: asset.size,
-            percent: Math.min(100, (transferred / asset.size) * 100),
-          });
+        if (
+          isAllowedPinnedHttpsUrl(asset.downloadUrl) &&
+          !isAllowedPinnedHttpsUrl(response.url)
+        ) {
+          throw new Error(
+            "The language tool download redirected to an untrusted host.",
+          );
         }
-      }
-    } finally {
-      if (signal.aborted) await reader.cancel(signal.reason).catch(() => {});
-      await file.close();
-    }
 
-    if (transferred !== asset.size || hash.digest("hex") !== asset.checksum) {
-      throw new Error(
-        "The downloaded language tool failed checksum verification.",
-      );
-    }
+        const file = await fs.open(destination, "w", 0o600);
+        const reader = response.body.getReader();
+        const hash = createHash(asset.hashAlgorithm);
+        let transferred = 0;
+        let lastProgressPublishedAt = 0;
+        try {
+          while (true) {
+            downloadSignal.throwIfAborted();
+            const { done, value } = await reader.read();
+            if (done) break;
+            markActivity();
+            transferred += value.byteLength;
+            if (
+              transferred > asset.size ||
+              transferred > MAX_TOOL_ARCHIVE_BYTES
+            ) {
+              throw new Error(
+                "The language tool download exceeded its declared size.",
+              );
+            }
+            hash.update(value);
+            await file.write(value);
+            const now = Date.now();
+            if (
+              transferred === asset.size ||
+              now - lastProgressPublishedAt >= 80
+            ) {
+              lastProgressPublishedAt = now;
+              this.publish(targetWindow, {
+                id: entry.id,
+                phase: "downloading",
+                transferred,
+                total: asset.size,
+                percent: Math.min(100, (transferred / asset.size) * 100),
+              });
+            }
+          }
+        } finally {
+          if (downloadSignal.aborted) {
+            await reader.cancel(downloadSignal.reason).catch(() => {});
+          }
+          await file.close();
+        }
+
+        if (
+          transferred !== asset.size ||
+          hash.digest("hex") !== asset.checksum
+        ) {
+          throw new Error(
+            "The downloaded language tool failed checksum verification.",
+          );
+        }
+      },
+    });
   }
 }

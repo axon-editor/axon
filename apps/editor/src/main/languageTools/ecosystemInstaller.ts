@@ -147,7 +147,7 @@ export async function installEcosystemTool(options: {
 
   if (recipe.kind === "system-command") {
     await writeLauncher({ launcherPath, command: runtime.command, args: [] });
-    return recipe.version;
+    return recipe.installVersion ?? recipe.version;
   }
 
   if (recipe.kind === "python-venv") {
@@ -158,18 +158,38 @@ export async function installEcosystemTool(options: {
         "-m", "pip", "install", "--disable-pip-version-check", "--no-input",
         "--no-cache-dir", "--only-binary=:all:", "--target", packageRoot,
         `${recipe.packageName}==${recipe.version}`,
+        ...(recipe.additionalPackages ?? []),
       ],
       cwd: runtimeRoot,
       env: runtime.env,
       signal: options.signal,
     });
+    if (recipe.validationModules?.length) {
+      // A successful pip exit only proves that dependency constraints were
+      // satisfiable. It does not prove that independently versioned Python
+      // packages still expose the modules the language server imports. I load
+      // the real server modules from the staged target before replacing the
+      // user's working installation, so dependency API drift becomes an
+      // installation error instead of an LSP crash on every file open.
+      const moduleNames = JSON.stringify(recipe.validationModules);
+      await runManagedToolCommand({
+        command: runtime.command,
+        args: [
+          "-c",
+          `import importlib; [importlib.import_module(name) for name in ${moduleNames}]`,
+        ],
+        cwd: runtimeRoot,
+        env: { ...runtime.env, PYTHONPATH: packageRoot },
+        signal: options.signal,
+      });
+    }
     await writeLauncher({
       launcherPath,
       command: runtime.command,
       args: ["-m", "make_language_server"],
       environment: { PYTHONPATH: path.join(finalRuntimeRoot, "site-packages") },
     });
-    return recipe.version;
+    return recipe.installVersion ?? recipe.version;
   }
 
   if (recipe.kind === "ruby-gem") {
@@ -194,7 +214,7 @@ export async function installEcosystemTool(options: {
         GEM_PATH: path.join(finalRuntimeRoot, "gems"),
       },
     });
-    return recipe.version;
+    return recipe.installVersion ?? recipe.version;
   }
 
   if (recipe.kind === "r-package") {
@@ -218,7 +238,7 @@ export async function installEcosystemTool(options: {
       args: ["--vanilla", "--slave", "-e", "languageserver::run()"],
       environment: { R_LIBS_USER: path.join(finalRuntimeRoot, "library") },
     });
-    return recipe.version;
+    return recipe.installVersion ?? recipe.version;
   }
 
   const outputPath = path.join(runtimeRoot, process.platform === "win32" ? "metals.bat" : "metals");
@@ -239,5 +259,5 @@ export async function installEcosystemTool(options: {
     args: [],
     environment: { COURSIER_CACHE: path.join(finalRuntimeRoot, "cache") },
   });
-  return recipe.version;
+  return recipe.installVersion ?? recipe.version;
 }

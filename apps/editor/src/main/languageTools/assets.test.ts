@@ -1,3 +1,7 @@
+import { createHash } from "crypto";
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ManagedLanguageToolCatalogEntry } from "./catalog";
 import { getManagedLanguageToolPlatformKey } from "./catalog";
@@ -11,6 +15,7 @@ import { ManagedLanguageToolAssetService } from "./assets";
 describe("managed language tool release assets", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("accepts assets from SQLS's canonical repository after its owner move", async () => {
@@ -65,5 +70,129 @@ describe("managed language tool release assets", () => {
       size: 10_731_807,
       version: "v0.2.48",
     });
+  });
+
+  it("restarts a stalled download and replaces its partial archive", async () => {
+    vi.useFakeTimers();
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "axon-language-tool-download-"),
+    );
+    const destination = path.join(directory, "clangd.zip");
+    const payload = Buffer.from("complete clangd archive");
+    const checksum = createHash("sha256").update(payload).digest("hex");
+    const downloadUrl =
+      "https://github.com/clangd/clangd/releases/download/22.1.6/clangd-mac-22.1.6.zip";
+    const progress = vi.fn();
+    let request = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        async (_url: string, init: { signal: AbortSignal }) => {
+          request += 1;
+          if (request === 1) {
+            let readCount = 0;
+            return {
+              ok: true,
+              status: 200,
+              url: downloadUrl,
+              body: {
+                getReader: () => ({
+                  read: () => {
+                    readCount += 1;
+                    if (readCount === 1) {
+                      return Promise.resolve({
+                        done: false,
+                        value: payload.subarray(0, 8),
+                      });
+                    }
+                    return new Promise((_resolve, reject) => {
+                      init.signal.addEventListener(
+                        "abort",
+                        () => reject(init.signal.reason),
+                        { once: true },
+                      );
+                    });
+                  },
+                  cancel: vi.fn().mockResolvedValue(undefined),
+                }),
+              },
+            };
+          }
+
+          let delivered = false;
+          return {
+            ok: true,
+            status: 200,
+            url: downloadUrl,
+            body: {
+              getReader: () => ({
+                read: () => {
+                  if (delivered) return Promise.resolve({ done: true });
+                  delivered = true;
+                  return Promise.resolve({ done: false, value: payload });
+                },
+                cancel: vi.fn().mockResolvedValue(undefined),
+              }),
+            },
+          };
+        },
+      ),
+    );
+
+    const entry: ManagedLanguageToolCatalogEntry = {
+      id: "cpp",
+      label: "C / C++",
+      languages: ["c", "cpp"],
+      repository: "clangd/clangd",
+      githubTag: "22.1.6",
+      expectedSha256ByPlatform: {},
+      executableNames: ["clangd"],
+      commandName: "clangd",
+      windowsCommandName: "clangd.cmd",
+      assetNames: {},
+    };
+    const service = new ManagedLanguageToolAssetService(progress, {
+      downloadIdleTimeoutMs: 1_000,
+      downloadMaxAttempts: 2,
+    });
+
+    try {
+      const download = service.downloadAsset(
+        entry,
+        {
+          version: "22.1.6",
+          name: "clangd-mac-22.1.6.zip",
+          size: payload.byteLength,
+          hashAlgorithm: "sha256",
+          checksum,
+          downloadUrl,
+        },
+        destination,
+        null,
+        new AbortController().signal,
+      );
+
+      // The first response deliberately emits a prefix and then never closes.
+      // Advancing past the idle window proves that the watchdog breaks the
+      // pending body read. The second response must start at byte zero so the
+      // partial prefix cannot survive into the checksum-verified archive.
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(1_001);
+      await expect(download).resolves.toBeUndefined();
+      await expect(fs.readFile(destination)).resolves.toEqual(payload);
+      expect(request).toBe(2);
+      expect(progress).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({
+          id: "cpp",
+          phase: "downloading",
+          percent: 0,
+          message: expect.stringContaining("Retrying automatically (2/2)"),
+        }),
+      );
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
   });
 });

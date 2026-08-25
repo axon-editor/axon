@@ -148,6 +148,23 @@ describe("managed language tool catalog", () => {
     expect(runtime?.pinnedGithubAssets?.["darwin-arm64"]?.sha256).toHaveLength(64);
   });
 
+  it("pins the Makefile server dependency API and repair revision", () => {
+    const makefile = getManagedLanguageToolCatalogEntry("makefile");
+    const installer = makefile?.ecosystemInstaller;
+    expect(installer?.kind).toBe("python-venv");
+    if (installer?.kind !== "python-venv") {
+      throw new Error("Makefile must use the Python installer");
+    }
+
+    expect(installer.additionalPackages).toContain(
+      "lsp-tree-sitter==0.1.1",
+    );
+    expect(installer.validationModules).toContain(
+      "make_language_server.server",
+    );
+    expect(installer.installVersion).toBe("0.0.23+axon.1");
+  });
+
   it("uses the verified Metals bootstrap with Axon's managed Java", () => {
     const scala = getManagedLanguageToolCatalogEntry("scala");
     expect(scala?.openVsx?.platforms).toContain("universal");

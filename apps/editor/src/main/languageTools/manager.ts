@@ -157,6 +157,7 @@ export class ManagedLanguageToolManager {
       Object.values(entry.pinnedGithubAssets ?? {})[0]?.tag ??
       Object.values(entry.pinnedHttpsAssets ?? {})[0]?.version ??
       entry.dotnetSdk?.version ??
+      entry.ecosystemInstaller?.installVersion ??
       entry.ecosystemInstaller?.version
     );
   }

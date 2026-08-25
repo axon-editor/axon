@@ -47,11 +47,22 @@ export interface ManagedLanguageToolCatalogEntry {
     | {
         kind: "system-command";
         version: string;
+        installVersion?: string;
         runtimeCommands: string[];
       }
     | {
-        kind: "python-venv" | "ruby-gem" | "r-package" | "coursier";
+        kind: "python-venv";
         version: string;
+        installVersion?: string;
+        packageName: string;
+        runtimeCommands: string[];
+        additionalPackages?: string[];
+        validationModules?: string[];
+      }
+    | {
+        kind: "ruby-gem" | "r-package" | "coursier";
+        version: string;
+        installVersion?: string;
         packageName: string;
         runtimeCommands: string[];
       };
@@ -632,7 +643,10 @@ export const MANAGED_LANGUAGE_TOOL_CATALOG: ManagedLanguageToolCatalogEntry[] = 
     ecosystemInstaller: {
       kind: "python-venv",
       version: "0.0.23",
+      installVersion: "0.0.23+axon.1",
       packageName: "autotools-language-server",
+      additionalPackages: ["lsp-tree-sitter==0.1.1"],
+      validationModules: ["make_language_server.server"],
       runtimeCommands: ["python3", "python"],
     },
     executableNames: ["autotools-language-server", "autotools-language-server.exe"],
