@@ -12,6 +12,18 @@ export function fontStack(primaryFont: string, fallback: string) {
     return `"Axon Mono", "Lilex", "IBM Plex Mono", ${fallback}`;
   }
 
+  // Fontsource registers variable fonts under explicit `Variable` family
+  // names, while Settings keeps the familiar product names users expect. Put
+  // the bundled face first and the same-named system font second so every
+  // platform gets working typography without breaking an existing local font
+  // installation if the bundled asset ever fails to load.
+  if (primaryFont === "Fira Code") {
+    return `"Fira Code Variable", "Fira Code", ${fallback}`;
+  }
+  if (primaryFont === "JetBrains Mono") {
+    return `"JetBrains Mono Variable", "JetBrains Mono", ${fallback}`;
+  }
+
   return `"${primaryFont}", ${fallback}`;
 }
 

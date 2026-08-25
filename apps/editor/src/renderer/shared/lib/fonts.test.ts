@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizeUiFontFamily } from "../../../shared/settings";
-import { fontStack } from "./fonts";
+import { editorFontStack, fontStack } from "./fonts";
 
 describe("UI font resolution", () => {
   it("maps Axon and Zed aliases to different bundled families", () => {
@@ -25,6 +25,23 @@ describe("UI font resolution", () => {
   it("preserves imported custom font family names", () => {
     expect(normalizeUiFontFamily("Gorden Custom Sans")).toBe(
       "Gorden Custom Sans",
+    );
+  });
+});
+
+describe("editor font stacks", () => {
+  it("routes bundled coding fonts to their variable family names", () => {
+    expect(editorFontStack("Fira Code")).toBe(
+      '"Fira Code Variable", "Fira Code", monospace',
+    );
+    expect(editorFontStack("JetBrains Mono")).toBe(
+      '"JetBrains Mono Variable", "JetBrains Mono", monospace',
+    );
+  });
+
+  it("keeps imported font family names ahead of the monospace fallback", () => {
+    expect(editorFontStack("Gorden Custom Mono")).toBe(
+      '"Gorden Custom Mono", monospace',
     );
   });
 });

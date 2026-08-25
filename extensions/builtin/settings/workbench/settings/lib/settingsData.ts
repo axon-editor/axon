@@ -102,12 +102,25 @@ export const UI_FONT_ITEMS: SearchSelectItem<UiFontFamily>[] =
     };
   });
 
+const EDITOR_FONT_PRESENTATION: Partial<
+  Record<
+    EditorFontFamily,
+    Pick<SearchSelectItem<EditorFontFamily>, "previewFontFamily">
+  >
+> = {
+  "Fira Code": { previewFontFamily: "Fira Code Variable" },
+  "JetBrains Mono": { previewFontFamily: "JetBrains Mono Variable" },
+};
+
 export const EDITOR_FONT_ITEMS: SearchSelectItem<EditorFontFamily>[] =
-  EDITOR_FONT_FAMILIES.map((fontFamily) => ({
-    value: fontFamily,
-    label: fontFamily,
-    previewFontFamily: fontFamily,
-  }));
+  EDITOR_FONT_FAMILIES.map((fontFamily) => {
+    const presentation = EDITOR_FONT_PRESENTATION[fontFamily];
+    return {
+      value: fontFamily,
+      label: fontFamily,
+      previewFontFamily: presentation?.previewFontFamily ?? fontFamily,
+    };
+  });
 
 const EDITOR_CURSOR_STYLE_LABELS: Record<EditorCursorStyle, string> = {
   line: "Line",

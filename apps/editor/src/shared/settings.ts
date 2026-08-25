@@ -484,10 +484,14 @@ export function normalizeSettings(value: unknown): AxonSettings {
 
   const rawFontFamily =
     typeof editor.fontFamily === "string" ? editor.fontFamily.trim() : "";
-  const fontFamily =
-    rawFontFamily && rawFontFamily !== "Fira Code"
-      ? rawFontFamily
-      : DEFAULT_SETTINGS.editor.fontFamily;
+
+  // Font availability belongs to Chromium's CSS font resolver, not settings
+  // normalization. Axon can use a system-installed face or a custom font that
+  // is registered after startup, so replacing a valid family name here makes
+  // the picker lie: the selection briefly changes, then preview normalization
+  // sends `.AxonMono` back to Monaco and persists that fallback. Preserve every
+  // non-empty family and reserve the default only for missing settings.
+  const fontFamily = rawFontFamily || DEFAULT_SETTINGS.editor.fontFamily;
 
   const uiFontFamily = normalizeUiFontFamily(editor.uiFontFamily);
 

@@ -14,6 +14,23 @@ describe("font settings", () => {
       expect(uiFonts.has(fontFamily)).toBe(true);
     }
   });
+
+  it("preserves built-in and imported editor font selections", () => {
+    expect(
+      normalizeSettings({ editor: { fontFamily: "Fira Code" } }).editor
+        .fontFamily,
+    ).toBe("Fira Code");
+    expect(
+      normalizeSettings({ editor: { fontFamily: "Gorden Custom Mono" } })
+        .editor.fontFamily,
+    ).toBe("Gorden Custom Mono");
+  });
+
+  it("uses Axon Mono only when the editor font setting is empty", () => {
+    expect(
+      normalizeSettings({ editor: { fontFamily: "   " } }).editor.fontFamily,
+    ).toBe(DEFAULT_SETTINGS.editor.fontFamily);
+  });
 });
 
 describe("editor formatting settings", () => {
