@@ -69,4 +69,13 @@ describe("Axon buffer loader", () => {
 
     expect(readFile).not.toHaveBeenCalled();
   });
+
+  it("does not prefetch known binary files into Monaco", async () => {
+    getModel.mockReturnValue(undefined);
+
+    await prefetchAxonBuffer("/workspace/budget.xlsx", "/workspace");
+
+    expect(readFile).not.toHaveBeenCalled();
+    expect(primeModel).not.toHaveBeenCalled();
+  });
 });

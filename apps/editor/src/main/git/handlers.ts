@@ -216,6 +216,7 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
           hash,
           path: null,
           diff: "",
+          binary: false,
         };
       }
 

@@ -20,6 +20,7 @@ import {
   type GitStashListResult,
   type GitStatusResult,
 } from "../../shared/git";
+import { isKnownBinaryFile } from "../../shared/binaryFiles";
 import { resolveGitAuthorIdentity } from "./authorIdentity";
 
 const execFileAsync = promisify(execFile);
@@ -73,6 +74,19 @@ async function readWorkingTreeFile(root: string, relativePath: string | null) {
   } catch {
     return "";
   }
+}
+
+export function isGitBinaryDiff(diff: string) {
+  // Git is the authoritative detector here because its answer incorporates
+  // repository-specific `.gitattributes`, not merely a filename extension.
+  // The extension classifier is still used before renderer prefetch and as a
+  // fallback for formats such as XLSX whose ZIP payload must never enter a text
+  // model, even when a repository has accidentally forced the path to `text`.
+  return (
+    /(?:^|\n)Binary files? .+ differ(?:\r?\n|$)/.test(diff) ||
+    /(?:^|\n)GIT binary patch(?:\r?\n|$)/.test(diff) ||
+    /(?:^|\n)Binary file .+ has changed(?:\r?\n|$)/.test(diff)
+  );
 }
 
 function toGitFileState(status: string): GitFileState {
@@ -323,8 +337,10 @@ export async function getGitDiff(
     return {
       path: "",
       diff: "",
+      binary: false,
     };
   }
+  const knownBinary = isKnownBinaryFile(relativePath);
 
   const readDiff = async (args: string[]) => {
     try {
@@ -353,6 +369,20 @@ export async function getGitDiff(
   for (const args of diffRequests) {
     const diff = await readDiff(args);
     if (diff.trim().length > 0) {
+      const binary = knownBinary || isGitBinaryDiff(diff);
+      if (binary) {
+        // A Git patch is sufficient to report that the path changed. Reading
+        // either side with UTF-8 APIs after that point corrupts arbitrary bytes
+        // into JavaScript strings and hands Monaco content it cannot represent.
+        // Returning metadata only keeps binary files fully stageable without
+        // pretending they have a source-code comparison.
+        return {
+          path: relativePath,
+          diff,
+          binary: true,
+        };
+      }
+
       const baseContent = await readGitBlob(root, "HEAD", relativePath);
       const currentContent = untracked
         ? await readWorkingTreeFile(root, relativePath)
@@ -363,6 +393,7 @@ export async function getGitDiff(
       return {
         path: relativePath,
         diff,
+        binary: false,
         baseContent,
         currentContent,
       };
@@ -372,8 +403,13 @@ export async function getGitDiff(
   return {
     path: relativePath,
     diff: "",
-    baseContent: await readGitBlob(root, "HEAD", relativePath),
-    currentContent: await readWorkingTreeFile(root, relativePath),
+    binary: knownBinary,
+    ...(knownBinary
+      ? {}
+      : {
+          baseContent: await readGitBlob(root, "HEAD", relativePath),
+          currentContent: await readWorkingTreeFile(root, relativePath),
+        }),
   };
 }
 
@@ -466,6 +502,7 @@ export async function getGitCommitDiff(
       hash,
       path: null,
       diff: "",
+      binary: Boolean(filePath && isKnownBinaryFile(filePath)),
     };
   }
 
@@ -493,6 +530,20 @@ export async function getGitCommitDiff(
     // readable and matches editor history views where a commit can be selected
     // first, then one changed path inside that commit can be inspected.
     const result = await runGit(status.root, args);
+    const diff = result.stdout || result.stderr;
+    const binary =
+      Boolean(relativePath && isKnownBinaryFile(relativePath)) ||
+      Boolean(relativeOldPath && isKnownBinaryFile(relativeOldPath)) ||
+      isGitBinaryDiff(diff);
+    if (binary) {
+      return {
+        hash,
+        path: relativePath,
+        diff,
+        binary: true,
+      };
+    }
+
     const baseContent = await readGitBlob(
       status.root,
       `${hash}^`,
@@ -502,15 +553,22 @@ export async function getGitCommitDiff(
     return {
       hash,
       path: relativePath,
-      diff: result.stdout || result.stderr,
+      diff,
+      binary: false,
       baseContent,
       currentContent,
     };
   } catch (err) {
+    const diff =
+      `${(err as { stdout?: string }).stdout ?? ""}${(err as { stderr?: string }).stderr ?? ""}`.trim();
     return {
       hash,
       path: filePath ?? null,
-      diff: `${(err as { stdout?: string }).stdout ?? ""}${(err as { stderr?: string }).stderr ?? ""}`.trim(),
+      diff,
+      binary:
+        Boolean(filePath && isKnownBinaryFile(filePath)) ||
+        Boolean(oldPath && isKnownBinaryFile(oldPath)) ||
+        isGitBinaryDiff(diff),
     };
   }
 }

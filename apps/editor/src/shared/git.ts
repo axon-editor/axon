@@ -29,6 +29,7 @@ export interface GitStatusResult {
 export interface GitDiffResult {
   path: string;
   diff: string;
+  binary: boolean;
   baseContent?: string;
   currentContent?: string;
 }
@@ -212,6 +213,7 @@ export interface GitCommitDiffResult {
   hash: string;
   path: string | null;
   diff: string;
+  binary: boolean;
   baseContent?: string;
   currentContent?: string;
 }

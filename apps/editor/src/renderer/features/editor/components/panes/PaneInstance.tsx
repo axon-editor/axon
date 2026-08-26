@@ -34,6 +34,8 @@ import ProblemsPanel from "@axon-builtin-problems/ProblemsPanel";
 import MediaPreview, {
   isMediaFile,
 } from "@axon-builtin-media-preview/MediaPreview";
+import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
+import { isKnownBinaryFile } from "@axon-editor/shared/binaryFiles";
 import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import SingleEditor from "../surface/SingleEditor";
@@ -349,6 +351,8 @@ export default function PaneInstance({
                   />
                 ) : isMediaFile(path) ? (
                   <MediaPreview filePath={path} />
+                ) : isKnownBinaryFile(path) ? (
+                  <BinaryFilePreview filePath={path} />
                 ) : (
                   <SingleEditor
                     filePath={path}

@@ -8,6 +8,7 @@ import { useState } from "react";
 import { type EditorSettings } from "@axon-editor/shared/settings";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
 import GitDiffEditorView from "./GitDiffEditorView";
 
 function formatCommitDate(value: string) {
@@ -121,14 +122,18 @@ export default function GitHistoryEditor({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <GitDiffEditorView
-          filePath={file.path}
-          original={diff.baseContent ?? ""}
-          modified={diff.currentContent ?? ""}
-          editorSettings={editorSettings}
-          themeSyntax={themeSyntax}
-          themeTokens={themeTokens}
-        />
+        {diff.binary ? (
+          <BinaryFilePreview filePath={file.path} context="git" />
+        ) : (
+          <GitDiffEditorView
+            filePath={file.path}
+            original={diff.baseContent ?? ""}
+            modified={diff.currentContent ?? ""}
+            editorSettings={editorSettings}
+            themeSyntax={themeSyntax}
+            themeTokens={themeTokens}
+          />
+        )}
       </div>
     </div>
   );

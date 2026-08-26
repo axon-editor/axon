@@ -6,6 +6,9 @@ import { readFile } from "@axon-editor/renderer/shared/lib/api";
 import { getModel } from "@axon-editor/renderer/features/editor/lib/buffer/monacoModels";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import { isKnownBinaryFile } from "@axon-editor/shared/binaryFiles";
+import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
+import { isMediaFile } from "@axon-builtin-media-preview/MediaPreview";
 import GitDiffEditorView from "./GitDiffEditorView";
 
 interface Props {
@@ -34,12 +37,24 @@ export default function DiffModal({
     () => filePath.split("/").pop() ?? filePath,
     [filePath],
   );
+  const binary = isKnownBinaryFile(filePath) || isMediaFile(filePath);
 
   useEffect(() => {
     let cancelled = false;
     let modelDisposable: { dispose: () => void } | null = null;
     setLoading(true);
     setError(null);
+
+    // Direct "Open diff" actions bypass the Source Control preview's normal
+    // file-kind router. Stop known binaries at this boundary as well so neither
+    // the working copy nor `git show` is requested as a UTF-8 string merely
+    // because the user opened the larger comparison modal.
+    if (binary) {
+      setBaseContent("");
+      setCurrentContent("");
+      setLoading(false);
+      return;
+    }
 
     const currentModel = getModel(filePath);
     if (currentModel) {
@@ -83,7 +98,7 @@ export default function DiffModal({
       cancelled = true;
       modelDisposable?.dispose();
     };
-  }, [filePath, folderPath]);
+  }, [binary, filePath, folderPath]);
 
   return (
     <div className="axon-modal-overlay fixed inset-0 z-[70] flex items-center justify-center px-6 py-6">
@@ -121,7 +136,11 @@ export default function DiffModal({
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && binary && (
+          <BinaryFilePreview filePath={filePath} context="git" />
+        )}
+
+        {!loading && !error && !binary && (
           <GitDiffEditorView
             filePath={filePath}
             original={baseContent}

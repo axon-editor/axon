@@ -25,6 +25,8 @@ import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import MediaPreview, {
   isMediaFile,
 } from "@axon-builtin-media-preview/MediaPreview";
+import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
+import { isKnownBinaryFile } from "@axon-editor/shared/binaryFiles";
 import GitDiffEditorView from "./GitDiffEditorView";
 import GitWorkflowPanel from "./GitWorkflowPanel";
 import GitConfirmationDialog from "./GitConfirmationDialog";
@@ -141,6 +143,9 @@ export default function SourceControlModal({
   const panelRef = useRef<HTMLDivElement>(null);
   const selectedChangeIsMedia = selectedChange
     ? isMediaFile(selectedChange.absolutePath)
+    : false;
+  const selectedChangeIsKnownBinary = selectedChange
+    ? isKnownBinaryFile(selectedChange.absolutePath)
     : false;
   const selectedChangeIsDeleted =
     selectedChange?.indexState === "deleted" ||
@@ -295,7 +300,7 @@ export default function SourceControlModal({
   };
 
   const copySelectedDiff = async () => {
-    if (!selectedChange || !diff) return;
+    if (!selectedChange || !diff || diff.binary) return;
 
     const context = [
       "Axon Git Context",
@@ -333,7 +338,9 @@ export default function SourceControlModal({
             `Status: ${changeLabel(change)}`,
             "",
             "```diff",
-            result.diff.trim() || "No diff available.",
+            result.binary
+              ? "Binary file changed; line diff unavailable."
+              : result.diff.trim() || "No diff available.",
             "```",
           ].join("\n");
         }),
@@ -384,7 +391,12 @@ export default function SourceControlModal({
   }, [onClose, open, pendingConfirmation]);
 
   useEffect(() => {
-    if (!folderPath || !selectedChange || selectedChangeIsMedia) {
+    if (
+      !folderPath ||
+      !selectedChange ||
+      selectedChangeIsMedia ||
+      selectedChangeIsKnownBinary
+    ) {
       setDiff(null);
       setLoadingDiff(false);
       return;
@@ -398,10 +410,16 @@ export default function SourceControlModal({
         setDiff({
           path: selectedChange.path,
           diff: "Failed to load diff.",
+          binary: false,
         });
       })
       .finally(() => setLoadingDiff(false));
-  }, [folderPath, selectedChange, selectedChangeIsMedia]);
+  }, [
+    folderPath,
+    selectedChange,
+    selectedChangeIsKnownBinary,
+    selectedChangeIsMedia,
+  ]);
 
   if (!open) return null;
 
@@ -630,7 +648,7 @@ export default function SourceControlModal({
                 <Tooltip label="Copy selected diff context" side="bottom">
                   <button
                     onClick={() => void copySelectedDiff()}
-                    disabled={!selectedChange || !diff}
+                    disabled={!selectedChange || !diff || diff.binary}
                     aria-label="Copy selected diff context"
                     className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                   >
@@ -684,6 +702,12 @@ export default function SourceControlModal({
                   ) : (
                     <MediaPreview filePath={selectedChange.absolutePath} />
                   )
+                ) : selectedChangeIsKnownBinary || diff?.binary ? (
+                  <BinaryFilePreview
+                    filePath={selectedChange.absolutePath}
+                    context="git"
+                    deleted={selectedChangeIsDeleted}
+                  />
                 ) : diff?.diff.trim() ||
                   diff?.baseContent ||
                   diff?.currentContent ? (
