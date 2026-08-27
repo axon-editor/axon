@@ -937,6 +937,22 @@ func terminalEnvironment() []string {
 	// below. I deliberately do not set FORCE_COLOR because commands that are
 	// writing machine-readable output must still be allowed to disable styling.
 	env = removeEnvironmentValue(env, "NO_COLOR")
+	// The PTY host needs these values to authenticate Electron and monitor its
+	// owner, but commands launched inside the terminal are outside that trust
+	// boundary. Removing the private service identity prevents `npm run dev` or
+	// a nested packaged Axon launched from this shell from reusing, unlinking, or
+	// impersonating the host that owns the current terminal session.
+	for _, privateKey := range []string{
+		"AXON_CORE_PORT",
+		"AXON_CORE_TOKEN",
+		"AXON_PTY_CONTROL",
+		"AXON_PTY_LOG_PATH",
+		"AXON_PTY_OWNER_STDIN",
+		"AXON_PTY_PORT",
+		"AXON_PTY_TOKEN",
+	} {
+		env = removeEnvironmentValue(env, privateKey)
+	}
 	env = upsertEnvironmentValue(env, "PATH", nextPath)
 	env = upsertEnvironmentValue(env, "TERM", "xterm-256color")
 	env = upsertEnvironmentValue(env, "COLORTERM", "truecolor")

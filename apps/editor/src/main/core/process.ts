@@ -17,9 +17,23 @@ export interface BundledServiceControllerDependencies {
   controlEnvironmentVariable?: string;
   terminalHealthPath?: string;
   preserveProcessOnHealthTimeout?: boolean;
+  monitorParentLifetime?: boolean;
+  additionalEnvironment?: Record<string, string>;
   confirmRestart: (request: CoreRestartConfirmation) => Promise<boolean>;
   isShuttingDown: () => boolean;
   onStatusChange?: (status: CoreProcessStatus) => void;
+}
+
+export function getBundledServiceStdio(
+  monitorParentLifetime: boolean,
+): Array<"ignore" | "pipe"> {
+  // The PTY host uses stdin as an ownership pipe rather than as terminal input.
+  // Keeping Electron's writable end open gives the child an OS-backed lifetime
+  // signal: a crash or SIGKILL closes the pipe even though before-quit never ran.
+  // Core does not need this contract, so its stdin remains detached as before.
+  return monitorParentLifetime
+    ? ["pipe", "pipe", "pipe"]
+    : ["ignore", "pipe", "pipe"];
 }
 
 export type CoreProcessStatus =
@@ -288,7 +302,7 @@ export function createBundledServiceController(
     // blindly spawning another process would only create a port conflict.
     reportStatus("starting");
     cleanupControlSocket();
-    const child = spawn(servicePath, [], {
+    const child: ChildProcess = spawn(servicePath, [], {
       env: {
         ...process.env,
         [deps.portEnvironmentVariable]: deps.port,
@@ -296,8 +310,9 @@ export function createBundledServiceController(
         ...(deps.controlSocketPath && deps.controlEnvironmentVariable
           ? { [deps.controlEnvironmentVariable]: deps.controlSocketPath }
           : {}),
+        ...deps.additionalEnvironment,
       },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: getBundledServiceStdio(Boolean(deps.monitorParentLifetime)),
     });
     bundledCoreProcess = child;
 

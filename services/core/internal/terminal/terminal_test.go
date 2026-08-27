@@ -22,6 +22,18 @@ func TestTerminalEnvironmentAdvertisesAxonCapabilities(t *testing.T) {
 	t.Setenv("CLICOLOR", "0")
 	t.Setenv("TERM_PROGRAM", "Terminal.app")
 	t.Setenv("NO_COLOR", "1")
+	privateServiceKeys := []string{
+		"AXON_CORE_PORT",
+		"AXON_CORE_TOKEN",
+		"AXON_PTY_CONTROL",
+		"AXON_PTY_LOG_PATH",
+		"AXON_PTY_OWNER_STDIN",
+		"AXON_PTY_PORT",
+		"AXON_PTY_TOKEN",
+	}
+	for _, key := range privateServiceKeys {
+		t.Setenv(key, "must-not-reach-the-shell")
+	}
 
 	env := terminalEnvironment()
 	wanted := map[string]string{
@@ -54,6 +66,11 @@ func TestTerminalEnvironmentAdvertisesAxonCapabilities(t *testing.T) {
 	for _, entry := range env {
 		if strings.HasPrefix(entry, "NO_COLOR=") {
 			t.Fatalf("interactive terminal inherited NO_COLOR")
+		}
+		for _, key := range privateServiceKeys {
+			if strings.HasPrefix(entry, key+"=") {
+				t.Fatalf("interactive terminal inherited private service key %s", key)
+			}
 		}
 	}
 }

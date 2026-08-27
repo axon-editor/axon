@@ -81,6 +81,13 @@ const isWindows = process.platform === "win32";
 // escape hatch stays available for debugging unusual watcher failures, but it
 // must be an explicit opt-in instead of the normal product path.
 const shouldPollWatchers = process.env.AXON_WATCH_USE_POLLING === "1";
+function developmentEnvironmentValue(name: string) {
+  // Service credentials supplied by the development runner are useful while
+  // working on Axon, but a packaged launch must never inherit an older Axon
+  // host's private identity from a parent shell. Production therefore ignores
+  // AXON_* service overrides and generates a fresh port/token/socket boundary.
+  return isDev ? process.env[name]?.trim() ?? "" : "";
+}
 function resolveMacAppBundlePath() {
   if (!isMac) return null;
 
@@ -109,27 +116,32 @@ let startupCliOpenFolderPath: string | null = null;
 // to do nothing. A fresh port keeps that stale process isolated. Development
 // remains deterministic because the dev runner supplies AXON_CORE_PORT.
 const axonCorePort =
-  process.env.AXON_CORE_PORT?.trim() ||
+  developmentEnvironmentValue("AXON_CORE_PORT") ||
   String(20_000 + (randomBytes(2).readUInt16BE(0) % 30_000));
 const axonPtyPort =
-  process.env.AXON_PTY_PORT?.trim() || String(Number(axonCorePort) + 1);
+  developmentEnvironmentValue("AXON_PTY_PORT") ||
+  String(Number(axonCorePort) + 1);
 // Development supplies one process-scoped token to the independently launched
 // Go process. Packaged Axon generates a fresh secret for every app launch and
 // passes it only to its child core process and trusted preload bridge.
 const axonCoreToken =
-  process.env.AXON_CORE_TOKEN?.trim() || randomBytes(32).toString("hex");
+  developmentEnvironmentValue("AXON_CORE_TOKEN") ||
+  randomBytes(32).toString("hex");
 const axonPtyToken =
-  process.env.AXON_PTY_TOKEN?.trim() || randomBytes(32).toString("hex");
+  developmentEnvironmentValue("AXON_PTY_TOKEN") ||
+  randomBytes(32).toString("hex");
 const axonPtyControlPath =
-  process.env.AXON_PTY_CONTROL?.trim() ||
-  (isDev
+  isDev
     ? null
     : process.platform === "win32"
       ? `\\\\.\\pipe\\axon-pty-${process.pid}-${randomBytes(8).toString("hex")}`
       : path.join(
           app.getPath("temp"),
           `axon-pty-${process.pid}-${randomBytes(8).toString("hex")}.sock`,
-        ));
+        );
+const axonPtyLogPath = isDev
+  ? ""
+  : path.join(app.getPath("logs"), "pty-host.log");
 const axonReleaseApiUrl =
   "https://api.github.com/repos/axon-editor/axon/releases/latest";
 const axonReleasePageUrl =
@@ -339,6 +351,13 @@ const bundledPtyHost = createBundledServiceController({
   controlEnvironmentVariable: "AXON_PTY_CONTROL",
   terminalHealthPath: "/terminal/health",
   preserveProcessOnHealthTimeout: true,
+  monitorParentLifetime: !isDev,
+  additionalEnvironment: isDev
+    ? undefined
+    : {
+        AXON_PTY_OWNER_STDIN: "1",
+        AXON_PTY_LOG_PATH: axonPtyLogPath,
+      },
   isShuttingDown: () => isQuitting,
   onStatusChange: (status) => sendToRenderer("pty:status", { status }),
   confirmRestart: confirmServiceRestart,

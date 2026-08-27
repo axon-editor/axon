@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import type { ChildProcess } from "child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { terminateChildProcess } from "./process";
+import { getBundledServiceStdio, terminateChildProcess } from "./process";
 
 class FakeChildProcess extends EventEmitter {
   exitCode: number | null = null;
@@ -77,6 +77,20 @@ describe("terminateChildProcess", () => {
     expect(child.signals).toEqual([
       undefined,
       process.platform === "win32" ? undefined : "SIGKILL",
+    ]);
+  });
+});
+
+describe("getBundledServiceStdio", () => {
+  it("keeps an ownership pipe open for the isolated PTY host", () => {
+    expect(getBundledServiceStdio(true)).toEqual(["pipe", "pipe", "pipe"]);
+  });
+
+  it("leaves stdin detached for services without lifetime monitoring", () => {
+    expect(getBundledServiceStdio(false)).toEqual([
+      "ignore",
+      "pipe",
+      "pipe",
     ]);
   });
 });

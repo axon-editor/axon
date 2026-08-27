@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -15,6 +16,12 @@ import (
 )
 
 func main() {
+	closeLog, logErr := configureHostLogging(strings.TrimSpace(os.Getenv("AXON_PTY_LOG_PATH")))
+	if logErr != nil {
+		log.Printf("failed to configure persistent PTY host logging: %v", logErr)
+	}
+	defer closeLog()
+
 	port := strings.TrimSpace(os.Getenv("AXON_PTY_PORT"))
 	if port == "" {
 		port = "7778"
@@ -51,6 +58,10 @@ func main() {
 	}
 
 	log.Printf("Axon PTY host listening on %s", listener.Addr())
+	ownerLost := monitorOwnerPipe(
+		strings.TrimSpace(os.Getenv("AXON_PTY_OWNER_STDIN")) == "1",
+	)
+
 	streamHandler := host.Router()
 	if controlPath != "" {
 		streamHandler = host.StreamRouter()
@@ -78,27 +89,33 @@ func main() {
 		serveErrors <- nil
 	}()
 
+	controlContext, cancelControl := context.WithCancel(context.Background())
+	defer cancelControl()
 	if controlListener != nil {
-		controlServer := &http.Server{
-			Handler:           host.ControlRouter(),
-			ReadHeaderTimeout: 5 * time.Second,
-			IdleTimeout:       30 * time.Second,
-			MaxHeaderBytes:    64 << 10,
-		}
 		go func() {
-			err := controlServer.Serve(controlListener)
-			if err == http.ErrServerClosed {
-				err = nil
-			}
-			if err != nil {
-				serveErrors <- fmt.Errorf("Axon PTY control transport stopped: %w", err)
-				return
-			}
-			serveErrors <- nil
+			serveErrors <- serveControlTransport(
+				controlContext,
+				host.ControlRouter(),
+				controlPath,
+				authToken,
+				controlListener,
+				cleanupControl,
+				5*time.Second,
+			)
 		}()
 	}
 
-	if err := <-serveErrors; err != nil {
-		log.Printf("%v", err)
+	select {
+	case err := <-serveErrors:
+		if err != nil {
+			log.Printf("%v", err)
+		}
+	case <-ownerLost:
+		// Electron owns this host and all PTYs inside it. The dedicated stdin
+		// pipe reaches EOF even when Electron is force-killed and cannot run its
+		// normal before-quit cleanup. Returning from main closes both listeners
+		// and the PTY masters, so macOS cannot reparent an empty hidden host to
+		// PID 1 and leave its private port alive indefinitely.
+		log.Printf("Axon PTY host owner disconnected; shutting down owned terminal sessions")
 	}
 }
