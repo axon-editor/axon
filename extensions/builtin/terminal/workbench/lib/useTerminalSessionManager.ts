@@ -19,6 +19,7 @@ import {
   flushQueuedTerminalInput,
   hasPendingTerminalOutput,
   isVisibleTerminalContainer,
+  requestTerminalApplicationThemeRefresh,
   sendOrQueueTerminalInput,
   sendWorkspaceCd,
   terminateDetachedSession,
@@ -571,11 +572,32 @@ export function useTerminalSessionManager({
       const session = sessionsRef.current[id];
       if (!session.term) continue;
 
+      const previousTheme = session.term.options.theme;
+      const defaultColorsChanged = Boolean(
+        previousTheme &&
+          (previousTheme.background !== terminalOptions.theme.background ||
+            previousTheme.foreground !== terminalOptions.theme.foreground),
+      );
+
+      // Assigning the palette through xterm's public theme option is the same
+      // live-update path used by VS Code. xterm repaints its cells here and also
+      // reports the new dark/light color scheme to applications that opted into
+      // the standard DEC notification, so Axon must not rebuild the terminal or
+      // manually repaint its canvas when the editor theme changes.
       session.term.options.theme = terminalOptions.theme;
       session.term.options.fontFamily = terminalOptions.fontFamily;
       session.term.options.fontWeight = terminalOptions.fontWeight;
       session.term.options.fontSize = terminalOptions.fontSize;
       session.term.options.lineHeight = terminalOptions.lineHeight;
+
+      if (defaultColorsChanged && id === activeTabId && terminalVisible) {
+        // Some long-running TUIs cache the default colors they queried when
+        // they started. The active application needs to hear about the change
+        // only after xterm owns the new palette, otherwise its immediate OSC
+        // color query can race and read the old theme again. Hidden tabs receive
+        // a real FocusIn from xterm when the user activates them later.
+        requestTerminalApplicationThemeRefresh(session);
+      }
       if (id === activeTabId && terminalVisible) {
         sendResize(id);
       }

@@ -52,6 +52,27 @@ export function sendOrQueueTerminalInput(
   session.queuedInputBytes += byteLength;
 }
 
+export function requestTerminalApplicationThemeRefresh(
+  session: TerminalSession,
+) {
+  // Modern terminal applications can subscribe to xterm's DEC color-scheme
+  // notifications, which xterm emits automatically when Axon replaces its
+  // theme. Codex currently refreshes its queried OSC 10/11 colors on FocusIn
+  // instead, so an agent that remains open would otherwise keep the previous
+  // theme's explicitly rendered RGB backgrounds until focus changes naturally.
+  //
+  // I only send FocusIn after the application has enabled DECSET 1004. That
+  // opt-in proves the foreground process understands focus reports and keeps
+  // this compatibility path from writing an escape sequence into an ordinary
+  // shell prompt. The signal is also never queued across reconnects: a stale
+  // synthetic focus event must not reach a different foreground process later.
+  if (!session.term?.modes.sendFocusMode) return false;
+  if (!session.ws || session.ws.readyState !== WebSocket.OPEN) return false;
+
+  session.ws.send("\x1b[I");
+  return true;
+}
+
 export function flushQueuedTerminalInput(session: TerminalSession) {
   // Input is flushed only after the replacement websocket is open. This keeps
   // the PTY stream ordered: reconnect first, restore dimensions/cwd, then send

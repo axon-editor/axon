@@ -23,6 +23,10 @@ const webLinksAddonMock = vi.hoisted(() => ({
 
 const xtermMock = vi.hoisted(() => ({
   focus: vi.fn(),
+  instances: [] as Array<{
+    modes: { sendFocusMode: boolean };
+    options: Record<string, unknown>;
+  }>,
 }));
 
 vi.mock("@xterm/xterm", () => ({
@@ -32,7 +36,13 @@ vi.mock("@xterm/xterm", () => ({
     };
     cols = 80;
     rows = 24;
-    options: Record<string, unknown> = {};
+    modes = { sendFocusMode: true };
+    options: Record<string, unknown>;
+
+    constructor(options: Record<string, unknown>) {
+      this.options = { ...options };
+      xtermMock.instances.push(this);
+    }
 
     attachCustomKeyEventHandler() {}
     clear() {}
@@ -80,16 +90,24 @@ vi.mock("@xterm/addon-webgl", () => ({
 class FakeWebSocket {
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
+  static instances: FakeWebSocket[] = [];
 
   binaryType = "";
   onclose: ((event: CloseEvent) => void) | null = null;
   onerror: (() => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
   onopen: (() => void) | null = null;
-  readyState = FakeWebSocket.CONNECTING;
+  readyState = FakeWebSocket.OPEN;
+  sent: string[] = [];
+
+  constructor() {
+    FakeWebSocket.instances.push(this);
+  }
 
   close() {}
-  send() {}
+  send(data: string) {
+    this.sent.push(data);
+  }
 }
 
 class FakeResizeObserver {
@@ -101,7 +119,15 @@ const reactTestEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
 
-function TerminalHarness() {
+interface TerminalHarnessProps {
+  background?: string;
+  foreground?: string;
+}
+
+function TerminalHarness({
+  background = "#000000",
+  foreground = "#ffffff",
+}: TerminalHarnessProps) {
   const manager = useTerminalSessionManager({
     activePanelTab: "terminal",
     createNonce: 0,
@@ -114,8 +140,8 @@ function TerminalHarness() {
       fontWeight: 400,
       lineHeight: 1.2,
       theme: {
-        background: "#000000",
-        foreground: "#ffffff",
+        background,
+        foreground,
       },
     },
     terminalVisible: true,
@@ -165,6 +191,8 @@ describe("useTerminalSessionManager", () => {
     terminalBridgeMock.openExternalLink.mockResolvedValue(undefined);
     webLinksAddonMock.handlers.length = 0;
     xtermMock.focus.mockReset();
+    xtermMock.instances.length = 0;
+    FakeWebSocket.instances.length = 0;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -206,6 +234,54 @@ describe("useTerminalSessionManager", () => {
     });
 
     expect(xtermMock.focus).toHaveBeenCalled();
+  });
+
+  it("asks a running TUI to re-query colors after a live theme change", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const socket = FakeWebSocket.instances[0];
+    expect(socket).toBeDefined();
+    expect(socket.sent).not.toContain("\x1b[I");
+
+    await act(async () => {
+      root.render(
+        <TerminalHarness background="#ffffff" foreground="#171717" />,
+      );
+    });
+
+    expect(socket.sent.filter((data) => data === "\x1b[I")).toHaveLength(1);
+    expect(xtermMock.instances[0]?.options.theme).toEqual({
+      background: "#ffffff",
+      foreground: "#171717",
+    });
+  });
+
+  it("does not inject a focus report when the application did not request it", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const terminal = xtermMock.instances[0];
+    const socket = FakeWebSocket.instances[0];
+    expect(terminal).toBeDefined();
+    expect(socket).toBeDefined();
+    terminal.modes.sendFocusMode = false;
+
+    await act(async () => {
+      root.render(
+        <TerminalHarness background="#ffffff" foreground="#171717" />,
+      );
+    });
+
+    expect(socket.sent).not.toContain("\x1b[I");
   });
 
   it("lets a link mouseup reach xterm's document selection listener", async () => {
