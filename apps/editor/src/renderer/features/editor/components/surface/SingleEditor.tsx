@@ -774,31 +774,36 @@ export default function SingleEditor({
 
   const editorNode = (
     <div
-      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+      className="grid h-full min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
       data-axon-editor-path={filePath}
     >
       {breadcrumbNode}
-      <MonacoEditorSurface
-        editorBackgroundImageFit={editorSettings.backgroundImageFit}
-        editorBackgroundImageUrl={editorBackgroundImageUrl || null}
-        editorSettings={editorSettings}
-        findIndex={findIndex}
-        findInputRef={findInputRef}
-        findMatchCount={findMatchCount}
-        findOpen={findOpen}
-        findQuery={findQuery}
-        largeDocument={largeDocument}
-        modelUri={monaco.Uri.file(filePath).toString()}
-        saving={saving}
-        readOnly={readOnly}
-        shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}
-        themeSyntax={themeSyntax}
-        themeTokens={themeTokens}
-        onChangeFindQuery={changeFindQuery}
-        onCloseFind={closeFind}
-        onMount={handleEditorMount}
-        onMoveFindSelection={moveFindSelection}
-      />
+      <div
+        className="row-start-2 min-h-0 overflow-hidden"
+        data-axon-editor-viewport="true"
+      >
+        <MonacoEditorSurface
+          editorBackgroundImageFit={editorSettings.backgroundImageFit}
+          editorBackgroundImageUrl={editorBackgroundImageUrl || null}
+          editorSettings={editorSettings}
+          findIndex={findIndex}
+          findInputRef={findInputRef}
+          findMatchCount={findMatchCount}
+          findOpen={findOpen}
+          findQuery={findQuery}
+          largeDocument={largeDocument}
+          modelUri={monaco.Uri.file(filePath).toString()}
+          saving={saving}
+          readOnly={readOnly}
+          shouldUseTransparentEditorSurface={shouldUseTransparentEditorSurface}
+          themeSyntax={themeSyntax}
+          themeTokens={themeTokens}
+          onChangeFindQuery={changeFindQuery}
+          onCloseFind={closeFind}
+          onMount={handleEditorMount}
+          onMoveFindSelection={moveFindSelection}
+        />
+      </div>
     </div>
   );
 
