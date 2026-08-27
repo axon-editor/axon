@@ -1,6 +1,9 @@
 import { type AxonSettings } from "@axon-editor/shared/settings";
 import SearchSelect from "@axon-editor/base/components/SearchSelect";
-import { MULTI_CURSOR_MODIFIER_ITEMS } from "./lib/settingsData";
+import {
+  EDITOR_HOVER_PLACEMENT_ITEMS,
+  MULTI_CURSOR_MODIFIER_ITEMS,
+} from "./lib/settingsData";
 import {
   SettingsField,
   SettingsSection,
@@ -87,6 +90,21 @@ export default function ErgonomicsSettingsSection({
           checked={draft.editor.breadcrumbsEnabled}
           onChange={(checked) => onUpdateEditor("breadcrumbsEnabled", checked)}
           label={draft.editor.breadcrumbsEnabled ? "Enabled" : "Disabled"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        label="Hover placement"
+        description="Choose whether editor hover details prefer to open above or below the current line. Monaco can use the opposite side when space is limited."
+      >
+        <SearchSelect
+          value={draft.editor.hoverPlacement}
+          items={EDITOR_HOVER_PLACEMENT_ITEMS}
+          onChange={(placement) =>
+            onUpdateEditor("hoverPlacement", placement)
+          }
+          ariaLabel="Editor hover placement"
+          placeholder="Select placement..."
         />
       </SettingsField>
 

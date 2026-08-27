@@ -5,6 +5,7 @@ import {
   EDITOR_CURSOR_BLINKING,
   EDITOR_CURSOR_STYLES,
   EDITOR_BACKGROUND_IMAGE_FITS,
+  EDITOR_HOVER_PLACEMENTS,
   EDITOR_MULTI_CURSOR_MODIFIERS,
   FONT_PRESET_IDS,
   TERMINAL_GPU_ACCELERATION_VALUES,
@@ -16,6 +17,7 @@ import {
   type EditorCursorBlinking,
   type EditorCursorStyle,
   type EditorBackgroundImageFit,
+  type EditorHoverPlacement,
   type EditorMultiCursorModifier,
   type FontPresetId,
   type TerminalGpuAcceleration,
@@ -221,6 +223,17 @@ export const MULTI_CURSOR_MODIFIER_ITEMS: SearchSelectItem<EditorMultiCursorModi
   EDITOR_MULTI_CURSOR_MODIFIERS.map((modifier) => ({
     value: modifier,
     label: MULTI_CURSOR_MODIFIER_LABELS[modifier],
+  }));
+
+const EDITOR_HOVER_PLACEMENT_LABELS: Record<EditorHoverPlacement, string> = {
+  top: "Top",
+  bottom: "Bottom",
+};
+
+export const EDITOR_HOVER_PLACEMENT_ITEMS: SearchSelectItem<EditorHoverPlacement>[] =
+  EDITOR_HOVER_PLACEMENTS.map((placement) => ({
+    value: placement,
+    label: EDITOR_HOVER_PLACEMENT_LABELS[placement],
   }));
 
 const AI_PROVIDER_LABELS: Record<AiProviderId, string> = {

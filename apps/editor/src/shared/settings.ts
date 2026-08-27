@@ -87,6 +87,10 @@ export const EDITOR_MULTI_CURSOR_MODIFIERS = ["alt", "ctrlCmd"] as const;
 export type EditorMultiCursorModifier =
   (typeof EDITOR_MULTI_CURSOR_MODIFIERS)[number];
 
+export const EDITOR_HOVER_PLACEMENTS = ["top", "bottom"] as const;
+export type EditorHoverPlacement =
+  (typeof EDITOR_HOVER_PLACEMENTS)[number];
+
 export const EDITOR_CURSOR_STYLES = [
   "line",
   "line-thin",
@@ -203,6 +207,7 @@ export interface EditorSettings {
   backgroundImageBlur: number;
   backgroundImageFit: EditorBackgroundImageFit;
   breadcrumbsEnabled: boolean;
+  hoverPlacement: EditorHoverPlacement;
   codeFoldingEnabled: boolean;
   emmetEnabled: boolean;
   autoSave: boolean;
@@ -279,6 +284,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     backgroundImageBlur: 0,
     backgroundImageFit: "cover",
     breadcrumbsEnabled: true,
+    hoverPlacement: "top",
     codeFoldingEnabled: true,
     emmetEnabled: true,
     autoSave: false,
@@ -353,6 +359,15 @@ function isEditorMultiCursorModifier(
   return (
     typeof value === "string" &&
     EDITOR_MULTI_CURSOR_MODIFIERS.includes(value as EditorMultiCursorModifier)
+  );
+}
+
+function isEditorHoverPlacement(
+  value: unknown,
+): value is EditorHoverPlacement {
+  return (
+    typeof value === "string" &&
+    EDITOR_HOVER_PLACEMENTS.includes(value as EditorHoverPlacement)
   );
 }
 
@@ -612,6 +627,9 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.breadcrumbsEnabled === "boolean"
           ? editor.breadcrumbsEnabled
           : DEFAULT_SETTINGS.editor.breadcrumbsEnabled,
+      hoverPlacement: isEditorHoverPlacement(editor.hoverPlacement)
+        ? editor.hoverPlacement
+        : DEFAULT_SETTINGS.editor.hoverPlacement,
       codeFoldingEnabled:
         typeof editor.codeFoldingEnabled === "boolean"
           ? editor.codeFoldingEnabled

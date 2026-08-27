@@ -35,6 +35,12 @@ export function createEditorSurfaceOptions({
   const snippetsEnabled =
     documentFeaturesEnabled && editorSettings.snippetsEnabled;
   const formattingOptions = createEditorFormattingOptions(editorSettings);
+  // During renderer hot reload, the in-memory settings object can predate a
+  // newly added preference even though persisted settings are normalized on
+  // the next launch. Only an explicit Bottom selection should opt out of the
+  // established top-hover behavior, so a temporarily missing value remains
+  // equivalent to the persisted Top default without requiring a restart.
+  const preferHoverAbove = editorSettings.hoverPlacement !== "bottom";
 
   return {
     readOnly,
@@ -117,16 +123,17 @@ export function createEditorSurfaceOptions({
         ? "matchingDocuments"
         : "off",
 
-    // Overflow widgets are clipped to the editor so hover content cannot cover
-    // Axon's breadcrumb row. Monaco first tries the space above the symbol and
-    // automatically falls below when the available viewport cannot contain it.
+    // Breadcrumbs occupy a separate grid row above Monaco's gutter viewport,
+    // so internal overflow widgets respect that boundary regardless of which
+    // side the user prefers. Monaco still owns the final placement decision
+    // when the preferred side does not have enough room.
     fixedOverflowWidgets: false,
     hover: {
       enabled: documentFeaturesEnabled,
       delay: EDITOR_INTERACTION_POLICY.hoverDelay,
       sticky: true,
       hidingDelay: EDITOR_INTERACTION_POLICY.hoverHidingDelay,
-      above: true,
+      above: preferHoverAbove,
     },
     acceptSuggestionOnCommitCharacter: true,
     snippetSuggestions: snippetsEnabled ? "top" : "none",

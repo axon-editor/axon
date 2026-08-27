@@ -151,6 +151,25 @@ describe("line trace settings", () => {
   });
 });
 
+describe("editor hover settings", () => {
+  it("preserves an explicit bottom placement", () => {
+    expect(
+      normalizeSettings({ editor: { hoverPlacement: "bottom" } }).editor
+        .hoverPlacement,
+    ).toBe("bottom");
+  });
+
+  it("prefers the top for older or invalid settings", () => {
+    expect(normalizeSettings({ editor: {} }).editor.hoverPlacement).toBe(
+      "top",
+    );
+    expect(
+      normalizeSettings({ editor: { hoverPlacement: "side" } }).editor
+        .hoverPlacement,
+    ).toBe("top");
+  });
+});
+
 describe("terminal settings", () => {
   it("preserves an explicit GPU acceleration mode", () => {
     expect(
