@@ -60,6 +60,7 @@ import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolI
 import { useLanguageToolInstallPrompt } from "../../renderer/features/languageTools/useLanguageToolInstallPrompt";
 import { useManagedLanguageToolInstallations } from "../../renderer/features/languageTools/useManagedLanguageToolInstallations";
 import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
+import { useWindowFullScreen } from "./lib/useWindowFullScreen";
 import {
   hasSeenAxonOnboarding,
   markAxonOnboardingSeen,
@@ -170,6 +171,7 @@ export default function App({ initialExtensionState }: AppProps) {
       );
   }, []);
   const platform = window.axon.platform;
+  const windowFullScreen = useWindowFullScreen();
   const [sessionReady, setSessionReady] = useState(false);
   const restoreStartedRef = useRef(false);
   const themeFallbackRepairAttemptedRef = useRef(false);
@@ -913,6 +915,7 @@ export default function App({ initialExtensionState }: AppProps) {
         updateInstallState,
         updateModalOpen,
         workspaceOverviewOpen,
+        windowFullScreen,
         workspaceRoots,
         workspaceSearchOpen,
         workspaceTrusted,

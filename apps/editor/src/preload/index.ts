@@ -140,6 +140,17 @@ const EXTENSION_IPC_CHANNELS = {
 
 contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
+  isWindowFullScreen: (): Promise<boolean> =>
+    ipcRenderer.invoke("window:isFullScreen"),
+  onWindowFullScreenChanged: (callback: (isFullScreen: boolean) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      isFullScreen: boolean,
+    ) => callback(isFullScreen);
+    ipcRenderer.on("window:fullScreenChanged", listener);
+    return () =>
+      ipcRenderer.removeListener("window:fullScreenChanged", listener);
+  },
   coreRequest: (request: CoreRequest): Promise<CoreResponse> =>
     ipcRenderer.invoke("core:request", request),
   cancelCoreRequest: (requestId: string): Promise<boolean> =>

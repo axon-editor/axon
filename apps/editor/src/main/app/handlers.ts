@@ -201,6 +201,15 @@ export function registerAppHandlers({
     window.webContents.openDevTools({ mode: "detach" });
   });
 
+  ipcMain.handle("window:isFullScreen", (event) => {
+    // Native fullscreen belongs to BrowserWindow, not Chromium's DOM
+    // fullscreen API. Resolving the window from the requesting renderer also
+    // keeps this correct when Axon has several editor windows open; each one
+    // receives its own native chrome state instead of borrowing mainWindow.
+    const window = BrowserWindow.fromWebContents(event.sender);
+    return window?.isFullScreen() ?? false;
+  });
+
   ipcMain.handle("shell:openExternal", async (_event, href: string) => {
     if (!isExternalHandlerUrl(href)) {
       throw new Error(

@@ -60,6 +60,11 @@ function routeExternalNavigation(window: BrowserWindow) {
   });
 }
 
+function notifyRendererOfFullScreen(window: BrowserWindow) {
+  if (window.isDestroyed() || window.webContents.isDestroyed()) return;
+  window.webContents.send("window:fullScreenChanged", window.isFullScreen());
+}
+
 export function createWindow(
   deps: WindowDependencies,
   options: CreateWindowOptions = {},
@@ -138,6 +143,14 @@ export function createWindow(
   );
 
   window.setTitle("Axon");
+
+  // macOS removes its traffic lights in native fullscreen, but hidden-inset
+  // title bars do not expose that change through CSS. Forward Electron's
+  // native lifecycle events so the renderer can reclaim the reserved left
+  // inset immediately, then restore it when the controls return. Registering
+  // this per BrowserWindow also keeps independent windows from sharing state.
+  window.on("enter-full-screen", () => notifyRendererOfFullScreen(window));
+  window.on("leave-full-screen", () => notifyRendererOfFullScreen(window));
 
   window.webContents.on("before-input-event", (event, input) => {
     if (!deps.shouldBlockBrowserShortcut(input)) return;

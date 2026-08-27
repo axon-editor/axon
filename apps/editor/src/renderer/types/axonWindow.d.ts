@@ -126,6 +126,10 @@ declare global {
     axonEditorSettings?: AxonSettings;
     axon: {
       platform: string;
+      isWindowFullScreen: () => Promise<boolean>;
+      onWindowFullScreenChanged: (
+        callback: (isFullScreen: boolean) => void,
+      ) => () => void;
       coreRequest: (request: CoreRequest) => Promise<CoreResponse>;
       cancelCoreRequest: (requestId: string) => Promise<boolean>;
       createTerminalTicket: (

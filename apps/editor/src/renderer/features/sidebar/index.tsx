@@ -117,7 +117,7 @@ interface Props {
   folderPickerOpen: boolean;
   onOpenFolderPicker: () => void;
   onCloseFolderPicker: () => void;
-  platform: string;
+  reserveMacTrafficLightSpace: boolean;
   onWorkspaceTrustChanged?: () => void;
   enableSpotify: boolean;
   spotifyState: SpotifyState;
@@ -390,7 +390,7 @@ export default function Sidebar({
   folderPickerOpen,
   onOpenFolderPicker,
   onCloseFolderPicker,
-  platform,
+  reserveMacTrafficLightSpace,
   onWorkspaceTrustChanged,
   enableSpotify,
   playerOpen,
@@ -676,7 +676,6 @@ export default function Sidebar({
 
   if (collapsed) return null;
 
-  const hasMacTrafficLights = platform === "darwin";
   const effectiveView = view === "spotify" && !enableSpotify ? "files" : view;
 
   return (
@@ -688,7 +687,7 @@ export default function Sidebar({
         >
           <div
             className={`flex h-9 items-center justify-between border-b border-[var(--axon-sidebar-border)] px-3 ${
-              hasMacTrafficLights ? "pl-20" : "pl-2"
+              reserveMacTrafficLightSpace ? "pl-20" : "pl-2"
             }`}
             style={{ WebkitAppRegion: "drag" } as any}
           >

@@ -84,6 +84,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
     tree,
     updateInfo,
     updateInstallState,
+    windowFullScreen,
     workspaceRoots,
     workspaceTrusted,
     zenMode,
@@ -142,9 +143,11 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
   const mainSidebarOrder = mainSidebarSide === "right" ? 3 : 1;
   const editorOrder = 2;
   const agentSidebarOrder = 4;
+  const reserveMacTrafficLightSpace =
+    platform === "darwin" && !windowFullScreen;
   const zenNativeControlInset = zenMode
     ? {
-        start: platform === "darwin" ? 92 : 0,
+        start: reserveMacTrafficLightSpace ? 92 : 0,
         end: platform === "win32" ? 150 : 0,
       }
     : undefined;
@@ -234,7 +237,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               folderPickerOpen={folderPickerOpen}
               onOpenFolderPicker={() => setFolderPickerOpen(true)}
               onCloseFolderPicker={() => setFolderPickerOpen(false)}
-              platform={platform}
+              reserveMacTrafficLightSpace={reserveMacTrafficLightSpace}
               enableSpotify={canShowSpotify}
               spotifyState={spotifyState}
               spotifyActions={spotifyActions}
