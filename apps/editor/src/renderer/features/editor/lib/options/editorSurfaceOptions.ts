@@ -123,10 +123,14 @@ export function createEditorSurfaceOptions({
         ? "matchingDocuments"
         : "off",
 
-    // Breadcrumbs occupy a separate grid row above Monaco's gutter viewport,
-    // so internal overflow widgets respect that boundary regardless of which
-    // side the user prefers. Monaco still owns the final placement decision
-    // when the preferred side does not have enough room.
+    // Monaco's hover widget opts into editor overflow by default. When that
+    // policy remains enabled, Monaco measures available space against the page
+    // and incorrectly counts Axon's tabs and breadcrumb row as usable hover
+    // space. Disabling overflow keeps Monaco's own placement algorithm intact,
+    // but makes it calculate against the editor viewport whose top edge begins
+    // below the breadcrumb row. A preferred Top hover therefore moves below the
+    // line automatically when it cannot fit without crossing that boundary.
+    allowOverflow: false,
     fixedOverflowWidgets: false,
     hover: {
       enabled: documentFeaturesEnabled,

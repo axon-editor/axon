@@ -10,6 +10,7 @@ describe("editor surface options", () => {
       readOnly: false,
     });
 
+    expect(options.allowOverflow).toBe(false);
     expect(options.fixedOverflowWidgets).toBe(false);
     expect(options.hover).toMatchObject({
       enabled: true,
