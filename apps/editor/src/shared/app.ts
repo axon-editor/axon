@@ -20,6 +20,8 @@ export interface AgentResumeRequest {
   conversationId: string | null;
 }
 
+export type FolderPickerIntent = "folder" | "recent";
+
 export interface OpenWorkspaceFolder {
   path: string;
   name: string;

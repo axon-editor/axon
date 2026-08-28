@@ -41,7 +41,7 @@ interface AppCommandRunnerOptions {
   setExtensionsOpen: any;
   setExtensionViewOpenId: any;
   setFileOutlineOpen: any;
-  setFolderPickerOpen: any;
+  setFolderPickerIntent: any;
   setLanguageToolsOpen: any;
   setPaletteOpen: any;
   setSettingsOpen: any;
@@ -91,7 +91,7 @@ export function useAppCommandRunner({
   setExtensionsOpen,
   setExtensionViewOpenId,
   setFileOutlineOpen,
-  setFolderPickerOpen,
+  setFolderPickerIntent,
   setLanguageToolsOpen,
   setPaletteOpen,
   setSettingsOpen,
@@ -210,10 +210,10 @@ export function useAppCommandRunner({
           void handleNewFile();
           break;
         case AXON_COMMANDS.OPEN_FOLDER:
-          setFolderPickerOpen(true);
+          setFolderPickerIntent("folder");
           break;
         case AXON_COMMANDS.OPEN_RECENT:
-          setFolderPickerOpen(true);
+          setFolderPickerIntent("recent");
           break;
         case AXON_COMMANDS.SAVE:
           handleSaveActiveFile();
@@ -466,7 +466,7 @@ export function useAppCommandRunner({
       setExtensionsOpen,
       setExtensionViewOpenId,
       setFileOutlineOpen,
-      setFolderPickerOpen,
+      setFolderPickerIntent,
       setLanguageToolsOpen,
       setPaletteOpen,
       setSettingsOpen,

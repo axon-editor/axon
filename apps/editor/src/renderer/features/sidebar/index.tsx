@@ -27,6 +27,7 @@ import {
   type GitHistoryFile,
   type GitFileState,
 } from "../../../shared/git";
+import { type FolderPickerIntent } from "../../../shared/app";
 import SpotifyPanel from "@axon-builtin-spotify/SpotifyPanel";
 import type { SpotifyActions, SpotifyState } from "@axon-builtin-spotify/lib/useSpotify";
 import { clearWorkspaceSession } from "../../shared/lib/workspaceSession";
@@ -114,7 +115,7 @@ interface Props {
   onEntryRenamed?: (oldPath: string, newPath: string) => void;
   gitChanges?: GitChange[];
   ignoredPaths?: string[];
-  folderPickerOpen: boolean;
+  folderPickerIntent: FolderPickerIntent | null;
   onOpenFolderPicker: () => void;
   onCloseFolderPicker: () => void;
   reserveMacTrafficLightSpace: boolean;
@@ -387,7 +388,7 @@ export default function Sidebar({
   onEntryRenamed,
   gitChanges,
   ignoredPaths: ignoredPathList,
-  folderPickerOpen,
+  folderPickerIntent,
   onOpenFolderPicker,
   onCloseFolderPicker,
   reserveMacTrafficLightSpace,
@@ -434,7 +435,7 @@ export default function Sidebar({
     () => isWorkspaceTrusted(folderPath),
     [folderPath, trustNonce],
   );
-  const recentFolders = useRecentFolders(folderPickerOpen);
+  const recentFolders = useRecentFolders(folderPickerIntent !== null);
   const openWorkspaceFolders = useOpenWorkspaceFolders(workspaceRoots);
 
   const toggleWorkspaceTrust = () => {
@@ -860,8 +861,9 @@ export default function Sidebar({
         />
       )}
 
-      {folderPickerOpen && (
+      {folderPickerIntent && (
         <FolderPicker
+          intent={folderPickerIntent}
           recentFolders={recentFolders}
           workspaceRoots={workspaceRoots}
           openWorkspaceFolders={openWorkspaceFolders}

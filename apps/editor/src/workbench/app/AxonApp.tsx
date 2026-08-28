@@ -31,7 +31,10 @@ import { type GitStatusResult } from "../../shared/git";
 import { type WorkspaceTask } from "../../shared/tasks";
 import { type UpdateInfo, type UpdateInstallState } from "../../shared/updates";
 import { type ExtensionState } from "../../shared/extensions";
-import { type AgentResumeRequest } from "../../shared/app";
+import {
+  type AgentResumeRequest,
+  type FolderPickerIntent,
+} from "../../shared/app";
 import { type EditorNavigationTarget } from "../../renderer/features/editor/lib/layout/navigation";
 import {
   type BottomPanelTab,
@@ -116,7 +119,8 @@ export default function App({ initialExtensionState }: AppProps) {
   );
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
-  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [folderPickerIntent, setFolderPickerIntent] =
+    useState<FolderPickerIntent | null>(null);
   const [workspaceTrustPromptPath, setWorkspaceTrustPromptPath] = useState<
     string | null
   >(null);
@@ -722,7 +726,7 @@ export default function App({ initialExtensionState }: AppProps) {
     setExtensionsOpen,
     setExtensionViewOpenId,
     setFileOutlineOpen,
-    setFolderPickerOpen,
+    setFolderPickerIntent,
     setLanguageToolsOpen,
     setPaletteOpen,
     setSettingsOpen,
@@ -859,7 +863,7 @@ export default function App({ initialExtensionState }: AppProps) {
         extensionsOpen,
         fileOutlineOpen,
         folderPath,
-        folderPickerOpen,
+        folderPickerIntent,
         gitChangeCount,
         gitStatus,
         handleApplyAgentEdit,
@@ -931,7 +935,7 @@ export default function App({ initialExtensionState }: AppProps) {
         setExtensionState,
         setExtensionViewOpenId,
         setFileOutlineOpen,
-        setFolderPickerOpen,
+        setFolderPickerIntent,
         setLanguage,
         setLanguageToolsOpen,
         setLayout,

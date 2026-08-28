@@ -3,11 +3,15 @@ import { FolderOpen, GitFork } from "lucide-react";
 import CommandModal from "../../../shared/components/CommandModal";
 import { type WorkspaceRoot } from "../../../shared/lib/workspaceRoots";
 import { type GitCloneProgress } from "../../../../shared/git";
-import { type OpenWorkspaceFolder } from "../../../../shared/app";
+import {
+  type FolderPickerIntent,
+  type OpenWorkspaceFolder,
+} from "../../../../shared/app";
 import FolderPickerClone from "./folderPicker/FolderPickerClone";
 import FolderPickerLocal from "./folderPicker/FolderPickerLocal";
 
 interface Props {
+  intent: FolderPickerIntent;
   recentFolders: string[];
   workspaceRoots?: WorkspaceRoot[];
   openWorkspaceFolders?: OpenWorkspaceFolder[];
@@ -33,6 +37,7 @@ const modes: Array<{
 ];
 
 export default function FolderPicker({
+  intent,
   recentFolders,
   workspaceRoots = [],
   openWorkspaceFolders = [],
@@ -121,7 +126,7 @@ export default function FolderPicker({
 
   return (
     <CommandModal
-      title="open folder"
+      title={intent === "recent" ? "open recent" : "open folder"}
       onClose={onClose}
       width="w-[min(760px,calc(100vw-2rem))]"
       bodyClassName="flex min-h-0 flex-1 overflow-hidden"
@@ -154,9 +159,9 @@ export default function FolderPicker({
               >
                 <Icon size={14} />
                 <span>{item.label}</span>
-                {active ? (
+                {active && (
                   <span className="absolute inset-x-2 bottom-0 h-0.5 bg-[var(--axon-syntax-function)]" />
-                ) : null}
+                )}
               </button>
             );
           })}
@@ -165,6 +170,7 @@ export default function FolderPicker({
         <div className={mode === "local" ? "flex min-h-0 flex-1" : "hidden"}>
           <FolderPickerLocal
             activeRootId={activeRootId}
+            focusRecent={intent === "recent"}
             openWorkspaceFolders={openWorkspaceFolders}
             recentFolders={recentFolders}
             workspaceRoots={workspaceRoots}

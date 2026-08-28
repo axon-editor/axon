@@ -76,12 +76,12 @@ export function clearRecentFolders() {
   notifyCurrentWindow();
 }
 
-export function useRecentFolders(folderPickerOpen: boolean) {
+export function useRecentFolders(folderPickerVisible: boolean) {
   const [folders, setFolders] = useState(getRecentFolders);
 
   useEffect(() => {
-    if (folderPickerOpen) setFolders(getRecentFolders());
-  }, [folderPickerOpen]);
+    if (folderPickerVisible) setFolders(getRecentFolders());
+  }, [folderPickerVisible]);
 
   useEffect(() => {
     const refresh = () => setFolders(getRecentFolders());

@@ -18,6 +18,7 @@ import {
 
 interface Props {
   activeRootId: string | null;
+  focusRecent: boolean;
   openWorkspaceFolders: OpenWorkspaceFolder[];
   recentFolders: string[];
   workspaceRoots: WorkspaceRoot[];
@@ -42,6 +43,7 @@ function getParentPath(path: string) {
 
 export default function FolderPickerLocal({
   activeRootId,
+  focusRecent,
   openWorkspaceFolders,
   recentFolders,
   workspaceRoots,
@@ -61,32 +63,23 @@ export default function FolderPickerLocal({
   const activeRootPathKey = activeRootPath
     ? getWorkspacePathComparisonKey(activeRootPath, window.axon.platform)
     : null;
-  const openWorkspacePaths = useMemo(
+  const openWorkspaceByPath = useMemo(
     () =>
-      new Set(
-        openWorkspaceFolders.map((folder) =>
+      new Map(
+        openWorkspaceFolders.map((folder) => [
           getWorkspacePathComparisonKey(folder.path, window.axon.platform),
-        ),
+          folder,
+        ]),
       ),
     [openWorkspaceFolders],
   );
-  const availableRecentFolders = useMemo(
-    () =>
-      recentFolders.filter(
-        (path) =>
-          !openWorkspacePaths.has(
-            getWorkspacePathComparisonKey(path, window.axon.platform),
-          ),
-      ),
-    [openWorkspacePaths, recentFolders],
-  );
   const normalizedQuery = query.trim().toLowerCase();
   const filteredRecentFolders = useMemo(() => {
-    if (!normalizedQuery) return availableRecentFolders;
-    return availableRecentFolders.filter((path) =>
+    if (!normalizedQuery) return recentFolders;
+    return recentFolders.filter((path) =>
       path.toLowerCase().includes(normalizedQuery),
     );
-  }, [availableRecentFolders, normalizedQuery]);
+  }, [normalizedQuery, recentFolders]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -99,7 +92,7 @@ export default function FolderPickerLocal({
             Choose a folder
           </div>
           <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-            {openWorkspaceFolders.length} open | {availableRecentFolders.length}{" "}
+            {openWorkspaceFolders.length} open | {recentFolders.length}{" "}
             recent
           </div>
         </div>
@@ -121,7 +114,7 @@ export default function FolderPickerLocal({
               className="text-[var(--axon-editor-foreground)] opacity-40"
             />
             <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-55">
-              Open workspaces
+              Open in Axon
             </span>
             <span className="ml-auto text-[10px] tabular-nums text-[var(--axon-editor-foreground)] opacity-30">
               {openWorkspaceFolders.length}
@@ -168,25 +161,26 @@ export default function FolderPickerLocal({
                         {getParentPath(root.path)}
                       </span>
                     </span>
-                    {active ? (
+                    {active && (
                       <Check
                         size={13}
                         className="shrink-0 text-[var(--axon-syntax-function)]"
                       />
-                    ) : !root.currentWindow ? (
+                    )}
+                    {!active && !root.currentWindow && (
                       <Tooltip label="Focus open Axon window" side="left">
                         <PanelsTopLeft
                           size={13}
                           className="shrink-0 text-[var(--axon-editor-foreground)] opacity-35"
                         />
                       </Tooltip>
-                    ) : null}
+                    )}
                   </button>
                 );
               })
             ) : (
               <div className="flex h-full min-h-28 items-center justify-center px-5 text-center text-[11px] leading-5 text-[var(--axon-editor-foreground)] opacity-35">
-                No workspace folders are open.
+                No folders are open in Axon.
               </div>
             )}
           </div>
@@ -199,12 +193,13 @@ export default function FolderPickerLocal({
               className="shrink-0 text-[var(--axon-editor-foreground)] opacity-35"
             />
             <input
+              autoFocus={focusRecent}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Filter recent folders"
               className="min-w-0 flex-1 bg-transparent text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30"
             />
-            {availableRecentFolders.length > 0 ? (
+            {recentFolders.length > 0 && (
               <Tooltip label="Clear recent folders" side="left">
                 <button
                   type="button"
@@ -215,13 +210,20 @@ export default function FolderPickerLocal({
                   <Trash2 size={12} />
                 </button>
               </Tooltip>
-            ) : null}
+            )}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {filteredRecentFolders.length > 0 ? (
               filteredRecentFolders.map((path) => {
                 const name = getWorkspaceRootName(path);
+                const pathKey = getWorkspacePathComparisonKey(
+                  path,
+                  window.axon.platform,
+                );
+                const openFolder = openWorkspaceByPath.get(pathKey);
+                const active =
+                  openFolder?.currentWindow && pathKey === activeRootPathKey;
                 return (
                   <div
                     key={path}
@@ -229,16 +231,45 @@ export default function FolderPickerLocal({
                   >
                     <button
                       type="button"
-                      onClick={() => onSelect(path)}
+                      onClick={() => {
+                        if (!openFolder) {
+                          onSelect(path);
+                          return;
+                        }
+                        if (openFolder.currentWindow) {
+                          onSelectWorkspaceRoot(path);
+                          return;
+                        }
+                        onFocusWorkspaceWindow(openFolder.rendererId);
+                      }}
                       className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-2.5 py-2 text-left"
                     >
-                      <Clock3
-                        size={14}
-                        className="shrink-0 text-[var(--axon-editor-foreground)] opacity-35 transition-colors group-hover:text-[var(--axon-syntax-function)] group-hover:opacity-80"
-                      />
+                      {active ? (
+                        <Check
+                          size={14}
+                          className="shrink-0 text-[var(--axon-syntax-function)]"
+                        />
+                      ) : openFolder ? (
+                        <PanelsTopLeft
+                          size={14}
+                          className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45 transition-colors group-hover:text-[var(--axon-syntax-function)] group-hover:opacity-80"
+                        />
+                      ) : (
+                        <Clock3
+                          size={14}
+                          className="shrink-0 text-[var(--axon-editor-foreground)] opacity-35 transition-colors group-hover:text-[var(--axon-syntax-function)] group-hover:opacity-80"
+                        />
+                      )}
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] text-[var(--axon-editor-foreground)]">
-                          {name}
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-[12px] text-[var(--axon-editor-foreground)]">
+                            {name}
+                          </span>
+                          {openFolder && (
+                            <span className="shrink-0 rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-45">
+                              {active ? "active" : "open"}
+                            </span>
+                          )}
                         </span>
                         <span className="mt-0.5 block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
                           {getParentPath(path)}
@@ -271,7 +302,7 @@ export default function FolderPickerLocal({
 
       <div className="flex h-10 shrink-0 items-center justify-between border-t border-[var(--axon-panel-border)] px-4">
         <span className="text-[10px] text-[var(--axon-editor-foreground)] opacity-30">
-          {availableRecentFolders.length} recent
+          {recentFolders.length} recent
         </span>
         <button
           type="button"

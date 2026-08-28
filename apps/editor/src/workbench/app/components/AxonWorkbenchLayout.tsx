@@ -46,7 +46,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
     deletedFiles,
     diagnostics,
     folderPath,
-    folderPickerOpen,
+    folderPickerIntent,
     gitStatus,
     handleApplyAgentEdit,
     handleFileSelect,
@@ -92,7 +92,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
     setAgentSidebarOpen,
     setBottomPanelOpen,
     setBottomPanelTab,
-    setFolderPickerOpen,
+    setFolderPickerIntent,
     setLanguage,
     setLayout,
     setSidebarWidth,
@@ -234,9 +234,9 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               }
               gitChanges={gitStatus?.changes ?? []}
               ignoredPaths={gitStatus?.ignoredPaths ?? []}
-              folderPickerOpen={folderPickerOpen}
-              onOpenFolderPicker={() => setFolderPickerOpen(true)}
-              onCloseFolderPicker={() => setFolderPickerOpen(false)}
+              folderPickerIntent={folderPickerIntent}
+              onOpenFolderPicker={() => setFolderPickerIntent("folder")}
+              onCloseFolderPicker={() => setFolderPickerIntent(null)}
               reserveMacTrafficLightSpace={reserveMacTrafficLightSpace}
               enableSpotify={canShowSpotify}
               spotifyState={spotifyState}
@@ -386,7 +386,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               gitChanges={gitStatus?.changes ?? []}
               diagnostics={diagnostics}
               deletedFiles={deletedFiles}
-              handleOpenFolder={() => setFolderPickerOpen(true)}
+              handleOpenFolder={() => setFolderPickerIntent("folder")}
               handleNewFile={handleNewFile}
               handleFolderChange={handleFolderChange}
               nativeControlInset={zenNativeControlInset}

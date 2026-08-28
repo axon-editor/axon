@@ -50,6 +50,27 @@ export function upsertWorkspaceRoot(
   return [...roots, createWorkspaceRoot(path, trusted)];
 }
 
+export function resolveWorkspaceRootsForFolderOpen({
+  path,
+  restoredRoots,
+  trusted,
+}: {
+  path: string;
+  restoredRoots: WorkspaceRoot[];
+  trusted: boolean | null;
+}) {
+  // A normal Open Folder action replaces the window's current workspace. It
+  // must not silently turn every folder visited by the user into another live
+  // root, because those stale roots then disappear from Recent and continue to
+  // receive workspace-level services. Session restoration is the one path that
+  // intentionally preserves a previously assembled multi-root workspace.
+  if (restoredRoots.length === 0) {
+    return [createWorkspaceRoot(path, trusted)];
+  }
+
+  return upsertWorkspaceRoot(restoredRoots, path, trusted);
+}
+
 export function normalizeWorkspaceRoots(value: unknown): WorkspaceRoot[] {
   if (!Array.isArray(value)) return [];
 

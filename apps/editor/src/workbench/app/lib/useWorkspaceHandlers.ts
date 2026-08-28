@@ -7,7 +7,10 @@ import {
   measureAxonPerformance,
 } from "../../../renderer/shared/lib/performanceMarks";
 import { sanitizeRestoredLayout, type WorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
-import { createWorkspaceRoot, upsertWorkspaceRoot } from "../../../renderer/shared/lib/workspaceRoots";
+import {
+  createWorkspaceRoot,
+  resolveWorkspaceRootsForFolderOpen,
+} from "../../../renderer/shared/lib/workspaceRoots";
 import { normalizeSettings } from "../../../shared/settings";
 import {
   createWorkspaceServiceCoordinator,
@@ -188,14 +191,11 @@ export function useWorkspaceHandlers({
       restoredSession?.roots && restoredSession.roots.length > 0
         ? restoredSession.roots
         : [];
-    const nextRoots =
-      restoredRoots.length > 0
-        ? upsertWorkspaceRoot(restoredRoots, path, getWorkspaceTrustState(path))
-        : upsertWorkspaceRoot(
-            workspaceRoots,
-            path,
-            getWorkspaceTrustState(path),
-          );
+    const nextRoots = resolveWorkspaceRootsForFolderOpen({
+      path,
+      restoredRoots,
+      trusted: getWorkspaceTrustState(path),
+    });
     const nextActiveRoot =
       nextRoots.find((root: any) => root.path === path) ?? createWorkspaceRoot(path);
 
