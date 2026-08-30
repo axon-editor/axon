@@ -80,6 +80,7 @@ interface SettingsHandlersDependencies {
     persist?: boolean,
   ) => string;
   assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
+  authorizeReadOnlyFile: (rendererId: number, filePath: string) => string;
   getActiveLanguageServers: () => Iterable<{
     id: string;
     folderPath: string;
@@ -149,7 +150,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     },
   );
 
-  ipcMain.handle("dialog:importFont", async () => {
+  ipcMain.handle("dialog:importFont", async (event) => {
     const result = await dialog.showOpenDialog({
       properties: ["openFile"],
       filters: [
@@ -164,14 +165,20 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       return null;
     }
 
-    return importCustomFontFile(result.filePaths[0]) as CustomFont;
+    const font = importCustomFontFile(result.filePaths[0]) as CustomFont;
+    deps.authorizeReadOnlyFile(event.sender.id, font.path);
+    return font;
   });
 
-  ipcMain.handle("fonts:listAvailable", async () => {
-    return listAvailableLocalFonts();
+  ipcMain.handle("fonts:listAvailable", async (event) => {
+    const fonts = listAvailableLocalFonts();
+    for (const font of fonts) {
+      deps.authorizeReadOnlyFile(event.sender.id, font.path);
+    }
+    return fonts;
   });
 
-  ipcMain.handle("dialog:selectEditorBackgroundImage", async () => {
+  ipcMain.handle("dialog:selectEditorBackgroundImage", async (event) => {
     const result = await dialog.showOpenDialog({
       title: "Select editor background image",
       properties: ["openFile"],
@@ -196,7 +203,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       return null;
     }
 
-    return result.filePaths[0];
+    return deps.authorizeReadOnlyFile(event.sender.id, result.filePaths[0]);
   });
 
   ipcMain.handle(
@@ -275,6 +282,20 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       deps.assertWorkspaceRoot(event.sender.id, folderPath);
     }
     const settings = await readSettingsForFolder(folderPath);
+    for (const font of settings.customFonts) {
+      if (fs.existsSync(font.path)) {
+        deps.authorizeReadOnlyFile(event.sender.id, font.path);
+      }
+    }
+    if (
+      settings.editor.backgroundImagePath &&
+      fs.existsSync(settings.editor.backgroundImagePath)
+    ) {
+      deps.authorizeReadOnlyFile(
+        event.sender.id,
+        settings.editor.backgroundImagePath,
+      );
+    }
     const settingsPath = getSettingsPath(folderPath);
     const hasWorkspaceSettings =
       Boolean(folderPath) && fs.existsSync(settingsPath);

@@ -240,10 +240,6 @@ function getPathBasename(path: string | null) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? "open folder";
 }
 
-function getExternalDropPaths(dataTransfer: DataTransfer) {
-  return window.axon.getDroppedFilePaths(Array.from(dataTransfer.files));
-}
-
 function hasExternalFileDrag(dataTransfer: DataTransfer) {
   return Array.from(dataTransfer.types).includes("Files");
 }
@@ -519,9 +515,9 @@ export default function Sidebar({
     e.stopPropagation();
     setRootDragOver(false);
 
-    const externalPaths = getExternalDropPaths(e.dataTransfer);
-    if (externalPaths.length > 0) {
-      void handleImportExternalEntries(externalPaths, tree.path);
+    const externalFiles = Array.from(e.dataTransfer.files);
+    if (externalFiles.length > 0) {
+      void handleImportExternalEntries(externalFiles, tree.path);
       return;
     }
 
@@ -531,12 +527,12 @@ export default function Sidebar({
   };
 
   const handleImportExternalEntries = async (
-    sourcePaths: string[],
+    files: File[],
     targetDir: string,
   ): Promise<ImportedExternalEntry[]> => {
     try {
       const importedEntries = await window.axon.importExternalEntries(
-        sourcePaths,
+        files,
         targetDir,
       );
       const firstImportedEntry = importedEntries[0];
@@ -661,12 +657,13 @@ export default function Sidebar({
     }
   };
 
-  const handleOpenDroppedWorkspace = async (path: string) => {
+  const handleOpenDroppedWorkspace = async (files: File[]) => {
     try {
       // The no-workspace empty state is a workspace picker surface. I resolve
       // the dropped path through the same tree endpoint used by normal folder
       // selection so files are rejected naturally and only real folders become
       // the active workspace.
+      const path = await window.axon.authorizeDroppedWorkspace(files);
       const fileTree = await getTree(path);
       addRecentFolder(path);
       await onFolderChange(path, fileTree);

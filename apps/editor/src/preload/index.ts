@@ -157,9 +157,17 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("core:cancelRequest", requestId),
   createTerminalTicket: (workingDirectory: string | null): Promise<string> =>
     ipcRenderer.invoke("core:createTerminalTicket", workingDirectory),
+  getLocalAssetUrl: (filePath: string): Promise<string> =>
+    ipcRenderer.invoke("assets:getLocalUrl", filePath),
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   authorizeWorkspaceRoot: (rootPath: string): Promise<string> =>
     ipcRenderer.invoke("workspace:authorizeKnownRoot", rootPath),
+  authorizeDroppedWorkspace: (files: File[]): Promise<string> => {
+    const filePaths = files
+      .map((file) => webUtils.getPathForFile(file))
+      .filter((path) => path.length > 0);
+    return ipcRenderer.invoke("workspace:authorizeDroppedWorkspace", filePaths);
+  },
   authorizeDroppedFiles: (
     files: File[],
     rootPath?: string | null,
@@ -533,6 +541,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("git:resolveConflict", folderPath, resolution),
   listGitWorktrees: (folderPath: string): Promise<GitWorktreeListResult> =>
     ipcRenderer.invoke("git:worktrees", folderPath),
+  selectGitWorktreePath: (folderPath: string): Promise<string | null> =>
+    ipcRenderer.invoke("git:selectWorktreePath", folderPath),
   runGitWorktreeAction: (
     folderPath: string,
     action: GitWorktreeAction,
@@ -639,16 +649,15 @@ contextBridge.exposeInMainWorld("axon", {
     dataUrl: string,
   ): Promise<string | null> =>
     ipcRenderer.invoke("dialog:saveCodeSnapshot", suggestedName, dataUrl),
-  getDroppedFilePaths: (files: File[]): string[] =>
-    files
-      .map((file) => webUtils.getPathForFile(file))
-      .filter((path) => path.length > 0),
   importExternalEntries: (
-    sourcePaths: string[],
+    files: File[],
     targetDir: string,
-  ): Promise<
-    Array<{ sourcePath: string; targetPath: string; isDir: boolean }>
-  > => ipcRenderer.invoke("fs:importEntries", sourcePaths, targetDir),
+  ): Promise<Array<{ sourcePath: string; targetPath: string; isDir: boolean }>> => {
+    const sourcePaths = files
+      .map((file) => webUtils.getPathForFile(file))
+      .filter((path) => path.length > 0);
+    return ipcRenderer.invoke("fs:importEntries", sourcePaths, targetDir);
+  },
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
   unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
   watchFolder: (path: string) => ipcRenderer.invoke("fs:watchFolder", path),

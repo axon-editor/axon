@@ -4,11 +4,13 @@ import { type FileWatcherManager } from "./watcher";
 import { importExternalEntries } from "./importEntries";
 import { listProjectFiles } from "./projectFiles";
 import { getWorkspaceIndex } from "./workspaceIndex";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
 export function registerFileWatcherHandlers(
   createFileWatcherManager: (
     sendToRenderer: (channel: string, payload?: unknown) => void,
   ) => FileWatcherManager,
+  workspaceCapabilities: WorkspaceCapabilityRegistry,
   setWorkspaceWindowTitle: (
     sender: WebContents,
     folderPath: string | null,
@@ -66,7 +68,11 @@ export function registerFileWatcherHandlers(
   // File watchers feed external editor changes back into the active pane so
   // Axon keeps the open document in sync without forcing a reload cycle.
   ipcMain.handle("fs:watch", async (event, filePath: string) => {
-    await getActiveFileManager(event.sender).watchFile(filePath);
+    const authorizedPath = workspaceCapabilities.assertReadablePath(
+      event.sender.id,
+      filePath,
+    );
+    await getActiveFileManager(event.sender).watchFile(authorizedPath);
   });
 
   ipcMain.handle("fs:unwatch", async (event) => {
@@ -78,10 +84,14 @@ export function registerFileWatcherHandlers(
   ipcMain.handle("fs:watchFolder", async (event, folderPath: string) => {
     const sender = event.sender;
     const senderId = sender.id;
+    const authorizedFolderPath = workspaceCapabilities.assertRoot(
+      senderId,
+      folderPath,
+    );
     bindSenderLifecycle(sender);
-    const key = path.resolve(folderPath);
+    const key = path.resolve(authorizedFolderPath);
     if (workspaceBySender.get(senderId) === key) {
-      setWorkspaceWindowTitle(sender, folderPath);
+      setWorkspaceWindowTitle(sender, authorizedFolderPath);
       return;
     }
     await releaseWorkspace(senderId);
@@ -94,8 +104,8 @@ export function registerFileWatcherHandlers(
           if (!subscriber.isDestroyed()) subscriber.send(channel, payload);
         });
       });
-      const ready = manager.watchFolder(folderPath);
-      entry = { folderPath, manager, ready, subscribers };
+      const ready = manager.watchFolder(authorizedFolderPath);
+      entry = { folderPath: authorizedFolderPath, manager, ready, subscribers };
       workspaceWatchers.set(key, entry);
       entry.subscribers.set(senderId, sender);
       workspaceBySender.set(senderId, key);
@@ -112,14 +122,14 @@ export function registerFileWatcherHandlers(
         await manager.closeAll();
         throw error;
       }
-      setWorkspaceWindowTitle(sender, folderPath);
+      setWorkspaceWindowTitle(sender, authorizedFolderPath);
       return;
     }
 
     entry.subscribers.set(senderId, sender);
     workspaceBySender.set(senderId, key);
     await entry.ready;
-    setWorkspaceWindowTitle(sender, folderPath);
+    setWorkspaceWindowTitle(sender, authorizedFolderPath);
   });
 
   ipcMain.handle("fs:unwatchFolder", async (event) => {
@@ -127,20 +137,38 @@ export function registerFileWatcherHandlers(
     setWorkspaceWindowTitle(event.sender, null);
   });
 
-  ipcMain.handle("fs:listProjectFiles", async (_event, folderPath: string) => {
+  ipcMain.handle("fs:listProjectFiles", async (event, folderPath: string) => {
     if (!folderPath || typeof folderPath !== "string") return [];
-    return listProjectFiles(folderPath);
+    return listProjectFiles(
+      workspaceCapabilities.assertRoot(event.sender.id, folderPath),
+    );
   });
 
-  ipcMain.handle("fs:getWorkspaceIndex", async (_event, folderPath: string) => {
+  ipcMain.handle("fs:getWorkspaceIndex", async (event, folderPath: string) => {
     if (!folderPath || typeof folderPath !== "string") return null;
-    return getWorkspaceIndex(folderPath);
+    return getWorkspaceIndex(
+      workspaceCapabilities.assertRoot(event.sender.id, folderPath),
+    );
   });
 
   ipcMain.handle(
     "fs:importEntries",
-    async (_event, sourcePaths: string[], targetDir: string) => {
-      return importExternalEntries(sourcePaths, targetDir);
+    async (event, sourcePaths: string[], targetDir: string) => {
+      if (!Array.isArray(sourcePaths) || sourcePaths.length > 128) {
+        throw new Error("Too many filesystem entries were dropped at once.");
+      }
+      const nativeSourcePaths = sourcePaths.filter(
+        (sourcePath): sourcePath is string =>
+          typeof sourcePath === "string" && sourcePath.length > 0,
+      );
+      if (nativeSourcePaths.length !== sourcePaths.length) {
+        throw new Error("A dropped filesystem entry did not have a native path.");
+      }
+      const authorizedTarget = workspaceCapabilities.assertPath(
+        event.sender.id,
+        targetDir,
+      );
+      return importExternalEntries(nativeSourcePaths, authorizedTarget);
     },
   );
 

@@ -4,6 +4,7 @@
 import { ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 import { useState } from "react";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import { useLocalAssetUrl } from "@axon-editor/renderer/shared/hooks/useLocalAssetUrl";
 
 interface Props {
   filePath: string;
@@ -38,8 +39,7 @@ export default function MediaPreview({ filePath }: Props) {
   const isVideo = isVideoFile(filePath);
   const filename = filePath.split("/").pop() ?? filePath;
 
-  // convert absolute path to axon:// protocol URL
-  const src = `axon://local${filePath}`;
+  const src = useLocalAssetUrl(filePath);
 
   return (
     <div className="flex h-full w-full flex-col bg-[var(--axon-editor-background)]">
@@ -82,14 +82,14 @@ export default function MediaPreview({ filePath }: Props) {
       )}
 
       <div className="flex flex-1 items-center justify-center overflow-auto p-8">
-        {isVideo ? (
+        {isVideo && src ? (
           <video
             src={src}
             controls
             className="max-w-full max-h-full rounded"
             style={{ outline: "none" }}
           />
-        ) : (
+        ) : src ? (
           <img
             src={src}
             alt={filename}
@@ -103,7 +103,7 @@ export default function MediaPreview({ filePath }: Props) {
               maxHeight: zoom <= 1 ? "100%" : "none",
             }}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );

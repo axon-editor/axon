@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { BrowserWindow, app, dialog, ipcMain } from "electron";
 import {
   type GitActionResult,
@@ -51,9 +52,42 @@ interface GitHandlerDependencies {
     rootPath: string,
     persist?: boolean,
   ) => string;
+  assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
+  assertWorkspacePath: (rendererId: number, candidatePath: string) => string;
 }
 
 export function registerGitHandlers(deps: GitHandlerDependencies) {
+  const approvedWorktreePathsByRenderer = new Map<number, Set<string>>();
+  const boundWorktreeSenders = new Set<number>();
+  const authorizeRoot = (rendererId: number, folderPath: string) =>
+    deps.assertWorkspaceRoot(rendererId, folderPath);
+  const authorizeFile = (
+    rendererId: number,
+    folderPath: string,
+    filePath: string,
+  ) =>
+    deps.assertWorkspacePath(
+      rendererId,
+      path.isAbsolute(filePath) ? filePath : path.join(folderPath, filePath),
+    );
+
+  const rememberWorktreePath = (event: Electron.IpcMainInvokeEvent, value: string) => {
+    const rendererId = event.sender.id;
+    let approvedPaths = approvedWorktreePathsByRenderer.get(rendererId);
+    if (!approvedPaths) {
+      approvedPaths = new Set();
+      approvedWorktreePathsByRenderer.set(rendererId, approvedPaths);
+    }
+    approvedPaths.add(fs.realpathSync(value));
+
+    if (!boundWorktreeSenders.has(rendererId)) {
+      boundWorktreeSenders.add(rendererId);
+      event.sender.once("destroyed", () => {
+        boundWorktreeSenders.delete(rendererId);
+        approvedWorktreePathsByRenderer.delete(rendererId);
+      });
+    }
+  };
   ipcMain.handle(
     "git:clone",
     async (
@@ -133,7 +167,7 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
     },
   );
 
-  ipcMain.handle("git:status", async (_event, folderPath: string) => {
+  ipcMain.handle("git:status", async (event, folderPath: string) => {
     if (!folderPath || !fs.existsSync(folderPath)) {
       return {
         isRepository: false,
@@ -144,48 +178,62 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       } satisfies GitStatusResult;
     }
 
-    return getGitStatus(folderPath);
+    return getGitStatus(authorizeRoot(event.sender.id, folderPath));
   });
 
   ipcMain.handle(
     "git:diff",
     async (
-      _event,
+      event,
       folderPath: string,
       filePath: string,
       staged = false,
       untracked = false,
     ) => {
-      return getGitDiff(folderPath, filePath, staged, untracked);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      return getGitDiff(
+        root,
+        authorizeFile(event.sender.id, root, filePath),
+        staged,
+        untracked,
+      );
     },
   );
 
   ipcMain.handle(
     "git:baseFile",
-    async (_event, folderPath: string, filePath: string) => {
+    async (event, folderPath: string, filePath: string) => {
       if (!folderPath || !filePath || !fs.existsSync(folderPath)) return "";
-      return getGitFileBase(folderPath, filePath);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      return getGitFileBase(
+        root,
+        authorizeFile(event.sender.id, root, filePath),
+      );
     },
   );
 
   ipcMain.handle(
     "git:blame",
     async (
-      _event,
+      event,
       folderPath: string,
       filePath: string,
     ): Promise<GitBlameResult> => {
       if (!folderPath || !filePath || !fs.existsSync(folderPath)) {
         return { path: null, lines: [] };
       }
-      return getGitBlame(folderPath, filePath);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      return getGitBlame(
+        root,
+        authorizeFile(event.sender.id, root, filePath),
+      );
     },
   );
 
   ipcMain.handle(
     "git:history",
     async (
-      _event,
+      event,
       folderPath: string,
       filePath?: string | null,
     ): Promise<GitHistoryResult> => {
@@ -198,14 +246,18 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return getGitHistory(folderPath, filePath);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      return getGitHistory(
+        root,
+        filePath ? authorizeFile(event.sender.id, root, filePath) : filePath,
+      );
     },
   );
 
   ipcMain.handle(
     "git:commitDiff",
     async (
-      _event,
+      event,
       folderPath: string,
       hash: string,
       filePath?: string | null,
@@ -220,14 +272,20 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return getGitCommitDiff(folderPath, hash, filePath, oldPath);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      return getGitCommitDiff(
+        root,
+        hash,
+        filePath ? authorizeFile(event.sender.id, root, filePath) : filePath,
+        oldPath ? authorizeFile(event.sender.id, root, oldPath) : oldPath,
+      );
     },
   );
 
   ipcMain.handle(
     "git:action",
     async (
-      _event,
+      event,
       folderPath: string,
       filePath: string,
       action: "stage" | "unstage" | "discard",
@@ -239,14 +297,19 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         } satisfies GitActionResult;
       }
 
-      return runGitAction(folderPath, filePath, action);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      return runGitAction(
+        root,
+        authorizeFile(event.sender.id, root, filePath),
+        action,
+      );
     },
   );
 
   ipcMain.handle(
     "git:commit",
     async (
-      _event,
+      event,
       folderPath: string,
       message: string,
     ): Promise<GitCommitResult> => {
@@ -257,13 +320,13 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return commitGitChanges(folderPath, message);
+      return commitGitChanges(authorizeRoot(event.sender.id, folderPath), message);
     },
   );
 
   ipcMain.handle(
     "git:branches",
-    async (_event, folderPath: string): Promise<GitBranchListResult> => {
+    async (event, folderPath: string): Promise<GitBranchListResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
           ok: false,
@@ -273,14 +336,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return listGitBranches(folderPath);
+      return listGitBranches(authorizeRoot(event.sender.id, folderPath));
     },
   );
 
   ipcMain.handle(
     "git:branchAction",
     async (
-      _event,
+      event,
       folderPath: string,
       action: GitBranchAction,
     ): Promise<GitActionResult> => {
@@ -291,13 +354,16 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return runGitBranchAction(folderPath, action);
+      return runGitBranchAction(
+        authorizeRoot(event.sender.id, folderPath),
+        action,
+      );
     },
   );
 
   ipcMain.handle(
     "git:stashes",
-    async (_event, folderPath: string): Promise<GitStashListResult> => {
+    async (event, folderPath: string): Promise<GitStashListResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
           ok: false,
@@ -306,14 +372,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return listGitStashes(folderPath);
+      return listGitStashes(authorizeRoot(event.sender.id, folderPath));
     },
   );
 
   ipcMain.handle(
     "git:stashAction",
     async (
-      _event,
+      event,
       folderPath: string,
       action: GitStashAction,
     ): Promise<GitActionResult> => {
@@ -324,13 +390,16 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return runGitStashAction(folderPath, action);
+      return runGitStashAction(
+        authorizeRoot(event.sender.id, folderPath),
+        action,
+      );
     },
   );
 
   ipcMain.handle(
     "git:conflicts",
-    async (_event, folderPath: string): Promise<GitConflictListResult> => {
+    async (event, folderPath: string): Promise<GitConflictListResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
           ok: false,
@@ -339,14 +408,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return listGitConflicts(folderPath);
+      return listGitConflicts(authorizeRoot(event.sender.id, folderPath));
     },
   );
 
   ipcMain.handle(
     "git:resolveConflict",
     async (
-      _event,
+      event,
       folderPath: string,
       resolution: GitConflictResolution,
     ): Promise<GitActionResult> => {
@@ -357,13 +426,17 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return resolveGitConflict(folderPath, resolution);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      return resolveGitConflict(root, {
+        ...resolution,
+        path: authorizeFile(event.sender.id, root, resolution.path),
+      });
     },
   );
 
   ipcMain.handle(
     "git:worktrees",
-    async (_event, folderPath: string): Promise<GitWorktreeListResult> => {
+    async (event, folderPath: string): Promise<GitWorktreeListResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
           ok: false,
@@ -372,14 +445,42 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return listGitWorktrees(folderPath);
+      return listGitWorktrees(authorizeRoot(event.sender.id, folderPath));
+    },
+  );
+
+  ipcMain.handle(
+    "git:selectWorktreePath",
+    async (event, folderPath: string): Promise<string | null> => {
+      const root = authorizeRoot(event.sender.id, folderPath);
+      const parentWindow = BrowserWindow.fromWebContents(event.sender);
+      const options = {
+        title: "Choose Worktree Directory",
+        buttonLabel: "Use for Worktree",
+        defaultPath: path.dirname(root),
+        properties: ["openDirectory", "createDirectory"] as Array<
+          "openDirectory" | "createDirectory"
+        >,
+      };
+      const result = parentWindow
+        ? await dialog.showOpenDialog(parentWindow, options)
+        : await dialog.showOpenDialog(options);
+      if (result.canceled || result.filePaths.length === 0) return null;
+
+      // A worktree commonly lives beside the active repository, so it cannot
+      // use the normal inside-workspace path rule. The native picker grants
+      // this exact directory to this renderer and the action consumes only a
+      // path that was selected through that trusted surface.
+      const selectedPath = fs.realpathSync(result.filePaths[0]);
+      rememberWorktreePath(event, selectedPath);
+      return selectedPath;
     },
   );
 
   ipcMain.handle(
     "git:worktreeAction",
     async (
-      _event,
+      event,
       folderPath: string,
       action: GitWorktreeAction,
     ): Promise<GitActionResult> => {
@@ -390,13 +491,46 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return runGitWorktreeAction(folderPath, action);
+      const root = authorizeRoot(event.sender.id, folderPath);
+      if (action.type === "add") {
+        const targetPath = fs.realpathSync(action.path);
+        const approvedPaths = approvedWorktreePathsByRenderer.get(
+          event.sender.id,
+        );
+        if (!approvedPaths?.delete(targetPath)) {
+          return {
+            ok: false,
+            message: "Choose the worktree directory with the native picker first.",
+          };
+        }
+        return runGitWorktreeAction(root, { ...action, path: targetPath });
+      }
+
+      if (action.type === "remove") {
+        const targetPath = path.resolve(action.path);
+        const worktrees = await listGitWorktrees(root);
+        const registeredTarget = worktrees.worktrees.find(
+          (worktree) => path.resolve(worktree.path) === targetPath,
+        );
+        if (!registeredTarget) {
+          return {
+            ok: false,
+            message: "Git does not recognize that path as a repository worktree.",
+          };
+        }
+        return runGitWorktreeAction(root, {
+          ...action,
+          path: registeredTarget.path,
+        });
+      }
+
+      return runGitWorktreeAction(root, action);
     },
   );
 
   ipcMain.handle(
     "git:graph",
-    async (_event, folderPath: string): Promise<GitGraphResult> => {
+    async (event, folderPath: string): Promise<GitGraphResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
           ok: false,
@@ -407,7 +541,7 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return getGitGraph(folderPath);
+      return getGitGraph(authorizeRoot(event.sender.id, folderPath));
     },
   );
 }

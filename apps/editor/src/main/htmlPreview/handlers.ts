@@ -1,17 +1,32 @@
 import { ipcMain, shell } from "electron";
 import { type HtmlPreviewActionResult } from "../../shared/htmlPreview";
 import { HtmlPreviewServer } from "./server";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
-export function registerHtmlPreviewHandlers(getServer: () => HtmlPreviewServer) {
+export function registerHtmlPreviewHandlers(
+  getServer: () => HtmlPreviewServer,
+  workspaceCapabilities: WorkspaceCapabilityRegistry,
+) {
   ipcMain.handle(
     "htmlPreview:getTarget",
     async (
-      _event,
+      event,
       filePath: string,
       folderPath?: string | null,
     ): Promise<HtmlPreviewActionResult> => {
       try {
-        const target = await getServer().getTarget(filePath, folderPath);
+        if (!folderPath) {
+          throw new Error("Open a workspace before starting HTML preview.");
+        }
+        const root = workspaceCapabilities.assertRoot(
+          event.sender.id,
+          folderPath,
+        );
+        const authorizedFile = workspaceCapabilities.assertPath(
+          event.sender.id,
+          filePath,
+        );
+        const target = await getServer().getTarget(authorizedFile, root);
         return { ok: true, target };
       } catch (err) {
         return {
@@ -26,12 +41,23 @@ export function registerHtmlPreviewHandlers(getServer: () => HtmlPreviewServer) 
   ipcMain.handle(
     "htmlPreview:openExternal",
     async (
-      _event,
+      event,
       filePath: string,
       folderPath?: string | null,
     ): Promise<HtmlPreviewActionResult> => {
       try {
-        const target = await getServer().getTarget(filePath, folderPath);
+        if (!folderPath) {
+          throw new Error("Open a workspace before starting HTML preview.");
+        }
+        const root = workspaceCapabilities.assertRoot(
+          event.sender.id,
+          folderPath,
+        );
+        const authorizedFile = workspaceCapabilities.assertPath(
+          event.sender.id,
+          filePath,
+        );
+        const target = await getServer().getTarget(authorizedFile, root);
         await shell.openExternal(target.url);
         return { ok: true, target };
       } catch (err) {

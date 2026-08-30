@@ -26,7 +26,6 @@ import {
 } from "../../lib/buffer/monacoModels";
 import { useEditorFind } from "../../lib/hooks/useEditorFind";
 import {
-  encodeLocalPath,
   normalizePath,
 } from "../../lib/formatting/editorDocumentHelpers";
 import { isMarkdownFile } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
@@ -48,6 +47,7 @@ import {
   type EditorSaveEventDetail,
 } from "../../lib/buffer/editorSave";
 import { EditorErrorState, EditorLoadingState } from "./EditorDocumentState";
+import { useLocalAssetUrl } from "../../../../shared/hooks/useLocalAssetUrl";
 import MarkdownEditorModeToolbar, {
   type MarkdownPreviewMode,
 } from "./MarkdownEditorModeToolbar";
@@ -154,9 +154,9 @@ export default function SingleEditor({
   });
   const scheduleLiveContentUpdate = useTrailingTask();
   const editorBackgroundImagePath = editorSettings.backgroundImagePath.trim();
-  const editorBackgroundImageUrl = editorBackgroundImagePath
-    ? `axon://local${encodeLocalPath(editorBackgroundImagePath)}`
-    : "";
+  const editorBackgroundImageUrl = useLocalAssetUrl(
+    editorBackgroundImagePath || null,
+  );
   const shouldUseTransparentEditorSurface =
     editorSettings.appGlassMode !== "off" || Boolean(editorBackgroundImageUrl);
   const gitChange = gitChanges?.find(

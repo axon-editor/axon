@@ -221,6 +221,32 @@ export function registerWorkspaceCapabilityHandlers(
   );
 
   ipcMain.handle(
+    "workspace:authorizeDroppedWorkspace",
+    async (event, filePaths: string[]) => {
+      if (!Array.isArray(filePaths) || filePaths.length !== 1) {
+        throw new Error("Drop exactly one folder to open a workspace.");
+      }
+
+      const [filePath] = filePaths;
+      if (typeof filePath !== "string" || filePath.length === 0) {
+        throw new Error("The dropped folder did not provide a native path.");
+      }
+
+      const canonicalPath = canonicalWorkspacePath(filePath);
+      const info = await fs.promises.stat(canonicalPath);
+      if (!info.isDirectory()) {
+        throw new Error("Only a folder can be opened as a workspace.");
+      }
+
+      // webUtils extracts these paths inside the trusted preload from the
+      // browser's native File objects. Persisting this grant matches the native
+      // folder picker: the user explicitly chose this directory and should be
+      // able to reopen it from Recent Workspaces on the next launch.
+      return registry.authorize(event.sender.id, canonicalPath, true);
+    },
+  );
+
+  ipcMain.handle(
     "workspace:authorizeDroppedFiles",
     async (event, filePaths: string[], rootPath?: string | null) => {
       if (rootPath) registry.assertRoot(event.sender.id, rootPath);

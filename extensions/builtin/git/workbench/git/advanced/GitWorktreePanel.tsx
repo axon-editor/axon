@@ -43,12 +43,15 @@ export default function GitWorktreePanel({
   }, [folderPath]);
 
   const addWorktree = async () => {
-    if (!folderPath || !targetPath.trim()) return;
+    if (!folderPath) return;
     setBusyAction("worktree:add");
     try {
+      const selectedPath = await window.axon.selectGitWorktreePath(folderPath);
+      if (!selectedPath) return;
+      setTargetPath(selectedPath);
       const result = await window.axon.runGitWorktreeAction(folderPath, {
         type: "add",
-        path: targetPath.trim(),
+        path: selectedPath,
         createBranch: branchName.trim() || undefined,
       });
       onOutput(result.message, result.ok ? "success" : "error");
@@ -112,9 +115,9 @@ export default function GitWorktreePanel({
         <div className="grid grid-cols-[minmax(0,1fr)_72px_28px] gap-1">
           <input
             value={targetPath}
-            onChange={(event) => setTargetPath(event.target.value)}
-            placeholder="../axon-feature"
-            className="h-7 min-w-0 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30 focus:border-[var(--axon-syntax-function)]"
+            readOnly
+            placeholder="choose location"
+            className="h-7 min-w-0 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30"
           />
           <input
             value={branchName}
@@ -122,12 +125,12 @@ export default function GitWorktreePanel({
             placeholder="branch"
             className="h-7 min-w-0 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30 focus:border-[var(--axon-syntax-function)]"
           />
-          <Tooltip label="Create worktree at the typed path" side="bottom">
+          <Tooltip label="Choose a directory and create worktree" side="bottom">
             <button
               type="button"
-              aria-label="Create worktree at the typed path"
+              aria-label="Choose a directory and create worktree"
               onClick={() => void addWorktree()}
-              disabled={!targetPath.trim() || busyAction === "worktree:add"}
+              disabled={busyAction === "worktree:add"}
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-[var(--axon-panel-border)] text-[var(--axon-syntax-function)] hover:border-[var(--axon-syntax-function)] hover:text-[var(--axon-editor-foreground)] disabled:cursor-not-allowed disabled:opacity-30"
             >
               <Plus size={13} />

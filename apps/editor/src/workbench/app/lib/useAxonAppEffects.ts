@@ -87,8 +87,6 @@ interface AxonAppEffectsOptions {
   setZenMode: any;
   terminalOpen: any;
   themeTokens: any;
-  updateInfo: any;
-  updateInstallState: any;
   workspaceRoots: any;
   workspaceTrusted: any;
   workspaceTrustNonce: any;
@@ -145,8 +143,6 @@ export function useAxonAppEffects({
   setZenMode,
   terminalOpen,
   themeTokens,
-  updateInfo,
-  updateInstallState,
   workspaceRoots,
   workspaceTrusted,
   workspaceTrustNonce,
@@ -357,26 +353,43 @@ export function useAxonAppEffects({
       document.head.appendChild(styleElement);
     }
 
-    // Custom fonts are loaded from app-owned axon:// URLs returned by the main
-    // process importer. Injecting one style tag from settings keeps the font
-    // registry deterministic: changing settings JSON, saving settings, or
-    // restarting Axon all rebuild the same @font-face list before UI/editor
-    // components ask CSS or Monaco to use those font-family names.
+    let active = true;
     const allCustomFonts = [...availableFonts, ...settings.customFonts];
-    const customFontFaces = allCustomFonts
-      .map((font) => {
-        const family = escapeCssString(font.family);
-        const url = escapeCssString(font.url);
-        const weight = font.weight ? `font-weight:${font.weight};` : "";
-        const style = font.style ? `font-style:${font.style};` : "";
-        const stretch = font.stretch ? `font-stretch:${font.stretch};` : "";
-        return `@font-face{font-family:"${family}";src:url("${url}");${weight}${style}${stretch}font-display:swap;}`;
+    styleElement.textContent = createBundledFontFaces();
+    void Promise.all(
+      allCustomFonts.map(async (font) => ({
+        font,
+        url: await window.axon.getLocalAssetUrl(font.path),
+      })),
+    )
+      .then((authorizedFonts) => {
+        if (!active || !styleElement) return;
+        const customFontFaces = authorizedFonts
+          .map(({ font, url }) => {
+            const family = escapeCssString(font.family);
+            const authorizedUrl = escapeCssString(url);
+            const weight = font.weight ? `font-weight:${font.weight};` : "";
+            const style = font.style ? `font-style:${font.style};` : "";
+            const stretch = font.stretch
+              ? `font-stretch:${font.stretch};`
+              : "";
+            return `@font-face{font-family:"${family}";src:url("${authorizedUrl}");${weight}${style}${stretch}font-display:swap;}`;
+          })
+          .join("\n");
+        styleElement.textContent = [
+          createBundledFontFaces(),
+          customFontFaces,
+        ]
+          .filter(Boolean)
+          .join("\n");
       })
-      .join("\n");
+      .catch((error) => {
+        console.error("failed to authorize custom fonts:", error);
+      });
 
-    styleElement.textContent = [createBundledFontFaces(), customFontFaces]
-      .filter(Boolean)
-      .join("\n");
+    return () => {
+      active = false;
+    };
   }, [availableFonts, settings.customFonts]);
 
   useEffect(() => {

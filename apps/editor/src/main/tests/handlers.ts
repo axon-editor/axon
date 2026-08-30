@@ -6,11 +6,15 @@ import {
   type TestRunResult,
   type TestStopResult,
 } from "../../shared/tests";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
-export function registerTestHandlers(testManager: TestManager) {
+export function registerTestHandlers(
+  testManager: TestManager,
+  workspaceCapabilities: WorkspaceCapabilityRegistry,
+) {
   ipcMain.handle(
     "tests:discover",
-    async (_event, folderPath: string): Promise<TestDiscoveryResult> => {
+    async (event, folderPath: string): Promise<TestDiscoveryResult> => {
       if (!folderPath || !fs.existsSync(folderPath)) {
         return {
           ok: false,
@@ -20,14 +24,16 @@ export function registerTestHandlers(testManager: TestManager) {
         };
       }
 
-      return testManager.discover(folderPath);
+      return testManager.discover(
+        workspaceCapabilities.assertRoot(event.sender.id, folderPath),
+      );
     },
   );
 
   ipcMain.handle(
     "tests:run",
     async (
-      _event,
+      event,
       folderPath: string,
       providerId: string,
       targetId?: string | null,
@@ -42,7 +48,11 @@ export function registerTestHandlers(testManager: TestManager) {
         };
       }
 
-      return testManager.run(folderPath, providerId, targetId);
+      return testManager.run(
+        workspaceCapabilities.assertRoot(event.sender.id, folderPath),
+        providerId,
+        targetId,
+      );
     },
   );
 

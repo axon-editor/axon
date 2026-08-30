@@ -15,6 +15,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type ComponentPropsWithoutRef,
   type CSSProperties,
   type MouseEvent,
   type ReactNode,
@@ -28,6 +29,7 @@ import {
   MarkdownReferences,
 } from "./MarkdownDocumentExtras";
 import MarkdownPreviewToolbar from "./MarkdownPreviewToolbar";
+import { useLocalAssetUrl } from "@axon-editor/renderer/shared/hooks/useLocalAssetUrl";
 import {
   prepareMarkdownDocument,
   remarkAxonCallouts,
@@ -116,13 +118,6 @@ function isHashReference(src: string) {
   return src.startsWith("#");
 }
 
-function encodeLocalPath(path: string) {
-  return path
-    .split("/")
-    .map((part, index) => (index === 0 ? part : encodeURIComponent(part)))
-    .join("/");
-}
-
 function splitLocalReference(src: string) {
   const markerIndex = src.search(/[?#]/);
   if (markerIndex === -1) return { pathname: src, suffix: "" };
@@ -138,7 +133,9 @@ function resolveMarkdownAsset(
   filePath: string,
   folderPath: string | null,
 ) {
-  if (!src || isExternalUrl(src) || isInlineReference(src)) return src;
+  if (!src || isExternalUrl(src) || isInlineReference(src)) {
+    return { directUrl: src, localPath: null, suffix: "" };
+  }
 
   const { pathname, suffix } = splitLocalReference(src);
   const markdownRoot = folderPath ?? getParentPath(filePath);
@@ -152,7 +149,112 @@ function resolveMarkdownAsset(
     ? normalizePath(`${markdownRoot}/${pathname}`)
     : normalizePath(`${getParentPath(filePath)}/${pathname}`);
 
-  return `axon://local${encodeLocalPath(absolutePath)}${suffix}`;
+  return { directUrl: undefined, localPath: absolutePath, suffix };
+}
+
+function useMarkdownAssetUrl(
+  src: string | undefined,
+  filePath: string,
+  folderPath: string | null,
+) {
+  const resolved = resolveMarkdownAsset(src, filePath, folderPath);
+  const localUrl = useLocalAssetUrl(resolved.localPath);
+  return resolved.directUrl ?? (localUrl ? `${localUrl}${resolved.suffix}` : "");
+}
+
+function MarkdownImageAsset({
+  src,
+  filePath,
+  folderPath,
+  alt,
+  width,
+  height,
+  style,
+}: {
+  src?: string;
+  filePath: string;
+  folderPath: string | null;
+  alt?: string;
+  width?: number | string;
+  height?: number | string;
+  style?: unknown;
+}) {
+  const assetUrl = useMarkdownAssetUrl(src, filePath, folderPath);
+  const mediaStyle = getStyleObject(style);
+  if (!assetUrl) return null;
+
+  if (isVideoAsset(src)) {
+    return (
+      <video
+        src={assetUrl}
+        controls
+        width={width}
+        height={height}
+        style={{ maxWidth: "100%", ...mediaStyle }}
+        className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
+      />
+    );
+  }
+
+  return (
+    <img
+      src={assetUrl}
+      alt={alt ?? ""}
+      width={width}
+      height={height}
+      style={{ maxWidth: "100%", ...mediaStyle }}
+      className="my-4 inline-block align-middle"
+    />
+  );
+}
+
+function MarkdownVideoAsset({
+  src,
+  filePath,
+  folderPath,
+  children,
+  controls,
+  width,
+  height,
+  style,
+  node: _node,
+  ...props
+}: Omit<ComponentPropsWithoutRef<"video">, "style"> & {
+  filePath: string;
+  folderPath: string | null;
+  node?: unknown;
+  style?: CSSProperties | string;
+}) {
+  const assetUrl = useMarkdownAssetUrl(src, filePath, folderPath);
+  if (!assetUrl) return null;
+  return (
+    <video
+      src={assetUrl}
+      controls={controls ?? true}
+      width={width}
+      height={height}
+      style={{ maxWidth: "100%", ...getStyleObject(style) }}
+      className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
+      {...props}
+    >
+      {children}
+    </video>
+  );
+}
+
+function MarkdownSourceAsset({
+  src,
+  filePath,
+  folderPath,
+  node: _node,
+  ...props
+}: ComponentPropsWithoutRef<"source"> & {
+  filePath: string;
+  folderPath: string | null;
+  node?: unknown;
+}) {
+  const assetUrl = useMarkdownAssetUrl(src, filePath, folderPath);
+  return assetUrl ? <source src={assetUrl} {...props} /> : null;
 }
 
 function isVideoAsset(src: string | undefined) {
@@ -664,65 +766,29 @@ export default function MarkdownPreview({
           </div>
         );
       },
-      img: ({ src, alt, width, height, ...props }: any) => {
-        const mediaStyle = getStyleObject(props.style);
-        const resolvedSrc = resolveMarkdownAsset(src, filePath, folderPath);
-
-        if (isVideoAsset(src)) {
-          return (
-            <video
-              src={resolvedSrc}
-              controls
-              width={width}
-              height={height}
-              style={{
-                maxWidth: "100%",
-                ...mediaStyle,
-              }}
-              className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
-            />
-          );
-        }
-
-        return (
-          <img
-            src={resolvedSrc}
-            alt={alt ?? ""}
-            width={width}
-            height={height}
-            style={{
-              maxWidth: "100%",
-              ...mediaStyle,
-            }}
-            className="my-4 inline-block align-middle"
-          />
-        );
-      },
-      video: ({ src, children, controls, width, height, ...props }: any) => {
-        const videoStyle = getStyleObject(props.style);
-        const resolvedSrc = resolveMarkdownAsset(src, filePath, folderPath);
-
-        return (
-          <video
-            src={resolvedSrc}
-            controls={controls ?? true}
-            width={width}
-            height={height}
-            style={{
-              maxWidth: "100%",
-              ...videoStyle,
-            }}
-            className="my-4 inline-block rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] align-middle"
-            {...props}
-          >
-            {children}
-          </video>
-        );
-      },
-      source: ({ src, ...props }: any) => (
-        <source
-          src={resolveMarkdownAsset(src, filePath, folderPath)}
+      img: ({ src, alt, width, height, ...props }: any) => (
+        <MarkdownImageAsset
+          src={src}
+          filePath={filePath}
+          folderPath={folderPath}
+          alt={alt}
+          width={width}
+          height={height}
+          style={props.style}
+        />
+      ),
+      video: (props: any) => (
+        <MarkdownVideoAsset
           {...props}
+          filePath={filePath}
+          folderPath={folderPath}
+        />
+      ),
+      source: (props: any) => (
+        <MarkdownSourceAsset
+          {...props}
+          filePath={filePath}
+          folderPath={folderPath}
         />
       ),
       ul: ({ children }) => (

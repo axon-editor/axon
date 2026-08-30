@@ -1,19 +1,28 @@
 import { ipcMain } from "electron";
 import { type TaskManager } from "./tasks";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
-export function registerTaskHandlers(taskManager: TaskManager) {
-  ipcMain.handle("tasks:list", async (_event, folderPath: string) => {
+export function registerTaskHandlers(
+  taskManager: TaskManager,
+  workspaceCapabilities: WorkspaceCapabilityRegistry,
+) {
+  ipcMain.handle("tasks:list", async (event, folderPath: string) => {
     if (!folderPath || !folderPath.length) return [];
-    return taskManager.getWorkspaceTasks(folderPath);
+    return taskManager.getWorkspaceTasks(
+      workspaceCapabilities.assertRoot(event.sender.id, folderPath),
+    );
   });
 
   ipcMain.handle(
     "tasks:run",
-    async (_event, folderPath: string, taskId: string) => {
+    async (event, folderPath: string, taskId: string) => {
       if (!folderPath || !folderPath.length) {
         throw new Error("Open a workspace before running tasks.");
       }
-      return taskManager.startWorkspaceTask(folderPath, taskId);
+      return taskManager.startWorkspaceTask(
+        workspaceCapabilities.assertRoot(event.sender.id, folderPath),
+        taskId,
+      );
     },
   );
 }

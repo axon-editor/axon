@@ -36,6 +36,16 @@ function createManager() {
   } as unknown as FileWatcherManager;
 }
 
+function createCapabilities() {
+  return {
+    assertRoot: vi.fn((_rendererId: number, folderPath: string) => folderPath),
+    assertPath: vi.fn((_rendererId: number, candidatePath: string) => candidatePath),
+    assertReadablePath: vi.fn(
+      (_rendererId: number, candidatePath: string) => candidatePath,
+    ),
+  } as any;
+}
+
 describe("file watcher IPC ownership", () => {
   beforeEach(() => {
     ipcHandlers.clear();
@@ -49,7 +59,7 @@ describe("file watcher IPC ownership", () => {
       managers.push(manager);
       senders.push(sendToRenderer);
       return manager;
-    });
+    }, createCapabilities());
 
     const firstWindow = new FakeSender(1);
     const secondWindow = new FakeSender(2);
@@ -85,6 +95,7 @@ describe("file watcher IPC ownership", () => {
     const setWorkspaceWindowTitle = vi.fn();
     registerFileWatcherHandlers(
       () => createManager(),
+      createCapabilities(),
       setWorkspaceWindowTitle,
     );
     const window = new FakeSender(1);
@@ -100,5 +111,16 @@ describe("file watcher IPC ownership", () => {
 
     await ipcHandlers.get("fs:unwatchFolder")!({ sender: window });
     expect(setWorkspaceWindowTitle).toHaveBeenLastCalledWith(window, null);
+  });
+
+  it("rejects malformed external import payloads before resolving the target", async () => {
+    const capabilities = createCapabilities();
+    registerFileWatcherHandlers(() => createManager(), capabilities);
+    const importEntries = ipcHandlers.get("fs:importEntries")!;
+
+    await expect(
+      importEntries({ sender: new FakeSender(3) }, ["/tmp/file", 4], "/workspace"),
+    ).rejects.toThrow("did not have a native path");
+    expect(capabilities.assertPath).not.toHaveBeenCalled();
   });
 });

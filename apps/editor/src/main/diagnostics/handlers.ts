@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { type EditorDiagnostic } from "../../shared/diagnostics";
 import { runProjectDiagnostics } from "./diagnostics";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
 interface AgentDiagnosticsSnapshot {
   workspace: string;
@@ -29,18 +30,26 @@ async function writeAgentDiagnosticsSnapshot(
   );
 }
 
-export function registerDiagnosticsHandlers() {
-  ipcMain.handle("diagnostics:project", async (_event, folderPath: string) => {
-    return runProjectDiagnostics(folderPath);
+export function registerDiagnosticsHandlers(
+  workspaceCapabilities: WorkspaceCapabilityRegistry,
+) {
+  ipcMain.handle("diagnostics:project", async (event, folderPath: string) => {
+    return runProjectDiagnostics(
+      workspaceCapabilities.assertRoot(event.sender.id, folderPath),
+    );
   });
 
   ipcMain.handle(
     "diagnostics:exportAgent",
     async (
-      _event,
+      event,
       snapshot: AgentDiagnosticsSnapshot,
     ): Promise<{ ok: boolean }> => {
-      await writeAgentDiagnosticsSnapshot(snapshot);
+      const workspace = workspaceCapabilities.assertRoot(
+        event.sender.id,
+        snapshot.workspace,
+      );
+      await writeAgentDiagnosticsSnapshot({ ...snapshot, workspace });
       return { ok: true };
     },
   );

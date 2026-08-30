@@ -4,10 +4,6 @@ import path from "path";
 import { type CustomFont } from "../../shared/settings";
 import { getCustomFontsDirectory } from "../settings/paths";
 
-function toAxonLocalUrl(filePath: string) {
-  return `axon://local${encodeURI(filePath)}`;
-}
-
 function getFontFamilyFromPath(filePath: string) {
   const parsed = path.parse(filePath);
   return parsed.name
@@ -42,7 +38,7 @@ function getFontMetadataFromPath(filePath: string): CustomFont {
     return {
       family: getFontFamilyFromPath(filePath),
       path: filePath,
-      url: toAxonLocalUrl(filePath),
+      url: "",
     };
   }
 
@@ -50,7 +46,7 @@ function getFontMetadataFromPath(filePath: string): CustomFont {
   return {
     family,
     path: filePath,
-    url: toAxonLocalUrl(filePath),
+    url: "",
     weight: getFontWeightFromName(name),
     style: name.includes("Italic") ? "italic" : "normal",
     stretch: getFontStretchFromName(name),
@@ -98,7 +94,7 @@ export function importCustomFontFile(sourcePath: string): CustomFont {
   return {
     family,
     path: targetPath,
-    url: toAxonLocalUrl(targetPath),
+    url: "",
   };
 }
 

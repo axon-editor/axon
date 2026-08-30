@@ -824,8 +824,6 @@ export default function App({ initialExtensionState }: AppProps) {
     setZenMode,
     terminalOpen,
     themeTokens,
-    updateInfo,
-    updateInstallState,
     workspaceRoots,
     workspaceTrusted,
     workspaceTrustNonce,

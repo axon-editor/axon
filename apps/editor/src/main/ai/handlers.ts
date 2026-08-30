@@ -16,6 +16,7 @@ import {
   startCoreAiStream,
   startCoreModelPullStream,
 } from "./coreStream";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
 interface CoreResponse<T> {
   status: "success" | "error";
@@ -83,11 +84,35 @@ async function getCoreAiProjectContext(input: {
 export function registerAiHandlers(deps: {
   axonCorePort: string;
   axonCoreToken: string;
+  workspaceCapabilities: WorkspaceCapabilityRegistry;
 }) {
+  const authorizeFolder = (rendererId: number, folderPath?: string | null) =>
+    folderPath
+      ? deps.workspaceCapabilities.assertRoot(rendererId, folderPath)
+      : folderPath;
+  const authorizeChatRequest = (rendererId: number, request: AiChatRequest) => {
+    const folderPath = authorizeFolder(rendererId, request.folderPath) ?? null;
+    const activeFilePath = request.activeFilePath
+      ? deps.workspaceCapabilities.assertReadablePath(
+          rendererId,
+          request.activeFilePath,
+        )
+      : request.activeFilePath;
+    const files = request.files.map((file) => ({
+      ...file,
+      path: deps.workspaceCapabilities.assertReadablePath(
+        rendererId,
+        file.path,
+      ),
+    }));
+    return { ...request, folderPath, activeFilePath, files };
+  };
+
   ipcMain.handle(
     "ai:getRuntimeStatus",
-    async (_event, folderPath?: string | null): Promise<AiRuntimeStatus> => {
-      const settings = await readSettingsForFolder(folderPath);
+    async (event, folderPath?: string | null): Promise<AiRuntimeStatus> => {
+      const authorizedFolder = authorizeFolder(event.sender.id, folderPath);
+      const settings = await readSettingsForFolder(authorizedFolder);
       return getCoreAiRuntimeStatus({
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
@@ -98,8 +123,9 @@ export function registerAiHandlers(deps: {
 
   ipcMain.handle(
     "ai:listModels",
-    async (_event, folderPath?: string | null): Promise<AiModelInfo[]> => {
-      const settings = await readSettingsForFolder(folderPath);
+    async (event, folderPath?: string | null): Promise<AiModelInfo[]> => {
+      const authorizedFolder = authorizeFolder(event.sender.id, folderPath);
+      const settings = await readSettingsForFolder(authorizedFolder);
       return listCoreAiModels({
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
@@ -110,31 +136,36 @@ export function registerAiHandlers(deps: {
 
   ipcMain.handle(
     "ai:getProjectContext",
-    async (_event, folderPath: string): Promise<AiProjectContext> => {
+    async (event, folderPath: string): Promise<AiProjectContext> => {
       return getCoreAiProjectContext({
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
-        folderPath,
+        folderPath: deps.workspaceCapabilities.assertRoot(
+          event.sender.id,
+          folderPath,
+        ),
       });
     },
   );
 
   ipcMain.handle(
     "ai:chat",
-    async (_event, request: AiChatRequest): Promise<AiChatResult> => {
+    async (event, request: AiChatRequest): Promise<AiChatResult> => {
       // AI requests stay in the main process because model endpoints, future
       // credentials, and provider routing are privileged integration details.
       // The renderer sends user intent and prepared context; the main process
       // decides which provider can execute it and returns a safe result shape.
-      const settings = await readSettingsForFolder(request.folderPath);
-      return runLocalAiChat(request, settings);
+      const authorizedRequest = authorizeChatRequest(event.sender.id, request);
+      const settings = await readSettingsForFolder(authorizedRequest.folderPath);
+      return runLocalAiChat(authorizedRequest, settings);
     },
   );
 
   ipcMain.handle(
     "ai:chatStream",
     async (event, request: AiChatRequest): Promise<AiChatStreamStarted> => {
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeChatRequest(event.sender.id, request);
+      const settings = await readSettingsForFolder(authorizedRequest.folderPath);
       if (!settings.ai.enabled) {
         return {
           success: false,
@@ -147,8 +178,8 @@ export function registerAiHandlers(deps: {
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
         request: {
-          ...request,
-          model: request.model?.trim() || settings.ai.model,
+          ...authorizedRequest,
+          model: authorizedRequest.model?.trim() || settings.ai.model,
         },
         send: (payload) => {
           if (!event.sender.isDestroyed()) {

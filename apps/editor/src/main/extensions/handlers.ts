@@ -9,42 +9,58 @@ import {
 } from "../../shared/extensions";
 import { extensionHostService } from "./host/service";
 import { getUserExtensionsPath } from "./paths";
+import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
-export function registerExtensionHandlers() {
+export function registerExtensionHandlers(
+  workspaceCapabilities: WorkspaceCapabilityRegistry,
+) {
+  const authorizeFolder = (rendererId: number, folderPath?: string | null) =>
+    folderPath
+      ? workspaceCapabilities.assertRoot(rendererId, folderPath)
+      : folderPath;
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.list,
-    async (_event, folderPath?: string | null): Promise<ExtensionState> => {
-      return extensionHostService.getState(folderPath);
+    async (event, folderPath?: string | null): Promise<ExtensionState> => {
+      return extensionHostService.getState(
+        authorizeFolder(event.sender.id, folderPath),
+      );
     },
   );
 
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.activate,
     async (
-      _event,
+      event,
       activationEvent: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.activate(activationEvent, folderPath);
+      return extensionHostService.activate(
+        activationEvent,
+        authorizeFolder(event.sender.id, folderPath),
+      );
     },
   );
 
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.executeCommand,
     async (
-      _event,
+      event,
       commandId: string,
       args: unknown[] = [],
       folderPath?: string | null,
     ): Promise<ExtensionCommandExecutionResult> => {
-      return extensionHostService.executeCommand(commandId, args, folderPath);
+      return extensionHostService.executeCommand(
+        commandId,
+        args,
+        authorizeFolder(event.sender.id, folderPath),
+      );
     },
   );
 
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.setEnabled,
     async (
-      _event,
+      event,
       extensionId: string,
       enabled: boolean,
       folderPath?: string | null,
@@ -53,21 +69,29 @@ export function registerExtensionHandlers() {
         return {
           ok: false,
           message: "Built-in extensions cannot be disabled.",
-          state: extensionHostService.getState(folderPath),
+          state: extensionHostService.getState(
+            authorizeFolder(event.sender.id, folderPath),
+          ),
         };
       }
 
-      return extensionHostService.setEnabled(extensionId, enabled, folderPath);
+      return extensionHostService.setEnabled(
+        extensionId,
+        enabled,
+        authorizeFolder(event.sender.id, folderPath),
+      );
     },
   );
 
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.reload,
     async (
-      _event,
+      event,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.reload(folderPath);
+      return extensionHostService.reload(
+        authorizeFolder(event.sender.id, folderPath),
+      );
     },
   );
 
@@ -88,31 +112,41 @@ export function registerExtensionHandlers() {
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.install,
     async (
-      _event,
+      event,
       extensionId: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.install(extensionId, folderPath);
+      return extensionHostService.install(
+        extensionId,
+        authorizeFolder(event.sender.id, folderPath),
+      );
     },
   );
 
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.installTheme,
     async (
-      _event,
+      event,
       extensionId: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.install(extensionId, folderPath);
+      return extensionHostService.install(
+        extensionId,
+        authorizeFolder(event.sender.id, folderPath),
+      );
     },
   );
 
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.openFolder,
     async (
-      _event,
+      event,
       workspacePath?: string | null,
     ): Promise<ExtensionActionResult> => {
+      const authorizedWorkspacePath = authorizeFolder(
+        event.sender.id,
+        workspacePath,
+      );
       const userExtensionsPath = getUserExtensionsPath();
       fs.mkdirSync(userExtensionsPath, { recursive: true });
       const openError = await shell.openPath(userExtensionsPath);
@@ -125,14 +159,14 @@ export function registerExtensionHandlers() {
         return {
           ok: false,
           message: openError,
-          state: extensionHostService.getState(workspacePath),
+          state: extensionHostService.getState(authorizedWorkspacePath),
         };
       }
 
       return {
         ok: true,
         message: "Opened user extensions folder.",
-        state: extensionHostService.getState(workspacePath),
+        state: extensionHostService.getState(authorizedWorkspacePath),
       };
     },
   );

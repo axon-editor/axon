@@ -135,8 +135,10 @@ declare global {
       createTerminalTicket: (
         workingDirectory: string | null,
       ) => Promise<string>;
+      getLocalAssetUrl: (filePath: string) => Promise<string>;
       openFolder: () => Promise<string | null>;
       authorizeWorkspaceRoot: (rootPath: string) => Promise<string>;
+      authorizeDroppedWorkspace: (files: File[]) => Promise<string>;
       authorizeDroppedFiles: (
         files: File[],
         rootPath?: string | null,
@@ -384,6 +386,7 @@ declare global {
         resolution: GitConflictResolution,
       ) => Promise<GitActionResult>;
       listGitWorktrees: (folderPath: string) => Promise<GitWorktreeListResult>;
+      selectGitWorktreePath: (folderPath: string) => Promise<string | null>;
       runGitWorktreeAction: (
         folderPath: string,
         action: GitWorktreeAction,
@@ -444,9 +447,8 @@ declare global {
         suggestedName: string,
         dataUrl: string,
       ) => Promise<string | null>;
-      getDroppedFilePaths: (files: File[]) => string[];
       importExternalEntries: (
-        sourcePaths: string[],
+        files: File[],
         targetDir: string,
       ) => Promise<
         Array<{ sourcePath: string; targetPath: string; isDir: boolean }>

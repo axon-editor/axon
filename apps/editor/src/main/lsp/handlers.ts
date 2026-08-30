@@ -48,25 +48,49 @@ import {
 } from "../../shared/lsp";
 
 export function registerLspHandlers(
-  workspaceCapabilities?: WorkspaceCapabilityRegistry,
+  workspaceCapabilities: WorkspaceCapabilityRegistry,
 ) {
-  ipcMain.handle("lsp:status", async (_event, folderPath: string) => {
+  const authorizeRoot = (rendererId: number, folderPath: string) =>
+    workspaceCapabilities.assertRoot(rendererId, folderPath);
+  const authorizeDocumentRequest = <
+    T extends { folderPath: string; filePath: string },
+  >(
+    rendererId: number,
+    request: T,
+  ): T => ({
+    ...request,
+    folderPath: authorizeRoot(rendererId, request.folderPath),
+    filePath: workspaceCapabilities.assertReadablePath(
+      rendererId,
+      request.filePath,
+    ),
+  });
+  const assertWritableEdits = (
+    rendererId: number,
+    edits: Record<string, unknown>,
+  ) => {
+    for (const filePath of Object.keys(edits)) {
+      workspaceCapabilities.assertWritablePath(rendererId, filePath);
+    }
+  };
+
+  ipcMain.handle("lsp:status", async (event, folderPath: string) => {
     if (!folderPath || !fs.existsSync(folderPath)) return [];
-    return getLanguageServerStatus(folderPath);
+    return getLanguageServerStatus(authorizeRoot(event.sender.id, folderPath));
   });
 
   ipcMain.handle(
     "lsp:workspaceStatus",
-    async (_event, folderPath: string, languageId: string) => {
+    async (event, folderPath: string, languageId: string) => {
       if (!folderPath || !fs.existsSync(folderPath)) return [];
-      return getLanguageServerStatus(folderPath, {
+      return getLanguageServerStatus(authorizeRoot(event.sender.id, folderPath), {
         relevantOnly: true,
         languageId,
       });
     },
   );
 
-  ipcMain.handle("lsp:start", async (_event, folderPath: string) => {
+  ipcMain.handle("lsp:start", async (event, folderPath: string) => {
     if (!folderPath || !fs.existsSync(folderPath)) {
       return {
         ok: false,
@@ -75,22 +99,23 @@ export function registerLspHandlers(
       } satisfies LanguageServerLifecycleResult;
     }
 
-    const settings = await readSettingsForFolder(folderPath);
+    const authorizedFolder = authorizeRoot(event.sender.id, folderPath);
+    const settings = await readSettingsForFolder(authorizedFolder);
     if (!settings.lsp.enabled) {
       return {
         ok: true,
         message: "Language servers are disabled in settings.",
-        servers: await getLanguageServerStatus(folderPath),
+        servers: await getLanguageServerStatus(authorizedFolder),
       } satisfies LanguageServerLifecycleResult;
     }
 
-    return startRelevantLanguageServers(folderPath);
+    return startRelevantLanguageServers(authorizedFolder);
   });
 
   ipcMain.handle(
     "lsp:startForLanguage",
     async (
-      _event,
+      event,
       request: LanguageServerStartForFileRequest,
     ): Promise<LanguageServerLifecycleResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
@@ -101,23 +126,27 @@ export function registerLspHandlers(
         };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedFolder = authorizeRoot(
+        event.sender.id,
+        request.folderPath,
+      );
+      const settings = await readSettingsForFolder(authorizedFolder);
       if (!settings.lsp.enabled) {
         return {
           ok: true,
           message: "Language servers are disabled in settings.",
-          servers: await getLanguageServerStatus(request.folderPath),
+          servers: await getLanguageServerStatus(authorizedFolder),
         };
       }
 
       return startLanguageServerForLanguage(
-        request.folderPath,
+        authorizedFolder,
         request.languageId,
       );
     },
   );
 
-  ipcMain.handle("lsp:stop", async (_event, folderPath: string) => {
+  ipcMain.handle("lsp:stop", async (event, folderPath: string) => {
     if (!folderPath || !fs.existsSync(folderPath)) {
       return {
         ok: false,
@@ -126,67 +155,90 @@ export function registerLspHandlers(
       } satisfies LanguageServerLifecycleResult;
     }
 
-    return stopRelevantLanguageServers(folderPath);
+    return stopRelevantLanguageServers(
+      authorizeRoot(event.sender.id, folderPath),
+    );
   });
 
   ipcMain.handle(
     "lsp:completion",
     async (
-      _event,
+      event,
       request: LanguageServerCompletionRequest,
     ): Promise<LanguageServerCompletionResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, items: [] };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) {
         return { ok: true, items: [] };
       }
 
-      return getLanguageServerCompletions(request);
+      return getLanguageServerCompletions(authorizedRequest);
     },
   );
 
   ipcMain.handle(
     "lsp:syncDocument",
-    async (_event, request: LanguageServerDocumentSyncRequest): Promise<void> => {
+    async (event, request: LanguageServerDocumentSyncRequest): Promise<void> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) return;
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return;
 
-      await syncDocumentWithLanguageServer(request);
+      await syncDocumentWithLanguageServer(authorizedRequest);
     },
   );
 
   ipcMain.handle(
     "lsp:resolveCompletion",
     async (
-      _event,
+      event,
       request: LanguageServerCompletionResolveRequest,
     ): Promise<LanguageServerCompletionResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, items: [request.item] };
       }
-      return resolveLanguageServerCompletionItem(request);
+      return resolveLanguageServerCompletionItem({
+        ...request,
+        folderPath: authorizeRoot(event.sender.id, request.folderPath),
+      });
     },
   );
 
   ipcMain.handle(
     "lsp:hover",
     async (
-      _event,
+      event,
       request: LanguageServerHoverRequest,
     ): Promise<LanguageServerHoverResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, contents: [] };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return { ok: true, contents: [] };
 
-      return getLanguageServerHover(request);
+      return getLanguageServerHover(authorizedRequest);
     },
   );
 
@@ -199,23 +251,17 @@ export function registerLspHandlers(
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, locations: [] };
       }
-      if (workspaceCapabilities) {
-        try {
-          workspaceCapabilities.assertRoot(event.sender.id, request.folderPath);
-        } catch {
-          return {
-            ok: false,
-            message: "Open this workspace before navigating to definitions.",
-            locations: [],
-          };
-        }
-      }
-
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return { ok: true, locations: [] };
 
-      const result = await getLanguageServerDefinitions(request);
-      if (result.ok && workspaceCapabilities) {
+      const result = await getLanguageServerDefinitions(authorizedRequest);
+      if (result.ok) {
         for (const location of result.locations) {
           workspaceCapabilities.authorizeReadOnlyFile(
             event.sender.id,
@@ -236,23 +282,17 @@ export function registerLspHandlers(
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, locations: [] };
       }
-      if (workspaceCapabilities) {
-        try {
-          workspaceCapabilities.assertRoot(event.sender.id, request.folderPath);
-        } catch {
-          return {
-            ok: false,
-            message: "Open this workspace before navigating to references.",
-            locations: [],
-          };
-        }
-      }
-
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return { ok: true, locations: [] };
 
-      const result = await getLanguageServerReferences(request);
-      if (result.ok && workspaceCapabilities) {
+      const result = await getLanguageServerReferences(authorizedRequest);
+      if (result.ok) {
         for (const location of result.locations) {
           workspaceCapabilities.authorizeReadOnlyFile(
             event.sender.id,
@@ -267,58 +307,78 @@ export function registerLspHandlers(
   ipcMain.handle(
     "lsp:rename",
     async (
-      _event,
+      event,
       request: LanguageServerRenameRequest,
     ): Promise<LanguageServerRenameResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, edits: {} };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return { ok: true, edits: {} };
 
-      return renameLanguageServerSymbol(request);
+      const result = await renameLanguageServerSymbol(authorizedRequest);
+      if (result.ok) assertWritableEdits(event.sender.id, result.edits);
+      return result;
     },
   );
 
   ipcMain.handle(
     "lsp:format",
     async (
-      _event,
+      event,
       request: LanguageServerFormatRequest,
     ): Promise<LanguageServerFormatResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, edits: [] };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return { ok: true, edits: [] };
 
-      return formatLanguageServerDocument(request);
+      return formatLanguageServerDocument(authorizedRequest);
     },
   );
 
   ipcMain.handle(
     "lsp:signatureHelp",
     async (
-      _event,
+      event,
       request: LanguageServerSignatureHelpRequest,
     ): Promise<LanguageServerSignatureHelpResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, signatures: [] };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return { ok: true, signatures: [] };
 
-      return getLanguageServerSignatureHelp(request);
+      return getLanguageServerSignatureHelp(authorizedRequest);
     },
   );
 
   ipcMain.handle(
     "lsp:semanticTokens",
     async (
-      _event,
+      event,
       request: LanguageServerSemanticTokensRequest,
     ): Promise<LanguageServerSemanticTokensResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
@@ -329,7 +389,13 @@ export function registerLspHandlers(
         };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) {
         return {
           ok: true,
@@ -338,41 +404,62 @@ export function registerLspHandlers(
         };
       }
 
-      return getLanguageServerSemanticTokens(request);
+      return getLanguageServerSemanticTokens(authorizedRequest);
     },
   );
 
   ipcMain.handle(
     "lsp:codeActions",
     async (
-      _event,
+      event,
       request: LanguageServerCodeActionRequest,
     ): Promise<LanguageServerCodeActionResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, actions: [] };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedRequest = authorizeDocumentRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
       if (!settings.lsp.enabled) return { ok: true, actions: [] };
 
-      return getLanguageServerCodeActions(request);
+      const result = await getLanguageServerCodeActions(authorizedRequest);
+      if (result.ok) {
+        for (const action of result.actions) {
+          assertWritableEdits(event.sender.id, action.edits);
+        }
+      }
+      return result;
     },
   );
 
   ipcMain.handle(
     "lsp:executeCommand",
     async (
-      _event,
+      event,
       request: LanguageServerExecuteCommandRequest,
     ): Promise<LanguageServerExecuteCommandResult> => {
       if (!request.folderPath || !fs.existsSync(request.folderPath)) {
         return { ok: true, edits: {} };
       }
 
-      const settings = await readSettingsForFolder(request.folderPath);
+      const authorizedFolder = authorizeRoot(
+        event.sender.id,
+        request.folderPath,
+      );
+      const settings = await readSettingsForFolder(authorizedFolder);
       if (!settings.lsp.enabled) return { ok: true, edits: {} };
 
-      return executeLanguageServerCommand(request);
+      const result = await executeLanguageServerCommand({
+        ...request,
+        folderPath: authorizedFolder,
+      });
+      if (result.ok) assertWritableEdits(event.sender.id, result.edits);
+      return result;
     },
   );
 }

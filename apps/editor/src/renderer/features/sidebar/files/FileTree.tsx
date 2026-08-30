@@ -30,21 +30,17 @@ interface FileTreeProps {
   operation: FileTreeOperation | null;
   refreshRequest: (FolderChangeEvent & { id: number }) | null;
   onOpenFolderPicker: () => void;
-  onOpenDroppedWorkspace: (path: string) => void | Promise<void>;
+  onOpenDroppedWorkspace: (files: File[]) => void | Promise<void>;
   onRootContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
   onFileSelect: (path: string) => void;
   onContextMenu: (event: React.MouseEvent, node: FileNode) => void;
   onMove: (sourcePath: string, targetDirPath: string) => void;
   onImportExternalEntries: (
-    sourcePaths: string[],
+    files: File[],
     targetDirPath: string,
   ) => Promise<ImportedExternalEntry[]>;
   onInlineCreateCancel: () => void;
   onInlineCreateCreated: (path: string, isDir: boolean) => void | Promise<void>;
-}
-
-function getExternalDropPaths(dataTransfer: DataTransfer) {
-  return window.axon.getDroppedFilePaths(Array.from(dataTransfer.files));
 }
 
 function hasExternalFileDrag(dataTransfer: DataTransfer) {
@@ -89,8 +85,8 @@ export default function FileTree({
     event.preventDefault();
     event.stopPropagation();
 
-    const externalPaths = getExternalDropPaths(event.dataTransfer);
-    if (externalPaths.length === 0) {
+    const externalFiles = Array.from(event.dataTransfer.files);
+    if (externalFiles.length === 0) {
       setEmptyDragOver(false);
       return;
     }
@@ -98,14 +94,14 @@ export default function FileTree({
     setEmptyDragOver(false);
 
     if (!tree) {
-      void onOpenDroppedWorkspace(externalPaths[0]);
+      void onOpenDroppedWorkspace(externalFiles);
       return;
     }
 
     // An empty workspace still has a real root directory, so dropping onto the
     // empty state should import into that root instead of forcing the user to
     // find a folder row that does not exist yet.
-    void onImportExternalEntries(externalPaths, tree.path);
+    void onImportExternalEntries(externalFiles, tree.path);
   };
 
   if (loading) {

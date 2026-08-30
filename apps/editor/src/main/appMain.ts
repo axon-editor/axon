@@ -65,6 +65,10 @@ import {
   registerSpotifyOpenUrlHandler,
   registerSpotifyProtocolClient,
 } from "./spotify/protocol";
+import {
+  LocalAssetTicketRegistry,
+  registerLocalAssetTicketHandler,
+} from "./security/assets/localAssetTickets";
 
 const isDev = process.env.NODE_ENV === "development";
 const axonDevServerUrl =
@@ -149,6 +153,8 @@ const axonReleasePageUrl =
 let htmlPreviewServer: HtmlPreviewServer | null = null;
 const workspaceCapabilities = new WorkspaceCapabilityRegistry();
 registerWorkspaceCapabilityHandlers(workspaceCapabilities);
+const localAssetTickets = new LocalAssetTicketRegistry(workspaceCapabilities);
+registerLocalAssetTicketHandler(localAssetTickets);
 const openWorkspaceRegistry = new OpenWorkspaceRegistry();
 openWorkspaceRegistry.registerHandlers();
 const { sendToRenderer, sendMenuCommand } = createMainProcessIpc({
@@ -189,7 +195,13 @@ function allowedLocalProtocolOrigin(origin: string | null) {
 
 async function createLocalProtocolResponse(request: Request) {
   const requestUrl = new URL(request.url);
-  const filePath = decodeURIComponent(requestUrl.pathname);
+  const ticket = requestUrl.pathname.split("/").filter(Boolean)[0] ?? "";
+  const filePath = localAssetTickets.resolve(ticket);
+  if (!filePath) {
+    return new Response("Local asset ticket is invalid or expired.", {
+      status: 404,
+    });
+  }
   const contentType = getLocalProtocolContentType(filePath);
   const origin = request.headers.get("Origin");
   if (!allowedLocalProtocolOrigin(origin)) {
@@ -420,13 +432,21 @@ registerCoreProxyHandlers({
   resolveWorkspaceRoot: (rendererId, candidatePath) =>
     workspaceCapabilities.resolveRootForPath(rendererId, candidatePath),
 });
-registerDiagnosticsHandlers();
-registerExtensionHandlers();
+registerDiagnosticsHandlers(workspaceCapabilities);
+registerExtensionHandlers(workspaceCapabilities);
 registerGitHandlers({
   authorizeWorkspaceRoot: (rendererId, rootPath, persist) =>
     workspaceCapabilities.authorize(rendererId, rootPath, persist),
+  assertWorkspaceRoot: (rendererId, rootPath) =>
+    workspaceCapabilities.assertRoot(rendererId, rootPath),
+  assertWorkspacePath: (rendererId, candidatePath) =>
+    workspaceCapabilities.assertPath(rendererId, candidatePath),
 });
-registerAiHandlers({ axonCorePort, axonCoreToken });
+registerAiHandlers({
+  axonCorePort,
+  axonCoreToken,
+  workspaceCapabilities,
+});
 registerLspHandlers(workspaceCapabilities);
 registerManagedLanguageToolHandlers(
   new ManagedLanguageToolManager({ sendToRenderer }),
@@ -436,6 +456,8 @@ registerSettingsHandlers({
     workspaceCapabilities.authorize(rendererId, rootPath, persist),
   assertWorkspaceRoot: (rendererId, rootPath) =>
     workspaceCapabilities.assertRoot(rendererId, rootPath),
+  authorizeReadOnlyFile: (rendererId, filePath) =>
+    workspaceCapabilities.authorizeReadOnlyFile(rendererId, filePath),
   getActiveLanguageServers: () => getActiveLanguageServerSessions(),
   notifyPythonConfigurationForFolder: (folderPath) => {
     const session = [...getActiveLanguageServerSessions()].find(
@@ -452,6 +474,7 @@ registerSettingsHandlers({
 });
 const fileWatcherRegistry = registerFileWatcherHandlers(
   (sendWatcherEvent) => createFileWatcherManager(sendWatcherEvent),
+  workspaceCapabilities,
   (sender, folderPath) => {
     const targetWindow = BrowserWindow.fromWebContents(sender);
     if (!targetWindow || targetWindow.isDestroyed()) return;
@@ -462,9 +485,9 @@ const fileWatcherRegistry = registerFileWatcherHandlers(
     targetWindow.setTitle(folderName ? `Axon - ${folderName}` : "Axon");
   },
 );
-registerHtmlPreviewHandlers(getHtmlPreviewServer);
-registerTaskHandlers(taskManager);
-registerTestHandlers(testManager);
+registerHtmlPreviewHandlers(getHtmlPreviewServer, workspaceCapabilities);
+registerTaskHandlers(taskManager, workspaceCapabilities);
+registerTestHandlers(testManager, workspaceCapabilities);
 
 if (!hasSingleInstanceLock) {
   app.quit();
@@ -551,6 +574,7 @@ function createManagedWindow(
     pendingCliOpenFolders.delete(createdWebContentsId);
     cliReadyRenderers.delete(createdWebContentsId);
     workspaceCapabilities.releaseRenderer(createdWebContentsId);
+    localAssetTickets.releaseRenderer(createdWebContentsId);
     openWorkspaceRegistry.release(createdWebContentsId);
     if (mainWindow === createdWindow.window) {
       mainWindow =

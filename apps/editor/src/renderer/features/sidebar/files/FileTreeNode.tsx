@@ -27,7 +27,7 @@ interface Props {
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onMove: (sourcePath: string, targetDirPath: string) => void;
   onImportExternalEntries: (
-    sourcePaths: string[],
+    files: File[],
     targetDirPath: string,
   ) => Promise<ImportedExternalEntry[]>;
   revealPath?: string | null;
@@ -137,10 +137,6 @@ function isIgnoredTreePath(path: string, ignoredPaths?: Set<string>) {
   }
 
   return false;
-}
-
-function getExternalDropPaths(dataTransfer: DataTransfer) {
-  return window.axon.getDroppedFilePaths(Array.from(dataTransfer.files));
 }
 
 function hasExternalFileDrag(dataTransfer: DataTransfer) {
@@ -428,9 +424,9 @@ export default function FileTreeNode({
     const targetDir = node.is_dir
       ? node.path
       : node.path.split("/").slice(0, -1).join("/");
-    const externalPaths = getExternalDropPaths(e.dataTransfer);
-    if (externalPaths.length > 0) {
-      void handleExternalImportDrop(externalPaths, targetDir);
+    const externalFiles = Array.from(e.dataTransfer.files);
+    if (externalFiles.length > 0) {
+      void handleExternalImportDrop(externalFiles, targetDir);
       return;
     }
 
@@ -478,11 +474,11 @@ export default function FileTreeNode({
   };
 
   const handleExternalImportDrop = async (
-    externalPaths: string[],
+    externalFiles: File[],
     targetDir: string,
   ) => {
     const importedEntries = await onImportExternalEntries(
-      externalPaths,
+      externalFiles,
       targetDir,
     );
     insertImportedChildren(importedEntries);
