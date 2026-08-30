@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, GitMerge, RefreshCw } from "lucide-react";
 import { type GitConflictListResult } from "@axon-editor/shared/git";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
@@ -22,20 +22,20 @@ export default function GitConflictPanel({
   );
   const [busyPath, setBusyPath] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!folderPath) {
       setConflicts(null);
       return;
     }
     const result = await window.axon.listGitConflicts(folderPath);
     setConflicts(result);
-  };
+  }, [folderPath]);
 
   useEffect(() => {
     void refresh().catch((err) => {
       console.error("failed to load Git conflicts:", err);
     });
-  }, [folderPath]);
+  }, [refresh]);
 
   const resolveConflict = async (
     path: string,

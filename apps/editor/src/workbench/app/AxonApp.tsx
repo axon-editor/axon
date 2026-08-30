@@ -403,7 +403,7 @@ export default function App({ initialExtensionState }: AppProps) {
       await handleRefresh();
       appendOutput("ai", `Applied Axon edit to ${filePath}`, "success");
     },
-    [appendOutput, folderPath],
+    [appendOutput, folderPath, handleFileSelect, handleRefresh],
   );
   const handleSettingsSave = useCallback(async (
     nextSettings: AxonSettings,
@@ -486,17 +486,20 @@ export default function App({ initialExtensionState }: AppProps) {
       appendOutput("settings", "Failed to open settings JSON.", "error");
     }
   };
-  const handleOpenDiagnostic = (diagnostic: EditorDiagnostic) => {
-    handleOpenNavigationTarget({
-      path: diagnostic.path,
-      line: diagnostic.line,
-      column: diagnostic.column,
-      length: Math.max(
-        1,
-        (diagnostic.endColumn ?? diagnostic.column + 1) - diagnostic.column,
-      ),
-    });
-  };
+  const handleOpenDiagnostic = useCallback(
+    (diagnostic: EditorDiagnostic) => {
+      handleOpenNavigationTarget({
+        path: diagnostic.path,
+        line: diagnostic.line,
+        column: diagnostic.column,
+        length: Math.max(
+          1,
+          (diagnostic.endColumn ?? diagnostic.column + 1) - diagnostic.column,
+        ),
+      });
+    },
+    [handleOpenNavigationTarget],
+  );
   const openProblemsTab = useCallback(() => {
     setBottomPanelOpen(false);
     setLayout((prev) =>
@@ -553,6 +556,7 @@ export default function App({ initialExtensionState }: AppProps) {
       cursorInfo.col,
       cursorInfo.line,
       diagnostics,
+      handleOpenDiagnostic,
       openProblemsTab,
     ],
   );
@@ -699,7 +703,6 @@ export default function App({ initialExtensionState }: AppProps) {
     handleCloseActiveTab,
     handleNewFile,
     handleNewTerminal,
-    handleOpenFolder,
     handleOpenHtmlPreview,
     handleOpenSettingsJson,
     handleSaveActiveFile,
@@ -712,7 +715,6 @@ export default function App({ initialExtensionState }: AppProps) {
     requireTrustedWorkspace,
     runEditorAction,
     folderPath,
-    settings,
     setExtensionState,
     terminalOpen,
     updateAvailable: updateInfo?.updateAvailable,

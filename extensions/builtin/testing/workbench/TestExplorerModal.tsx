@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FolderTree, Play, RefreshCw, Square, X } from "lucide-react";
 import {
   type TestDiscoveryResult,
@@ -47,14 +47,17 @@ export default function TestExplorerModal({
   const [outputFilter, setOutputFilter] = useState<OutputFilter>("selected");
   const [output, setOutput] = useState<TestOutputEvent[]>([]);
   const [runs, setRuns] = useState<Record<string, RunRecord>>({});
-  const providers = discovery?.providers ?? [];
-  const items = discovery?.items ?? [];
+  const providers = useMemo(() => discovery?.providers ?? [], [discovery]);
+  const items = useMemo(() => discovery?.items ?? [], [discovery]);
   const activeRunCount = Object.values(runs).filter(
     (run) => run.status === "running" || run.status === "queued",
   ).length;
 
-  const providerItems = (provider: TestProvider): TestItem[] =>
-    items.filter((item) => item.providerId === provider.id);
+  const providerItems = useCallback(
+    (provider: TestProvider): TestItem[] =>
+      items.filter((item) => item.providerId === provider.id),
+    [items],
+  );
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
@@ -90,7 +93,7 @@ export default function TestExplorerModal({
         .toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [items, providers, query]);
+  }, [providerItems, providers, query]);
 
   const visibleOutput = useMemo(() => {
     const scopedOutput =
@@ -112,7 +115,7 @@ export default function TestExplorerModal({
     };
   }, [runs]);
 
-  const discover = async () => {
+  const discover = useCallback(async () => {
     if (!folderPath) {
       setDiscovery(null);
       setExpandedProviders(new Set());
@@ -134,7 +137,7 @@ export default function TestExplorerModal({
     setSelectedTargetId(null);
     setDiscovering(false);
     onOutput(result.message, result.ok ? "info" : "warning");
-  };
+  }, [folderPath, onOutput]);
 
   useEffect(() => {
     setDiscovery(null);
@@ -153,7 +156,7 @@ export default function TestExplorerModal({
       console.error("test discovery failed:", err);
       onOutput("Test discovery failed.", "error");
     });
-  }, [folderPath, open]);
+  }, [discover, onOutput, open]);
 
   useEffect(() => {
     if (!open) return;

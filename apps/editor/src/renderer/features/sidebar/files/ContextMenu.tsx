@@ -63,7 +63,7 @@ export default function ContextMenu({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [onClose]);
 
   useLayoutEffect(() => {
     const panel = ref.current;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GitFork, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { type GitWorktreeListResult } from "@axon-editor/shared/git";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
@@ -28,19 +28,19 @@ export default function GitWorktreePanel({
     null,
   );
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!folderPath) {
       setWorktrees(null);
       return;
     }
     setWorktrees(await window.axon.listGitWorktrees(folderPath));
-  };
+  }, [folderPath]);
 
   useEffect(() => {
     void refresh().catch((err) => {
       console.error("failed to load Git worktrees:", err);
     });
-  }, [folderPath]);
+  }, [refresh]);
 
   const addWorktree = async () => {
     if (!folderPath) return;

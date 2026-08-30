@@ -11,16 +11,21 @@ import { resolveActiveTheme } from "../../../renderer/shared/themes";
 import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { getEnabledExtensionThemes } from "../../../shared/extensions";
 import { createGlassThemeCssVariables } from "./glassTheme";
+import { type EditorDiagnostic } from "../../../shared/diagnostics";
+import { type ExtensionState } from "../../../shared/extensions";
+import { type GitStatusResult } from "../../../shared/git";
+import { type AxonSettings } from "../../../shared/settings";
+import { type Layout } from "../../../renderer/features/editor/lib/layout/types";
 
 interface AppDerivedStateOptions {
-  extensionState: any;
+  extensionState: ExtensionState | null;
   folderPath: string | null;
-  gitStatus: any;
-  layout: any;
-  lspDiagnosticsByFile: any;
-  monacoDiagnostics: any[];
-  projectDiagnostics: any[];
-  settings: any;
+  gitStatus: GitStatusResult | null;
+  layout: Layout;
+  lspDiagnosticsByFile: Record<string, EditorDiagnostic[]>;
+  monacoDiagnostics: EditorDiagnostic[];
+  projectDiagnostics: EditorDiagnostic[];
+  settings: AxonSettings;
   workspaceTrustNonce: number;
 }
 
@@ -33,15 +38,12 @@ export function useAppDerivedState({
   monacoDiagnostics,
   projectDiagnostics,
   settings,
-  workspaceTrustNonce,
+  workspaceTrustNonce: _workspaceTrustNonce,
 }: AppDerivedStateOptions) {
   const activePane = layout.panes.find(
-    (p: any) => p.id === layout.activePaneId,
+    (pane) => pane.id === layout.activePaneId,
   );
-  const workspaceTrusted = useMemo(
-    () => getWorkspaceTrustState(folderPath) !== false,
-    [folderPath, workspaceTrustNonce],
-  );
+  const workspaceTrusted = getWorkspaceTrustState(folderPath) !== false;
 
   const extensionThemes = useMemo(
     () => getEnabledExtensionThemes(extensionState),
@@ -174,31 +176,31 @@ export function useAppDerivedState({
     [diagnostics],
   );
 
-  const activeFileSymbols = useMemo<FileSymbol[]>(() => {
+  const activeFileSymbols: FileSymbol[] = (() => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return [];
     const model = getModel(activeFile);
     if (!model || model.isDisposed()) return [];
     return collectFileSymbols(model.getValue());
-  }, [activePane?.activeFile, layout]);
+  })();
 
-  const activeFileContent = useMemo(() => {
+  const activeFileContent = (() => {
     const activeFile = activePane?.activeFile;
     if (!activeFile) return "";
     const model = getModel(activeFile);
     return model && !model.isDisposed() ? model.getValue() : "";
-  }, [activePane?.activeFile, layout]);
+  })();
 
   const gitChangeCount = gitStatus?.changes.length ?? 0;
   const deletedFiles = useMemo(() => {
     return new Set(
       (gitStatus?.changes ?? [])
         .filter(
-          (change: any) =>
+          (change) =>
             change.worktreeState === "deleted" ||
             change.indexState === "deleted",
         )
-        .map((change: any) => change.absolutePath),
+        .map((change) => change.absolutePath),
     );
   }, [gitStatus?.changes]);
 

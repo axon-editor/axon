@@ -406,7 +406,7 @@ export default function Sidebar({
     useState<FileTreeOperation | null>(null);
   const treeRefreshRequest = useTreeRefreshRequest(folderPath);
   const [revokeTrustConfirmOpen, setRevokeTrustConfirmOpen] = useState(false);
-  const [trustNonce, setTrustNonce] = useState(0);
+  const [, setTrustNonce] = useState(0);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
 
   useEffect(() => {
@@ -427,10 +427,7 @@ export default function Sidebar({
     () => buildIgnoredPathSet(ignoredPathList),
     [ignoredPathList],
   );
-  const trustedWorkspace = useMemo(
-    () => isWorkspaceTrusted(folderPath),
-    [folderPath, trustNonce],
-  );
+  const trustedWorkspace = isWorkspaceTrusted(folderPath);
   const recentFolders = useRecentFolders(folderPickerIntent !== null);
   const openWorkspaceFolders = useOpenWorkspaceFolders(workspaceRoots);
 

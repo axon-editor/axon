@@ -14,7 +14,6 @@ interface AppCommandRunnerOptions {
   handleCloseActiveTab: any;
   handleNewFile: any;
   handleNewTerminal: any;
-  handleOpenFolder: any;
   handleOpenHtmlPreview: any;
   handleOpenSettingsJson: any;
   handleSaveActiveFile: any;
@@ -27,7 +26,6 @@ interface AppCommandRunnerOptions {
   requireTrustedWorkspace: any;
   runEditorAction: any;
   folderPath: string | null;
-  settings: any;
   setExtensionState: any;
   terminalOpen: any;
   updateAvailable: any;
@@ -64,7 +62,6 @@ export function useAppCommandRunner({
   handleCloseActiveTab,
   handleNewFile,
   handleNewTerminal,
-  handleOpenFolder,
   handleOpenHtmlPreview,
   handleOpenSettingsJson,
   handleSaveActiveFile,
@@ -77,7 +74,6 @@ export function useAppCommandRunner({
   requireTrustedWorkspace,
   runEditorAction,
   folderPath,
-  settings,
   setExtensionState,
   terminalOpen,
   updateAvailable,
@@ -442,18 +438,18 @@ export function useAppCommandRunner({
       handleCloseActiveTab,
       handleNewFile,
       handleNewTerminal,
-      handleOpenFolder,
       handleOpenHtmlPreview,
       handleOpenSettingsJson,
       handleSaveActiveFile,
       handleSaveActiveFileAs,
       handleToggleAutoSave,
+      folderPath,
       navigateDiagnostic,
+      openProblemsTab,
       refreshGitStatus,
       refreshProjectDiagnostics,
       requireTrustedWorkspace,
       runEditorAction,
-      settings,
       terminalOpen,
       updateAvailable,
       setAboutOpen,
@@ -464,6 +460,7 @@ export function useAppCommandRunner({
       setDiffFilePath,
       setDiffOpen,
       setExtensionsOpen,
+      setExtensionState,
       setExtensionViewOpenId,
       setFileOutlineOpen,
       setFolderPickerIntent,

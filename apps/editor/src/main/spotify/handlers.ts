@@ -179,7 +179,7 @@ export function registerSpotifyHandlers(): void {
       try {
         const result = await getPlaylistTracks(playlistId, offset);
         return { ok: true, ...result };
-      } catch (err) {
+      } catch {
         return {
           ok: false,
           items: [],
@@ -285,7 +285,7 @@ export function registerSpotifyHandlers(): void {
     try {
       const ok = await skipToNext();
       return { ok, message: ok ? "Skipped." : "Skip failed." };
-    } catch (err) {
+    } catch {
       return { ok: false, message: "Skip failed." };
     }
   });
@@ -294,7 +294,7 @@ export function registerSpotifyHandlers(): void {
     try {
       const ok = await skipToPrevious();
       return { ok, message: ok ? "Previous." : "Previous failed." };
-    } catch (err) {
+    } catch {
       return { ok: false, message: "Previous failed." };
     }
   });
@@ -305,7 +305,7 @@ export function registerSpotifyHandlers(): void {
       try {
         const ok = await seek(positionMs);
         return { ok, message: ok ? "Seeked." : "Seek failed." };
-      } catch (err) {
+      } catch {
         return { ok: false, message: "Seek failed." };
       }
     },
@@ -317,7 +317,7 @@ export function registerSpotifyHandlers(): void {
       try {
         const ok = await setVolume(volumePercent);
         return { ok, message: ok ? "Volume set." : "Volume failed." };
-      } catch (err) {
+      } catch {
         return { ok: false, message: "Volume failed." };
       }
     },
@@ -329,7 +329,7 @@ export function registerSpotifyHandlers(): void {
       try {
         const ok = await setShuffle(state);
         return { ok, message: ok ? "Shuffle updated." : "Shuffle failed." };
-      } catch (err) {
+      } catch {
         return { ok: false, message: "Shuffle failed." };
       }
     },
@@ -344,7 +344,7 @@ export function registerSpotifyHandlers(): void {
       try {
         const ok = await setRepeat(state);
         return { ok, message: ok ? "Repeat updated." : "Repeat failed." };
-      } catch (err) {
+      } catch {
         return { ok: false, message: "Repeat failed." };
       }
     },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Archive,
   ChevronDown,
@@ -36,7 +36,7 @@ export default function GitWorkflowPanel({
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!folderPath) {
       setBranches(null);
       setStashes(null);
@@ -49,14 +49,14 @@ export default function GitWorkflowPanel({
     ]);
     setBranches(nextBranches);
     setStashes(nextStashes);
-  };
+  }, [folderPath]);
 
   useEffect(() => {
     if (!expanded) return;
     void refresh().catch((err) => {
       console.error("failed to load Git workflows:", err);
     });
-  }, [expanded, folderPath]);
+  }, [expanded, refresh]);
 
   const runBranchCheckout = async (name: string) => {
     if (!folderPath) return;

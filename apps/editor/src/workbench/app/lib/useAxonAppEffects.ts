@@ -1,4 +1,9 @@
-import { useEffect } from "react";
+import {
+  useEffect,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 import {
   addRecentFolder,
   getWorkspaceTrustState,
@@ -17,7 +22,11 @@ import {
   updateModel,
 } from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { useGlobalEditorShortcuts } from "../../../renderer/features/editor/shortcuts/useGlobalEditorShortcuts";
-import { getTree, readFile } from "../../../renderer/shared/lib/api";
+import {
+  getTree,
+  readFile,
+  type FileNode,
+} from "../../../renderer/shared/lib/api";
 import { createBundledFontFaces } from "../../../renderer/shared/lib/bundledFonts";
 import {
   markAxonPerformance,
@@ -28,7 +37,12 @@ import {
   loadWorkspaceSession,
   saveWorkspaceSession,
 } from "../../../renderer/shared/lib/workspaceSession";
-import { normalizeSettings } from "../../../shared/settings";
+import {
+  normalizeSettings,
+  type AxonSettings,
+  type CustomFont,
+  type ThemeId,
+} from "../../../shared/settings";
 import * as monaco from "monaco-editor";
 import { escapeCssString } from "./appPath";
 import type { EditorNavigationTarget } from "../../../renderer/features/editor/lib/layout/navigation";
@@ -36,61 +50,85 @@ import {
   folderChanges,
   shouldReloadWorkspaceRoot,
 } from "../../../renderer/features/sidebar/files/lib/treeRefresh";
+import { type WorkspaceRoot } from "../../../renderer/shared/lib/workspaceRoots";
+import { type Pane, type Layout } from "../../../renderer/features/editor/lib/layout/types";
+import { type AgentResumeRequest } from "../../../shared/app";
+import { type GitStatusResult } from "../../../shared/git";
+import { type ResolvedExtensionTheme } from "../../../shared/extensions";
+import { type UpdateInfo, type UpdateInstallState } from "../../../shared/updates";
+import { type BottomPanelTab, type OutputEntryLevel } from "../../../platform/panel/bottomPanel";
+import { type ResolvedThemeTokens } from "../../../renderer/shared/lib/themeTokens";
+import { type AxonCommand } from "../../../shared/commands";
+import { type LspDiagnosticsByFile } from "@axon-builtin-problems/lib/diagnosticCache";
+import { type useWorkspaceHandlers } from "./useWorkspaceHandlers";
+
+type StateSetter<T> = Dispatch<SetStateAction<T>>;
+type AppendOutput = (
+  source: string,
+  message: string,
+  level?: OutputEntryLevel,
+) => void;
+type WorkspaceHandlers = ReturnType<typeof useWorkspaceHandlers>;
 
 interface AxonAppEffectsOptions {
-  activeLanguageServerStartRef: any;
-  activePane: any;
-  activeRootId: any;
-  activeThemeId: any;
-  allowSessionPersistenceRef: any;
-  appendOutput: any;
-  availableFonts: any;
-  bottomPanelOpen: any;
-  bottomPanelTab: any;
-  extensionThemes: any;
-  folderPath: any;
-  gitStatus: any;
-  folderRefreshRequestRef: any;
-  folderRefreshTimerRef: any;
-  handleFolderChange: any;
-  handleOpenNavigationTarget: any;
-  handleSettingsSave: any;
-  layout: any;
-  lspDiagnosticsByFile: any;
-  refreshGitStatus: any;
-  refreshProjectDiagnostics: any;
-  restoreStartedRef: any;
-  runCommand: any;
-  sessionReady: any;
-  settings: any;
-  settingsJsonPath: any;
-  sidebarCollapsed: any;
-  sidebarWidth: any;
-  setAgentResumeRequest: any;
-  setAgentResumeRequested: any;
-  setAgentSidebarOpen: any;
-  setAvailableFonts: any;
-  setExtensionsOpen: any;
-  setLoading: any;
-  setLspDiagnosticsByFile: any;
-  setMonacoDiagnostics: any;
-  setProjectDiagnostics: any;
-  setSessionReady: any;
-  setSettings: any;
-  setSettingsHydrated: any;
-  setTaskRunnerOpen: any;
-  setTerminalOpen: any;
-  setTree: any;
-  setUpdateInfo: any;
-  setUpdateInstallState: any;
-  setWorkspaceRoots: any;
-  setZenMode: any;
-  terminalOpen: any;
-  themeTokens: any;
-  workspaceRoots: any;
-  workspaceTrusted: any;
-  workspaceTrustNonce: any;
-  zenMode: any;
+  activeLanguageServerStartRef: MutableRefObject<Set<string>>;
+  activePane: Pane | undefined;
+  activeRootId: string | null;
+  activeThemeId: ThemeId;
+  allowSessionPersistenceRef: MutableRefObject<boolean>;
+  appendOutput: AppendOutput;
+  availableFonts: CustomFont[];
+  bottomPanelOpen: boolean;
+  bottomPanelTab: BottomPanelTab;
+  extensionThemes: ResolvedExtensionTheme[];
+  folderPath: string | null;
+  gitStatus: GitStatusResult | null;
+  folderRefreshRequestRef: MutableRefObject<number>;
+  folderRefreshTimerRef: MutableRefObject<number | null>;
+  handleFolderChange: WorkspaceHandlers["handleFolderChange"];
+  handleOpenNavigationTarget: (
+    target: Omit<EditorNavigationTarget, "id">,
+  ) => void;
+  handleSettingsSave: (
+    settings: AxonSettings,
+    options?: { announce?: boolean },
+  ) => Promise<void>;
+  layout: Layout;
+  lspDiagnosticsByFile: LspDiagnosticsByFile;
+  refreshGitStatus: (options?: { silent?: boolean }) => Promise<void>;
+  refreshProjectDiagnostics: () => Promise<void>;
+  restoreStartedRef: MutableRefObject<boolean>;
+  runCommand: (command: AxonCommand) => void;
+  sessionReady: boolean;
+  settings: AxonSettings;
+  settingsJsonPath: string | null;
+  sidebarCollapsed: boolean;
+  sidebarWidth: number;
+  setAgentResumeRequest: StateSetter<AgentResumeRequest | null>;
+  setAgentResumeRequested: StateSetter<boolean>;
+  setAgentSidebarOpen: StateSetter<boolean>;
+  setAvailableFonts: StateSetter<CustomFont[]>;
+  setExtensionsOpen: StateSetter<boolean>;
+  setLoading: StateSetter<boolean>;
+  setLspDiagnosticsByFile: StateSetter<LspDiagnosticsByFile>;
+  setMonacoDiagnostics: StateSetter<EditorDiagnostic[]>;
+  setProjectDiagnostics: StateSetter<EditorDiagnostic[]>;
+  setSessionReady: StateSetter<boolean>;
+  setSettings: StateSetter<AxonSettings>;
+  setSettingsHydrated: StateSetter<boolean>;
+  setTaskRunnerOpen: StateSetter<boolean>;
+  setTerminalOpen: StateSetter<boolean>;
+  setTree: StateSetter<FileNode | null>;
+  setUpdateInfo: StateSetter<UpdateInfo | null>;
+  setUpdateInstallState: StateSetter<UpdateInstallState>;
+  setWorkspaceRoots: StateSetter<WorkspaceRoot[]>;
+  setZenMode: StateSetter<boolean>;
+  terminalOpen: boolean;
+  themeTokens: ResolvedThemeTokens;
+  workspaceRoots: WorkspaceRoot[];
+  workspaceTrusted: boolean;
+  workspaceTrustNonce: number;
+  zenMode: boolean;
 }
 
 export function useAxonAppEffects({
@@ -172,7 +210,7 @@ export function useAxonAppEffects({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setAgentResumeRequest, setAgentResumeRequested, setAgentSidebarOpen]);
 
   useEffect(() => {
     return window.axon.onAgentResumeRequest((request) => {
@@ -180,7 +218,7 @@ export function useAxonAppEffects({
       setAgentResumeRequested(true);
       setAgentSidebarOpen(true);
     });
-  }, []);
+  }, [setAgentResumeRequest, setAgentResumeRequested, setAgentSidebarOpen]);
 
   useEffect(() => {
     window.axon
@@ -190,16 +228,16 @@ export function useAxonAppEffects({
         console.error("failed to list available fonts:", err);
         setAvailableFonts([]);
       });
-  }, []);
+  }, [setAvailableFonts]);
 
   useEffect(() => {
-    setWorkspaceRoots((currentRoots: any[]) =>
-      currentRoots.map((root: any) => ({
+    setWorkspaceRoots((currentRoots: WorkspaceRoot[]) =>
+      currentRoots.map((root) => ({
         ...root,
         trusted: getWorkspaceTrustState(root.path),
       })),
     );
-  }, [workspaceTrustNonce]);
+  }, [setWorkspaceRoots, workspaceTrustNonce]);
 
   useEffect(() => {
     if (workspaceTrusted || !folderPath) return;
@@ -215,7 +253,15 @@ export function useAxonAppEffects({
         err,
       );
     });
-  }, [folderPath, workspaceTrusted]);
+  }, [
+    activeLanguageServerStartRef,
+    folderPath,
+    setAgentSidebarOpen,
+    setExtensionsOpen,
+    setTaskRunnerOpen,
+    setTerminalOpen,
+    workspaceTrusted,
+  ]);
 
   useEffect(() => {
     // Theme selection has to be applied at the app level, not only when an
@@ -275,6 +321,7 @@ export function useAxonAppEffects({
       });
   }, [
     activePane?.activeFile,
+    activeLanguageServerStartRef,
     appendOutput,
     folderPath,
     settings.lsp.enabled,
@@ -291,7 +338,7 @@ export function useAxonAppEffects({
       .finally(() => {
         setSettingsHydrated(true);
       });
-  }, []);
+  }, [setSettings, setSettingsHydrated]);
 
   useEffect(() => {
     // Axon uses two update data streams on purpose:
@@ -339,7 +386,7 @@ export function useAxonAppEffects({
       });
 
     return window.axon.onUpdateState(setUpdateInstallState);
-  }, [appendOutput]);
+  }, [appendOutput, setUpdateInfo, setUpdateInstallState]);
 
   useEffect(() => {
     const styleId = "axon-custom-fonts";
@@ -394,11 +441,11 @@ export function useAxonAppEffects({
 
   useEffect(() => {
     return onEditorDiagnosticsChanged(setMonacoDiagnostics);
-  }, []);
+  }, [setMonacoDiagnostics]);
 
   useEffect(() => {
     setProjectDiagnostics([]);
-  }, [folderPath]);
+  }, [folderPath, setProjectDiagnostics]);
 
   useEffect(() => {
     setLspDiagnosticsByFile({});
@@ -410,7 +457,7 @@ export function useAxonAppEffects({
     // file's diagnostics without wiping problems from another language server.
     return window.axon.onLanguageServerDiagnostics((event) => {
       if (event.folderPath !== folderPath) return;
-      setLspDiagnosticsByFile((current: any) =>
+      setLspDiagnosticsByFile((current: Record<string, EditorDiagnostic[]>) =>
         updateLspDiagnosticCache(
           current,
           event.filePath,
@@ -419,7 +466,7 @@ export function useAxonAppEffects({
         ),
       );
     });
-  }, [folderPath, settings.lsp.enabled]);
+  }, [folderPath, setLspDiagnosticsByFile, settings.lsp.enabled]);
 
   useEffect(() => {
     const diagnosticsByFile = (
@@ -496,6 +543,7 @@ export function useAxonAppEffects({
     folderPath,
     refreshGitStatus,
     refreshProjectDiagnostics,
+    setSettings,
     settingsJsonPath,
     workspaceTrusted,
   ]);
@@ -508,7 +556,8 @@ export function useAxonAppEffects({
       changes.forEach(({ path: changedPath }) => {
         const changedModel = getModel(changedPath);
         const hasUnsavedChanges = layout.panes.some(
-          (pane: any) => pane.dirtyFiles?.[changedPath] === true,
+          (pane: { dirtyFiles: Record<string, boolean> }) =>
+            pane.dirtyFiles?.[changedPath] === true,
         );
 
         if (changedModel && !changedModel.isDisposed() && !hasUnsavedChanges) {
@@ -570,7 +619,16 @@ export function useAxonAppEffects({
         folderRefreshTimerRef.current = null;
       }
     };
-  }, [folderPath, layout.panes]);
+  }, [
+    folderPath,
+    folderRefreshRequestRef,
+    folderRefreshTimerRef,
+    layout.panes,
+    setLspDiagnosticsByFile,
+    setMonacoDiagnostics,
+    setProjectDiagnostics,
+    setTree,
+  ]);
 
   useEffect(() => {
     const cleanup = window.axon.onGitChanged((event) => {
@@ -720,7 +778,14 @@ export function useAxonAppEffects({
         console.error("failed to read window restore mode:", err);
         setSessionReady(true);
       });
-  }, []);
+  }, [
+    allowSessionPersistenceRef,
+    appendOutput,
+    handleFolderChange,
+    restoreStartedRef,
+    setLoading,
+    setSessionReady,
+  ]);
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -747,6 +812,7 @@ export function useAxonAppEffects({
     bottomPanelOpen,
     bottomPanelTab,
     activeRootId,
+    allowSessionPersistenceRef,
     folderPath,
     layout,
     sessionReady,

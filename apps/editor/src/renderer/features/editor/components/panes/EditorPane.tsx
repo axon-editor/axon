@@ -167,7 +167,7 @@ export default function EditorPane({
       });
       return next;
     });
-  }, [layout.panes.map((pane) => pane.id).join("\n")]);
+  }, [layout.panes]);
 
   const handleResize = (
     leftPaneId: string,

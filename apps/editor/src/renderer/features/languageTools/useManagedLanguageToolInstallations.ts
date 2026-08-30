@@ -28,14 +28,15 @@ export function useManagedLanguageToolInstallations() {
 
   useEffect(() => {
     let disposed = false;
+    const timers = removalTimers.current;
     const receive = (progress: ManagedLanguageToolProgress) => {
       if (disposed) return;
-      const timer = removalTimers.current.get(progress.id);
+      const timer = timers.get(progress.id);
       if (timer) clearTimeout(timer);
-      removalTimers.current.delete(progress.id);
+      timers.delete(progress.id);
       setProgressById((current) => new Map(current).set(progress.id, progress));
       if (!isManagedLanguageToolProgressActive(progress)) {
-        removalTimers.current.set(
+        timers.set(
           progress.id,
           setTimeout(() => dismiss(progress.id), TERMINAL_PROGRESS_LIFETIME_MS),
         );
@@ -61,8 +62,8 @@ export function useManagedLanguageToolInstallations() {
     return () => {
       disposed = true;
       unsubscribe();
-      for (const timer of removalTimers.current.values()) clearTimeout(timer);
-      removalTimers.current.clear();
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
     };
   }, [dismiss]);
 

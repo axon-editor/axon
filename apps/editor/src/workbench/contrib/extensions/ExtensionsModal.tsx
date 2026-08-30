@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Blocks,
   CheckCircle2,
@@ -330,12 +330,12 @@ export default function ExtensionsModal({
     [extensionState],
   );
 
-  const setActionMessage = (nextMessage: string, ok = true) => {
+  const setActionMessage = useCallback((nextMessage: string, ok = true) => {
     setMessage(nextMessage);
     setMessageTone(ok ? "info" : "error");
-  };
+  }, []);
 
-  const reloadExtensionMarketplace = async () => {
+  const reloadExtensionMarketplace = useCallback(async () => {
     if (!hasThemeMarketplaceApi()) {
       setMarketplaceState({ items: [] });
       setActionMessage(
@@ -356,7 +356,7 @@ export default function ExtensionsModal({
         false,
       );
     }
-  };
+  }, [setActionMessage]);
 
   const reloadExtensions = async () => {
     setBusyAction("reload");
@@ -444,7 +444,7 @@ export default function ExtensionsModal({
     if (activeTab === "downloads" && !marketplaceState) {
       void reloadExtensionMarketplace();
     }
-  }, [activeTab, marketplaceState]);
+  }, [activeTab, marketplaceState, reloadExtensionMarketplace]);
 
   const registry = extensionState?.contributionRegistry;
   const registrySummary = registry

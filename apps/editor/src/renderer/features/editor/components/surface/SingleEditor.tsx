@@ -472,6 +472,9 @@ export default function SingleEditor({
       void refreshSemanticTokenDecorations();
     }
   }, [
+    filePath,
+    onCursorChange,
+    onLanguageChange,
     visible,
     editorSettings.themeId,
     themeSyntax,

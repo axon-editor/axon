@@ -44,13 +44,7 @@ export function useEditorIndentationSettings(
   }, [
     editorReadyNonce,
     editorRef,
-    editorSettings.detectIndentation,
-    editorSettings.bracketPairGuidesEnabled,
-    editorSettings.codePaddingLeft,
-    editorSettings.highlightActiveIndentationGuide,
-    editorSettings.indentationGuidesEnabled,
-    editorSettings.insertSpaces,
-    editorSettings.tabSize,
+    editorSettings,
     loading,
     visible,
   ]);

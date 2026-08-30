@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Check,
   Copy,
@@ -160,7 +167,7 @@ export default function SourceControlModal({
     [status],
   );
 
-  const loadStatus = async () => {
+  const loadStatus = useCallback(async () => {
     if (!folderPath) return;
 
     setLoadingStatus(true);
@@ -189,7 +196,7 @@ export default function SourceControlModal({
     } finally {
       setLoadingStatus(false);
     }
-  };
+  }, [folderPath, onOutput]);
 
   const runAction = async (
     change: GitChange,
@@ -369,7 +376,7 @@ export default function SourceControlModal({
   useEffect(() => {
     if (!open) return;
     void loadStatus();
-  }, [open, folderPath]);
+  }, [loadStatus, open]);
 
   useEffect(() => {
     if (!open) {

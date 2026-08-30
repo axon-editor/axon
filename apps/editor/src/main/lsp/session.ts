@@ -1,9 +1,7 @@
 import { app, BrowserWindow } from "electron";
-import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
+import { type ChildProcessWithoutNullStreams } from "child_process";
 import fs from "fs";
 import path from "path";
-import url from "url";
-import { type EditorDiagnostic } from "../../shared/diagnostics";
 import {
   type LanguageServerDocumentSyncRequest,
   type LanguageServerId,
@@ -12,10 +10,8 @@ import {
 import { readSettingsForFolder } from "../settings/io";
 import { getWorkspaceSettingsPath } from "../settings/paths";
 import {
-  LANGUAGE_SERVER_DEFINITIONS,
   type LanguageServerDefinition,
   type ResolvedLanguageServerCommand,
-  type LanguageServerStartAttempt,
 } from "./definitions";
 import { getBundledAppFilePath, resolveBundledAppFilePath } from "./paths";
 import {
