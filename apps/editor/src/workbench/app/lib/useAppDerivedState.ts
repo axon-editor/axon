@@ -56,6 +56,10 @@ export function useAppDerivedState({
     [extensionThemes, settings],
   );
   const themeSyntax = activeTheme.syntax;
+  const terminalColors = useMemo(
+    () => ({ ...activeTheme.monaco, ...activeTheme.terminal }),
+    [activeTheme],
+  );
   const themeAppearance = activeTheme.appearance;
   const themeCssVariables = useMemo(
     () => createThemeCssVariables(themeTokens, themeAppearance),
@@ -209,6 +213,7 @@ export function useAppDerivedState({
     diagnostics,
     extensionThemes,
     gitChangeCount,
+    terminalColors,
     themeSyntax,
     themeTokens,
     workspaceTrusted,

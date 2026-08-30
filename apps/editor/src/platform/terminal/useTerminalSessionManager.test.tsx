@@ -122,11 +122,13 @@ const reactTestEnvironment = globalThis as typeof globalThis & {
 interface TerminalHarnessProps {
   background?: string;
   foreground?: string;
+  red?: string;
 }
 
 function TerminalHarness({
   background = "#000000",
   foreground = "#ffffff",
+  red = "#cd3131",
 }: TerminalHarnessProps) {
   const manager = useTerminalSessionManager({
     activePanelTab: "terminal",
@@ -142,6 +144,7 @@ function TerminalHarness({
       theme: {
         background,
         foreground,
+        red,
       },
     },
     terminalVisible: true,
@@ -258,6 +261,26 @@ describe("useTerminalSessionManager", () => {
     expect(xtermMock.instances[0]?.options.theme).toEqual({
       background: "#ffffff",
       foreground: "#171717",
+      red: "#cd3131",
+    });
+  });
+
+  it("updates the complete xterm palette on a live theme change", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      root.render(<TerminalHarness red="#f38ba8" />);
+    });
+
+    expect(xtermMock.instances[0]?.options.theme).toEqual({
+      background: "#000000",
+      foreground: "#ffffff",
+      red: "#f38ba8",
     });
   });
 

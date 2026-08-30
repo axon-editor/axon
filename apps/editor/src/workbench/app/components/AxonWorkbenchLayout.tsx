@@ -78,6 +78,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
     spotifyState,
     terminalCreateNonce,
     terminalCreateWorkingDirectory,
+    terminalColors,
     terminalOpen,
     themeSyntax,
     themeTokens,
@@ -405,6 +406,7 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
                 createWorkingDirectory={terminalCreateWorkingDirectory}
                 editorSettings={settings.editor}
                 terminalSettings={settings.terminal}
+                terminalColors={terminalColors}
                 themeTokens={themeTokens}
                 workingDirectory={folderPath}
                 activePanelTab={

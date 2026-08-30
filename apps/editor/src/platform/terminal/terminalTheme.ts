@@ -351,19 +351,88 @@ const terminalThemes: Record<BuiltInThemeId, ITheme> = {
   },
 };
 
+const xtermThemeColorKeys = new Set<keyof ITheme>([
+  "background",
+  "foreground",
+  "cursor",
+  "cursorAccent",
+  "selectionBackground",
+  "selectionForeground",
+  "selectionInactiveBackground",
+  "scrollbarSliderBackground",
+  "scrollbarSliderHoverBackground",
+  "scrollbarSliderActiveBackground",
+  "overviewRulerBorder",
+  "black",
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "magenta",
+  "cyan",
+  "white",
+  "brightBlack",
+  "brightRed",
+  "brightGreen",
+  "brightYellow",
+  "brightBlue",
+  "brightMagenta",
+  "brightCyan",
+  "brightWhite",
+]);
+
+function toXtermThemeColorKey(contributedKey: string) {
+  const keyWithoutNamespace = contributedKey
+    .replace(/^terminalCursor\.foreground$/, "cursor")
+    .replace(/^terminalCursor\.background$/, "cursorAccent")
+    .replace(/^terminal\./, "")
+    .replace(/^ansi\./, "")
+    .replace(/^ansi(?=[A-Z])/, "");
+  const camelCaseKey = keyWithoutNamespace
+    .replace(/[._-]([a-z])/g, (_, character: string) =>
+      character.toUpperCase(),
+    )
+    .replace(/^./, (character) => character.toLowerCase());
+
+  return xtermThemeColorKeys.has(camelCaseKey as keyof ITheme)
+    ? (camelCaseKey as keyof ITheme)
+    : null;
+}
+
+function resolveContributedTerminalTheme(
+  terminalColors: Readonly<Record<string, string>>,
+) {
+  const theme: ITheme = {};
+
+  // Theme packages arrive in Axon, Zed, and VS Code naming forms. They all
+  // describe the same xterm palette, so normalize their namespaces and casing
+  // at this boundary instead of making extension authors duplicate palettes in
+  // an Axon-only format. Unknown and unsupported keys remain harmless.
+  for (const [contributedKey, color] of Object.entries(terminalColors)) {
+    const xtermKey = toXtermThemeColorKey(contributedKey);
+    if (!xtermKey) continue;
+    Object.assign(theme, { [xtermKey]: color });
+  }
+
+  return theme;
+}
+
 export function getTerminalOptions(
   editorSettings: EditorSettings,
   themeTokens: ResolvedThemeTokens,
+  terminalColors: Readonly<Record<string, string>> = {},
 ) {
   // The xterm palette is derived from the active Axon theme, but the terminal
   // background/foreground tokens still win at the end. That lets theme authors
   // tune the shell surface without duplicating every ANSI color entry.
   const theme = terminalThemes[editorSettings.themeId as BuiltInThemeId] ??
     terminalThemes["axon-dark"];
+  const contributedTheme = resolveContributedTerminalTheme(terminalColors);
 
   return {
     theme: {
       ...theme,
+      ...contributedTheme,
       // xterm paints its own canvas background instead of inheriting the
       // terminal wrapper's CSS variable. Clearing that canvas while Glass is
       // active is what lets the native material remain visible through the

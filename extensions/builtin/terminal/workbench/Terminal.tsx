@@ -47,6 +47,7 @@ interface Props {
   createWorkingDirectory?: string | null;
   editorSettings: EditorSettings;
   terminalSettings: TerminalSettings;
+  terminalColors: Readonly<Record<string, string>>;
   themeTokens: ResolvedThemeTokens;
   workingDirectory: string | null;
   activePanelTab: "terminal" | BottomPanelTab;
@@ -66,6 +67,7 @@ export default function Terminal({
   createWorkingDirectory,
   editorSettings,
   terminalSettings,
+  terminalColors,
   themeTokens,
   workingDirectory,
   activePanelTab,
@@ -81,8 +83,8 @@ export default function Terminal({
     [workingDirectory],
   );
   const terminalOptions = useMemo(
-    () => getTerminalOptions(editorSettings, themeTokens),
-    [editorSettings, themeTokens],
+    () => getTerminalOptions(editorSettings, themeTokens, terminalColors),
+    [editorSettings, terminalColors, themeTokens],
   );
   const panelOpen = open || activePanelTab !== "terminal";
   const terminalVisible = open && activePanelTab === "terminal";
