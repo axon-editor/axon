@@ -799,7 +799,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "GordenArcher",
+        "owner": "axon-editor",
         "repo": "axon"
       }
     ],
@@ -815,7 +815,7 @@
       "target": [
         "nsis"
       ],
-      "verifyUpdateCodeSignature": false,
+      "verifyUpdateCodeSignature": true,
       "icon": "build/axon.png"
     },
     "linux": {

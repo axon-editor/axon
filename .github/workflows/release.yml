@@ -29,6 +29,7 @@ jobs:
             # stuck forever waiting for a deprecated runner pool.
             runner: macos-15-intel
             command: npm --workspace axon run dist:mac:x64
+            artifact: macos-x64
           - name: macOS arm64
             # Keep this on the explicit Apple Silicon runner label so the
             # language-server bundler sees process.arch=arm64. If this job ran
@@ -37,12 +38,15 @@ jobs:
             # arm64 DMG.
             runner: macos-15
             command: npm --workspace axon run dist:mac:arm64
+            artifact: macos-arm64
           - name: Windows
             runner: windows-latest
             command: npm --workspace axon run dist:win
+            artifact: windows-x64
           - name: Linux
             runner: ubuntu-latest
             command: npm --workspace axon run dist:linux
+            artifact: linux-x64
 
     steps:
       - name: Check out repository
@@ -80,6 +84,56 @@ jobs:
         env:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
 
+      - name: Stage platform release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform.artifact }}
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            apps/editor/release/*.dmg
+            apps/editor/release/*.zip
+            apps/editor/release/*.exe
+            apps/editor/release/*.AppImage
+            apps/editor/release/*.deb
+            apps/editor/release/*.blockmap
+            apps/editor/release/latest.yml
+            apps/editor/release/latest-mac.yml
+            apps/editor/release/latest-linux.yml
+
+  publish:
+    name: Publish verified release draft
+    needs: desktop
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install release tooling
+        run: npm ci --ignore-scripts
+
+      - name: Verify release version and notes
+        run: node apps/editor/scripts/verify-release-version.mjs "$RELEASE_TAG"
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}
+
+      - name: Download platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-inputs
+
+      - name: Prepare architecture-aware updater metadata
+        run: node apps/editor/scripts/prepare-release-assets.mjs release-inputs release-assets
+
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
@@ -89,18 +143,15 @@ jobs:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}
           draft: true
           body_path: docs/releases/${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}.md
-          # Rebuilding the same patch release is intentional while Axon is
-          # still unsigned and personal-use only. The release page should keep
-          # the selected tag URL stable, but the installer assets must be
-          # replaced when we fix packaging or updater behavior inside that same
-          # version.
           overwrite_files: true
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
           files: |
-            apps/editor/release/*.dmg
-            apps/editor/release/*.zip
-            apps/editor/release/*.exe
-            apps/editor/release/*.AppImage
-            apps/editor/release/*.deb
-            apps/editor/release/*.blockmap
-            apps/editor/release/*.yml
+            release-assets/*.dmg
+            release-assets/*.zip
+            release-assets/*.exe
+            release-assets/*.AppImage
+            release-assets/*.deb
+            release-assets/*.blockmap
+            release-assets/latest.yml
+            release-assets/latest-mac.yml
+            release-assets/latest-linux.yml

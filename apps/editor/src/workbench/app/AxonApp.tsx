@@ -183,7 +183,6 @@ export default function App({ initialExtensionState }: AppProps) {
   const allowSessionPersistenceRef = useRef(true);
   const folderRefreshTimerRef = useRef<number | null>(null);
   const folderRefreshRequestRef = useRef(0);
-  const updateAutoDownloadVersionRef = useRef<string | null>(null);
   const activeLanguageServerStartRef = useRef<Set<string>>(new Set());
   const [spotifyPlayerOpen, setSpotifyPlayerOpen] = useState(false);
   const [agentSidebarOpen, setAgentSidebarOpen] = useState(false);
@@ -790,7 +789,6 @@ export default function App({ initialExtensionState }: AppProps) {
     gitStatus,
     folderRefreshRequestRef,
     folderRefreshTimerRef,
-    handleDownloadUpdate,
     handleFolderChange,
     handleOpenNavigationTarget,
     handleSettingsSave,
@@ -826,7 +824,6 @@ export default function App({ initialExtensionState }: AppProps) {
     setZenMode,
     terminalOpen,
     themeTokens,
-    updateAutoDownloadVersionRef,
     updateInfo,
     updateInstallState,
     workspaceRoots,

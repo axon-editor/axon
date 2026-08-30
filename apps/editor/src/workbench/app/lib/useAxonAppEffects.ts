@@ -52,7 +52,6 @@ interface AxonAppEffectsOptions {
   gitStatus: any;
   folderRefreshRequestRef: any;
   folderRefreshTimerRef: any;
-  handleDownloadUpdate: any;
   handleFolderChange: any;
   handleOpenNavigationTarget: any;
   handleSettingsSave: any;
@@ -88,7 +87,6 @@ interface AxonAppEffectsOptions {
   setZenMode: any;
   terminalOpen: any;
   themeTokens: any;
-  updateAutoDownloadVersionRef: any;
   updateInfo: any;
   updateInstallState: any;
   workspaceRoots: any;
@@ -112,7 +110,6 @@ export function useAxonAppEffects({
   gitStatus,
   folderRefreshRequestRef,
   folderRefreshTimerRef,
-  handleDownloadUpdate,
   handleFolderChange,
   handleOpenNavigationTarget,
   handleSettingsSave,
@@ -148,7 +145,6 @@ export function useAxonAppEffects({
   setZenMode,
   terminalOpen,
   themeTokens,
-  updateAutoDownloadVersionRef,
   updateInfo,
   updateInstallState,
   workspaceRoots,
@@ -348,27 +344,6 @@ export function useAxonAppEffects({
 
     return window.axon.onUpdateState(setUpdateInstallState);
   }, [appendOutput]);
-
-  useEffect(() => {
-    if (!updateInfo?.updateAvailable) return;
-    if (
-      updateInstallState.phase !== "idle" &&
-      updateInstallState.phase !== "not-available"
-    ) {
-      return;
-    }
-    if (updateAutoDownloadVersionRef.current === updateInfo.latestVersion) {
-      return;
-    }
-
-    updateAutoDownloadVersionRef.current = updateInfo.latestVersion;
-    void handleDownloadUpdate();
-  }, [
-    handleDownloadUpdate,
-    updateInfo?.latestVersion,
-    updateInfo?.updateAvailable,
-    updateInstallState.phase,
-  ]);
 
   useEffect(() => {
     const styleId = "axon-custom-fonts";

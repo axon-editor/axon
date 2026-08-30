@@ -9,8 +9,12 @@ interface UpdateManagerDependencies {
   isDev: boolean;
   isMac: boolean;
   isWindows: boolean;
-  execFileAsync: (file: string, args: string[]) => Promise<unknown>;
+  execFileAsync: (
+    file: string,
+    args: string[],
+  ) => Promise<unknown>;
   resolveMacAppBundlePath: () => string | null;
+  windowsExecutablePath: string;
 }
 
 interface GitHubReleasePayload {
@@ -82,27 +86,6 @@ export class UpdateManager {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.logger = null;
-
-    if (this.deps.isWindows) {
-      // Axon is still distributed as an unsigned personal build on Windows.
-      // SmartScreen can still warn during first install because that trust
-      // decision belongs to Windows, but electron-updater also has its own
-      // NSIS signature check before it applies a downloaded update. If we let
-      // that check run without a real code-signing certificate, the app can
-      // download an update successfully and then refuse to install it with an
-      // invalid-signature error. This temporary bypass keeps in-app updates
-      // usable for personal unsigned builds; when Axon gets a real Windows
-      // signing certificate, this should be removed and the publisher name
-      // should come from the certificate.
-      (
-        autoUpdater as typeof autoUpdater & {
-          verifyUpdateCodeSignature?: (
-            publisherNames: string[],
-            path: string,
-          ) => Promise<string | null>;
-        }
-      ).verifyUpdateCodeSignature = async () => null;
-    }
 
     autoUpdater.on("checking-for-update", () => {
       this.publish({ phase: "checking" });
@@ -206,10 +189,10 @@ export class UpdateManager {
       return { ok: false, message };
     }
 
-    const macInstallBlocker = await this.getMacUpdateInstallBlocker();
-    if (macInstallBlocker) {
-      this.publish({ phase: "error", message: macInstallBlocker });
-      return { ok: false, message: macInstallBlocker };
+    const installBlocker = await this.getUpdateInstallBlocker();
+    if (installBlocker) {
+      this.publish({ phase: "error", message: installBlocker });
+      return { ok: false, message: installBlocker };
     }
 
     if (this.state.phase === "checking" || this.state.phase === "downloading") {
@@ -262,10 +245,10 @@ export class UpdateManager {
   }
 
   async requestInstall(): Promise<UpdateActionResult> {
-    const macInstallBlocker = await this.getMacUpdateInstallBlocker();
-    if (macInstallBlocker) {
-      this.publish({ phase: "error", message: macInstallBlocker });
-      return { ok: false, message: macInstallBlocker };
+    const installBlocker = await this.getUpdateInstallBlocker();
+    if (installBlocker) {
+      this.publish({ phase: "error", message: installBlocker });
+      return { ok: false, message: installBlocker };
     }
 
     // Installation is intentionally gated on the downloaded state. Calling
@@ -321,8 +304,30 @@ export class UpdateManager {
     );
   }
 
-  private async getMacUpdateInstallBlocker() {
-    if (!this.deps.isMac || this.deps.isDev || !app.isPackaged) return null;
+  private async getUpdateInstallBlocker() {
+    if (this.deps.isDev || !app.isPackaged) return null;
+
+    if (this.deps.isWindows) {
+      try {
+        const result = (await this.deps.execFileAsync("powershell.exe", [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          "(Get-AuthenticodeSignature -LiteralPath $args[0]).Status.ToString()",
+          this.deps.windowsExecutablePath,
+        ])) as { stdout?: unknown };
+        if (String(result?.stdout ?? "").trim() === "Valid") return null;
+      } catch {
+        // A missing PowerShell binary or an unreadable signature cannot prove
+        // that the executable is trusted. The safe fallback is the same as an
+        // explicitly unsigned result: keep the updater from applying code and
+        // direct the user to the normal release page instead.
+      }
+
+      return "This Axon Windows build is not code signed, so Axon will not apply an in-app update. Download the latest installer from GitHub.";
+    }
+
+    if (!this.deps.isMac) return null;
 
     const appBundlePath = this.deps.resolveMacAppBundlePath();
     if (!appBundlePath) {

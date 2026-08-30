@@ -396,6 +396,7 @@ const updateManager = new UpdateManager({
   isWindows,
   execFileAsync,
   resolveMacAppBundlePath,
+  windowsExecutablePath: process.execPath,
 });
 updateManager.configureAutoUpdater();
 registerUpdateHandlers(updateManager);
