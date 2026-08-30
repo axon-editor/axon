@@ -38,37 +38,45 @@ describe("Git binary diffs", () => {
     );
   });
 
-  it("returns metadata without decoding XLSX blob contents", async () => {
-    const repository = createRepository();
-    const filePath = path.join(repository, "budget.xlsx");
-    fs.writeFileSync(filePath, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]));
-    git(repository, ["add", "budget.xlsx"]);
-    git(repository, ["commit", "-m", "add spreadsheet"]);
-    fs.writeFileSync(
-      filePath,
-      Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x01]),
-    );
+  it(
+    "returns metadata without decoding XLSX blob contents",
+    async () => {
+      const repository = createRepository();
+      const filePath = path.join(repository, "budget.xlsx");
+      fs.writeFileSync(filePath, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]));
+      git(repository, ["add", "budget.xlsx"]);
+      git(repository, ["commit", "-m", "add spreadsheet"]);
+      fs.writeFileSync(
+        filePath,
+        Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x01]),
+      );
 
-    const result = await getGitDiff(repository, "budget.xlsx", false, false);
+      const result = await getGitDiff(repository, "budget.xlsx", false, false);
 
-    expect(result.binary).toBe(true);
-    expect(result.baseContent).toBeUndefined();
-    expect(result.currentContent).toBeUndefined();
-  });
+      expect(result.binary).toBe(true);
+      expect(result.baseContent).toBeUndefined();
+      expect(result.currentContent).toBeUndefined();
+    },
+    15_000,
+  );
 
-  it("uses Git detection for binary files with unknown extensions", async () => {
-    const repository = createRepository();
-    const filePath = path.join(repository, "payload.data");
-    fs.writeFileSync(filePath, Buffer.from([0x00, 0x01, 0x02]));
-    git(repository, ["add", "payload.data"]);
-    git(repository, ["commit", "-m", "add payload"]);
-    fs.writeFileSync(filePath, Buffer.from([0x00, 0x03, 0x04, 0x05]));
+  it(
+    "uses Git detection for binary files with unknown extensions",
+    async () => {
+      const repository = createRepository();
+      const filePath = path.join(repository, "payload.data");
+      fs.writeFileSync(filePath, Buffer.from([0x00, 0x01, 0x02]));
+      git(repository, ["add", "payload.data"]);
+      git(repository, ["commit", "-m", "add payload"]);
+      fs.writeFileSync(filePath, Buffer.from([0x00, 0x03, 0x04, 0x05]));
 
-    const result = await getGitDiff(repository, "payload.data", false, false);
+      const result = await getGitDiff(repository, "payload.data", false, false);
 
-    expect(result.binary).toBe(true);
-    expect(result.diff).toContain("Binary files");
-    expect(result.baseContent).toBeUndefined();
-    expect(result.currentContent).toBeUndefined();
-  });
+      expect(result.binary).toBe(true);
+      expect(result.diff).toContain("Binary files");
+      expect(result.baseContent).toBeUndefined();
+      expect(result.currentContent).toBeUndefined();
+    },
+    15_000,
+  );
 });

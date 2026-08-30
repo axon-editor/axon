@@ -24,6 +24,7 @@ const monacoMock = vi.hoisted(() => ({
 }));
 const bridgeMock = vi.hoisted(() => ({
   copyText: vi.fn(),
+  getLocalAssetUrl: vi.fn(),
   openExternalLink: vi.fn(),
   saveMarkdownPdf: vi.fn(),
 }));
@@ -83,6 +84,10 @@ describe("MarkdownPreview", () => {
       '<span style="color:#ff0000">const</span> answer = 42;',
     );
     bridgeMock.copyText.mockReset();
+    bridgeMock.getLocalAssetUrl.mockReset();
+    bridgeMock.getLocalAssetUrl.mockResolvedValue(
+      "axon://local/test-preview-ticket",
+    );
     bridgeMock.openExternalLink.mockReset();
     bridgeMock.saveMarkdownPdf.mockReset();
     bridgeMock.saveMarkdownPdf.mockResolvedValue("/tmp/README.pdf");
