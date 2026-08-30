@@ -2,11 +2,11 @@ import * as monaco from "monaco-editor";
 import {
   conf as javascriptConfiguration,
   language as javascriptLanguage,
-} from "monaco-editor/esm/vs/basic-languages/javascript/javascript";
+} from "monaco-editor/esm/vs/languages/definitions/javascript/javascript.js";
 import {
   conf as typescriptConfiguration,
   language as typescriptLanguage,
-} from "monaco-editor/esm/vs/basic-languages/typescript/typescript";
+} from "monaco-editor/esm/vs/languages/definitions/typescript/typescript.js";
 
 const registeredMonacos = new WeakSet<typeof monaco>();
 

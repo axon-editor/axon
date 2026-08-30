@@ -1,13 +1,13 @@
 import * as monaco from "monaco-editor";
-import "monaco-editor/esm/vs/basic-languages/clojure/clojure.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/dart/dart.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/hcl/hcl.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/r/r.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/scala/scala.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/sql/sql.contribution.js";
-import "monaco-editor/esm/vs/basic-languages/swift/swift.contribution.js";
+import "monaco-editor/esm/vs/languages/definitions/clojure/register.js";
+import "monaco-editor/esm/vs/languages/definitions/dart/register.js";
+import "monaco-editor/esm/vs/languages/definitions/hcl/register.js";
+import "monaco-editor/esm/vs/languages/definitions/powershell/register.js";
+import "monaco-editor/esm/vs/languages/definitions/r/register.js";
+import "monaco-editor/esm/vs/languages/definitions/ruby/register.js";
+import "monaco-editor/esm/vs/languages/definitions/scala/register.js";
+import "monaco-editor/esm/vs/languages/definitions/sql/register.js";
+import "monaco-editor/esm/vs/languages/definitions/swift/register.js";
 
 const registeredMonacos = new WeakSet<typeof monaco>();
 

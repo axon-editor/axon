@@ -1,5 +1,5 @@
 import * as monaco from "monaco-editor";
-import "monaco-editor/esm/vs/basic-languages/xml/xml.contribution";
+import "monaco-editor/esm/vs/languages/definitions/xml/register.js";
 
 const registeredMonacos = new WeakSet<typeof monaco>();
 

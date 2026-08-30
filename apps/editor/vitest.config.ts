@@ -43,6 +43,20 @@ export default defineConfig({
       "@xterm/addon-web-links": dependencyPath("@xterm", "addon-web-links"),
       "@xterm/addon-webgl": dependencyPath("@xterm", "addon-webgl"),
       "@xterm/xterm": dependencyPath("@xterm", "xterm"),
+      "monaco-editor/esm/vs/languages/definitions": dependencyPath(
+        "monaco-editor",
+        "esm",
+        "vs",
+        "languages",
+        "definitions",
+      ),
+      "monaco-editor": dependencyPath(
+        "monaco-editor",
+        "esm",
+        "vs",
+        "editor",
+        "editor.api.js",
+      ),
       "lucide-react": path.resolve(__dirname, "node_modules", "lucide-react"),
       "react-markdown": path.resolve(
         __dirname,
