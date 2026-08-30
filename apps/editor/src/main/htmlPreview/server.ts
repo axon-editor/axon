@@ -1,4 +1,5 @@
 import chokidar, { type FSWatcher } from "chokidar";
+import { randomBytes } from "crypto";
 import fs from "fs";
 import http, {
   type IncomingMessage,
@@ -20,11 +21,38 @@ interface HtmlPreviewServerDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
 }
 
+export function authorizeHtmlPreviewRequest(input: {
+  accessToken: string;
+  cookieHeader?: string;
+  pathname: string;
+  serverId: string;
+}) {
+  const accessPrefix = `/${input.accessToken}`;
+  const cookieName = `axon_preview_${input.serverId.replace(/[^a-z0-9_]/gi, "_")}`;
+  const cookieValue = `${cookieName}=${input.accessToken}`;
+  const authorizedByCookie = (input.cookieHeader ?? "")
+    .split(";")
+    .some((cookie) => cookie.trim() === cookieValue);
+  if (input.pathname.startsWith(`${accessPrefix}/`)) {
+    return {
+      authorized: true,
+      pathname: input.pathname.slice(accessPrefix.length) || "/",
+      setCookie: `${cookieValue}; HttpOnly; SameSite=Strict; Path=/`,
+    };
+  }
+  return {
+    authorized: authorizedByCookie,
+    pathname: input.pathname,
+    setCookie: null,
+  };
+}
+
 export class HtmlPreviewServer {
   private server: Server | null = null;
   private rootPath: string | null = null;
   private serverId: string | null = null;
   private baseUrl: string | null = null;
+  private accessToken: string | null = null;
   private watcher: FSWatcher | null = null;
   private reloadTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly clients = new Set<ServerResponse>();
@@ -44,7 +72,7 @@ export class HtmlPreviewServer {
 
     await this.ensureServer(rootPath);
 
-    if (!this.baseUrl || !this.serverId || !this.rootPath) {
+    if (!this.baseUrl || !this.serverId || !this.rootPath || !this.accessToken) {
       throw new Error("HTML preview server did not start.");
     }
 
@@ -58,7 +86,7 @@ export class HtmlPreviewServer {
       filePath: resolvedFilePath,
       rootPath: this.rootPath,
       serverId: this.serverId,
-      url: `${this.baseUrl}/${relativePath}`,
+      url: `${this.baseUrl}/${this.accessToken}/${relativePath}`,
     };
   }
 
@@ -87,6 +115,7 @@ export class HtmlPreviewServer {
     this.rootPath = null;
     this.serverId = null;
     this.baseUrl = null;
+    this.accessToken = null;
   }
 
   private normalizeRoot(rootPath: string) {
@@ -230,10 +259,7 @@ export class HtmlPreviewServer {
     }, 100);
   }
 
-  private async serveFile(
-    response: ServerResponse,
-    requestUrl: URL,
-  ) {
+  private async serveFile(response: ServerResponse, requestUrl: URL) {
     if (!this.rootPath || !this.serverId) {
       this.writeJson(response, 503, { error: "Preview server is not ready." });
       return;
@@ -269,7 +295,11 @@ export class HtmlPreviewServer {
 
       if (contentType.startsWith("text/html")) {
         response.end(
-          injectHtmlPreviewClient(rawBuffer.toString("utf8"), this.serverId),
+          injectHtmlPreviewClient(
+            rawBuffer.toString("utf8"),
+            this.serverId,
+            `/${this.accessToken}`,
+          ),
         );
         return;
       }
@@ -286,6 +316,24 @@ export class HtmlPreviewServer {
   ) {
     const host = request.headers.host ?? "127.0.0.1";
     const requestUrl = new URL(request.url ?? "/", `http://${host}`);
+    if (!this.accessToken || !this.serverId) {
+      this.writeJson(response, 503, { error: "Preview server is not ready." });
+      return;
+    }
+    const authorization = authorizeHtmlPreviewRequest({
+      accessToken: this.accessToken,
+      cookieHeader: request.headers.cookie,
+      pathname: requestUrl.pathname,
+      serverId: this.serverId,
+    });
+    if (!authorization.authorized) {
+      this.writeJson(response, 404, { error: "Preview target was not found." });
+      return;
+    }
+    requestUrl.pathname = authorization.pathname;
+    if (authorization.setCookie) {
+      response.setHeader("Set-Cookie", authorization.setCookie);
+    }
 
     if (requestUrl.pathname === "/__axon_preview/events") {
       this.handleEventStream(response);
@@ -310,6 +358,7 @@ export class HtmlPreviewServer {
     this.serverId = `preview-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2)}`;
+    this.accessToken = randomBytes(24).toString("base64url");
     this.server = http.createServer((request, response) => {
       void this.handleRequest(request, response);
     });

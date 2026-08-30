@@ -12,6 +12,15 @@ export function registerTestHandlers(
   testManager: TestManager,
   workspaceCapabilities: WorkspaceCapabilityRegistry,
 ) {
+  const boundRenderers = new Set<number>();
+  const bindRendererLifecycle = (sender: Electron.WebContents) => {
+    if (boundRenderers.has(sender.id)) return;
+    boundRenderers.add(sender.id);
+    sender.once("destroyed", () => {
+      boundRenderers.delete(sender.id);
+      testManager.stopAll(sender.id);
+    });
+  };
   ipcMain.handle(
     "tests:discover",
     async (event, folderPath: string): Promise<TestDiscoveryResult> => {
@@ -48,15 +57,20 @@ export function registerTestHandlers(
         };
       }
 
+      bindRendererLifecycle(event.sender);
       return testManager.run(
         workspaceCapabilities.assertRoot(event.sender.id, folderPath),
         providerId,
         targetId,
+        (channel, payload) => {
+          if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
+        },
+        event.sender.id,
       );
     },
   );
 
-  ipcMain.handle("tests:stopAll", async (): Promise<TestStopResult> => {
-    return testManager.stopAll();
+  ipcMain.handle("tests:stopAll", async (event): Promise<TestStopResult> => {
+    return testManager.stopAll(event.sender.id);
   });
 }

@@ -4,7 +4,10 @@ import { HtmlPreviewServer } from "./server";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
 export function registerHtmlPreviewHandlers(
-  getServer: () => HtmlPreviewServer,
+  getServer: (
+    rendererId: number,
+    sendToRenderer: (channel: string, payload?: unknown) => void,
+  ) => HtmlPreviewServer,
   workspaceCapabilities: WorkspaceCapabilityRegistry,
 ) {
   ipcMain.handle(
@@ -26,7 +29,10 @@ export function registerHtmlPreviewHandlers(
           event.sender.id,
           filePath,
         );
-        const target = await getServer().getTarget(authorizedFile, root);
+        const server = getServer(event.sender.id, (channel, payload) => {
+          if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
+        });
+        const target = await server.getTarget(authorizedFile, root);
         return { ok: true, target };
       } catch (err) {
         return {
@@ -57,7 +63,10 @@ export function registerHtmlPreviewHandlers(
           event.sender.id,
           filePath,
         );
-        const target = await getServer().getTarget(authorizedFile, root);
+        const server = getServer(event.sender.id, (channel, payload) => {
+          if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
+        });
+        const target = await server.getTarget(authorizedFile, root);
         await shell.openExternal(target.url);
         return { ok: true, target };
       } catch (err) {

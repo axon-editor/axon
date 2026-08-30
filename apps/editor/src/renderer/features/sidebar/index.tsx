@@ -876,7 +876,9 @@ export default function Sidebar({
             clearRecentFolders();
           }}
           onClearSession={() => {
-            clearWorkspaceSession();
+            void clearWorkspaceSession().catch((error) => {
+              console.error("failed to clear workspace session:", error);
+            });
             onCloseFolderPicker();
           }}
           onOpenNew={async () => {

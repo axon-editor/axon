@@ -612,6 +612,12 @@ contextBridge.exposeInMainWorld("axon", {
     ),
   shouldRestoreSession: (): Promise<boolean> =>
     ipcRenderer.invoke("app:shouldRestoreSession"),
+  loadWorkspaceSession: (): Promise<unknown | null> =>
+    ipcRenderer.invoke("session:load"),
+  saveWorkspaceSession: (session: unknown): Promise<void> =>
+    ipcRenderer.invoke("session:save", session),
+  clearWorkspaceSession: (): Promise<void> =>
+    ipcRenderer.invoke("session:clear"),
   consumeCliOpenFolder: (): Promise<string | null> =>
     ipcRenderer.invoke("app:consumeCliOpenFolder"),
   openDevTools: (): Promise<void> => ipcRenderer.invoke("app:openDevTools"),

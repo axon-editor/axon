@@ -653,14 +653,14 @@ export function useAxonAppEffects({
 
     window.axon
       .shouldRestoreSession()
-      .then((shouldRestoreSession) => {
+      .then(async (shouldRestoreSession) => {
         if (!shouldRestoreSession) {
           allowSessionPersistenceRef.current = false;
           setSessionReady(true);
           return;
         }
 
-        const session = loadWorkspaceSession();
+        const session = await loadWorkspaceSession();
         if (!session?.folderPath) {
           setSessionReady(true);
           return;
@@ -724,13 +724,13 @@ export function useAxonAppEffects({
 
   useEffect(() => {
     if (!sessionReady) return;
-    if (!folderPath && !allowSessionPersistenceRef.current) return;
+    if (!allowSessionPersistenceRef.current) return;
 
     // Only UI/navigation state is persisted here, never dirty editor contents.
     // Restoring unsaved buffers would require a separate crash-safe draft store;
     // until that exists, saving paths/tabs/panels gives useful continuity
     // without pretending unsaved edits are protected.
-    saveWorkspaceSession({
+    void saveWorkspaceSession({
       folderPath,
       roots: workspaceRoots,
       activeRootId,
@@ -740,6 +740,8 @@ export function useAxonAppEffects({
       terminalOpen,
       bottomPanelOpen,
       bottomPanelTab,
+    }).catch((error) => {
+      console.error("failed to save workspace session:", error);
     });
   }, [
     bottomPanelOpen,

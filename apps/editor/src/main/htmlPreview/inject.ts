@@ -1,12 +1,17 @@
-export function createHtmlPreviewClientScript(serverId: string) {
+export function createHtmlPreviewClientScript(
+  serverId: string,
+  accessPath: string,
+) {
   const encodedServerId = JSON.stringify(serverId);
+  const encodedAccessPath = JSON.stringify(accessPath);
 
   return `
 <script data-axon-html-preview>
 (() => {
   const serverId = ${encodedServerId};
+  const accessPath = ${encodedAccessPath};
   const send = (payload) => {
-    fetch("/__axon_preview/console", {
+    fetch(accessPath + "/__axon_preview/console", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ serverId, ...payload }),
@@ -42,14 +47,18 @@ export function createHtmlPreviewClientScript(serverId: string) {
   window.addEventListener("unhandledrejection", (event) => {
     send({ level: "error", message: "Unhandled promise rejection: " + format(event.reason), source: location.href });
   });
-  const events = new EventSource("/__axon_preview/events");
+  const events = new EventSource(accessPath + "/__axon_preview/events");
   events.onmessage = () => location.reload();
 })();
 </script>`;
 }
 
-export function injectHtmlPreviewClient(html: string, serverId: string) {
-  const script = createHtmlPreviewClientScript(serverId);
+export function injectHtmlPreviewClient(
+  html: string,
+  serverId: string,
+  accessPath: string,
+) {
+  const script = createHtmlPreviewClientScript(serverId, accessPath);
   if (html.includes("data-axon-html-preview")) return html;
   if (html.includes("</head>")) {
     return html.replace("</head>", `${script}</head>`);

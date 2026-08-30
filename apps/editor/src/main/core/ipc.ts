@@ -35,8 +35,15 @@ export function createMainProcessIpc(
     sendToRenderer("menu:command", command, targetWindow);
   }
 
+  function broadcastToRenderers(channel: string, payload?: unknown) {
+    for (const window of BrowserWindow.getAllWindows()) {
+      sendToRenderer(channel, payload, window);
+    }
+  }
+
   return {
     sendToRenderer,
+    broadcastToRenderers,
     sendMenuCommand,
   };
 }

@@ -14,6 +14,14 @@ import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 
 interface TestManagerDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
+  getSpawnEnvironment?: () => Promise<NodeJS.ProcessEnv>;
+}
+
+type TestRunSender = (channel: string, payload?: unknown) => void;
+
+interface ActiveTestRun {
+  child: ChildProcessWithoutNullStreams;
+  ownerId: number;
 }
 
 const TEST_DISCOVERY_IGNORE = new Set([
@@ -56,11 +64,11 @@ interface PackageJson {
 }
 
 export class TestManager {
-  private readonly activeRuns = new Map<string, ChildProcessWithoutNullStreams>();
+  private readonly activeRuns = new Map<string, ActiveTestRun>();
   private readonly runStartedAt = new Map<string, number>();
   private readonly stoppingRuns = new Set<string>();
-  private pendingRunCount = 0;
-  private stopGeneration = 0;
+  private readonly pendingRunCountByOwner = new Map<number, number>();
+  private readonly stopGenerationByOwner = new Map<number, number>();
   private readonly deps: TestManagerDependencies;
 
   constructor(deps: TestManagerDependencies) {
@@ -441,18 +449,20 @@ export class TestManager {
     return relativePath === "." ? "." : `./${relativePath}`;
   }
 
-  private sendOutput(event: TestOutputEvent) {
-    this.deps.sendToRenderer("tests:output", event);
+  private sendOutput(send: TestRunSender, event: TestOutputEvent) {
+    send("tests:output", event);
   }
 
-  private sendFinished(event: TestFinishedEvent) {
-    this.deps.sendToRenderer("tests:finished", event);
+  private sendFinished(send: TestRunSender, event: TestFinishedEvent) {
+    send("tests:finished", event);
   }
 
   async run(
     folderPath: string,
     providerId: string,
     targetId?: string | null,
+    send: TestRunSender = this.deps.sendToRenderer,
+    ownerId = 0,
   ): Promise<TestRunResult> {
     const discovery = this.discover(folderPath);
     const provider = discovery.providers.find(
@@ -483,15 +493,22 @@ export class TestManager {
 
     const runId = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
     const { command, args } = this.getProviderCommand(provider, target);
-    const runGeneration = this.stopGeneration;
-    this.pendingRunCount += 1;
+    const runGeneration = this.stopGenerationByOwner.get(ownerId) ?? 0;
+    this.pendingRunCountByOwner.set(
+      ownerId,
+      (this.pendingRunCountByOwner.get(ownerId) ?? 0) + 1,
+    );
     let env: NodeJS.ProcessEnv;
     try {
-      env = await getDeveloperToolSpawnEnvironment();
+      env = await (
+        this.deps.getSpawnEnvironment ?? getDeveloperToolSpawnEnvironment
+      )();
     } finally {
-      this.pendingRunCount -= 1;
+      const remaining = (this.pendingRunCountByOwner.get(ownerId) ?? 1) - 1;
+      if (remaining > 0) this.pendingRunCountByOwner.set(ownerId, remaining);
+      else this.pendingRunCountByOwner.delete(ownerId);
     }
-    if (runGeneration !== this.stopGeneration) {
+    if (runGeneration !== (this.stopGenerationByOwner.get(ownerId) ?? 0)) {
       return {
         ok: false,
         message: `${target?.label ?? provider.label} was stopped before it started.`,
@@ -506,10 +523,10 @@ export class TestManager {
       detached: process.platform !== "win32",
       windowsHide: true,
     });
-    this.activeRuns.set(runId, child);
+    this.activeRuns.set(runId, { child, ownerId });
     this.runStartedAt.set(runId, Date.now());
 
-    this.sendOutput({
+    this.sendOutput(send, {
       runId,
       providerId: provider.id,
       label: target?.label ?? provider.label,
@@ -517,7 +534,7 @@ export class TestManager {
       stream: "system",
       line: provider.rootPath,
     });
-    this.sendOutput({
+    this.sendOutput(send, {
       runId,
       providerId: provider.id,
       label: target?.label ?? provider.label,
@@ -529,7 +546,7 @@ export class TestManager {
     const stream = (name: "stdout" | "stderr", chunk: Buffer) => {
       for (const line of chunk.toString("utf-8").split(/\r?\n/)) {
         if (!line.trim()) continue;
-        this.sendOutput({
+        this.sendOutput(send, {
           runId,
           providerId: provider.id,
           label: target?.label ?? provider.label,
@@ -553,7 +570,7 @@ export class TestManager {
       this.activeRuns.delete(runId);
       const startedAt = this.runStartedAt.get(runId) ?? Date.now();
       this.runStartedAt.delete(runId);
-      this.sendFinished({
+      this.sendFinished(send, {
         runId,
         providerId: provider.id,
         label: target?.label ?? provider.label,
@@ -575,7 +592,7 @@ export class TestManager {
     // Electron's main process. Reporting it through the test panel keeps Axon
     // alive and gives the user the actual missing command and recovered PATH.
     child.on("error", (err) => {
-      this.sendOutput({
+      this.sendOutput(send, {
         runId,
         providerId: provider.id,
         label: target?.label ?? provider.label,
@@ -597,14 +614,33 @@ export class TestManager {
     };
   }
 
-  stopAll(): TestStopResult {
-    this.stopGeneration += 1;
-    const pending = this.pendingRunCount;
+  stopAll(ownerId?: number): TestStopResult {
+    const owners = new Set<number>();
+    if (ownerId !== undefined) {
+      owners.add(ownerId);
+    } else {
+      for (const pendingOwner of this.pendingRunCountByOwner.keys()) {
+        owners.add(pendingOwner);
+      }
+      for (const run of this.activeRuns.values()) owners.add(run.ownerId);
+    }
+    for (const owner of owners) {
+      this.stopGenerationByOwner.set(
+        owner,
+        (this.stopGenerationByOwner.get(owner) ?? 0) + 1,
+      );
+    }
+
+    const pending = [...owners].reduce(
+      (count, owner) => count + (this.pendingRunCountByOwner.get(owner) ?? 0),
+      0,
+    );
     let stopped = pending;
-    for (const [runId, child] of this.activeRuns) {
+    for (const [runId, run] of this.activeRuns) {
+      if (!owners.has(run.ownerId)) continue;
       if (this.stoppingRuns.has(runId)) continue;
       this.stoppingRuns.add(runId);
-      this.terminateProcessTree(runId, child);
+      this.terminateProcessTree(runId, run.child);
       stopped += 1;
     }
     return {
@@ -633,7 +669,7 @@ export class TestManager {
         { stdio: "ignore", windowsHide: true },
       );
       const fallback = () => {
-        if (this.activeRuns.get(runId) === child) child.kill();
+        if (this.activeRuns.get(runId)?.child === child) child.kill();
       };
       killer.once("error", fallback);
       killer.once("close", (code) => {
@@ -648,7 +684,7 @@ export class TestManager {
       child.kill("SIGTERM");
     }
     const forceTimer = setTimeout(() => {
-      if (this.activeRuns.get(runId) !== child) return;
+      if (this.activeRuns.get(runId)?.child !== child) return;
       try {
         process.kill(-pid, "SIGKILL");
       } catch {

@@ -6,10 +6,18 @@ import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 
 interface TaskManagerDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
+  getSpawnEnvironment?: () => Promise<NodeJS.ProcessEnv>;
+}
+
+type TaskRunSender = (channel: string, payload?: unknown) => void;
+
+interface ActiveTask {
+  child: ChildProcessWithoutNullStreams;
+  ownerId: number;
 }
 
 export class TaskManager {
-  private readonly activeTasks = new Map<string, ChildProcessWithoutNullStreams>();
+  private readonly activeTasks = new Map<string, ActiveTask>();
 
   constructor(private readonly deps: TaskManagerDependencies) {}
 
@@ -93,12 +101,12 @@ export class TaskManager {
     return { command: "cargo", args: ["build"] };
   }
 
-  private sendTaskOutput(event: TaskOutputEvent) {
-    this.deps.sendToRenderer("task:output", event);
+  private sendTaskOutput(send: TaskRunSender, event: TaskOutputEvent) {
+    send("task:output", event);
   }
 
-  private sendTaskFinished(event: TaskFinishedEvent) {
-    this.deps.sendToRenderer("task:finished", event);
+  private sendTaskFinished(send: TaskRunSender, event: TaskFinishedEvent) {
+    send("task:finished", event);
   }
 
   private streamTaskOutput(
@@ -107,6 +115,7 @@ export class TaskManager {
     stream: "stdout" | "stderr",
     chunk: Buffer,
     buffer: { value: string },
+    send: TaskRunSender,
   ) {
     buffer.value += chunk.toString();
     const lines = buffer.value.split(/\r?\n/);
@@ -114,7 +123,7 @@ export class TaskManager {
 
     for (const line of lines) {
       if (!line.trim()) continue;
-      this.sendTaskOutput({
+      this.sendTaskOutput(send, {
         runId,
         taskId: task.id,
         label: task.label,
@@ -127,6 +136,8 @@ export class TaskManager {
   async startWorkspaceTask(
     folderPath: string,
     taskId: string,
+    send: TaskRunSender = this.deps.sendToRenderer,
+    ownerId = 0,
   ): Promise<TaskRunResult> {
     // The renderer sends only a task id. I re-detect the task right before
     // execution so stale UI state cannot run a command that no longer belongs to
@@ -140,7 +151,9 @@ export class TaskManager {
 
     const runId = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
     const { command, args } = this.getTaskCommand(task);
-    const env = await getDeveloperToolSpawnEnvironment();
+    const env = await (
+      this.deps.getSpawnEnvironment ?? getDeveloperToolSpawnEnvironment
+    )();
     // spawn gives us streaming stdout/stderr, which is the important behavior for
     // build tools. execFile would only return after the command ends, making the
     // Output panel feel frozen during long tests or builds.
@@ -151,8 +164,8 @@ export class TaskManager {
     const stdoutBuffer = { value: "" };
     const stderrBuffer = { value: "" };
 
-    this.activeTasks.set(runId, child);
-    this.sendTaskOutput({
+    this.activeTasks.set(runId, { child, ownerId });
+    this.sendTaskOutput(send, {
       runId,
       taskId: task.id,
       label: task.label,
@@ -161,13 +174,13 @@ export class TaskManager {
     });
 
     child.stdout.on("data", (chunk: Buffer) => {
-      this.streamTaskOutput(runId, task, "stdout", chunk, stdoutBuffer);
+      this.streamTaskOutput(runId, task, "stdout", chunk, stdoutBuffer, send);
     });
     child.stderr.on("data", (chunk: Buffer) => {
-      this.streamTaskOutput(runId, task, "stderr", chunk, stderrBuffer);
+      this.streamTaskOutput(runId, task, "stderr", chunk, stderrBuffer, send);
     });
     child.on("error", (err) => {
-      this.sendTaskOutput({
+      this.sendTaskOutput(send, {
         runId,
         taskId: task.id,
         label: task.label,
@@ -177,7 +190,7 @@ export class TaskManager {
     });
     child.on("close", (exitCode, signal) => {
       if (stdoutBuffer.value.trim()) {
-        this.sendTaskOutput({
+        this.sendTaskOutput(send, {
           runId,
           taskId: task.id,
           label: task.label,
@@ -186,7 +199,7 @@ export class TaskManager {
         });
       }
       if (stderrBuffer.value.trim()) {
-        this.sendTaskOutput({
+        this.sendTaskOutput(send, {
           runId,
           taskId: task.id,
           label: task.label,
@@ -195,7 +208,7 @@ export class TaskManager {
         });
       }
       this.activeTasks.delete(runId);
-      this.sendTaskFinished({
+      this.sendTaskFinished(send, {
         runId,
         taskId: task.id,
         label: task.label,
@@ -207,14 +220,15 @@ export class TaskManager {
     return { runId, task };
   }
 
-  stopAll() {
+  stopAll(ownerId?: number) {
     // Tasks are child processes owned by Axon. If the app quits while a build is
     // still running, leaving those processes alive would make the Output panel
     // lie on the next launch and could keep project tools running in the
     // background without a visible owner.
-    for (const taskProcess of this.activeTasks.values()) {
-      if (!taskProcess.killed) taskProcess.kill();
+    for (const [runId, task] of this.activeTasks) {
+      if (ownerId !== undefined && task.ownerId !== ownerId) continue;
+      if (!task.child.killed) task.child.kill();
+      this.activeTasks.delete(runId);
     }
-    this.activeTasks.clear();
   }
 }

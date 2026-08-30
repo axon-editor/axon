@@ -7,6 +7,14 @@ import { TestManager } from "./tests";
 
 const temporaryRoots = new Set<string>();
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
 async function createTestWorkspace() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "axon-tests-"));
   temporaryRoots.add(root);
@@ -33,7 +41,10 @@ afterEach(async () => {
 describe("test process cancellation", () => {
   it("cancels a queued run before its process starts", async () => {
     const root = await createTestWorkspace();
-    const manager = new TestManager({ sendToRenderer: () => {} });
+    const manager = new TestManager({
+      sendToRenderer: () => {},
+      getSpawnEnvironment: async () => process.env,
+    });
     const provider = manager.discover(root).providers[0];
 
     const run = manager.run(root, provider.id);
@@ -52,6 +63,7 @@ describe("test process cancellation", () => {
       finishRun = resolve;
     });
     const manager = new TestManager({
+      getSpawnEnvironment: async () => process.env,
       sendToRenderer: (channel, payload) => {
         if (channel === "tests:finished") {
           finishRun?.(payload as TestFinishedEvent);
@@ -68,4 +80,27 @@ describe("test process cancellation", () => {
       status: "stopped",
     });
   }, 15_000);
+
+  it("cancels pending runs only for the requesting renderer", async () => {
+    const root = await createTestWorkspace();
+    const environmentGate = createDeferred<void>();
+    const manager = new TestManager({
+      sendToRenderer: () => undefined,
+      getSpawnEnvironment: async () => {
+        await environmentGate.promise;
+        return process.env;
+      },
+    });
+    const provider = manager.discover(root).providers[0];
+    const firstRun = manager.run(root, provider.id, null, undefined, 1);
+    const secondRun = manager.run(root, provider.id, null, undefined, 2);
+
+    expect(manager.stopAll(1).stopped).toBe(1);
+    environmentGate.resolve();
+    const [firstResult, secondResult] = await Promise.all([firstRun, secondRun]);
+
+    expect(firstResult).toMatchObject({ ok: false, runId: null });
+    expect(secondResult.ok).toBe(true);
+    expect(manager.stopAll(2).stopped).toBe(1);
+  });
 });

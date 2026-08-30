@@ -40,11 +40,8 @@ function collectFilePaths(node: FileNode, paths = new Set<string>()) {
   return paths;
 }
 
-export function loadWorkspaceSession(): WorkspaceSession | null {
+function parseWorkspaceSession(parsed: unknown): WorkspaceSession | null {
   try {
-    const parsed = JSON.parse(
-      localStorage.getItem(SESSION_KEY) ?? "null",
-    ) as unknown;
     if (!isRecord(parsed)) return null;
     if (parsed.folderPath !== null && typeof parsed.folderPath !== "string") {
       return null;
@@ -85,17 +82,41 @@ export function loadWorkspaceSession(): WorkspaceSession | null {
   }
 }
 
-export function saveWorkspaceSession(session: WorkspaceSession) {
-  if (!session.folderPath && session.roots.length === 0) {
+export async function loadWorkspaceSession(): Promise<WorkspaceSession | null> {
+  const storedSession = parseWorkspaceSession(
+    await window.axon.loadWorkspaceSession(),
+  );
+  if (storedSession) return storedSession;
+
+  // Migrate the single legacy browser key once. New writes live in the main
+  // process where each BrowserWindow has its own identity, so opening a second
+  // workspace can no longer overwrite the first window's restore state.
+  let legacyValue: unknown = null;
+  try {
+    legacyValue = JSON.parse(localStorage.getItem(SESSION_KEY) ?? "null") as unknown;
+  } catch {
+    legacyValue = null;
+  }
+  const legacySession = parseWorkspaceSession(legacyValue);
+  if (legacySession) {
+    await window.axon.saveWorkspaceSession(legacySession);
     localStorage.removeItem(SESSION_KEY);
+  }
+  return legacySession;
+}
+
+export async function saveWorkspaceSession(session: WorkspaceSession) {
+  if (!session.folderPath && session.roots.length === 0) {
+    await window.axon.clearWorkspaceSession();
     return;
   }
 
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  await window.axon.saveWorkspaceSession(session);
 }
 
-export function clearWorkspaceSession() {
+export async function clearWorkspaceSession() {
   localStorage.removeItem(SESSION_KEY);
+  await window.axon.clearWorkspaceSession();
 }
 
 export function sanitizeRestoredLayout(

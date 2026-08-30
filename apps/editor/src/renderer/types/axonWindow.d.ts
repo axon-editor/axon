@@ -425,6 +425,9 @@ declare global {
         folderPath?: string | null,
       ) => Promise<ExtensionActionResult>;
       shouldRestoreSession: () => Promise<boolean>;
+      loadWorkspaceSession: () => Promise<unknown | null>;
+      saveWorkspaceSession: (session: unknown) => Promise<void>;
+      clearWorkspaceSession: () => Promise<void>;
       consumeCliOpenFolder: () => Promise<string | null>;
       openDevTools: () => Promise<void>;
       checkForUpdates: () => Promise<UpdateInfo>;

@@ -69,6 +69,10 @@ import {
   LocalAssetTicketRegistry,
   registerLocalAssetTicketHandler,
 } from "./security/assets/localAssetTickets";
+import {
+  registerWindowSessionHandlers,
+  WindowSessionStore,
+} from "./app/sessions/windowSessionStore";
 
 const isDev = process.env.NODE_ENV === "development";
 const axonDevServerUrl =
@@ -150,16 +154,19 @@ const axonReleaseApiUrl =
   "https://api.github.com/repos/axon-editor/axon/releases/latest";
 const axonReleasePageUrl =
   "https://github.com/axon-editor/axon/releases/latest";
-let htmlPreviewServer: HtmlPreviewServer | null = null;
+const htmlPreviewServers = new Map<number, HtmlPreviewServer>();
 const workspaceCapabilities = new WorkspaceCapabilityRegistry();
 registerWorkspaceCapabilityHandlers(workspaceCapabilities);
 const localAssetTickets = new LocalAssetTicketRegistry(workspaceCapabilities);
 registerLocalAssetTicketHandler(localAssetTickets);
+const windowSessionStore = new WindowSessionStore();
+registerWindowSessionHandlers(windowSessionStore);
 const openWorkspaceRegistry = new OpenWorkspaceRegistry();
 openWorkspaceRegistry.registerHandlers();
-const { sendToRenderer, sendMenuCommand } = createMainProcessIpc({
-  getMainWindow: () => mainWindow,
-});
+const { broadcastToRenderers, sendToRenderer, sendMenuCommand } =
+  createMainProcessIpc({
+    getMainWindow: () => mainWindow,
+  });
 
 function getLocalProtocolContentType(filePath: string) {
   const extension = path.extname(filePath).toLowerCase();
@@ -347,7 +354,7 @@ const bundledCore = createBundledServiceController({
   portEnvironmentVariable: "AXON_CORE_PORT",
   tokenEnvironmentVariable: "AXON_CORE_TOKEN",
   isShuttingDown: () => isQuitting,
-  onStatusChange: (status) => sendToRenderer("core:status", { status }),
+  onStatusChange: (status) => broadcastToRenderers("core:status", { status }),
   confirmRestart: confirmServiceRestart,
 });
 const bundledPtyHost = createBundledServiceController({
@@ -371,7 +378,7 @@ const bundledPtyHost = createBundledServiceController({
         AXON_PTY_LOG_PATH: axonPtyLogPath,
       },
   isShuttingDown: () => isQuitting,
-  onStatusChange: (status) => sendToRenderer("pty:status", { status }),
+  onStatusChange: (status) => broadcastToRenderers("pty:status", { status }),
   confirmRestart: confirmServiceRestart,
 });
 const taskManager = new TaskManager({
@@ -400,7 +407,7 @@ function createFileWatcherManager(
 // Actual workspace and Git watcher state belongs to renderer-specific managers.
 const watcherOptionSource = createFileWatcherManager(sendToRenderer);
 const updateManager = new UpdateManager({
-  sendToRenderer,
+  sendToRenderer: broadcastToRenderers,
   releaseApiUrl: axonReleaseApiUrl,
   releasePageUrl: axonReleasePageUrl,
   isDev,
@@ -493,17 +500,22 @@ if (!hasSingleInstanceLock) {
   app.quit();
 }
 
-function getHtmlPreviewServer() {
-  if (!htmlPreviewServer) {
-    htmlPreviewServer = new HtmlPreviewServer({
+function getHtmlPreviewServer(
+  rendererId: number,
+  sendPreviewEvent: (channel: string, payload?: unknown) => void,
+) {
+  let server = htmlPreviewServers.get(rendererId);
+  if (!server) {
+    server = new HtmlPreviewServer({
       buildWatcherOptions: () => watcherOptionSource.buildWatcherOptions(),
       shouldIgnoreWorkspaceWatchPath: (candidatePath: string) =>
         watcherOptionSource.shouldIgnoreWorkspaceWatchPath(candidatePath),
-      sendToRenderer,
+      sendToRenderer: sendPreviewEvent,
     });
+    htmlPreviewServers.set(rendererId, server);
   }
 
-  return htmlPreviewServer;
+  return server;
 }
 
 function createManagedWindow(
@@ -539,6 +551,10 @@ function createManagedWindow(
   mainWindow = createdWindow.window;
   const createdWebContentsId = createdWindow.window.webContents.id;
   windowSessionRestore.set(createdWebContentsId, createdWindow.restoreSession);
+  windowSessionStore.assignRenderer(
+    createdWebContentsId,
+    createdWindow.restoreSession,
+  );
   if (options.cliOpenFolderPath) {
     pendingCliOpenFolders.set(createdWebContentsId, options.cliOpenFolderPath);
   }
@@ -575,6 +591,10 @@ function createManagedWindow(
     cliReadyRenderers.delete(createdWebContentsId);
     workspaceCapabilities.releaseRenderer(createdWebContentsId);
     localAssetTickets.releaseRenderer(createdWebContentsId);
+    windowSessionStore.releaseRenderer(createdWebContentsId);
+    const previewServer = htmlPreviewServers.get(createdWebContentsId);
+    htmlPreviewServers.delete(createdWebContentsId);
+    if (previewServer) void previewServer.close();
     openWorkspaceRegistry.release(createdWebContentsId);
     if (mainWindow === createdWindow.window) {
       mainWindow =
@@ -620,10 +640,12 @@ function shouldBlockBrowserShortcut(input: {
 }
 
 registerSpotifyProtocolClient();
-registerSpotifyOpenUrlHandler({ sendToRenderer });
+registerSpotifyOpenUrlHandler({ sendToRenderer: broadcastToRenderers });
 
 app.on("second-instance", async (_event, argv) => {
-  await handleSpotifySecondInstanceArg(argv, { sendToRenderer });
+  await handleSpotifySecondInstanceArg(argv, {
+    sendToRenderer: broadcastToRenderers,
+  });
 
   const cliOpenFolderPath = findCliOpenFolderArgument(argv);
   if (cliOpenFolderPath) {
@@ -664,7 +686,7 @@ app.whenReady().then(async () => {
     const requestUrl = new URL(request.url);
 
     const spotifyResponse = await handleSpotifyProtocolRequest(requestUrl, {
-      sendToRenderer,
+      sendToRenderer: broadcastToRenderers,
     });
     if (spotifyResponse) return spotifyResponse;
 
@@ -770,8 +792,9 @@ app.on("before-quit", (event) => {
     ]);
     const resourceResults = await Promise.allSettled([
       fileWatcherRegistry.closeAll(),
-      htmlPreviewServer?.close(),
+      ...[...htmlPreviewServers.values()].map((server) => server.close()),
     ]);
+    htmlPreviewServers.clear();
     for (const result of [...serviceResults, ...resourceResults]) {
       if (result.status === "rejected") {
         console.error("Axon shutdown cleanup failed:", result.reason);

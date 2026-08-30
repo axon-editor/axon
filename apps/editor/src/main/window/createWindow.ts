@@ -65,6 +65,21 @@ function notifyRendererOfFullScreen(window: BrowserWindow) {
   window.webContents.send("window:fullScreenChanged", window.isFullScreen());
 }
 
+export function getEditorWebPreferences(preload: string) {
+  return {
+    preload,
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    // Terminal agents, task output, and extension events must keep draining
+    // while another app or Axon window is focused. Chromium's background timer
+    // throttling otherwise creates a different execution model for the reused
+    // boot window and every later BrowserWindow, then delivers a large burst
+    // only when the user returns.
+    backgroundThrottling: false,
+  };
+}
+
 export function createWindow(
   deps: WindowDependencies,
   options: CreateWindowOptions = {},
@@ -126,13 +141,9 @@ export function createWindow(
             bootAppearance.background,
           ),
           icon: axonIconPath,
-          webPreferences: {
-            preload: path.join(__dirname, "../../preload/index.js"),
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: true,
-            backgroundThrottling: true,
-          },
+          webPreferences: getEditorWebPreferences(
+            path.join(__dirname, "../../preload/index.js"),
+          ),
         });
 
   applyWindowGlass(
