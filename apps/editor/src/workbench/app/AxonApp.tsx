@@ -78,7 +78,7 @@ function formatOutputTime(date = new Date()) {
     second: "2-digit",
   });
 }
-export default function App({ initialExtensionState }: AppProps) {
+export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
   const shouldShowOnboardingRef = useRef(!hasSeenAxonOnboarding());
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [workspaceRoots, setWorkspaceRoots] = useState<WorkspaceRoot[]>([]);
@@ -139,7 +139,8 @@ export default function App({ initialExtensionState }: AppProps) {
       setExtensionState((event as CustomEvent<ExtensionState>).detail);
     };
     window.addEventListener("axon:extensionState", handleExtensionState);
-    return () => window.removeEventListener("axon:extensionState", handleExtensionState);
+    return () =>
+      window.removeEventListener("axon:extensionState", handleExtensionState);
   }, []);
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
     EditorDiagnostic[]
@@ -405,31 +406,34 @@ export default function App({ initialExtensionState }: AppProps) {
     },
     [appendOutput, folderPath, handleFileSelect, handleRefresh],
   );
-  const handleSettingsSave = useCallback(async (
-    nextSettings: AxonSettings,
-    options: { announce?: boolean } = { announce: true },
-  ) => {
-    const normalizedSettings = normalizeSettings(nextSettings);
-    const requestId = ++settingsSaveRequestRef.current;
-    setSettings(normalizedSettings);
-    try {
-      const savedSettings = await window.axon.updateSettings(
-        normalizedSettings,
-        null,
-      );
-      if (requestId === settingsSaveRequestRef.current) {
-        setSettings(normalizeSettings(savedSettings));
+  const handleSettingsSave = useCallback(
+    async (
+      nextSettings: AxonSettings,
+      options: { announce?: boolean } = { announce: true },
+    ) => {
+      const normalizedSettings = normalizeSettings(nextSettings);
+      const requestId = ++settingsSaveRequestRef.current;
+      setSettings(normalizedSettings);
+      try {
+        const savedSettings = await window.axon.updateSettings(
+          normalizedSettings,
+          null,
+        );
+        if (requestId === settingsSaveRequestRef.current) {
+          setSettings(normalizeSettings(savedSettings));
+        }
+        if (options.announce !== false) {
+          appendOutput("settings", "Saved settings.", "success");
+        }
+        return true;
+      } catch (err) {
+        console.error("failed to save settings:", err);
+        appendOutput("settings", "Failed to save settings.", "error");
+        return false;
       }
-      if (options.announce !== false) {
-        appendOutput("settings", "Saved settings.", "success");
-      }
-      return true;
-    } catch (err) {
-      console.error("failed to save settings:", err);
-      appendOutput("settings", "Failed to save settings.", "error");
-      return false;
-    }
-  }, [appendOutput]);
+    },
+    [appendOutput],
+  );
   useEffect(() => {
     // Rendering with a fallback is enough to survive this launch, but leaving
     // the unavailable ID on disk would make every future launch repeat the
@@ -520,10 +524,10 @@ export default function App({ initialExtensionState }: AppProps) {
       const activeFile = activePane?.activeFile;
       const anchor = activeFile
         ? {
-          path: activeFile,
-          line: cursorInfo.line,
-          column: cursorInfo.col,
-        }
+            path: activeFile,
+            line: cursorInfo.line,
+            column: cursorInfo.col,
+          }
         : null;
       const compareWithAnchor = (diagnostic: EditorDiagnostic) => {
         if (!anchor) return direction;
@@ -538,11 +542,11 @@ export default function App({ initialExtensionState }: AppProps) {
       const nextDiagnostic =
         direction === 1
           ? (orderedDiagnostics.find(
-            (diagnostic) => compareWithAnchor(diagnostic) > 0,
-          ) ?? orderedDiagnostics[0])
+              (diagnostic) => compareWithAnchor(diagnostic) > 0,
+            ) ?? orderedDiagnostics[0])
           : ([...orderedDiagnostics]
-            .reverse()
-            .find((diagnostic) => compareWithAnchor(diagnostic) < 0) ??
+              .reverse()
+              .find((diagnostic) => compareWithAnchor(diagnostic) < 0) ??
             orderedDiagnostics[orderedDiagnostics.length - 1]);
       // Problem navigation is intentionally based on the merged diagnostics
       // store instead of the currently mounted Monaco model. That lets F8 walk
@@ -831,134 +835,137 @@ export default function App({ initialExtensionState }: AppProps) {
     workspaceTrustNonce,
     zenMode,
   });
-  return (
-    <AxonAppView
-      {...{
-        activeFileContent,
-        activeFileSymbols,
-        activePane,
-        activeRootId,
-        agentActionRequest,
-        agentResumeRequest,
-        agentResumeRequested,
-        agentSidebarOpen,
-        appThemeCssVariables,
-        availableFonts,
-        bottomPanelOpen,
-        bottomPanelTab,
-        cliToolInstallPrompt,
-        languageToolInstallPrompt,
-        languageToolInstallations,
-        cursorInfo,
-        deletedFiles,
-        diagnosticCounts,
-        diagnostics,
-        diffFilePath,
-        diffOpen,
-        extensionState,
-        extensionThemes,
-        extensionViewOpenId,
-        extensionsOpen,
-        fileOutlineOpen,
-        folderPath,
-        folderPickerIntent,
-        gitChangeCount,
-        gitStatus,
-        handleApplyAgentEdit,
-        handleDownloadUpdate,
-        handleFileSelect,
-        handleFolderChange,
-        handleNewFile,
-        handleOpenDiagnostic,
-        handleOpenFolder,
-        handleOpenHtmlPreview,
-        handleOpenNavigationTarget,
-        handleOpenPathInTerminal,
-        handleOpenTabInTerminal,
-        handleWorkspaceSearchResult,
-        handleOpenUpdatePage,
-        handleRefresh,
-        handleInstallUpdate,
-        handleRunWorkspaceTask,
-        handleSettingsPreview,
-        handleSettingsSave,
-        handleSplit,
-        handleSwitchWorkspaceRoot,
-        language,
-        languageToolsOpen,
-        layout,
-        loading,
-        navigationTarget,
-        outputEntries,
-        paletteCommands,
-        paletteOpen,
-        platform,
-        requestCloseTab,
-        runCommand,
-        settings,
-        settingsHydrated,
-        settingsOpen,
-        sidebarCollapsed,
-        sidebarView,
-        sidebarWidth,
-        sourceControlOpen,
-        spotifyActions,
-        spotifyPlayerOpen,
-        spotifyState,
-        taskRunnerOpen,
-        terminalCreateNonce,
-        terminalCreateWorkingDirectory,
-        terminalOpen,
-        testExplorerOpen,
-        terminalColors,
-        themeSyntax,
-        themeTokens,
-        tree,
-        updateInfo,
-        updateInstallState,
-        updateModalOpen,
-        workspaceOverviewOpen,
-        windowFullScreen,
-        workspaceRoots,
-        workspaceSearchOpen,
-        workspaceTrusted,
-        workspaceTrustPromptPath,
-        zenMode,
-        setAboutOpen,
-        setAgentSidebarOpen,
-        setBottomPanelOpen,
-        setBottomPanelTab,
-        setDiffFilePath,
-        setDiffOpen,
-        setExtensionsOpen,
-        setExtensionState,
-        setExtensionViewOpenId,
-        setFileOutlineOpen,
-        setFolderPickerIntent,
-        setLanguage,
-        setLanguageToolsOpen,
-        setLayout,
-        setPaletteOpen,
-        setSettingsOpen,
-        setSidebarCollapsed,
-        setSidebarView,
-        setSidebarWidth,
-        setSourceControlOpen,
-        setSpotifyPlayerOpen,
-        setTaskRunnerOpen,
-        setTerminalOpen,
-        setTestExplorerOpen,
-        setUpdateModalOpen,
-        setWorkspaceOverviewOpen,
-        setWorkspaceSearchOpen,
-        setWorkspaceTrustNonce,
-        setWorkspaceTrustPromptPath,
-        setZenMode,
-        setCursorInfo,
-        appendOutput,
-        aboutOpen,
-        refreshGitStatus,
-      }}
-    />
-  );
+  return {
+    activeFileContent,
+    activeFileSymbols,
+    activePane,
+    activeRootId,
+    agentActionRequest,
+    agentResumeRequest,
+    agentResumeRequested,
+    agentSidebarOpen,
+    appThemeCssVariables,
+    availableFonts,
+    bottomPanelOpen,
+    bottomPanelTab,
+    cliToolInstallPrompt,
+    languageToolInstallPrompt,
+    languageToolInstallations,
+    cursorInfo,
+    deletedFiles,
+    diagnosticCounts,
+    diagnostics,
+    diffFilePath,
+    diffOpen,
+    extensionState,
+    extensionThemes,
+    extensionViewOpenId,
+    extensionsOpen,
+    fileOutlineOpen,
+    folderPath,
+    folderPickerIntent,
+    gitChangeCount,
+    gitStatus,
+    handleApplyAgentEdit,
+    handleDownloadUpdate,
+    handleFileSelect,
+    handleFolderChange,
+    handleNewFile,
+    handleOpenDiagnostic,
+    handleOpenFolder,
+    handleOpenHtmlPreview,
+    handleOpenNavigationTarget,
+    handleOpenPathInTerminal,
+    handleOpenTabInTerminal,
+    handleWorkspaceSearchResult,
+    handleOpenUpdatePage,
+    handleRefresh,
+    handleInstallUpdate,
+    handleRunWorkspaceTask,
+    handleSettingsPreview,
+    handleSettingsSave,
+    handleSplit,
+    handleSwitchWorkspaceRoot,
+    language,
+    languageToolsOpen,
+    layout,
+    loading,
+    navigationTarget,
+    outputEntries,
+    paletteCommands,
+    paletteOpen,
+    platform,
+    requestCloseTab,
+    runCommand,
+    settings,
+    settingsHydrated,
+    settingsOpen,
+    sidebarCollapsed,
+    sidebarView,
+    sidebarWidth,
+    sourceControlOpen,
+    spotifyActions,
+    spotifyPlayerOpen,
+    spotifyState,
+    taskRunnerOpen,
+    terminalCreateNonce,
+    terminalCreateWorkingDirectory,
+    terminalOpen,
+    testExplorerOpen,
+    terminalColors,
+    themeSyntax,
+    themeTokens,
+    tree,
+    updateInfo,
+    updateInstallState,
+    updateModalOpen,
+    workspaceOverviewOpen,
+    windowFullScreen,
+    workspaceRoots,
+    workspaceSearchOpen,
+    workspaceTrusted,
+    workspaceTrustPromptPath,
+    zenMode,
+    setAboutOpen,
+    setAgentSidebarOpen,
+    setBottomPanelOpen,
+    setBottomPanelTab,
+    setDiffFilePath,
+    setDiffOpen,
+    setExtensionsOpen,
+    setExtensionState,
+    setExtensionViewOpenId,
+    setFileOutlineOpen,
+    setFolderPickerIntent,
+    setLanguage,
+    setLanguageToolsOpen,
+    setLayout,
+    setPaletteOpen,
+    setSettingsOpen,
+    setSidebarCollapsed,
+    setSidebarView,
+    setSidebarWidth,
+    setSourceControlOpen,
+    setSpotifyPlayerOpen,
+    setTaskRunnerOpen,
+    setTerminalOpen,
+    setTestExplorerOpen,
+    setUpdateModalOpen,
+    setWorkspaceOverviewOpen,
+    setWorkspaceSearchOpen,
+    setWorkspaceTrustNonce,
+    setWorkspaceTrustPromptPath,
+    setZenMode,
+    setCursorInfo,
+    appendOutput,
+    aboutOpen,
+    refreshGitStatus,
+  };
+}
+
+export type AxonAppViewProps = ReturnType<typeof useAxonAppViewModel>;
+
+export default function App(props: AppProps) {
+  const viewProps = useAxonAppViewModel(props);
+  return <AxonAppView {...viewProps} />;
 }

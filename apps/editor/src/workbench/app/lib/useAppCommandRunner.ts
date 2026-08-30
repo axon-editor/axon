@@ -6,53 +6,65 @@ import {
   getBuiltinCommandAlias,
   getBuiltinViewAlias,
 } from "../../contrib/extensions/lib/builtinWorkbenchContributions";
+import type { ExtensionState } from "../../../shared/extensions";
+import type { FolderPickerIntent } from "../../../shared/app";
+import type { BottomPanelTab } from "../../../platform/panel/bottomPanel";
+import type {
+  AgentActionRequest,
+  AppendOutput,
+  EditorActionRequest,
+  RefreshGitStatus,
+  RequireTrustedWorkspace,
+  SidebarView,
+  StateSetter,
+} from "../types/application";
 
 interface AppCommandRunnerOptions {
-  activeFilePath: any;
-  appendOutput: any;
-  clearOutputEntries: any;
-  handleCloseActiveTab: any;
-  handleNewFile: any;
-  handleNewTerminal: any;
-  handleOpenHtmlPreview: any;
-  handleOpenSettingsJson: any;
-  handleSaveActiveFile: any;
-  handleSaveActiveFileAs: any;
-  handleToggleAutoSave: any;
-  navigateDiagnostic: any;
-  openProblemsTab: any;
-  refreshGitStatus: any;
-  refreshProjectDiagnostics: any;
-  requireTrustedWorkspace: any;
-  runEditorAction: any;
+  activeFilePath: string | null;
+  appendOutput: AppendOutput;
+  clearOutputEntries: () => void;
+  handleCloseActiveTab: () => void;
+  handleNewFile: () => Promise<void>;
+  handleNewTerminal: () => void;
+  handleOpenHtmlPreview: (filePath: string) => void;
+  handleOpenSettingsJson: () => Promise<void>;
+  handleSaveActiveFile: () => void;
+  handleSaveActiveFileAs: () => Promise<void>;
+  handleToggleAutoSave: () => void;
+  navigateDiagnostic: (direction: 1 | -1) => void;
+  openProblemsTab: () => void;
+  refreshGitStatus: RefreshGitStatus;
+  refreshProjectDiagnostics: () => Promise<void>;
+  requireTrustedWorkspace: RequireTrustedWorkspace;
+  runEditorAction: (action: EditorActionRequest) => void;
   folderPath: string | null;
-  setExtensionState: any;
-  terminalOpen: any;
-  updateAvailable: any;
-  setAboutOpen: any;
-  setAgentActionRequest: any;
-  setAgentSidebarOpen: any;
-  setBottomPanelOpen: any;
-  setBottomPanelTab: any;
-  setDiffFilePath: any;
-  setDiffOpen: any;
-  setExtensionsOpen: any;
-  setExtensionViewOpenId: any;
-  setFileOutlineOpen: any;
-  setFolderPickerIntent: any;
-  setLanguageToolsOpen: any;
-  setPaletteOpen: any;
-  setSettingsOpen: any;
-  setSidebarCollapsed: any;
-  setSidebarView: any;
-  setSourceControlOpen: any;
-  setTaskRunnerOpen: any;
-  setTerminalOpen: any;
-  setTestExplorerOpen: any;
-  setUpdateModalOpen: any;
-  setWorkspaceOverviewOpen: any;
-  setWorkspaceSearchOpen: any;
-  setZenMode: any;
+  setExtensionState: StateSetter<ExtensionState>;
+  terminalOpen: boolean;
+  updateAvailable: boolean | undefined;
+  setAboutOpen: StateSetter<boolean>;
+  setAgentActionRequest: StateSetter<AgentActionRequest | null>;
+  setAgentSidebarOpen: StateSetter<boolean>;
+  setBottomPanelOpen: StateSetter<boolean>;
+  setBottomPanelTab: StateSetter<BottomPanelTab>;
+  setDiffFilePath: StateSetter<string | null>;
+  setDiffOpen: StateSetter<boolean>;
+  setExtensionsOpen: StateSetter<boolean>;
+  setExtensionViewOpenId: StateSetter<string | null>;
+  setFileOutlineOpen: StateSetter<boolean>;
+  setFolderPickerIntent: StateSetter<FolderPickerIntent | null>;
+  setLanguageToolsOpen: StateSetter<boolean>;
+  setPaletteOpen: StateSetter<boolean>;
+  setSettingsOpen: StateSetter<boolean>;
+  setSidebarCollapsed: StateSetter<boolean>;
+  setSidebarView: StateSetter<SidebarView>;
+  setSourceControlOpen: StateSetter<boolean>;
+  setTaskRunnerOpen: StateSetter<boolean>;
+  setTerminalOpen: StateSetter<boolean>;
+  setTestExplorerOpen: StateSetter<boolean>;
+  setUpdateModalOpen: StateSetter<boolean>;
+  setWorkspaceOverviewOpen: StateSetter<boolean>;
+  setWorkspaceSearchOpen: StateSetter<boolean>;
+  setZenMode: StateSetter<boolean>;
 }
 
 export function useAppCommandRunner({
@@ -130,7 +142,9 @@ export function useAppCommandRunner({
           appendOutput(
             "extensions",
             `Failed to activate '${activationEvent}': ${
-              err instanceof Error ? err.message : "unknown extension host error"
+              err instanceof Error
+                ? err.message
+                : "unknown extension host error"
             }`,
             "error",
           );
@@ -170,7 +184,11 @@ export function useAppCommandRunner({
               activationResult.message,
               activationResult.ok ? "info" : "warning",
             );
-            return window.axon.executeExtensionCommand(commandId, [], folderPath);
+            return window.axon.executeExtensionCommand(
+              commandId,
+              [],
+              folderPath,
+            );
           })
           .then((result) => {
             setExtensionState(result.state);
@@ -182,7 +200,9 @@ export function useAppCommandRunner({
             appendOutput(
               "extensions",
               `Failed to execute '${commandId}': ${
-                err instanceof Error ? err.message : "unknown extension host error"
+                err instanceof Error
+                  ? err.message
+                  : "unknown extension host error"
               }`,
               "error",
             );

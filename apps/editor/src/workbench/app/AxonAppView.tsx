@@ -11,18 +11,40 @@ import { resolveSpotifyWorkbenchContribution } from "@axon-builtin-spotify/lib/c
 import { getEnabledExtensionThemes } from "../../shared/extensions";
 import AxonWorkbenchLayout from "./components/AxonWorkbenchLayout";
 import { WorkspaceRenderBoundary } from "./components/WorkspaceRenderBoundary";
+import type { AxonAppViewProps } from "./AxonApp";
 
-export function AxonAppView(props: Record<string, any>) {
+export type AxonWorkbenchLayoutProps = AxonAppViewProps & {
+  agentSidebarWidth: number;
+  agentContribution: ReturnType<typeof resolveAgentWorkbenchContribution>;
+  gitContribution: ReturnType<typeof resolveGitWorkbenchContribution>;
+  languageToolsContribution: ReturnType<
+    typeof resolveLanguageToolsWorkbenchContribution
+  >;
+  searchContribution: ReturnType<typeof resolveSearchWorkbenchContribution>;
+  setAgentSidebarWidth: React.Dispatch<React.SetStateAction<number>>;
+  settingsContribution: ReturnType<typeof resolveSettingsWorkbenchContribution>;
+  spotifyContribution: ReturnType<typeof resolveSpotifyWorkbenchContribution>;
+  tasksContribution: ReturnType<typeof resolveTasksWorkbenchContribution>;
+  terminalContribution: ReturnType<typeof resolveTerminalWorkbenchContribution>;
+  testingContribution: ReturnType<typeof resolveTestingWorkbenchContribution>;
+  welcomeThemeItems: Array<{
+    id: string;
+    label: string;
+    source: string;
+  }>;
+};
+
+export function AxonAppView(props: AxonAppViewProps) {
   const { extensionState } = props;
   const welcomeThemeItems = React.useMemo(
     () =>
       getEnabledExtensionThemes({
         extensions: (extensionState?.extensions ?? []).filter(
-          (extension: any) => extension.source === "internal",
+          (extension) => extension.source === "internal",
         ),
       })
         .slice(0, 12)
-        .map((theme: any) => ({
+        .map((theme) => ({
           id: theme.id,
           label: theme.label,
           source: theme.extensionName,

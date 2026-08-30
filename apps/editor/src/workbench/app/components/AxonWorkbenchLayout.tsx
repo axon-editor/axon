@@ -22,6 +22,7 @@ import WorkbenchOverlays from "./WorkbenchOverlays";
 import WorkbenchStatusBar from "./WorkbenchStatusBar";
 import WorkspaceSafetyOverlays from "./WorkspaceSafetyOverlays";
 import { openGitCommitDiff } from "@axon-builtin-git/git/lib/gitGraphTab";
+import type { AxonWorkbenchLayoutProps } from "../AxonAppView";
 
 const Terminal = React.lazy(() => import("@axon-builtin-terminal/Terminal"));
 const AxonAgentSidebar = React.lazy(
@@ -31,7 +32,7 @@ const SpotifyFloatingPlayer = React.lazy(
   () => import("@axon-builtin-spotify/SpotifyFloatingPlayer"),
 );
 
-export default function AxonWorkbenchLayout(props: Record<string, any>) {
+export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
   const {
     activeFileContent,
     activePane,
@@ -221,17 +222,13 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               onOpenInTerminal={handleOpenPathInTerminal}
               onOpenHtmlPreview={handleOpenHtmlPreview}
               onEntryDeleted={(path) =>
-                setLayout((prev: any) => removePathFromLayout(prev, path))
+                setLayout((prev) => removePathFromLayout(prev, path))
               }
               onEntryMoved={(oldPath, newPath) =>
-                setLayout((prev: any) =>
-                  replacePathInLayout(prev, oldPath, newPath),
-                )
+                setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
               }
               onEntryRenamed={(oldPath, newPath) =>
-                setLayout((prev: any) =>
-                  replacePathInLayout(prev, oldPath, newPath),
-                )
+                setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
               }
               gitChanges={gitStatus?.changes ?? []}
               ignoredPaths={gitStatus?.ignoredPaths ?? []}
@@ -332,30 +329,28 @@ export default function AxonWorkbenchLayout(props: Record<string, any>) {
               layout={layout}
               folderPath={folderPath}
               onActivatePane={(id) =>
-                setLayout((prev: any) => activatePane(prev, id))
+                setLayout((prev) => activatePane(prev, id))
               }
               onSelectFile={(paneId, f) =>
-                setLayout((prev: any) => openFileInPane(prev, paneId, f))
+                setLayout((prev) => openFileInPane(prev, paneId, f))
               }
               onCloseTab={(paneId, f) => void requestCloseTab(paneId, f)}
               onPinTab={(paneId, f, pinned) =>
-                setLayout((prev: any) =>
-                  setPinnedInPane(prev, paneId, f, pinned),
-                )
+                setLayout((prev) => setPinnedInPane(prev, paneId, f, pinned))
               }
               onReorderTabs={(paneId, tabs) =>
-                setLayout((prev: any) => reorderTabsInPane(prev, paneId, tabs))
+                setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
               }
               onDirtyChange={(paneId, f, d) =>
-                setLayout((prev: any) => setDirtyInPane(prev, paneId, f, d))
+                setLayout((prev) => setDirtyInPane(prev, paneId, f, d))
               }
               onCursorChange={(line, col) => setCursorInfo({ line, col })}
               onLanguageChange={setLanguage}
               onMoveTabBetweenPanes={(f, src, tgt) =>
-                setLayout((prev: any) => moveTabBetweenPanes(prev, src, tgt, f))
+                setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
               }
               onClosePane={(paneId) =>
-                setLayout((prev: any) => closePane(prev, paneId))
+                setLayout((prev) => closePane(prev, paneId))
               }
               onOpenAgent={() => runCommand(AXON_COMMANDS.ASK_AXON)}
               onOpenTabInTerminal={handleOpenTabInTerminal}

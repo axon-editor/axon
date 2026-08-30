@@ -1,17 +1,39 @@
-import { useCallback, useRef } from "react";
-import { addRecentFolder, getWorkspaceTrustState } from "../../../renderer/features/sidebar";
-import { createInitialLayout, openFileInPane } from "../../../renderer/features/editor/lib/layout/layoutManager";
-import { getTree, createFile, type FileNode } from "../../../renderer/shared/lib/api";
+import { useCallback, useRef, type MutableRefObject } from "react";
+import {
+  addRecentFolder,
+  getWorkspaceTrustState,
+} from "../../../renderer/features/sidebar";
+import {
+  createInitialLayout,
+  openFileInPane,
+} from "../../../renderer/features/editor/lib/layout/layoutManager";
+import {
+  getTree,
+  createFile,
+  type FileNode,
+} from "../../../renderer/shared/lib/api";
 import {
   markAxonPerformance,
   measureAxonPerformance,
 } from "../../../renderer/shared/lib/performanceMarks";
-import { sanitizeRestoredLayout, type WorkspaceSession } from "../../../renderer/shared/lib/workspaceSession";
+import {
+  sanitizeRestoredLayout,
+  type WorkspaceSession,
+} from "../../../renderer/shared/lib/workspaceSession";
 import {
   createWorkspaceRoot,
   resolveWorkspaceRootsForFolderOpen,
+  type WorkspaceRoot,
 } from "../../../renderer/shared/lib/workspaceRoots";
-import { normalizeSettings } from "../../../shared/settings";
+import { normalizeSettings, type AxonSettings } from "../../../shared/settings";
+import type { Layout } from "../../../renderer/features/editor/lib/layout/types";
+import type { GitStatusResult } from "../../../shared/git";
+import type { BottomPanelTab } from "../../../platform/panel/bottomPanel";
+import type {
+  AppendOutput,
+  RefreshGitStatus,
+  StateSetter,
+} from "../types/application";
 import {
   createWorkspaceServiceCoordinator,
   type WorkspaceOpenSource,
@@ -19,31 +41,31 @@ import {
 } from "./workspaceServiceCoordinator";
 
 interface WorkspaceHandlersOptions {
-  allowSessionPersistenceRef: any;
-  appendOutput: any;
-  bottomPanelOpen: any;
-  bottomPanelTab: any;
-  folderPath: any;
-  refreshGitStatus: any;
-  setActiveRootId: any;
-  setBottomPanelOpen: any;
-  setBottomPanelTab: any;
-  setFolderPath: any;
-  setGitStatus: any;
-  setLayout: any;
-  setLoading: any;
-  setSettings: any;
-  setSidebarCollapsed: any;
-  setSidebarWidth: any;
-  setTerminalCreateWorkingDirectory: any;
-  setTerminalOpen: any;
-  setTree: any;
-  setWorkspaceRoots: any;
-  setWorkspaceTrustPromptPath: any;
-  sidebarCollapsed: any;
-  sidebarWidth: any;
-  terminalOpen: any;
-  workspaceRoots: any;
+  allowSessionPersistenceRef: MutableRefObject<boolean>;
+  appendOutput: AppendOutput;
+  bottomPanelOpen: boolean;
+  bottomPanelTab: BottomPanelTab;
+  folderPath: string | null;
+  refreshGitStatus: RefreshGitStatus;
+  setActiveRootId: StateSetter<string | null>;
+  setBottomPanelOpen: StateSetter<boolean>;
+  setBottomPanelTab: StateSetter<BottomPanelTab>;
+  setFolderPath: StateSetter<string | null>;
+  setGitStatus: StateSetter<GitStatusResult | null>;
+  setLayout: StateSetter<Layout>;
+  setLoading: StateSetter<boolean>;
+  setSettings: StateSetter<AxonSettings>;
+  setSidebarCollapsed: StateSetter<boolean>;
+  setSidebarWidth: StateSetter<number>;
+  setTerminalCreateWorkingDirectory: StateSetter<string | null>;
+  setTerminalOpen: StateSetter<boolean>;
+  setTree: StateSetter<FileNode | null>;
+  setWorkspaceRoots: StateSetter<WorkspaceRoot[]>;
+  setWorkspaceTrustPromptPath: StateSetter<string | null>;
+  sidebarCollapsed: boolean;
+  sidebarWidth: number;
+  terminalOpen: boolean;
+  workspaceRoots: WorkspaceRoot[];
 }
 
 export function useWorkspaceHandlers({
@@ -113,7 +135,10 @@ export function useWorkspaceHandlers({
           : "Failed to open folder.";
       appendOutput("workspace", message, "error");
     } finally {
-      if (!generation || workspaceCoordinatorRef.current.isCurrent(generation)) {
+      if (
+        !generation ||
+        workspaceCoordinatorRef.current.isCurrent(generation)
+      ) {
         setLoading(false);
       }
     }
@@ -137,18 +162,23 @@ export function useWorkspaceHandlers({
         "axon.workspace.tree.end",
       );
       addRecentFolder(path);
-      await handleFolderChange(path, fileTree, {
-        folderPath: path,
-        roots: workspaceRoots,
-        activeRootId:
-          workspaceRoots.find((root: any) => root.path === path)?.id ?? path,
-        layout: createInitialLayout(),
-        sidebarCollapsed,
-        sidebarWidth,
-        terminalOpen,
-        bottomPanelOpen,
-        bottomPanelTab,
-      }, generation);
+      await handleFolderChange(
+        path,
+        fileTree,
+        {
+          folderPath: path,
+          roots: workspaceRoots,
+          activeRootId:
+            workspaceRoots.find((root) => root.path === path)?.id ?? path,
+          layout: createInitialLayout(),
+          sidebarCollapsed,
+          sidebarWidth,
+          terminalOpen,
+          bottomPanelOpen,
+          bottomPanelTab,
+        },
+        generation,
+      );
       markAxonPerformance("axon.workspace.switch.end", { source: "root" });
       measureAxonPerformance(
         "axon.workspace.switch",
@@ -165,8 +195,6 @@ export function useWorkspaceHandlers({
       }
     }
   };
-
-
 
   const handleFolderChange = async (
     path: string,
@@ -197,7 +225,7 @@ export function useWorkspaceHandlers({
       trusted: getWorkspaceTrustState(path),
     });
     const nextActiveRoot =
-      nextRoots.find((root: any) => root.path === path) ?? createWorkspaceRoot(path);
+      nextRoots.find((root) => root.path === path) ?? createWorkspaceRoot(path);
 
     setWorkspaceRoots(nextRoots);
     setActiveRootId(nextActiveRoot.id);
@@ -247,25 +275,49 @@ export function useWorkspaceHandlers({
     // state after the user has already opened another folder.
     const coordinator = workspaceCoordinatorRef.current;
     void Promise.allSettled([
-      coordinator.runPhase(generation, "settings", () => window.axon.getSettings(path), {
-        onSuccess: (workspaceSettings) =>
-          setSettings(normalizeSettings(workspaceSettings)),
-        onError: (err) => {
-          console.error("failed to load workspace settings:", err);
-          appendOutput("settings", "Failed to load workspace settings.", "error");
+      coordinator.runPhase(
+        generation,
+        "settings",
+        () => window.axon.getSettings(path),
+        {
+          onSuccess: (workspaceSettings) =>
+            setSettings(normalizeSettings(workspaceSettings)),
+          onError: (err) => {
+            console.error("failed to load workspace settings:", err);
+            appendOutput(
+              "settings",
+              "Failed to load workspace settings.",
+              "error",
+            );
+          },
         },
-      }),
-      coordinator.runPhase(generation, "watcher", () => window.axon.watchFolder(path), {
-        onSuccess: () => appendOutput("workspace", "Watching workspace changes."),
-        onError: (err) => {
-          console.error("failed to watch workspace:", err);
-          appendOutput("workspace", "Failed to watch workspace changes.", "error");
+      ),
+      coordinator.runPhase(
+        generation,
+        "watcher",
+        () => window.axon.watchFolder(path),
+        {
+          onSuccess: () =>
+            appendOutput("workspace", "Watching workspace changes."),
+          onError: (err) => {
+            console.error("failed to watch workspace:", err);
+            appendOutput(
+              "workspace",
+              "Failed to watch workspace changes.",
+              "error",
+            );
+          },
         },
-      }),
-      coordinator.runPhase(generation, "git", () => window.axon.getGitStatus(path), {
-        onSuccess: setGitStatus,
-        onError: () => setGitStatus(null),
-      }),
+      ),
+      coordinator.runPhase(
+        generation,
+        "git",
+        () => window.axon.getGitStatus(path),
+        {
+          onSuccess: setGitStatus,
+          onError: () => setGitStatus(null),
+        },
+      ),
     ]).finally(() => {
       if (!coordinator.isCurrent(generation)) return;
       markAxonPerformance("axon.workspace.services.end", {
@@ -300,7 +352,7 @@ export function useWorkspaceHandlers({
       const path = `${folderPath}/${name}`;
       await createFile(path);
       await handleRefresh();
-      setLayout((prev: any) => openFileInPane(prev, prev.activePaneId, path));
+      setLayout((prev) => openFileInPane(prev, prev.activePaneId, path));
       appendOutput("file", `Created ${name}`, "success");
     } catch (err) {
       console.error("failed to create file:", err);
@@ -314,9 +366,7 @@ export function useWorkspaceHandlers({
   // setLayout already supplies the current layout when a real selection occurs.
   const handleFileSelect = useCallback(
     (filePath: string) => {
-      setLayout((prev: any) =>
-        openFileInPane(prev, prev.activePaneId, filePath),
-      );
+      setLayout((prev) => openFileInPane(prev, prev.activePaneId, filePath));
     },
     [setLayout],
   );

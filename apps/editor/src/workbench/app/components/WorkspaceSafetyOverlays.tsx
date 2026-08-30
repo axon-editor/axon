@@ -4,8 +4,11 @@ import CliToolInstallPrompt from "../../../renderer/features/cli/CliToolInstallP
 import LanguageToolInstallPrompt from "../../../renderer/features/languageTools/LanguageToolInstallPrompt";
 import LanguageToolInstallStatus from "../../../renderer/features/languageTools/LanguageToolInstallStatus";
 import { getPathBasename } from "../lib/appPath";
+import type { AxonWorkbenchLayoutProps } from "../AxonAppView";
 
-export default function WorkspaceSafetyOverlays(props: Record<string, any>) {
+export default function WorkspaceSafetyOverlays(
+  props: AxonWorkbenchLayoutProps,
+) {
   const {
     appendOutput,
     cliToolInstallPrompt,

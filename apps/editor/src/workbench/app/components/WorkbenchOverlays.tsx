@@ -1,6 +1,7 @@
 import * as React from "react";
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { AXON_GIT_GRAPH_TAB_PATH } from "@axon-builtin-git/git/lib/gitGraphTab";
+import type { AxonWorkbenchLayoutProps } from "../AxonAppView";
 
 const CommandPalette = React.lazy(
   () => import("@axon-builtin-search/CommandPalette"),
@@ -41,7 +42,7 @@ const ExtensionViewModal = React.lazy(
   () => import("../../contrib/extensions/views/ExtensionViewModal"),
 );
 
-export default function WorkbenchOverlays(props: Record<string, any>) {
+export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
   const {
     aboutOpen,
     activeFileSymbols,

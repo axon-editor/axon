@@ -1,20 +1,34 @@
 import { useEffect } from "react";
-import { openFileInPane, splitPane } from "../../../renderer/features/editor/lib/layout/layoutManager";
-import type { SplitDirection } from "../../../renderer/features/editor/lib/layout/types";
+import {
+  openFileInPane,
+  splitPane,
+} from "../../../renderer/features/editor/lib/layout/layoutManager";
+import type {
+  Layout,
+  SplitDirection,
+} from "../../../renderer/features/editor/lib/layout/types";
+import type { EditorNavigationTarget } from "../../../renderer/features/editor/lib/layout/navigation";
 import { createHtmlPreviewTabPath } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import type { WorkspaceSearchResult } from "../../../renderer/shared/lib/api";
 import { AXON_OPEN_CODE_SNAPSHOT_EVENT } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
+import type {
+  AppendOutput,
+  RequireTrustedWorkspace,
+  StateSetter,
+} from "../types/application";
 
 interface EditorSurfaceHandlersOptions {
-  appendOutput: any;
+  appendOutput: AppendOutput;
   folderPath: string | null;
-  handleOpenNavigationTarget: any;
-  requireTrustedWorkspace: any;
-  setBottomPanelOpen: any;
-  setLayout: any;
-  setTerminalCreateNonce: any;
-  setTerminalCreateWorkingDirectory: any;
-  setTerminalOpen: any;
+  handleOpenNavigationTarget: (
+    target: Omit<EditorNavigationTarget, "id">,
+  ) => void;
+  requireTrustedWorkspace: RequireTrustedWorkspace;
+  setBottomPanelOpen: StateSetter<boolean>;
+  setLayout: StateSetter<Layout>;
+  setTerminalCreateNonce: StateSetter<number>;
+  setTerminalCreateWorkingDirectory: StateSetter<string | null>;
+  setTerminalOpen: StateSetter<boolean>;
 }
 
 export function useEditorSurfaceHandlers({
@@ -38,14 +52,17 @@ export function useEditorSurfaceHandlers({
       // here prevents the new tab from inheriting a cramped terminal layout.
       setTerminalOpen(false);
       setBottomPanelOpen(false);
-      setLayout((current: any) =>
+      setLayout((current) =>
         openFileInPane(current, current.activePaneId, tabPath),
       );
     };
 
     window.addEventListener(AXON_OPEN_CODE_SNAPSHOT_EVENT, openSnapshotTab);
     return () =>
-      window.removeEventListener(AXON_OPEN_CODE_SNAPSHOT_EVENT, openSnapshotTab);
+      window.removeEventListener(
+        AXON_OPEN_CODE_SNAPSHOT_EVENT,
+        openSnapshotTab,
+      );
   }, [setBottomPanelOpen, setLayout, setTerminalOpen]);
 
   const handleOpenHtmlPreview = (filePath: string) => {
@@ -62,7 +79,7 @@ export function useEditorSurfaceHandlers({
     // Reusing the raw file path would make the preview fight with the Monaco
     // editor tab, while this wrapped path lets normal tab actions still move,
     // close, and persist the preview like every other pane tab.
-    setLayout((prev: any) =>
+    setLayout((prev) =>
       openFileInPane(
         prev,
         prev.activePaneId,
@@ -84,7 +101,7 @@ export function useEditorSurfaceHandlers({
   };
 
   const handleSplit = (direction: SplitDirection, filePath?: string) => {
-    setLayout((prev: any) =>
+    setLayout((prev) =>
       splitPane(prev, prev.activePaneId, direction, filePath),
     );
   };
