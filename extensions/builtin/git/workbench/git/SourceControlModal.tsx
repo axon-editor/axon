@@ -148,6 +148,13 @@ export default function SourceControlModal({
     run: () => void;
   } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const onOutputRef = useRef(onOutput);
+  // Status loading is keyed only by the workspace. Output is a notification
+  // sink supplied by the workbench, and its function identity can change when
+  // adding an output entry rerenders that parent. Reading the latest callback
+  // through a ref keeps messages current without turning that notification
+  // rerender into another Git request and an infinite refresh/output cycle.
+  onOutputRef.current = onOutput;
   const selectedChangeIsMedia = selectedChange
     ? isMediaFile(selectedChange.absolutePath)
     : false;
@@ -184,7 +191,7 @@ export default function SourceControlModal({
           null
         );
       });
-      onOutput(
+      onOutputRef.current(
         nextStatus.isRepository
           ? `Git status loaded with ${nextStatus.changes.length} changed file${nextStatus.changes.length === 1 ? "" : "s"}.`
           : "Current workspace is not a Git repository.",
@@ -192,11 +199,11 @@ export default function SourceControlModal({
       );
     } catch (err) {
       console.error("failed to load git status:", err);
-      onOutput("Failed to load Git status.", "error");
+      onOutputRef.current("Failed to load Git status.", "error");
     } finally {
       setLoadingStatus(false);
     }
-  }, [folderPath, onOutput]);
+  }, [folderPath]);
 
   const runAction = async (
     change: GitChange,
@@ -735,7 +742,7 @@ export default function SourceControlModal({
             </div>
           </div>
         </div>
-        {pendingConfirmation ? (
+        {pendingConfirmation && (
           <GitConfirmationDialog
             title={pendingConfirmation.title}
             description={pendingConfirmation.description}
@@ -747,7 +754,7 @@ export default function SourceControlModal({
               run();
             }}
           />
-        ) : null}
+        )}
       </div>
     </div>
   );
