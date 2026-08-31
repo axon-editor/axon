@@ -133,7 +133,7 @@ export function createEditorSurfaceOptions({
     allowOverflow: false,
     fixedOverflowWidgets: false,
     hover: {
-      enabled: documentFeaturesEnabled,
+      enabled: documentFeaturesEnabled ? "on" : "off",
       delay: EDITOR_INTERACTION_POLICY.hoverDelay,
       sticky: true,
       hidingDelay: EDITOR_INTERACTION_POLICY.hoverHidingDelay,

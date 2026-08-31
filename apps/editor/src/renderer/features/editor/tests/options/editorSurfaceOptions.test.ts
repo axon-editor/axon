@@ -13,7 +13,7 @@ describe("editor surface options", () => {
     expect(options.allowOverflow).toBe(false);
     expect(options.fixedOverflowWidgets).toBe(false);
     expect(options.hover).toMatchObject({
-      enabled: true,
+      enabled: "on",
       above: true,
     });
   });
@@ -29,7 +29,7 @@ describe("editor surface options", () => {
     });
 
     expect(options.hover).toMatchObject({
-      enabled: true,
+      enabled: "on",
       above: false,
     });
   });
@@ -45,8 +45,18 @@ describe("editor surface options", () => {
     });
 
     expect(options.hover).toMatchObject({
-      enabled: true,
+      enabled: "on",
       above: true,
     });
+  });
+
+  it("disables hovers with Monaco's current option value for large documents", () => {
+    const options = createEditorSurfaceOptions({
+      editorSettings: DEFAULT_SETTINGS.editor,
+      largeDocument: true,
+      readOnly: false,
+    });
+
+    expect(options.hover).toMatchObject({ enabled: "off" });
   });
 });

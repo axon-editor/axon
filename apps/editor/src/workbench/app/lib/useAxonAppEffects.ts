@@ -92,7 +92,7 @@ interface AxonAppEffectsOptions {
   handleSettingsSave: (
     settings: AxonSettings,
     options?: { announce?: boolean },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   layout: Layout;
   lspDiagnosticsByFile: LspDiagnosticsByFile;
   refreshGitStatus: (options?: { silent?: boolean }) => Promise<void>;

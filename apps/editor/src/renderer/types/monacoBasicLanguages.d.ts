@@ -12,4 +12,7 @@ declare module "monaco-editor/esm/vs/languages/definitions/javascript/javascript
   export const language: monaco.languages.IMonarchLanguage;
 }
 
-declare module "monaco-editor/esm/vs/languages/definitions/xml/register.js";
+// Monaco's registration modules are side-effect-only JavaScript files. Their
+// adjacent declarations export nothing, but Monaco's package export map hides
+// the physical ESM paths that Vite needs, so TypeScript requires this boundary.
+declare module "monaco-editor/esm/vs/languages/definitions/*/register.js";

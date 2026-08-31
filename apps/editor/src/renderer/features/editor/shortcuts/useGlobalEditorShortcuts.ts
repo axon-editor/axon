@@ -10,7 +10,7 @@ interface GlobalEditorShortcutsOptions {
   onSaveSettings: (
     settings: AxonSettings,
     options?: { announce?: boolean },
-  ) => void | Promise<void>;
+  ) => void | Promise<unknown>;
   onSetZenMode: (enabled: boolean) => void;
 }
 
