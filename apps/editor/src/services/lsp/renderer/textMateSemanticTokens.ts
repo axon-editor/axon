@@ -116,6 +116,7 @@ let highlighterFoundationPromise: Promise<{
 const highlighterPromises = new Map<string, Promise<ShikiHighlighter | null>>();
 let highlighterLoadError: string | null = null;
 let highlighterLoadWarningShown = false;
+let tokenizationWarningShown = false;
 
 function describeError(err: unknown) {
   return err instanceof Error ? err.message : String(err);
@@ -747,13 +748,34 @@ export async function createTextMateSemanticTokens(input: {
   // identity separate from the temporary Shiki palette prevents GitHub Dark
   // from leaking into the UI and lets a theme distinguish a method call from a
   // declaration without retokenizing the document for every theme switch.
-  const shikiTokens = highlighter.codeToTokens(input.content, {
-    lang: language.id,
-    theme: "github-dark",
-    includeExplanation: true,
-    tokenizeTimeLimit: 120,
-    tokenizeMaxLineLength: 30_000,
-  });
+  let shikiTokens: ReturnType<ShikiHighlighter["codeToTokens"]>;
+  try {
+    shikiTokens = highlighter.codeToTokens(input.content, {
+      lang: language.id,
+      theme: "github-dark",
+      includeExplanation: true,
+      // Shiki measures elapsed wall time, so a tiny file can exhaust the same
+      // budget as a genuinely expensive file when the machine is busy with a
+      // build or multiple editor workers. Small documents are safe to give a
+      // wider window; larger files keep the strict limit that prevents syntax
+      // enrichment from blocking the renderer for an unbounded period.
+      tokenizeTimeLimit: input.content.length <= 10_000 ? 500 : 120,
+      tokenizeMaxLineLength: 30_000,
+    });
+  } catch (err) {
+    // TextMate enrichment is an optional layer above Monaco and LSP tokens. A
+    // grammar timeout or malformed third-party capture must fall back to those
+    // stable layers instead of rejecting the entire semantic-token request and
+    // leaving the editor without updated coloring.
+    if (!tokenizationWarningShown) {
+      tokenizationWarningShown = true;
+      console.warn(
+        `[syntax] TextMate tokenization failed for ${input.languageId}:`,
+        describeError(err),
+      );
+    }
+    return null;
+  }
 
   shikiTokens.tokens.forEach((lineTokens, lineIndex) => {
     const lineStart = lineStarts[lineIndex] ?? 0;
