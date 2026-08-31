@@ -221,6 +221,35 @@
             body.axon-react-ready #axon-window-drag-strip {
                 display: none;
             }
+
+            .axon-startup-failure {
+                display: flex;
+                min-height: 100vh;
+                align-items: center;
+                justify-content: center;
+                box-sizing: border-box;
+                padding: 24px;
+                background: var(--axon-boot-background);
+                color: var(--axon-boot-foreground);
+                font: 13px system-ui, sans-serif;
+            }
+
+            .axon-startup-failure__card {
+                max-width: 560px;
+                border: 1px solid color-mix(in srgb, var(--axon-boot-foreground) 18%, transparent);
+                padding: 18px;
+                background: color-mix(in srgb, var(--axon-boot-background) 88%, white 12%);
+            }
+
+            .axon-startup-failure__title {
+                margin-bottom: 8px;
+                font-weight: 600;
+            }
+
+            .axon-startup-failure__message {
+                opacity: 0.75;
+                line-height: 1.5;
+            }
         </style>
     </head>
     <body>
@@ -242,6 +271,7 @@
                 </div>
             </div>
         </div>
+        <script vite-ignore src="./boot-failure.js"></script>
         <script type="module" src="/main.tsx"></script>
     </body>
 </html>
