@@ -336,10 +336,11 @@ export function resolveBundledNodeLanguageServer(
   // users do not need a global node/npm install and every packaged Axon build
   // resolves the same server version.
   //
-  // In packaged builds, unpacked resolution matters for Pyright. Pyright loads
-  // sibling webpack chunks and type stub files at runtime; keeping it outside
-  // app.asar avoids worker/module resolution differences between dev Electron
-  // and the signed/unsigned app bundle.
+  // Electron's Node mode preserves ASAR-aware module and filesystem resolution,
+  // so packaged servers can load sibling chunks, JSON, type stubs, and WASM
+  // without expanding the complete dependency tree onto disk. electron-builder
+  // separately unpacks native *.node bindings that the operating-system loader
+  // cannot open from inside an archive.
   return {
     command: process.execPath,
     args: [serverScript, ...definition.args],

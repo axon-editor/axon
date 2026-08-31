@@ -54,7 +54,7 @@
       "output": "release"
     },
     "asarUnpack": [
-      "node_modules/**/*"
+      "node_modules/**/*.node"
     ],
     "files": [
       "dist/main/**/*",
@@ -194,6 +194,7 @@
       "node_modules/@prisma/language-server/node_modules/vscode-languageserver/**/*",
       "node_modules/@prisma/language-server/node_modules/vscode-languageserver-protocol/**/*",
       "node_modules/@prisma/language-server/node_modules/vscode-languageserver-textdocument/**/*",
+      "node_modules/@prisma/language-server/node_modules/vscode-languageserver-types/**/*",
       "node_modules/@prisma/prisma-schema-wasm/**/*",
       "node_modules/@prisma/schema-files-loader/**/*",
       "node_modules/@prisma/schema-files-loader/node_modules/fs-extra/**/*",
@@ -280,6 +281,7 @@
       "node_modules/balanced-match/**/*",
       "node_modules/baseline-browser-mapping/**/*",
       "node_modules/bash-language-server/**/*",
+      "node_modules/bash-language-server/node_modules/fast-glob/**/*",
       "node_modules/bash-language-server/node_modules/turndown/**/*",
       "node_modules/basic-ftp/**/*",
       "node_modules/boolbase/**/*",

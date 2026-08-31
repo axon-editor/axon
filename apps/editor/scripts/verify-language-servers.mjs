@@ -146,27 +146,31 @@ async function verifyNodeBackedLanguageServerPackaging() {
   const missingFiles = requiredPatterns.filter((pattern) => !files.has(pattern));
   const allNodeModulesAreUnpacked =
     asarUnpack.has("node_modules/**/*") || asarUnpack.has("node_modules/**");
-  const missingUnpack = requiredPatterns.filter(
-    (pattern) => !allNodeModulesAreUnpacked && !asarUnpack.has(pattern),
-  );
+  const nativeModuleUnpackPattern = "node_modules/**/*.node";
+  const unpacksNativeModules = asarUnpack.has(nativeModuleUnpackPattern);
 
-  // Node-backed language servers are pure JavaScript entry points, so they can
-  // run through Electron's Node mode, but packaged Electron cannot reliably
-  // drive stdio language-server scripts directly from app.asar. The complete
-  // dependency closure must be present, and the included node_modules tree must
-  // be unpacked so one server cannot be split between app.asar and real files.
-  // YAML exposed this first because it loads nested dependencies from its own
-  // package directory, but the same rule protects Pyright, HTML/CSS/JSON,
-  // Tailwind, and the rest of the Node-backed servers.
-  if (missingFiles.length > 0 || missingUnpack.length > 0) {
+  // Electron's Node mode understands app.asar paths and resolves sibling
+  // JavaScript, JSON, and WASM dependencies from the archive. Native Node
+  // bindings are the exception because the operating-system loader requires a
+  // real file. Keeping only *.node files unpacked preserves startable Tailwind
+  // watchers without expanding hundreds of pure-JavaScript packages into the
+  // installation directory.
+  if (
+    missingFiles.length > 0 ||
+    allNodeModulesAreUnpacked ||
+    !unpacksNativeModules
+  ) {
     throw new Error(
       [
         "npm language-server packaging is incomplete.",
         missingFiles.length
           ? `Missing from build.files (${missingFiles.length}): ${missingFiles.join(", ")}`
           : "",
-        missingUnpack.length
-          ? `Missing from build.asarUnpack (${missingUnpack.length}): ${missingUnpack.join(", ")}`
+        allNodeModulesAreUnpacked
+          ? "build.asarUnpack must not unpack the complete node_modules tree."
+          : "",
+        !unpacksNativeModules
+          ? `Missing native binding rule from build.asarUnpack: ${nativeModuleUnpackPattern}`
           : "",
       ]
         .filter(Boolean)
@@ -175,7 +179,7 @@ async function verifyNodeBackedLanguageServerPackaging() {
   }
 
   console.log(
-    `verified ${requiredPatterns.length} npm language-server package patterns`,
+    `verified ${requiredPatterns.length} npm language-server package patterns and native-only ASAR unpacking`,
   );
 }
 
