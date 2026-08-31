@@ -2,6 +2,41 @@
 
 ## Next
 
+## v1.3.8
+
+- Preserved rich TextMate and language-server token identity through final theme
+  resolution, including authored theme inheritance and complete font styling.
+- Made TextMate enrichment fail safely under CPU contention so Monaco and LSP
+  coloring remain available without stalling the renderer.
+- Repaired managed language-tool installations with compatible Makefile server
+  dependencies, staged import validation, download timeouts, and clean retries.
+- Applied Fira Code, JetBrains Mono, and custom editor font selections correctly,
+  with bundled preset faces and consistent picker previews.
+- Kept known binary formats such as XLSX out of Monaco and Git text diffs while
+  preserving normal Source Control staging and commit operations.
+- Updated running terminal applications and xterm palettes when the active theme
+  changes without recreating PTYs or losing scrollback.
+- Hardened packaged PTY ownership, shutdown, socket recovery, secret isolation,
+  and bounded diagnostics so stale terminal hosts cannot survive Axon.
+- Reclaimed macOS titlebar space in native fullscreen and rebalanced the Dock
+  icon against neighboring application icons.
+- Made breadcrumbs the editor viewport boundary and added a configurable Top or
+  Bottom hover-placement preference with Top retained as the default.
+- Separated open folders from recent history and restored single-root Open Folder
+  replacement while preserving explicitly restored multi-root sessions.
+- Strengthened release publishing with signed Windows updates, architecture-aware
+  macOS metadata, tag/version verification, and one aggregated draft release.
+- Enforced renderer-scoped workspace capabilities and opaque local-asset tickets
+  across privileged Git, LSP, preview, task, test, extension, and file operations.
+- Isolated background work, events, processes, preview servers, and saved layouts
+  by window while keeping renderer processing alive when Axon is backgrounded.
+- Completed workbench effect dependencies and replaced loose application-view
+  boundaries with concrete shared types checked during compilation.
+- Patched every high-severity application dependency finding and updated Monaco
+  language registration for the current production API layout.
+- Kept JavaScript language servers inside ASAR, reducing unpacked resources to 21
+  native files while verifying TypeScript execution from the packaged archive.
+
 ## v1.3.7
 
 - Restored managed SQL language-server downloads after SQLS moved to its
