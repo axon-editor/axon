@@ -895,7 +895,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/typography": "^0.5.19",
-    "@types/chokidar": "^1.7.5",
+    "@types/chokidar": "^2.1.7",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
