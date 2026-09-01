@@ -12,124 +12,89 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  editor:
+  code_quality:
+    name: Code quality
+    uses: ./.github/workflows/ci-code-quality.yml
+
+  editor_tests:
+    name: Editor tests
+    uses: ./.github/workflows/ci-editor-tests.yml
+
+  terminal_regressions:
+    name: Terminal regressions
+    uses: ./.github/workflows/ci-terminal.yml
+
+  build_validation:
+    name: Build validation
+    uses: ./.github/workflows/ci-build.yml
+
+  core_validation:
+    name: Core validation
+    uses: ./.github/workflows/ci-core.yml
+
+  filesystem_regressions:
+    name: Filesystem regressions
+    uses: ./.github/workflows/ci-filesystem.yml
+
+  editor_required:
     name: Editor checks
+    if: always()
+    needs:
+      - code_quality
+      - editor_tests
+      - terminal_regressions
+      - build_validation
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Require successful editor jobs
+        env:
+          CODE_QUALITY_RESULT: ${{ needs.code_quality.result }}
+          EDITOR_TESTS_RESULT: ${{ needs.editor_tests.result }}
+          TERMINAL_RESULT: ${{ needs.terminal_regressions.result }}
+          BUILD_RESULT: ${{ needs.build_validation.result }}
+        run: |
+          if [[ "$CODE_QUALITY_RESULT" != "success" || \
+                "$EDITOR_TESTS_RESULT" != "success" || \
+                "$TERMINAL_RESULT" != "success" || \
+                "$BUILD_RESULT" != "success" ]]; then
+            echo "One or more required editor jobs did not succeed."
+            exit 1
+          fi
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Ensure native build binding
-        run: node apps/editor/scripts/ensure-native-build-binding.mjs
-
-      - name: Build shared packages
-        run: npm run build:packages
-
-      - name: Validate extension examples
-        run: npm run check:examples
-
-      - name: Build main process
-        run: npm --workspace axon run build:main
-
-      - name: Check renderer TypeScript
-        run: npx tsc -p apps/editor/tsconfig.app.json
-
-      - name: Lint editor and built-in extensions
-        run: npm run lint
-
-      - name: Run renderer unit tests
-        run: npm --workspace axon test
-
-      - name: Run terminal compositor regression
-        # The terminal regression suite includes an offscreen Electron window
-        # with a real xterm WebGL canvas. xvfb gives Chromium a display server on
-        # the Linux runner so CI validates composited pixels instead of silently
-        # falling back to the same buffer-only coverage that missed this bug.
-        run: xvfb-run -a npm --workspace axon run test:terminal-pixel
-
-      - name: Check file line limits
-        run: npm run check:line-count
-
-      - name: Verify npm language-server release packaging
-        run: node apps/editor/scripts/verify-language-servers.mjs --packaging-only
-
-      - name: Validate extension registry inputs
-        working-directory: apps/editor
-        run: npm run prepare:extension-registry
-
-      - name: Build renderer
-        run: npm --workspace axon run build:renderer
-
-  core:
+  core_required:
     name: Core tests
+    if: always()
+    needs:
+      - core_validation
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Require successful Core validation
+        env:
+          CORE_RESULT: ${{ needs.core_validation.result }}
+        run: |
+          if [[ "$CORE_RESULT" != "success" ]]; then
+            echo "Core validation did not succeed."
+            exit 1
+          fi
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: services/core/go.mod
-          cache-dependency-path: services/core/go.sum
-
-      - name: Run Go tests
-        working-directory: services/core
-        run: go test -race ./...
-
-      - name: Vet Go packages
-        working-directory: services/core
-        run: go vet ./...
-
-  filesystem-regressions:
-    name: Filesystem regressions (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - macos-15
-          - windows-latest
-
+  ci_required:
+    name: CI required
+    if: always()
+    needs:
+      - editor_required
+      - core_required
+      - filesystem_regressions
+    runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: services/core/go.mod
-          cache-dependency-path: services/core/go.sum
-
-      - name: Install dependencies
-        run: npm ci
-
-      # Filesystem event paths, separators, and recursive watch support differ
-      # across desktop platforms. Running these focused regressions on macOS and
-      # Windows catches watcher/tree failures that the main Linux lane cannot
-      # represent, without rebuilding the complete renderer on every platform.
-      - name: Run editor filesystem regressions
-        run: npm --workspace axon test -- --run src/main/fs/watcher.test.ts src/renderer/features/sidebar/files/lib/treeRefresh.test.ts src/workbench/app/lib/latestTaskQueue.test.ts
-
-      - name: Run Core file-tree regressions
-        working-directory: services/core
-        run: go test ./internal/fs
+      - name: Require every CI domain
+        env:
+          EDITOR_RESULT: ${{ needs.editor_required.result }}
+          CORE_RESULT: ${{ needs.core_required.result }}
+          FILESYSTEM_RESULT: ${{ needs.filesystem_regressions.result }}
+        run: |
+          if [[ "$EDITOR_RESULT" != "success" || \
+                "$CORE_RESULT" != "success" || \
+                "$FILESYSTEM_RESULT" != "success" ]]; then
+            echo "One or more required CI domains did not succeed."
+            exit 1
+          fi

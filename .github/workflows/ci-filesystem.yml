@@ -1,0 +1,49 @@
+name: Filesystem regressions
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  platform-tests:
+    name: Filesystem regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-15
+          - windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/core/go.mod
+          cache-dependency-path: services/core/go.sum
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Filesystem event paths, separators, and recursive watch support differ
+      # across desktop platforms. These focused suites catch watcher and tree
+      # failures that the main Linux lanes cannot represent without rebuilding
+      # the complete renderer on every supported operating system.
+      - name: Run editor filesystem regressions
+        run: npm --workspace axon test -- --run src/main/fs/watcher.test.ts src/renderer/features/sidebar/files/lib/treeRefresh.test.ts src/workbench/app/lib/latestTaskQueue.test.ts
+
+      - name: Run Core file-tree regressions
+        working-directory: services/core
+        run: go test ./internal/fs

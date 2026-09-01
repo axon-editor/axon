@@ -1,0 +1,29 @@
+name: Core validation
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Go tests and vet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/core/go.mod
+          cache-dependency-path: services/core/go.sum
+
+      - name: Run Go tests
+        working-directory: services/core
+        run: go test -race ./...
+
+      - name: Vet Go packages
+        working-directory: services/core
+        run: go vet ./...

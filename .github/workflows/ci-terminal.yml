@@ -1,0 +1,38 @@
+name: Terminal regressions
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  compositor:
+    name: xterm WebGL compositor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure native build binding
+        run: node apps/editor/scripts/ensure-native-build-binding.mjs
+
+      - name: Build shared packages
+        run: npm run build:packages
+
+      - name: Run terminal compositor regression
+        # This suite uses an offscreen Electron window with a real xterm WebGL
+        # canvas. xvfb gives Chromium a display server so CI validates composed
+        # pixels instead of falling back to the buffer-only coverage that
+        # originally missed Axon's terminal scrollback bug.
+        run: xvfb-run -a npm --workspace axon run test:terminal-pixel
