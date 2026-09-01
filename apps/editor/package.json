@@ -890,7 +890,7 @@
     "vscode-langservers-extracted": "^4.10.0",
     "yaml": "^2.9.0",
     "yaml-language-server": "^1.23.0",
-    "yauzl": "^2.10.0"
+    "yauzl": "^3.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -899,7 +899,7 @@
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/yauzl": "^2.10.3",
+    "@types/yauzl": "^3.4.0",
     "@vitejs/plugin-react": "^6.0.2",
     "concurrently": "^9.2.4",
     "cross-env": "^10.1.0",
