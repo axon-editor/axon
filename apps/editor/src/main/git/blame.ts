@@ -67,17 +67,22 @@ export function parseGitLinePorcelain(output: string): GitBlameLine[] {
 export async function getGitBlame(
   folderPath: string,
   filePath: string,
+  knownRepositoryRoot?: string | null,
 ): Promise<GitBlameResult> {
   let root: string;
-  try {
-    const repository = await execFileAsync(
-      "git",
-      ["-C", folderPath, "rev-parse", "--show-toplevel"],
-      { timeout: 5_000, maxBuffer: 1024 * 1024 },
-    );
-    root = repository.stdout.trim();
-  } catch {
-    return { path: null, lines: [] };
+  if (knownRepositoryRoot) {
+    root = knownRepositoryRoot;
+  } else {
+    try {
+      const repository = await execFileAsync(
+        "git",
+        ["-C", folderPath, "rev-parse", "--show-toplevel"],
+        { timeout: 5_000, maxBuffer: 1024 * 1024 },
+      );
+      root = repository.stdout.trim();
+    } catch {
+      return { path: null, lines: [] };
+    }
   }
 
   const relativePath = path.isAbsolute(filePath)
@@ -95,14 +100,7 @@ export async function getGitBlame(
   try {
     const result = await execFileAsync(
       "git",
-      [
-        "-C",
-        root,
-        "blame",
-        "--line-porcelain",
-        "--",
-        relativePath,
-      ],
+      ["-C", root, "blame", "--line-porcelain", "--", relativePath],
       { timeout: 30_000, maxBuffer: 16 * 1024 * 1024 },
     );
     return {

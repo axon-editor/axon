@@ -101,6 +101,51 @@ export class WorkspaceCapabilityRegistry {
     return candidate;
   }
 
+  assertGitRepositoryRoot(
+    rendererId: number,
+    workspaceRootPath: string,
+    repositoryRootPath: string,
+  ) {
+    const workspaceRoot = this.assertRoot(rendererId, workspaceRootPath);
+    const repositoryRoot = canonicalWorkspacePath(repositoryRootPath);
+
+    // Git may discover a repository above the folder the user opened. That
+    // parent is valid only when it actually contains the approved workspace;
+    // the renderer cannot nominate an unrelated directory and turn Git's
+    // broader repository semantics into a general filesystem capability.
+    if (!pathInsideWorkspaceRoot(workspaceRoot, repositoryRoot)) {
+      throw new Error(
+        "Git repository root does not contain the approved workspace.",
+      );
+    }
+
+    return repositoryRoot;
+  }
+
+  assertGitRepositoryPath(
+    rendererId: number,
+    workspaceRootPath: string,
+    repositoryRootPath: string,
+    candidatePath: string,
+  ) {
+    const repositoryRoot = this.assertGitRepositoryRoot(
+      rendererId,
+      workspaceRootPath,
+      repositoryRootPath,
+    );
+    const candidate = canonicalWorkspacePath(candidatePath);
+
+    // This is deliberately a Git-only check. It lets Source Control review and
+    // mutate a sibling package returned by the same repository status, while
+    // assertPath and the normal file APIs remain scoped to the folder that the
+    // user explicitly opened.
+    if (!pathInsideWorkspaceRoot(candidate, repositoryRoot)) {
+      throw new Error("Path is outside the approved Git repository.");
+    }
+
+    return candidate;
+  }
+
   resolveRootForPath(rendererId: number, candidatePath: string) {
     const candidate = canonicalWorkspacePath(candidatePath);
     const roots = [...(this.rootsByRenderer.get(rendererId) ?? [])]

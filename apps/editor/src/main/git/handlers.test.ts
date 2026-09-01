@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const ipcHandlers = new Map<string, (...args: any[]) => unknown>();
 const gitMocks = vi.hoisted(() => ({
   commitGitChanges: vi.fn(),
+  findGitRepositoryRoot: vi.fn(),
   getGitCommitDiff: vi.fn(),
   getGitDiff: vi.fn(),
   getGitFileBase: vi.fn(),
@@ -49,9 +50,30 @@ function createDependencies() {
     assertWorkspaceRoot: vi.fn(
       (_rendererId: number, folderPath: string) => folderPath,
     ),
-    assertWorkspacePath: vi.fn(
+    assertGitRepositoryRoot: vi.fn(
+      (_rendererId: number, _workspaceRoot: string, repositoryRoot: string) =>
+        repositoryRoot,
+    ),
+    assertGitRepositoryPath: vi.fn(
+      (
+        _rendererId: number,
+        _workspaceRoot: string,
+        _repositoryRoot: string,
+        filePath: string,
+      ) => filePath,
+    ),
+    authorizeReadOnlyFile: vi.fn(
       (_rendererId: number, filePath: string) => filePath,
     ),
+  };
+}
+
+function createEvent(rendererId: number) {
+  return {
+    sender: {
+      id: rendererId,
+      once: vi.fn(),
+    },
   };
 }
 
@@ -59,6 +81,7 @@ describe("Git IPC capabilities", () => {
   beforeEach(() => {
     ipcHandlers.clear();
     vi.clearAllMocks();
+    gitMocks.findGitRepositoryRoot.mockResolvedValue(process.cwd());
   });
 
   it("stops an unauthorized repository request before invoking Git", async () => {
@@ -69,34 +92,85 @@ describe("Git IPC capabilities", () => {
     registerGitHandlers(dependencies);
 
     await expect(
-      ipcHandlers.get("git:status")!({ sender: { id: 9 } }, process.cwd()),
+      ipcHandlers.get("git:status")!(createEvent(9), process.cwd()),
     ).rejects.toThrow("workspace not authorized");
     expect(gitMocks.getGitStatus).not.toHaveBeenCalled();
   });
 
-  it("resolves relative Git paths through the workspace capability", async () => {
+  it("resolves repository-relative paths against a parent Git root", async () => {
     const dependencies = createDependencies();
-    gitMocks.getGitDiff.mockResolvedValue({ path: "package.json", diff: "" });
+    gitMocks.getGitDiff.mockResolvedValue({
+      path: "apps/editor/package.json",
+      diff: "",
+    });
     registerGitHandlers(dependencies);
-    const root = process.cwd();
+    const repositoryRoot = path.resolve(process.cwd(), "..", "..");
+    const workspaceRoot = path.join(repositoryRoot, "services", "core");
+    const changedPath = "apps/editor/package.json";
+    gitMocks.findGitRepositoryRoot.mockResolvedValue(repositoryRoot);
 
     await ipcHandlers.get("git:diff")!(
-      { sender: { id: 10 } },
-      root,
-      "package.json",
+      createEvent(10),
+      workspaceRoot,
+      changedPath,
       false,
       false,
     );
 
-    expect(dependencies.assertWorkspacePath).toHaveBeenCalledWith(
+    expect(dependencies.assertGitRepositoryRoot).toHaveBeenCalledWith(
       10,
-      path.join(root, "package.json"),
+      workspaceRoot,
+      repositoryRoot,
+    );
+    expect(dependencies.assertGitRepositoryPath).toHaveBeenCalledWith(
+      10,
+      workspaceRoot,
+      repositoryRoot,
+      path.join(repositoryRoot, changedPath),
     );
     expect(gitMocks.getGitDiff).toHaveBeenCalledWith(
-      root,
-      path.join(root, "package.json"),
+      repositoryRoot,
+      path.join(repositoryRoot, changedPath),
       false,
       false,
+      repositoryRoot,
+    );
+  });
+
+  it("grants exact changed files read-only access without approving the parent folder", async () => {
+    const dependencies = createDependencies();
+    const repositoryRoot = path.resolve(process.cwd(), "..", "..");
+    const workspaceRoot = path.join(repositoryRoot, "services", "core");
+    const changedFile = path.join(repositoryRoot, "apps", "editor", "main.ts");
+    gitMocks.getGitStatus.mockResolvedValue({
+      isRepository: true,
+      root: repositoryRoot,
+      branch: "main",
+      changes: [
+        {
+          path: "apps/editor/main.ts",
+          absolutePath: changedFile,
+          oldPath: null,
+          indexState: "modified",
+          worktreeState: "modified",
+          staged: false,
+          unstaged: true,
+        },
+      ],
+      ignoredPaths: [],
+    });
+    registerGitHandlers(dependencies);
+
+    await ipcHandlers.get("git:status")!(createEvent(12), workspaceRoot);
+
+    expect(dependencies.authorizeReadOnlyFile).toHaveBeenCalledWith(
+      12,
+      changedFile,
+    );
+    expect(dependencies.authorizeWorkspaceRoot).not.toHaveBeenCalledWith(
+      12,
+      repositoryRoot,
+      expect.anything(),
     );
   });
 
@@ -105,13 +179,16 @@ describe("Git IPC capabilities", () => {
     registerGitHandlers(dependencies);
 
     const result = await ipcHandlers.get("git:worktreeAction")!(
-      { sender: { id: 11 } },
+      createEvent(11),
       process.cwd(),
       { type: "add", path: process.cwd() },
     );
 
     expect(result).toEqual(
-      expect.objectContaining({ ok: false, message: expect.stringContaining("native picker") }),
+      expect.objectContaining({
+        ok: false,
+        message: expect.stringContaining("native picker"),
+      }),
     );
     expect(advancedGitMocks.runGitWorktreeAction).not.toHaveBeenCalled();
   });

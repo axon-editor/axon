@@ -230,6 +230,7 @@ export function useWorkspaceHandlers({
     setWorkspaceRoots(nextRoots);
     setActiveRootId(nextActiveRoot.id);
     setFolderPath(path);
+    setGitStatus(null);
     setTree(fileTree);
     setLayout(
       restoredSession?.layout

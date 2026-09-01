@@ -50,6 +50,16 @@ async function runGit(
   };
 }
 
+export async function findGitRepositoryRoot(folderPath: string) {
+  try {
+    const result = await runGit(folderPath, ["rev-parse", "--show-toplevel"]);
+    const root = result.stdout.trim();
+    return root || null;
+  } catch {
+    return null;
+  }
+}
+
 async function readGitBlob(
   root: string,
   ref: string,
@@ -58,7 +68,8 @@ async function readGitBlob(
   if (!relativePath) return "";
 
   try {
-    const gitObject = ref === ":" ? `:${relativePath}` : `${ref}:${relativePath}`;
+    const gitObject =
+      ref === ":" ? `:${relativePath}` : `${ref}:${relativePath}`;
     const result = await runGit(root, ["show", gitObject]);
     return result.stdout;
   } catch {
@@ -70,7 +81,10 @@ async function readWorkingTreeFile(root: string, relativePath: string | null) {
   if (!relativePath) return "";
 
   try {
-    return await fs.promises.readFile(path.resolve(root, relativePath), "utf-8");
+    return await fs.promises.readFile(
+      path.resolve(root, relativePath),
+      "utf-8",
+    );
   } catch {
     return "";
   }
@@ -146,7 +160,7 @@ function parseGitStatus(root: string, statusOutput: string): GitChange[] {
       const isRenameOrCopy = [indexCode, worktreeCode].some(
         (code) => code === "R" || code === "C",
       );
-      const oldPath = isRenameOrCopy ? records[index + 1] ?? null : null;
+      const oldPath = isRenameOrCopy ? (records[index + 1] ?? null) : null;
 
       if (isRenameOrCopy) {
         index += 1;
@@ -213,7 +227,10 @@ function parseGitIgnoredPaths(root: string, ignoredOutput: string): string[] {
     .map((ignoredPath) => path.resolve(root, ignoredPath.replace(/\/$/, "")));
 }
 
-function parseGitHistoryFile(root: string, line: string): GitHistoryFile | null {
+function parseGitHistoryFile(
+  root: string,
+  line: string,
+): GitHistoryFile | null {
   const parts = line.split("\t").map((part) => part.trim());
   const statusCode = parts[0] ?? "";
   if (!statusCode) return null;
@@ -221,8 +238,8 @@ function parseGitHistoryFile(root: string, line: string): GitHistoryFile | null 
   const rawStatus = statusCode[0] ?? "";
   const status = toGitFileState(rawStatus);
   const isRenameOrCopy = rawStatus === "R" || rawStatus === "C";
-  const oldPath = isRenameOrCopy ? parts[1] ?? null : null;
-  const filePath = isRenameOrCopy ? parts[2] ?? "" : parts[1] ?? "";
+  const oldPath = isRenameOrCopy ? (parts[1] ?? null) : null;
+  const filePath = isRenameOrCopy ? (parts[2] ?? "") : (parts[1] ?? "");
   if (!isUsableGitPath(filePath)) return null;
 
   return {
@@ -280,30 +297,31 @@ function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
 
 export async function getGitStatus(
   folderPath: string,
+  knownRepositoryRoot?: string | null,
 ): Promise<GitStatusResult> {
   try {
-    const rootResult = await runGit(folderPath, ["rev-parse", "--show-toplevel"]);
-    const root = rootResult.stdout.trim();
-    const branchResult = await runGit(folderPath, [
-      "branch",
-      "--show-current",
-    ]);
-    const statusResult = await runGit(root, [
-      "status",
-      "--porcelain=v1",
-      // I use NUL-delimited output here because Git quotes paths with spaces in
-      // normal porcelain output. The sidebar decoration map compares absolute
-      // file-tree paths, so a quoted status path like `"Screenshot 2026.png"`
-      // will never match the real file path and media files look unchanged.
-      "-z",
-      "-uall",
-    ]);
-    const ignoredResult = await runGit(root, [
-      "ls-files",
-      "--ignored",
-      "--exclude-standard",
-      "--others",
-      "--directory",
+    const root =
+      knownRepositoryRoot ?? (await findGitRepositoryRoot(folderPath));
+    if (!root) throw new Error("Workspace is not a Git repository.");
+    const [branchResult, statusResult, ignoredResult] = await Promise.all([
+      runGit(root, ["branch", "--show-current"]),
+      runGit(root, [
+        "status",
+        "--porcelain=v1",
+        // I use NUL-delimited output here because Git quotes paths with spaces in
+        // normal porcelain output. The sidebar decoration map compares absolute
+        // file-tree paths, so a quoted status path like `"Screenshot 2026.png"`
+        // will never match the real file path and media files look unchanged.
+        "-z",
+        "-uall",
+      ]),
+      runGit(root, [
+        "ls-files",
+        "--ignored",
+        "--exclude-standard",
+        "--others",
+        "--directory",
+      ]),
     ]);
 
     return {
@@ -329,9 +347,12 @@ export async function getGitDiff(
   filePath: string,
   staged: boolean,
   untracked: boolean,
+  knownRepositoryRoot?: string | null,
 ): Promise<GitDiffResult> {
-  const status = await getGitStatus(folderPath);
-  const root = status.root ?? folderPath;
+  const root =
+    knownRepositoryRoot ??
+    (await findGitRepositoryRoot(folderPath)) ??
+    folderPath;
   const relativePath = normalizeGitRequestPath(root, filePath);
   if (!relativePath) {
     return {
@@ -416,9 +437,12 @@ export async function getGitDiff(
 export async function getGitFileBase(
   folderPath: string,
   filePath: string,
+  knownRepositoryRoot?: string | null,
 ): Promise<string> {
-  const status = await getGitStatus(folderPath);
-  const root = status.root ?? folderPath;
+  const root =
+    knownRepositoryRoot ??
+    (await findGitRepositoryRoot(folderPath)) ??
+    folderPath;
   const relativePath = normalizeGitRequestPath(root, filePath);
   if (!relativePath) return "";
 
@@ -436,9 +460,10 @@ export async function getGitFileBase(
 export async function getGitHistory(
   folderPath: string,
   filePath?: string | null,
+  knownRepositoryRoot?: string | null,
 ): Promise<GitHistoryResult> {
-  const status = await getGitStatus(folderPath);
-  if (!status.isRepository || !status.root) {
+  const root = knownRepositoryRoot ?? (await findGitRepositoryRoot(folderPath));
+  if (!root) {
     return {
       isRepository: false,
       root: null,
@@ -454,13 +479,13 @@ export async function getGitHistory(
     "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%ar%x1f%s%x1f%b",
   ];
   const relativePath = filePath
-    ? normalizeGitRequestPath(status.root, filePath)
+    ? normalizeGitRequestPath(root, filePath)
     : null;
   if (filePath && !relativePath) {
     return {
       isRepository: true,
-      root: status.root,
-      branch: status.branch,
+      root,
+      branch: null,
       commits: [],
     };
   }
@@ -473,18 +498,21 @@ export async function getGitHistory(
     // depends on the user's Git binary and repository path. Keeping that shell
     // boundary centralized means the renderer can ask for "history for this
     // workspace/file" without learning how to assemble Git arguments safely.
-    const result = await runGit(status.root, args);
+    const [result, branchResult] = await Promise.all([
+      runGit(root, args),
+      runGit(root, ["branch", "--show-current"]),
+    ]);
     return {
       isRepository: true,
-      root: status.root,
-      branch: status.branch,
-      commits: parseGitHistory(status.root, result.stdout),
+      root,
+      branch: branchResult.stdout.trim() || "detached",
+      commits: parseGitHistory(root, result.stdout),
     };
   } catch {
     return {
       isRepository: true,
-      root: status.root,
-      branch: status.branch,
+      root,
+      branch: null,
       commits: [],
     };
   }
@@ -495,9 +523,10 @@ export async function getGitCommitDiff(
   hash: string,
   filePath?: string | null,
   oldPath?: string | null,
+  knownRepositoryRoot?: string | null,
 ): Promise<GitCommitDiffResult> {
-  const status = await getGitStatus(folderPath);
-  if (!status.isRepository || !status.root || !/^[0-9a-f]{7,40}$/i.test(hash)) {
+  const root = knownRepositoryRoot ?? (await findGitRepositoryRoot(folderPath));
+  if (!root || !/^[0-9a-f]{7,40}$/i.test(hash)) {
     return {
       hash,
       path: null,
@@ -508,10 +537,10 @@ export async function getGitCommitDiff(
 
   try {
     const relativePath = filePath
-      ? normalizeGitRequestPath(status.root, filePath)
+      ? normalizeGitRequestPath(root, filePath)
       : null;
     const relativeOldPath = oldPath
-      ? normalizeGitRequestPath(status.root, oldPath)
+      ? normalizeGitRequestPath(root, oldPath)
       : null;
     const args = [
       "show",
@@ -529,7 +558,7 @@ export async function getGitCommitDiff(
     // wants the diff for one file at a time. Filtering here keeps the preview
     // readable and matches editor history views where a commit can be selected
     // first, then one changed path inside that commit can be inspected.
-    const result = await runGit(status.root, args);
+    const result = await runGit(root, args);
     const diff = result.stdout || result.stderr;
     const binary =
       Boolean(relativePath && isKnownBinaryFile(relativePath)) ||
@@ -545,11 +574,11 @@ export async function getGitCommitDiff(
     }
 
     const baseContent = await readGitBlob(
-      status.root,
+      root,
       `${hash}^`,
       relativeOldPath ?? relativePath,
     );
-    const currentContent = await readGitBlob(status.root, hash, relativePath);
+    const currentContent = await readGitBlob(root, hash, relativePath);
     return {
       hash,
       path: relativePath,
@@ -577,36 +606,34 @@ export async function runGitAction(
   folderPath: string,
   filePath: string,
   action: "stage" | "unstage" | "discard",
+  knownRepositoryRoot?: string | null,
 ): Promise<GitActionResult> {
   // All Git mutations stay in the main process because the renderer should not
   // gain direct shell or filesystem power. The UI asks for a small, named
   // action, then this function translates that into the safest Git command for
   // the current status of the path.
-  const status = await getGitStatus(folderPath);
-  if (!status.isRepository || !status.root) {
+  const root =
+    knownRepositoryRoot ?? (await findGitRepositoryRoot(folderPath));
+  if (!root) {
     return {
       ok: false,
       message: "Current workspace is not a Git repository.",
     };
   }
 
-  const relativePath = normalizeGitRequestPath(status.root, filePath);
+  const relativePath = normalizeGitRequestPath(root, filePath);
   if (!relativePath) {
     return {
       ok: false,
       message: "No valid Git path was selected.",
     };
   }
-  const change = status.changes.find(
-    (candidate) => candidate.path === relativePath,
-  );
-
   try {
     if (action === "stage") {
       // `git add` is intentionally scoped to one path. That keeps a button
       // click in Source Control from staging unrelated files the user has not
       // reviewed yet.
-      await runGit(status.root, ["add", "--", relativePath]);
+      await runGit(root, ["add", "--", relativePath]);
       return {
         ok: true,
         message: `Staged ${relativePath}.`,
@@ -617,18 +644,26 @@ export async function runGitAction(
       // `restore --staged` moves the path out of the index without touching
       // the working tree. That is the expected editor behavior: unstage should
       // not discard the user's actual file edits.
-      await runGit(status.root, ["restore", "--staged", "--", relativePath]);
+      await runGit(root, ["restore", "--staged", "--", relativePath]);
       return {
         ok: true,
         message: `Unstaged ${relativePath}.`,
       };
     }
 
+    // Discard is the only action that needs current status. Tracked files use
+    // restore, while untracked files use clean; stage and unstage can go
+    // straight to their path-scoped Git commands without rescanning the whole
+    // repository once for every file in a batch operation.
+    const status = await getGitStatus(root, root);
+    const change = status.changes.find(
+      (candidate) => candidate.path === relativePath,
+    );
     if (change?.indexState === "untracked") {
       // Untracked files do not have a HEAD version to restore from, so discard
       // must delete them. The renderer confirms before it calls this action;
       // this command still stays path-scoped so it cannot clean the whole repo.
-      await runGit(status.root, ["clean", "-f", "--", relativePath]);
+      await runGit(root, ["clean", "-f", "--", relativePath]);
       return {
         ok: true,
         message: `Deleted untracked file ${relativePath}.`,
@@ -638,13 +673,14 @@ export async function runGitAction(
     // For tracked files, discard only resets the working tree copy. If the file
     // also has staged changes, those staged changes remain staged so a user can
     // throw away extra local edits without losing the reviewed index state.
-    await runGit(status.root, ["restore", "--worktree", "--", relativePath]);
+    await runGit(root, ["restore", "--worktree", "--", relativePath]);
     return {
       ok: true,
       message: `Discarded unstaged changes in ${relativePath}.`,
     };
   } catch (err) {
-    const message = `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
+    const message =
+      `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
     return {
       ok: false,
       message: message || `Failed to ${action} ${relativePath}.`,
@@ -655,8 +691,9 @@ export async function runGitAction(
 export async function commitGitChanges(
   folderPath: string,
   message: string,
+  knownRepositoryRoot?: string | null,
 ): Promise<GitCommitResult> {
-  const status = await getGitStatus(folderPath);
+  const status = await getGitStatus(folderPath, knownRepositoryRoot);
   if (!status.isRepository || !status.root) {
     return {
       ok: false,
@@ -876,7 +913,8 @@ export async function runGitBranchAction(
       message: `Renamed ${action.oldName} to ${action.newName}.`,
     };
   } catch (err) {
-    const message = `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
+    const message =
+      `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
     return {
       ok: false,
       message: message || "Git branch action failed.",
@@ -942,7 +980,8 @@ export async function runGitStashAction(
     await runGit(repository.root, ["stash", action.type, action.selector]);
     return { ok: true, message: `${action.type} ${action.selector}.` };
   } catch (err) {
-    const message = `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
+    const message =
+      `${(err as { stderr?: string }).stderr ?? ""}${(err as { message?: string }).message ?? ""}`.trim();
     return {
       ok: false,
       message: message || "Git stash action failed.",

@@ -41,7 +41,6 @@ import {
   commitSourceControlChanges,
   copyGitText,
   loadSourceControlDiff,
-  loadSourceControlStatus,
   runSourceControlAction,
   runSourceControlBatchAction,
   type GitMutationAction,
@@ -51,11 +50,12 @@ import { getGitFileStateBadgeStyle } from "./lib/gitTheme";
 interface Props {
   folderPath: string | null;
   open: boolean;
+  status: GitStatusResult | null;
   onClose: () => void;
   onOpenFile: (path: string) => void;
   onOpenDiff: (path: string) => void;
   onOpenGraph: () => void;
-  onGitStatusChanged: () => void;
+  onGitStatusChanged: () => Promise<void>;
   editorSettings: EditorSettings;
   themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
   themeTokens: ResolvedThemeTokens;
@@ -115,6 +115,17 @@ function changeState(change: GitChange) {
     : change.worktreeState;
 }
 
+function sameGitChange(left: GitChange, right: GitChange) {
+  return (
+    left.absolutePath === right.absolutePath &&
+    left.oldPath === right.oldPath &&
+    left.indexState === right.indexState &&
+    left.worktreeState === right.worktreeState &&
+    left.staged === right.staged &&
+    left.unstaged === right.unstaged
+  );
+}
+
 function getFileName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
@@ -122,6 +133,7 @@ function getFileName(path: string) {
 export default function SourceControlModal({
   folderPath,
   open,
+  status,
   onClose,
   onOpenFile,
   onOpenDiff,
@@ -132,7 +144,6 @@ export default function SourceControlModal({
   themeTokens,
   onOutput,
 }: Props) {
-  const [status, setStatus] = useState<GitStatusResult | null>(null);
   const [selectedChange, setSelectedChange] = useState<GitChange | null>(null);
   const [diff, setDiff] = useState<GitDiffResult | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
@@ -149,12 +160,14 @@ export default function SourceControlModal({
   } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const onOutputRef = useRef(onOutput);
+  const onGitStatusChangedRef = useRef(onGitStatusChanged);
   // Status loading is keyed only by the workspace. Output is a notification
   // sink supplied by the workbench, and its function identity can change when
   // adding an output entry rerenders that parent. Reading the latest callback
   // through a ref keeps messages current without turning that notification
   // rerender into another Git request and an infinite refresh/output cycle.
   onOutputRef.current = onOutput;
+  onGitStatusChangedRef.current = onGitStatusChanged;
   const selectedChangeIsMedia = selectedChange
     ? isMediaFile(selectedChange.absolutePath)
     : false;
@@ -174,29 +187,12 @@ export default function SourceControlModal({
     [status],
   );
 
-  const loadStatus = useCallback(async () => {
+  const refreshStatus = useCallback(async () => {
     if (!folderPath) return;
 
     setLoadingStatus(true);
     try {
-      const nextStatus = await loadSourceControlStatus(folderPath);
-      setStatus(nextStatus);
-      setSelectedChange((currentChange) => {
-        if (!currentChange) return nextStatus.changes[0] ?? null;
-        return (
-          nextStatus.changes.find(
-            (change) => change.path === currentChange.path,
-          ) ??
-          nextStatus.changes[0] ??
-          null
-        );
-      });
-      onOutputRef.current(
-        nextStatus.isRepository
-          ? `Git status loaded with ${nextStatus.changes.length} changed file${nextStatus.changes.length === 1 ? "" : "s"}.`
-          : "Current workspace is not a Git repository.",
-        nextStatus.isRepository ? "success" : "warning",
-      );
+      await onGitStatusChangedRef.current();
     } catch (err) {
       console.error("failed to load git status:", err);
       onOutputRef.current("Failed to load Git status.", "error");
@@ -204,6 +200,19 @@ export default function SourceControlModal({
       setLoadingStatus(false);
     }
   }, [folderPath]);
+
+  useEffect(() => {
+    setSelectedChange((currentChange) => {
+      if (!currentChange) return status?.changes[0] ?? null;
+      const nextChange =
+        status?.changes.find((change) => change.path === currentChange.path) ??
+        status?.changes[0] ??
+        null;
+      return nextChange && sameGitChange(currentChange, nextChange)
+        ? currentChange
+        : nextChange;
+    });
+  }, [status]);
 
   const runAction = async (
     change: GitChange,
@@ -230,8 +239,7 @@ export default function SourceControlModal({
     try {
       const result = await runSourceControlAction(folderPath, change, action);
       onOutput(result.message, result.ok ? "success" : "error");
-      await loadStatus();
-      onGitStatusChanged();
+      await refreshStatus();
     } catch (err) {
       console.error("git action failed:", err);
       onOutput(`Failed to ${action} ${change.path}.`, "error");
@@ -267,8 +275,7 @@ export default function SourceControlModal({
         `${action === "stage" ? "Staged" : action === "unstage" ? "Unstaged" : "Discarded"} ${actionableChanges.length} file${actionableChanges.length === 1 ? "" : "s"}.`,
         "success",
       );
-      await loadStatus();
-      onGitStatusChanged();
+      await refreshStatus();
     } catch (err) {
       console.error("git batch action failed:", err);
       onOutput(`Failed to ${action} selected Git changes.`, "error");
@@ -288,8 +295,7 @@ export default function SourceControlModal({
       onOutput(result.message, result.ok ? "success" : "error");
       if (result.ok) {
         setCommitMessage("");
-        await loadStatus();
-        onGitStatusChanged();
+        await refreshStatus();
       }
     } catch (err) {
       console.error("git commit failed:", err);
@@ -381,9 +387,9 @@ export default function SourceControlModal({
   };
 
   useEffect(() => {
-    if (!open) return;
-    void loadStatus();
-  }, [loadStatus, open]);
+    if (!open || status) return;
+    void refreshStatus();
+  }, [open, refreshStatus, status]);
 
   useEffect(() => {
     if (!open) {
@@ -540,7 +546,7 @@ export default function SourceControlModal({
                 </Tooltip>
                 <Tooltip label="Refresh Git status" side="bottom">
                   <button
-                    onClick={() => void loadStatus()}
+                    onClick={() => void refreshStatus()}
                     aria-label="Refresh Git status"
                     className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                   >
@@ -554,8 +560,7 @@ export default function SourceControlModal({
               <GitWorkflowPanel
                 folderPath={folderPath}
                 onChanged={() => {
-                  void loadStatus();
-                  onGitStatusChanged();
+                  void refreshStatus();
                 }}
                 onOutput={onOutput}
               />

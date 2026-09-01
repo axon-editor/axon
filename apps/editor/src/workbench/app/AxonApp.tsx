@@ -792,7 +792,6 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     bottomPanelTab,
     extensionThemes,
     folderPath,
-    gitStatus,
     folderRefreshRequestRef,
     folderRefreshTimerRef,
     handleFolderChange,

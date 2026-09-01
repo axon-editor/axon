@@ -53,7 +53,6 @@ import {
 import { type WorkspaceRoot } from "../../../renderer/shared/lib/workspaceRoots";
 import { type Pane, type Layout } from "../../../renderer/features/editor/lib/layout/types";
 import { type AgentResumeRequest } from "../../../shared/app";
-import { type GitStatusResult } from "../../../shared/git";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import { type UpdateInfo, type UpdateInstallState } from "../../../shared/updates";
 import { type BottomPanelTab, type OutputEntryLevel } from "../../../platform/panel/bottomPanel";
@@ -82,7 +81,6 @@ interface AxonAppEffectsOptions {
   bottomPanelTab: BottomPanelTab;
   extensionThemes: ResolvedExtensionTheme[];
   folderPath: string | null;
-  gitStatus: GitStatusResult | null;
   folderRefreshRequestRef: MutableRefObject<number>;
   folderRefreshTimerRef: MutableRefObject<number | null>;
   handleFolderChange: WorkspaceHandlers["handleFolderChange"];
@@ -143,7 +141,6 @@ export function useAxonAppEffects({
   bottomPanelTab,
   extensionThemes,
   folderPath,
-  gitStatus,
   folderRefreshRequestRef,
   folderRefreshTimerRef,
   handleFolderChange,
@@ -644,17 +641,15 @@ export function useAxonAppEffects({
     // Main-process native watcher events remain the immediate path. This
     // renderer-owned fallback is deliberately separate because each Axon
     // window must refresh its own repository even when a packaged background
-    // event is dropped. A workspace that is not a repository polls slowly so
-    // `git init` can promote it without a reopen; active repositories retain
-    // the shorter recovery interval. The status function coalesces overlap.
+    // event is dropped. Native workspace and Git-metadata watchers own normal
+    // updates; this slower heartbeat only repairs a missed event or discovers a
+    // repository created by an external tool without making Git a constant
+    // background workload. The status function still coalesces overlap.
     const refresh = () => void refreshGitStatus({ silent: true });
     const handleVisibility = () => {
       if (!document.hidden) refresh();
     };
-    const interval = window.setInterval(
-      refresh,
-      gitStatus?.isRepository ? 2_000 : 5_000,
-    );
+    const interval = window.setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
@@ -662,7 +657,7 @@ export function useAxonAppEffects({
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [folderPath, gitStatus?.isRepository, refreshGitStatus]);
+  }, [folderPath, refreshGitStatus]);
 
   useEffect(() => {
     const cleanupHtmlPreviewConsole = window.axon.onHtmlPreviewConsole(

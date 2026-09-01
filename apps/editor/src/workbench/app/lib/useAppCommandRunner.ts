@@ -338,7 +338,6 @@ export function useAppCommandRunner({
           activateExtensionEvent("onCommand:axon.git.openSourceControl");
           activateExtensionEvent("onView:axon.sourceControl");
           setSourceControlOpen(true);
-          void refreshGitStatus();
           break;
         case AXON_COMMANDS.OPEN_GIT_HISTORY:
           activateExtensionEvent("onCommand:axon.git.openHistory");

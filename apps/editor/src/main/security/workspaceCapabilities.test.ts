@@ -29,6 +29,38 @@ afterEach(() => {
 });
 
 describe("workspace read capabilities", () => {
+  it("derives a Git-only capability for an approved nested workspace", () => {
+    const repository = createTemporaryDirectory("axon-parent-repository-");
+    const unrelatedRepository = createTemporaryDirectory(
+      "axon-unrelated-repository-",
+    );
+    const workspace = path.join(repository, "services", "core");
+    const siblingFile = path.join(repository, "apps", "editor", "main.ts");
+    const outsideFile = path.join(path.dirname(repository), "outside.txt");
+    fs.mkdirSync(workspace, { recursive: true });
+    fs.mkdirSync(path.dirname(siblingFile), { recursive: true });
+    fs.writeFileSync(siblingFile, "export {};\n", "utf8");
+
+    const registry = new WorkspaceCapabilityRegistry();
+    registry.authorize(7, workspace);
+
+    expect(registry.assertGitRepositoryRoot(7, workspace, repository)).toBe(
+      fs.realpathSync(repository),
+    );
+    expect(
+      registry.assertGitRepositoryPath(7, workspace, repository, siblingFile),
+    ).toBe(fs.realpathSync(siblingFile));
+    expect(() => registry.assertPath(7, siblingFile)).toThrow(
+      "outside the renderer's approved workspaces",
+    );
+    expect(() =>
+      registry.assertGitRepositoryPath(7, workspace, repository, outsideFile),
+    ).toThrow("outside the approved Git repository");
+    expect(() =>
+      registry.assertGitRepositoryRoot(7, workspace, unrelatedRepository),
+    ).toThrow("does not contain the approved workspace");
+  });
+
   it("resolves terminal ownership to the most specific approved workspace", () => {
     const parent = createTemporaryDirectory("axon-parent-workspace-");
     const nested = path.join(parent, "packages", "editor");

@@ -94,7 +94,7 @@ function developmentEnvironmentValue(name: string) {
   // working on Axon, but a packaged launch must never inherit an older Axon
   // host's private identity from a parent shell. Production therefore ignores
   // AXON_* service overrides and generates a fresh port/token/socket boundary.
-  return isDev ? process.env[name]?.trim() ?? "" : "";
+  return isDev ? (process.env[name]?.trim() ?? "") : "";
 }
 function resolveMacAppBundlePath() {
   if (!isMac) return null;
@@ -138,15 +138,14 @@ const axonCoreToken =
 const axonPtyToken =
   developmentEnvironmentValue("AXON_PTY_TOKEN") ||
   randomBytes(32).toString("hex");
-const axonPtyControlPath =
-  isDev
-    ? null
-    : process.platform === "win32"
-      ? `\\\\.\\pipe\\axon-pty-${process.pid}-${randomBytes(8).toString("hex")}`
-      : path.join(
-          app.getPath("temp"),
-          `axon-pty-${process.pid}-${randomBytes(8).toString("hex")}.sock`,
-        );
+const axonPtyControlPath = isDev
+  ? null
+  : process.platform === "win32"
+    ? `\\\\.\\pipe\\axon-pty-${process.pid}-${randomBytes(8).toString("hex")}`
+    : path.join(
+        app.getPath("temp"),
+        `axon-pty-${process.pid}-${randomBytes(8).toString("hex")}.sock`,
+      );
 const axonPtyLogPath = isDev
   ? ""
   : path.join(app.getPath("logs"), "pty-host.log");
@@ -446,8 +445,26 @@ registerGitHandlers({
     workspaceCapabilities.authorize(rendererId, rootPath, persist),
   assertWorkspaceRoot: (rendererId, rootPath) =>
     workspaceCapabilities.assertRoot(rendererId, rootPath),
-  assertWorkspacePath: (rendererId, candidatePath) =>
-    workspaceCapabilities.assertPath(rendererId, candidatePath),
+  assertGitRepositoryRoot: (rendererId, workspaceRoot, repositoryRoot) =>
+    workspaceCapabilities.assertGitRepositoryRoot(
+      rendererId,
+      workspaceRoot,
+      repositoryRoot,
+    ),
+  assertGitRepositoryPath: (
+    rendererId,
+    workspaceRoot,
+    repositoryRoot,
+    candidatePath,
+  ) =>
+    workspaceCapabilities.assertGitRepositoryPath(
+      rendererId,
+      workspaceRoot,
+      repositoryRoot,
+      candidatePath,
+    ),
+  authorizeReadOnlyFile: (rendererId, filePath) =>
+    workspaceCapabilities.authorizeReadOnlyFile(rendererId, filePath),
 });
 registerAiHandlers({
   axonCorePort,

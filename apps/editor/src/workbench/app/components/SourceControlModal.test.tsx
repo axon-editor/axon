@@ -18,7 +18,6 @@ const sourceControlApi = vi.hoisted(() => ({
   commitSourceControlChanges: vi.fn(),
   copyGitText: vi.fn(),
   loadSourceControlDiff: vi.fn(),
-  loadSourceControlStatus: vi.fn(),
   runSourceControlAction: vi.fn(),
   runSourceControlBatchAction: vi.fn(),
 }));
@@ -58,14 +57,6 @@ describe("SourceControlModal", () => {
   });
 
   beforeEach(() => {
-    sourceControlApi.loadSourceControlStatus.mockReset();
-    sourceControlApi.loadSourceControlStatus.mockResolvedValue({
-      isRepository: true,
-      root: "/workspace",
-      branch: "main",
-      changes: [],
-      ignoredPaths: [],
-    });
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -76,16 +67,26 @@ describe("SourceControlModal", () => {
     container.remove();
   });
 
-  function render(onOutput: (message: string) => void) {
+  function render(
+    onOutput: (message: string) => void,
+    onGitStatusChanged: () => Promise<void>,
+  ) {
     root.render(
       <SourceControlModal
         folderPath="/workspace"
         open
+        status={{
+          isRepository: true,
+          root: "/workspace",
+          branch: "main",
+          changes: [],
+          ignoredPaths: [],
+        }}
         onClose={vi.fn()}
         onOpenFile={vi.fn()}
         onOpenDiff={vi.fn()}
         onOpenGraph={vi.fn()}
-        onGitStatusChanged={vi.fn()}
+        onGitStatusChanged={onGitStatusChanged}
         editorSettings={DEFAULT_SETTINGS.editor}
         themeSyntax={{}}
         themeTokens={{} as ResolvedThemeTokens}
@@ -94,16 +95,17 @@ describe("SourceControlModal", () => {
     );
   }
 
-  it("does not reload Git status when an output notification rerenders its parent", async () => {
+  it("reuses workbench Git status when output notifications rerender its parent", async () => {
     const firstOutput = vi.fn();
     const nextOutput = vi.fn();
+    const refreshStatus = vi.fn(async () => undefined);
 
-    await act(async () => render(firstOutput));
-    expect(sourceControlApi.loadSourceControlStatus).toHaveBeenCalledOnce();
-    expect(firstOutput).toHaveBeenCalledOnce();
+    await act(async () => render(firstOutput, refreshStatus));
+    expect(refreshStatus).not.toHaveBeenCalled();
+    expect(firstOutput).not.toHaveBeenCalled();
 
-    await act(async () => render(nextOutput));
-    expect(sourceControlApi.loadSourceControlStatus).toHaveBeenCalledOnce();
+    await act(async () => render(nextOutput, refreshStatus));
+    expect(refreshStatus).not.toHaveBeenCalled();
     expect(nextOutput).not.toHaveBeenCalled();
   });
 });

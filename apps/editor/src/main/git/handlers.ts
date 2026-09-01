@@ -30,6 +30,7 @@ import {
 } from "./advancedGit";
 import {
   commitGitChanges,
+  findGitRepositoryRoot,
   listGitBranches,
   listGitStashes,
   getGitCommitDiff,
@@ -41,10 +42,7 @@ import {
   runGitStashAction,
   runGitAction,
 } from "./git";
-import {
-  cloneGitRepository,
-  validateGitCloneRepositoryUrl,
-} from "./clone";
+import { cloneGitRepository, validateGitCloneRepositoryUrl } from "./clone";
 
 interface GitHandlerDependencies {
   authorizeWorkspaceRoot: (
@@ -53,40 +51,109 @@ interface GitHandlerDependencies {
     persist?: boolean,
   ) => string;
   assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
-  assertWorkspacePath: (rendererId: number, candidatePath: string) => string;
+  assertGitRepositoryRoot: (
+    rendererId: number,
+    workspaceRoot: string,
+    repositoryRoot: string,
+  ) => string;
+  assertGitRepositoryPath: (
+    rendererId: number,
+    workspaceRoot: string,
+    repositoryRoot: string,
+    candidatePath: string,
+  ) => string;
+  authorizeReadOnlyFile: (rendererId: number, filePath: string) => string;
 }
 
 export function registerGitHandlers(deps: GitHandlerDependencies) {
   const approvedWorktreePathsByRenderer = new Map<number, Set<string>>();
-  const boundWorktreeSenders = new Set<number>();
+  const repositoryRootsByRenderer = new Map<number, Map<string, string>>();
+  const boundSenders = new Set<number>();
   const authorizeRoot = (rendererId: number, folderPath: string) =>
     deps.assertWorkspaceRoot(rendererId, folderPath);
-  const authorizeFile = (
-    rendererId: number,
+
+  const bindSenderCleanup = (event: Electron.IpcMainInvokeEvent) => {
+    const rendererId = event.sender.id;
+    if (boundSenders.has(rendererId)) return;
+
+    boundSenders.add(rendererId);
+    event.sender.once("destroyed", () => {
+      boundSenders.delete(rendererId);
+      approvedWorktreePathsByRenderer.delete(rendererId);
+      repositoryRootsByRenderer.delete(rendererId);
+    });
+  };
+
+  const rememberRepositoryRoot = (
+    event: Electron.IpcMainInvokeEvent,
+    workspaceRoot: string,
+    repositoryRoot: string,
+  ) => {
+    bindSenderCleanup(event);
+    let roots = repositoryRootsByRenderer.get(event.sender.id);
+    if (!roots) {
+      roots = new Map();
+      repositoryRootsByRenderer.set(event.sender.id, roots);
+    }
+    roots.set(workspaceRoot, repositoryRoot);
+  };
+
+  const resolveRepositoryRoot = async (
+    event: Electron.IpcMainInvokeEvent,
+    folderPath: string,
+  ) => {
+    const workspaceRoot = authorizeRoot(event.sender.id, folderPath);
+    const cachedRoot = repositoryRootsByRenderer
+      .get(event.sender.id)
+      ?.get(workspaceRoot);
+    const discoveredRoot =
+      cachedRoot ?? (await findGitRepositoryRoot(workspaceRoot));
+    if (!discoveredRoot) {
+      throw new Error("Current workspace is not a Git repository.");
+    }
+
+    const repositoryRoot = deps.assertGitRepositoryRoot(
+      event.sender.id,
+      workspaceRoot,
+      discoveredRoot,
+    );
+    rememberRepositoryRoot(event, workspaceRoot, repositoryRoot);
+    return { workspaceRoot, repositoryRoot };
+  };
+
+  const resolveRepositoryFile = async (
+    event: Electron.IpcMainInvokeEvent,
     folderPath: string,
     filePath: string,
-  ) =>
-    deps.assertWorkspacePath(
-      rendererId,
-      path.isAbsolute(filePath) ? filePath : path.join(folderPath, filePath),
-    );
+  ) => {
+    const repository = await resolveRepositoryRoot(event, folderPath);
+    const candidatePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(repository.repositoryRoot, filePath);
 
-  const rememberWorktreePath = (event: Electron.IpcMainInvokeEvent, value: string) => {
+    return {
+      ...repository,
+      filePath: deps.assertGitRepositoryPath(
+        event.sender.id,
+        repository.workspaceRoot,
+        repository.repositoryRoot,
+        candidatePath,
+      ),
+    };
+  };
+
+  const rememberWorktreePath = (
+    event: Electron.IpcMainInvokeEvent,
+    value: string,
+  ) => {
     const rendererId = event.sender.id;
+    bindSenderCleanup(event);
     let approvedPaths = approvedWorktreePathsByRenderer.get(rendererId);
     if (!approvedPaths) {
       approvedPaths = new Set();
       approvedWorktreePathsByRenderer.set(rendererId, approvedPaths);
     }
     approvedPaths.add(fs.realpathSync(value));
-
-    if (!boundWorktreeSenders.has(rendererId)) {
-      boundWorktreeSenders.add(rendererId);
-      event.sender.once("destroyed", () => {
-        boundWorktreeSenders.delete(rendererId);
-        approvedWorktreePathsByRenderer.delete(rendererId);
-      });
-    }
   };
   ipcMain.handle(
     "git:clone",
@@ -178,7 +245,26 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       } satisfies GitStatusResult;
     }
 
-    return getGitStatus(authorizeRoot(event.sender.id, folderPath));
+    const workspaceRoot = authorizeRoot(event.sender.id, folderPath);
+    const status = await getGitStatus(workspaceRoot);
+    if (status.root) {
+      const repositoryRoot = deps.assertGitRepositoryRoot(
+        event.sender.id,
+        workspaceRoot,
+        status.root,
+      );
+      rememberRepositoryRoot(event, workspaceRoot, repositoryRoot);
+      for (const change of status.changes) {
+        // Git status is trusted main-process output, so each exact changed file
+        // can receive a read-only grant. This lets the diff modal, media
+        // preview, and an explicitly opened editor tab read a sibling package
+        // without granting the renderer general access to the parent folder.
+        deps.authorizeReadOnlyFile(event.sender.id, change.absolutePath);
+      }
+    } else {
+      repositoryRootsByRenderer.get(event.sender.id)?.delete(workspaceRoot);
+    }
+    return status;
   });
 
   ipcMain.handle(
@@ -190,12 +276,17 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       staged = false,
       untracked = false,
     ) => {
-      const root = authorizeRoot(event.sender.id, folderPath);
+      const repository = await resolveRepositoryFile(
+        event,
+        folderPath,
+        filePath,
+      );
       return getGitDiff(
-        root,
-        authorizeFile(event.sender.id, root, filePath),
+        repository.repositoryRoot,
+        repository.filePath,
         staged,
         untracked,
+        repository.repositoryRoot,
       );
     },
   );
@@ -204,10 +295,15 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
     "git:baseFile",
     async (event, folderPath: string, filePath: string) => {
       if (!folderPath || !filePath || !fs.existsSync(folderPath)) return "";
-      const root = authorizeRoot(event.sender.id, folderPath);
+      const repository = await resolveRepositoryFile(
+        event,
+        folderPath,
+        filePath,
+      );
       return getGitFileBase(
-        root,
-        authorizeFile(event.sender.id, root, filePath),
+        repository.repositoryRoot,
+        repository.filePath,
+        repository.repositoryRoot,
       );
     },
   );
@@ -222,10 +318,15 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       if (!folderPath || !filePath || !fs.existsSync(folderPath)) {
         return { path: null, lines: [] };
       }
-      const root = authorizeRoot(event.sender.id, folderPath);
+      const repository = await resolveRepositoryFile(
+        event,
+        folderPath,
+        filePath,
+      );
       return getGitBlame(
-        root,
-        authorizeFile(event.sender.id, root, filePath),
+        repository.repositoryRoot,
+        repository.filePath,
+        repository.repositoryRoot,
       );
     },
   );
@@ -246,10 +347,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      const root = authorizeRoot(event.sender.id, folderPath);
+      const repository = await resolveRepositoryRoot(event, folderPath);
+      const repositoryFile = filePath
+        ? await resolveRepositoryFile(event, folderPath, filePath)
+        : null;
       return getGitHistory(
-        root,
-        filePath ? authorizeFile(event.sender.id, root, filePath) : filePath,
+        repository.repositoryRoot,
+        repositoryFile?.filePath ?? filePath,
+        repository.repositoryRoot,
       );
     },
   );
@@ -272,12 +377,19 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      const root = authorizeRoot(event.sender.id, folderPath);
+      const repository = await resolveRepositoryRoot(event, folderPath);
+      const repositoryFile = filePath
+        ? await resolveRepositoryFile(event, folderPath, filePath)
+        : null;
+      const oldRepositoryFile = oldPath
+        ? await resolveRepositoryFile(event, folderPath, oldPath)
+        : null;
       return getGitCommitDiff(
-        root,
+        repository.repositoryRoot,
         hash,
-        filePath ? authorizeFile(event.sender.id, root, filePath) : filePath,
-        oldPath ? authorizeFile(event.sender.id, root, oldPath) : oldPath,
+        repositoryFile?.filePath ?? filePath,
+        oldRepositoryFile?.filePath ?? oldPath,
+        repository.repositoryRoot,
       );
     },
   );
@@ -297,11 +409,16 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         } satisfies GitActionResult;
       }
 
-      const root = authorizeRoot(event.sender.id, folderPath);
+      const repository = await resolveRepositoryFile(
+        event,
+        folderPath,
+        filePath,
+      );
       return runGitAction(
-        root,
-        authorizeFile(event.sender.id, root, filePath),
+        repository.repositoryRoot,
+        repository.filePath,
         action,
+        repository.repositoryRoot,
       );
     },
   );
@@ -320,7 +437,12 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      return commitGitChanges(authorizeRoot(event.sender.id, folderPath), message);
+      const repository = await resolveRepositoryRoot(event, folderPath);
+      return commitGitChanges(
+        repository.repositoryRoot,
+        message,
+        repository.repositoryRoot,
+      );
     },
   );
 
@@ -426,10 +548,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         };
       }
 
-      const root = authorizeRoot(event.sender.id, folderPath);
-      return resolveGitConflict(root, {
+      const repository = await resolveRepositoryFile(
+        event,
+        folderPath,
+        resolution.path,
+      );
+      return resolveGitConflict(repository.repositoryRoot, {
         ...resolution,
-        path: authorizeFile(event.sender.id, root, resolution.path),
+        path: repository.filePath,
       });
     },
   );
@@ -500,7 +626,8 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         if (!approvedPaths?.delete(targetPath)) {
           return {
             ok: false,
-            message: "Choose the worktree directory with the native picker first.",
+            message:
+              "Choose the worktree directory with the native picker first.",
           };
         }
         return runGitWorktreeAction(root, { ...action, path: targetPath });
@@ -515,7 +642,8 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         if (!registeredTarget) {
           return {
             ok: false,
-            message: "Git does not recognize that path as a repository worktree.",
+            message:
+              "Git does not recognize that path as a repository worktree.",
           };
         }
         return runGitWorktreeAction(root, {

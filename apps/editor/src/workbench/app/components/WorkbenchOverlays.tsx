@@ -58,6 +58,7 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     extensionsOpen,
     fileOutlineOpen,
     folderPath,
+    gitStatus,
     gitContribution,
     handleDownloadUpdate,
     handleFileSelect,
@@ -288,6 +289,7 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
           <SourceControlModal
             folderPath={folderPath}
             open={sourceControlOpen}
+            status={gitStatus}
             onClose={() => setSourceControlOpen(false)}
             onOpenFile={handleFileSelect}
             onOpenDiff={(path) => {
@@ -298,7 +300,7 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
               handleFileSelect(AXON_GIT_GRAPH_TAB_PATH);
               setSourceControlOpen(false);
             }}
-            onGitStatusChanged={() => void refreshGitStatus({ silent: true })}
+            onGitStatusChanged={() => refreshGitStatus({ silent: true })}
             editorSettings={settings.editor}
             themeSyntax={themeSyntax}
             themeTokens={themeTokens}

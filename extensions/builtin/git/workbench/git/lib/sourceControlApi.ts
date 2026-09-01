@@ -1,23 +1,13 @@
-import {
-  type GitChange,
-  type GitDiffResult,
-  type GitStatusResult,
-} from "@axon-editor/shared/git";
+import { type GitChange, type GitDiffResult } from "@axon-editor/shared/git";
 
 export type GitMutationAction = "stage" | "unstage" | "discard";
-
-export async function loadSourceControlStatus(
-  folderPath: string,
-): Promise<GitStatusResult> {
-  return window.axon.getGitStatus(folderPath);
-}
 
 export async function runSourceControlAction(
   folderPath: string,
   change: GitChange,
   action: GitMutationAction,
 ) {
-  return window.axon.runGitAction(folderPath, change.path, action);
+  return window.axon.runGitAction(folderPath, change.absolutePath, action);
 }
 
 export async function runSourceControlBatchAction(
@@ -55,7 +45,7 @@ export async function loadSourceControlDiff(
 ): Promise<GitDiffResult> {
   return window.axon.getGitDiff(
     folderPath,
-    change.path,
+    change.absolutePath,
     change.staged,
     change.indexState === "untracked",
   );
