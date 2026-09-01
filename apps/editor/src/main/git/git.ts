@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { execFile, spawn } from "child_process";
-import { promisify } from "util";
+import { spawn } from "child_process";
 import {
   type GitActionResult,
   type GitBranch,
@@ -22,43 +21,10 @@ import {
 } from "../../shared/git";
 import { isKnownBinaryFile } from "../../shared/binaryFiles";
 import { resolveGitAuthorIdentity } from "./authorIdentity";
+import { findGitRepositoryRoot, runGit } from "./repository/command";
 
-const execFileAsync = promisify(execFile);
-
-function gitCommandTimeout(args: string[]) {
-  // Cheap metadata commands should fail fast. A stuck credential helper or
-  // broken repository should not make a settings/status refresh wait behind
-  // the same timeout budget as expensive diff/show operations.
-  const command = args[0] ?? "";
-  if (command === "rev-parse" || command === "branch") return 5000;
-  if (command === "status" || command === "ls-files") return 10000;
-  return 30000;
-}
-
-async function runGit(
-  folderPath: string,
-  args: string[],
-): Promise<{ stdout: string; stderr: string }> {
-  const result = await execFileAsync("git", ["-C", folderPath, ...args], {
-    timeout: gitCommandTimeout(args),
-    maxBuffer: 1024 * 1024 * 8,
-  });
-
-  return {
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-}
-
-export async function findGitRepositoryRoot(folderPath: string) {
-  try {
-    const result = await runGit(folderPath, ["rev-parse", "--show-toplevel"]);
-    const root = result.stdout.trim();
-    return root || null;
-  } catch {
-    return null;
-  }
-}
+export { findGitRepositoryRoot };
+export { getGitWatchPaths } from "./repository/watchPaths";
 
 async function readGitBlob(
   root: string,
@@ -986,43 +952,5 @@ export async function runGitStashAction(
       ok: false,
       message: message || "Git stash action failed.",
     };
-  }
-}
-
-export async function getGitWatchPaths(folderPath: string): Promise<string[]> {
-  try {
-    const [gitDirResult, commonDirResult, status] = await Promise.all([
-      runGit(folderPath, ["rev-parse", "--git-dir"]),
-      runGit(folderPath, ["rev-parse", "--git-common-dir"]),
-      getGitStatus(folderPath),
-    ]);
-    const root = status.root ?? folderPath;
-
-    const resolveGitPath = (value: string) =>
-      path.isAbsolute(value) ? value : path.resolve(root, value);
-    const gitDir = resolveGitPath(gitDirResult.stdout.trim());
-    const commonDir = resolveGitPath(commonDirResult.stdout.trim());
-
-    const watchPaths = [
-      path.join(gitDir, "HEAD"),
-      path.join(gitDir, "index"),
-      path.join(gitDir, "MERGE_HEAD"),
-      path.join(gitDir, "CHERRY_PICK_HEAD"),
-      path.join(gitDir, "REBASE_HEAD"),
-      path.join(commonDir, "packed-refs"),
-      path.join(commonDir, "refs"),
-    ];
-
-    return watchPaths.filter((watchPath, index, allPaths) => {
-      const parentPath = path.dirname(watchPath);
-      // Some Git state files are created only while an operation is active.
-      // Filtering them by current existence makes the watcher stale exactly
-      // when merge, rebase, cherry-pick, or packed-ref state changes later.
-      // Keeping paths whose parent exists lets chokidar report future `add`
-      // events while still avoiding impossible watch roots from broken repos.
-      return fs.existsSync(parentPath) && allPaths.indexOf(watchPath) === index;
-    });
-  } catch {
-    return [];
   }
 }
