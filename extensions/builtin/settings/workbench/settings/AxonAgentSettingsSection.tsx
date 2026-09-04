@@ -137,6 +137,19 @@ export default function AxonAgentSettingsSection({
       </SettingsField>
 
       <SettingsField
+        label="Inline completions"
+        description="Shows local AI ghost text directly in the editor while typing. The completion still uses the selected Axon model and never bypasses workspace authorization."
+      >
+        <SettingsToggle
+          checked={draft.ai.inlineCompletionsEnabled}
+          onChange={(checked) =>
+            onUpdateAi("inlineCompletionsEnabled", checked)
+          }
+          label={draft.ai.inlineCompletionsEnabled ? "Enabled" : "Disabled"}
+        />
+      </SettingsField>
+
+      <SettingsField
         label="Workspace context"
         description="Allows Axon Agent actions to include active files, diagnostics, Git changes, and selected project context."
       >

@@ -59,4 +59,28 @@ describe("editor surface options", () => {
 
     expect(options.hover).toMatchObject({ enabled: "off" });
   });
+
+  it("enables Monaco native inline suggestions for normal documents", () => {
+    const options = createEditorSurfaceOptions({
+      editorSettings: DEFAULT_SETTINGS.editor,
+      largeDocument: false,
+      readOnly: false,
+    });
+
+    expect(options.inlineSuggest).toMatchObject({
+      enabled: true,
+      mode: "prefix",
+      suppressSuggestions: false,
+    });
+  });
+
+  it("disables inline suggestions for large documents", () => {
+    const options = createEditorSurfaceOptions({
+      editorSettings: DEFAULT_SETTINGS.editor,
+      largeDocument: true,
+      readOnly: false,
+    });
+
+    expect(options.inlineSuggest).toMatchObject({ enabled: false });
+  });
 });

@@ -14,6 +14,7 @@ import App from "./App";
 import "./index.css";
 import { registerAxonTheme } from "./shared/lib/soraTheme";
 import { configureMonacoDiagnostics } from "../services/lsp/renderer/monacoDiagnostics";
+import { configureInlineAiCompletions } from "../services/ai/renderer/inlineCompletions";
 import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions";
 import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
 import { registerMonacoReactLanguages } from "./features/editor/lib/language/monacoReactLanguages";
@@ -62,6 +63,7 @@ registerMonacoStructuredLanguages(monaco);
 registerMonacoAdditionalLanguages(monaco);
 configureLspCompletions(monaco);
 configureLspNavigation(monaco);
+configureInlineAiCompletions(monaco);
 
 // The static drag strip in index.html exists before React so the window can be
 // moved during the boot splash and early renderer startup. Once React is ready,

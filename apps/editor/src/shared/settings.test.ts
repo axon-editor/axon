@@ -21,8 +21,8 @@ describe("font settings", () => {
         .fontFamily,
     ).toBe("Fira Code");
     expect(
-      normalizeSettings({ editor: { fontFamily: "Gorden Custom Mono" } })
-        .editor.fontFamily,
+      normalizeSettings({ editor: { fontFamily: "Gorden Custom Mono" } }).editor
+        .fontFamily,
     ).toBe("Gorden Custom Mono");
   });
 
@@ -135,6 +135,21 @@ describe("editor suggestion settings", () => {
   });
 });
 
+describe("AI settings", () => {
+  it("preserves explicit inline completion preferences", () => {
+    expect(
+      normalizeSettings({ ai: { inlineCompletionsEnabled: false } }).ai
+        .inlineCompletionsEnabled,
+    ).toBe(false);
+  });
+
+  it("enables inline completions for older AI settings", () => {
+    expect(normalizeSettings({ ai: {} }).ai.inlineCompletionsEnabled).toBe(
+      true,
+    );
+  });
+});
+
 describe("line trace settings", () => {
   it("preserves an explicit disabled preference", () => {
     const settings = normalizeSettings({
@@ -160,9 +175,7 @@ describe("editor hover settings", () => {
   });
 
   it("prefers the top for older or invalid settings", () => {
-    expect(normalizeSettings({ editor: {} }).editor.hoverPlacement).toBe(
-      "top",
-    );
+    expect(normalizeSettings({ editor: {} }).editor.hoverPlacement).toBe("top");
     expect(
       normalizeSettings({ editor: { hoverPlacement: "side" } }).editor
         .hoverPlacement,

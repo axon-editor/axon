@@ -76,6 +76,25 @@ export interface AiChatResult {
   editProposal?: AiEditProposal;
 }
 
+export interface AiInlineCompletionRequest {
+  folderPath: string | null;
+  filePath: string;
+  languageId: string;
+  prefix: string;
+  suffix: string;
+  line: number;
+  column: number;
+  model?: string;
+}
+
+export interface AiInlineCompletionResult {
+  success: boolean;
+  completion: string;
+  message: string;
+  modelLabel: string;
+  providerLabel: string;
+}
+
 export interface AiChatStreamStarted {
   success: boolean;
   requestId: string;

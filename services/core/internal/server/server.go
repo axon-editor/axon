@@ -199,6 +199,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/ai/project-context", s.handleAIProjectContext)
 	mux.HandleFunc("/ai/models/pull/stream", s.handleAIModelPullStream)
 	mux.HandleFunc("/ai/chat/stream", s.handleAIChatStream)
+	mux.HandleFunc("/ai/inline-completion", s.handleAIInlineCompletion)
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed
@@ -320,6 +321,41 @@ func (s *Server) handleAIChatStream(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		_ = writeStreamErrorEnvelope(w, requestID, http.StatusUnprocessableEntity, ai.PublicError(err))
 	}
+}
+
+func (s *Server) handleAIInlineCompletion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeAIJSON(w, http.StatusMethodNotAllowed, aiErrorEnvelope("", http.StatusMethodNotAllowed, ai.ErrorDetail{
+			Field:   "method",
+			Code:    "METHOD_NOT_ALLOWED",
+			Message: "method not allowed",
+		}))
+		return
+	}
+
+	var request ai.InlineCompletionRequest
+	limitRequestBody(w, r)
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeAIJSON(w, http.StatusBadRequest, aiErrorEnvelope("", http.StatusBadRequest, ai.ErrorDetail{
+			Field:   "body",
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "invalid request body",
+		}))
+		return
+	}
+
+	result, err := ai.CompleteInline(r.Context(), request)
+	if err != nil {
+		detail := ai.PublicError(err)
+		status := http.StatusInternalServerError
+		if detail.Code == "FILE_PATH_REQUIRED" || detail.Code == "MODEL_NOT_INSTALLED" {
+			status = http.StatusUnprocessableEntity
+		}
+		writeAIJSON(w, status, aiErrorEnvelope("", status, detail))
+		return
+	}
+
+	writeAIJSON(w, http.StatusOK, aiSuccessEnvelope("", http.StatusOK, result.Message, result))
 }
 
 func (s *Server) handleAIRuntime(w http.ResponseWriter, r *http.Request) {

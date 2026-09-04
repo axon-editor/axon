@@ -88,8 +88,7 @@ export type EditorMultiCursorModifier =
   (typeof EDITOR_MULTI_CURSOR_MODIFIERS)[number];
 
 export const EDITOR_HOVER_PLACEMENTS = ["top", "bottom"] as const;
-export type EditorHoverPlacement =
-  (typeof EDITOR_HOVER_PLACEMENTS)[number];
+export type EditorHoverPlacement = (typeof EDITOR_HOVER_PLACEMENTS)[number];
 
 export const EDITOR_CURSOR_STYLES = [
   "line",
@@ -254,6 +253,7 @@ export interface AiSettings {
   model: string;
   apiKeyEnv: string;
   includeWorkspaceContext: boolean;
+  inlineCompletionsEnabled: boolean;
 }
 
 export type EditorSidebarSide = "left" | "right";
@@ -311,6 +311,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     model: "axon-code",
     apiKeyEnv: "",
     includeWorkspaceContext: true,
+    inlineCompletionsEnabled: true,
   },
   lsp: {
     enabled: true,
@@ -362,9 +363,7 @@ function isEditorMultiCursorModifier(
   );
 }
 
-function isEditorHoverPlacement(
-  value: unknown,
-): value is EditorHoverPlacement {
+function isEditorHoverPlacement(value: unknown): value is EditorHoverPlacement {
   return (
     typeof value === "string" &&
     EDITOR_HOVER_PLACEMENTS.includes(value as EditorHoverPlacement)
@@ -713,6 +712,10 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof ai.includeWorkspaceContext === "boolean"
           ? ai.includeWorkspaceContext
           : DEFAULT_SETTINGS.ai.includeWorkspaceContext,
+      inlineCompletionsEnabled:
+        typeof ai.inlineCompletionsEnabled === "boolean"
+          ? ai.inlineCompletionsEnabled
+          : DEFAULT_SETTINGS.ai.inlineCompletionsEnabled,
     },
     lsp: {
       enabled:

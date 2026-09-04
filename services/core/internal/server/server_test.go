@@ -61,6 +61,17 @@ func TestRouterRejectsUntrustedBrowserOrigin(t *testing.T) {
 	}
 }
 
+func TestAIInlineCompletionRequiresPost(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	New(testCoreToken).Router().ServeHTTP(
+		recorder,
+		authenticatedRequest(http.MethodGet, "/ai/inline-completion", nil),
+	)
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected inline completion GET to be rejected, got %d", recorder.Code)
+	}
+}
+
 func TestCreateRouteCannotEscapeWorkspace(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(t.TempDir(), "outside.txt")

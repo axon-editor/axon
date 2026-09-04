@@ -113,6 +113,8 @@ import type {
   AiChatResult,
   AiChatStreamEvent,
   AiChatStreamStarted,
+  AiInlineCompletionRequest,
+  AiInlineCompletionResult,
   AiModelInfo,
   AiProjectContext,
   AiPullEvent,
@@ -221,6 +223,9 @@ declare global {
       ) => Promise<AiRuntimeStatus>;
       runAiChat: (request: AiChatRequest) => Promise<AiChatResult>;
       runAiChatStream: (request: AiChatRequest) => Promise<AiChatStreamStarted>;
+      getInlineAiCompletion: (
+        request: AiInlineCompletionRequest,
+      ) => Promise<AiInlineCompletionResult>;
       cancelAiChatStream: (requestId: string) => Promise<boolean>;
       pullAiModel: (model: string) => Promise<AiPullStarted>;
       cancelAiModelPull: (requestId: string) => Promise<boolean>;

@@ -23,6 +23,8 @@ import {
   type AiChatResult,
   type AiChatStreamEvent,
   type AiChatStreamStarted,
+  type AiInlineCompletionRequest,
+  type AiInlineCompletionResult,
   type AiModelInfo,
   type AiProjectContext,
   type AiPullEvent,
@@ -280,12 +282,7 @@ contextBridge.exposeInMainWorld("axon", {
     opaqueBackground: string,
     appearance: "light" | "dark",
   ): Promise<void> =>
-    ipcRenderer.invoke(
-      "window:setGlass",
-      mode,
-      opaqueBackground,
-      appearance,
-    ),
+    ipcRenderer.invoke("window:setGlass", mode, opaqueBackground, appearance),
   ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>
@@ -306,6 +303,10 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("ai:chat", request),
   runAiChatStream: (request: AiChatRequest): Promise<AiChatStreamStarted> =>
     ipcRenderer.invoke("ai:chatStream", request),
+  getInlineAiCompletion: (
+    request: AiInlineCompletionRequest,
+  ): Promise<AiInlineCompletionResult> =>
+    ipcRenderer.invoke("ai:inlineCompletion", request),
   cancelAiChatStream: (requestId: string): Promise<boolean> =>
     ipcRenderer.invoke("ai:cancelChatStream", requestId),
   pullAiModel: (model: string): Promise<AiPullStarted> =>
@@ -658,7 +659,9 @@ contextBridge.exposeInMainWorld("axon", {
   importExternalEntries: (
     files: File[],
     targetDir: string,
-  ): Promise<Array<{ sourcePath: string; targetPath: string; isDir: boolean }>> => {
+  ): Promise<
+    Array<{ sourcePath: string; targetPath: string; isDir: boolean }>
+  > => {
     const sourcePaths = files
       .map((file) => webUtils.getPathForFile(file))
       .filter((path) => path.length > 0);
