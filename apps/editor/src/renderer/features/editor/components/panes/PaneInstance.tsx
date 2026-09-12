@@ -80,6 +80,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
+  isGitRepository?: boolean;
   diagnostics: EditorDiagnostic[];
   deletedFiles?: Set<string>;
   onOpenFolder: () => void;
@@ -118,6 +119,7 @@ export default function PaneInstance({
   themeTokens,
   navigationTarget,
   gitChanges,
+  isGitRepository,
   diagnostics,
   deletedFiles,
   onOpenFolder,
@@ -372,6 +374,7 @@ export default function PaneInstance({
                     themeTokens={themeTokens}
                     navigationTarget={navigationTarget}
                     gitChanges={gitChanges}
+                    isGitRepository={isGitRepository}
                   />
                 )}
               </div>

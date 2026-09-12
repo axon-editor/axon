@@ -65,6 +65,11 @@ interface GitHandlerDependencies {
   authorizeReadOnlyFile: (rendererId: number, filePath: string) => string;
 }
 
+interface RepositoryResolution {
+  workspaceRoot: string;
+  repositoryRoot: string;
+}
+
 export function registerGitHandlers(deps: GitHandlerDependencies) {
   const approvedWorktreePathsByRenderer = new Map<number, Set<string>>();
   const repositoryRootsByRenderer = new Map<number, Map<string, string>>();
@@ -101,7 +106,7 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
   const resolveRepositoryRoot = async (
     event: Electron.IpcMainInvokeEvent,
     folderPath: string,
-  ) => {
+  ): Promise<RepositoryResolution | null> => {
     const workspaceRoot = authorizeRoot(event.sender.id, folderPath);
     const cachedRoot = repositoryRootsByRenderer
       .get(event.sender.id)
@@ -109,7 +114,15 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
     const discoveredRoot =
       cachedRoot ?? (await findGitRepositoryRoot(workspaceRoot));
     if (!discoveredRoot) {
-      throw new Error("Current workspace is not a Git repository.");
+      // A folder that is not inside a Git repository is a supported state, not
+      // an error. Returning null lets every handler below answer with the
+      // "no repository" shape for its result type instead of rejecting the IPC
+      // call, which Electron would otherwise log for every auto-fired request
+      // (for example line-trace blame on every open editor). Gating happens
+      // here in the main process because it is the only party that actually
+      // ran `git rev-parse`; the renderer and the Source Control view both
+      // benefit from one authoritative answer.
+      return null;
     }
 
     const repositoryRoot = deps.assertGitRepositoryRoot(
@@ -125,8 +138,9 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
     event: Electron.IpcMainInvokeEvent,
     folderPath: string,
     filePath: string,
-  ) => {
+  ): Promise<(RepositoryResolution & { filePath: string }) | null> => {
     const repository = await resolveRepositoryRoot(event, folderPath);
+    if (!repository) return null;
     const candidatePath = path.isAbsolute(filePath)
       ? filePath
       : path.resolve(repository.repositoryRoot, filePath);
@@ -281,6 +295,12 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         folderPath,
         filePath,
       );
+      // Outside a repository the folder simply has no Git diff to deliver.
+      // Returning an empty result keeps diff-based decorations and the diff
+      // modal quiet instead of surfacing an IPC rejection for every file.
+      if (!repository) {
+        return { path: filePath, diff: "", binary: false };
+      }
       return getGitDiff(
         repository.repositoryRoot,
         repository.filePath,
@@ -300,6 +320,7 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         folderPath,
         filePath,
       );
+      if (!repository) return "";
       return getGitFileBase(
         repository.repositoryRoot,
         repository.filePath,
@@ -323,6 +344,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         folderPath,
         filePath,
       );
+      // Blame is auto-requested for every visible editor by the line-trace
+      // feature. For a non-repository folder the honest answer is "there are
+      // no blame lines", and the renderer already renders that as no annotation
+      // at all. Returning an empty result here is what keeps startup logs clean
+      // in a plain folder; the previous throw surfaced as a per-file IPC error.
+      if (!repository) {
+        return { path: null, lines: [] };
+      }
       return getGitBlame(
         repository.repositoryRoot,
         repository.filePath,
@@ -348,6 +377,17 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       }
 
       const repository = await resolveRepositoryRoot(event, folderPath);
+      // The history view renders an empty "not a repository" state from this
+      // exact result shape, so returning it instead of throwing keeps the panel
+      // consistent with git:status.
+      if (!repository) {
+        return {
+          isRepository: false,
+          root: null,
+          branch: null,
+          commits: [],
+        };
+      }
       const repositoryFile = filePath
         ? await resolveRepositoryFile(event, folderPath, filePath)
         : null;
@@ -378,6 +418,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       }
 
       const repository = await resolveRepositoryRoot(event, folderPath);
+      if (!repository) {
+        return {
+          hash,
+          path: null,
+          diff: "",
+          binary: false,
+        };
+      }
       const repositoryFile = filePath
         ? await resolveRepositoryFile(event, folderPath, filePath)
         : null;
@@ -414,6 +462,16 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         folderPath,
         filePath,
       );
+      // Staging, unstaging, and discarding only mean something inside a
+      // repository. A non-repo folder gets the same actionable-false result the
+      // handler already used for a missing path, so the Source Control view can
+      // disable its buttons from one consistent signal.
+      if (!repository) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before running Git actions.",
+        } satisfies GitActionResult;
+      }
       return runGitAction(
         repository.repositoryRoot,
         repository.filePath,
@@ -438,6 +496,12 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       }
 
       const repository = await resolveRepositoryRoot(event, folderPath);
+      if (!repository) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before committing changes.",
+        };
+      }
       return commitGitChanges(
         repository.repositoryRoot,
         message,
@@ -553,6 +617,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
         folderPath,
         resolution.path,
       );
+      // Conflicts only exist inside a repository; outside one there is nothing
+      // to resolve and the panel should show its disabled state, not an error.
+      if (!repository) {
+        return {
+          ok: false,
+          message: "Open a Git workspace before resolving conflicts.",
+        };
+      }
       return resolveGitConflict(repository.repositoryRoot, {
         ...resolution,
         path: repository.filePath,

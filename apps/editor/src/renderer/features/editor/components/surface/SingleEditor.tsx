@@ -68,6 +68,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
+  isGitRepository?: boolean;
 }
 
 export default function SingleEditor({
@@ -86,6 +87,7 @@ export default function SingleEditor({
   themeTokens,
   navigationTarget,
   gitChanges,
+  isGitRepository,
 }: Props) {
   const [previewMode, setPreviewMode] = useState<MarkdownPreviewMode>("editor");
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
@@ -177,6 +179,7 @@ export default function SingleEditor({
     enabled: editorSettings.lineTraceEnabled,
     filePath,
     folderPath,
+    isRepository: isGitRepository ?? false,
     loading,
     visible,
   });

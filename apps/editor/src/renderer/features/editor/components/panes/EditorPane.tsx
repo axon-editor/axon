@@ -66,6 +66,7 @@ interface Props {
   themeTokens: ResolvedThemeTokens;
   navigationTarget: EditorNavigationTarget | null;
   gitChanges?: GitChange[];
+  isGitRepository?: boolean;
   diagnostics: EditorDiagnostic[];
   deletedFiles?: Set<string>;
   handleOpenFolder: () => void;
@@ -133,6 +134,7 @@ export default function EditorPane({
   themeTokens,
   navigationTarget,
   gitChanges,
+  isGitRepository,
   diagnostics,
   deletedFiles,
   handleOpenFolder,
@@ -302,6 +304,7 @@ export default function EditorPane({
                 themeTokens={themeTokens}
                 navigationTarget={navigationTarget}
                 gitChanges={gitChanges}
+                isGitRepository={isGitRepository}
                 diagnostics={diagnostics}
                 deletedFiles={deletedFiles}
                 onOpenFolder={handleOpenFolder}

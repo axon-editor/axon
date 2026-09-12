@@ -23,6 +23,9 @@ const advancedGitMocks = vi.hoisted(() => ({
   resolveGitConflict: vi.fn(),
   runGitWorktreeAction: vi.fn(),
 }));
+const blameMocks = vi.hoisted(() => ({
+  getGitBlame: vi.fn(),
+}));
 
 vi.mock("electron", () => ({
   BrowserWindow: { fromWebContents: vi.fn(() => null) },
@@ -36,7 +39,7 @@ vi.mock("electron", () => ({
 }));
 vi.mock("./git", () => gitMocks);
 vi.mock("./advancedGit", () => advancedGitMocks);
-vi.mock("./blame", () => ({ getGitBlame: vi.fn() }));
+vi.mock("./blame", () => blameMocks);
 vi.mock("./clone", () => ({
   cloneGitRepository: vi.fn(),
   validateGitCloneRepositoryUrl: vi.fn(),
@@ -191,5 +194,59 @@ describe("Git IPC capabilities", () => {
       }),
     );
     expect(advancedGitMocks.runGitWorktreeAction).not.toHaveBeenCalled();
+  });
+
+  it("answers blame with an empty result outside a Git repository instead of rejecting", async () => {
+    const dependencies = createDependencies();
+    gitMocks.findGitRepositoryRoot.mockResolvedValue(null);
+    registerGitHandlers(dependencies);
+
+    const result = await ipcHandlers.get("git:blame")!(
+      createEvent(13),
+      process.cwd(),
+      path.join(process.cwd(), "main.ts"),
+    );
+
+    expect(result).toEqual({ path: null, lines: [] });
+    expect(blameMocks.getGitBlame).not.toHaveBeenCalled();
+  });
+
+  it("answers diff with an empty result outside a Git repository", async () => {
+    const dependencies = createDependencies();
+    gitMocks.findGitRepositoryRoot.mockResolvedValue(null);
+    registerGitHandlers(dependencies);
+
+    const result = await ipcHandlers.get("git:diff")!(
+      createEvent(14),
+      process.cwd(),
+      "main.ts",
+      false,
+      false,
+    );
+
+    expect(result).toEqual({
+      path: "main.ts",
+      diff: "",
+      binary: false,
+    });
+    expect(gitMocks.getGitDiff).not.toHaveBeenCalled();
+  });
+
+  it("refuses commits outside a Git repository before invoking Git commit", async () => {
+    const dependencies = createDependencies();
+    gitMocks.findGitRepositoryRoot.mockResolvedValue(null);
+    registerGitHandlers(dependencies);
+
+    const result = await ipcHandlers.get("git:commit")!(
+      createEvent(15),
+      process.cwd(),
+      "wip",
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Open a Git workspace before committing changes.",
+    });
+    expect(gitMocks.commitGitChanges).not.toHaveBeenCalled();
   });
 });

@@ -184,18 +184,20 @@ export default function StatusBar({
           </button>
         </Tooltip>
 
-        <Tooltip label="Git History (Status bar)" side="top">
-          <button
-            type="button"
-            onClick={() => onViewChange("history")}
-            aria-label="Show Git history"
-            className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
-              view === "history" ? activeControlClass : idleControlClass
-            }`}
-          >
-            <GitBranch size={13} />
-          </button>
-        </Tooltip>
+        {gitBranch && (
+          <Tooltip label="Git History (Status bar)" side="top">
+            <button
+              type="button"
+              onClick={() => onViewChange("history")}
+              aria-label="Show Git history"
+              className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+                view === "history" ? activeControlClass : idleControlClass
+              }`}
+            >
+              <GitBranch size={13} />
+            </button>
+          </Tooltip>
+        )}
 
         <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 

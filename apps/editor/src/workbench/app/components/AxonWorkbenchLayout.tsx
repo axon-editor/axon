@@ -380,6 +380,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
               themeTokens={themeTokens}
               navigationTarget={navigationTarget}
               gitChanges={gitStatus?.changes ?? []}
+              isGitRepository={gitStatus?.isRepository ?? false}
               diagnostics={diagnostics}
               deletedFiles={deletedFiles}
               handleOpenFolder={() => setFolderPickerIntent("folder")}

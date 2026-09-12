@@ -23,6 +23,7 @@ interface Options {
   enabled: boolean;
   filePath: string;
   folderPath: string | null;
+  isRepository: boolean;
   loading: boolean;
   visible: boolean;
 }
@@ -44,6 +45,7 @@ export default function useGitLineTrace({
   enabled,
   filePath,
   folderPath,
+  isRepository,
   loading,
   visible,
 }: Options) {
@@ -146,7 +148,13 @@ export default function useGitLineTrace({
       loading ||
       !model ||
       isLargeDocumentModel(model) ||
-      !folderPath
+      !folderPath ||
+      // Blame only exists for files inside a Git repository. The active folder's
+      // repository state comes from git:status (the same single source the
+      // Source Control view uses), so outside a repo we never even issue the
+      // git:blame request. This mirrors how Zed gates blame to buffers with an
+      // attached repository instead of asking Git and swallowing an error.
+      !isRepository
     ) {
       requestRef.current += 1;
       blameLinesRef.current.clear();
@@ -181,6 +189,7 @@ export default function useGitLineTrace({
     enabled,
     filePath,
     folderPath,
+    isRepository,
     loading,
     paintCurrentLine,
     visible,
