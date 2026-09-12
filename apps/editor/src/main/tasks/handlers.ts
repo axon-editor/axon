@@ -17,7 +17,7 @@ export function registerTaskHandlers(
   };
   ipcMain.handle("tasks:list", async (event, folderPath: string) => {
     if (!folderPath || !folderPath.length) return [];
-    return taskManager.getWorkspaceTasks(
+    return await taskManager.getWorkspaceTasks(
       workspaceCapabilities.assertRoot(event.sender.id, folderPath),
     );
   });

@@ -275,14 +275,20 @@ function normalizeZedTheme(
   };
 }
 
-export function readExtensionTheme(
+export async function readExtensionTheme(
   extensionId: string,
   extensionName: string,
   contributionId: string,
   contributionLabel: string,
   themePath: string,
-): ResolvedExtensionTheme[] {
-  const raw = JSON.parse(fs.readFileSync(themePath, "utf-8")) as unknown;
+): Promise<ResolvedExtensionTheme[]> {
+  // Themes are parsed during extension discovery, which blocks startup. Reading
+  // the file through the async API yields the event loop instead of stalling
+  // the first window behind every bundled theme on disk. A missing or invalid
+  // theme still throws so the discovery caller can record exactly which theme
+  // failed instead of silently dropping it from the extension's error list.
+  const source = await fs.promises.readFile(themePath, "utf-8");
+  const raw = JSON.parse(source) as unknown;
 
   // Zed packages can contain a theme collection with a `themes` array. Axon
   // normalizes that shape instead of forcing users to manually rewrite every

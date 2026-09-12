@@ -12,13 +12,19 @@ import { getUserSettingsPath, getWorkspaceSettingsPath } from "./paths";
 // reparsing axon.json on every completion, diagnostic, or chat request.
 const settingsCache = new Map<string, { mtimeMs: number; settings: AxonSettings }>();
 
-export function readSettingsFromDisk(settingsPath: string): AxonSettings {
+export async function readSettingsFromDisk(
+  settingsPath: string,
+): Promise<AxonSettings> {
   if (!fs.existsSync(settingsPath)) {
     return DEFAULT_SETTINGS;
   }
 
+  // This function sits on the LSP, AI, and startup paths, so a synchronous read
+  // here blocks every IPC message the renderer sends while the disk settles. The
+  // async read yields the main-process event loop instead of stalling file
+  // opens, completions, and chat requests behind a single settings decode.
   try {
-    const rawSettings = fs.readFileSync(settingsPath, "utf-8");
+    const rawSettings = await fs.promises.readFile(settingsPath, "utf-8");
     return normalizeSettings(JSON.parse(rawSettings));
   } catch (err) {
     console.error("failed to read settings:", err);

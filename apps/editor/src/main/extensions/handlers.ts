@@ -21,7 +21,7 @@ export function registerExtensionHandlers(
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.list,
     async (event, folderPath?: string | null): Promise<ExtensionState> => {
-      return extensionHostService.getState(
+      return await extensionHostService.getState(
         authorizeFolder(event.sender.id, folderPath),
       );
     },
@@ -34,7 +34,7 @@ export function registerExtensionHandlers(
       activationEvent: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.activate(
+      return await extensionHostService.activate(
         activationEvent,
         authorizeFolder(event.sender.id, folderPath),
       );
@@ -49,7 +49,7 @@ export function registerExtensionHandlers(
       args: unknown[] = [],
       folderPath?: string | null,
     ): Promise<ExtensionCommandExecutionResult> => {
-      return extensionHostService.executeCommand(
+      return await extensionHostService.executeCommand(
         commandId,
         args,
         authorizeFolder(event.sender.id, folderPath),
@@ -69,13 +69,13 @@ export function registerExtensionHandlers(
         return {
           ok: false,
           message: "Built-in extensions cannot be disabled.",
-          state: extensionHostService.getState(
+          state: await extensionHostService.getState(
             authorizeFolder(event.sender.id, folderPath),
           ),
         };
       }
 
-      return extensionHostService.setEnabled(
+      return await extensionHostService.setEnabled(
         extensionId,
         enabled,
         authorizeFolder(event.sender.id, folderPath),
@@ -89,7 +89,7 @@ export function registerExtensionHandlers(
       event,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.reload(
+      return await extensionHostService.reload(
         authorizeFolder(event.sender.id, folderPath),
       );
     },
@@ -98,14 +98,14 @@ export function registerExtensionHandlers(
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.marketplace,
     async (): Promise<ExtensionMarketplaceState> => {
-      return extensionHostService.getMarketplaceState();
+      return await extensionHostService.getMarketplaceState();
     },
   );
 
   ipcMain.handle(
     EXTENSION_IPC_CHANNELS.themeMarketplace,
     async (): Promise<ExtensionMarketplaceState> => {
-      return extensionHostService.getMarketplaceState();
+      return await extensionHostService.getMarketplaceState();
     },
   );
 
@@ -116,7 +116,7 @@ export function registerExtensionHandlers(
       extensionId: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.install(
+      return await extensionHostService.install(
         extensionId,
         authorizeFolder(event.sender.id, folderPath),
       );
@@ -130,7 +130,7 @@ export function registerExtensionHandlers(
       extensionId: string,
       folderPath?: string | null,
     ): Promise<ExtensionActionResult> => {
-      return extensionHostService.install(
+      return await extensionHostService.install(
         extensionId,
         authorizeFolder(event.sender.id, folderPath),
       );
@@ -159,14 +159,14 @@ export function registerExtensionHandlers(
         return {
           ok: false,
           message: openError,
-          state: extensionHostService.getState(authorizedWorkspacePath),
+          state: await extensionHostService.getState(authorizedWorkspacePath),
         };
       }
 
       return {
         ok: true,
         message: "Opened user extensions folder.",
-        state: extensionHostService.getState(authorizedWorkspacePath),
+        state: await extensionHostService.getState(authorizedWorkspacePath),
       };
     },
   );

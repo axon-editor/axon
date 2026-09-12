@@ -758,7 +758,7 @@ app.whenReady().then(async () => {
   // not a client secret, and lets users connect without creating their own
   // Spotify developer app. Local development can still fall back to settings
   // when the build-time value is intentionally empty.
-  const appSettings = readSettingsFromDisk("");
+  const appSettings = await readSettingsFromDisk("");
   const spotifyClientId =
     AXON_SPOTIFY_CLIENT_ID || appSettings?.spotify?.clientId || "";
   if (spotifyClientId) setClientId(spotifyClientId);

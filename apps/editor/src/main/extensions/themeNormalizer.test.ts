@@ -28,8 +28,8 @@ describe("built-in Axon themes", () => {
     ["axon-white", "Axon White", "light", "#ffffff"],
   ] as const)(
     "normalizes %s with complete high-contrast surfaces",
-    (themeId, label, appearance, surface) => {
-      const [theme] = readExtensionTheme(
+    async (themeId, label, appearance, surface) => {
+      const [theme] = await readExtensionTheme(
         "axon.themes",
         "Axon Themes",
         themeId,
@@ -62,8 +62,8 @@ describe("built-in Axon themes", () => {
     },
   );
 
-  it("normalizes the Zed-compatible Axon Parchment replacement", () => {
-    const [theme] = readExtensionTheme(
+  it("normalizes the Zed-compatible Axon Parchment replacement", async () => {
+    const [theme] = await readExtensionTheme(
       "axon.themes",
       "Axon Themes",
       "axon-parchment",
@@ -109,8 +109,8 @@ describe("built-in Axon themes", () => {
     ["vitesse-refined", "Vitesse Refined", "vitesse-refined.json", 5],
   ] as const)(
     "loads every %s collection variant",
-    (contributionId, contributionLabel, fileName, expectedCount) => {
-      const themes = readExtensionTheme(
+    async (contributionId, contributionLabel, fileName, expectedCount) => {
+      const themes = await readExtensionTheme(
         `axon.${contributionId}-theme`,
         contributionLabel,
         contributionId,
@@ -137,8 +137,8 @@ describe("built-in Axon themes", () => {
     },
   );
 
-  it("expands shorthand Zed colors and resolves null inherited surfaces", () => {
-    const [, vitesseBlack, , vitesseDarkSoft] = readExtensionTheme(
+  it("expands shorthand Zed colors and resolves null inherited surfaces", async () => {
+    const [, vitesseBlack, , vitesseDarkSoft] = await readExtensionTheme(
       "axon.vitesse-refined-theme",
       "Vitesse Refined",
       "vitesse-refined",
@@ -155,7 +155,7 @@ describe("built-in Axon themes", () => {
         "vitesse-refined.json",
       ),
     );
-    const [uniform] = readExtensionTheme(
+    const [uniform] = await readExtensionTheme(
       "axon.uniform-theme",
       "Uniform",
       "uniform-midnight",
@@ -172,7 +172,7 @@ describe("built-in Axon themes", () => {
         "uniform.json",
       ),
     );
-    const [, snowfallWithBackground] = readExtensionTheme(
+    const [, snowfallWithBackground] = await readExtensionTheme(
       "axon.snowfall-theme",
       "Snowfall",
       "snowfall",

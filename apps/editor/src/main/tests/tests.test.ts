@@ -45,7 +45,7 @@ describe("test process cancellation", () => {
       sendToRenderer: () => {},
       getSpawnEnvironment: async () => process.env,
     });
-    const provider = manager.discover(root).providers[0];
+    const provider = (await manager.discover(root)).providers[0];
 
     const run = manager.run(root, provider.id);
     const stop = manager.stopAll();
@@ -70,7 +70,7 @@ describe("test process cancellation", () => {
         }
       },
     });
-    const provider = manager.discover(root).providers[0];
+    const provider = (await manager.discover(root)).providers[0];
     const result = await manager.run(root, provider.id);
 
     expect(result.ok).toBe(true);
@@ -91,7 +91,7 @@ describe("test process cancellation", () => {
         return process.env;
       },
     });
-    const provider = manager.discover(root).providers[0];
+    const provider = (await manager.discover(root)).providers[0];
     const firstRun = manager.run(root, provider.id, null, undefined, 1);
     const secondRun = manager.run(root, provider.id, null, undefined, 2);
 

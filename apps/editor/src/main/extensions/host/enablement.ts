@@ -7,8 +7,13 @@ interface ExtensionEnablementState {
   disabled: string[];
 }
 
-export function readDisabledExtensionIds() {
-  const state = readJsonFile<ExtensionEnablementState>(getExtensionStatePath());
+export async function readDisabledExtensionIds() {
+  // Enablement state is consulted on every extension state refresh, which runs
+  // during startup and whenever a workspace opens. Reading it asynchronously
+  // keeps that refresh off the main-process event loop.
+  const state = await readJsonFile<ExtensionEnablementState>(
+    getExtensionStatePath(),
+  );
   return Array.isArray(state?.disabled)
     ? state.disabled.filter((id): id is string => typeof id === "string")
     : [];

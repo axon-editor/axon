@@ -355,7 +355,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     }
     if (!folderPath) {
       writeSettingsToDisk(settings, settingsPath);
-      writeBootAppearance(settings, extensionHostService.getState());
+      writeBootAppearance(settings, await extensionHostService.getState());
     }
     return settings;
   });
@@ -373,7 +373,7 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       if (!folderPath) {
         writeBootAppearance(
           normalizedSettings,
-          extensionHostService.getState(),
+          await extensionHostService.getState(),
         );
       }
 

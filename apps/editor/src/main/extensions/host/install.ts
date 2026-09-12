@@ -5,8 +5,9 @@ import { getUserExtensionsPath } from "../paths";
 import { getExtensionState, invalidateExtensionStateCache } from "./state";
 import { readCatalogPackages } from "./marketplace";
 
-function getCatalogPackage(extensionId: string) {
-  return readCatalogPackages().find(
+async function getCatalogPackage(extensionId: string) {
+  const catalogPackages = await readCatalogPackages();
+  return catalogPackages.find(
     (catalogPackage) => catalogPackage.manifest.id === extensionId,
   );
 }
@@ -15,16 +16,16 @@ function sanitizePackageFolderName(extensionId: string) {
   return extensionId.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
-export function installExtensionPackage(
+export async function installExtensionPackage(
   extensionId: string,
   folderPath?: string | null,
-): ExtensionActionResult {
-  const catalogPackage = getCatalogPackage(extensionId);
+): Promise<ExtensionActionResult> {
+  const catalogPackage = await getCatalogPackage(extensionId);
   if (!catalogPackage) {
     return {
       ok: false,
       message: `Extension package "${extensionId}" was not found in the Axon extension registry.`,
-      state: getExtensionState(folderPath),
+      state: await getExtensionState(folderPath),
     };
   }
 
@@ -38,7 +39,7 @@ export function installExtensionPackage(
     return {
       ok: true,
       message: `${catalogPackage.manifest.name} is already installed.`,
-      state: getExtensionState(folderPath),
+      state: await getExtensionState(folderPath),
     };
   }
 
@@ -57,6 +58,6 @@ export function installExtensionPackage(
   return {
     ok: true,
     message: `Installed ${catalogPackage.manifest.name}.`,
-    state: getExtensionState(folderPath),
+    state: await getExtensionState(folderPath),
   };
 }

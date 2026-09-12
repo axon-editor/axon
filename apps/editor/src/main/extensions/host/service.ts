@@ -35,12 +35,12 @@ export class ExtensionHostService {
     return installExtensionPackage(extensionId, folderPath);
   }
 
-  reload(folderPath?: string | null): ExtensionActionResult {
+  async reload(folderPath?: string | null): Promise<ExtensionActionResult> {
     invalidateExtensionStateCache();
     return {
       ok: true,
       message: "Reloaded extensions.",
-      state: this.getState(folderPath),
+      state: await this.getState(folderPath),
     };
   }
 
@@ -48,7 +48,7 @@ export class ExtensionHostService {
     event: string,
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> {
-    const state = this.getState(folderPath);
+    const state = await this.getState(folderPath);
     const activated = activateExtensionsForEvent(state.extensions, event);
     const runtimeErrors: string[] = [];
 
@@ -115,7 +115,7 @@ export class ExtensionHostService {
           err instanceof Error
             ? err.message
             : `Failed to execute ${commandId}.`,
-        state: this.getState(folderPath),
+        state: await this.getState(folderPath),
       };
     }
   }
@@ -125,7 +125,7 @@ export class ExtensionHostService {
     enabled: boolean,
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> {
-    const disabled = new Set(readDisabledExtensionIds());
+    const disabled = new Set(await readDisabledExtensionIds());
     if (enabled) {
       disabled.delete(extensionId);
     } else {
@@ -139,7 +139,7 @@ export class ExtensionHostService {
     return {
       ok: true,
       message: `${enabled ? "Enabled" : "Disabled"} ${extensionId}.`,
-      state: this.getState(folderPath),
+      state: await this.getState(folderPath),
     };
   }
 }

@@ -65,25 +65,36 @@ function readExtensionsForSource(
   rootPath: string | null,
   source: ExtensionInfo["source"],
   disabledIds: Set<string>,
-) {
+): Promise<ExtensionInfo[]> {
   const disabledKey = getDisabledCacheKey(disabledIds);
   const cacheKey = getDiscoveryCacheKey(source, rootPath);
   const cached = extensionDiscoveryCache.get(cacheKey);
   if (cached?.rootPath === rootPath && cached.disabledKey === disabledKey) {
-    return cached.extensions;
+    return Promise.resolve(cached.extensions);
   }
 
-  const extensions = findExtensionDirectories(rootPath)
-    .map((extensionPath) => loadExtensionFromPath(extensionPath, source, disabledIds))
-    .filter((extension): extension is ExtensionInfo => extension !== null);
+  // Manifest and theme reads are async, so the cache stores a resolved promise
+  // rather than blocking callers on disk. Concurrent refreshes for the same key
+  // share one discovery pass instead of reading every package twice.
+  const pending = (async () => {
+    const extensions = (
+      await Promise.all(
+        findExtensionDirectories(rootPath).map((extensionPath) =>
+          loadExtensionFromPath(extensionPath, source, disabledIds),
+        ),
+      )
+    ).filter((extension): extension is ExtensionInfo => extension !== null);
 
-  extensionDiscoveryCache.set(cacheKey, {
-    disabledKey,
-    rootPath,
-    extensions,
-  });
+    extensionDiscoveryCache.set(cacheKey, {
+      disabledKey,
+      rootPath,
+      extensions,
+    });
 
-  return extensions;
+    return extensions;
+  })();
+
+  return pending;
 }
 
 export function invalidateExtensionStateCache(source?: ExtensionInfo["source"]) {
@@ -155,7 +166,7 @@ function finalizeExtensionState(input: {
   } satisfies ExtensionState;
 }
 
-function readThemes(
+async function readThemes(
   extensionPath: string,
   manifest: ExtensionManifest,
   contributes: ReturnType<typeof normalizeExtensionContributions>,
@@ -164,38 +175,53 @@ function readThemes(
 ) {
   if (!enabled) return [];
 
-  return contributes.themes.flatMap((theme) => {
-    try {
-      return readExtensionTheme(
-        manifest.id,
-        manifest.name,
-        theme.id,
-        theme.label,
-        resolveExtensionPath(extensionPath, theme.path),
-      );
-    } catch (err) {
-      errors.push(
-        `${theme.label}: ${err instanceof Error ? err.message : "failed to load theme"}`,
-      );
-      return [];
-    }
-  });
+  // Theme JSON is read asynchronously so extension discovery does not block the
+  // main process while loading every bundled and marketplace theme during
+  // startup. Malformed themes are recorded per-extension below, matching the
+  // behavior of a synchronous parse while keeping the event loop free.
+  const themeResults = await Promise.all(
+    contributes.themes.map(async (theme) => {
+      try {
+        return await readExtensionTheme(
+          manifest.id,
+          manifest.name,
+          theme.id,
+          theme.label,
+          resolveExtensionPath(extensionPath, theme.path),
+        );
+      } catch (err) {
+        errors.push(
+          `${theme.label}: ${err instanceof Error ? err.message : "failed to load theme"}`,
+        );
+        return [];
+      }
+    }),
+  );
+  return themeResults.flat();
 }
 
-export function loadExtensionFromPath(
+export async function loadExtensionFromPath(
   extensionPath: string,
   source: ExtensionInfo["source"],
   disabledIds: Set<string>,
-): ExtensionInfo | null {
+): Promise<ExtensionInfo | null> {
   const errors: string[] = [];
   const manifestPath = path.join(extensionPath, EXTENSION_MANIFEST_FILE);
-  const manifest = normalizeExtensionManifest(readJsonFile<unknown>(manifestPath));
+  const manifest = normalizeExtensionManifest(
+    await readJsonFile<unknown>(manifestPath),
+  );
   if (!manifest) return null;
 
   const contributes = normalizeExtensionContributions(manifest.contributes);
   const enabled = !disabledIds.has(manifest.id);
   const hostKind = getExtensionHostKind(manifest);
-  const themes = readThemes(extensionPath, manifest, contributes, enabled, errors);
+  const themes = await readThemes(
+    extensionPath,
+    manifest,
+    contributes,
+    enabled,
+    errors,
+  );
 
   return {
     id: manifest.id,
@@ -255,7 +281,9 @@ function createInternalExtension(): ExtensionInfo {
   };
 }
 
-export function getExtensionState(folderPath?: string | null): ExtensionState {
+export async function getExtensionState(
+  folderPath?: string | null,
+): Promise<ExtensionState> {
   const stateStartedAt = startExtensionHostTiming();
   const bundledExtensionsPath = getBundledExtensionsPath();
   const userExtensionsPath = getUserExtensionsPath();
@@ -263,13 +291,13 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   fs.mkdirSync(userExtensionsPath, { recursive: true });
 
   const disabledStartedAt = startExtensionHostTiming();
-  const disabledIds = new Set(readDisabledExtensionIds());
+  const disabledIds = new Set(await readDisabledExtensionIds());
   markExtensionHostTiming("read-disabled", disabledStartedAt, {
     count: disabledIds.size,
   });
 
   const bundledStartedAt = startExtensionHostTiming();
-  const bundledExtensions = readExtensionsForSource(
+  const bundledExtensions = await readExtensionsForSource(
     bundledExtensionsPath,
     "internal",
     disabledIds,
@@ -280,7 +308,7 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   });
 
   const workspaceStartedAt = startExtensionHostTiming();
-  const workspaceExtensions = readExtensionsForSource(
+  const workspaceExtensions = await readExtensionsForSource(
     workspaceExtensionsPath,
     "workspace",
     disabledIds,
@@ -292,7 +320,7 @@ export function getExtensionState(folderPath?: string | null): ExtensionState {
   });
 
   const userStartedAt = startExtensionHostTiming();
-  const userExtensions = readExtensionsForSource(
+  const userExtensions = await readExtensionsForSource(
     userExtensionsPath,
     "user",
     disabledIds,

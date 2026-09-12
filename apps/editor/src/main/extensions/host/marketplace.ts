@@ -22,29 +22,35 @@ export interface CatalogPackage {
   packagePath: string;
 }
 
-export function readCatalogPackages(): CatalogPackage[] {
-  return findExtensionDirectories(getMarketplaceExtensionsPath()).flatMap(
-    (packagePath) => {
-      const manifest = normalizeExtensionManifest(
-        readJsonFile(path.join(packagePath, EXTENSION_MANIFEST_FILE)),
-      );
-      if (!manifest?.contributes) return [];
-
-      return [{ manifest, packagePath }];
-    },
+export async function readCatalogPackages(): Promise<CatalogPackage[]> {
+  // The marketplace reads every package manifest on demand. Async manifest
+  // loads keep a slow marketplace folder from blocking the main process while
+  // listing installed themes or packages.
+  const packages = await Promise.all(
+    findExtensionDirectories(getMarketplaceExtensionsPath()).map(
+      async (packagePath) => {
+        const manifest = normalizeExtensionManifest(
+          await readJsonFile(path.join(packagePath, EXTENSION_MANIFEST_FILE)),
+        );
+        if (!manifest?.contributes) return null;
+        return { manifest, packagePath };
+      },
+    ),
   );
+  return packages.filter((entry): entry is CatalogPackage => entry !== null);
 }
 
-function createInstalledIdSet() {
+async function createInstalledIdSet() {
   const userExtensionsPath = getUserExtensionsPath();
-  return new Set(
-    findExtensionDirectories(userExtensionsPath).flatMap((packagePath) => {
+  const installedManifests = await Promise.all(
+    findExtensionDirectories(userExtensionsPath).map(async (packagePath) => {
       const manifest = normalizeExtensionManifest(
-        readJsonFile(path.join(packagePath, EXTENSION_MANIFEST_FILE)),
+        await readJsonFile(path.join(packagePath, EXTENSION_MANIFEST_FILE)),
       );
-      return manifest ? [manifest.id] : [];
+      return manifest ? manifest.id : null;
     }),
   );
+  return new Set(installedManifests.filter((id): id is string => id !== null));
 }
 
 function createContributionLabels(
@@ -92,10 +98,13 @@ export function toMarketplaceItem(
   };
 }
 
-export function getExtensionMarketplaceState(): ExtensionMarketplaceState {
-  const installedIds = createInstalledIdSet();
+export async function getExtensionMarketplaceState(): Promise<ExtensionMarketplaceState> {
+  const [installedIds, catalogPackages] = await Promise.all([
+    createInstalledIdSet(),
+    readCatalogPackages(),
+  ]);
   return {
-    items: readCatalogPackages().map((catalogPackage) =>
+    items: catalogPackages.map((catalogPackage) =>
       toMarketplaceItem(catalogPackage, installedIds),
     ),
   };

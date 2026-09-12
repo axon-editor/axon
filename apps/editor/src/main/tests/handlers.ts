@@ -33,7 +33,7 @@ export function registerTestHandlers(
         };
       }
 
-      return testManager.discover(
+      return await testManager.discover(
         workspaceCapabilities.assertRoot(event.sender.id, folderPath),
       );
     },

@@ -57,7 +57,7 @@ export function registerSpotifyHandlers(): void {
       setClientId(bundledClientId);
     }
     if (!clientId) {
-      const settings = readSettingsFromDisk(getUserSettingsPath());
+      const settings = await readSettingsFromDisk(getUserSettingsPath());
       clientId = settings?.spotify?.clientId ?? "";
       if (clientId) setClientId(clientId);
     }

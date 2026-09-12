@@ -75,13 +75,17 @@ export class TestManager {
     this.deps = deps;
   }
 
-  discover(folderPath: string): TestDiscoveryResult {
+  async discover(folderPath: string): Promise<TestDiscoveryResult> {
     const providers: TestProvider[] = [];
     const items: TestItem[] = [];
 
-    for (const projectRoot of this.discoverProjectRoots(folderPath)) {
+    // Discovery reads each project's package.json from disk. Keeping those reads
+    // async prevents the Test Explorer from blocking file opens in the main
+    // process while it walks workspace manifests.
+    const projectRoots = await this.discoverProjectRoots(folderPath);
+    for (const projectRoot of projectRoots) {
       const rootLabel = this.formatProjectRootLabel(folderPath, projectRoot);
-      const packageJson = this.readPackageJson(projectRoot);
+      const packageJson = await this.readPackageJson(projectRoot);
 
       for (const [scriptName, command] of Object.entries(
         packageJson?.scripts ?? {},
@@ -187,12 +191,13 @@ export class TestManager {
     };
   }
 
-  private readPackageJson(projectRoot: string): PackageJson | null {
+  private async readPackageJson(projectRoot: string): Promise<PackageJson | null> {
     const packageJsonPath = path.join(projectRoot, "package.json");
     if (!fs.existsSync(packageJsonPath)) return null;
 
     try {
-      return JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as PackageJson;
+      const raw = await fs.promises.readFile(packageJsonPath, "utf-8");
+      return JSON.parse(raw) as PackageJson;
     } catch {
       // Invalid package metadata should not hide Go, Rust, or Python providers
       // from the same workspace. Discovery keeps moving so one broken manifest
@@ -201,9 +206,9 @@ export class TestManager {
     }
   }
 
-  private discoverProjectRoots(folderPath: string): string[] {
+  private async discoverProjectRoots(folderPath: string): Promise<string[]> {
     const roots = new Set<string>([folderPath]);
-    const packageJson = this.readPackageJson(folderPath);
+    const packageJson = await this.readPackageJson(folderPath);
     const workspacePatterns = Array.isArray(packageJson?.workspaces)
       ? packageJson.workspaces
       : packageJson?.workspaces?.packages ?? [];
@@ -464,11 +469,32 @@ export class TestManager {
     send: TestRunSender = this.deps.sendToRenderer,
     ownerId = 0,
   ): Promise<TestRunResult> {
-    const discovery = this.discover(folderPath);
+    // Discovery reads project manifests from disk, so it runs asynchronously to
+    // avoid blocking the main-process event loop. A renderer can cancel queued
+    // runs in the same tick it dispatches them, so the run must already count as
+    // pending here (before discovery yields) or stopAll() would miss it and the
+    // run would never be reported as "stopped before it started". Every outcome
+    // below releases the slot again; the helper keeps that bookkeeping in one
+    // place so the counter can never drift across the early-return paths.
+    const runGeneration = this.stopGenerationByOwner.get(ownerId) ?? 0;
+    this.incrementPendingRun(ownerId);
+
+    let discovery: TestDiscoveryResult;
+    try {
+      discovery = await this.discover(folderPath);
+    } catch (err) {
+      // A manifest read can fail when the folder is deleted mid-discovery. Honor
+      // the pending bump before propagating so stopAll() does not keep reporting
+      // a run that never existed.
+      this.decrementPendingRun(ownerId);
+      throw err;
+    }
+
     const provider = discovery.providers.find(
       (candidate) => candidate.id === providerId,
     );
     if (!provider) {
+      this.decrementPendingRun(ownerId);
       return {
         ok: false,
         message: "Test provider is no longer available.",
@@ -482,6 +508,7 @@ export class TestManager {
       ? discovery.items.find((item) => item.id === targetId)
       : null;
     if (targetId && !target) {
+      this.decrementPendingRun(ownerId);
       return {
         ok: false,
         message: "Test target is no longer available.",
@@ -493,20 +520,15 @@ export class TestManager {
 
     const runId = `${Date.now()}:${Math.random().toString(16).slice(2)}`;
     const { command, args } = this.getProviderCommand(provider, target);
-    const runGeneration = this.stopGenerationByOwner.get(ownerId) ?? 0;
-    this.pendingRunCountByOwner.set(
-      ownerId,
-      (this.pendingRunCountByOwner.get(ownerId) ?? 0) + 1,
-    );
     let env: NodeJS.ProcessEnv;
     try {
       env = await (
         this.deps.getSpawnEnvironment ?? getDeveloperToolSpawnEnvironment
       )();
     } finally {
-      const remaining = (this.pendingRunCountByOwner.get(ownerId) ?? 1) - 1;
-      if (remaining > 0) this.pendingRunCountByOwner.set(ownerId, remaining);
-      else this.pendingRunCountByOwner.delete(ownerId);
+      // Once the spawn environment is resolved the run leaves the pending
+      // bucket: from here on stopAll() reaches it through activeRuns instead.
+      this.decrementPendingRun(ownerId);
     }
     if (runGeneration !== (this.stopGenerationByOwner.get(ownerId) ?? 0)) {
       return {
@@ -612,6 +634,19 @@ export class TestManager {
       label: target?.label ?? provider.label,
       targetId: target?.id ?? null,
     };
+  }
+
+  private incrementPendingRun(ownerId: number) {
+    this.pendingRunCountByOwner.set(
+      ownerId,
+      (this.pendingRunCountByOwner.get(ownerId) ?? 0) + 1,
+    );
+  }
+
+  private decrementPendingRun(ownerId: number) {
+    const remaining = (this.pendingRunCountByOwner.get(ownerId) ?? 1) - 1;
+    if (remaining > 0) this.pendingRunCountByOwner.set(ownerId, remaining);
+    else this.pendingRunCountByOwner.delete(ownerId);
   }
 
   stopAll(ownerId?: number): TestStopResult {

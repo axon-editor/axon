@@ -21,13 +21,17 @@ export class TaskManager {
 
   constructor(private readonly deps: TaskManagerDependencies) {}
 
-  getWorkspaceTasks(folderPath: string): WorkspaceTask[] {
+  async getWorkspaceTasks(folderPath: string): Promise<WorkspaceTask[]> {
     const tasks: WorkspaceTask[] = [];
 
     if (fs.existsSync(path.join(folderPath, "package.json"))) {
       try {
         const packageJsonPath = path.join(folderPath, "package.json");
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as {
+        // Listing tasks reads the workspace manifest from disk. Doing it
+        // asynchronously keeps the main-process event loop free so the renderer
+        // can still open files while the tasks panel first fills in.
+        const raw = await fs.promises.readFile(packageJsonPath, "utf-8");
+        const packageJson = JSON.parse(raw) as {
           scripts?: Record<string, string>;
         };
 
@@ -142,7 +146,7 @@ export class TaskManager {
     // The renderer sends only a task id. I re-detect the task right before
     // execution so stale UI state cannot run a command that no longer belongs to
     // the current workspace after package.json or the folder changes.
-    const task = this.getWorkspaceTasks(folderPath).find(
+    const task = (await this.getWorkspaceTasks(folderPath)).find(
       (candidate) => candidate.id === taskId,
     );
     if (!task) {

@@ -322,29 +322,36 @@ export class FileWatcherManager {
 
       this.activeFileDebounceTimer = setTimeout(() => {
         this.activeFileDebounceTimer = null;
-        try {
-          textFileCache.invalidate(filePath);
-          const content = fs.readFileSync(filePath, "utf-8");
-          // The file watcher can still fire during reload/close. Sending through
-          // the shared renderer helper keeps external disk changes useful while
-          // avoiding Electron's "Object has been destroyed" crash path.
-          this.deps.sendToRenderer("fs:fileChanged", {
-            path: filePath,
-            content,
+        textFileCache.invalidate(filePath);
+        // The active-file reload can run while other IPC keeps arriving, so the
+        // disk read must not block the main-process event loop. The async read
+        // preserves the original try/catch scope: either the read or the send
+        // failing still closes the one-file watcher so a destroyed window or a
+        // vanished path cannot crash the process.
+        fs.promises
+          .readFile(filePath, "utf-8")
+          .then((content) => {
+            // The file watcher can still fire during reload/close. Sending through
+            // the shared renderer helper keeps external disk changes useful while
+            // avoiding Electron's "Object has been destroyed" crash path.
+            this.deps.sendToRenderer("fs:fileChanged", {
+              path: filePath,
+              content,
+            });
+          })
+          .catch((err) => {
+            // Chokidar can deliver a delayed change event after a file has been
+            // deleted, moved, or replaced by an external cleanup. That should make
+            // the editor show stale content until the tree refreshes, not throw
+            // from the main process and take down the whole app while opening a
+            // file. I close this one-file watcher because the path is no longer a
+            // trustworthy source of content for the active pane.
+            console.warn(
+              `stopped watching unreadable file ${filePath}:`,
+              err instanceof Error ? err.message : err,
+            );
+            void this.closeActiveWatcher();
           });
-        } catch (err) {
-          // Chokidar can deliver a delayed change event after a file has been
-          // deleted, moved, or replaced by an external cleanup. That should make
-          // the editor show stale content until the tree refreshes, not throw
-          // from the main process and take down the whole app while opening a
-          // file. I close this one-file watcher because the path is no longer a
-          // trustworthy source of content for the active pane.
-          console.warn(
-            `stopped watching unreadable file ${filePath}:`,
-            err instanceof Error ? err.message : err,
-          );
-          void this.closeActiveWatcher();
-        }
       }, 80);
     };
 
