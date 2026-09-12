@@ -40,17 +40,25 @@ describe("FileWatcherManager", () => {
       await manager.watchFile(filePath);
       watcher!.emit("change", filePath);
       await vi.advanceTimersByTimeAsync(80);
-      expect(events[events.length - 1]).toEqual({
-        channel: "fs:fileChanged",
-        payload: { path: filePath, content: "first" },
+      // The debounced reload now reads the file with an async fs.promises.readFile,
+      // so the renderer event lands a moment after the debounce fires instead of
+      // synchronously inside it. waitFor keeps the assertion immune to real disk
+      // I/O latency instead of depending on a microtask race.
+      await vi.waitFor(() => {
+        expect(events[events.length - 1]).toEqual({
+          channel: "fs:fileChanged",
+          payload: { path: filePath, content: "first" },
+        });
       });
 
       await fs.promises.writeFile(filePath, "second");
       watcher!.emit("add", filePath);
       await vi.advanceTimersByTimeAsync(80);
-      expect(events[events.length - 1]).toEqual({
-        channel: "fs:fileChanged",
-        payload: { path: filePath, content: "second" },
+      await vi.waitFor(() => {
+        expect(events[events.length - 1]).toEqual({
+          channel: "fs:fileChanged",
+          payload: { path: filePath, content: "second" },
+        });
       });
     } finally {
       await manager.closeAll();
