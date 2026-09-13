@@ -59,7 +59,13 @@ export default function EditorBreadcrumbs({
   return (
     <div
       ref={breadcrumbRootRef}
-      className="relative z-30 flex h-11 min-w-0 shrink-0 items-center gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)]"
+      // The bar must not form its own stacking context. Monaco's LSP hover
+      // floats above the editor and can extend into the breadcrumb row when a
+      // hovered line is near the top, so the bar has to stay below those
+      // overflow widgets. The symbol popover keeps its own z-index and then
+      // participates in the outer stacking context instead of being capped by
+      // the bar, so it still covers the hover.
+      className="relative z-auto flex h-11 min-w-0 shrink-0 items-center gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)]"
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}

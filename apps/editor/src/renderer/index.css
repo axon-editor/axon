@@ -128,6 +128,29 @@
   opacity: 0.8 !important;
 }
 
+.monaco-editor .suggest-widget .monaco-list-row .main .left .monaco-icon-label {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .left .signature-label {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  opacity: 0.55 !important;
+  margin-left: 10px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  align-self: center !important;
+}
+
+.monaco-editor
+  .suggest-widget
+  .monaco-list-row.focused
+  .left
+  .signature-label {
+  opacity: 0.8 !important;
+}
+
 .monaco-editor .suggest-widget .details {
   border-left: 1px solid var(--axon-panel-border) !important;
   background: var(--axon-panel-background) !important;

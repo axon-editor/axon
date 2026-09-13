@@ -74,6 +74,45 @@ describe("editor surface options", () => {
     });
   });
 
+  it("maps the suggest widget fields to editor settings with inline details on by default", () => {
+    const options = createEditorSurfaceOptions({
+      editorSettings: DEFAULT_SETTINGS.editor,
+      largeDocument: false,
+      readOnly: false,
+    });
+
+    expect(options.suggest).toMatchObject({
+      showSnippets: true,
+      snippetsPreventQuickSuggestions: false,
+      showInlineDetails: true,
+      showStatusBar: false,
+      preview: true,
+    });
+  });
+
+  it("lets the user disable the inline signature and enable the status bar", () => {
+    const options = createEditorSurfaceOptions({
+      editorSettings: {
+        ...DEFAULT_SETTINGS.editor,
+        suggestShowInlineDetails: false,
+        suggestShowStatusBar: true,
+        snippetsPreventQuickSuggestions: true,
+        suggestionPreviewEnabled: false,
+        snippetsEnabled: false,
+      },
+      largeDocument: false,
+      readOnly: false,
+    });
+
+    expect(options.suggest).toMatchObject({
+      showSnippets: false,
+      snippetsPreventQuickSuggestions: true,
+      showInlineDetails: false,
+      showStatusBar: true,
+      preview: false,
+    });
+  });
+
   it("disables inline suggestions for large documents", () => {
     const options = createEditorSurfaceOptions({
       editorSettings: DEFAULT_SETTINGS.editor,

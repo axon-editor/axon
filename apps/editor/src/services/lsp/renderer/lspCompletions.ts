@@ -65,6 +65,20 @@ function getWordReplaceRange(
   );
 }
 
+// The rich `label.detail` slot is Monaco's all-row signature: it renders
+// beside every suggestion label, which is what makes the list feel like Zed
+// (signature visible for all rows instead of only the focused one). The LSP
+// `detail` field usually carries that signature, kept untouched for the
+// focus docs panel. Some servers reuse `detail` to announce an import that
+// would be added on accept (e.g. `import "fmt"`), and rendering that next to
+// the identifier is noise, so those values are dropped from the row and stay
+// visible only in the docs panel.
+function toInlineSignature(detail: string | undefined) {
+  if (!detail) return "";
+  if (/^\s*import\s/.test(detail)) return "";
+  return detail.trim();
+}
+
 function toMonacoRange(
   range:
     | {
@@ -573,6 +587,12 @@ function applyResolvedLspFields(
   item: LanguageServerCompletionItem,
 ) {
   const textEditRange = toMonacoRange(item.textEdit?.range);
+  completion.label = {
+    ...(typeof completion.label === "string"
+      ? { label: completion.label }
+      : completion.label),
+    detail: toInlineSignature(item.detail),
+  };
   completion.detail = item.detail;
   completion.documentation = item.documentation;
   completion.insertText =
@@ -682,7 +702,10 @@ function registerExternalLspProvider(monacoInstance: typeof monaco) {
             // makes installed libraries like lucide-react look invisible even
             // though TypeScript returned the correct completion.
             return {
-              label: item.label,
+              label: {
+                label: item.label,
+                detail: toInlineSignature(item.detail),
+              },
               kind:
                 item.kind !== undefined
                   ? (lspToMonacoCompletionKind[item.kind] ??

@@ -222,6 +222,9 @@ export interface EditorSettings {
   triggerCharacterSuggestionsEnabled: boolean;
   suggestionPreviewEnabled: boolean;
   wordBasedSuggestionsEnabled: boolean;
+  snippetsPreventQuickSuggestions: boolean;
+  suggestShowInlineDetails: boolean;
+  suggestShowStatusBar: boolean;
   lineTraceEnabled: boolean;
 }
 
@@ -300,6 +303,9 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     triggerCharacterSuggestionsEnabled: true,
     suggestionPreviewEnabled: true,
     wordBasedSuggestionsEnabled: true,
+    snippetsPreventQuickSuggestions: false,
+    suggestShowInlineDetails: true,
+    suggestShowStatusBar: false,
     lineTraceEnabled: true,
   },
   terminal: {
@@ -688,6 +694,18 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.wordBasedSuggestionsEnabled === "boolean"
           ? editor.wordBasedSuggestionsEnabled
           : DEFAULT_SETTINGS.editor.wordBasedSuggestionsEnabled,
+      snippetsPreventQuickSuggestions:
+        typeof editor.snippetsPreventQuickSuggestions === "boolean"
+          ? editor.snippetsPreventQuickSuggestions
+          : DEFAULT_SETTINGS.editor.snippetsPreventQuickSuggestions,
+      suggestShowInlineDetails:
+        typeof editor.suggestShowInlineDetails === "boolean"
+          ? editor.suggestShowInlineDetails
+          : DEFAULT_SETTINGS.editor.suggestShowInlineDetails,
+      suggestShowStatusBar:
+        typeof editor.suggestShowStatusBar === "boolean"
+          ? editor.suggestShowStatusBar
+          : DEFAULT_SETTINGS.editor.suggestShowStatusBar,
       lineTraceEnabled:
         typeof editor.lineTraceEnabled === "boolean"
           ? editor.lineTraceEnabled

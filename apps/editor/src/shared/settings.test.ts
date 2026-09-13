@@ -114,6 +114,9 @@ describe("editor suggestion settings", () => {
         triggerCharacterSuggestionsEnabled: false,
         suggestionPreviewEnabled: false,
         wordBasedSuggestionsEnabled: false,
+        snippetsPreventQuickSuggestions: true,
+        suggestShowInlineDetails: false,
+        suggestShowStatusBar: true,
       },
     });
 
@@ -122,6 +125,9 @@ describe("editor suggestion settings", () => {
       triggerCharacterSuggestionsEnabled: false,
       suggestionPreviewEnabled: false,
       wordBasedSuggestionsEnabled: false,
+      snippetsPreventQuickSuggestions: true,
+      suggestShowInlineDetails: false,
+      suggestShowStatusBar: true,
     });
   });
 
@@ -132,6 +138,9 @@ describe("editor suggestion settings", () => {
     expect(settings.editor.triggerCharacterSuggestionsEnabled).toBe(true);
     expect(settings.editor.suggestionPreviewEnabled).toBe(true);
     expect(settings.editor.wordBasedSuggestionsEnabled).toBe(true);
+    expect(settings.editor.snippetsPreventQuickSuggestions).toBe(false);
+    expect(settings.editor.suggestShowInlineDetails).toBe(true);
+    expect(settings.editor.suggestShowStatusBar).toBe(false);
   });
 });
 

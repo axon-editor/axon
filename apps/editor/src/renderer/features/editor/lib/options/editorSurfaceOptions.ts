@@ -143,9 +143,10 @@ export function createEditorSurfaceOptions({
     snippetSuggestions: snippetsEnabled ? "top" : "none",
     suggest: {
       showSnippets: snippetsEnabled,
-      snippetsPreventQuickSuggestions: false,
-      showInlineDetails: false,
-      showStatusBar: false,
+      snippetsPreventQuickSuggestions:
+        editorSettings.snippetsPreventQuickSuggestions,
+      showInlineDetails: editorSettings.suggestShowInlineDetails,
+      showStatusBar: editorSettings.suggestShowStatusBar,
       preview: editorSettings.suggestionPreviewEnabled,
     },
     inlineSuggest: {
