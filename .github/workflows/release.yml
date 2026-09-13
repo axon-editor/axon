@@ -135,7 +135,7 @@ jobs:
         run: node apps/editor/scripts/prepare-release-assets.mjs release-inputs release-assets
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # Tag pushes already provide the release tag through github.ref_name.
           # Manual runs need an explicit tag name so we can create or update the
