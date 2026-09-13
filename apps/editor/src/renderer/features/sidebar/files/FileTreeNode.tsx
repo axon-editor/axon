@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Recursively renders a FileNode tree with drag and drop support.
 // The core now returns only one directory level, so folders are expanded on
 // demand here. That keeps workspace loads fast while still preserving the same

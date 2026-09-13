@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { app, type BrowserWindow, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { type UpdateActionResult, type UpdateInfo, type UpdateInstallState } from "../../shared/updates";

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // This picker only renders live Spotify Connect devices. The owning hook stores
 // the selected device's name and type, then maps that identity back to a current
 // device ID whenever Spotify refreshes the list.

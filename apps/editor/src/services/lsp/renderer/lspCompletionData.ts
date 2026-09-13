@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // These catalogs are kept outside the completion provider because they are
 // immutable editor data, not completion flow. Keeping them separate makes the
 // provider easier to review without changing when or how suggestions appear.

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { type EditorSettings } from "@axon-editor/shared/settings";

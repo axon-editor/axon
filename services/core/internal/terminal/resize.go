@@ -1,3 +1,6 @@
+// Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
 // Handles terminal resize messages from the frontend.
 // xterm.js sends a JSON resize event when the terminal dimensions change
 // and we forward that to the PTY so the shell knows the new size.

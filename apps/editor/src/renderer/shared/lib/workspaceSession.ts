@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { type FileNode } from "./api";
 import { createInitialLayout } from "../../features/editor/lib/layout/layoutManager";
 import { type Layout } from "../../features/editor/lib/layout/types";

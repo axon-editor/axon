@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Command and file launcher triggered by Cmd+P.
 // Commands are first-class entries now, while file search remains in the same
 // surface so the palette can become the future AI action launcher without

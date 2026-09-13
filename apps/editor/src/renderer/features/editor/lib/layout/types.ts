@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Core data types for the editor layout and pane management.
 // Panes are independent editor instances each with their own tab list.
 // Layout holds all panes and tracks which pane is currently focused.

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { useEffect, useMemo } from "react";
 import { getWorkspaceTrustState } from "../../../renderer/features/sidebar";
 import { isDiagnosticInWorkspace } from "@axon-builtin-problems/lib/diagnosticCache";

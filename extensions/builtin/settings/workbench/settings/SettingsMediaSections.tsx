@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { FolderOpen, Trash2, Upload } from "lucide-react";
 import { type AxonSettings } from "@axon-editor/shared/settings";
 import SearchSelect from "@axon-editor/base/components/SearchSelect";

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { setWorkspaceTrusted } from "../../../renderer/features/sidebar";
 import WorkspaceLoadingOverlay from "../../../renderer/shared/components/WorkspaceLoadingOverlay";
 import CliToolInstallPrompt from "../../../renderer/features/cli/CliToolInstallPrompt";

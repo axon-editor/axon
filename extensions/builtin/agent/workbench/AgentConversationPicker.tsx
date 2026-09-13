@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { ChevronDown, Trash2 } from "lucide-react";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import { type AgentConversationState } from "./lib/agentConversation";

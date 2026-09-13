@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Shared tab shell for editor panes and terminal tabs.
 // Axon tabs should feel like editor navigation, not browser chrome: compact,
 // predictable, and stable while users move quickly between files. Keeping the

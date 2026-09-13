@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { describe, expect, it, vi } from "vitest";
 import type { ThemeTokenMap } from "@axon-editor/renderer/shared/themes/types";
 import { createSnapshotTokenStyleResolver } from "@axon-builtin-code-snapshot/lib/snapshotTokenStyle";

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { type FormEventHandler } from "react";
 import { FolderOpen, GitFork, LoaderCircle } from "lucide-react";
 import { type GitCloneProgress } from "../../../../../shared/git";

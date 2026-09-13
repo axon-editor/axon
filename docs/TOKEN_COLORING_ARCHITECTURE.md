@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+  Licensed under the MIT License. See LICENSE in the project root for license information.
+-->
+
 # Axon Token Coloring Architecture
 
 This document exists because syntax color took too long to get right, and I do

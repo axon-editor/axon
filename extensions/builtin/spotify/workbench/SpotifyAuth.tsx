@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // First-run screen inside the sidebar Spotify view.
 // Axon owns the Spotify OAuth application, so normal users should only see a
 // connect button. If Spotify is not configured yet, the copy still reads like

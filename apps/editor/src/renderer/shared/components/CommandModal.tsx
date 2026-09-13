@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Reusable modal shell used by command, search, picker, and outline surfaces.
 // The shell owns the overlay and animation, while colors come from the active
 // Axon theme variables so every empty, error, and search message inside these

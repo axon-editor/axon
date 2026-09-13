@@ -1,3 +1,6 @@
+// Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
 // HTTP server for axon-core. Registers all routes and holds the top-level
 // request handlers. Handlers are intentionally thin, they validate input,
 // call the relevant service (fs, ai, etc), and return a consistent response

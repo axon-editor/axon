@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // A single editor pane with its own tab bar and editor area.
 // Registers the whole pane as a dnd-kit drop target so tabs can be moved by
 // dropping on the tab strip, editor surface, or empty pane placeholder.

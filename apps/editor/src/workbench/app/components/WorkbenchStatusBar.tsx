@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import StatusBar from "../../../renderer/shared/components/StatusBar";
 import { AXON_COMMANDS } from "../../../shared/commands";
 import { isVirtualTabPath } from "../../../renderer/features/editor/lib/layout/tabIdentity";

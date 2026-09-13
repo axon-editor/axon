@@ -1,3 +1,6 @@
+// Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
 // Handles all file system operations for Axon, reading directory trees,
 // reading file contents, and writing file contents.
 // This package is intentionally pure (no HTTP concerns), it only deals

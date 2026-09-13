@@ -1,3 +1,6 @@
+// Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
 // Handles PTY creation and WebSocket bridging using gorilla/websocket.
 // Each connection gets its own shell process and PTY pair.
 // Input from the WebSocket is written to the PTY, output from the PTY

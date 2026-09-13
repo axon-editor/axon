@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Spotify PKCE OAuth flow, token storage, and refresh.
 // The code verifier is stored via an explicit getter/setter (not a bare
 // module-level variable) so it survives across CommonJS module boundaries

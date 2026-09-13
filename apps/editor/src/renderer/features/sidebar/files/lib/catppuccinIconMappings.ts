@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 const FALLBACK_FILE_ICON = "_file.svg";
 const FALLBACK_FOLDER_ICON = "_folder.svg";
 const FALLBACK_FOLDER_OPEN_ICON = "_folder_open.svg";

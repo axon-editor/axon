@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Floating context menu for file and folder operations.
 // Creation is started from here, but the actual input is rendered in the
 // sidebar tree. That matches editor behavior users expect: the new entry

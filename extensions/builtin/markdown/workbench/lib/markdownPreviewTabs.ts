@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 const MARKDOWN_PREVIEW_TAB_PREFIX = "axon-markdown-preview:";
 
 export function isMarkdownFile(filePath: string) {

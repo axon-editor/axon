@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Exposes a controlled API surface to the renderer via contextBridge.
 // The renderer never gets direct Node.js access, only what is explicitly
 // defined here. fs.onFileChanged uses ipcRenderer.on so the main process

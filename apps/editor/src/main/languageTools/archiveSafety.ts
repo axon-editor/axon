@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 export const MAX_TOOL_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024;
 
 export function isSafeArchiveEntry(entry: string) {

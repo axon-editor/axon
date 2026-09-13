@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { BrowserWindow, ipcMain } from "electron";
 import type { ManagedLanguageToolId } from "../../shared/languageTools";
 import type { ManagedLanguageToolManager } from "./manager";

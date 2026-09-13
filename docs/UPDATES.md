@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+  Licensed under the MIT License. See LICENSE in the project root for license information.
+-->
+
 # Updates And Releases
 
 Axon uses GitHub Releases as the public update source. The app can check for a

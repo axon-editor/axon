@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Renders all open file tabs with drag to reorder and inter-pane drag support.
 // Uses dnd-kit metadata instead of raw file-path IDs so the same file can be
 // open in multiple panes without confusing the drag target.

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 export const AXON_EXTENSION_SCHEMA =
   "https://axoneditor.com/schemas/extension/v0.1.0.json";
 export const AXON_THEME_SCHEMA =

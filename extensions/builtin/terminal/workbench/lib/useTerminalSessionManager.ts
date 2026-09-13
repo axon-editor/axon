@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal as XTerm, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";

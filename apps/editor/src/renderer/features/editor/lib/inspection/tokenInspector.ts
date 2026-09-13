@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as monaco from "monaco-editor";
 import { type ThemeTokenMap } from "@axon-editor/renderer/shared/themes";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";

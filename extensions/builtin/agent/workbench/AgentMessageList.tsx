@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { Check, Copy, FilePenLine } from "lucide-react";
 import { type AiEditFileProposal } from "@axon-editor/shared/ai";
 import AssistantMarkdown from "./AssistantMarkdown";

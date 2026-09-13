@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 export const LARGE_DOCUMENT_CHARACTER_THRESHOLD = 2 * 1024 * 1024;
 export const LARGE_DOCUMENT_LINE_THRESHOLD = 20_000;
 export const LARGE_DOCUMENT_FIND_MATCH_LIMIT = 5_000;

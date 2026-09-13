@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Vite serves public assets from the configured base path. In development that
 // base is "/", but the packaged Electron app loads index.html from file:// and
 // uses "./" so assets must be resolved relative to the built renderer folder.

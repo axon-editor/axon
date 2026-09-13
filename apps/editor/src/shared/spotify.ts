@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Spotify feature shared contracts, IPC payload types used by both
 // the main process handlers and the renderer. Keeping them here means
 // neither side has to guess at the shape of a response.

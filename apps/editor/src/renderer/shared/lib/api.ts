@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Thin client for communicating with axon-core (Go backend).
 // All requests go through here, centralizes the base URL and
 // response envelope unwrapping so components never deal with raw fetch.

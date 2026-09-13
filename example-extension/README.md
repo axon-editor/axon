@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+  Licensed under the MIT License. See LICENSE in the project root for license information.
+-->
+
 # Axon Example Extension
 
 This is a minimal Axon extension package that lives at the repository root so

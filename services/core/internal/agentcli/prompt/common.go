@@ -1,3 +1,6 @@
+// Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
 // Package prompt owns the small, reusable pieces of Axon's terminal composer.
 //
 // The raw-mode composer still lives in the parent agentcli package because it

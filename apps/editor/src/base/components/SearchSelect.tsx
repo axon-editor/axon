@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // SearchSelect replaces browser-native dropdown controls so Axon can keep
 // keyboard behavior, filtering, styling, and future option metadata consistent
 // across the app. It supports mouse selection, type-to-filter, ArrowUp /

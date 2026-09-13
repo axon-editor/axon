@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { type EditorSettings } from "@axon-editor/shared/settings";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";

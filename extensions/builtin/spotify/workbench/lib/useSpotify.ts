@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Central hook for all Spotify renderer state.
 // Polls playback every 2s while the panel is visible.
 // Exposes refreshStatus so SpotifyPanel can re-check after OAuth callback.

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Renders a preview for image and video files instead of loading
 // them into Monaco. Uses the axon:// custom protocol to load
 // local files securely without file:// restrictions.

@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Renders the bottom terminal panel and keeps terminal sessions independent
 // from panel visibility. Hiding the panel should behave like minimizing it:
 // shells keep running, scrollback stays in place, and only an explicit tab

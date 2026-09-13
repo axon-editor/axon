@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // IPC handler registration for the Spotify feature.
 // All Spotify main-process logic is imported from auth.ts and api.ts;
 // this file only wires ipcMain.handle calls. No business logic lives here.

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
 // Package ptyhost exposes the isolated local server that owns terminal PTYs.
 // It deliberately contains no workspace search, indexing, AI, or editor file
 // handlers, so those workloads cannot share this process's scheduler, memory

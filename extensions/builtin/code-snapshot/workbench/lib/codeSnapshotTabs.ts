@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 export const CODE_SNAPSHOT_TAB_PREFIX = "axon-code-snapshot:";
 export const AXON_OPEN_CODE_SNAPSHOT_EVENT = "axon:openCodeSnapshot";
 

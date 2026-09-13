@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { useCallback, useMemo, useState, type RefObject } from "react";
 import * as monaco from "monaco-editor";
 import { collectFileSymbols } from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";

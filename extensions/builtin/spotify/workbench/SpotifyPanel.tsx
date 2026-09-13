@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Spotify sidebar panel, the browser side only.
 // State is lifted to App.tsx via spotifyState/spotifyActions props so the
 // floating player and this panel share one polling loop and one source of truth.

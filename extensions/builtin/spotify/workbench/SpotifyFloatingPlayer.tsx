@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 // Floating now-playing player — draggable, lives at App level outside the
 // sidebar so it can be placed anywhere on screen. Toggled via the equalizer
 // button in the sidebar's now-playing bar.
