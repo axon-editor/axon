@@ -180,6 +180,22 @@ describe("line trace settings", () => {
   });
 });
 
+describe("remember expanded folders settings", () => {
+  it("preserves an explicit disabled preference", () => {
+    const settings = normalizeSettings({
+      editor: { rememberExpandedFolders: false },
+    });
+
+    expect(settings.editor.rememberExpandedFolders).toBe(false);
+  });
+
+  it("keeps remembering expanded folders for older settings", () => {
+    expect(
+      normalizeSettings({ editor: {} }).editor.rememberExpandedFolders,
+    ).toBe(true);
+  });
+});
+
 describe("editor hover settings", () => {
   it("preserves an explicit bottom placement", () => {
     expect(

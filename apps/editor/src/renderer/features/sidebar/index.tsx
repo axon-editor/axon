@@ -8,6 +8,7 @@
 // Folder name header is clickable and opens the FolderPicker modal.
 // Recent folders persisted in localStorage under axon:recentFolders.
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -110,6 +111,7 @@ interface Props {
   onOpenInTerminal?: (path: string) => void;
   onOpenHtmlPreview?: (filePath: string) => void;
   view: "files" | "history" | "spotify";
+  rememberExpandedFolders: boolean;
   onOpenGitHistoryFile: (
     commit: GitHistoryCommit,
     file: GitHistoryFile,
@@ -383,6 +385,7 @@ export default function Sidebar({
   onOpenInTerminal,
   onOpenHtmlPreview,
   view,
+  rememberExpandedFolders,
   onOpenGitHistoryFile,
   onEntryDeleted,
   onEntryMoved,
@@ -413,6 +416,19 @@ export default function Sidebar({
   const [revokeTrustConfirmOpen, setRevokeTrustConfirmOpen] = useState(false);
   const [, setTrustNonce] = useState(0);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
+  // Expanded-folder paths live here instead of inside FileTreeNode so a
+  // collapsed parent can keep its descendants' expansion state alive. The old
+  // per-node useState(false) meant that collapsing a folder unmounted the whole
+  // subtree, so re-opening it always forgot which grandchildren were expanded.
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+
+  // Remembering which folders stay open is meaningless across workspaces, so
+  // I reset the expanded set whenever the workspace root changes. A watcher
+  // refresh keeps the same root path and must not lose the current expansion.
+  useEffect(() => {
+    setExpandedPaths(new Set());
+    // track workspace root identity, not refresh identity
+  }, [treeProp?.path]);
 
   useEffect(() => {
     // The app shell owns the authoritative workspace tree because file watcher
@@ -423,6 +439,42 @@ export default function Sidebar({
     // appear without requiring a full Axon restart.
     setTree(treeProp);
   }, [treeProp]);
+
+  // Expanding never prunes anything: reveal, drag-hover, and inline-create all
+  // funnel through here so they share the same remembered state.
+  const handleExpandFolderPath = useCallback((path: string) => {
+    setExpandedPaths((prev) => {
+      if (prev.has(path)) return prev;
+      const next = new Set(prev);
+      next.add(path);
+      return next;
+    });
+  }, []);
+
+  const handleToggleFolderPath = useCallback(
+    (path: string) => {
+      setExpandedPaths((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(path)) {
+          next.add(path);
+          return next;
+        }
+
+        // With remembering disabled the explorer behaves like it did before
+        // the state lift: collapsing a folder also collapses every descendant
+        // by deleting their paths from the set, so the next reopen starts the
+        // subtree from scratch again.
+        if (!rememberExpandedFolders) {
+          const prefix = `${normalizeTreePath(path)}/`;
+          for (const expandedPath of next) {
+            if (expandedPath.startsWith(prefix)) next.delete(expandedPath);
+          }
+        }
+        return next;
+      });
+    },
+    [rememberExpandedFolders],
+  );
 
   const gitDecorations = useMemo(
     () => buildGitDecorationMap(gitChanges),
@@ -794,6 +846,9 @@ export default function Sidebar({
                 loading={loading}
                 activeFile={activeFile}
                 revealPath={revealPath}
+                expandedPaths={expandedPaths}
+                onToggleFolderPath={handleToggleFolderPath}
+                onExpandFolderPath={handleExpandFolderPath}
                 gitDecorations={gitDecorations}
                 ignoredPaths={ignoredPaths}
                 inlineCreate={inlineCreate}

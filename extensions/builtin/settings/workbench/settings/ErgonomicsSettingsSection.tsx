@@ -136,6 +136,21 @@ export default function ErgonomicsSettingsSection({
       </SettingsField>
 
       <SettingsField
+        label="Remember expanded folders"
+        description="Keeps nested folders expanded in the file explorer when you collapse and reopen a parent folder. Disable to reset the whole subtree whenever a folder is collapsed."
+      >
+        <SettingsToggle
+          checked={draft.editor.rememberExpandedFolders}
+          onChange={(checked) =>
+            onUpdateEditor("rememberExpandedFolders", checked)
+          }
+          label={
+            draft.editor.rememberExpandedFolders ? "Enabled" : "Disabled"
+          }
+        />
+      </SettingsField>
+
+      <SettingsField
         label="Code folding"
         description="Enables fold controls and folding keyboard commands."
       >

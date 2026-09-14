@@ -29,6 +29,9 @@ interface FileTreeProps {
   loading: boolean;
   activeFile: string | null;
   revealPath: string | null;
+  expandedPaths: Set<string>;
+  onToggleFolderPath: (path: string) => void;
+  onExpandFolderPath: (path: string) => void;
   gitDecorations: Map<string, GitTreeDecoration>;
   ignoredPaths: Set<string>;
   inlineCreate: InlineCreateTarget | null;
@@ -57,6 +60,9 @@ export default function FileTree({
   loading,
   activeFile,
   revealPath,
+  expandedPaths,
+  onToggleFolderPath,
+  onExpandFolderPath,
   gitDecorations,
   ignoredPaths,
   inlineCreate,
@@ -176,6 +182,9 @@ export default function FileTree({
           onMove={onMove}
           onImportExternalEntries={onImportExternalEntries}
           revealPath={revealPath}
+          expandedPaths={expandedPaths}
+          onToggleFolderPath={onToggleFolderPath}
+          onExpandFolderPath={onExpandFolderPath}
           gitDecorations={gitDecorations}
           ignoredPaths={ignoredPaths}
           inlineCreate={inlineCreate}

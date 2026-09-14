@@ -220,6 +220,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
               view={sidebarView}
+              rememberExpandedFolders={settings.editor.rememberExpandedFolders}
               onOpenGitHistoryFile={(commit, file, diff) => {
                 openGitCommitDiff({ commit, file, diff });
               }}

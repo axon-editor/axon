@@ -36,6 +36,9 @@ interface Props {
     targetDirPath: string,
   ) => Promise<ImportedExternalEntry[]>;
   revealPath?: string | null;
+  expandedPaths: Set<string>;
+  onToggleFolderPath: (path: string) => void;
+  onExpandFolderPath: (path: string) => void;
   gitDecorations?: Map<string, GitTreeDecoration>;
   ignoredPaths?: Set<string>;
   inlineCreate?: InlineCreateTarget | null;
@@ -156,6 +159,9 @@ export default function FileTreeNode({
   onMove,
   onImportExternalEntries,
   revealPath,
+  expandedPaths,
+  onToggleFolderPath,
+  onExpandFolderPath,
   gitDecorations,
   ignoredPaths,
   inlineCreate,
@@ -165,11 +171,12 @@ export default function FileTreeNode({
   onInlineCreateCreated,
   depth = 0,
 }: Props) {
-  // Folder nodes should start collapsed unless the user expands them or a
-  // reveal path tells us to open them. The old default opened every first
-  // level folder as soon as a workspace was loaded, which made new workspaces
-  // look like the tree had auto-expanded on fetch.
-  const [expanded, setExpanded] = useState(false);
+  // A folder is "expanded" when its path is inside the sidebar's shared
+  // expanded-path set. The state lives above the tree (in Sidebar) instead of
+  // here so collapsing a parent can keep the whole subtree expanded for the
+  // next reopen. Old folders that predate the controlled state stay collapsed
+  // by default, matching the behavior before this change.
+  const expanded = expandedPaths.has(node.path);
   const [dragOver, setDragOver] = useState(false);
   const [blinking, setBlinking] = useState(false);
   const [children, setChildren] = useState<FileNode[] | undefined>(
@@ -226,9 +233,12 @@ export default function FileTreeNode({
         path.startsWith(`${normalizedNodePath}/`),
       )
     ) {
-      setExpanded(true);
+      // The ancestor is rendered before the reveal target, so expanding it
+      // through the shared set lets the recursive children render mount the
+      // next level down and continue walking toward the target.
+      onExpandFolderPath(node.path);
     }
-  }, [activeFile, node.is_dir, node.path, revealPath]);
+  }, [activeFile, node.is_dir, node.path, onExpandFolderPath, revealPath]);
 
   useEffect(() => {
     if (
@@ -242,9 +252,9 @@ export default function FileTreeNode({
 
   useEffect(() => {
     if (node.is_dir && inlineCreate?.parentPath === node.path) {
-      setExpanded(true);
+      onExpandFolderPath(node.path);
     }
-  }, [inlineCreate?.parentPath, node.is_dir, node.path]);
+  }, [inlineCreate?.parentPath, node.is_dir, node.path, onExpandFolderPath]);
 
   useEffect(() => {
     if (!node.is_dir || !expanded) return;
@@ -393,7 +403,7 @@ export default function FileTreeNode({
             blinkCount.current++;
             if (blinkCount.current >= 6) {
               clearTimers();
-              setExpanded(true);
+              onExpandFolderPath(node.path);
             }
           }, 150);
         }, 600);
@@ -475,7 +485,7 @@ export default function FileTreeNode({
 
       return sortTreeChildren(nextChildren);
     });
-    setExpanded(true);
+    onExpandFolderPath(node.path);
   };
 
   const handleExternalImportDrop = async (
@@ -523,7 +533,7 @@ export default function FileTreeNode({
           },
         ]);
       });
-      setExpanded(true);
+      onExpandFolderPath(node.path);
     }
 
     await onInlineCreateCreated?.(createdPath, isDir);
@@ -555,7 +565,7 @@ export default function FileTreeNode({
         <div
           draggable
           onDragStart={handleDragStart}
-          onClick={() => setExpanded((p) => !p)}
+          onClick={() => onToggleFolderPath(node.path)}
           onContextMenu={(e) => onContextMenu(e, node)}
           className={`relative flex min-w-max items-center gap-1.5 whitespace-nowrap py-0.5 text-[12px] cursor-pointer transition-colors select-none
             ${
@@ -633,6 +643,9 @@ export default function FileTreeNode({
               onMove={onMove}
               onImportExternalEntries={onImportExternalEntries}
               revealPath={revealPath}
+              expandedPaths={expandedPaths}
+              onToggleFolderPath={onToggleFolderPath}
+              onExpandFolderPath={onExpandFolderPath}
               gitDecorations={gitDecorations}
               ignoredPaths={ignoredPaths}
               inlineCreate={inlineCreate}

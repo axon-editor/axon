@@ -231,6 +231,7 @@ export interface EditorSettings {
   suggestShowInlineDetails: boolean;
   suggestShowStatusBar: boolean;
   lineTraceEnabled: boolean;
+  rememberExpandedFolders: boolean;
 }
 
 export interface AxonSettings {
@@ -312,6 +313,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     suggestShowInlineDetails: true,
     suggestShowStatusBar: false,
     lineTraceEnabled: true,
+    rememberExpandedFolders: true,
   },
   terminal: {
     gpuAcceleration: "auto",
@@ -715,6 +717,10 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.lineTraceEnabled === "boolean"
           ? editor.lineTraceEnabled
           : DEFAULT_SETTINGS.editor.lineTraceEnabled,
+      rememberExpandedFolders:
+        typeof editor.rememberExpandedFolders === "boolean"
+          ? editor.rememberExpandedFolders
+          : DEFAULT_SETTINGS.editor.rememberExpandedFolders,
     },
     terminal: {
       gpuAcceleration: isTerminalGpuAcceleration(terminal.gpuAcceleration)
