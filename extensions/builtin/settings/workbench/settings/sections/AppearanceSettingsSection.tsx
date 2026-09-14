@@ -5,10 +5,9 @@
 
 import { type AxonSettings } from "@axon-editor/shared/settings";
 import SearchSelect, { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect";
-import {
-  EDITOR_SIDEBAR_SIDE_ITEMS,
-} from "./lib/settingsData";
-import { SettingsField, SettingsSection } from "./SettingsControls";
+import { EDITOR_SIDEBAR_SIDE_ITEMS } from "../lib/settingsData";
+import SettingsField from "../controls/SettingsField";
+import SettingsSection from "../controls/SettingsSection";
 
 export default function AppearanceSettingsSection({
   draft,
@@ -25,10 +24,7 @@ export default function AppearanceSettingsSection({
   ) => void;
 }) {
   return (
-    <SettingsSection
-      title="Appearance"
-      description="Choose the main Axon theme and the UI font used by the shell, sidebar, panels, and controls."
-    >
+    <SettingsSection>
       <SettingsField
         label="Theme"
         description="Applies to editor chrome, panels, terminal, and Monaco."

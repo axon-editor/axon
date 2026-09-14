@@ -7,12 +7,10 @@ import { type AxonSettings } from "@axon-editor/shared/settings";
 import { type AiModelInfo } from "@axon-editor/shared/ai";
 import { RefreshCw } from "lucide-react";
 import SearchSelect from "@axon-editor/base/components/SearchSelect";
-import { AI_PROVIDER_ITEMS } from "./lib/settingsData";
-import {
-  SettingsField,
-  SettingsSection,
-  SettingsToggle,
-} from "./SettingsControls";
+import { AI_PROVIDER_ITEMS } from "../lib/settingsData";
+import SettingsField from "../controls/SettingsField";
+import SettingsSection from "../controls/SettingsSection";
+import SettingsToggle from "../controls/SettingsToggle";
 
 export default function AxonAgentSettingsSection({
   draft,
@@ -53,10 +51,7 @@ export default function AxonAgentSettingsSection({
   }
 
   return (
-    <SettingsSection
-      title="Axon Agent"
-      description="Local Axon models power project-aware chat, explanations, fixes, tests, diff review, and commit drafting without exposing third-party providers in the UI."
-    >
+    <SettingsSection>
       <SettingsField
         label="Assistant"
         description="Controls whether Axon Agent commands and the side panel are available."

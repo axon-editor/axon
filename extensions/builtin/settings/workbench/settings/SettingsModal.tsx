@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Braces } from "lucide-react";
 import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
 import { type AiModelInfo } from "@axon-editor/shared/ai";
 import {
@@ -19,28 +18,25 @@ import {
   type SettingsSectionId,
 } from "./lib/settingsData";
 import { FONT_PRESET_VALUES } from "./lib/fontPresets";
+import { matchSettingsSections } from "./search/settingsSearch";
 import {
   getSettingsPythonWorkspaceEnvironment,
   importSettingsFont,
   selectSettingsBackgroundImage,
   selectSettingsPythonVirtualEnv,
 } from "./lib/settingsPlatform";
-import AppearanceSettingsSection from "./AppearanceSettingsSection";
-import AxonAgentSettingsSection from "./AxonAgentSettingsSection";
-import EditorSettingsSection from "./EditorSettingsSection";
-import ErgonomicsSettingsSection from "./ErgonomicsSettingsSection";
-import TerminalSettingsSection from "./TerminalSettingsSection";
-import LanguageServersSettingsSection from "./LanguageServersSettingsSection";
-import {
-  BackgroundSettingsSection,
-  FontsSettingsSection,
-} from "./SettingsMediaSections";
-import {
-  SettingsModalFooter,
-  SettingsModalHeader,
-  SettingsModalSidebar,
-  type SettingsSaveState,
-} from "./SettingsModalChrome";
+import SettingsSidebar from "./chrome/SettingsSidebar";
+import SettingsHeader from "./chrome/SettingsHeader";
+import SettingsFooter from "./chrome/SettingsFooter";
+import { type SettingsSaveState } from "./chrome/types";
+import AppearanceSettingsSection from "./sections/AppearanceSettingsSection";
+import EditorSettingsSection from "./sections/EditorSettingsSection";
+import EditorBehaviorSettingsSection from "./sections/EditorBehaviorSettingsSection";
+import TerminalSettingsSection from "./sections/TerminalSettingsSection";
+import BackgroundSettingsSection from "./sections/BackgroundSettingsSection";
+import FontsSettingsSection from "./sections/FontsSettingsSection";
+import LanguageServersSettingsSection from "./sections/LanguageServersSettingsSection";
+import AxonAgentSettingsSection from "./sections/AxonAgentSettingsSection";
 
 interface Props {
   folderPath: string | null;
@@ -93,6 +89,10 @@ export default function SettingsModal({
   const saveRequestRef = useRef(0);
   const lastStartedSettingsJsonRef = useRef<string | null>(null);
   const latestSettingsJsonRef = useRef<string | null>(null);
+  // The sidebar auto-jumps to the best matching page while a search is active,
+  // but clearing the search should land back on whichever page the user chose
+  // by hand, not on the last auto-jump.
+  const lastManualSectionRef = useRef<SettingsSectionId>("appearance");
 
   const customFontItems = useMemo(
     () => {
@@ -154,15 +154,30 @@ export default function SettingsModal({
   const settingsScopeLabel = folderPath
     ? folderPath.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? "workspace"
     : "global";
-  const filteredSections = useMemo(() => {
-    const normalizedQuery = sectionQuery.trim().toLowerCase();
-    if (!normalizedQuery) return SETTINGS_SECTIONS;
-    return SETTINGS_SECTIONS.filter((section) =>
-      `${section.label} ${section.description}`
-        .toLowerCase()
-        .includes(normalizedQuery),
-    );
-  }, [sectionQuery]);
+  const queryMatches = useMemo(
+    () => matchSettingsSections(sectionQuery),
+    [sectionQuery],
+  );
+
+  useEffect(() => {
+    if (!sectionQuery.trim()) return;
+    if (queryMatches.length === 0) return;
+    if (!queryMatches.some((match) => match.id === activeSection)) {
+      setActiveSection(queryMatches[0].id);
+    }
+  }, [sectionQuery, queryMatches, activeSection]);
+
+  const handleSectionChange = (section: SettingsSectionId) => {
+    lastManualSectionRef.current = section;
+    setActiveSection(section);
+  };
+
+  const handleSectionQueryChange = (query: string) => {
+    setSectionQuery(query);
+    if (!query.trim()) {
+      setActiveSection(lastManualSectionRef.current);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -500,6 +515,10 @@ export default function SettingsModal({
     onPreview(initialSettingsRef.current);
   };
 
+  const scopeHint = folderPath
+    ? "Workspace settings inherit from user settings and can be overridden by axon.json."
+    : "No workspace is open, so changes apply to your user settings only.";
+
   return (
     <CommandModal
       onClose={close}
@@ -511,34 +530,27 @@ export default function SettingsModal({
       }}
     >
       <div className="grid h-full min-h-0 w-full grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-transparent shadow-2xl">
-        <SettingsModalSidebar
+        <SettingsSidebar
           activeSection={activeSection}
-          dirty={dirty}
-          filteredSections={filteredSections}
+          query={sectionQuery}
+          queryMatches={queryMatches}
           saveState={saveState}
-          sectionQuery={sectionQuery}
-          onSectionChange={setActiveSection}
-          onSectionQueryChange={setSectionQuery}
+          hasDirtyChanges={dirty}
+          onSectionChange={handleSectionChange}
+          onQueryChange={handleSectionQueryChange}
         />
 
         <div className="flex min-h-0 flex-col bg-[var(--axon-editor-background)]">
-          <SettingsModalHeader
+          <SettingsHeader
             activeSectionMeta={activeSectionMeta}
+            scopeMode={folderPath ? "workspace" : "user"}
+            scopePathLabel={settingsScopeLabel}
+            scopeHint={scopeHint}
             dirty={dirty}
-            folderPath={folderPath}
-            settingsScopeLabel={settingsScopeLabel}
             onReset={resetDraft}
+            onClose={close}
           />
           <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-            <div className="mb-2 flex items-center gap-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
-              <Braces size={13} />
-              <span>
-                {folderPath
-                  ? "Workspace settings inherit from user settings and can be overridden by axon.json."
-                  : "No workspace is open, so changes apply to your user settings only."}
-              </span>
-            </div>
-
             {activeSection === "appearance" && (
               <AppearanceSettingsSection
                 draft={draft}
@@ -556,7 +568,7 @@ export default function SettingsModal({
                   onApplyFontPreset={applyFontPreset}
                   onUpdateEditor={updateEditor}
                 />
-                <ErgonomicsSettingsSection
+                <EditorBehaviorSettingsSection
                   draft={draft}
                   onUpdateEditor={updateEditor}
                 />
@@ -619,7 +631,7 @@ export default function SettingsModal({
             )}
           </div>
 
-          <SettingsModalFooter
+          <SettingsFooter
             dirty={dirty}
             onClose={close}
             onReset={resetDraft}

@@ -39,45 +39,107 @@ export type SettingsSectionId =
   | "languageServers"
   | "ai";
 
-export const SETTINGS_SECTIONS: Array<{
+export type SettingsGroupId = "appearance" | "editor" | "terminal" | "intelligence";
+
+export interface SettingsGroupDefinition {
+  id: SettingsGroupId;
+  label: string;
+}
+
+// The sidebar groups related sections together so the flat seven-item list
+// does not grow into a wall of links as Axon gains more settings. These four
+// groups mirror how users think about a workbench: what it looks like, how the
+// editor types, the terminal, and the local intelligence services (AI + LSP).
+export const SETTINGS_GROUPS: SettingsGroupDefinition[] = [
+  { id: "appearance", label: "Appearance" },
+  { id: "editor", label: "Editor" },
+  { id: "terminal", label: "Terminal" },
+  { id: "intelligence", label: "Intelligence" },
+];
+
+export interface SettingsSectionDefinition {
   id: SettingsSectionId;
+  group: SettingsGroupId;
   label: string;
   description: string;
-}> = [
+  // Extra terms users type that are not already visible in the label or
+  // description, so search like "glass", "ligatures", or "venv" finds the
+  // right page without the user guessing the exact setting row name.
+  keywords: string[];
+}
+
+export const SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
   {
     id: "appearance",
+    group: "appearance",
     label: "Appearance",
     description: "Theme and UI font",
-  },
-  {
-    id: "editor",
-    label: "Editor",
-    description: "Text, completion, navigation, and save behavior",
-  },
-  {
-    id: "terminal",
-    label: "Terminal",
-    description: "Rendering and GPU acceleration",
+    keywords: ["theme", "ui font", "sidebar side", "layout"],
   },
   {
     id: "background",
+    group: "appearance",
     label: "Background",
     description: "Opacity and editor image",
-  },
-  {
-    id: "languageServers",
-    label: "Language Servers",
-    description: "Project-aware editor services",
+    keywords: ["glass", "mica", "acrylic", "vibrancy", "blur", "image", "wallpaper"],
   },
   {
     id: "fonts",
+    group: "appearance",
     label: "Fonts",
     description: "Import and apply custom fonts",
+    keywords: ["import", "ttf", "otf", "woff", "custom font"],
+  },
+  {
+    id: "editor",
+    group: "editor",
+    label: "Editor",
+    description: "Text, completion, navigation, and save behavior",
+    keywords: [
+      "typography",
+      "ligature",
+      "completion",
+      "suggest",
+      "cursor",
+      "indent",
+      "tab size",
+      "spacing",
+      "guide",
+      "auto save",
+      "format save",
+      "snippet",
+      "emmet",
+      "multi cursor",
+      "breadcrumb",
+      "hover",
+      "sticky scroll",
+      "line trace",
+      "code folding",
+      "minimap",
+      "scrollbar",
+      "remember expanded folders",
+    ],
+  },
+  {
+    id: "terminal",
+    group: "terminal",
+    label: "Terminal",
+    description: "Rendering and GPU acceleration",
+    keywords: ["gpu", "acceleration", "webgl", "render", "xterm"],
+  },
+  {
+    id: "languageServers",
+    group: "intelligence",
+    label: "Language Servers",
+    description: "Project-aware editor services",
+    keywords: ["lsp", "python", "virtual env", "venv", "interpreter", "pyright", "diagnostics", "logs"],
   },
   {
     id: "ai",
+    group: "intelligence",
     label: "AI",
-    description: "Provider defaults for later",
+    description: "Local models, inline completions, and workspace context",
+    keywords: ["model", "provider", "inline completion", "agent", "chat", "workspace context"],
   },
 ];
 

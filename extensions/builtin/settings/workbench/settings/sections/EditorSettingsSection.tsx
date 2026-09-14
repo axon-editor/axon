@@ -11,13 +11,11 @@ import {
   EDITOR_CURSOR_BLINKING_ITEMS,
   EDITOR_CURSOR_STYLE_ITEMS,
   FONT_PRESET_ITEMS,
-} from "./lib/settingsData";
-import {
-  SettingsField,
-  SettingsNumberSlider,
-  SettingsSection,
-  SettingsToggle,
-} from "./SettingsControls";
+} from "../lib/settingsData";
+import SettingsField from "../controls/SettingsField";
+import SettingsNumberSlider from "../controls/SettingsNumberSlider";
+import SettingsSection from "../controls/SettingsSection";
+import SettingsToggle from "../controls/SettingsToggle";
 
 export default function EditorSettingsSection({
   draft,
@@ -37,6 +35,7 @@ export default function EditorSettingsSection({
     <SettingsSection
       title="Editor"
       description="Tune code typography, indentation, spacing, and visual nesting guides. Changes apply to open editors automatically."
+      compact
     >
       <SettingsField
         label="Font preset"

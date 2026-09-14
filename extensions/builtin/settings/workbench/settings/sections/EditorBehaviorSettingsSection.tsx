@@ -8,14 +8,12 @@ import SearchSelect from "@axon-editor/base/components/SearchSelect";
 import {
   EDITOR_HOVER_PLACEMENT_ITEMS,
   MULTI_CURSOR_MODIFIER_ITEMS,
-} from "./lib/settingsData";
-import {
-  SettingsField,
-  SettingsSection,
-  SettingsToggle,
-} from "./SettingsControls";
+} from "../lib/settingsData";
+import SettingsField from "../controls/SettingsField";
+import SettingsSection from "../controls/SettingsSection";
+import SettingsToggle from "../controls/SettingsToggle";
 
-export default function ErgonomicsSettingsSection({
+export default function EditorBehaviorSettingsSection({
   draft,
   onUpdateEditor,
 }: {
@@ -29,6 +27,8 @@ export default function ErgonomicsSettingsSection({
     <SettingsSection
       title="Editor behavior"
       description="Control the editor behaviors that affect daily writing, navigation, and reading. Changes apply immediately so you can feel the difference without restarting Axon."
+      compact
+      divider
     >
       <SettingsField
         label="Auto Save"

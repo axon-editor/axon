@@ -5,12 +5,11 @@
 
 import { FolderOpen, ScrollText, Zap } from "lucide-react";
 import { type AxonSettings } from "@axon-editor/shared/settings";
-import {
-  SettingsField,
-  SettingsSection,
-  SettingsTextInput,
-  SettingsToggle,
-} from "./SettingsControls";
+import SettingsButton from "../controls/SettingsButton";
+import SettingsField from "../controls/SettingsField";
+import SettingsSection from "../controls/SettingsSection";
+import SettingsTextInput from "../controls/SettingsTextInput";
+import SettingsToggle from "../controls/SettingsToggle";
 
 interface LanguageServersSettingsSectionProps {
   draft: AxonSettings;
@@ -39,10 +38,7 @@ export default function LanguageServersSettingsSection({
   pythonEnvironmentMessage,
 }: LanguageServersSettingsSectionProps) {
   return (
-    <SettingsSection
-      title="Language Intelligence"
-      description="Configure editor-wide language behavior. Workspace tools and server lifecycle are managed from the status bar."
-    >
+    <SettingsSection>
       <SettingsField
         label="Language services"
         description="Controls external completion, diagnostics, hover, navigation, rename, and formatting providers."
@@ -54,33 +50,29 @@ export default function LanguageServersSettingsSection({
         />
       </SettingsField>
 
-      {pythonDetected ? (
+      {pythonDetected && (
         <SettingsField
           label="Python environment"
           description="Axon detects environments inside or beside the workspace. Select one only to override the detected environment."
         >
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={onSelectPythonVirtualEnv}
+              <SettingsButton
+                label="Select environment"
+                icon={<FolderOpen size={14} />}
+                tone="primary"
                 disabled={!folderPath}
-                className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-35"
-              >
-                <FolderOpen size={14} />
-                Select environment
-              </button>
-              <button
-                type="button"
-                onClick={onClearPythonVirtualEnv}
+                onClick={onSelectPythonVirtualEnv}
+              />
+              <SettingsButton
+                label="Clear"
+                tone="ghost"
                 disabled={
                   !draft.lsp.pythonVirtualEnvPath &&
                   !draft.lsp.pythonInterpreterPath
                 }
-                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-35"
-              >
-                Clear
-              </button>
+                onClick={onClearPythonVirtualEnv}
+              />
             </div>
             <label className="flex min-w-0 flex-col gap-1">
               <span className="text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
@@ -108,32 +100,28 @@ export default function LanguageServersSettingsSection({
                 monospace
               />
             </label>
-            {pythonEnvironmentMessage ? (
+            {pythonEnvironmentMessage && (
               <div className="text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-55">
                 {pythonEnvironmentMessage}
               </div>
-            ) : null}
+            )}
           </div>
         </SettingsField>
-      ) : null}
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <SettingsButton
+          label="Language Tools"
+          icon={<Zap size={14} />}
+          tone="primary"
           onClick={onOpenLanguageTools}
-          className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] hover:bg-[var(--axon-panel-overlay-hover)]"
-        >
-          <Zap size={14} />
-          Language Tools
-        </button>
-        <button
-          type="button"
+        />
+        <SettingsButton
+          label="LSP Logs"
+          icon={<ScrollText size={14} />}
+          tone="ghost"
           onClick={onViewLogs}
-          className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
-        >
-          <ScrollText size={14} />
-          LSP Logs
-        </button>
+        />
       </div>
     </SettingsSection>
   );

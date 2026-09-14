@@ -11,6 +11,7 @@ import {
   resolveThemeGitColors,
   type ThemeAppearance,
 } from "../themes/themeAppearance";
+import { resolveThemeAccent } from "../themes/themeAccent";
 
 export type ResolvedThemeTokens = ThemeTokenMap;
 
@@ -28,6 +29,7 @@ export function createThemeCssVariables(
   appearance: ThemeAppearance = "dark",
 ) {
   const gitColors = resolveThemeGitColors(appearance);
+  const accent = resolveThemeAccent(tokens);
   const panelBorder = appearanceBorderColor(tokens["panel.border"], appearance);
   const sidebarBorder = appearanceBorderColor(
     tokens["sidebar.border"],
@@ -64,6 +66,9 @@ export function createThemeCssVariables(
     "--axon-warning-foreground": gitColors.modified,
     "--axon-danger-foreground": gitColors.deleted,
     "--axon-danger-background": gitColors.dangerBackground,
+    "--axon-accent": accent.accent,
+    "--axon-accent-foreground": accent.accentForeground,
+    "--axon-accent-muted": accent.accentMuted,
     colorScheme: appearance,
   } as CSSProperties;
 }
