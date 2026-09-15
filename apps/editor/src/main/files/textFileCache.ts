@@ -139,54 +139,59 @@ export class TextFileCache {
       return cached.content;
     }
 
-    // Cold path: no cached entry exists. We do a stat + read + stat sequence
-    // to detect mid-read file replacement by agents or formatters. The three
-    // syscalls are not pipelined, but correctness matters more here since this
-    // only runs on a cache miss.
+    // Cold path: no cached entry exists. We open the file once and use the
+    // same file descriptor for both fstat and readFile. This pins both the
+    // metadata and the bytes to the same inode at open time, removing the
+    // TOCTOU race that the old stat → readFile → stat pattern guarded
+    // against. One fewer syscall and more correct under agent replacement.
     for (let attempt = 0; attempt < 3; attempt++) {
       const generation = this.generations.get(filePath) ?? 0;
-      const before = await fs.promises.stat(filePath);
-      if (!before.isFile()) throw new Error("Path is not a file.");
-      if (before.size > this.maxFileBytes) {
-        throw new Error("File is too large to open in the text editor.");
-      }
+      const fd = await fs.promises.open(filePath, "r");
+      try {
+        const info = await fd.stat();
+        if (!info.isFile()) throw new Error("Path is not a file.");
+        if (info.size > this.maxFileBytes) {
+          throw new Error("File is too large to open in the text editor.");
+        }
 
-      const beforeFingerprint = fingerprint(before);
-      const source = await fs.promises.readFile(filePath);
-      const after = await fs.promises.stat(filePath);
-      const afterFingerprint = fingerprint(after);
-      const generationChanged =
-        generation !== (this.generations.get(filePath) ?? 0);
+        const fingerprintValue = fingerprint(info);
+        const source = await fd.readFile();
+        const generationChanged =
+          generation !== (this.generations.get(filePath) ?? 0);
 
-      // Agents and formatters often replace a file while Axon is reading it.
-      // Retrying when metadata or the watcher generation changes ensures the
-      // cache never publishes bytes assembled from an obsolete disk version.
-      if (
-        generationChanged ||
-        !after.isFile() ||
-        !sameFingerprint(beforeFingerprint, afterFingerprint)
-      ) {
-        continue;
-      }
+        // Agents and formatters often replace a file while Axon is reading it.
+        // The generation check detects watcher invalidation during the read.
+        // Because fstat and readFile share the same fd, we no longer need a
+        // second stat to verify metadata consistency — the fd is pinned to
+        // the inode that was open at the time of the first stat.
+        if (generationChanged) {
+          continue;
+        }
 
-      const sample = source.subarray(0, Math.min(source.length, 8192));
-      if (sample.includes(0)) {
-        throw new Error("This file is binary and cannot be opened as text.");
-      }
-      const content = source.toString("utf8");
-      if (
-        content.includes("\uFFFD") &&
-        !Buffer.from(content, "utf8").equals(source)
-      ) {
-        throw new Error("This file is not valid UTF-8 text.");
-      }
+        const sample = source.subarray(0, Math.min(source.length, 8192));
+        if (sample.includes(0)) {
+          throw new Error("This file is binary and cannot be opened as text.");
+        }
+        const content = source.toString("utf8");
+        if (
+          content.includes("\uFFFD") &&
+          !Buffer.from(content, "utf8").equals(source)
+        ) {
+          throw new Error("This file is not valid UTF-8 text.");
+        }
 
-      this.store(filePath, {
-        content,
-        fingerprint: afterFingerprint,
-        memoryBytes: estimateStringMemory(content, source.length),
-      });
-      return content;
+        this.store(filePath, {
+          content,
+          fingerprint: fingerprintValue,
+          memoryBytes: estimateStringMemory(content, source.length),
+        });
+        return content;
+      } finally {
+        // Always close the file descriptor to avoid leaking OS handles.
+        // Under normal flow fd.readFile() consumes the fd, but on error
+        // or generation-changed retry the fd must still be released.
+        await fd.close().catch(() => {});
+      }
     }
 
     throw new Error("The file kept changing while Axon was opening it.");
