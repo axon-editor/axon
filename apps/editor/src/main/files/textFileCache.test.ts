@@ -85,4 +85,21 @@ describe("TextFileCache", () => {
     await expect(cache.read(binaryPath)).rejects.toThrow("binary");
     await expect(cache.read(invalidPath)).rejects.toThrow("valid UTF-8");
   });
+
+  it("detects external edits on cache hits without explicit invalidation", async () => {
+    const filePath = temporaryFile("watched.txt", "original");
+    const cache = new TextFileCache();
+
+    // First read populates the cache.
+    expect(await cache.read(filePath)).toBe("original");
+
+    // Simulate an external edit (formatter, another editor, script) while no
+    // watcher is active for this path. Without the stat-based fingerprint check
+    // on cache hits, the cache would return stale "original" content forever.
+    fs.writeFileSync(filePath, "modified externally", "utf8");
+
+    // The cache should detect the change via stat and return the new content,
+    // even though invalidate() was never called.
+    expect(await cache.read(filePath)).toBe("modified externally");
+  });
 });

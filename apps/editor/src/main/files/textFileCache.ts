@@ -128,15 +128,23 @@ export class TextFileCache {
   }
 
   private async readCurrentVersion(filePath: string) {
-    // Fast path: trust the cache entry until the file watcher invalidates it.
-    // The watcher calls invalidate() which removes the entry, so if we find one
-    // here it is still the version the renderer last received. This skips the
-    // stat() syscall that used to run on every tab switch, saving 0.1–50ms per
-    // cache hit depending on filesystem pressure.
+    // Self-healing path: stat the file and compare its fingerprint against the
+    // cache entry. If they match, return the cached content (1 syscall). If
+    // they don't, fall through to the cold read path below. This catches
+    // external edits to files that have no active watcher — background tabs,
+    // files outside the workspace root, and split-pane secondaries all lack
+    // watcher coverage, so trusting the cache blindly would return stale bytes.
     const cached = this.entries.get(filePath);
     if (cached) {
-      this.touch(filePath, cached);
-      return cached.content;
+      const info = await fs.promises.stat(filePath);
+      const currentFingerprint = fingerprint(info);
+      if (sameFingerprint(cached.fingerprint, currentFingerprint)) {
+        this.touch(filePath, cached);
+        return cached.content;
+      }
+      // Fingerprint mismatch — the file changed on disk while we had a stale
+      // cache entry. Remove it and fall through to the full read path.
+      this.removeEntry(filePath);
     }
 
     // Cold path: no cached entry exists. We open the file once and use the
