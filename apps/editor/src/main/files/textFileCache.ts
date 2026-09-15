@@ -128,6 +128,21 @@ export class TextFileCache {
   }
 
   private async readCurrentVersion(filePath: string) {
+    // Fast path: trust the cache entry until the file watcher invalidates it.
+    // The watcher calls invalidate() which removes the entry, so if we find one
+    // here it is still the version the renderer last received. This skips the
+    // stat() syscall that used to run on every tab switch, saving 0.1–50ms per
+    // cache hit depending on filesystem pressure.
+    const cached = this.entries.get(filePath);
+    if (cached) {
+      this.touch(filePath, cached);
+      return cached.content;
+    }
+
+    // Cold path: no cached entry exists. We do a stat + read + stat sequence
+    // to detect mid-read file replacement by agents or formatters. The three
+    // syscalls are not pipelined, but correctness matters more here since this
+    // only runs on a cache miss.
     for (let attempt = 0; attempt < 3; attempt++) {
       const generation = this.generations.get(filePath) ?? 0;
       const before = await fs.promises.stat(filePath);
@@ -137,12 +152,6 @@ export class TextFileCache {
       }
 
       const beforeFingerprint = fingerprint(before);
-      const cached = this.entries.get(filePath);
-      if (cached && sameFingerprint(cached.fingerprint, beforeFingerprint)) {
-        this.touch(filePath, cached);
-        return cached.content;
-      }
-
       const source = await fs.promises.readFile(filePath);
       const after = await fs.promises.stat(filePath);
       const afterFingerprint = fingerprint(after);
