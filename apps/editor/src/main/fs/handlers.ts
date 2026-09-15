@@ -80,8 +80,8 @@ export function registerFileWatcherHandlers(
     await getActiveFileManager(event.sender).watchFile(authorizedPath);
   });
 
-  ipcMain.handle("fs:unwatch", async (event) => {
-    await getActiveFileManager(event.sender).unwatchFile();
+  ipcMain.handle("fs:unwatch", async (event, filePath: string) => {
+    await getActiveFileManager(event.sender).unwatchFile(filePath);
   });
 
   // Workspace watchers cover the file tree, git changes, and generated output.

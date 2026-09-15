@@ -47,7 +47,7 @@ export function useActiveFileServices({
     return () => {
       disposed = true;
       stopInstallListener();
-      void window.axon.unwatchFile();
+      void window.axon.unwatchFile(filePath);
     };
   }, [enabled, filePath, folderPath, loading, syncDocument, visible]);
 }

@@ -11,6 +11,11 @@ import fs from "fs";
 import path from "path";
 import { type FolderChangeKind } from "../../shared/fs";
 import { textFileCache } from "../files/textFileCache";
+import {
+  retainWatchedPath,
+  releaseWatchedPath,
+  releaseAllWatchedPaths,
+} from "./watchedPaths";
 
 type NativeWatcherListener = (
   eventType: "rename" | "change",
@@ -121,11 +126,23 @@ export function shouldIgnoreWorkspaceWatchPath(
 }
 
 export class FileWatcherManager {
-  private activeWatcher: ChokidarWatcher | null = null;
+  // Per-path file watchers instead of a single exclusive watcher. The old design
+  // closed the previous watcher before opening a new one, which meant only one
+  // file per window could have active disk coverage. Background tabs, split-pane
+  // secondaries, and files outside the workspace root had no watcher, so external
+  // edits to those files were silently missed until the user switched back. A map
+  // lets every open file hold its own OS-level watch simultaneously.
+  private readonly activeWatchers = new Map<string, ChokidarWatcher>();
+  // Per-path debounce timers for the same reason: each watcher fires its own
+  // debounced reload independently instead of sharing a single timer that would
+  // cancel a pending reload when a different file is focused.
+  private readonly activeFileDebounceTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
   private folderWatcher: ChokidarWatcher | null = null;
   private gitWatcher: ChokidarWatcher | null = null;
   private nativeFolderWatcher: Pick<fs.FSWatcher, "close"> | null = null;
-  private activeFileDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private folderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingFolderChanges = new Map<string, FolderChangeKind>();
   private gitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -166,14 +183,28 @@ export class FileWatcherManager {
     return shouldIgnoreWorkspaceWatchPath(candidatePath);
   }
 
+  // Closes every per-path file watcher and cancels all pending debounce timers.
+  // This is the teardown path for window close and workspace switch, not the
+  // normal unwatch flow, which removes one path at a time via unwatchFile().
   async closeActiveWatcher() {
-    if (this.activeFileDebounceTimer) {
-      clearTimeout(this.activeFileDebounceTimer);
-      this.activeFileDebounceTimer = null;
+    for (const timer of this.activeFileDebounceTimers.values()) {
+      clearTimeout(timer);
     }
-    if (!this.activeWatcher) return;
-    await this.activeWatcher.close();
-    this.activeWatcher = null;
+    this.activeFileDebounceTimers.clear();
+
+    // Release all paths this manager was watching from the shared registry.
+    // Other windows may still be watching the same paths, so the shared
+    // registry only decrements its reference count per release. It does not
+    // blindly remove the path.
+    for (const filePath of this.activeWatchers.keys()) {
+      releaseWatchedPath(filePath);
+    }
+
+    const closePromises = Array.from(this.activeWatchers.values()).map(
+      (watcher) => watcher.close(),
+    );
+    this.activeWatchers.clear();
+    await Promise.all(closePromises);
   }
 
   async closeFolderWatcher() {
@@ -313,57 +344,77 @@ export class FileWatcherManager {
     }, delay);
   }
 
+  // Registers a per-path file watcher. Unlike the old single-watcher design,
+  // this does NOT close the previous watcher. Multiple files can be watched
+  // simultaneously. This is critical for split-pane editing and background tabs
+  // where external changes must be detected even when the file isn't focused.
   async watchFile(filePath: string) {
-    await this.closeActiveWatcher();
+    // If this path already has a watcher, tear it down first to avoid stacking
+    // duplicate listeners on the same file. The shared registry's reference
+    // count stays balanced because we release the old entry and immediately
+    // retain the new one below.
+    const existing = this.activeWatchers.get(filePath);
+    if (existing) {
+      const timer = this.activeFileDebounceTimers.get(filePath);
+      if (timer) {
+        clearTimeout(timer);
+        this.activeFileDebounceTimers.delete(filePath);
+      }
+      await existing.close();
+      this.activeWatchers.delete(filePath);
+      releaseWatchedPath(filePath);
+    }
 
-    this.activeWatcher = this.createWatcher(
+    const watcher = this.createWatcher(
       filePath,
       this.buildWatcherOptions(),
     );
+    this.activeWatchers.set(filePath, watcher);
+    retainWatchedPath(filePath);
 
-    const reloadActiveFile = () => {
-      if (this.activeFileDebounceTimer)
-        clearTimeout(this.activeFileDebounceTimer);
+    const reloadFile = () => {
+      const debounceTimer = this.activeFileDebounceTimers.get(filePath);
+      if (debounceTimer) clearTimeout(debounceTimer);
 
-      this.activeFileDebounceTimer = setTimeout(() => {
-        this.activeFileDebounceTimer = null;
-        textFileCache.invalidate(filePath);
-        // The active-file reload can run while other IPC keeps arriving, so the
-        // disk read must not block the main-process event loop. The async read
-        // preserves the original try/catch scope: either the read or the send
-        // failing still closes the one-file watcher so a destroyed window or a
-        // vanished path cannot crash the process.
-        fs.promises
-          .readFile(filePath, "utf-8")
-          .then((content) => {
-            // The file watcher can still fire during reload/close. Sending through
-            // the shared renderer helper keeps external disk changes useful while
-            // avoiding Electron's "Object has been destroyed" crash path.
-            this.deps.sendToRenderer("fs:fileChanged", {
-              path: filePath,
-              content,
+      this.activeFileDebounceTimers.set(
+        filePath,
+        setTimeout(() => {
+          this.activeFileDebounceTimers.delete(filePath);
+          textFileCache.invalidate(filePath);
+          // The file read must not block the main-process event loop. The async
+          // read preserves the original try/catch scope: either the read or the
+          // send failing still closes this file's watcher so a destroyed window
+          // or a vanished path cannot crash the process.
+          fs.promises
+            .readFile(filePath, "utf-8")
+            .then((content) => {
+              // Send through the shared renderer helper so external disk changes
+              // are useful while avoiding Electron's "Object has been destroyed"
+              // crash path when the window closes during a pending read.
+              this.deps.sendToRenderer("fs:fileChanged", {
+                path: filePath,
+                content,
+              });
+            })
+            .catch((err) => {
+              // Chokidar can deliver a delayed change event after a file has been
+              // deleted, moved, or replaced by an external cleanup. That should
+              // make the editor show stale content until the tree refreshes, not
+              // throw from the main process and crash the app.
+              console.warn(
+                `stopped watching unreadable file ${filePath}:`,
+                err instanceof Error ? err.message : err,
+              );
+              void this.unwatchFile(filePath);
             });
-          })
-          .catch((err) => {
-            // Chokidar can deliver a delayed change event after a file has been
-            // deleted, moved, or replaced by an external cleanup. That should make
-            // the editor show stale content until the tree refreshes, not throw
-            // from the main process and take down the whole app while opening a
-            // file. I close this one-file watcher because the path is no longer a
-            // trustworthy source of content for the active pane.
-            console.warn(
-              `stopped watching unreadable file ${filePath}:`,
-              err instanceof Error ? err.message : err,
-            );
-            void this.closeActiveWatcher();
-          });
-      }, 80);
+        }, 80),
+      );
     };
 
-    this.activeWatcher.on("change", reloadActiveFile);
-    this.activeWatcher.on("add", reloadActiveFile);
+    watcher.on("change", reloadFile);
+    watcher.on("add", reloadFile);
 
-    this.activeWatcher.on("error", (err) => {
+    watcher.on("error", (err) => {
       // Watcher errors usually mean the underlying path disappeared or the OS
       // refused the watch after a cleanup. Keeping the error local prevents a
       // filesystem edge case from becoming an app-level crash.
@@ -371,12 +422,32 @@ export class FileWatcherManager {
         `file watcher failed for ${filePath}:`,
         err instanceof Error ? err.message : err,
       );
-      void this.closeActiveWatcher();
+      void this.unwatchFile(filePath);
     });
   }
 
-  async unwatchFile() {
-    await this.closeActiveWatcher();
+  // Removes the watcher for a specific file path. The renderer calls this in
+  // the useEffect cleanup when a tab becomes inactive or unmounts, passing the
+  // same filePath that was used in the corresponding watchFile() call.
+  async unwatchFile(filePath: string) {
+    const timer = this.activeFileDebounceTimers.get(filePath);
+    if (timer) {
+      clearTimeout(timer);
+      this.activeFileDebounceTimers.delete(filePath);
+    }
+    const watcher = this.activeWatchers.get(filePath);
+    if (!watcher) return;
+    this.activeWatchers.delete(filePath);
+    releaseWatchedPath(filePath);
+    await watcher.close();
+  }
+
+  // Returns true if the given path has an active file watcher registered.
+  // Used by textFileCache to decide whether to trust a cached entry (watched
+  // paths get invalidated on disk change) or fall back to a stat fingerprint
+  // check (unwatched paths have no external-change notification).
+  isFileWatched(filePath: string): boolean {
+    return this.activeWatchers.has(filePath);
   }
 
   async watchFolder(folderPath: string) {

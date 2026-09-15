@@ -486,7 +486,7 @@ declare global {
         Array<{ sourcePath: string; targetPath: string; isDir: boolean }>
       >;
       watchFile: (path: string) => Promise<void>;
-      unwatchFile: () => Promise<void>;
+      unwatchFile: (path: string) => Promise<void>;
       watchFolder: (path: string) => Promise<void>;
       unwatchFolder: () => Promise<void>;
       listProjectFiles: (

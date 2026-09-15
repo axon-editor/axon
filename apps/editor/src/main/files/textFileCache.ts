@@ -5,6 +5,7 @@
 
 import fs from "fs";
 import path from "path";
+import { isPathWatched } from "../fs/watchedPaths";
 
 interface FileFingerprint {
   ctimeMs: number;
@@ -128,21 +129,29 @@ export class TextFileCache {
   }
 
   private async readCurrentVersion(filePath: string) {
-    // Self-healing path: stat the file and compare its fingerprint against the
-    // cache entry. If they match, return the cached content (1 syscall). If
-    // they don't, fall through to the cold read path below. This catches
-    // external edits to files that have no active watcher — background tabs,
-    // files outside the workspace root, and split-pane secondaries all lack
-    // watcher coverage, so trusting the cache blindly would return stale bytes.
     const cached = this.entries.get(filePath);
     if (cached) {
+      // If this path has an active OS-level watcher, the cache entry is
+      // guaranteed to be invalidated when the file changes on disk. The
+      // watcher calls invalidate() which removes the entry. We can trust it
+      // with zero extra syscalls, which is the hot-path performance win.
+      //
+      // If no watcher is active (background tab, file outside workspace,
+      // split-pane secondary), we must stat and compare the fingerprint to
+      // catch external edits that no one notified us about. This costs one
+      // syscall (~0.1–0.5ms on a warm VFS) but prevents returning stale bytes.
+      if (isPathWatched(filePath)) {
+        this.touch(filePath, cached);
+        return cached.content;
+      }
+
       const info = await fs.promises.stat(filePath);
       const currentFingerprint = fingerprint(info);
       if (sameFingerprint(cached.fingerprint, currentFingerprint)) {
         this.touch(filePath, cached);
         return cached.content;
       }
-      // Fingerprint mismatch — the file changed on disk while we had a stale
+      // Fingerprint mismatch. The file changed on disk while we had a stale
       // cache entry. Remove it and fall through to the full read path.
       this.removeEntry(filePath);
     }
@@ -170,7 +179,7 @@ export class TextFileCache {
         // Agents and formatters often replace a file while Axon is reading it.
         // The generation check detects watcher invalidation during the read.
         // Because fstat and readFile share the same fd, we no longer need a
-        // second stat to verify metadata consistency — the fd is pinned to
+        // second stat to verify metadata consistency. The fd is pinned to
         // the inode that was open at the time of the first stat.
         if (generationChanged) {
           continue;

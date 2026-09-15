@@ -697,7 +697,7 @@ contextBridge.exposeInMainWorld("axon", {
     return ipcRenderer.invoke("fs:importEntries", sourcePaths, targetDir);
   },
   watchFile: (path: string) => ipcRenderer.invoke("fs:watch", path),
-  unwatchFile: () => ipcRenderer.invoke("fs:unwatch"),
+  unwatchFile: (path: string) => ipcRenderer.invoke("fs:unwatch", path),
   watchFolder: (path: string) => ipcRenderer.invoke("fs:watchFolder", path),
   unwatchFolder: () => ipcRenderer.invoke("fs:unwatchFolder"),
   listProjectFiles: (
