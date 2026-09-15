@@ -31,6 +31,8 @@ import AgentConversationPicker from "./AgentConversationPicker";
 import AgentMessageList from "./chat/AgentMessageList";
 import AgentRuntimeStatusPanel from "./AgentRuntimeStatusPanel";
 import ClearConversationConfirmModal from "./ClearConversationConfirmModal";
+import ContextChip from "./chat/ContextChip";
+import SlashCommandMenu from "./chat/SlashCommandMenu";
 import {
   type AgentMessage,
   activeAgentConversation,
@@ -84,6 +86,13 @@ export default function AxonAgentSidebar(props: Props) {
   const [clearConversationId, setClearConversationId] = useState<string | null>(
     null,
   );
+  const [slashCommandOpen, setSlashCommandOpen] = useState(false);
+  const [contextEnabled, setContextEnabled] = useState({
+    activeFile: true,
+    diagnostics: true,
+    gitChanges: true,
+  });
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const resumeRequestHandledRef = useRef<string | null>(null);
   const activeConversation = activeAgentConversation(conversationState);
@@ -279,6 +288,7 @@ export default function AxonAgentSidebar(props: Props) {
     setMessages([]);
     setCopiedId(null);
     setConversationPickerOpen(false);
+    setContextEnabled({ activeFile: true, diagnostics: true, gitChanges: true });
   };
 
   const switchConversation = async (conversationId: string) => {
@@ -471,20 +481,71 @@ export default function AxonAgentSidebar(props: Props) {
 
       {canChat && (
         <div className="shrink-0 border-t border-[var(--axon-panel-border)] bg-[var(--axon-sidebar-background)] p-3">
-          <div className="rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/20">
+          <div className="relative rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/20">
+            {(contextEnabled.activeFile && props.activeFilePath) ||
+              (contextEnabled.diagnostics && props.diagnostics.length > 0) ||
+              (contextEnabled.gitChanges && props.gitChanges.length > 0) ? (
+              <div className="flex flex-wrap gap-1 border-b border-[var(--axon-panel-border)] px-3 py-2">
+                {contextEnabled.activeFile && props.activeFilePath && (
+                  <ContextChip
+                    label={props.activeFilePath.split("/").pop() ?? props.activeFilePath}
+                    onRemove={() => setContextEnabled((c) => ({ ...c, activeFile: false }))}
+                  />
+                )}
+                {contextEnabled.diagnostics && props.diagnostics.length > 0 && (
+                  <ContextChip
+                    label={`${props.diagnostics.length} problems`}
+                    onRemove={() => setContextEnabled((c) => ({ ...c, diagnostics: false }))}
+                  />
+                )}
+                {contextEnabled.gitChanges && props.gitChanges.length > 0 && (
+                  <ContextChip
+                    label={`${props.gitChanges.length} changes`}
+                    onRemove={() => setContextEnabled((c) => ({ ...c, gitChanges: false }))}
+                  />
+                )}
+              </div>
+            ) : null}
+
             <textarea
+              ref={textareaRef}
               value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setPrompt(value);
+                setSlashCommandOpen(value === "/");
+                if (textareaRef.current) {
+                  textareaRef.current.style.height = "auto";
+                  textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+                }
+              }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
+                if (event.key === "Enter" && !event.shiftKey && !slashCommandOpen) {
                   event.preventDefault();
                   void runAgent();
                 }
+                if (event.key === "Escape" && slashCommandOpen) {
+                  setSlashCommandOpen(false);
+                }
               }}
-              placeholder="Ask Axon..."
+              placeholder={slashCommandOpen ? "Choose a command..." : "Ask Axon..."}
               className="min-h-10 w-full resize-none bg-transparent px-3 py-2.5 text-[12px] leading-5 text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35"
               rows={1}
             />
+
+            {slashCommandOpen && (
+              <SlashCommandMenu
+                onSelect={(selectedAction) => {
+                  setAction(selectedAction);
+                  setPrompt("");
+                  setSlashCommandOpen(false);
+                  if (textareaRef.current) {
+                    textareaRef.current.style.height = "auto";
+                  }
+                }}
+              />
+            )}
+
             <div className="flex items-center justify-between gap-2 border-t border-[var(--axon-panel-border)] px-2 py-1.5">
               <div className="flex min-w-0 items-center gap-1">
                 {canManageModels && (
