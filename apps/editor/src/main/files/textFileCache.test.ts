@@ -30,7 +30,7 @@ describe("TextFileCache", () => {
   it("reuses validated text while still joining concurrent readers", async () => {
     const filePath = temporaryFile("main.ts", "export const value = 1;\n");
     const cache = new TextFileCache();
-    const readSpy = vi.spyOn(fs.promises, "readFile");
+    const openSpy = vi.spyOn(fs.promises, "open");
 
     const [first, second] = await Promise.all([
       cache.read(filePath),
@@ -41,7 +41,11 @@ describe("TextFileCache", () => {
     expect(first).toBe("export const value = 1;\n");
     expect(second).toBe(first);
     expect(third).toBe(first);
-    expect(readSpy).toHaveBeenCalledTimes(1);
+    // The cold path opens the file once via fs.promises.open() and uses the
+    // same fd for fstat + readFile. Concurrent readers join the same in-flight
+    // promise, so only one open happens. The third read is a cache hit (zero
+    // syscalls) thanks to the fast path at the top of readCurrentVersion.
+    expect(openSpy).toHaveBeenCalledTimes(1);
   });
 
   it("invalidates watcher changes even when a replacement has the same size", async () => {
@@ -59,13 +63,16 @@ describe("TextFileCache", () => {
     const firstPath = temporaryFile("first.txt", "12345678");
     const secondPath = temporaryFile("second.txt", "abcdefgh");
     const cache = new TextFileCache({ maxBytes: 20, maxEntries: 10 });
-    const readSpy = vi.spyOn(fs.promises, "readFile");
+    const openSpy = vi.spyOn(fs.promises, "open");
 
     await cache.read(firstPath);
     await cache.read(secondPath);
     await cache.read(firstPath);
 
-    expect(readSpy).toHaveBeenCalledTimes(3);
+    // Each file's estimated memory is 16 bytes (Math.max(8, 8*2)), so reading
+    // both exceeds the 20-byte budget and evicts the first. The third read is
+    // a cache miss that re-opens the file from disk, totaling 3 opens.
+    expect(openSpy).toHaveBeenCalledTimes(3);
   });
 
   it("does not retain binary or invalid UTF-8 input", async () => {
