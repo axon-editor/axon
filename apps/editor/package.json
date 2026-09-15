@@ -901,7 +901,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/yauzl": "^2.10.3",
     "@vitejs/plugin-react": "^6.0.2",
-    "concurrently": "^9.2.4",
+    "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
     "electron": "42.10.1",
     "electron-builder": "^26.15.3",
