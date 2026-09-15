@@ -8,9 +8,29 @@
 // but loads grammars independently so the chat can highlight code without
 // waiting for the full LSP pipeline to warm up.
 
-import type { HighlighterCore } from "shiki";
+type ShikiHighlighter = {
+  codeToHtml: (code: string, options: { lang: string; theme: string }) => string;
+  loadLanguage: (grammar: unknown) => Promise<void>;
+};
 
-let highlighterPromise: Promise<HighlighterCore> | null = null;
+type ShikiModule = {
+  createHighlighterCore: (options: {
+    themes: unknown[];
+    langs: unknown[];
+    engine: unknown;
+  }) => Promise<ShikiHighlighter>;
+};
+
+type ShikiOnigurumaModule = {
+  createOnigurumaEngine: (wasm: unknown) => Promise<unknown>;
+};
+
+type ShikiWasmModule = {
+  default?: unknown;
+  getWasmInstance?: unknown;
+};
+
+let highlighterPromise: Promise<ShikiHighlighter> | null = null;
 const loadedLanguages = new Set<string>();
 
 // Maps common language aliases to Shiki grammar names. Languages not listed
@@ -36,7 +56,7 @@ function resolveLanguage(lang: string): string {
   return languageAlias[lang.toLowerCase()] ?? lang.toLowerCase();
 }
 
-function getHighlighter(): Promise<HighlighterCore> {
+function getHighlighter(): Promise<ShikiHighlighter> {
   if (!highlighterPromise) {
     highlighterPromise = Promise.all([
       import("shiki/core"),
@@ -44,11 +64,10 @@ function getHighlighter(): Promise<HighlighterCore> {
       import("@shikijs/engine-oniguruma/wasm-inlined"),
       import("shiki/themes/github-dark.mjs"),
     ]).then(async ([coreModule, onigurumaModule, wasmModule, githubDark]) => {
-      const oniguruma = onigurumaModule as {
-        createOnigurumaEngine: (source: unknown) => Promise<unknown>;
-      };
-      const wasm = wasmModule as { default?: unknown; getWasmInstance?: unknown };
-      return coreModule.createHighlighterCore({
+      const oniguruma = onigurumaModule as ShikiOnigurumaModule;
+      const wasm = wasmModule as ShikiWasmModule;
+      const shiki = coreModule as ShikiModule;
+      return shiki.createHighlighterCore({
         themes: [(githubDark as { default: unknown }).default],
         langs: [],
         engine: await oniguruma.createOnigurumaEngine(

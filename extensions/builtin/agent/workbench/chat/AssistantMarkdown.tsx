@@ -42,7 +42,7 @@ export default function AssistantMarkdown({ content }: { content: string }) {
           ),
           code: ({ children, className }) => {
             const isBlock = className?.startsWith("language-");
-            if (isBlock) {
+            if (isBlock && className) {
               const language = className.replace("language-", "");
               return (
                 <ChatCodeBlock language={language}>
