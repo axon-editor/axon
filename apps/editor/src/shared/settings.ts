@@ -186,10 +186,13 @@ export interface CustomFont {
   stretch?: string;
 }
 
+export type EditorSettingsSurface = "tab" | "window";
+
 export interface EditorSettings {
   fontPreset: FontPresetId;
   uiFontFamily: string;
   sidebarSide: EditorSidebarSide;
+  openSettingsIn: EditorSettingsSurface;
   themeId: ThemeId;
   fontFamily: string;
   fontSize: number;
@@ -272,6 +275,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     fontPreset: "axon-default",
     uiFontFamily: ".AxonSans",
     sidebarSide: "left",
+    openSettingsIn: "tab",
     themeId: DEFAULT_THEME_ID,
     fontFamily: ".AxonMono",
     fontSize: 14,
@@ -473,6 +477,10 @@ function isEditorSidebarSide(value: unknown): value is EditorSidebarSide {
   return value === "left" || value === "right";
 }
 
+function isEditorSettingsSurface(value: unknown): value is EditorSettingsSurface {
+  return value === "tab" || value === "window";
+}
+
 export function isAppGlassMode(value: unknown): value is AppGlassMode {
   return APP_GLASS_MODES.some((mode) => mode === value);
 }
@@ -541,6 +549,9 @@ export function normalizeSettings(value: unknown): AxonSettings {
       sidebarSide: isEditorSidebarSide(editor.sidebarSide)
         ? editor.sidebarSide
         : DEFAULT_SETTINGS.editor.sidebarSide,
+      openSettingsIn: isEditorSettingsSurface(editor.openSettingsIn)
+        ? editor.openSettingsIn
+        : DEFAULT_SETTINGS.editor.openSettingsIn,
       themeId: isThemeId(editor.themeId)
         ? editor.themeId
         : DEFAULT_SETTINGS.editor.themeId,

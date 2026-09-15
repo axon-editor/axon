@@ -24,9 +24,9 @@ export interface SettingsWorkbenchContribution {
 
 // Settings is a privileged built-in surface, but it still needs to flow through
 // the same contribution path as third-party views. If the Settings extension is
-// disabled or its manifest stops declaring the modal view, the workbench should
-// stop mounting the modal instead of hiding the registry problem behind a
-// direct import.
+// disabled or its manifest stops declaring the settings view, the workbench
+// should refuse to open the settings tab instead of hiding the registry problem
+// behind a direct import.
 export function resolveSettingsWorkbenchContribution(
   extensionState: ExtensionState | null | undefined,
 ): SettingsWorkbenchContribution | null {

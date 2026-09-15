@@ -33,6 +33,7 @@ interface AppCommandRunnerOptions {
   handleNewTerminal: () => void;
   handleOpenHtmlPreview: (filePath: string) => void;
   handleOpenSettingsJson: () => Promise<void>;
+  handleOpenSettingsTab: () => void;
   handleSaveActiveFile: () => void;
   handleSaveActiveFileAs: () => Promise<void>;
   handleToggleAutoSave: () => void;
@@ -59,7 +60,6 @@ interface AppCommandRunnerOptions {
   setFolderPickerIntent: StateSetter<FolderPickerIntent | null>;
   setLanguageToolsOpen: StateSetter<boolean>;
   setPaletteOpen: StateSetter<boolean>;
-  setSettingsOpen: StateSetter<boolean>;
   setSidebarCollapsed: StateSetter<boolean>;
   setSidebarView: StateSetter<SidebarView>;
   setSourceControlOpen: StateSetter<boolean>;
@@ -81,6 +81,7 @@ export function useAppCommandRunner({
   handleNewTerminal,
   handleOpenHtmlPreview,
   handleOpenSettingsJson,
+  handleOpenSettingsTab,
   handleSaveActiveFile,
   handleSaveActiveFileAs,
   handleToggleAutoSave,
@@ -107,7 +108,6 @@ export function useAppCommandRunner({
   setFolderPickerIntent,
   setLanguageToolsOpen,
   setPaletteOpen,
-  setSettingsOpen,
   setSidebarCollapsed,
   setSidebarView,
   setSourceControlOpen,
@@ -373,7 +373,7 @@ export function useAppCommandRunner({
         case AXON_COMMANDS.OPEN_SETTINGS:
           activateExtensionEvent("onCommand:axon.settings.open");
           activateExtensionEvent("onView:axon.settings");
-          setSettingsOpen(true);
+          handleOpenSettingsTab();
           break;
         case AXON_COMMANDS.OPEN_EXTENSIONS:
           if (!requireTrustedWorkspace("Extensions")) break;
@@ -464,6 +464,7 @@ export function useAppCommandRunner({
       handleNewTerminal,
       handleOpenHtmlPreview,
       handleOpenSettingsJson,
+      handleOpenSettingsTab,
       handleSaveActiveFile,
       handleSaveActiveFileAs,
       handleToggleAutoSave,
@@ -490,7 +491,6 @@ export function useAppCommandRunner({
       setFolderPickerIntent,
       setLanguageToolsOpen,
       setPaletteOpen,
-      setSettingsOpen,
       setSidebarCollapsed,
       setSidebarView,
       setSourceControlOpen,

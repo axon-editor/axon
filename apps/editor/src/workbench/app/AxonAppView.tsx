@@ -8,7 +8,6 @@ import { resolveTerminalWorkbenchContribution } from "@axon-builtin-terminal/lib
 import { resolveAgentWorkbenchContribution } from "@axon-builtin-agent/lib/contribution";
 import { resolveSearchWorkbenchContribution } from "@axon-builtin-search/lib/contribution";
 import { resolveGitWorkbenchContribution } from "@axon-builtin-git/lib/contribution";
-import { resolveSettingsWorkbenchContribution } from "@axon-builtin-settings/lib/contribution";
 import { resolveTestingWorkbenchContribution } from "@axon-builtin-testing/lib/contribution";
 import { resolveTasksWorkbenchContribution } from "@axon-builtin-tasks/lib/contribution";
 import { resolveLanguageToolsWorkbenchContribution } from "@axon-builtin-language-tools/lib/contribution";
@@ -27,7 +26,6 @@ export type AxonWorkbenchLayoutProps = AxonAppViewProps & {
   >;
   searchContribution: ReturnType<typeof resolveSearchWorkbenchContribution>;
   setAgentSidebarWidth: React.Dispatch<React.SetStateAction<number>>;
-  settingsContribution: ReturnType<typeof resolveSettingsWorkbenchContribution>;
   spotifyContribution: ReturnType<typeof resolveSpotifyWorkbenchContribution>;
   tasksContribution: ReturnType<typeof resolveTasksWorkbenchContribution>;
   terminalContribution: ReturnType<typeof resolveTerminalWorkbenchContribution>;
@@ -69,10 +67,6 @@ export function AxonAppView(props: AxonAppViewProps) {
     () => resolveSearchWorkbenchContribution(extensionState),
     [extensionState],
   );
-  const settingsContribution = React.useMemo(
-    () => resolveSettingsWorkbenchContribution(extensionState),
-    [extensionState],
-  );
   const gitContribution = React.useMemo(
     () => resolveGitWorkbenchContribution(extensionState),
     [extensionState],
@@ -104,7 +98,6 @@ export function AxonAppView(props: AxonAppViewProps) {
         languageToolsContribution={languageToolsContribution}
         searchContribution={searchContribution}
         setAgentSidebarWidth={setAgentSidebarWidth}
-        settingsContribution={settingsContribution}
         spotifyContribution={spotifyContribution}
         tasksContribution={tasksContribution}
         terminalContribution={terminalContribution}

@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 // The settings search box with its result popup. Escape clears the current
-// query before the CommandModal-level Escape handler (which lives on document)
-// closes the whole dialog, so the first press is always "undo the filter" and
-// the second press genuinely leaves. Without stopPropagation the first Escape
-// would close the modal while text is still visible, forcing an extra reopen
-// cycle.
+// query before any global editor shortcut, so the first press is always "undo
+// the filter" and a second press falls through to editor shortcuts. The
+// settings tab itself stays open on Escape; leaving the page is the tab-bar X
+// or the header/footer Close actions instead of a document-level handler.
 //
 // The popup opens as soon as the query has content and closes on selection,
 // on Escape-clear, and on click-away. It does not need a toggle button: while
@@ -40,7 +39,7 @@ export default function SettingsSearchInput({
   const containerRef = useRef<HTMLDivElement>(null);
   const [resultsOpen, setResultsOpen] = useState(false);
 
-  // The modal opens on a keyboard command; focusing the field lets the user
+  // Opening settings is a keyboard command; focusing the field lets the user
   // type a term without clicking first, which is the most common first action
   // in a settings search.
   useEffect(() => {

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 // One labeled settings row: the label and explanatory description on the left,
-// the actual control on the right. On narrow modals the grid collapses to a
-// single column so the description sits above the control instead of crushing
-// it sideways.
+// the actual control on the right. On narrow settings panes the grid collapses
+// to a single column so the description sits above the control instead of
+// crushing it sideways.
 import { type ReactNode } from "react";
 
 export default function SettingsField({

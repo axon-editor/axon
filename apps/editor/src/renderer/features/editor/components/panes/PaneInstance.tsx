@@ -10,12 +10,16 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useEffect, useRef, useState } from "react";
 import {
+  type AxonSettings,
   type EditorSettings,
   type ThemeId,
 } from "@axon-editor/shared/settings";
 import { type GitChange } from "@axon-editor/shared/git";
 import { type EditorDiagnostic } from "@axon-editor/shared/diagnostics";
-import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
+import {
+  type ExtensionState,
+  type ExtensionThemeSyntaxStyle,
+} from "@axon-editor/shared/extensions";
 import {
   decodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
@@ -57,9 +61,15 @@ import {
 } from "@axon-builtin-git/git/lib/gitGraphTab";
 import CodeSnapshot from "@axon-builtin-code-snapshot/CodeSnapshot";
 import { isCodeSnapshotTabPath } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
+import SettingsTab from "@axon-builtin-settings/settings/SettingsTab";
+import { isSettingsTabPath } from "@axon-builtin-settings/settings/lib/settingsTab";
 
 interface Props {
   pane: Pane;
+  language: string;
+  availableFonts: AxonSettings["customFonts"];
+  extensionState: ExtensionState | null;
+  settings: AxonSettings;
   folderPath: string | null;
   isActive: boolean;
   onActivate: () => void;
@@ -73,6 +83,12 @@ interface Props {
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onSelectTheme: (themeId: ThemeId) => void;
+  onPreviewSettings: (settings: AxonSettings) => void;
+  onSaveSettings: (
+    settings: AxonSettings,
+  ) => boolean | void | Promise<boolean | void>;
+  onOpenLanguageTools: () => void;
+  onViewLogs: () => void;
   themeItems: WelcomeThemeItem[];
   onOpenNavigationTarget?: (target: Omit<EditorNavigationTarget, "id">) => void;
   onDirtyChange: (filePath: string, dirty: boolean) => void;
@@ -99,6 +115,10 @@ interface Props {
 
 export default function PaneInstance({
   pane,
+  language,
+  availableFonts,
+  extensionState,
+  settings,
   folderPath,
   isActive,
   onActivate,
@@ -112,6 +132,10 @@ export default function PaneInstance({
   onOpenSettings,
   onOpenTerminal,
   onSelectTheme,
+  onPreviewSettings,
+  onSaveSettings,
+  onOpenLanguageTools,
+  onViewLogs,
   themeItems,
   onOpenNavigationTarget,
   onDirtyChange,
@@ -344,6 +368,19 @@ export default function PaneInstance({
                     tabPath={path}
                     themeSyntax={themeSyntax}
                     themeTokens={themeTokens}
+                  />
+                ) : isSettingsTabPath(path) ? (
+                  <SettingsTab
+                    folderPath={folderPath}
+                    language={language}
+                    availableFonts={availableFonts}
+                    extensionState={extensionState}
+                    settings={settings}
+                    onCloseTab={() => onCloseTab(path)}
+                    onPreview={onPreviewSettings}
+                    onSave={onSaveSettings}
+                    onOpenLanguageTools={onOpenLanguageTools}
+                    onViewLogs={onViewLogs}
                   />
                 ) : isHtmlPreviewTabPath(path) ? (
                   <HtmlPreview

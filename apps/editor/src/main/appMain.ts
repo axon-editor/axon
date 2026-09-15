@@ -41,6 +41,7 @@ import { registerTestHandlers } from "./tests/handlers";
 import { TestManager } from "./tests/tests";
 import { HtmlPreviewServer } from "./htmlPreview/server";
 import { createWindow } from "./window/createWindow";
+import { createSettingsWindow } from "./window/createSettingsWindow";
 import { OpenWorkspaceRegistry } from "./window/openWorkspaceRegistry";
 import { readSettingsFromDisk } from "./settings/io";
 import { getAxonIconPath } from "./fonts/fonts";
@@ -171,6 +172,13 @@ const { broadcastToRenderers, sendToRenderer, sendMenuCommand } =
   createMainProcessIpc({
     getMainWindow: () => mainWindow,
   });
+const settingsWindowController = createSettingsWindow({
+  axonDevServerUrl,
+  isDev,
+  isMac,
+  isWindows,
+  getAxonIconPath: () => getAxonIconPath(isDev),
+});
 
 function getLocalProtocolContentType(filePath: string) {
   const extension = path.extname(filePath).toLowerCase();
@@ -500,6 +508,10 @@ registerSettingsHandlers({
   startPythonLanguageServerForFolder: async (folderPath) => {
     await startLanguageServerForLanguage(folderPath, "python");
   },
+  openSettingsWindow: settingsWindowController.openSettingsWindow,
+  closeSettingsWindow: settingsWindowController.closeSettingsWindow,
+  broadcastSettingsToEditorWindows:
+    settingsWindowController.broadcastSettingsToEditorWindows,
 });
 const fileWatcherRegistry = registerFileWatcherHandlers(
   (sendWatcherEvent) => createFileWatcherManager(sendWatcherEvent),

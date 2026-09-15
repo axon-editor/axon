@@ -29,7 +29,7 @@
     "sync:builtin-themes": "npm run prepare:extension-registry",
     "sync:builtin": "npm run prepare:extension-registry",
     "prebuild:renderer": "npm --prefix ../.. run build:packages && npm run patch:xterm-scrollback",
-    "build:renderer": "npm run prepare:extension-registry && vite build && node scripts/prune-renderer-fonts.mjs",
+    "build:renderer": "npm run prepare:extension-registry && cross-env AXON_BUILD_ENTRY= vite build && cross-env AXON_BUILD_ENTRY=settings vite build && node scripts/prune-renderer-fonts.mjs",
     "lint": "npm --prefix ../.. run lint",
     "pretest": "npm run patch:xterm-scrollback",
     "test": "vitest run --exclude src/platform/terminal/terminalRendererPixel.integration.test.ts",

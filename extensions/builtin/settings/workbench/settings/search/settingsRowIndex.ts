@@ -46,6 +46,7 @@ interface SettingsRowEntry extends SettingsRowItem {
 export const SETTINGS_ROW_ITEMS: SettingsRowItem[] = [
   { rowKey: "theme", sectionId: "appearance", label: "Theme", keywords: ["theme file", "dark", "light", "color scheme"] },
   { rowKey: "ui-font", sectionId: "appearance", label: "UI font", keywords: ["interface", "system ui", "zed sans", "axon sans"] },
+  { rowKey: "settings-surface", sectionId: "appearance", label: "Open settings in", keywords: ["tab", "window", "separate window", "surface", "preference"] },
   { rowKey: "sidebar-side", sectionId: "appearance", label: "Sidebar side", keywords: ["layout", "left", "right", "file explorer position"] },
 
   { rowKey: "app-glass", sectionId: "background", label: "App glass", keywords: ["glass mode", "vibrancy", "mica", "acrylic", "transparency", "native material"] },

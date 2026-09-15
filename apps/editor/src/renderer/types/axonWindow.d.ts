@@ -132,6 +132,10 @@ declare global {
     axonCompletionWorkspacePath?: string | null;
     axonEditorSettings?: AxonSettings;
     axon: {
+      // Present only in the dedicated Settings window (editor.openSettingsIn =
+      // "window"); undefined in editor windows. Lets the surface boot choose
+      // the slim settings mount instead of the full editor app shell.
+      surface?: "settings";
       platform: string;
       isWindowFullScreen: () => Promise<boolean>;
       onWindowFullScreenChanged: (
@@ -213,6 +217,21 @@ declare global {
         folderPath?: string | null,
         settings?: AxonSettings,
       ) => Promise<string>;
+      openSettingsWindow: () => Promise<void>;
+      closeSettingsWindow: () => Promise<void>;
+      onSettingsPreview: (
+        callback: (settings: AxonSettings) => void,
+      ) => () => void;
+      onSettingsChanged: (
+        callback: (settings: AxonSettings) => void,
+      ) => () => void;
+      onSettingsAction: (
+        callback: (action: "openLanguageTools" | "viewLogs") => void,
+      ) => () => void;
+      previewSettings?: (settings: AxonSettings) => Promise<void>;
+      sendSettingsAction?: (
+        action: "openLanguageTools" | "viewLogs",
+      ) => Promise<void>;
       getProjectDiagnostics: (
         folderPath: string,
       ) => Promise<EditorDiagnostic[]>;

@@ -7,8 +7,8 @@
 // middle, and the save status pinned to the bottom. Groups keep the growing
 // section list scannable instead of one flat list, and sections that match the
 // current search stay visible while the rest of their group collapses. The
-// active page gets an accent rail so users can locate it without depending on
-// text color alone.
+// active page is filled with a subtle panel-overlay tint and its icon is
+// colored with the accent, so the selection stays legible without a left rail.
 import {
   SETTINGS_GROUPS,
   SETTINGS_SECTIONS,
@@ -94,15 +94,12 @@ export default function SettingsSidebar({
                       type="button"
                       onClick={() => onSectionChange(section.id)}
                       aria-current={active ? "page" : undefined}
-                      className={`group relative flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${
+                      className={`group flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${
                         active
                           ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
                           : "text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
                       }`}
                     >
-                      {active && (
-                        <span className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-[var(--axon-accent)]" />
-                      )}
                       <Icon
                         size={14}
                         className={`shrink-0 ${

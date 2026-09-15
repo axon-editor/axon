@@ -92,6 +92,13 @@ interface SettingsHandlersDependencies {
   }>;
   notifyPythonConfigurationForFolder: (folderPath: string) => void;
   startPythonLanguageServerForFolder: (folderPath: string) => Promise<void>;
+  openSettingsWindow: () => void;
+  closeSettingsWindow: () => void;
+  broadcastSettingsToEditorWindows: (
+    channel: string,
+    payload?: unknown,
+    exceptRendererId?: number,
+  ) => void;
 }
 
 export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
@@ -399,7 +406,53 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
         setClientId(updatedClientId);
       }
 
+      // A save is the authoritative disk state. Every other editor window
+      // converges to the normalized result so tab-mode and window-mode saves
+      // stay consistent across multiple windows, without the sender re-applying
+      // the write it just performed.
+      deps.broadcastSettingsToEditorWindows(
+        "settings:changed",
+        normalizedSettings,
+        event.sender.id,
+      );
+
       return normalizedSettings;
+    },
+  );
+
+  ipcMain.handle("settings:openWindow", () => {
+    deps.openSettingsWindow();
+  });
+
+  ipcMain.handle("settings:closeWindow", () => {
+    deps.closeSettingsWindow();
+  });
+
+  // The dedicated settings window previews every draft change without waiting
+  // for the debounced save. Main relays that draft to the editor windows so the
+  // shell, Monaco, and terminal mirrors stay live; it never touches the disk.
+  ipcMain.handle(
+    "settings:preview",
+    (event, settings: AxonSettings) => {
+      deps.broadcastSettingsToEditorWindows(
+        "settings:preview",
+        settings,
+        event.sender.id,
+      );
+    },
+  );
+
+  // Actions meant for the editor shell (Language Tools pane, LSP Logs output)
+  // are relayed to every editor window; the settings window has no such panels.
+  ipcMain.handle(
+    "settings:action",
+    (event, action: "openLanguageTools" | "viewLogs") => {
+      if (action !== "openLanguageTools" && action !== "viewLogs") return;
+      deps.broadcastSettingsToEditorWindows(
+        "settings:action",
+        action,
+        event.sender.id,
+      );
     },
   );
 

@@ -5,7 +5,7 @@
 
 import { type AxonSettings } from "@axon-editor/shared/settings";
 import SearchSelect, { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect";
-import { EDITOR_SIDEBAR_SIDE_ITEMS } from "../lib/settingsData";
+import { EDITOR_SETTINGS_SURFACE_ITEMS, EDITOR_SIDEBAR_SIDE_ITEMS } from "../lib/settingsData";
 import SettingsField from "../controls/SettingsField";
 import SettingsSection from "../controls/SettingsSection";
 
@@ -50,6 +50,20 @@ export default function AppearanceSettingsSection({
           onChange={(fontFamily) => onUpdateEditor("uiFontFamily", fontFamily)}
           ariaLabel="UI font"
           placeholder="Search UI fonts..."
+        />
+      </SettingsField>
+
+      <SettingsField
+        rowKey="settings-surface"
+        label="Open settings in"
+        description="Choose the tab inside the editor or a dedicated settings window that all editor windows reuse."
+      >
+        <SearchSelect
+          value={draft.editor.openSettingsIn}
+          items={EDITOR_SETTINGS_SURFACE_ITEMS}
+          onChange={(surface) => onUpdateEditor("openSettingsIn", surface)}
+          ariaLabel="Settings surface"
+          placeholder="Search surfaces..."
         />
       </SettingsField>
 

@@ -12,6 +12,7 @@ import {
   type EditorDiagnostic,
 } from "@axon-builtin-problems/lib/diagnostics";
 import { AXON_PROBLEMS_TAB_PATH } from "@axon-builtin-problems/lib/problemsTab";
+import { resolveSettingsWorkbenchContribution } from "@axon-builtin-settings/lib/contribution";
 import { useAgentDiagnosticsExport } from "@axon-builtin-problems/lib/useAgentDiagnosticsExport";
 import {
   capDiagnostics,
@@ -50,6 +51,7 @@ import { buildAppPaletteCommands } from "./lib/appCommandPalette";
 import { useAppDerivedState } from "./lib/useAppDerivedState";
 import { useAxonAppEffects } from "./lib/useAxonAppEffects";
 import { useAppCommandRunner } from "./lib/useAppCommandRunner";
+import { useSettingsWindowSync } from "./lib/useSettingsWindowSync";
 import { useWorkspaceHandlers } from "./lib/useWorkspaceHandlers";
 import { useEditorSurfaceHandlers } from "./lib/useEditorSurfaceHandlers";
 import { useSaveFileAs } from "./lib/useSaveFileAs";
@@ -117,7 +119,6 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
   const [diffFilePath, setDiffFilePath] = useState<string | null>(null);
   const [sourceControlOpen, setSourceControlOpen] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatusResult | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [extensionsOpen, setExtensionsOpen] = useState(false);
   const [extensionViewOpenId, setExtensionViewOpenId] = useState<string | null>(
     null,
@@ -147,6 +148,10 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     return () =>
       window.removeEventListener("axon:extensionState", handleExtensionState);
   }, []);
+  const settingsContribution = useMemo(
+    () => resolveSettingsWorkbenchContribution(extensionState),
+    [extensionState],
+  );
   const [monacoDiagnostics, setMonacoDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
@@ -474,7 +479,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     settingsHydrated,
   ]);
   const handleSettingsPreview = useCallback((nextSettings: AxonSettings) => {
-    // SettingsModal owns the editable draft, but App owns the live theme and
+    // SettingsTab owns the editable draft, but App owns the live theme and
     // editor options. Previewing through this callback keeps the shell, Monaco,
     // terminal, and panels in sync with the current draft without writing every
     // slider movement or color keystroke to the app settings file.
@@ -515,6 +520,16 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
       openFileInPane(prev, prev.activePaneId, AXON_PROBLEMS_TAB_PATH),
     );
   }, []);
+  const { handleOpenSettingsTab } = useSettingsWindowSync({
+    settings,
+    settingsContribution,
+    handleSettingsPreview,
+    setLayout,
+    setSettings,
+    setLanguageToolsOpen,
+    setBottomPanelTab,
+    setBottomPanelOpen,
+  });
   const navigateDiagnostic = useCallback(
     (direction: 1 | -1) => {
       if (diagnostics.length === 0) {
@@ -714,6 +729,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     handleNewTerminal,
     handleOpenHtmlPreview,
     handleOpenSettingsJson,
+    handleOpenSettingsTab,
     handleSaveActiveFile,
     handleSaveActiveFileAs,
     handleToggleAutoSave,
@@ -740,7 +756,6 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     setFolderPickerIntent,
     setLanguageToolsOpen,
     setPaletteOpen,
-    setSettingsOpen,
     setSidebarCollapsed,
     setSidebarView,
     setSourceControlOpen,
@@ -882,6 +897,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     handleOpenPathInTerminal,
     handleOpenTabInTerminal,
     handleWorkspaceSearchResult,
+    handleOpenSettingsTab,
     handleOpenUpdatePage,
     handleRefresh,
     handleInstallUpdate,
@@ -903,7 +919,6 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     runCommand,
     settings,
     settingsHydrated,
-    settingsOpen,
     sidebarCollapsed,
     sidebarView,
     sidebarWidth,
@@ -945,7 +960,6 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     setLanguageToolsOpen,
     setLayout,
     setPaletteOpen,
-    setSettingsOpen,
     setSidebarCollapsed,
     setSidebarView,
     setSidebarWidth,

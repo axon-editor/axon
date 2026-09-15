@@ -3,9 +3,10 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Compact save-state readout shared by the sidebar footer and the modal footer.
-// Saving and error states collapse to a single treatment so the user always
-// knows whether the dash-typed change actually landed, without a full toast.
+// Compact save-state readout shared by the sidebar footer and the settings
+// footer. Saving and error states collapse to a single treatment so the user
+// always knows whether the just-typed change actually landed, without a full
+// toast.
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { type SettingsSaveState } from "./types";
 

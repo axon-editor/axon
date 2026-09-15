@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// One Lucide icon per settings section, kept out of the sidebar and the modal
-// component so future sections only touch this map and settingsData.
+// One Lucide icon per settings section, kept out of the sidebar and the
+// settings page so future sections only touch this map and settingsData.
 import {
   Image,
   Palette,

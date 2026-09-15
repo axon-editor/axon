@@ -3,11 +3,11 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Groups a set of settings rows. The modal header already owns the page title,
-// so single-section pages pass no heading and this component renders fields
-// only, avoiding the same title appearing twice. The stacked Editor page uses
-// compact sub-headings to separate typography fom behavior without competing
-// with the header for visual hierarchy.
+// Groups a set of settings rows. The settings header already owns the page
+// title, so single-section pages pass no heading and this component renders
+// fields only, avoiding the same title appearing twice. The stacked Editor page
+// uses compact sub-headings to separate typography fom behavior without
+// competing with the header for visual hierarchy.
 import { type ReactNode } from "react";
 
 interface SettingsSectionProps {

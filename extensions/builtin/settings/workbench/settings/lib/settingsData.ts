@@ -17,6 +17,7 @@ import {
   UI_FONT_FAMILIES,
   type AiProviderId,
   type AppGlassMode,
+  type EditorSettingsSurface,
   type EditorSidebarSide,
   type EditorFontFamily,
   type EditorCursorBlinking,
@@ -316,6 +317,20 @@ export const AI_PROVIDER_ITEMS: SearchSelectItem<AiProviderId>[] =
 export const EDITOR_SIDEBAR_SIDE_ITEMS: SearchSelectItem<EditorSidebarSide>[] = [
   { value: "left", label: "Left" },
   { value: "right", label: "Right" },
+];
+
+export const EDITOR_SETTINGS_SURFACE_ITEMS: SearchSelectItem<EditorSettingsSurface>[] = [
+  {
+    value: "tab",
+    label: "Editor tab (default)",
+    description: "Open settings as a tab in the current editor window.",
+  },
+  {
+    value: "window",
+    label: "Separate window",
+    description:
+      "Open settings in a dedicated window that every editor window reuses.",
+  },
 ];
 
 const TERMINAL_GPU_ACCELERATION_LABELS: Record<

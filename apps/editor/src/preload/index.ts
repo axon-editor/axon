@@ -290,6 +290,30 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("window:setGlass", mode, opaqueBackground, appearance),
   ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
+  openSettingsWindow: (): Promise<void> =>
+    ipcRenderer.invoke("settings:openWindow"),
+  closeSettingsWindow: (): Promise<void> =>
+    ipcRenderer.invoke("settings:closeWindow"),
+  onSettingsPreview: (callback: (settings: AxonSettings) => void) => {
+    const handler = (_: unknown, settings: AxonSettings) => callback(settings);
+    ipcRenderer.on("settings:preview", handler);
+    return () => ipcRenderer.removeListener("settings:preview", handler);
+  },
+  onSettingsChanged: (callback: (settings: AxonSettings) => void) => {
+    const handler = (_: unknown, settings: AxonSettings) => callback(settings);
+    ipcRenderer.on("settings:changed", handler);
+    return () => ipcRenderer.removeListener("settings:changed", handler);
+  },
+  onSettingsAction: (
+    callback: (action: "openLanguageTools" | "viewLogs") => void,
+  ) => {
+    const handler = (
+      _: unknown,
+      action: "openLanguageTools" | "viewLogs",
+    ) => callback(action);
+    ipcRenderer.on("settings:action", handler);
+    return () => ipcRenderer.removeListener("settings:action", handler);
+  },
   getProjectDiagnostics: (folderPath: string): Promise<EditorDiagnostic[]> =>
     ipcRenderer.invoke("diagnostics:project", folderPath),
   exportAgentDiagnostics: (snapshot: {

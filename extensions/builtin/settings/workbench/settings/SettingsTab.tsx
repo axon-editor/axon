@@ -10,7 +10,6 @@ import {
   getEnabledExtensionThemes,
   type ExtensionState,
 } from "@axon-editor/shared/extensions";
-import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
 import {
   EDITOR_FONT_ITEMS,
   SETTINGS_SECTIONS,
@@ -43,13 +42,13 @@ import FontsSettingsSection from "./sections/FontsSettingsSection";
 import LanguageServersSettingsSection from "./sections/LanguageServersSettingsSection";
 import AxonAgentSettingsSection from "./sections/AxonAgentSettingsSection";
 
-interface Props {
+interface SettingsTabProps {
   folderPath: string | null;
   language: string;
   availableFonts: AxonSettings["customFonts"];
   extensionState: ExtensionState | null;
   settings: AxonSettings;
-  onClose: () => void;
+  onCloseTab: () => void;
   onPreview: (settings: AxonSettings) => void;
   onSave: (
     settings: AxonSettings,
@@ -58,18 +57,18 @@ interface Props {
   onViewLogs: () => void;
 }
 
-export default function SettingsModal({
+export default function SettingsTab({
   folderPath,
   language,
   availableFonts,
   extensionState,
   settings,
-  onClose,
+  onCloseTab,
   onPreview,
   onSave,
   onOpenLanguageTools,
   onViewLogs,
-}: Props) {
+}: SettingsTabProps) {
   const initialSettingsRef = useRef(settings);
   const [draft, setDraft] = useState(settings);
   const [activeSection, setActiveSection] =
@@ -101,6 +100,16 @@ export default function SettingsModal({
   // Set when a row result is picked from the search popup; revealed on the
   // next frame once the target section has actually rendered.
   const pendingRowKeyRef = useRef<string | null>(null);
+  // The tab can unmount without an explicit close (tab-bar X, pane split, app
+  // quit), so the newest draft and the persist callback this render live in
+  // refs for a mount-only flush that runs on every exit path. persistSettings
+  // is defined below the draft memos, so this ref starts as a no-op stub and
+  // is pointed at the live callback on every render.
+  const latestDraftRef = useRef(draft);
+  const latestDraftJsonRef = useRef("");
+  const persistSettingsRef = useRef(
+    (_settings: AxonSettings, _settingsJson: string) => {},
+  );
 
   const customFontItems = useMemo(
     () => {
@@ -158,6 +167,8 @@ export default function SettingsModal({
     [normalizedDraft],
   );
   latestSettingsJsonRef.current = normalizedDraftJson;
+  latestDraftRef.current = draft;
+  latestDraftJsonRef.current = normalizedDraftJson;
   const dirty = normalizedDraftJson !== normalizedInitialSettingsJson;
   const settingsScopeLabel = folderPath
     ? folderPath.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? "workspace"
@@ -297,11 +308,11 @@ export default function SettingsModal({
     }
 
     // Settings controls should feel like editor preferences, not a form that
-    // only matters after closing the modal. The preview is lightly coalesced
+    // only matters after leaving the page. The preview is lightly coalesced
     // because applying settings can redraw the editor chrome, Monaco, terminal,
     // and portal surfaces. Without this delay, each typed character in a text
     // field can trigger a full app repaint before React has finished the input
-    // update, which is the slow path users feel in the settings modal.
+    // update, which is the slow path users feel in the settings UI.
     //
     const previewTimer = setTimeout(() => {
       onPreview(normalizedDraft);
@@ -347,6 +358,7 @@ export default function SettingsModal({
     },
     [onSave],
   );
+  persistSettingsRef.current = persistSettings;
 
   useEffect(() => {
     if (!autoSaveReadyRef.current) {
@@ -361,9 +373,14 @@ export default function SettingsModal({
     // text fields from sending one IPC write per input event without bringing
     // back a manual Apply or Save step.
     setSaveState("saving");
+    // The timer fires through persistSettingsRef instead of depending on the
+    // persistSettings identity because that identity changes with onSave, which
+    // the dedicated window surface re-creates on every render. Depending on it
+    // here would cancel and re-arm the debounce on each preview re-render,
+    // keeping the save from ever firing while the status sits in "saving".
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
-      persistSettings(normalizedDraft, normalizedDraftJson);
+      persistSettingsRef.current(normalizedDraft, normalizedDraftJson);
     }, 300);
 
     return () => {
@@ -372,7 +389,27 @@ export default function SettingsModal({
         saveTimerRef.current = null;
       }
     };
-  }, [normalizedDraft, normalizedDraftJson, persistSettings]);
+  }, [normalizedDraft, normalizedDraftJson]);
+
+  useEffect(() => {
+    // "Close" is reachable two ways: the header/footer buttons (which flush in
+    // close()) and the tab-bar X (which unmounts this component without an exit
+    // event). The latter would cancel the debounced save timer via the effect
+    // above, so this mount-only cleanup flushes the newest draft on every
+    // unmount path and keeps a change made moments before closing from being
+    // lost on restart. persistSettings short-circuits when the draft matches
+    // the last persisted JSON, so flush-on-close is never a duplicate write.
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      void persistSettingsRef.current(
+        latestDraftRef.current,
+        latestDraftJsonRef.current,
+      );
+    };
+  }, []);
 
   const updateEditor = <K extends keyof AxonSettings["editor"]>(
     key: K,
@@ -538,15 +575,17 @@ export default function SettingsModal({
   };
 
   const close = () => {
-    // Closing can happen before the debounce expires through Escape, an outside
-    // click, or the footer action. Flush the newest normalized draft here so
-    // the modal never appears to apply a setting and then loses it on restart.
+    // The tab can leave this page through Escape-clear, the header/footer
+    // actions, or a pane move. Flush the newest normalized draft here so the
+    // settings page never appears to apply a setting and then loses it on
+    // restart. The unmount cleanup preserves the same guarantee for the
+    // tab-bar X path that bypasses this callback.
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
     persistSettings(normalizedDraft, normalizedDraftJson);
-    onClose();
+    onCloseTab();
   };
 
   const resetDraft = () => {
@@ -559,135 +598,125 @@ export default function SettingsModal({
     : "No workspace is open, so changes apply to your user settings only.";
 
   return (
-    <CommandModal
-      onClose={close}
-      width="w-[min(1120px,calc(100vw-2rem))]"
-      bodyClassName="flex min-h-0 flex-1 overflow-hidden"
-      panelStyle={{
-        height: "min(820px, calc(100vh - 3rem))",
-        minHeight: "min(680px, calc(100vh - 3rem))",
-      }}
-    >
-      <div className="grid h-full min-h-0 w-full grid-cols-[300px_1fr] overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-transparent shadow-2xl">
-        <SettingsSidebar
-          activeSection={activeSection}
-          query={sectionQuery}
-          queryMatches={queryMatches}
-          sectionIds={queryMatches.map((match) => match.id)}
-          rows={rowMatches}
-          saveState={saveState}
-          hasDirtyChanges={dirty}
-          onSectionChange={handleSectionChange}
-          onQueryChange={handleSectionQueryChange}
-          onSelectSection={handleOpenSection}
-          onSelectRow={handleOpenRow}
+    <div className="grid h-full min-h-0 w-full grid-cols-[216px_1fr] overflow-hidden">
+      <SettingsSidebar
+        activeSection={activeSection}
+        query={sectionQuery}
+        queryMatches={queryMatches}
+        sectionIds={queryMatches.map((match) => match.id)}
+        rows={rowMatches}
+        saveState={saveState}
+        hasDirtyChanges={dirty}
+        onSectionChange={handleSectionChange}
+        onQueryChange={handleSectionQueryChange}
+        onSelectSection={handleOpenSection}
+        onSelectRow={handleOpenRow}
+      />
+
+      <div className="flex min-h-0 flex-col bg-[var(--axon-editor-background)]">
+        <SettingsHeader
+          activeSectionMeta={activeSectionMeta}
+          scopeMode={folderPath ? "workspace" : "user"}
+          scopePathLabel={settingsScopeLabel}
+          scopeHint={scopeHint}
+          dirty={dirty}
+          onReset={resetDraft}
+          onClose={close}
         />
+        {/* Remounting this scroll area on every section change replays the
+            enter animation, so switching pages fades the new controls in
+            instead of swapping them with no visual feedback. */}
+        <div
+          key={activeSection}
+          className="axon-settings-enter min-h-0 flex-1 overflow-y-auto px-7 py-6"
+        >
+          {activeSection === "appearance" && (
+            <AppearanceSettingsSection
+              draft={draft}
+              themeItems={themeItems}
+              uiFontItems={uiFontItems}
+              onUpdateEditor={updateEditor}
+            />
+          )}
 
-        <div className="flex min-h-0 flex-col bg-[var(--axon-editor-background)]">
-          <SettingsHeader
-            activeSectionMeta={activeSectionMeta}
-            scopeMode={folderPath ? "workspace" : "user"}
-            scopePathLabel={settingsScopeLabel}
-            scopeHint={scopeHint}
-            dirty={dirty}
-            onReset={resetDraft}
-            onClose={close}
-          />
-          {/* Remounting this scroll area on every section change replays the
-              enter animation, so switching pages fades the new controls in
-              instead of swapping them with no visual feedback. */}
-          <div
-            key={activeSection}
-            className="axon-settings-enter min-h-0 flex-1 overflow-y-auto px-7 py-6"
-          >
-            {activeSection === "appearance" && (
-              <AppearanceSettingsSection
+          {activeSection === "editor" && (
+            <>
+              <EditorSettingsSection
                 draft={draft}
-                themeItems={themeItems}
-                uiFontItems={uiFontItems}
+                editorFontItems={editorFontItems}
+                onApplyFontPreset={applyFontPreset}
                 onUpdateEditor={updateEditor}
               />
-            )}
-
-            {activeSection === "editor" && (
-              <>
-                <EditorSettingsSection
-                  draft={draft}
-                  editorFontItems={editorFontItems}
-                  onApplyFontPreset={applyFontPreset}
-                  onUpdateEditor={updateEditor}
-                />
-                <EditorBehaviorSettingsSection
-                  draft={draft}
-                  onUpdateEditor={updateEditor}
-                />
-              </>
-            )}
-
-            {activeSection === "terminal" && (
-              <TerminalSettingsSection
+              <EditorBehaviorSettingsSection
                 draft={draft}
-                onUpdateTerminal={updateTerminal}
-              />
-            )}
-
-            {activeSection === "background" && (
-              <BackgroundSettingsSection
-                backgroundImageError={backgroundImageError}
-                draft={draft}
-                onSelectEditorBackgroundImage={() =>
-                  void selectEditorBackgroundImage()
-                }
                 onUpdateEditor={updateEditor}
               />
-            )}
+            </>
+          )}
 
-            {activeSection === "fonts" && (
-              <FontsSettingsSection
-                draft={draft}
-                fontImportError={fontImportError}
-                onImportFont={() => void importFont()}
-                onRemoveFont={removeFont}
-                onUpdateEditor={updateEditor}
-              />
-            )}
+          {activeSection === "terminal" && (
+            <TerminalSettingsSection
+              draft={draft}
+              onUpdateTerminal={updateTerminal}
+            />
+          )}
 
-            {activeSection === "languageServers" && (
-              <LanguageServersSettingsSection
-                draft={draft}
-                folderPath={folderPath}
-                onClearPythonVirtualEnv={clearPythonVirtualEnv}
-                onOpenLanguageTools={onOpenLanguageTools}
-                onSelectPythonVirtualEnv={() => void selectPythonVirtualEnv()}
-                onUpdateLsp={updateLsp}
-                onViewLogs={onViewLogs}
-                pythonDetected={pythonDetected}
-                pythonEnvironmentMessage={pythonEnvironmentMessage}
-              />
-            )}
+          {activeSection === "background" && (
+            <BackgroundSettingsSection
+              backgroundImageError={backgroundImageError}
+              draft={draft}
+              onSelectEditorBackgroundImage={() =>
+                void selectEditorBackgroundImage()
+              }
+              onUpdateEditor={updateEditor}
+            />
+          )}
 
-            {activeSection === "ai" && (
-              <AxonAgentSettingsSection
-                draft={draft}
-                models={aiModels}
-                modelsError={aiModelsError}
-                modelsLoading={aiModelsLoading}
-                onRefreshModels={() =>
-                  setAiModelsRefreshNonce((nonce) => nonce + 1)
-                }
-                onUpdateAi={updateAi}
-              />
-            )}
-          </div>
+          {activeSection === "fonts" && (
+            <FontsSettingsSection
+              draft={draft}
+              fontImportError={fontImportError}
+              onImportFont={() => void importFont()}
+              onRemoveFont={removeFont}
+              onUpdateEditor={updateEditor}
+            />
+          )}
 
-          <SettingsFooter
-            dirty={dirty}
-            onClose={close}
-            onReset={resetDraft}
-            saveState={saveState}
-          />
+          {activeSection === "languageServers" && (
+            <LanguageServersSettingsSection
+              draft={draft}
+              folderPath={folderPath}
+              onClearPythonVirtualEnv={clearPythonVirtualEnv}
+              onOpenLanguageTools={onOpenLanguageTools}
+              onSelectPythonVirtualEnv={() => void selectPythonVirtualEnv()}
+              onUpdateLsp={updateLsp}
+              onViewLogs={onViewLogs}
+              pythonDetected={pythonDetected}
+              pythonEnvironmentMessage={pythonEnvironmentMessage}
+            />
+          )}
+
+          {activeSection === "ai" && (
+            <AxonAgentSettingsSection
+              draft={draft}
+              models={aiModels}
+              modelsError={aiModelsError}
+              modelsLoading={aiModelsLoading}
+              onRefreshModels={() =>
+                setAiModelsRefreshNonce((nonce) => nonce + 1)
+              }
+              onUpdateAi={updateAi}
+            />
+          )}
         </div>
+
+        <SettingsFooter
+          dirty={dirty}
+          onClose={close}
+          onReset={resetDraft}
+          saveState={saveState}
+        />
       </div>
-    </CommandModal>
+    </div>
   );
 }

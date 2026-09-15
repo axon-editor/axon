@@ -12,6 +12,7 @@ import {
 } from "../../features/editor/lib/layout/tabIdentity";
 import { isWelcomeTabPath } from "../../features/onboarding/lib/welcomeTab";
 import { isCodeSnapshotTabPath } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
+import { isSettingsTabPath } from "@axon-builtin-settings/settings/lib/settingsTab";
 import { type BottomPanelTab } from "../../../platform/panel/bottomPanel";
 import {
   createWorkspaceRoot,
@@ -141,6 +142,10 @@ export function sanitizeRestoredLayout(
     // feel like first launch again, so workspace restore intentionally drops it.
     if (isWelcomeTabPath(tab)) return false;
     if (isCodeSnapshotTabPath(tab)) return false;
+    // The settings tab is a task-scoped surface, not a document. It stays open
+    // for the current session like any other tab, but reopening it on every
+    // workspace restore would put users back in preferences they long finished.
+    if (isSettingsTabPath(tab)) return false;
     if (isVirtualTabPath(tab)) return filePaths.has(getTabFilePath(tab));
     return filePaths.has(tab);
   };

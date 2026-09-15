@@ -5,8 +5,8 @@
 
 // Page header for the active settings section. It owns the single authoritative
 // heading for the current page (section components no longer duplicate it), the
-// workspace-vs-user scope pill, the Reset action, and the Close button that
-// lives beside the window chrome instead of only in the footer.
+// workspace-vs-user scope pill, the Reset action, and a Close button that lives
+// beside the page heading instead of only in the settings footer.
 import { Braces, RotateCcw, X } from "lucide-react";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
 import { type SettingsSectionDefinition } from "../lib/settingsData";

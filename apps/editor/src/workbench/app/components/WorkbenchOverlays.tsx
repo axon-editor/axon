@@ -21,9 +21,6 @@ const DiffModal = React.lazy(() => import("@axon-builtin-git/git/DiffModal"));
 const SourceControlModal = React.lazy(
   () => import("@axon-builtin-git/git/SourceControlModal"),
 );
-const SettingsModal = React.lazy(
-  () => import("@axon-builtin-settings/settings/SettingsModal"),
-);
 const TestExplorerModal = React.lazy(
   () => import("@axon-builtin-testing/TestExplorerModal"),
 );
@@ -54,7 +51,6 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     activePane,
     activeRootId,
     appendOutput,
-    availableFonts,
     diagnostics,
     diffFilePath,
     diffOpen,
@@ -71,8 +67,6 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     handleOpenNavigationTarget,
     handleOpenUpdatePage,
     handleRunWorkspaceTask,
-    handleSettingsPreview,
-    handleSettingsSave,
     handleSwitchWorkspaceRoot,
     handleWorkspaceSearchResult,
     language,
@@ -94,7 +88,6 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     setFileOutlineOpen,
     setLanguageToolsOpen,
     setPaletteOpen,
-    setSettingsOpen,
     setSourceControlOpen,
     setTaskRunnerOpen,
     setTerminalOpen,
@@ -103,8 +96,6 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     setWorkspaceOverviewOpen,
     setWorkspaceSearchOpen,
     settings,
-    settingsContribution,
-    settingsOpen,
     sourceControlOpen,
     taskRunnerOpen,
     tasksContribution,
@@ -210,29 +201,6 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
             onClose={() => setLanguageToolsOpen(false)}
             onViewLogs={() => {
               setLanguageToolsOpen(false);
-              setBottomPanelTab("output");
-              setBottomPanelOpen(true);
-              setTerminalOpen(false);
-            }}
-          />
-        )}
-
-        {settingsOpen && settingsContribution && (
-          <SettingsModal
-            folderPath={folderPath}
-            language={language}
-            availableFonts={availableFonts}
-            extensionState={extensionState}
-            settings={settings}
-            onClose={() => setSettingsOpen(false)}
-            onPreview={handleSettingsPreview}
-            onSave={handleSettingsSave}
-            onOpenLanguageTools={() => {
-              setSettingsOpen(false);
-              setLanguageToolsOpen(true);
-            }}
-            onViewLogs={() => {
-              setSettingsOpen(false);
               setBottomPanelTab("output");
               setBottomPanelOpen(true);
               setTerminalOpen(false);

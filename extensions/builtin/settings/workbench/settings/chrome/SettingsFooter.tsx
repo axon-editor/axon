@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Modal footer: the save status on the left, and the local Close action on the
-// right. Reset appears here only on narrow layouts where the header action row
-// collapses, so the flow stays reachable without ever needing to scroll.
+// Settings footer: the save status on the left, and the local Close action on
+// the right. Reset appears here only on narrow layouts where the header action
+// row collapses, so the flow stays reachable without ever needing to scroll.
 import { RotateCcw } from "lucide-react";
 import SettingsButton from "../controls/SettingsButton";
 import SettingsSaveStatus from "./SettingsSaveStatus";

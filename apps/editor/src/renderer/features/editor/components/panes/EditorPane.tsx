@@ -22,12 +22,16 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import {
+  type AxonSettings,
   type EditorSettings,
   type ThemeId,
 } from "@axon-editor/shared/settings";
 import { type GitChange } from "@axon-editor/shared/git";
 import { type EditorDiagnostic } from "@axon-editor/shared/diagnostics";
-import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
+import {
+  type ExtensionState,
+  type ExtensionThemeSyntaxStyle,
+} from "@axon-editor/shared/extensions";
 import { type Layout } from "../../lib/layout/types";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
 import { type EditorNavigationTarget } from "../../lib/layout/navigation";
@@ -41,6 +45,10 @@ import { getTabDisplayName } from "../../lib/layout/tabIdentity";
 
 interface Props {
   layout: Layout;
+  language: string;
+  availableFonts: AxonSettings["customFonts"];
+  extensionState: ExtensionState | null;
+  settings: AxonSettings;
   folderPath: string | null;
   onActivatePane: (paneId: string) => void;
   onSelectFile: (paneId: string, filePath: string) => void;
@@ -52,6 +60,12 @@ interface Props {
   onOpenSettings: () => void;
   onOpenTerminal: () => void;
   onSelectTheme: (themeId: ThemeId) => void;
+  onPreviewSettings: (settings: AxonSettings) => void;
+  onSaveSettings: (
+    settings: AxonSettings,
+  ) => boolean | void | Promise<boolean | void>;
+  onOpenLanguageTools: () => void;
+  onViewLogs: () => void;
   themeItems: WelcomeThemeItem[];
   onOpenNavigationTarget?: (target: Omit<EditorNavigationTarget, "id">) => void;
   onReorderTabs: (paneId: string, newTabs: string[]) => void;
@@ -113,6 +127,10 @@ function GhostTab({ path }: { path: string }) {
 
 export default function EditorPane({
   layout,
+  language,
+  availableFonts,
+  extensionState,
+  settings,
   folderPath,
   onActivatePane,
   onSelectFile,
@@ -124,6 +142,10 @@ export default function EditorPane({
   onOpenSettings,
   onOpenTerminal,
   onSelectTheme,
+  onPreviewSettings,
+  onSaveSettings,
+  onOpenLanguageTools,
+  onViewLogs,
   themeItems,
   onOpenNavigationTarget,
   onReorderTabs,
@@ -280,6 +302,10 @@ export default function EditorPane({
             >
               <PaneInstance
                 pane={pane}
+                language={language}
+                availableFonts={availableFonts}
+                extensionState={extensionState}
+                settings={settings}
                 folderPath={folderPath}
                 isActive={pane.id === layout.activePaneId}
                 onActivate={() => onActivatePane(pane.id)}
@@ -297,6 +323,10 @@ export default function EditorPane({
                 onOpenSettings={onOpenSettings}
                 onOpenTerminal={onOpenTerminal}
                 onSelectTheme={onSelectTheme}
+                onPreviewSettings={onPreviewSettings}
+                onSaveSettings={onSaveSettings}
+                onOpenLanguageTools={onOpenLanguageTools}
+                onViewLogs={onViewLogs}
                 themeItems={themeItems}
                 onOpenNavigationTarget={onOpenNavigationTarget}
                 onDirtyChange={(f, d) => onDirtyChange(pane.id, f, d)}

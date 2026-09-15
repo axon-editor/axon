@@ -47,10 +47,12 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     agentResumeRequested,
     agentSidebarOpen,
     appThemeCssVariables,
+    availableFonts,
     bottomPanelOpen,
     bottomPanelTab,
     deletedFiles,
     diagnostics,
+    extensionState,
     folderPath,
     folderPickerIntent,
     gitStatus,
@@ -64,10 +66,12 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     handleOpenPathInTerminal,
     handleOpenTabInTerminal,
     handleRefresh,
+    handleSettingsPreview,
     handleSettingsSave,
     handleSplit,
     handleSwitchWorkspaceRoot,
     layout,
+    language,
     loading,
     navigationTarget,
     outputEntries,
@@ -101,6 +105,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     setBottomPanelTab,
     setFolderPickerIntent,
     setLanguage,
+    setLanguageToolsOpen,
     setLayout,
     setSidebarWidth,
     setSpotifyPlayerOpen,
@@ -333,6 +338,10 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
           {settingsHydrated ? (
             <EditorPane
               layout={layout}
+              language={language}
+              availableFonts={availableFonts}
+              extensionState={extensionState}
+              settings={settings}
               folderPath={folderPath}
               onActivatePane={(id) =>
                 setLayout((prev) => activatePane(prev, id))
@@ -376,6 +385,14 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
                   },
                   { announce: false },
                 );
+              }}
+              onPreviewSettings={handleSettingsPreview}
+              onSaveSettings={handleSettingsSave}
+              onOpenLanguageTools={() => setLanguageToolsOpen(true)}
+              onViewLogs={() => {
+                setBottomPanelTab("output");
+                setBottomPanelOpen(true);
+                setTerminalOpen(false);
               }}
               onOpenNavigationTarget={handleOpenNavigationTarget}
               editorSettings={settings.editor}

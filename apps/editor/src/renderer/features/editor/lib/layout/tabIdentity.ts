@@ -22,6 +22,7 @@ import {
   getCodeSnapshotSource,
   isCodeSnapshotTabPath,
 } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
+import { isSettingsTabPath } from "@axon-builtin-settings/settings/lib/settingsTab";
 
 export function getTabFilePath(tabPath: string) {
   if (isHtmlPreviewTabPath(tabPath)) return getHtmlPreviewFilePath(tabPath);
@@ -42,6 +43,7 @@ export function getTabDisplayName(tabPath: string) {
       : "Git comparison";
   }
   if (isCodeSnapshotTabPath(tabPath)) return "Code Snapshot";
+  if (isSettingsTabPath(tabPath)) return "Settings";
 
   const filePath = getTabFilePath(tabPath);
   const name = filePath.split("/").pop() ?? filePath;
@@ -67,6 +69,9 @@ export function getTabTooltipLabel(tabPath: string) {
     const source = getCodeSnapshotSource(tabPath);
     return source ? `Code snapshot: ${source.filePath}` : "Code snapshot";
   }
+  if (isSettingsTabPath(tabPath)) {
+    return "Workspace and application preferences";
+  }
 
   const filePath = getTabFilePath(tabPath);
   if (isHtmlPreviewTabPath(tabPath)) return `HTML preview: ${filePath}`;
@@ -81,6 +86,7 @@ export function isVirtualTabPath(tabPath: string) {
     isGitGraphTabPath(tabPath) ||
     isGitCommitDiffTabPath(tabPath) ||
     isCodeSnapshotTabPath(tabPath) ||
+    isSettingsTabPath(tabPath) ||
     isHtmlPreviewTabPath(tabPath) ||
     isMarkdownPreviewTabPath(tabPath)
   );

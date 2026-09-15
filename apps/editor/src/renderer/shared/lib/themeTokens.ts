@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { type CSSProperties } from "react";
-import { resolveThemeTokens, type ThemeTokenMap } from "../themes";
+import { resolveThemeTokens, type ThemeTokenMap } from "../themes/tokenThemes";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import {
   appearanceBorderColor,
