@@ -24,7 +24,17 @@ const semanticTokenCache = new Map<
 const semanticTokenUpdateListeners = new Set<
   (model: monaco.editor.ITextModel) => void
 >();
-const TEXTMATE_LSP_MERGE_WAIT_MS = 80;
+const TEXTMATE_LSP_COLD_MERGE_WAIT_MS = 80;
+const TEXTMATE_LSP_WARM_MERGE_WAIT_MS = 30;
+
+// A Monaco-language overlay merge races grammar tokens against the language
+// server's semantic-token reply. Keeping that race fixed at 80ms gives every
+// first-open in a cold session enough room for the server to warm, but it also
+// makes each warm-server reopen wait the full 80ms and then paint twice (once
+// grammar-only, once merged). I track the first usable overlay response per
+// session and let later merges converge on the short wait, so a warm server
+// resolves in ~5-30ms and the second paint is skipped entirely.
+let languageServerSessionWarm = false;
 
 function getSemanticTokenCacheKey(model: monaco.editor.ITextModel) {
   return `${model.uri.toString()}::${model.getVersionId()}`;
@@ -47,13 +57,22 @@ function toLspRequestBase(model: monaco.editor.ITextModel, content: string) {
 
 const languageServerOverlayTimedOut = Symbol("language-server-overlay-timeout");
 
-function waitForLanguageServerOverlay<T>(promise: Promise<T>) {
+function waitForLanguageServerOverlay<T>(
+  promise: Promise<T>,
+  warm: boolean,
+) {
   return Promise.race<T | typeof languageServerOverlayTimedOut>([
     promise,
     new Promise<typeof languageServerOverlayTimedOut>((resolve) => {
       window.setTimeout(
         () => resolve(languageServerOverlayTimedOut),
-        TEXTMATE_LSP_MERGE_WAIT_MS,
+        // On a warm session the LSP typically responds in 5–30ms, so waiting
+        // the full 80ms wastes time and causes a two-paint flash. A shorter
+        // timeout on warm sessions halves the perceived coloring delay while
+        // still protecting cold sessions from stale grammar-only paint.
+        warm
+          ? TEXTMATE_LSP_WARM_MERGE_WAIT_MS
+          : TEXTMATE_LSP_COLD_MERGE_WAIT_MS,
       );
     }),
   ]);
@@ -90,8 +109,19 @@ function createSemanticTokenPromise(
   return textMatePromise
     .then(async (textMateTokens) => {
       const result = textMateTokens
-        ? await waitForLanguageServerOverlay(languageServerPromise)
+        ? await waitForLanguageServerOverlay(
+            languageServerPromise,
+            languageServerSessionWarm,
+          )
         : await languageServerPromise;
+
+      // Track whether this LSP session has responded at least once. Once it
+      // has, later file opens can use the shorter warm wait instead of the
+      // full 80ms cold budget.
+      if (result && result !== languageServerOverlayTimedOut && result.ok) {
+        languageServerSessionWarm = true;
+      }
+
       if (result === languageServerOverlayTimedOut) {
         // Grammar colors are useful immediately; project-aware LSP symbols are
         // an enhancement and must not hold the first paint for a cold server.
