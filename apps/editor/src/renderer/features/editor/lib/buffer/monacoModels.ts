@@ -70,7 +70,18 @@ export function refreshModelLanguage(
   return modelLanguage;
 }
 
+// Monaco registration is idempotent: every registerMonaco*Language() call
+// short-circuits internally once a given language entry is already listed, so
+// re-issuing them on each createBuffer is pure repeated work. Buffer creation
+// fires on every open, every split, and every hover-prefetch (which runs a
+// cold registerLanguages() for the target file), so the guard below turns that
+// repeated stack of registry scans + dynamic imports into a single first-run
+// pass. Model language still updates per file via refreshModelLanguage; this
+// only stops re-importing the language *definitions*.
+let languagesRegistered = false;
 function registerLanguages() {
+  if (languagesRegistered) return;
+  languagesRegistered = true;
   registerMonacoReactLanguages();
   registerMonacoStructuredLanguages();
   registerMonacoAdditionalLanguages();
