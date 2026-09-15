@@ -25,6 +25,7 @@ import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
 import { registerMonacoReactLanguages } from "./features/editor/lib/language/monacoReactLanguages";
 import { registerMonacoStructuredLanguages } from "./features/editor/lib/language/monacoStructuredLanguages";
 import { registerMonacoAdditionalLanguages } from "./features/editor/lib/language/monacoAdditionalLanguages";
+import { preloadTextMateLanguage } from "../services/lsp/renderer/textMateSemanticTokens";
 import { getEnabledExtensionThemes } from "../shared/extensions";
 import {
   markAxonPerformance,
@@ -149,6 +150,27 @@ async function boot() {
     // Runtime-only onStartupFinished work is deferred until Chromium has painted
     // the editor shell, so extension discovery cannot hold the first usable frame.
     window.requestIdleCallback(finishStartup, { timeout: 1000 });
+
+    // Warm the Shiki TextMate highlighter for the most common languages while
+    // the renderer is idle. This hides the 200–800ms WASM cold-start cost behind
+    // normal workspace-open activity so the user's first file open already has
+    // grammar tokens ready. detectLanguage is synchronous so the language IDs are
+    // known immediately; only the WASM + grammar loading is deferred here.
+    window.requestIdleCallback(
+      () => {
+        const warmLanguages = [
+          "typescript",
+          "typescriptreact",
+          "javascript",
+          "python",
+          "go",
+        ];
+        for (const lang of warmLanguages) {
+          void preloadTextMateLanguage(lang);
+        }
+      },
+      { timeout: 3000 },
+    );
     markAxonPerformance("axon.renderer.react.rendered");
     measureAxonPerformance(
       "axon.renderer.boot",
