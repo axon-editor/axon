@@ -23,6 +23,19 @@ export function useActiveFileServices({
   syncDocument,
   visible,
 }: ActiveFileServicesOptions) {
+  // File watching is independent of visibility. Every mounted buffer needs its
+  // own OS-level watcher so external edits (formatters, git checkouts, scripts)
+  // are detected even when the file is in a background tab or inactive split
+  // pane. Without this, only the focused pane's file gets watched and all other
+  // open files silently serve stale cache entries on next switch.
+  useEffect(() => {
+    if (loading) return;
+    void window.axon.watchFile(filePath);
+    return () => {
+      void window.axon.unwatchFile(filePath);
+    };
+  }, [filePath, loading]);
+
   useEffect(() => {
     if (!visible || loading) return;
     let disposed = false;
@@ -38,7 +51,6 @@ export function useActiveFileServices({
     };
 
     warmAndSync();
-    void window.axon.watchFile(filePath);
     const stopInstallListener = window.axon.onManagedLanguageToolProgress(
       (progress) => {
         if (progress.phase === "installed") warmAndSync();
@@ -47,7 +59,6 @@ export function useActiveFileServices({
     return () => {
       disposed = true;
       stopInstallListener();
-      void window.axon.unwatchFile(filePath);
     };
   }, [enabled, filePath, folderPath, loading, syncDocument, visible]);
 }
