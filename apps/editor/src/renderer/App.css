@@ -602,6 +602,50 @@ html.axon-native-glass .axon-tooltip {
   }
 }
 
+/* Settings modal section change. The right-hand content area is keyed by the
+ * active section, so switching pages remounts it with this enter animation: a
+ * quiet fade paired with a six-pixel rise keeps the swap feeling physical
+ * without the wobble of a scale transform on a scrollable panel. */
+.axon-settings-enter {
+  animation: axonSettingsEnter 180ms cubic-bezier(0.18, 0.9, 0.2, 1) both;
+}
+
+@keyframes axonSettingsEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Flash used when a search result jumps to a specific row. The accent-muted
+ * fill holds for a beat so the eye catches which control just appeared, then
+ * eases away. */
+.settings-row-flash {
+  border-radius: 8px;
+  animation: axonSettingsRowFlash 1400ms ease-out both;
+}
+
+@keyframes axonSettingsRowFlash {
+  0%,
+  55% {
+    background-color: var(--axon-accent-muted);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .axon-settings-enter,
+  .settings-row-flash {
+    animation: none;
+  }
+}
+
 .axon-spotify-wave {
   position: relative;
   display: inline-flex;

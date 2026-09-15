@@ -16,6 +16,7 @@ import {
 } from "../lib/settingsData";
 import { SETTINGS_SECTION_ICONS } from "../lib/sectionIcons";
 import { type SettingsSearchMatch } from "../search/settingsSearch";
+import { type SettingsRowMatch } from "../search/settingsRowIndex";
 import SettingsSaveStatus from "./SettingsSaveStatus";
 import SettingsSearchInput from "./SettingsSearchInput";
 import { type SettingsSaveState } from "./types";
@@ -24,20 +25,28 @@ interface SettingsSidebarProps {
   activeSection: SettingsSectionId;
   query: string;
   queryMatches: SettingsSearchMatch[];
+  sectionIds: SettingsSectionId[];
+  rows: SettingsRowMatch[];
   saveState: SettingsSaveState;
   hasDirtyChanges: boolean;
   onSectionChange: (section: SettingsSectionId) => void;
   onQueryChange: (query: string) => void;
+  onSelectSection: (sectionId: SettingsSectionId) => void;
+  onSelectRow: (match: SettingsRowMatch) => void;
 }
 
 export default function SettingsSidebar({
   activeSection,
   query,
   queryMatches,
+  sectionIds,
+  rows,
   saveState,
   hasDirtyChanges,
   onSectionChange,
   onQueryChange,
+  onSelectSection,
+  onSelectRow,
 }: SettingsSidebarProps) {
   const matchedIds = new Set(queryMatches.map((match) => match.id));
   const matchCounts = new Map(
@@ -52,7 +61,14 @@ export default function SettingsSidebar({
 
   return (
     <aside className="flex min-h-0 flex-col border-r border-[var(--axon-panel-border)] bg-[var(--axon-sidebar-background)]">
-      <SettingsSearchInput value={query} onChange={onQueryChange} />
+      <SettingsSearchInput
+        value={query}
+        onChange={onQueryChange}
+        sectionIds={sectionIds}
+        rows={rows}
+        onSelectSection={onSelectSection}
+        onSelectRow={onSelectRow}
+      />
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="Settings sections">
         {SETTINGS_GROUPS.map((group) => {

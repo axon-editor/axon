@@ -28,7 +28,10 @@ export default function FontsSettingsSection({
 }) {
   return (
     <SettingsSection>
-      <div className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-4">
+      <div
+        className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-4"
+        data-settings-row="import-font"
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[12px] font-medium text-[var(--axon-editor-foreground)]">

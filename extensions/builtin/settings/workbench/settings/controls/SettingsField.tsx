@@ -12,14 +12,21 @@ import { type ReactNode } from "react";
 export default function SettingsField({
   label,
   description,
+  rowKey,
   children,
 }: {
   label: string;
   description?: string;
+  // Stable anchor used by the search dropdown to scroll this row into view and
+  // flash it after navigating. Must match the rowKey in search/settingsRowIndex.ts.
+  rowKey?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 border-b border-[var(--axon-panel-border)] py-5 md:grid-cols-[minmax(220px,280px)_1fr] md:items-center">
+    <div
+      className="grid grid-cols-1 gap-3 border-b border-[var(--axon-panel-border)] py-5 md:grid-cols-[minmax(220px,280px)_1fr] md:items-center"
+      data-settings-row={rowKey}
+    >
       <div className="min-w-0">
         <div className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">{label}</div>
         {description && (

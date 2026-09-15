@@ -12,6 +12,7 @@ import {
   SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from "../lib/settingsData";
+import { tokenizeQuery } from "./tokenize";
 
 export interface SettingsSearchMatch {
   id: SettingsSectionId;
@@ -49,13 +50,6 @@ const SEARCH_INDEX: SettingsSearchEntry[] = SETTINGS_SECTIONS.map((section) => (
     section.keywords,
   ),
 }));
-
-function tokenizeQuery(query: string) {
-  const tokens = query.trim().toLowerCase().split(/\s+/);
-  // A bare "a" or "to" is noise; dropping single characters keeps the sidebar
-  // from flashing "everything matches" while the user types the first letter.
-  return tokens.filter((token) => token.length > 1);
-}
 
 export function matchSettingsSections(query: string): SettingsSearchMatch[] {
   const tokens = tokenizeQuery(query);

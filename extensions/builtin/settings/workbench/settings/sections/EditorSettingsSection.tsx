@@ -38,6 +38,7 @@ export default function EditorSettingsSection({
       compact
     >
       <SettingsField
+        rowKey="font-preset"
         label="Font preset"
         description="Applies editor typography without changing the Axon interface font selected in Appearance."
       >
@@ -51,6 +52,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="editor-font"
         label="Editor font"
         description="Default is Axon Mono, with common coding fonts available."
       >
@@ -63,7 +65,7 @@ export default function EditorSettingsSection({
         />
       </SettingsField>
 
-      <SettingsField label="Font size" description="Allowed range 10-28.">
+      <SettingsField rowKey="font-size" label="Font size" description="Allowed range 10-28.">
         <SettingsNumberSlider
           min={10}
           max={28}
@@ -72,7 +74,7 @@ export default function EditorSettingsSection({
         />
       </SettingsField>
 
-      <SettingsField label="Line height" description="Allowed range 14-40.">
+      <SettingsField rowKey="line-height" label="Line height" description="Allowed range 14-40.">
         <SettingsNumberSlider
           min={14}
           max={40}
@@ -82,6 +84,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="font-weight"
         label="Font weight"
         description="Allowed range 200-800. Letter spacing stays 0 for predictable code layout."
       >
@@ -95,6 +98,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="font-ligatures"
         label="Ligatures"
         description="Turns font ligatures on or off inside Monaco."
       >
@@ -106,6 +110,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="quick-suggestions"
         label="Quick suggestions"
         description="Shows completion options automatically while you type. Manual completion remains available when disabled."
       >
@@ -119,6 +124,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="trigger-character-suggestions"
         label="Trigger character suggestions"
         description="Shows completions after language-specific characters such as a dot."
       >
@@ -136,6 +142,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="suggestion-preview"
         label="Suggestion preview text"
         description="Shows the selected completion as faint text ahead of the cursor."
       >
@@ -149,6 +156,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="word-based-suggestions"
         label="Word-based suggestions"
         description="Suggests words already used in matching open files alongside language server completions."
       >
@@ -164,6 +172,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="tab-size"
         label="Tab size"
         description="Sets indentation width for typing and formatting. Changing it switches to your fixed indentation settings."
       >
@@ -179,6 +188,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="insert-spaces"
         label="Indent with spaces"
         description="Uses spaces for new indentation and formatting. Disable this to use tabs; changing it switches to your fixed settings."
       >
@@ -193,6 +203,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="detect-indentation"
         label="Detect indentation"
         description="Lets Monaco infer indentation from each file. Disable it to enforce the selected tab size and spaces setting everywhere."
       >
@@ -206,6 +217,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="code-padding-left"
         label="Code left spacing"
         description="Controls the layout-aware space between the line-number gutter and code. Set it to 0 for no extra space."
       >
@@ -218,6 +230,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="indentation-guides"
         label="Indentation guides"
         description="Shows or removes the straight vertical lines for indentation levels."
       >
@@ -231,6 +244,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="active-indentation-guide"
         label="Active indentation guide"
         description="Highlights the indentation guide for the current cursor position."
       >
@@ -249,6 +263,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="bracket-pair-guides"
         label="Bracket pair guides"
         description="Shows or removes vertical and horizontal guides connecting matching brackets."
       >
@@ -262,6 +277,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="cursor-style"
         label="Cursor style"
         description="Controls the Monaco insertion cursor shape."
       >
@@ -275,6 +291,7 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="cursor-blinking"
         label="Cursor blinking"
         description="Controls the cursor animation. Blink, smooth, phase, expand, and solid are all supported; solid disables blinking."
       >

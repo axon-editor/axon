@@ -53,6 +53,7 @@ export default function AxonAgentSettingsSection({
   return (
     <SettingsSection>
       <SettingsField
+        rowKey="assistant"
         label="Assistant"
         description="Controls whether Axon Agent commands and the side panel are available."
       >
@@ -64,6 +65,7 @@ export default function AxonAgentSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="provider"
         label="Provider"
         description="Local model runtime used by Axon Agent."
       >
@@ -77,6 +79,7 @@ export default function AxonAgentSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="model"
         label="Model"
         description="Choose from the Axon model catalog. Installed models are marked as ready."
       >
@@ -137,6 +140,7 @@ export default function AxonAgentSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="inline-completions"
         label="Inline completions"
         description="Shows local AI ghost text directly in the editor while typing. The completion still uses the selected Axon model and never bypasses workspace authorization."
       >
@@ -150,6 +154,7 @@ export default function AxonAgentSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="workspace-context"
         label="Workspace context"
         description="Allows Axon Agent actions to include active files, diagnostics, Git changes, and selected project context."
       >

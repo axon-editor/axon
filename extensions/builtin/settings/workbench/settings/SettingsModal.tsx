@@ -20,6 +20,11 @@ import {
 import { FONT_PRESET_VALUES } from "./lib/fontPresets";
 import { matchSettingsSections } from "./search/settingsSearch";
 import {
+  matchSettingsRows,
+  type SettingsRowMatch,
+} from "./search/settingsRowIndex";
+import { revealSettingsRow } from "./lib/settingsRowFocus";
+import {
   getSettingsPythonWorkspaceEnvironment,
   importSettingsFont,
   selectSettingsBackgroundImage,
@@ -93,6 +98,9 @@ export default function SettingsModal({
   // but clearing the search should land back on whichever page the user chose
   // by hand, not on the last auto-jump.
   const lastManualSectionRef = useRef<SettingsSectionId>("appearance");
+  // Set when a row result is picked from the search popup; revealed on the
+  // next frame once the target section has actually rendered.
+  const pendingRowKeyRef = useRef<string | null>(null);
 
   const customFontItems = useMemo(
     () => {
@@ -158,6 +166,10 @@ export default function SettingsModal({
     () => matchSettingsSections(sectionQuery),
     [sectionQuery],
   );
+  const rowMatches = useMemo(
+    () => matchSettingsRows(sectionQuery),
+    [sectionQuery],
+  );
 
   useEffect(() => {
     if (!sectionQuery.trim()) return;
@@ -177,6 +189,33 @@ export default function SettingsModal({
     if (!query.trim()) {
       setActiveSection(lastManualSectionRef.current);
     }
+  };
+
+  // Selecting a page from the search popup behaves exactly like clicking it in
+  // the sidebar, except the query resets so the popup does not linger and the
+  // user returns to a browsing state in the section they landed on.
+  const handleOpenSection = (section: SettingsSectionId) => {
+    lastManualSectionRef.current = section;
+    setActiveSection(section);
+    setSectionQuery("");
+  };
+
+  // Picking a row navigates to its page and then scrolls the exact control
+  // into view with an accent flash. React batches the two state updates, so
+  // the target element only exists after the commit; the double requestAnimationFrame
+  // waits for that render plus layout before revealing the anchor.
+  const handleOpenRow = (match: SettingsRowMatch) => {
+    pendingRowKeyRef.current = match.rowKey;
+    lastManualSectionRef.current = match.sectionId;
+    setActiveSection(match.sectionId);
+    setSectionQuery("");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const rowKey = pendingRowKeyRef.current;
+        pendingRowKeyRef.current = null;
+        if (rowKey) revealSettingsRow(rowKey);
+      });
+    });
   };
 
   useEffect(() => {
@@ -534,10 +573,14 @@ export default function SettingsModal({
           activeSection={activeSection}
           query={sectionQuery}
           queryMatches={queryMatches}
+          sectionIds={queryMatches.map((match) => match.id)}
+          rows={rowMatches}
           saveState={saveState}
           hasDirtyChanges={dirty}
           onSectionChange={handleSectionChange}
           onQueryChange={handleSectionQueryChange}
+          onSelectSection={handleOpenSection}
+          onSelectRow={handleOpenRow}
         />
 
         <div className="flex min-h-0 flex-col bg-[var(--axon-editor-background)]">
@@ -550,7 +593,13 @@ export default function SettingsModal({
             onReset={resetDraft}
             onClose={close}
           />
-          <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+          {/* Remounting this scroll area on every section change replays the
+              enter animation, so switching pages fades the new controls in
+              instead of swapping them with no visual feedback. */}
+          <div
+            key={activeSection}
+            className="axon-settings-enter min-h-0 flex-1 overflow-y-auto px-7 py-6"
+          >
             {activeSection === "appearance" && (
               <AppearanceSettingsSection
                 draft={draft}

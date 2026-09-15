@@ -26,6 +26,7 @@ export default function AppearanceSettingsSection({
   return (
     <SettingsSection>
       <SettingsField
+        rowKey="theme"
         label="Theme"
         description="Applies to editor chrome, panels, terminal, and Monaco."
       >
@@ -39,6 +40,7 @@ export default function AppearanceSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="ui-font"
         label="UI font"
         description="Controls Axon interface text outside the editor buffer."
       >
@@ -52,6 +54,7 @@ export default function AppearanceSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="sidebar-side"
         label="Sidebar side"
         description="Moves the Files, History, and Spotify sidebar to the left or right of the editor."
       >

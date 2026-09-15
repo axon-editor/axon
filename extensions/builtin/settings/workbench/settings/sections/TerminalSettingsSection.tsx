@@ -22,6 +22,7 @@ export default function TerminalSettingsSection({
   return (
     <SettingsSection>
       <SettingsField
+        rowKey="gpu-acceleration"
         label="GPU acceleration"
         description="Auto uses xterm's reliable DOM renderer. Choose On to opt into WebGL acceleration."
       >

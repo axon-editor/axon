@@ -35,6 +35,7 @@ export default function BackgroundSettingsSection({
   return (
     <SettingsSection>
       <SettingsField
+        rowKey="app-glass"
         label="App glass"
         description="System Glass favors efficiency. Live Glass requests a continuously blurred native material where the operating system supports one."
       >
@@ -48,6 +49,7 @@ export default function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="overlay-opacity"
         label="Overlay opacity"
         description="Controls the readable backing behind modals and popups. The editor, sidebars, and persistent chrome remain untinted native glass."
       >
@@ -61,6 +63,7 @@ export default function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="surface-blur"
         label="Surface blur"
         description="Controls the local blur and translucent glass directly behind modal and popup content. The surrounding app remains unblurred."
       >
@@ -74,6 +77,7 @@ export default function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="editor-image"
         label="Editor image"
         description="Choose a local image to render behind the editor buffer."
       >
@@ -107,6 +111,7 @@ export default function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="image-opacity"
         label="Image opacity"
         description="Allowed range 0-1. Keep this low so code stays readable."
       >
@@ -120,6 +125,7 @@ export default function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="image-blur"
         label="Image blur"
         description="Allowed range 0-40px. Blur only affects the background image layer, not the editor text."
       >
@@ -133,6 +139,7 @@ export default function BackgroundSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="image-fit"
         label="Image fit"
         description="Controls how the image fills the editor surface."
       >

@@ -31,6 +31,7 @@ export default function EditorBehaviorSettingsSection({
       divider
     >
       <SettingsField
+        rowKey="auto-save"
         label="Auto Save"
         description="Writes dirty files after one second without requiring Command/Ctrl+S. The same toggle is available in the operating-system File menu."
       >
@@ -42,6 +43,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="format-on-save"
         label="Format on save"
         description="Runs Prettier for supported files and the active language server formatter for other languages before writing to disk."
       >
@@ -53,6 +55,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="snippets"
         label="Snippets"
         description="Shows Axon and language-server snippets in the completion popup."
       >
@@ -64,6 +67,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="emmet"
         label="Emmet"
         description="Expands common HTML and JSX abbreviations such as .card, button.primary, and section.hero."
       >
@@ -75,6 +79,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="multi-cursor-modifier"
         label="Multi-cursor modifier"
         description="Choose the modifier used for adding cursors with mouse clicks."
       >
@@ -88,6 +93,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="breadcrumbs"
         label="Breadcrumbs"
         description="Shows the current file path and nearest symbol above the editor."
       >
@@ -99,6 +105,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="hover-placement"
         label="Hover placement"
         description="Choose whether editor hover details prefer to open above or below the current line. Monaco can use the opposite side when space is limited."
       >
@@ -114,6 +121,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="sticky-scroll"
         label="Sticky scroll"
         description="Keeps the current scope visible at the top while scrolling through long files."
       >
@@ -125,6 +133,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="line-trace"
         label="Line Trace"
         description="Shows the author, commit age, and summary for the committed line under the cursor."
       >
@@ -136,6 +145,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="remember-expanded-folders"
         label="Remember expanded folders"
         description="Keeps nested folders expanded in the file explorer when you collapse and reopen a parent folder. Disable to reset the whole subtree whenever a folder is collapsed."
       >
@@ -151,6 +161,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="code-folding"
         label="Code folding"
         description="Enables fold controls and folding keyboard commands."
       >
@@ -162,6 +173,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="minimap"
         label="Minimap"
         description="Shows a compact file map on the right side of the editor."
       >
@@ -173,6 +185,7 @@ export default function EditorBehaviorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="scrollbar-markers"
         label="Scrollbar markers"
         description="Shows diagnostics, search matches, and decorations in the overview ruler."
       >

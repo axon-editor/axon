@@ -40,6 +40,7 @@ export default function LanguageServersSettingsSection({
   return (
     <SettingsSection>
       <SettingsField
+        rowKey="lsp-enabled"
         label="Language services"
         description="Controls external completion, diagnostics, hover, navigation, rename, and formatting providers."
       >
@@ -52,6 +53,7 @@ export default function LanguageServersSettingsSection({
 
       {pythonDetected && (
         <SettingsField
+          rowKey="python-environment"
           label="Python environment"
           description="Axon detects environments inside or beside the workspace. Select one only to override the detected environment."
         >
@@ -110,18 +112,22 @@ export default function LanguageServersSettingsSection({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <SettingsButton
-          label="Language Tools"
-          icon={<Zap size={14} />}
-          tone="primary"
-          onClick={onOpenLanguageTools}
-        />
-        <SettingsButton
-          label="LSP Logs"
-          icon={<ScrollText size={14} />}
-          tone="ghost"
-          onClick={onViewLogs}
-        />
+        <span data-settings-row="language-tools">
+          <SettingsButton
+            label="Language Tools"
+            icon={<Zap size={14} />}
+            tone="primary"
+            onClick={onOpenLanguageTools}
+          />
+        </span>
+        <span data-settings-row="lsp-logs">
+          <SettingsButton
+            label="LSP Logs"
+            icon={<ScrollText size={14} />}
+            tone="ghost"
+            onClick={onViewLogs}
+          />
+        </span>
       </div>
     </SettingsSection>
   );
