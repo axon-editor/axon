@@ -43,6 +43,7 @@ import {
   saveActiveAgentConversation,
   selectAgentConversation,
   startAgentConversation,
+  togglePinConversation,
 } from "./lib/agentConversation";
 import { resolveProposalPath } from "./lib/agentProposalPaths";
 import {
@@ -327,6 +328,12 @@ export default function AxonAgentSidebar(props: Props) {
     setConversationPickerOpen(false);
   };
 
+  const togglePin = (conversationId: string) => {
+    setConversationState((current) =>
+      togglePinConversation(props.folderPath, current, conversationId),
+    );
+  };
+
   useEffect(() => {
     if (!props.initialAction) return;
     const nextAction = props.initialAction.action;
@@ -404,6 +411,7 @@ export default function AxonAgentSidebar(props: Props) {
             onOpenChange={setConversationPickerOpen}
             onRequestClear={setClearConversationId}
             onSelect={(conversationId) => void switchConversation(conversationId)}
+            onTogglePin={togglePin}
           />
           <Tooltip label="Start new Ask Axon conversation" side="left">
             <button

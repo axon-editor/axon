@@ -22,6 +22,7 @@ export interface AgentConversation {
   title: string;
   createdAt: number;
   updatedAt: number;
+  pinned: boolean;
   messages: AgentMessage[];
 }
 
@@ -48,6 +49,7 @@ function newConversation(messages: AgentMessage[] = []): AgentConversation {
     title: conversationTitle(messages),
     createdAt: now,
     updatedAt: now,
+    pinned: false,
     messages,
   };
 }
@@ -91,6 +93,7 @@ function normalizeState(value: unknown): AgentConversationState | null {
       title: conversation.title || conversationTitle(validMessages(conversation.messages)),
       createdAt: conversation.createdAt || Date.now(),
       updatedAt: conversation.updatedAt || Date.now(),
+      pinned: Boolean(conversation.pinned),
       messages: validMessages(conversation.messages),
     }))
     .slice(-30);
@@ -224,6 +227,23 @@ export function clearAgentConversation(
       ? state.activeId
       : conversations[conversations.length - 1].id,
     conversations,
+  };
+  saveAgentConversationState(folderPath, nextState);
+  return nextState;
+}
+
+export function togglePinConversation(
+  folderPath: string | null,
+  state: AgentConversationState,
+  conversationId: string,
+) {
+  const nextState = {
+    ...state,
+    conversations: state.conversations.map((conversation) =>
+      conversation.id === conversationId
+        ? { ...conversation, pinned: !conversation.pinned }
+        : conversation,
+    ),
   };
   saveAgentConversationState(folderPath, nextState);
   return nextState;
