@@ -91,7 +91,7 @@ export async function highlightCode(
   // loaded set to avoid redundant imports.
   if (!loadedLanguages.has(resolved)) {
     try {
-      const grammar = await import(`shiki/langs/${resolved}.mjs`);
+      const grammar = await import(/* @vite-ignore */ `shiki/langs/${resolved}.mjs`);
       await highlighter.loadLanguage(grammar.default);
       loadedLanguages.add(resolved);
     } catch {
