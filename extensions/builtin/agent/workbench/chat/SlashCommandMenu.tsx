@@ -37,8 +37,8 @@ const commands: SlashCommand[] = [
 
 export default function SlashCommandMenu({ onSelect }: SlashCommandMenuProps) {
   return (
-    <div className="absolute bottom-full left-0 z-30 mb-1 w-[220px] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl shadow-black/50">
-      <div className="px-2 py-1.5 text-[10px] uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-40">
+    <div className="absolute bottom-full left-0 z-30 mb-1 w-[210px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40">
+      <div className="px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--axon-editor-foreground)] opacity-30">
         Commands
       </div>
       {commands.map((command) => {
@@ -48,14 +48,14 @@ export default function SlashCommandMenu({ onSelect }: SlashCommandMenuProps) {
             key={command.id}
             type="button"
             onClick={() => onSelect(command.id)}
-            className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--axon-panel-overlay-hover)]"
+            className="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left opacity-70 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
           >
-            <Icon size={13} className="shrink-0 text-[var(--axon-syntax-function)]" />
+            <Icon size={12} className="shrink-0 text-[var(--axon-syntax-function)]" />
             <div className="min-w-0">
               <div className="text-[11px] font-medium text-[var(--axon-editor-foreground)]">
                 /{command.label}
               </div>
-              <div className="text-[10px] text-[var(--axon-editor-foreground)] opacity-50">
+              <div className="text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                 {command.description}
               </div>
             </div>

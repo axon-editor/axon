@@ -5,14 +5,13 @@
 
 export default function StreamingIndicator() {
   return (
-    <div className="flex items-center gap-2.5 py-1 text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
-      <span className="relative flex h-5 w-5 items-center justify-center">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--axon-syntax-function)] opacity-20" />
-        <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-[var(--axon-syntax-function)] text-[9px] font-bold text-white">
-          A
-        </span>
+    <div className="flex items-center gap-2 py-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
+      <span className="flex gap-0.5">
+        <span className="h-1.5 w-1.5 animate-[bounce_1.4s_infinite_0s] rounded-full bg-[var(--axon-syntax-function)]/60" />
+        <span className="h-1.5 w-1.5 animate-[bounce_1.4s_infinite_0.2s] rounded-full bg-[var(--axon-syntax-function)]/60" />
+        <span className="h-1.5 w-1.5 animate-[bounce_1.4s_infinite_0.4s] rounded-full bg-[var(--axon-syntax-function)]/60" />
       </span>
-      <span>Thinking...</span>
+      <span>Thinking</span>
     </div>
   );
 }

@@ -47,26 +47,26 @@ export default function ChatCodeBlock({ children, language }: ChatCodeBlockProps
   };
 
   return (
-    <div className="group/code relative mb-3 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] last:mb-0">
+    <div className="group/code relative my-2.5 overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] last:my-0">
       <div className="flex items-center justify-between border-b border-[var(--axon-panel-border)] px-3 py-1.5">
-        <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-45">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--axon-editor-foreground)] opacity-35">
           {language ?? "code"}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {isCollapsible && (
             <button
               type="button"
               onClick={() => setCollapsed((c) => !c)}
-              className="flex h-6 cursor-pointer items-center gap-1 rounded px-1.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+              className="flex h-5 cursor-pointer items-center gap-1 rounded px-1.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-40 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
               {collapsed ? (
                 <>
-                  <ChevronDown size={11} />
-                  Show {lineCount} lines
+                  <ChevronDown size={10} />
+                  Show {lineCount}
                 </>
               ) : (
                 <>
-                  <ChevronUp size={11} />
+                  <ChevronUp size={10} />
                   Collapse
                 </>
               )}
@@ -75,32 +75,32 @@ export default function ChatCodeBlock({ children, language }: ChatCodeBlockProps
           <button
             type="button"
             onClick={handleCopy}
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 hover:bg-[var(--axon-panel-overlay-hover)] group-hover/code:opacity-40 hover:!opacity-100"
             aria-label="Copy code"
           >
-            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {copied ? <Check size={11} /> : <Copy size={11} />}
           </button>
         </div>
       </div>
 
       <div
         ref={codeRef}
-        className={`overflow-x-auto ${collapsed ? "max-h-[240px]" : ""}`}
+        className={`overflow-x-auto ${collapsed ? "max-h-[200px]" : ""}`}
       >
         {html ? (
           <div
-            className="p-3 text-[11px] leading-5 [&_pre]:bg-transparent [&_pre]:p-0"
+            className="p-3 text-[12px] leading-5 [&_pre]:bg-transparent [&_pre]:p-0"
             dangerouslySetInnerHTML={{ __html: stripPreTag(html) }}
           />
         ) : (
-          <pre className="p-3 text-[11px] leading-5 text-[var(--axon-editor-foreground)]">
+          <pre className="p-3 text-[12px] leading-5 text-[var(--axon-editor-foreground)]">
             <code>{children}</code>
           </pre>
         )}
       </div>
 
       {collapsed && (
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 rounded-b-md bg-gradient-to-t from-[var(--axon-editor-background)] to-transparent" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 rounded-b-lg bg-gradient-to-t from-[var(--axon-editor-background)] to-transparent" />
       )}
     </div>
   );

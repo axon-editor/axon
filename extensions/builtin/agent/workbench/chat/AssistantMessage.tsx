@@ -29,20 +29,20 @@ export default function AssistantMessage({
   onCopyContent,
 }: AssistantMessageProps) {
   return (
-    <div className="group/assistant flex justify-start">
-      <div className="w-full max-w-full">
-        <MessageHeader
-          role="assistant"
-          messageId={messageId}
-          copiedId={copiedId}
-          onCopied={() => {
-            if (content) {
-              onCopyContent(content);
-            }
-            onCopied(messageId);
-          }}
-        />
+    <div className="group/assistant flex flex-col" data-message-id={messageId}>
+      <MessageHeader
+        role="assistant"
+        messageId={messageId}
+        copiedId={copiedId}
+        onCopied={() => {
+          if (content) {
+            onCopyContent(content);
+          }
+          onCopied(messageId);
+        }}
+      />
 
+      <div className="w-full">
         {content ? (
           <AssistantMarkdown content={content} />
         ) : (

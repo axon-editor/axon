@@ -19,15 +19,15 @@ export default function UserMessage({
   onCopied,
 }: UserMessageProps) {
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[82%]">
+    <div className="flex justify-end" data-message-id={messageId}>
+      <div className="max-w-[85%]">
         <MessageHeader
           role="user"
           messageId={messageId}
           copiedId={copiedId}
           onCopied={onCopied}
         />
-        <div className="whitespace-pre-wrap rounded-xl rounded-tr-sm bg-[var(--axon-panel-overlay-hover)] px-3.5 py-2.5 text-[12px] leading-5 text-[var(--axon-editor-foreground)]">
+        <div className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--axon-syntax-function)]/10 px-3.5 py-2.5 text-[13px] leading-5 text-[var(--axon-editor-foreground)]">
           {content}
         </div>
       </div>

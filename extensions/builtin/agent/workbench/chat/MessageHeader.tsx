@@ -26,37 +26,38 @@ export default function MessageHeader({
 
   return (
     <div
-      className={`mb-1.5 flex items-center gap-2 ${
+      className={`mb-1 flex items-center gap-1.5 ${
         isAssistant ? "justify-between" : "justify-end"
       }`}
     >
       {isAssistant && (
         <div className="flex items-center gap-1.5">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--axon-syntax-function)] text-[9px] font-bold text-white">
+          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--axon-syntax-function)]/15 text-[9px] font-bold text-[var(--axon-syntax-function)]">
             A
           </span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-45">
+          <span className="text-[11px] font-medium text-[var(--axon-editor-foreground)] opacity-50">
             Axon
           </span>
         </div>
       )}
 
-      <div className="flex items-center gap-1">
-        {!isAssistant ? (
-          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-45">
+      <div className="flex items-center gap-0.5">
+        {!isAssistant && (
+          <span className="text-[11px] font-medium text-[var(--axon-editor-foreground)] opacity-40">
             You
           </span>
-        ) : (
+        )}
+        {isAssistant && (
           <button
             type="button"
             onClick={handleCopy}
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-45"
+            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition-opacity hover:bg-[var(--axon-panel-overlay-hover)] group-hover/assistant:opacity-40 hover:!opacity-100"
             aria-label="Copy response"
           >
             {copiedId === messageId ? (
-              <Check size={12} />
+              <Check size={11} />
             ) : (
-              <Copy size={12} />
+              <Copy size={11} />
             )}
           </button>
         )}

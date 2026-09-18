@@ -44,16 +44,16 @@ export default function EditProposalCard({
   };
 
   return (
-    <div className="mt-3 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
+    <div className="mt-3 overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
       <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-3 py-2">
         <FilePenLine
-          size={13}
+          size={12}
           className="shrink-0 text-[var(--axon-syntax-function)]"
         />
         <span className="text-[11px] font-medium text-[var(--axon-editor-foreground)]">
           {title}
         </span>
-        <span className="ml-auto text-[10px] text-[var(--axon-editor-foreground)] opacity-40">
+        <span className="ml-auto text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
           {files.length} {files.length === 1 ? "file" : "files"}
         </span>
       </div>
@@ -72,13 +72,13 @@ export default function EditProposalCard({
               <button
                 type="button"
                 onClick={() => toggleFile(index)}
-                className="flex cursor-pointer items-center justify-center text-[var(--axon-editor-foreground)] opacity-45 hover:opacity-100"
+                className="flex cursor-pointer items-center justify-center text-[var(--axon-editor-foreground)] opacity-40 hover:opacity-100"
                 aria-label={isCollapsed ? "Expand file" : "Collapse file"}
               >
                 {isCollapsed ? (
-                  <ChevronRight size={12} />
+                  <ChevronRight size={11} />
                 ) : (
-                  <ChevronDown size={12} />
+                  <ChevronDown size={11} />
                 )}
               </button>
 
@@ -86,31 +86,31 @@ export default function EditProposalCard({
                 {basename}
               </span>
 
-              <span className="ml-auto truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
+              <span className="ml-auto truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-30">
                 {file.path}
               </span>
             </div>
 
             {!isCollapsed && (
-              <div className="px-3 pb-2 pl-7">
+              <div className="px-3 pb-2 pl-6">
                 {file.summary && (
-                  <p className="mb-2 text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-60">
+                  <p className="mb-2 text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-50">
                     {file.summary}
                   </p>
                 )}
 
                 {isApplied ? (
                   <span className="inline-flex items-center gap-1 text-[10px] text-green-500">
-                    <Check size={11} />
+                    <Check size={10} />
                     Applied
                   </span>
                 ) : (
                   <button
                     type="button"
                     onClick={() => handleApply(file, index)}
-                    className="flex h-7 cursor-pointer items-center gap-1.5 rounded bg-[var(--axon-syntax-function)] px-2.5 text-[11px] font-medium text-white hover:opacity-90"
+                    className="flex h-6 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--axon-syntax-function)] px-2.5 text-[11px] font-medium text-white opacity-90 transition-opacity hover:opacity-100"
                   >
-                    <FilePenLine size={11} />
+                    <FilePenLine size={10} />
                     Apply
                   </button>
                 )}

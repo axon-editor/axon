@@ -9,24 +9,24 @@ import ChatCodeBlock from "./ChatCodeBlock";
 
 export default function AssistantMarkdown({ content }: { content: string }) {
   return (
-    <div className="text-[12px] leading-5 text-[var(--axon-editor-foreground)]">
+    <div className="text-[13px] leading-5 text-[var(--axon-editor-foreground)]">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+          p: ({ children }) => <p className="mb-2.5 last:mb-0">{children}</p>,
           ul: ({ children }) => (
-            <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0">
+            <ul className="mb-2.5 list-disc space-y-1 pl-4 last:mb-0">
               {children}
             </ul>
           ),
           ol: ({ children }) => (
-            <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0">
+            <ol className="mb-2.5 list-decimal space-y-1 pl-4 last:mb-0">
               {children}
             </ol>
           ),
-          li: ({ children }) => <li className="pl-1">{children}</li>,
+          li: ({ children }) => <li className="pl-0.5">{children}</li>,
           h1: ({ children }) => (
-            <h1 className="mb-2 text-[16px] font-semibold text-[var(--axon-editor-foreground)]">
+            <h1 className="mb-2 text-[15px] font-semibold text-[var(--axon-editor-foreground)]">
               {children}
             </h1>
           ),
@@ -51,21 +51,21 @@ export default function AssistantMarkdown({ content }: { content: string }) {
               );
             }
             return (
-              <code className="rounded bg-[var(--axon-panel-overlay-hover)] px-1 py-0.5 text-[11px] text-[var(--axon-syntax-string)]">
+              <code className="rounded bg-[var(--axon-panel-overlay-hover)] px-1 py-0.5 text-[12px] text-[var(--axon-syntax-string)]">
                 {children}
               </code>
             );
           },
           pre: ({ children }) => <>{children}</>,
           blockquote: ({ children }) => (
-            <blockquote className="mb-3 border-l-2 border-[var(--axon-syntax-function)] pl-3 text-[var(--axon-editor-foreground)] opacity-65 last:mb-0">
+            <blockquote className="mb-2.5 border-l-2 border-[var(--axon-syntax-function)]/40 pl-3 text-[var(--axon-editor-foreground)] opacity-60 last:mb-0">
               {children}
             </blockquote>
           ),
           a: ({ children, href }) => (
             <a
               href={href}
-              className="text-[var(--axon-syntax-function)] underline decoration-[var(--axon-syntax-function)] underline-offset-2"
+              className="text-[var(--axon-syntax-function)] underline decoration-[var(--axon-syntax-function)]/40 underline-offset-2 hover:decoration-[var(--axon-syntax-function)]"
             >
               {children}
             </a>

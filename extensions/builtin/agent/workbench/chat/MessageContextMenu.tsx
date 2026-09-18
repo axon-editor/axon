@@ -47,24 +47,24 @@ export default function MessageContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 w-[160px] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/50"
+      className="fixed z-50 w-[150px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
       style={{ left: x, top: y }}
     >
       <button
         type="button"
         onClick={() => { onCopy(); onClose(); }}
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-70 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
       >
-        <Copy size={12} />
+        <Copy size={11} />
         Copy
       </button>
       {onRetry && (
         <button
           type="button"
           onClick={() => { onRetry(); onClose(); }}
-          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
+          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-70 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
         >
-          <RefreshCw size={12} />
+          <RefreshCw size={11} />
           Retry
         </button>
       )}
@@ -72,9 +72,9 @@ export default function MessageContextMenu({
         <button
           type="button"
           onClick={() => { onEdit(); onClose(); }}
-          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] hover:bg-[var(--axon-panel-overlay-hover)]"
+          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-70 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
         >
-          <Pencil size={12} />
+          <Pencil size={11} />
           Edit
         </button>
       )}

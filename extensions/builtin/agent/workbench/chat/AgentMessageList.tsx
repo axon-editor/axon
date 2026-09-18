@@ -38,7 +38,7 @@ export default function AgentMessageList(props: Props) {
 
   return (
     <div
-      className="space-y-5"
+      className="space-y-4"
       onContextMenu={(event) => {
         const target = event.target as HTMLElement;
         const messageEl = target.closest("[data-message-id]");

@@ -388,22 +388,22 @@ export default function AxonAgentSidebar(props: Props) {
         onPointerMove={resize}
         onPointerUp={stopResize}
         onPointerCancel={stopResize}
-        className={`absolute top-0 z-20 h-full w-1.5 cursor-col-resize transition-colors hover:bg-[var(--axon-syntax-function)]/35 ${
+        className={`absolute top-0 z-20 h-full w-1 cursor-col-resize transition-colors hover:bg-[var(--axon-syntax-function)]/25 ${
           props.side === "right" ? "left-0" : "right-0"
         }`}
       />
       <div
-        className="flex min-h-[56px] shrink-0 items-center justify-between gap-3 border-b bg-[var(--axon-panel-background)] px-4 py-2.5"
-        style={{ borderColor: "var(--axon-panel-border)" }}
+        className="flex min-h-[48px] shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-transparent px-3 py-2"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="min-w-0">
-            <div className="truncate text-[13px] font-semibold text-[var(--axon-editor-foreground)]">
-              Ask Axon
-            </div>
-          </div>
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-[var(--axon-syntax-function)]/15 text-[9px] font-bold text-[var(--axon-syntax-function)]">
+            A
+          </span>
+          <span className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
+            Axon
+          </span>
         </div>
-        <div className="relative flex shrink-0 items-center gap-2">
+        <div className="relative flex shrink-0 items-center gap-0.5">
           <AgentConversationPicker
             activeTitle={activeConversation.title}
             conversationState={conversationState}
@@ -413,30 +413,30 @@ export default function AxonAgentSidebar(props: Props) {
             onSelect={(conversationId) => void switchConversation(conversationId)}
             onTogglePin={togglePin}
           />
-          <Tooltip label="Start new Ask Axon conversation" side="left">
+          <Tooltip label="New conversation" side="left">
             <button
               type="button"
               onClick={() => void startNewConversation()}
               aria-label="Start new Ask Axon conversation"
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
-              <MessageSquarePlus size={14} />
+              <MessageSquarePlus size={13} />
             </button>
           </Tooltip>
-          <Tooltip label="Close Ask Axon" side="left">
+          <Tooltip label="Close" side="left">
             <button
               type="button"
               onClick={props.onClose}
               aria-label="Close Ask Axon"
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           </Tooltip>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         {!canChat && (
           <AgentRuntimeStatusPanel
             diagnosticsCount={props.diagnostics.length}
@@ -455,14 +455,16 @@ export default function AxonAgentSidebar(props: Props) {
           />
         )}
         {messages.length === 0 && canChat && (
-          <div className="flex flex-col items-center py-8 text-center">
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--axon-syntax-function)]/15 text-[var(--axon-syntax-function)]">
-              <MessageSquarePlus size={18} />
+          <div className="flex flex-col items-center py-16 text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--axon-syntax-function)]/10">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--axon-syntax-function)]/20 text-[13px] font-bold text-[var(--axon-syntax-function)]">
+                A
+              </span>
             </div>
-            <div className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">
+            <div className="text-[14px] font-medium text-[var(--axon-editor-foreground)]">
               What can I help with?
             </div>
-            <div className="mt-1.5 max-w-[240px] text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-45">
+            <div className="mt-2 max-w-[220px] text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-40">
               Ask about your code, refactor functions, review changes, or explain
               how things work.
             </div>
@@ -488,12 +490,12 @@ export default function AxonAgentSidebar(props: Props) {
       )}
 
       {canChat && (
-        <div className="shrink-0 border-t border-[var(--axon-panel-border)] bg-[var(--axon-sidebar-background)] p-3">
-          <div className="relative rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/20">
+        <div className="shrink-0 border-t border-[var(--axon-panel-border)] bg-transparent p-3">
+          <div className="relative rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/10">
             {(contextEnabled.activeFile && props.activeFilePath) ||
               (contextEnabled.diagnostics && props.diagnostics.length > 0) ||
               (contextEnabled.gitChanges && props.gitChanges.length > 0) ? (
-              <div className="flex flex-wrap gap-1 border-b border-[var(--axon-panel-border)] px-3 py-2">
+              <div className="flex flex-wrap gap-1.5 border-b border-[var(--axon-panel-border)] px-3 py-2">
                 {contextEnabled.activeFile && props.activeFilePath && (
                   <ContextChip
                     label={props.activeFilePath.split("/").pop() ?? props.activeFilePath}
@@ -536,8 +538,8 @@ export default function AxonAgentSidebar(props: Props) {
                   setSlashCommandOpen(false);
                 }
               }}
-              placeholder={slashCommandOpen ? "Choose a command..." : "Ask Axon..."}
-              className="min-h-10 w-full resize-none bg-transparent px-3 py-2.5 text-[12px] leading-5 text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35"
+              placeholder={slashCommandOpen ? "Choose a command..." : "Ask Axon anything..."}
+              className="min-h-[40px] w-full resize-none bg-transparent px-3 py-2.5 text-[13px] leading-5 text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30"
               rows={1}
             />
 
@@ -564,14 +566,14 @@ export default function AxonAgentSidebar(props: Props) {
                         setModelPickerOpen((open) => !open);
                         setActionPickerOpen(false);
                       }}
-                      className="flex h-7 max-w-[130px] cursor-pointer items-center gap-1 rounded border border-[var(--axon-panel-border)] bg-transparent px-1.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-60 hover:border-[var(--axon-syntax-function)] hover:opacity-100"
+                      className="flex h-7 max-w-[130px] cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-50 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100"
                       aria-label="Choose Axon model"
                     >
                       <span className="truncate">{selectedModelLabel}</span>
-                      <ChevronDown size={10} className="shrink-0 opacity-45" />
+                      <ChevronDown size={10} className="shrink-0 opacity-40" />
                     </button>
                     {modelPickerOpen && (
-                      <div className="absolute bottom-8 left-0 z-30 w-[300px] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl shadow-black/50">
+                      <div className="absolute bottom-8 left-0 z-30 w-[300px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl shadow-black/50">
                         <div className="max-h-[260px] overflow-y-auto p-1.5">
                           {models.map((model) => (
                             <button
@@ -581,7 +583,7 @@ export default function AxonAgentSidebar(props: Props) {
                                 setSelectedModel(model.id);
                                 setModelPickerOpen(false);
                               }}
-                              className={`flex w-full cursor-pointer items-start gap-2 rounded px-2 py-2 text-left transition ${
+                              className={`flex w-full cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-left transition ${
                                 model.id === selectedModel
                                   ? "bg-[var(--axon-panel-overlay-hover)]"
                                   : "hover:bg-[var(--axon-panel-overlay-hover)]"
@@ -591,14 +593,14 @@ export default function AxonAgentSidebar(props: Props) {
                                 className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                                   model.available
                                     ? "bg-[#5ee6a8]"
-                                    : "bg-[var(--axon-editor-foreground)] opacity-35"
+                                    : "bg-[var(--axon-editor-foreground)] opacity-25"
                                 }`}
                               />
                               <span className="min-w-0">
                                 <span className="block truncate text-[12px] text-[var(--axon-editor-foreground)]">
                                   {model.label}
                                 </span>
-                                <span className="mt-0.5 block text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-60">
+                                <span className="mt-0.5 block text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-50">
                                   {model.available ? "Ready" : "Download required"}
                                 </span>
                               </span>
@@ -616,14 +618,14 @@ export default function AxonAgentSidebar(props: Props) {
                       setActionPickerOpen((open) => !open);
                       setModelPickerOpen(false);
                     }}
-                    className="flex h-7 max-w-[120px] cursor-pointer items-center gap-1 rounded border border-[var(--axon-panel-border)] bg-transparent px-1.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-60 hover:border-[var(--axon-syntax-function)] hover:opacity-100"
+                    className="flex h-7 max-w-[120px] cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-50 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100"
                     aria-label="Choose AI action"
                   >
                     <span className="truncate">{agentActionLabels[action]}</span>
-                    <ChevronDown size={10} className="shrink-0 opacity-45" />
+                    <ChevronDown size={10} className="shrink-0 opacity-40" />
                   </button>
                   {actionPickerOpen && (
-                    <div className="absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
+                    <div className="absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
                       {(["ask", ...agentQuickActions] as AiActionId[]).map((item) => (
                         <button
                           key={item}
@@ -632,10 +634,10 @@ export default function AxonAgentSidebar(props: Props) {
                             setAction(item);
                             setActionPickerOpen(false);
                           }}
-                          className={`flex h-7 w-full cursor-pointer items-center rounded px-2 text-left text-[11px] transition ${
+                          className={`flex h-7 w-full cursor-pointer items-center rounded-md px-2 text-left text-[11px] transition ${
                             action === item
                               ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
-                              : "text-[var(--axon-editor-foreground)] opacity-65 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                              : "text-[var(--axon-editor-foreground)] opacity-60 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
                           }`}
                         >
                           {agentActionLabels[item]}
@@ -649,7 +651,7 @@ export default function AxonAgentSidebar(props: Props) {
                 <button
                   type="button"
                   onClick={() => void cancelActiveStream()}
-                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-[#3a2630] bg-[#1a0f14] px-2.5 text-[11px] font-medium text-[#ff9ca8] transition hover:bg-[#24151b]"
+                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#3a2630] bg-[#1a0f14] px-2.5 text-[11px] font-medium text-[#ff9ca8] transition-colors hover:bg-[#24151b]"
                 >
                   <StopCircle size={12} />
                   Stop
@@ -659,7 +661,7 @@ export default function AxonAgentSidebar(props: Props) {
                   type="button"
                   onClick={() => void runAgent()}
                   disabled={!prompt.trim()}
-                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md bg-[var(--axon-syntax-function)] px-2.5 text-[11px] font-medium text-white transition hover:opacity-90 disabled:opacity-30"
+                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--axon-syntax-function)] px-2.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-25"
                 >
                   <Send size={12} />
                 </button>
