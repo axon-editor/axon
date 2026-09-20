@@ -214,8 +214,13 @@ Prerequisites: Node.js 22, npm 10 or newer, Go 1.25.1 or newer, and Git.
 
 ```bash
 npm install
+npm --workspace axon run build:language-servers
 npm run dev
 ```
+
+`build:language-servers` downloads Axon's managed native language servers
+(e.g. gopls) once per machine; `npm run dev` refuses to start until they are
+present. To skip managed LSPs, set `AXON_SKIP_LANGUAGE_SERVER_CHECK=1`.
 
 In development, `npm run dev` starts the Go core, Vite renderer, and Electron
 shell together. Packaged builds include the Go core binary and start it
