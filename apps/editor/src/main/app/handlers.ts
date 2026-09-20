@@ -201,10 +201,13 @@ export function registerAppHandlers({
   );
 
   ipcMain.handle("app:openDevTools", (event) => {
+    if (!isDev) return;
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window || window.webContents.isDestroyed()) return;
     window.webContents.openDevTools({ mode: "detach" });
   });
+
+  ipcMain.handle("app:isDev", () => isDev);
 
   ipcMain.handle("window:isFullScreen", (event) => {
     // Native fullscreen belongs to BrowserWindow, not Chromium's DOM

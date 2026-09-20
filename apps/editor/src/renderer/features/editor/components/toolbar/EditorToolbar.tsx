@@ -83,9 +83,20 @@ export default function EditorToolbar({
   hasActiveFile,
 }: Props) {
   const [dropdown, setDropdown] = useState<DropdownType>(null);
+  const [isDev, setIsDev] = useState(false);
   const newRef = useRef<HTMLDivElement>(null);
   const splitRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.axon.isDev().then((dev) => {
+      if (!cancelled) setIsDev(dev);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -340,16 +351,18 @@ export default function EditorToolbar({
               <Info size={13} className="shrink-0" />
               about Axon
             </button>
-            <button
-              onClick={() => {
-                setDropdown(null);
-                void window.axon.openDevTools();
-              }}
-              className={toolbarMenuItem}
-            >
-              <Bug size={13} className="shrink-0" />
-              inspect console
-            </button>
+            {isDev ? (
+              <button
+                onClick={() => {
+                  setDropdown(null);
+                  void window.axon.openDevTools();
+                }}
+                className={toolbarMenuItem}
+              >
+                <Bug size={13} className="shrink-0" />
+                inspect console
+              </button>
+            ) : null}
             {updateInfo?.updateAvailable ? (
               <>
                 <div className="my-1 border-t border-[var(--axon-panel-border)]" />

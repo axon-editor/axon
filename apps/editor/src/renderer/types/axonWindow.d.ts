@@ -459,6 +459,7 @@ declare global {
       clearWorkspaceSession: () => Promise<void>;
       consumeCliOpenFolder: () => Promise<string | null>;
       openDevTools: () => Promise<void>;
+      isDev: () => Promise<boolean>;
       checkForUpdates: () => Promise<UpdateInfo>;
       getUpdateInstallState: () => Promise<UpdateInstallState>;
       downloadUpdate: () => Promise<UpdateActionResult>;

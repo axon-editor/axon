@@ -651,6 +651,7 @@ contextBridge.exposeInMainWorld("axon", {
   consumeCliOpenFolder: (): Promise<string | null> =>
     ipcRenderer.invoke("app:consumeCliOpenFolder"),
   openDevTools: (): Promise<void> => ipcRenderer.invoke("app:openDevTools"),
+  isDev: (): Promise<boolean> => ipcRenderer.invoke("app:isDev"),
   checkForUpdates: (): Promise<UpdateInfo> =>
     ipcRenderer.invoke("app:checkForUpdates"),
   // The renderer can request updater actions, but it still cannot touch
