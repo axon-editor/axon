@@ -66,7 +66,7 @@ export default function CommitFileTree({
           )}
           <span className="truncate">{node.name}</span>
           <span
-            className="rounded text-right font-mono text-[10px]"
+            className="rounded px-1.5 py-0.5 text-center font-mono text-[10px]"
             style={
               node.file
                 ? getGitFileStateBadgeStyle(node.file.status)

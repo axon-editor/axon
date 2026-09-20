@@ -27,5 +27,6 @@ export function getGitFileStateBadgeStyle(state: GitFileState) {
   return {
     color,
     background: `color-mix(in srgb, ${color} 14%, transparent)`,
+    border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
   };
 }
