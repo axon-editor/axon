@@ -233,6 +233,28 @@ export default function MarkdownPreview({
           return;
         }
 
+        // Local markdown links resolve against the markdown file folder
+        // and open in the editor instead of navigating the preview to a
+        // relative app-origin URL.
+        if (href) {
+          const { pathname: linkPathname } = splitLocalReference(href);
+          if (
+            linkPathname &&
+            !/^(https?:|mailto:|tel:|#|data:|blob:|axon:|javascript:)/i.test(
+              linkPathname,
+            )
+          ) {
+            e.preventDefault();
+            const targetPath = resolveMarkdownPath(
+              linkPathname,
+              filePath,
+              folderPath,
+            );
+            if (targetPath) onOpenFile?.(targetPath);
+            return;
+          }
+        }
+
         if (href && /^(https?:|mailto:|tel:)/i.test(href)) {
           e.preventDefault();
           window.axon?.openExternalLink(href);
@@ -240,7 +262,7 @@ export default function MarkdownPreview({
         }
       }
     },
-    [content, onContentChange, onOpenFile],
+    [content, filePath, folderPath, onContentChange, onOpenFile],
   );
 
   return (

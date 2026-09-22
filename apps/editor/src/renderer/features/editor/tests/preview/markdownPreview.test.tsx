@@ -352,6 +352,58 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
     ).not.toBeNull();
   });
 
+  it("renders bold, emphasis, and strikethrough", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"**bold** and *emphasis* and ~~strike~~"}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+
+    expect(
+      container.querySelector("strong")?.textContent,
+    ).toBe("bold");
+    expect(container.querySelector("em")?.textContent).toBe("emphasis");
+    expect(container.querySelector("del")?.textContent).toBe("strike");
+    expect(container.textContent).toContain(" and ");
+  });
+
+  it("opens local markdown links in the editor instead of the web", async () => {
+    const onOpenFile = vi.fn();
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            "Read the [Architecture Guide](architecture.md) and [notes](../docs/NOTES.md)."
+          }
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+          onOpenFile={onOpenFile}
+        />,
+      );
+    });
+    await flushPreview();
+
+    const links = container.querySelectorAll<HTMLAnchorElement>("a[href]");
+    await act(async () => {
+      links[0]?.click();
+    });
+    expect(onOpenFile).toHaveBeenCalledWith(
+      "/workspace/site/architecture.md",
+    );
+
+    await act(async () => {
+      links[1]?.click();
+    });
+    expect(onOpenFile).toHaveBeenLastCalledWith(
+      "/workspace/docs/NOTES.md",
+    );
+  });
+
   it("updates the exact source task and attaches source-line markers", async () => {
     const onContentChange = vi.fn();
     const content = "# Tasks\n\n- [ ] first\n- [x] second";

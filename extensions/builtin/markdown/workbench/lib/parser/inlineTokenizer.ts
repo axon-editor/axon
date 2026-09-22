@@ -89,6 +89,17 @@ export function parseInline(text: string): InlineToken[] {
       }
     }
 
+    // Bold, emphasis, and strikethrough. Handled here so that plain text
+    // collection never swallows the opening marker.
+    if (text[pos] === "*" || text[pos] === "_" || text[pos] === "~") {
+      const formatted = parseFormatting(text, pos);
+      if (formatted) {
+        tokens.push(formatted.token);
+        pos = formatted.end;
+        continue;
+      }
+    }
+
     // HTML tags are passed through for sanitization in the renderer.
     if (text[pos] === "<") {
       const html = parseHtmlInline(text, pos);
@@ -342,6 +353,86 @@ function parseLinkDestination(
   pos++; // skip )
 
   return { href, title, end: pos };
+}
+
+// Parses bold (**text** or __text__), emphasis (*text* or _text_), and
+// strikethrough (~~text~~) starting at the given position. Returns the
+// token and end position, or null if there is no matching close marker.
+function parseFormatting(
+  text: string,
+  pos: number,
+): { token: InlineToken; end: number } | null {
+  const marker = text[pos];
+
+  // Strikethrough requires a pair of tildes on both sides.
+  if (marker === "~") {
+    if (text[pos + 1] !== "~") return null;
+    const close = text.indexOf("~~", pos + 2);
+    if (close === -1 || close === pos + 2) return null;
+    return {
+      token: { type: "delete", children: parseInline(text.slice(pos + 2, close)) },
+      end: close + 2,
+    };
+  }
+
+  // Underscore markers must not split words. Identifiers written in
+  // snake_case stay plain text so source code reads naturally.
+  if (marker === "_" && pos > 0 && isWordChar(text[pos - 1])) return null;
+
+  const doubled = text[pos + 1] === marker;
+  const openEnd = pos + (doubled ? 2 : 1);
+
+  // A left-flanking delimiter is not followed by whitespace. Without
+  // this guard, arithmetic like "2 * 3" would wrap in emphasis.
+  if (text[openEnd] === " ") return null;
+
+  // Inline code inside the span is skipped so a backtick does not count
+  // as part of the content and asterisks inside it cannot close the span.
+  const close = findFormattingClose(text, marker, doubled, openEnd);
+  if (close === -1 || close === openEnd) return null;
+
+  return {
+    token: {
+      type: doubled ? "strong" : "emphasis",
+      children: parseInline(text.slice(openEnd, close)),
+    },
+    end: close + (doubled ? 2 : 1),
+  };
+}
+
+// Locates the closing marker for an emphasis span. Single markers skip
+// doubled runs so *em* does not close inside **strong**, and doubled
+// markers skip single runs so **strong** reaches its own closing pair.
+function findFormattingClose(
+  text: string,
+  marker: string,
+  doubled: boolean,
+  start: number,
+): number {
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "`") {
+      const code = parseInlineCode(text, i);
+      if (code) {
+        i = code.end - 1;
+        continue;
+      }
+    }
+
+    if (text[i] !== marker) continue;
+    if (text[i + 1] === marker) {
+      if (doubled) return i;
+      i++;
+      continue;
+    }
+    if (doubled) continue;
+    if (text[i - 1] === marker) continue;
+    return i;
+  }
+  return -1;
+}
+
+function isWordChar(ch: string): boolean {
+  return /[A-Za-z0-9]/.test(ch);
 }
 
 // Parses an inline math expression $...$. Returns null if there is no
