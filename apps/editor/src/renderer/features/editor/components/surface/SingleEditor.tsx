@@ -44,7 +44,6 @@ import { useEditorDiskBaseline } from "../../lib/buffer/useEditorDiskBaseline";
 import { useEditorZoomViewport } from "../../lib/hooks/useEditorZoomViewport";
 import useGitLineDecorations from "../../lib/git/useGitLineDecorations";
 import useGitLineTrace from "../../lib/git/useGitLineTrace";
-import { useMarkdownPreviewBridge } from "../../lib/hooks/useMarkdownPreviewBridge";
 import { useAxonBufferDocument } from "../../lib/buffer/useAxonBufferDocument";
 import { useEditorSave } from "../../lib/hooks/useEditorSave";
 import {
@@ -53,10 +52,8 @@ import {
 } from "../../lib/buffer/editorSave";
 import { EditorErrorState, EditorLoadingState } from "./EditorDocumentState";
 import { useLocalAssetUrl } from "../../../../shared/hooks/useLocalAssetUrl";
-import MarkdownEditorModeToolbar, {
-  type MarkdownPreviewMode,
-} from "./MarkdownEditorModeToolbar";
-import EditorPreviewLayout from "./EditorPreviewLayout";
+import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import { Eye } from "lucide-react";
 interface Props {
   filePath: string;
   folderPath: string | null;
@@ -94,7 +91,6 @@ export default function SingleEditor({
   gitChanges,
   isGitRepository,
 }: Props) {
-  const [previewMode, setPreviewMode] = useState<MarkdownPreviewMode>("editor");
   const [editorReadyNonce, setEditorReadyNonce] = useState(0);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const [tokenInspectorReport, setTokenInspectorReport] =
@@ -150,15 +146,6 @@ export default function SingleEditor({
     editorSettings.lineHeight,
   );
   const isMd = isMarkdownFile(filePath);
-  const {
-    trackEditorScroll: trackMarkdownEditorScroll,
-    updateMarkdownContent,
-  } = useMarkdownPreviewBridge({
-    editorRef,
-    filePath,
-    isMarkdown: isMd,
-    setLiveContent,
-  });
   const scheduleLiveContentUpdate = useTrailingTask();
   const editorBackgroundImagePath = editorSettings.backgroundImagePath.trim();
   const editorBackgroundImageUrl = useLocalAssetUrl(
@@ -206,7 +193,6 @@ export default function SingleEditor({
     liveContent,
     loading,
     visible,
-    setPreviewMode,
   });
 
   const jumpToDefinition = useCallback(async () => {
@@ -439,7 +425,6 @@ export default function SingleEditor({
         column + length,
       );
 
-      setPreviewMode("editor");
       editor.setPosition({ lineNumber, column });
       editor.revealRangeInCenter(range, monaco.editor.ScrollType.Smooth);
       editor.focus();
@@ -531,7 +516,6 @@ export default function SingleEditor({
   };
 
   useEffect(() => {
-    setPreviewMode("editor");
     return () => {
       navigationDecorationsRef.current?.clear();
       navigationDecorationsRef.current = null;
@@ -593,7 +577,6 @@ export default function SingleEditor({
     setEditorReadyNonce((nonce) => nonce + 1);
     markEditorMounted(filePath);
     trackEditorZoomViewport(editor);
-    trackMarkdownEditorScroll(editor);
 
     registerAxonTheme(
       monaco,
@@ -699,7 +682,7 @@ export default function SingleEditor({
               setLiveContent(model.getValue());
             }
           },
-          isMd && previewMode === "split" ? 80 : 240,
+          240,
         );
       }
       const dirty = isModelDirty(model);
@@ -827,23 +810,21 @@ export default function SingleEditor({
         />
       )}
       {isMd && (
-        <MarkdownEditorModeToolbar
-          filePath={filePath}
-          mode={previewMode}
-          onChangeMode={setPreviewMode}
-          onOpenPreview={onOpenMarkdownPreviewTab}
-        />
+        <div className="flex items-center justify-end gap-1 border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3 py-1">
+          <Tooltip label="Preview" side="bottom">
+            <button
+              type="button"
+              onClick={() => onOpenMarkdownPreviewTab?.(filePath)}
+              aria-label="Preview"
+              className="cursor-pointer rounded p-1 text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+            >
+              <Eye size={13} />
+            </button>
+          </Tooltip>
+        </div>
       )}
 
-      <EditorPreviewLayout
-        content={liveContent}
-        editor={editorNode}
-        filePath={filePath}
-        folderPath={folderPath}
-        mode={previewMode}
-        onContentChange={updateMarkdownContent}
-        onOpenFile={onOpenFile}
-      />
+      {editorNode}
     </div>
   );
 }

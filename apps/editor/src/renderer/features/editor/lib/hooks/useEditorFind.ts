@@ -19,7 +19,6 @@ interface UseEditorFindOptions {
   liveContent: string;
   loading: boolean;
   visible: boolean;
-  setPreviewMode: (mode: "editor") => void;
 }
 
 export function useEditorFind({
@@ -28,7 +27,6 @@ export function useEditorFind({
   liveContent,
   loading,
   visible,
-  setPreviewMode,
 }: UseEditorFindOptions) {
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
@@ -110,7 +108,6 @@ export function useEditorFind({
   );
 
   const openFind = useCallback(() => {
-    setPreviewMode("editor");
     const editor = editorRef.current;
     const model = editor?.getModel();
     const selection = editor?.getSelection();
@@ -128,7 +125,7 @@ export function useEditorFind({
       findInputRef.current?.focus();
       findInputRef.current?.select();
     });
-  }, [editorRef, setPreviewMode]);
+  }, [editorRef]);
 
   const closeFind = useCallback(() => {
     setFindOpen(false);
