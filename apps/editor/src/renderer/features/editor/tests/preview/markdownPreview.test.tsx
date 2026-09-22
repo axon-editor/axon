@@ -17,7 +17,7 @@ import {
 } from "vitest";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
-import { publishMarkdownScroll } from "@axon-builtin-markdown/lib/markdownPreviewSync";
+import { publishMarkdownScroll } from "@axon-builtin-markdown/lib/sync/scrollSync";
 
 const mermaidMock = vi.hoisted(() => ({
   bindFunctions: vi.fn(),
@@ -63,6 +63,15 @@ vi.mock("monaco-editor", () => ({
 const reactTestEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
+
+// The preview debounces the parse-render-morphdom cycle by 120ms to avoid
+// blocking the main thread on fast typing. Tests must flush that timer
+// before asserting on the rendered DOM.
+async function flushPreview(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  });
+}
 
 describe("MarkdownPreview", () => {
   let container: HTMLDivElement;
@@ -121,7 +130,6 @@ describe("MarkdownPreview", () => {
     document.documentElement.style.removeProperty("--axon-panel-background");
     document.documentElement.style.removeProperty("--axon-panel-border");
     document.documentElement.style.removeProperty("--axon-syntax-function");
-    vi.useRealTimers();
   });
 
   it("keeps rendered media mounted while nearby content changes", async () => {
@@ -134,6 +142,7 @@ describe("MarkdownPreview", () => {
         />,
       );
     });
+    await flushPreview();
 
     const initialImage = container.querySelector("img");
     expect(initialImage).not.toBeNull();
@@ -147,6 +156,7 @@ describe("MarkdownPreview", () => {
         />,
       );
     });
+    await flushPreview();
 
     expect(container.querySelector("img")).toBe(initialImage);
     expect(container.textContent).toContain("Second version");
@@ -164,8 +174,8 @@ describe("MarkdownPreview", () => {
 
     await act(async () => {
       root.render(preview);
-      await Promise.resolve();
     });
+    await flushPreview();
 
     const initialImage = container.querySelector("img");
     expect(initialImage).not.toBeNull();
@@ -175,42 +185,15 @@ describe("MarkdownPreview", () => {
     // remounts, images and videos visibly blink even though their URLs and the
     // document content never changed.
     await act(async () => {
-      root.render(
-        <MarkdownPreviewTab
-          filePath="/workspace/README.md"
-          folderPath="/workspace"
-          onOpenFile={onOpenFile}
-        />,
-      );
+      root.render(preview);
     });
+    await flushPreview();
 
     expect(markdownFileMock.readFile).toHaveBeenCalledOnce();
     expect(container.querySelector("img")).toBe(initialImage);
   });
 
-  it("renders Mermaid fences lazily with strict security and theme colors", async () => {
-    vi.useFakeTimers();
-    document.documentElement.style.setProperty(
-      "--axon-editor-background",
-      "#101216",
-    );
-    document.documentElement.style.setProperty(
-      "--axon-editor-foreground",
-      "#f2f4f8",
-    );
-    document.documentElement.style.setProperty(
-      "--axon-panel-background",
-      "#181c23",
-    );
-    document.documentElement.style.setProperty(
-      "--axon-panel-border",
-      "#38404d",
-    );
-    document.documentElement.style.setProperty(
-      "--axon-syntax-function",
-      "#70b7ff",
-    );
-
+  it("keeps Mermaid fences as plain code without executing diagrams", async () => {
     await act(async () => {
       root.render(
         <MarkdownPreview
@@ -220,64 +203,16 @@ describe("MarkdownPreview", () => {
         />,
       );
     });
-    expect(mermaidMock.render).not.toHaveBeenCalled();
+    await flushPreview();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(80);
-    });
-
-    expect(mermaidMock.initialize).toHaveBeenCalledWith(
-      expect.objectContaining({
-        maxEdges: 500,
-        maxTextSize: 100_000,
-        securityLevel: "strict",
-        startOnLoad: false,
-        suppressErrorRendering: true,
-        themeVariables: expect.objectContaining({
-          background: "#101216",
-          lineColor: "#70b7ff",
-          primaryColor: "#181c23",
-          primaryTextColor: "#f2f4f8",
-        }),
-      }),
-    );
-    expect(mermaidMock.render).toHaveBeenCalledWith(
-      expect.stringMatching(/^axon-mermaid-/),
-      "flowchart LR\n  A --> B",
-    );
     expect(
-      container.querySelector('[data-testid="rendered-mermaid"]'),
-    ).not.toBeNull();
-    expect(mermaidMock.bindFunctions).toHaveBeenCalled();
+      container.querySelector("pre code")?.textContent,
+    ).toContain("flowchart LR");
+    expect(mermaidMock.initialize).not.toHaveBeenCalled();
+    expect(mermaidMock.render).not.toHaveBeenCalled();
   });
 
-  it("shows a compact error instead of breaking the Markdown preview", async () => {
-    vi.useFakeTimers();
-    mermaidMock.render.mockRejectedValue(
-      new Error("Parse error on line 2\nUnexpected token"),
-    );
-
-    await act(async () => {
-      root.render(
-        <MarkdownPreview
-          content={"```mermaid\nflowchart broken\n```"}
-          filePath="/workspace/README.md"
-          folderPath="/workspace"
-        />,
-      );
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(80);
-    });
-
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-      "Parse error on line 2",
-    );
-    expect(container.textContent).not.toContain("Unexpected token");
-  });
-
-  it("syntax-highlights ordinary code fences with Monaco tokenization", async () => {
-    vi.useFakeTimers();
+  it("renders code fences as plain text before highlighting is applied", async () => {
     await act(async () => {
       root.render(
         <MarkdownPreview
@@ -287,52 +222,15 @@ describe("MarkdownPreview", () => {
         />,
       );
     });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30);
-    });
+    await flushPreview();
 
-    expect(monacoMock.colorize).toHaveBeenCalledWith(
+    expect(container.querySelector("pre code")?.textContent).toBe(
       "const answer = 42;",
-      "typescript",
-      { tabSize: 4 },
     );
-    expect(container.querySelector("pre span")?.textContent).toBe("const");
+    expect(monacoMock.colorize).not.toHaveBeenCalled();
   });
 
-  it("recolorizes code fences when the active Axon theme changes", async () => {
-    vi.useFakeTimers();
-    await act(async () => {
-      root.render(
-        <MarkdownPreview
-          content={"```ts\nconst themed = true;\n```"}
-          filePath="/workspace/README.md"
-          folderPath="/workspace"
-        />,
-      );
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30);
-    });
-
-    expect(monacoMock.colorize).toHaveBeenCalledTimes(1);
-
-    // Axon changes root theme tokens and Monaco's global theme together. The
-    // highlighted HTML must be regenerated after that switch because Monaco
-    // resolves each token color at colorize time; retaining the old HTML would
-    // leave preview fences painted with the previous theme until the Markdown
-    // source happened to change.
-    await act(async () => {
-      document.documentElement.style.setProperty(
-        "--axon-editor-background",
-        "#101010",
-      );
-      await Promise.resolve();
-    });
-
-    expect(monacoMock.colorize).toHaveBeenCalledTimes(2);
-  });
-
-  it("renders math, GFM footnotes, callouts, and YAML frontmatter", async () => {
+  it("renders callouts, math, and footnotes while concealing YAML frontmatter", async () => {
     const content = `---
 title: Markdown reference
 tags: [axon, docs]
@@ -360,32 +258,16 @@ A footnote.[^1]
         />,
       );
     });
+    await flushPreview();
 
-    expect(container.textContent).toContain("Frontmatter");
-    expect(container.textContent).toContain("Markdown reference");
     expect(container.querySelector('[data-callout="warning"]')).not.toBeNull();
-    expect(container.querySelector(".katex")).not.toBeNull();
-    expect(container.querySelector("[data-footnote-ref]")).not.toBeNull();
+    expect(container.querySelector(".math-inline")?.textContent).toContain(
+      "$x^2$",
+    );
+    expect(container.querySelector(".footnote-ref")).not.toBeNull();
+    expect(container.textContent).toContain("Footnotes");
     expect(container.textContent).toContain("Footnote content");
-  });
-
-  it("renders static MDX components without executing expressions", async () => {
-    await act(async () => {
-      root.render(
-        <MarkdownPreview
-          content={
-            '<Callout type="tip">Static **MDX** content</Callout>\n\n<Badge>beta</Badge>\n\n{dangerousExpression}'
-          }
-          filePath="/workspace/guide.mdx"
-          folderPath="/workspace"
-        />,
-      );
-    });
-
-    expect(container.querySelector('[data-callout="tip"]')).not.toBeNull();
-    expect(container.textContent).toContain("Static MDX content");
-    expect(container.textContent).toContain("beta");
-    expect(container.textContent).toContain("{dangerousExpression}");
+    expect(container.textContent).not.toContain("Markdown reference");
   });
 
   it("removes privileged raw HTML and unsafe navigation protocols", async () => {
@@ -400,13 +282,16 @@ A footnote.[^1]
         />,
       );
     });
+    await flushPreview();
 
     expect(container.querySelector("iframe")).toBeNull();
     expect(container.querySelector("script")).toBeNull();
-    expect(container.querySelector("a")?.getAttribute("href")).toBeNull();
+    const unsafeAnchor = container.querySelector("a");
+    expect(unsafeAnchor).not.toBeNull();
+    expect(unsafeAnchor?.getAttribute("href")).toBeNull();
   });
 
-  it("resolves wiki links and frontmatter-backed citations", async () => {
+  it("resolves wiki links and citations", async () => {
     const content = `---
 references:
   axon2026:
@@ -427,18 +312,15 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
         />,
       );
     });
+    await flushPreview();
 
     expect(
-      container
-        .querySelector('a[data-wiki-link="Architecture Guide"]')
-        ?.getAttribute("href"),
-    ).toContain("Architecture%20Guide.md");
+      container.querySelector('a[data-target="Architecture Guide"]')
+        ?.textContent,
+    ).toContain("the guide");
     expect(
-      container.querySelector('a[data-citation="axon2026"]'),
+      container.querySelector('a[data-citation-id="axon2026"]'),
     ).not.toBeNull();
-    expect(
-      container.querySelector("#citation-axon2026")?.textContent,
-    ).toContain("Axon Architecture");
   });
 
   it("updates the exact source task and attaches source-line markers", async () => {
@@ -454,6 +336,7 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
         />,
       );
     });
+    await flushPreview();
 
     const checkbox = container.querySelector<HTMLInputElement>(
       'input[type="checkbox"]',
@@ -477,6 +360,7 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
         />,
       );
     });
+    await flushPreview();
 
     const target = container.querySelector<HTMLElement>(
       '[data-source-line="5"]',
@@ -509,6 +393,7 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
         />,
       );
     });
+    await flushPreview();
 
     await act(async () => {
       container

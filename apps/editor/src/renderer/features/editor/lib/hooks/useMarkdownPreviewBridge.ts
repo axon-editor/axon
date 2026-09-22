@@ -15,7 +15,7 @@ import * as monaco from "monaco-editor";
 import {
   onMarkdownScroll,
   publishMarkdownScroll,
-} from "@axon-builtin-markdown/lib/markdownPreviewSync";
+} from "@axon-builtin-markdown/lib/sync/scrollSync";
 
 interface UseMarkdownPreviewBridgeOptions {
   editorRef: RefObject<monaco.editor.IStandaloneCodeEditor | null>;

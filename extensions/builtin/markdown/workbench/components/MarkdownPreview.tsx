@@ -12,6 +12,7 @@
 // caused by React re-rendering the entire markdown tree.
 
 import { useCallback, useEffect, useRef } from "react";
+import DOMPurify from "dompurify";
 import { parse, type Token, type InlineToken, type FootnoteDefinitionToken } from "../lib/parser";
 import { preloadHighlighter } from "../lib/renderer/highlight";
 import { morphdom, captureImageDimensions, applyImageDimensions } from "../lib/sync/morphdom";
@@ -194,7 +195,10 @@ export default function MarkdownPreview({
     <div className="flex h-full min-h-0 flex-col bg-[var(--axon-editor-background)]">
       <MarkdownPreviewToolbar articleRef={articleRef} filePath={filePath} />
       <div
-        ref={containerRef}
+        ref={(el) => {
+          containerRef.current = el;
+          articleRef.current = el;
+        }}
         onScroll={handleScroll}
         onClick={handleClick}
         className="min-h-0 flex-1 overflow-y-auto px-5 py-6"
@@ -264,7 +268,7 @@ function renderTokenSync(
       footnotes.push(token);
       return "";
     case "htmlBlock":
-      return `<div data-source-line="${token.line}">${token.content}</div>`;
+      return `<div data-source-line="${token.line}">${sanitizeHtml(token.content)}</div>`;
     default:
       return "";
   }
@@ -296,7 +300,7 @@ function renderInlineSync(token: InlineToken): string {
     case "footnoteReference":
       return `<sup class="footnote-ref"><a href="#fn-${escapeAttr(token.id)}" class="text-[var(--axon-syntax-function)]">[${escapeHtml(token.id)}]</a></sup>`;
     case "htmlInline":
-      return token.content;
+      return sanitizeHtml(token.content);
     case "softBreak":
       return "\n";
     case "hardBreak":
@@ -409,6 +413,12 @@ function toggleTask(content: string, line: number, checked: boolean): string {
   );
 
   return lines.join("\n");
+}
+
+function sanitizeHtml(html: string): string {
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+  });
 }
 
 function escapeHtml(text: string): string {

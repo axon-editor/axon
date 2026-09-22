@@ -160,8 +160,8 @@ export function tokenizeBlocks(
     const htmlResult = parseHtmlBlock(lines, i, state.line);
     if (htmlResult) {
       tokens.push(htmlResult.token);
+      state.line += htmlResult.endLine - i;
       i = htmlResult.endLine;
-      state.line = htmlResult.endLine;
       continue;
     }
 
@@ -169,8 +169,8 @@ export function tokenizeBlocks(
     if (line.startsWith(">")) {
       const bqResult = parseBlockquote(lines, i, state.line, options);
       tokens.push(bqResult.token);
+      state.line += bqResult.endLine - i;
       i = bqResult.endLine;
-      state.line = bqResult.endLine;
       continue;
     }
 
@@ -179,8 +179,8 @@ export function tokenizeBlocks(
     if (ulMatch) {
       const listResult = parseList(lines, i, state.line, false, options);
       tokens.push(listResult.token);
+      state.line += listResult.endLine - i;
       i = listResult.endLine;
-      state.line = listResult.endLine;
       continue;
     }
 
@@ -189,8 +189,8 @@ export function tokenizeBlocks(
     if (olMatch) {
       const listResult = parseList(lines, i, state.line, true, options);
       tokens.push(listResult.token);
+      state.line += listResult.endLine - i;
       i = listResult.endLine;
-      state.line = listResult.endLine;
       continue;
     }
 
@@ -199,8 +199,8 @@ export function tokenizeBlocks(
       const tableResult = parseTable(lines, i, state.line);
       if (tableResult) {
         tokens.push(tableResult.token);
+        state.line += tableResult.endLine - i;
         i = tableResult.endLine;
-        state.line = tableResult.endLine;
         continue;
       }
     }
@@ -216,8 +216,8 @@ export function tokenizeBlocks(
         fnMatch[2],
       );
       tokens.push(fnResult.token);
+      state.line += fnResult.endLine - i;
       i = fnResult.endLine;
-      state.line = fnResult.endLine;
       continue;
     }
 
@@ -225,8 +225,8 @@ export function tokenizeBlocks(
     // a block-level construct.
     const paraResult = parseParagraph(lines, i, state.line);
     tokens.push(paraResult.token);
+    state.line += paraResult.endLine - i;
     i = paraResult.endLine;
-    state.line = paraResult.endLine;
   }
 
   // If we ended inside a code fence without a closing fence, push
@@ -483,7 +483,7 @@ function parseList(
     }
 
     // Parse the list item.
-    const itemResult = parseListItem(lines, i, ordered, options);
+    const itemResult = parseListItem(lines, i, ordered, options, lineNum + (i - startLine));
     items.push(itemResult.item);
     i = itemResult.endLine;
   }
@@ -527,6 +527,7 @@ function parseListItem(
   startLine: number,
   ordered: boolean,
   options: ParseOptions,
+  lineNum: number,
 ): { item: ListItemToken; endLine: number } {
   const line = lines[startLine];
   let contentStart: number;
@@ -584,7 +585,7 @@ function parseListItem(
       type: "listItem",
       children,
       checked,
-      line: startLine,
+      line: lineNum,
     },
     endLine: i,
   };
