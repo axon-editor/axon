@@ -143,9 +143,15 @@ describe("MarkdownPreview", () => {
       );
     });
     await flushPreview();
+    // The ticket resolves asynchronously and needs a second debounce cycle
+    // to morph the real axon://local URL onto the existing media node.
+    await flushPreview();
 
     const initialImage = container.querySelector("img");
     expect(initialImage).not.toBeNull();
+    expect(initialImage?.getAttribute("src")).toBe(
+      "axon://local/test-preview-ticket",
+    );
 
     await act(async () => {
       root.render(
@@ -160,6 +166,29 @@ describe("MarkdownPreview", () => {
 
     expect(container.querySelector("img")).toBe(initialImage);
     expect(container.textContent).toContain("Second version");
+  });
+
+  it("resolves raw HTML image and video sources to axon asset URLs", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            '![Img](./pic.png)\n\n<p align="center">\n  <video src="docs/media/demo.mp4" controls>\n    Demo recording.\n  </video>\n</p>'
+          }
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    await flushPreview();
+
+    const img = container.querySelector("img");
+    const video = container.querySelector("video");
+    expect(img?.getAttribute("src")).toBe("axon://local/test-preview-ticket");
+    expect(video?.getAttribute("src")).toBe(
+      "axon://local/test-preview-ticket",
+    );
   });
 
   it("does not repaint a preview during an unrelated workbench heartbeat", async () => {

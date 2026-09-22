@@ -11,9 +11,10 @@
 // and patches the DOM via morphdom. This avoids the flickering issues
 // caused by React re-rendering the entire markdown tree.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { parse, type Token, type InlineToken, type FootnoteDefinitionToken } from "../lib/parser";
+import { resolveMarkdownPath } from "../lib/renderer/context";
 import { preloadHighlighter } from "../lib/renderer/highlight";
 import { morphdom, captureImageDimensions, applyImageDimensions } from "../lib/sync/morphdom";
 import {
@@ -43,6 +44,14 @@ export default function MarkdownPreview({
   const articleRef = useRef<HTMLElement | null>(null);
   const suppressScrollRef = useRef(false);
   const scrollFrameRef = useRef<number | null>(null);
+
+  // Cache of issued axon://local URLs keyed by absolute file path. Media
+  // URLs are requested asynchronously because the main process has to
+  // authorize each read from the workspace, so renders read from this
+  // cache and fall back to an empty src until the ticket arrives.
+  const mediaUrlsRef = useRef(new Map<string, string>());
+  const mediaInflightRef = useRef(new Set<string>());
+  const [mediaTick, setMediaTick] = useState(0);
 
   // Preload the Shiki highlighter during idle time.
   useEffect(() => {
@@ -124,15 +133,58 @@ export default function MarkdownPreview({
         },
       });
 
-    // Patch the DOM via morphdom.
-    morphdom(container, html);
+      // Media srcs are written relative to the markdown file or the
+      // workspace root. Rewrite every local src/poster to an axon://local
+      // ticket URL so Electron can serve the file without exposing file://.
+      const pendingLocal = new Set<string>();
+      const resolvedHtml = rewriteAssetSrcs(
+        html,
+        filePath,
+        folderPath,
+        mediaUrlsRef.current,
+        pendingLocal,
+      );
 
-    // Restore image dimensions to prevent layout shifts.
-    applyImageDimensions(container, imageDims);
+      // Patch the DOM via morphdom.
+      morphdom(container, resolvedHtml);
+
+      // Restore image dimensions to prevent layout shifts.
+      applyImageDimensions(container, imageDims);
+
+      // Issue tickets for local assets that are not cached yet. Resolved
+      // tickets bump mediaTick so the debounced render cycle repeats with
+      // the real URLs on the second pass.
+      for (const absolutePath of pendingLocal) {
+        if (
+          mediaUrlsRef.current.has(absolutePath) ||
+          mediaInflightRef.current.has(absolutePath)
+        ) {
+          continue;
+        }
+        mediaInflightRef.current.add(absolutePath);
+        const bridgeRequest = window.axon?.getLocalAssetUrl(absolutePath);
+        if (!bridgeRequest) {
+          mediaInflightRef.current.delete(absolutePath);
+          continue;
+        }
+        void bridgeRequest
+          .then((url) => {
+            if (url) mediaUrlsRef.current.set(absolutePath, url);
+          })
+          .catch(() => {
+            // Leave the path uncached so a later content change retries.
+          })
+          .finally(() => {
+            mediaInflightRef.current.delete(absolutePath);
+            if (mediaUrlsRef.current.has(absolutePath)) {
+              setMediaTick((tick) => tick + 1);
+            }
+          });
+      }
     }, 120);
 
     return () => clearTimeout(timer);
-  }, [content, filePath, folderPath, onContentChange]);
+  }, [content, filePath, folderPath, onContentChange, mediaTick]);
 
   // Event delegation for link clicks, task toggles, and other
   // interactive elements.
@@ -418,6 +470,50 @@ function toggleTask(content: string, line: number, checked: boolean): string {
 function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
+  });
+}
+
+// Splits a local reference into its path and #fragment or ?query suffix.
+function splitLocalReference(src: string): {
+  pathname: string;
+  suffix: string;
+} {
+  const markerIndex = src.search(/[?#]/);
+  if (markerIndex === -1) return { pathname: src, suffix: "" };
+  return {
+    pathname: src.slice(0, markerIndex),
+    suffix: src.slice(markerIndex),
+  };
+}
+
+// Checks if a path points at a local file rather than an external URL,
+// in-page anchor, data URI, or already-issued axon ticket.
+function isLocalAssetPath(pathname: string): boolean {
+  if (!pathname) return false;
+  return !/^(https?:|mailto:|tel:|#|data:|blob:|axon:|javascript:)/i.test(
+    pathname,
+  );
+}
+
+// Rewrites src and poster attributes in the rendered HTML. Local paths
+// become axon://local tickets from the cache (or an empty placeholder
+// while a ticket is pending); external URLs pass through unchanged.
+function rewriteAssetSrcs(
+  html: string,
+  filePath: string,
+  folderPath: string | null,
+  urls: ReadonlyMap<string, string>,
+  pendingLocal: Set<string>,
+): string {
+  return html.replace(/(src|poster)="([^"]*)"/gi, (match, attr, value) => {
+    const { pathname, suffix } = splitLocalReference(value);
+    if (!isLocalAssetPath(pathname)) return match;
+
+    const absolutePath = resolveMarkdownPath(pathname, filePath, folderPath);
+    pendingLocal.add(absolutePath);
+
+    const ticketUrl = urls.get(absolutePath);
+    return `${attr}="${escapeAttr(ticketUrl ? `${ticketUrl}${suffix}` : "")}"`;
   });
 }
 
