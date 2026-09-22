@@ -94,38 +94,43 @@ export default function MarkdownPreview({
   );
 
   // Parse and render on content change. Uses morphdom to patch the DOM
-  // instead of replacing innerHTML.
+  // instead of replacing innerHTML. Debounced to avoid main-thread
+  // blocking on fast typing.
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const timer = setTimeout(() => {
+      const container = containerRef.current;
+      if (!container) return;
 
-    // Capture image dimensions before morphing to prevent layout shifts.
-    const imageDims = captureImageDimensions(container);
+      // Capture image dimensions before morphing to prevent layout shifts.
+      const imageDims = captureImageDimensions(container);
 
-    // Parse markdown to tokens.
-    const { tokens } = parse(content, {
-      gfm: true,
-      math: true,
-      frontmatter: true,
-      callouts: true,
-      wikiLinks: true,
-      sourceLines: true,
-    });
+      // Parse markdown to tokens.
+      const { tokens } = parse(content, {
+        gfm: true,
+        math: true,
+        frontmatter: true,
+        callouts: true,
+        wikiLinks: true,
+        sourceLines: true,
+      });
 
-    // Render tokens to HTML string.
-    const html = renderSync(tokens, {
-      filePath,
-      folderPath,
-      onTaskToggle: (line, checked) => {
-        onContentChange?.(toggleTask(content, line, checked));
-      },
-    });
+      // Render tokens to HTML string.
+      const html = renderSync(tokens, {
+        filePath,
+        folderPath,
+        onTaskToggle: (line, checked) => {
+          onContentChange?.(toggleTask(content, line, checked));
+        },
+      });
 
     // Patch the DOM via morphdom.
     morphdom(container, html);
 
     // Restore image dimensions to prevent layout shifts.
     applyImageDimensions(container, imageDims);
+    }, 120);
+
+    return () => clearTimeout(timer);
   }, [content, filePath, folderPath, onContentChange]);
 
   // Event delegation for link clicks, task toggles, and other

@@ -41,6 +41,14 @@ export function tokenizeBlocks(
   content: string,
   options: ParseOptions = {},
 ): Token[] {
+  if (content.length > 500_000) {
+    return [{
+      type: "paragraph",
+      children: [{ type: "text", content: "[Content too large to parse]" }],
+      line: 1,
+    }];
+  }
+
   const lines = content.split("\n");
   const tokens: Token[] = [];
   const state: TokenizeState = {
@@ -77,7 +85,7 @@ export function tokenizeBlocks(
     }
 
     // Opening code fence: ```language or ~~~language.
-    const fenceMatch = /^(#{3,}|~{3,})(\s*)(\S*)/.exec(line);
+    const fenceMatch = /^(`{3,}|~{3,})(\s*)(\S*)/.exec(line);
     if (fenceMatch) {
       state.inCodeFence = true;
       state.codeFence = fenceMatch[1];
