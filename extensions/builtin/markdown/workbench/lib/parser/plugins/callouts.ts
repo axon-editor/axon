@@ -27,8 +27,19 @@ function processBlock(tokens: Token[]): Token[] {
       return processBlockquote(token);
     }
 
-    // Recurse into containers that can hold blockquotes.
-    if ("children" in token && Array.isArray(token.children)) {
+    // Recurse into list items and footnote definitions, the only
+    // block containers that can hold nested blockquotes.
+    if (token.type === "list") {
+      return {
+        ...token,
+        items: token.items.map((item) => ({
+          ...item,
+          children: processBlock(item.children),
+        })),
+      };
+    }
+
+    if (token.type === "footnoteDefinition") {
       return {
         ...token,
         children: processBlock(token.children),

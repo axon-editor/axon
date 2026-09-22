@@ -13,7 +13,6 @@ import type {
   MathBlockToken,
   HtmlBlockToken,
   FootnoteDefinitionToken,
-  InlineToken,
   ParseOptions,
 } from "./types";
 import { parseInline } from "./inlineTokenizer";
@@ -612,7 +611,7 @@ function parseTable(
   const headers = parseTableRow(headerLine);
   const align = parseTableAlign(separatorLine);
 
-  const rows: InlineToken[][] = [];
+  const rows: string[][] = [];
   let i = startLine + 2;
 
   while (i < lines.length) {

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ListToken, ListItemToken, Token, InlineToken } from "../types";
+import type { ListToken, ListItemToken, Token, InlineToken } from "../../parser/types";
 
 // List renderer. Converts list tokens to HTML. Handles ordered lists,
 // unordered lists, and task lists with checkboxes.

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { CodeToken, InlineToken } from "../types";
+import type { CodeToken, InlineToken } from "../../parser/types";
 
 // Code block renderer. Handles both fenced code blocks and inline code.
 // Fenced blocks use Shiki for syntax highlighting, while inline code

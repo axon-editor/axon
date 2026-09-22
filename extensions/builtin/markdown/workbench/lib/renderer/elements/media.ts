@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { InlineToken } from "../types";
+import type { InlineToken } from "../../parser/types";
 
 // Media renderer. Handles images, video, and audio elements. Resolves
 // relative paths to workspace assets using the render context.

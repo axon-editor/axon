@@ -25,18 +25,18 @@ export function sourceLinesPlugin(): MarkdownPlugin {
 // a line number (e.g., by a plugin that creates new tokens).
 function verifyLineNumbers(tokens: Token[]): Token[] {
   return tokens.map((token, index) => {
-    // If the token does not have a line number, use the previous
-    // token's line number or 1 as a fallback.
-    if (token.line === undefined || token.line < 1) {
-      return { ...token, line: index > 0 ? tokens[index - 1].line : 1 };
+    const line = "line" in token ? (token as { line?: number }).line : undefined;
+    if (line === undefined || line < 1) {
+      const prevToken = index > 0 ? tokens[index - 1] : undefined;
+      const prevLine = prevToken && "line" in prevToken ? (prevToken as { line: number }).line : 1;
+      return { ...token, line: prevLine } as Token;
     }
 
-    // Recursively verify children.
-    if ("children" in token && Array.isArray(token.children)) {
+    if ("children" in token && Array.isArray(token.children) && token.type !== "heading" && token.type !== "paragraph") {
       return {
         ...token,
-        children: verifyLineNumbers(token.children),
-      };
+        children: verifyLineNumbers(token.children as Token[]),
+      } as Token;
     }
 
     return token;

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { Token, InlineToken } from "../types";
+import type { Token, InlineToken } from "../../parser/types";
 import { renderHeading, renderInline } from "./heading";
 import { renderParagraph } from "./paragraph";
 import { renderCodeBlock } from "./code";

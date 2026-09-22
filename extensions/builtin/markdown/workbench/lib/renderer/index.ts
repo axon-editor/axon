@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { Token, FootnoteDefinitionToken } from "../types";
+import type { Token, FootnoteDefinitionToken } from "../parser/types";
 import type { RenderContext } from "./context";
 import { renderHeading } from "./elements/heading";
 import { renderParagraph } from "./elements/paragraph";

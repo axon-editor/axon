@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ParagraphToken, InlineToken } from "../types";
+import type { ParagraphToken, InlineToken } from "../../parser/types";
 
 // Paragraph renderer. Converts paragraph tokens to HTML. Paragraphs
 // are the most common block element and contain inline content.

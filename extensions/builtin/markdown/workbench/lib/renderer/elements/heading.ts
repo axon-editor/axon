@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { HeadingToken, InlineToken } from "../types";
+import type { HeadingToken, InlineToken } from "../../parser/types";
 
 // Heading renderer. Converts heading tokens to HTML with slug IDs
 // for anchor links. Headings use scroll-mt-4 to account for the

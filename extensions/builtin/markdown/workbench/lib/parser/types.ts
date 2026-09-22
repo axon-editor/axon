@@ -177,7 +177,7 @@ export interface BlockquoteToken {
 export interface TableToken {
   type: "table";
   headers: InlineToken[][];
-  rows: InlineToken[][];
+  rows: InlineToken[][][];
   align: ("left" | "center" | "right" | null)[];
   line: number;
 }

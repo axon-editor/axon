@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { MathBlockToken, InlineToken } from "../types";
+import type { MathBlockToken, InlineToken } from "../../parser/types";
 
 // Math block renderer. Converts math tokens to KaTeX HTML. Uses the
 // KaTeX library for rendering LaTeX math expressions.

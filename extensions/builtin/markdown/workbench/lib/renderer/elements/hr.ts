@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ThematicBreakToken } from "../types";
+import type { ThematicBreakToken } from "../../parser/types";
 
 // Horizontal rule renderer. Converts thematic break tokens to HTML.
 

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { TableToken, InlineToken } from "../types";
+import type { TableToken, InlineToken } from "../../parser/types";
 
 // Table renderer. Converts table tokens to HTML with proper alignment.
 // Tables are wrapped in a scrollable container for narrow viewports.

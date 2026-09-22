@@ -12,9 +12,29 @@
 // 3. Shiki uses the same TextMate grammar engine as VS Code
 // 4. The chat code blocks already use Shiki, so this shares infrastructure
 
-let highlighterPromise: Promise<{
-  codeToHtml: (code: string, lang: string) => string;
-}> | null = null;
+type ShikiHighlighter = {
+  codeToHtml: (code: string, options: { lang: string; theme: string }) => string;
+  loadLanguage: (grammar: unknown) => Promise<void>;
+};
+
+type ShikiCoreModule = {
+  createHighlighterCore: (options: {
+    themes: unknown[];
+    langs: unknown[];
+    engine: unknown;
+  }) => Promise<ShikiHighlighter>;
+};
+
+type ShikiOnigurumaModule = {
+  createOnigurumaEngine: (wasm: unknown) => Promise<unknown>;
+};
+
+type ShikiWasmModule = {
+  default?: unknown;
+  getWasmInstance?: unknown;
+};
+
+let highlighterPromise: Promise<ShikiHighlighter> | null = null;
 
 // Language alias map. Maps common shorthand names to the grammar
 // names that Shiki expects.
@@ -44,18 +64,25 @@ function normalizeLanguage(lang: string): string {
 // Initializes the Shiki highlighter. This is lazy-loaded on first use
 // to avoid blocking the initial page load. The highlighter is cached
 // for subsequent calls.
-async function getHighlighter() {
+function getHighlighter(): Promise<ShikiHighlighter> {
   if (!highlighterPromise) {
-    highlighterPromise = (async () => {
-      const { createHighlighterCore } = await import("shiki/core");
-      const { createOnigurumaEngine } = await import(
-        "@shikijs/engine-oniguruma/wasm-inlined"
-      );
+    highlighterPromise = Promise.all([
+      import("shiki/core"),
+      import("shiki/engine/oniguruma"),
+      import("@shikijs/engine-oniguruma/wasm-inlined"),
+      import("shiki/themes/github-dark.mjs"),
+    ]).then(async ([coreModule, onigurumaModule, wasmModule, themeModule]) => {
+      const core = coreModule as ShikiCoreModule;
+      const oniguruma = onigurumaModule as ShikiOnigurumaModule;
+      const wasm = wasmModule as ShikiWasmModule;
+      const theme = (themeModule as { default: unknown }).default;
 
-      const highlighter = await createHighlighterCore({
-        themes: [import("shiki/themes/github-dark")],
+      const highlighter = await core.createHighlighterCore({
+        themes: [theme],
         langs: [],
-        engine: createOnigurumaEngine(),
+        engine: await oniguruma.createOnigurumaEngine(
+          wasm.default ?? wasm.getWasmInstance,
+        ),
       });
 
       // Preload common languages. These are the most frequently used
@@ -76,41 +103,20 @@ async function getHighlighter() {
 
       for (const lang of commonLangs) {
         try {
-          await highlighter.loadLanguage(lang);
+          const grammar = await import(
+            /* @vite-ignore */ `shiki/langs/${lang}.mjs`
+          );
+          await highlighter.loadLanguage(grammar.default);
         } catch {
           // Language not available, skip silently.
         }
       }
 
-      return {
-        codeToHtml: (code: string, lang: string) => {
-          const normalized = normalizeLanguage(lang);
-          try {
-            return highlighter.codeToHtml(code, {
-              lang: normalized,
-              theme: "github-dark",
-            });
-          } catch {
-            // If highlighting fails, return escaped plain text.
-            return `<pre><code>${escapeHtml(code)}</code></pre>`;
-          }
-        },
-      };
-    })();
+      return highlighter;
+    });
   }
 
   return highlighterPromise;
-}
-
-// Escapes HTML special characters. Used as a fallback when Shiki
-// cannot highlight a language.
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 // Highlights a code block and returns HTML. Returns null if the
@@ -121,7 +127,10 @@ export async function highlightCode(
 ): Promise<string | null> {
   try {
     const highlighter = await getHighlighter();
-    return highlighter.codeToHtml(code, language);
+    return highlighter.codeToHtml(code, {
+      lang: normalizeLanguage(language),
+      theme: "github-dark",
+    });
   } catch {
     return null;
   }

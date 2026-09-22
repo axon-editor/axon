@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { HtmlBlockToken } from "../types";
+import type { HtmlBlockToken } from "../../parser/types";
 
 // HTML block renderer. Passes raw HTML through with sanitization.
 // We allow a limited set of safe HTML elements and attributes.

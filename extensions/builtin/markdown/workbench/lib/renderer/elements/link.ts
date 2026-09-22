@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { InlineToken } from "../types";
+import type { InlineToken } from "../../parser/types";
 
 // Link renderer. Handles external links, wiki links, and citations.
 // External links open in the system browser. Wiki links and citations

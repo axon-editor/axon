@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { FootnoteDefinitionToken, Token, InlineToken } from "../types";
+import type { FootnoteDefinitionToken, Token, InlineToken } from "../../parser/types";
 
 // Footnote renderer. Handles footnote definitions and references.
 // Footnotes are rendered as a section at the bottom of the document
