@@ -25,10 +25,18 @@ import {
 } from "../lib/sync/scrollSync";
 import MarkdownPreviewToolbar from "./MarkdownPreviewToolbar";
 
+// The preview reads prose in the editor's own monospace face so the
+// rendered document stays visually continuous with the code view. The
+// stack matches the bundled Axon Mono default; PaneInstance overrides
+// it with the user's configured editor font when one is set.
+const DEFAULT_PREVIEW_FONT_FAMILY =
+  '"Axon Mono", "Lilex", "IBM Plex Mono", monospace';
+
 interface MarkdownPreviewProps {
   content: string;
   filePath: string;
   folderPath: string | null;
+  fontFamily?: string;
   onOpenFile?: (path: string) => void;
   onContentChange?: (content: string) => void;
 }
@@ -37,6 +45,7 @@ export default function MarkdownPreview({
   content,
   filePath,
   folderPath,
+  fontFamily = DEFAULT_PREVIEW_FONT_FAMILY,
   onOpenFile,
   onContentChange,
 }: MarkdownPreviewProps) {
@@ -44,6 +53,7 @@ export default function MarkdownPreview({
   const articleRef = useRef<HTMLElement | null>(null);
   const suppressScrollRef = useRef(false);
   const scrollFrameRef = useRef<number | null>(null);
+  const lastRenderedHtmlRef = useRef<string | null>(null);
 
   // Cache of issued axon://local URLs keyed by absolute file path. Media
   // URLs are requested asynchronously because the main process has to
@@ -111,9 +121,6 @@ export default function MarkdownPreview({
       const container = containerRef.current;
       if (!container) return;
 
-      // Capture image dimensions before morphing to prevent layout shifts.
-      const imageDims = captureImageDimensions(container);
-
       // Parse markdown to tokens.
       const { tokens } = parse(content, {
         gfm: true,
@@ -144,6 +151,19 @@ export default function MarkdownPreview({
         mediaUrlsRef.current,
         pendingLocal,
       );
+
+      // Nothing in the rendered document changed, so the DOM already
+      // matches. Skipping morphdom (and the image stabilization pass) here
+      // stops redundant content pushes from repainting a stable preview,
+      // which shows up as a blink when the editor autosaves on its one
+      // second cadence while the document is unchanged.
+      if (resolvedHtml === lastRenderedHtmlRef.current) {
+        return;
+      }
+      lastRenderedHtmlRef.current = resolvedHtml;
+
+      // Capture image dimensions before morphing to prevent layout shifts.
+      const imageDims = captureImageDimensions(container);
 
       // Patch the DOM via morphdom.
       morphdom(container, resolvedHtml);
@@ -275,7 +295,8 @@ export default function MarkdownPreview({
         }}
         onScroll={handleScroll}
         onClick={handleClick}
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-6"
+        style={{ fontFamily }}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-6 text-[14px] leading-[22px] text-[var(--axon-editor-foreground)]"
       />
     </div>
   );

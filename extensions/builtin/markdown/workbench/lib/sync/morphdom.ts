@@ -87,9 +87,21 @@ function morphChildren(
     // Same tag: morph attributes and children.
     morphAttributes(fromEl, toEl);
 
-    // Skip morphing children for elements that should not be diffed.
-    // Images and SVGs are replaced entirely to avoid flickering.
-    if (fromEl.tagName === "IMG" || fromEl.tagName === "SVG") {
+    // Stateful hosts (images, embeds) would restart or blank out if their
+    // children were diffed on every repaint. Attributes are updated above,
+    // but their subtree is left untouched so a stable repaint does not
+    // reload an iframe, restart a canvas animation, or replace media
+    // source elements. VIDEO and AUDIO are omitted on purpose: their
+    // child <source> srcs carry the locally resolved axon ticket, which
+    // morphdom must update when the URL arrives.
+    if (
+      fromEl.tagName === "IMG" ||
+      fromEl.tagName === "SVG" ||
+      fromEl.tagName === "IFRAME" ||
+      fromEl.tagName === "CANVAS" ||
+      fromEl.tagName === "OBJECT" ||
+      fromEl.tagName === "EMBED"
+    ) {
       continue;
     }
 

@@ -14,13 +14,19 @@ import MarkdownPreview from "./MarkdownPreview";
 interface Props {
   filePath: string;
   folderPath: string | null;
+  fontFamily?: string;
   onOpenFile?: (path: string) => void;
 }
 
 // Tab wrapper for the markdown preview. Subscribes to Monaco model
 // changes and passes content to the view component. Memoized to
 // prevent unnecessary re-renders during git status heartbeats.
-function MarkdownPreviewTab({ filePath, folderPath, onOpenFile }: Props) {
+function MarkdownPreviewTab({
+  filePath,
+  folderPath,
+  fontFamily,
+  onOpenFile,
+}: Props) {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -124,6 +130,7 @@ function MarkdownPreviewTab({ filePath, folderPath, onOpenFile }: Props) {
       content={content}
       filePath={filePath}
       folderPath={folderPath}
+      fontFamily={fontFamily}
       onOpenFile={onOpenFile}
       onContentChange={handleContentChange}
     />

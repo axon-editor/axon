@@ -18,6 +18,7 @@ import {
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import { publishMarkdownScroll } from "@axon-builtin-markdown/lib/sync/scrollSync";
+import * as morphdomModule from "@axon-builtin-markdown/lib/sync/morphdom";
 
 const mermaidMock = vi.hoisted(() => ({
   bindFunctions: vi.fn(),
@@ -220,6 +221,121 @@ describe("MarkdownPreview", () => {
 
     expect(markdownFileMock.readFile).toHaveBeenCalledOnce();
     expect(container.querySelector("img")).toBe(initialImage);
+  });
+
+  it("skips the DOM patch when the rendered HTML would be unchanged", async () => {
+    const morphdomSpy = vi.spyOn(morphdomModule, "morphdom");
+
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"Stable document"}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+          onContentChange={() => {}}
+        />,
+      );
+    });
+    await flushPreview();
+    const patchesAfterFirstRender = morphdomSpy.mock.calls.length;
+    expect(patchesAfterFirstRender).toBeGreaterThan(0);
+
+    // A trailing content push that renders to the same HTML (for example a
+    // model reset or a redundant watcher cycle) must not repaint the DOM.
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"Stable document"}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+          onContentChange={() => {}}
+        />,
+      );
+    });
+    await flushPreview();
+    expect(morphdomSpy.mock.calls.length).toBe(patchesAfterFirstRender);
+
+    // A real content change does repaint.
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"Changed document"}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+          onContentChange={() => {}}
+        />,
+      );
+    });
+    await flushPreview();
+    expect(morphdomSpy.mock.calls.length).toBeGreaterThan(
+      patchesAfterFirstRender,
+    );
+
+    morphdomSpy.mockRestore();
+  });
+
+  it("updates the video URL without replacing the media node", async () => {
+    const content =
+      '<video controls muted src="docs/media/demo.webm"></video>';
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={`${content}\n\nFirst sentence`}
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    await flushPreview();
+
+    const firstVideo = container.querySelector("video");
+    expect(firstVideo?.getAttribute("src")).toBe(
+      "axon://local/test-preview-ticket",
+    );
+
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={`${content}\n\nSecond sentence`}
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+
+    // The media host stays mounted; the ticket URL is updated in place
+    // instead of rebuilding the element on every nearby content change.
+    expect(container.querySelector("video")).toBe(firstVideo);
+    expect(firstVideo?.getAttribute("src")).toBe(
+      "axon://local/test-preview-ticket",
+    );
+  });
+
+  it("renders prose with the editor font family and comfortable leading", async () => {
+    const fontFamily = "JetBrains Mono Variable, JetBrains Mono, monospace";
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"A paragraph of plain text."}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+          fontFamily={fontFamily}
+        />,
+      );
+    });
+    await flushPreview();
+
+    const scroller = Array.from(
+      (container.firstElementChild as HTMLElement).children,
+    ).find((child) =>
+      (child as HTMLElement).className.includes("overflow-y-auto"),
+    ) as HTMLElement;
+    expect(scroller.style.fontFamily.replace(/"/g, "")).toBe(fontFamily);
+    expect(container.querySelector("p")?.textContent).toBe(
+      "A paragraph of plain text.",
+    );
   });
 
   it("keeps Mermaid fences as plain code without executing diagrams", async () => {

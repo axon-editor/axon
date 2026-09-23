@@ -26,6 +26,7 @@ import {
 } from "../../lib/layout/dragData";
 import { type EditorNavigationTarget } from "../../lib/layout/navigation";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
 import { type Pane } from "../../lib/layout/types";
 import TabBar, { getPaneDropId, type PaneDropData } from "../tabs/TabBar";
 import {
@@ -391,6 +392,7 @@ export default function PaneInstance({
                   <MarkdownPreviewTab
                     filePath={getMarkdownPreviewFilePath(path)}
                     folderPath={folderPath}
+                    fontFamily={editorFontStack(editorSettings.fontFamily)}
                     onOpenFile={onOpenFile}
                   />
                 ) : isMediaFile(path) ? (
