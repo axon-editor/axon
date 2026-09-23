@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { readFile } from "@axon-editor/renderer/shared/lib/api";
 import {
   getModel,
@@ -29,6 +29,7 @@ function MarkdownPreviewTab({
 }: Props) {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const lastModelContentRef = useRef<string>("");
 
   const handleContentChange = useCallback(
     (nextContent: string) => {
@@ -68,24 +69,26 @@ function MarkdownPreviewTab({
 
   useEffect(() => {
     let cancelled = false;
-    let contentUpdateTimer: number | null = null;
     let modelContentDisposable: { dispose(): void } | null = null;
     setError(null);
+    lastModelContentRef.current = "";
 
     const bindModel = (model: NonNullable<ReturnType<typeof getModel>>) => {
       if (cancelled || model.isDisposed()) return;
       modelContentDisposable?.dispose();
-      setContent(model.getValue());
+      lastModelContentRef.current = model.getValue();
+      setContent(lastModelContentRef.current);
       modelContentDisposable = model.onDidChangeContent(() => {
-        if (contentUpdateTimer !== null) {
-          window.clearTimeout(contentUpdateTimer);
-        }
-        contentUpdateTimer = window.setTimeout(() => {
-          contentUpdateTimer = null;
-          if (!cancelled && !model.isDisposed()) {
-            setContent(model.getValue());
-          }
-        }, 80);
+        if (cancelled || model.isDisposed()) return;
+
+        // Autosave and watcher cycles re-push the same value without any
+        // user-visible change. Forwarding it would reparse and re-patch the
+        // whole document, which is wasted main-thread work on the one second
+        // autosave cadence. The preview component throttles the actual render.
+        const nextContent = model.getValue();
+        if (nextContent === lastModelContentRef.current) return;
+        lastModelContentRef.current = nextContent;
+        setContent(nextContent);
       });
     };
 
@@ -107,9 +110,6 @@ function MarkdownPreviewTab({
 
     return () => {
       cancelled = true;
-      if (contentUpdateTimer !== null) {
-        window.clearTimeout(contentUpdateTimer);
-      }
       modelContentDisposable?.dispose();
       modelReadyDisposable.dispose();
     };

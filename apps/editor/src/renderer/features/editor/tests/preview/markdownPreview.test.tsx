@@ -37,6 +37,10 @@ const bridgeMock = vi.hoisted(() => ({
 const markdownFileMock = vi.hoisted(() => ({
   readFile: vi.fn(),
 }));
+const monacoModelsMock = vi.hoisted(() => ({
+  getModel: vi.fn(),
+  onModelReady: vi.fn(),
+}));
 
 vi.mock("@axon-editor/renderer/shared/lib/api", () => ({
   readFile: markdownFileMock.readFile,
@@ -45,8 +49,8 @@ vi.mock("@axon-editor/renderer/shared/lib/api", () => ({
 vi.mock(
   "@axon-editor/renderer/features/editor/lib/buffer/monacoModels",
   () => ({
-    getModel: () => null,
-    onModelReady: () => ({ dispose() {} }),
+    getModel: monacoModelsMock.getModel,
+    onModelReady: monacoModelsMock.onModelReady,
   }),
 );
 
@@ -65,9 +69,10 @@ const reactTestEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
 };
 
-// The preview debounces the parse-render-morphdom cycle by 120ms to avoid
-// blocking the main thread on fast typing. Tests must flush that timer
-// before asserting on the rendered DOM.
+// The preview throttles the parse-render-morphdom cycle to at most one
+// run per 120ms while content keeps arriving (max wait), with an
+// immediate render on the first edit after an idle gap. Tests must flush
+// that timer before asserting on the rendered DOM.
 async function flushPreview(): Promise<void> {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -110,6 +115,10 @@ describe("MarkdownPreview", () => {
     markdownFileMock.readFile.mockResolvedValue({
       content: "![Preview](./preview.png)\n\nStable document",
     });
+    monacoModelsMock.getModel.mockReset();
+    monacoModelsMock.getModel.mockReturnValue(null);
+    monacoModelsMock.onModelReady.mockReset();
+    monacoModelsMock.onModelReady.mockReturnValue({ dispose() {} });
     Object.defineProperty(window, "axon", {
       configurable: true,
       value: bridgeMock,
@@ -221,6 +230,110 @@ describe("MarkdownPreview", () => {
 
     expect(markdownFileMock.readFile).toHaveBeenCalledOnce();
     expect(container.querySelector("img")).toBe(initialImage);
+  });
+
+  it("does not reparse the document when the model re-pushes the same content", async () => {
+    const morphdomSpy = vi.spyOn(morphdomModule, "morphdom");
+    let changeHandler: () => void = () => {};
+    let modelValue = "First line";
+    const model = {
+      isDisposed: () => false,
+      getValue: () => modelValue,
+      onDidChangeContent(callback: () => void) {
+        changeHandler = callback;
+        return { dispose() {} };
+      },
+    };
+    monacoModelsMock.getModel.mockReturnValue(model);
+    monacoModelsMock.onModelReady.mockImplementation((_path, bindModel) => {
+      bindModel(model);
+      return { dispose() {} };
+    });
+
+    await act(async () => {
+      root.render(
+        <MarkdownPreviewTab
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    const patchesAfterMount = morphdomSpy.mock.calls.length;
+    expect(patchesAfterMount).toBeGreaterThan(0);
+    expect(container.textContent).toContain("First line");
+
+    // A real keystroke flows through to the preview.
+    modelValue = "First line\nSecond line";
+    await act(async () => {
+      changeHandler();
+    });
+    await flushPreview();
+    expect(morphdomSpy.mock.calls.length).toBeGreaterThan(patchesAfterMount);
+    expect(container.textContent).toContain("Second line");
+
+    // An autosave or watcher re-push of the same value is dropped before
+    // it reaches the render pipeline, so the document is neither reparsed
+    // nor repatched.
+    const patchesAfterEdit = morphdomSpy.mock.calls.length;
+    await act(async () => {
+      changeHandler();
+    });
+    await flushPreview();
+    expect(morphdomSpy.mock.calls.length).toBe(patchesAfterEdit);
+
+    morphdomSpy.mockRestore();
+  });
+
+  it("skips image stabilization when a text edit leaves the media unchanged", async () => {
+    const captureSpy = vi.spyOn(morphdomModule, "captureImageDimensions");
+
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"![Preview](./preview.png)\n\nVersion one"}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    // The first cycle renders the placeholder src; the second stabilizes
+    // the images when the real ticket URL is morphed in.
+    await flushPreview();
+    await flushPreview();
+    const capturesAfterMount = captureSpy.mock.calls.length;
+    expect(capturesAfterMount).toBeGreaterThan(0);
+
+    // Editing only surrounding prose must not restyle the media node, so
+    // the stabilization pass is skipped entirely for the repaint.
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={"![Preview](./preview.png)\n\nVersion two"}
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    expect(captureSpy.mock.calls.length).toBe(capturesAfterMount);
+
+    // Changing the media set itself re-enables stabilization.
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            "![Preview](./preview.png)\n\n![Second](./another.png)\n\nVersion three"
+          }
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    expect(captureSpy.mock.calls.length).toBeGreaterThan(capturesAfterMount);
+
+    captureSpy.mockRestore();
   });
 
   it("skips the DOM patch when the rendered HTML would be unchanged", async () => {

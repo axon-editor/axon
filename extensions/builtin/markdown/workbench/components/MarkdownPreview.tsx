@@ -32,6 +32,12 @@ import MarkdownPreviewToolbar from "./MarkdownPreviewToolbar";
 const DEFAULT_PREVIEW_FONT_FAMILY =
   '"Axon Mono", "Lilex", "IBM Plex Mono", monospace';
 
+// The parse-render-morphdom cycle runs at most once per this interval
+// while content keeps arriving, with an immediate render on the first
+// edit after an idle gap. Fast typing stays responsive and the main
+// thread gets bounded work per burst.
+const RENDER_THROTTLE_MS = 120;
+
 interface MarkdownPreviewProps {
   content: string;
   filePath: string;
@@ -54,6 +60,9 @@ export default function MarkdownPreview({
   const suppressScrollRef = useRef(false);
   const scrollFrameRef = useRef<number | null>(null);
   const lastRenderedHtmlRef = useRef<string | null>(null);
+  const lastRenderAtRef = useRef(0);
+  const lastReportedAtRef = useRef(0);
+  const lastImageSrcsRef = useRef("");
 
   // Cache of issued axon://local URLs keyed by absolute file path. Media
   // URLs are requested asynchronously because the main process has to
@@ -114,12 +123,19 @@ export default function MarkdownPreview({
   );
 
   // Parse and render on content change. Uses morphdom to patch the DOM
-  // instead of replacing innerHTML. Debounced to avoid main-thread
-  // blocking on fast typing.
+  // instead of replacing innerHTML. Throttled with a max wait so the
+  // preview renders immediately on the first edit after an idle gap and
+  // then at most once per RENDER_THROTTLE_MS while typing, always
+  // coalescing the latest content. A trailing debounce would hide
+  // updates until the user pauses, which reads as a laggy jump while
+  // typing.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const container = containerRef.current;
-      if (!container) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const renderDocument = () => {
+      const currentContainer = containerRef.current;
+      if (!currentContainer) return;
 
       // Parse markdown to tokens.
       const { tokens } = parse(content, {
@@ -155,24 +171,37 @@ export default function MarkdownPreview({
       // Nothing in the rendered document changed, so the DOM already
       // matches. Skipping morphdom (and the image stabilization pass) here
       // stops redundant content pushes from repainting a stable preview,
-      // which shows up as a blink when the editor autosaves on its one
-      // second cadence while the document is unchanged.
+      // which shows up as a blink when the editor autosaves while the
+      // document is unchanged.
       if (resolvedHtml === lastRenderedHtmlRef.current) {
         return;
       }
       lastRenderedHtmlRef.current = resolvedHtml;
 
+      // The stabilization pass restyles every <img> node in the document.
+      // Only run it when the set of image sources actually changed; a text
+      // edit that touches nothing below would otherwise reset image sizing
+      // and flicker the preview on every keystroke.
+      const imageSrcs = collectImageSrcs(resolvedHtml);
+      const imagesChanged = imageSrcs !== lastImageSrcsRef.current;
+      lastImageSrcsRef.current = imageSrcs;
+
       // Capture image dimensions before morphing to prevent layout shifts.
-      const imageDims = captureImageDimensions(container);
+      const imageDims =
+        imagesChanged && imageSrcs.length > 0
+          ? captureImageDimensions(currentContainer)
+          : null;
 
       // Patch the DOM via morphdom.
-      morphdom(container, resolvedHtml);
+      morphdom(currentContainer, resolvedHtml);
 
       // Restore image dimensions to prevent layout shifts.
-      applyImageDimensions(container, imageDims);
+      if (imageDims && imageDims.size > 0 && imagesChanged) {
+        applyImageDimensions(currentContainer, imageDims);
+      }
 
       // Issue tickets for local assets that are not cached yet. Resolved
-      // tickets bump mediaTick so the debounced render cycle repeats with
+      // tickets bump mediaTick so the throttled render cycle repeats with
       // the real URLs on the second pass.
       for (const absolutePath of pendingLocal) {
         if (
@@ -201,9 +230,35 @@ export default function MarkdownPreview({
             }
           });
       }
-    }, 120);
+    };
 
-    return () => clearTimeout(timer);
+    const now = Date.now();
+    const elapsedSinceRender = now - lastRenderAtRef.current;
+    const elapsedSinceCall = now - lastReportedAtRef.current;
+    lastReportedAtRef.current = now;
+
+    if (elapsedSinceRender >= RENDER_THROTTLE_MS) {
+      lastRenderAtRef.current = now;
+      renderDocument();
+      return;
+    }
+
+    // During sustained typing every keystroke would otherwise push the
+    // trailing timer out and starve the preview. Cap the delay at the
+    // max wait measured from the last render so updates flush at least
+    // once per RENDER_THROTTLE_MS, while still coalescing within a burst.
+    const delay = Math.max(
+      0,
+      Math.min(
+        RENDER_THROTTLE_MS - elapsedSinceCall,
+        RENDER_THROTTLE_MS - elapsedSinceRender,
+      ),
+    );
+    const timer = window.setTimeout(() => {
+      lastRenderAtRef.current = Date.now();
+      renderDocument();
+    }, delay);
+    return () => window.clearTimeout(timer);
   }, [content, filePath, folderPath, onContentChange, mediaTick]);
 
   // Event delegation for link clicks, task toggles, and other
@@ -558,6 +613,19 @@ function rewriteAssetSrcs(
     const ticketUrl = urls.get(absolutePath);
     return `${attr}="${escapeAttr(ticketUrl ? `${ticketUrl}${suffix}` : "")}"`;
   });
+}
+
+// Collects the image sources referenced by a rendered HTML string so the
+// preview can tell whether a repaint touched any media. The result is a
+// stable, order-independent signature used to skip image stabilization.
+function collectImageSrcs(html: string): string {
+  const srcs = new Set<string>();
+  const imagePattern = /<img\b[^>]*\bsrc="([^"]*)"/gi;
+  let match: RegExpExecArray | null;
+  while ((match = imagePattern.exec(html)) !== null) {
+    srcs.add(match[1]);
+  }
+  return Array.from(srcs).sort().join("\u0000");
 }
 
 function escapeHtml(text: string): string {
