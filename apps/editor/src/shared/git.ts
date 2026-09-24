@@ -49,6 +49,7 @@ export interface GitBlameLine {
   authorProfileUrl?: string;
   authorTime: number;
   summary: string;
+  message: string;
 }
 
 export interface GitBlameResult {

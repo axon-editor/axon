@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
-import { parseGitLinePorcelain } from "./blame";
+import { parseCommitMessageBatch, parseGitLinePorcelain } from "./blame";
 import { resolveGitAuthorIdentity } from "./authorIdentity";
 
 describe("Git line porcelain parser", () => {
@@ -39,6 +39,7 @@ describe("Git line porcelain parser", () => {
         authorProfileUrl: "",
         authorTime: 1720000000,
         summary: "refine editor trace",
+        message: "",
       },
     ]);
   });
@@ -58,6 +59,30 @@ describe("Git line porcelain parser", () => {
       hash,
       shortHash: "abcdefab",
       lineNumber: 1,
+      message: "",
     });
+  });
+});
+
+describe("Git commit message batch parser", () => {
+  it("maps full commit message bodies to their hashes", () => {
+    const first = "1234567890abcdef1234567890abcdef12345678";
+    const second = "abcdef1234567890abcdef1234567890abcdef12";
+    const output =
+      `${first}\0Add trace popover\n\nShows the full commit message in a fixed-height modal.\0` +
+      `${second}\0Fix cleanup on dispose\0`;
+
+    expect(parseCommitMessageBatch(output)).toEqual(
+      new Map([
+        [first, "Add trace popover\n\nShows the full commit message in a fixed-height modal."],
+        [second, "Fix cleanup on dispose"],
+      ]),
+    );
+  });
+
+  it("ignores malformed records", () => {
+    expect(
+      parseCommitMessageBatch("\0NOT-A-HASH\0body here\0\0abcdef\0stray\0"),
+    ).toEqual(new Map());
   });
 });

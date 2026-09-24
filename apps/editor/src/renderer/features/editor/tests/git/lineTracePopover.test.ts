@@ -54,4 +54,60 @@ describe("Axon Line Trace popover", () => {
     expect(popover.dataset.visible).toBeUndefined();
     controller.dispose();
   });
+
+  it("shows the full commit message without truncation", () => {
+    const { controller, popover } = createMountedPopover();
+    const summary = popover.querySelector<HTMLDivElement>(
+      ".axon-line-trace-popover__summary",
+    );
+    const message =
+      "Add the trace popover\n\nShows the full commit message in a " +
+      "fixed-height modal that scrolls for long commits.";
+
+    controller.update({
+      lineNumber: 4,
+      hash: "1234567890abcdef1234567890abcdef12345678",
+      shortHash: "12345678",
+      authorName: "Gorden Archer",
+      authorEmail: "gorden@example.com",
+      authorTime: 1720000000,
+      summary: "Add the trace popover",
+      message,
+    });
+
+    expect(summary?.textContent).toBe(message);
+
+    const hash = popover.querySelector<HTMLSpanElement>(
+      ".axon-line-trace-popover__hash",
+    );
+    const timestampDate = popover.querySelector<HTMLSpanElement>(
+      ".axon-line-trace-popover__timestamp-date",
+    );
+    const timestampTime = popover.querySelector<HTMLSpanElement>(
+      ".axon-line-trace-popover__timestamp-time",
+    );
+    expect(hash?.textContent).toBe("12345678");
+    expect(hash?.title).toBe("1234567890abcdef1234567890abcdef12345678");
+    expect(timestampDate?.textContent).toMatch(/202[4-6]/);
+    expect(timestampTime?.textContent).toMatch(/\d{1,2}:\d{2}/);
+    controller.dispose();
+  });
+
+  it("keeps the popover open when the pointer moves onto it to scroll", () => {
+    vi.useFakeTimers();
+    const { anchor, controller, popover } = createMountedPopover();
+
+    anchor.dispatchEvent(
+      new MouseEvent("mouseenter", { clientX: 40, clientY: 60 }),
+    );
+    vi.advanceTimersByTime(2_000);
+    expect(popover.dataset.visible).toBe("true");
+
+    anchor.dispatchEvent(
+      new MouseEvent("mouseleave", { relatedTarget: popover }),
+    );
+
+    expect(popover.dataset.visible).toBe("true");
+    controller.dispose();
+  });
 });

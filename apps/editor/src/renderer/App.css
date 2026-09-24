@@ -471,17 +471,55 @@ html.axon-native-glass .axon-tooltip {
 }
 
 .axon-line-trace-popover__summary {
-  margin-top: 5px;
+  margin-top: 6px;
+  max-height: min(35vh, 220px);
+  overflow-y: auto;
+  padding-right: 4px;
   font-size: 11px;
   line-height: 1.45;
-  opacity: 0.72;
+  opacity: 0.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
 }
 
 .axon-line-trace-popover__metadata {
-  margin-top: 8px;
-  font-family: inherit;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--axon-panel-border) 65%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.axon-line-trace-popover__hash {
+  flex: 0 0 auto;
+  font-family: var(--monaco-monospace-font);
   font-size: 10px;
-  opacity: 0.48;
+  letter-spacing: 0.4px;
+  padding: 2px 8px;
+  border: 1px solid var(--axon-panel-border);
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-foreground) 7%,
+    transparent
+  );
+  opacity: 0.85;
+}
+
+.axon-line-trace-popover__timestamp {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: right;
+  opacity: 0.62;
+  white-space: nowrap;
 }
 
 .axon-git-glyph::before {

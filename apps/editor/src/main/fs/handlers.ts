@@ -10,6 +10,7 @@ import { importExternalEntries } from "./importEntries";
 import { listProjectFiles } from "./projectFiles";
 import { getWorkspaceIndex } from "./workspaceIndex";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
+import { releaseAllWatchedPaths } from "./watchedPaths";
 
 export function registerFileWatcherHandlers(
   createFileWatcherManager: (
@@ -193,6 +194,10 @@ export function registerFileWatcherHandlers(
           ),
         ],
       );
+      // Process-wide shutdown: every window is gone, so the shared registry can
+      // drop all remaining watch reference counts instead of waiting for their
+      // per-path releases from the closed managers.
+      releaseAllWatchedPaths();
     },
   };
 }

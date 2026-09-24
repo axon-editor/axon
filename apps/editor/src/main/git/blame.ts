@@ -22,6 +22,7 @@ export function parseGitLinePorcelain(output: string): GitBlameLine[] {
         authorEmail: string;
         authorTime: number;
         summary: string;
+        message: string;
       }
     | undefined;
 
@@ -36,6 +37,7 @@ export function parseGitLinePorcelain(output: string): GitBlameLine[] {
         authorEmail: "",
         authorTime: 0,
         summary: "",
+        message: "",
       };
       continue;
     }
@@ -67,6 +69,54 @@ export function parseGitLinePorcelain(output: string): GitBlameLine[] {
   }
 
   return lines;
+}
+
+export function parseCommitMessageBatch(output: string): Map<string, string> {
+  const messages = new Map<string, string>();
+  const parts = output.split("\0");
+  for (let index = 0; index + 1 < parts.length; index += 2) {
+    const hash = parts[index].trim();
+    const message = parts[index + 1];
+    if (!/^[0-9a-f]{40}$/i.test(hash)) continue;
+    messages.set(hash.toLowerCase(), message);
+  }
+  return messages;
+}
+
+async function attachCommitMessageBodies(
+  root: string,
+  lines: GitBlameLine[],
+): Promise<void> {
+  const uniqueHashes = [
+    ...new Set(
+      lines
+        .map((line) => line.hash)
+        .filter((hash) => /^[0-9a-f]{40}$/i.test(hash)),
+    ),
+  ];
+  if (uniqueHashes.length === 0) return;
+
+  try {
+    const result = await execFileAsync(
+      "git",
+      [
+        "-C",
+        root,
+        "show",
+        "--no-patch",
+        "--format=%H%x00%B%x00",
+        ...uniqueHashes,
+      ],
+      { timeout: 30_000, maxBuffer: 32 * 1024 * 1024 },
+    );
+    const messages = parseCommitMessageBatch(result.stdout);
+    for (const line of lines) {
+      const message = messages.get(line.hash.toLowerCase());
+      if (message !== undefined) line.message = message.trim();
+    }
+  } catch {
+    // Commit message bodies are a display enhancement; blame itself is unaffected.
+  }
 }
 
 export async function getGitBlame(
@@ -108,9 +158,11 @@ export async function getGitBlame(
       ["-C", root, "blame", "--line-porcelain", "--", relativePath],
       { timeout: 30_000, maxBuffer: 16 * 1024 * 1024 },
     );
+    const lines = parseGitLinePorcelain(result.stdout);
+    await attachCommitMessageBodies(root, lines);
     return {
       path: path.resolve(root, relativePath),
-      lines: parseGitLinePorcelain(result.stdout),
+      lines,
     };
   } catch {
     return { path: path.resolve(root, relativePath), lines: [] };

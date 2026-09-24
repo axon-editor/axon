@@ -49,6 +49,10 @@ export function createLineTracePopover(
   const author = document.createElement("div");
   const summary = document.createElement("div");
   const metadata = document.createElement("div");
+  const hash = document.createElement("span");
+  const timestamp = document.createElement("span");
+  const timestampDate = document.createElement("span");
+  const timestampTime = document.createElement("span");
   popover.className = "axon-line-trace-popover";
   popover.setAttribute("role", "tooltip");
   identity.className = "axon-line-trace-popover__identity";
@@ -61,7 +65,13 @@ export function createLineTracePopover(
   author.className = "axon-line-trace-popover__author";
   summary.className = "axon-line-trace-popover__summary";
   metadata.className = "axon-line-trace-popover__metadata";
+  hash.className = "axon-line-trace-popover__hash";
+  timestamp.className = "axon-line-trace-popover__timestamp";
+  timestampDate.className = "axon-line-trace-popover__timestamp-date";
+  timestampTime.className = "axon-line-trace-popover__timestamp-time";
   identity.append(avatar, author);
+  timestamp.append(timestampDate, timestampTime);
+  metadata.append(hash, timestamp);
   popover.append(identity, summary, metadata);
   document.body.appendChild(popover);
 
@@ -90,10 +100,25 @@ export function createLineTracePopover(
     if (popover.dataset.visible !== "true") return;
     setPosition(popover, event.clientX, event.clientY);
   };
+  const hideWhenLeavingSurface = (event: MouseEvent) => {
+    const target = event.relatedTarget;
+    if (
+      target instanceof Node &&
+      (anchor.contains(target) || popover.contains(target))
+    ) {
+      return;
+    }
+    hide();
+  };
   const trackDocumentPointer = (event: MouseEvent) => {
     if (!pointerOverAnchor && hoverTimer === null) return;
     const target = event.target;
-    if (target instanceof Node && anchor.contains(target)) return;
+    if (
+      target instanceof Node &&
+      (anchor.contains(target) || popover.contains(target))
+    ) {
+      return;
+    }
 
     // Monaco can detach or relocate a content widget while the pointer is on
     // it. Browsers do not guarantee a mouseleave event for a detached node, so
@@ -107,7 +132,8 @@ export function createLineTracePopover(
 
   anchor.addEventListener("mouseenter", show);
   anchor.addEventListener("mousemove", move);
-  anchor.addEventListener("mouseleave", hide);
+  anchor.addEventListener("mouseleave", hideWhenLeavingSurface);
+  popover.addEventListener("mouseleave", hideWhenLeavingSurface);
   document.addEventListener("mousemove", trackDocumentPointer, true);
   document.addEventListener("visibilitychange", hideWhenDocumentIsHidden);
   window.addEventListener("blur", hide);
@@ -125,19 +151,33 @@ export function createLineTracePopover(
       author.textContent = line.authorEmail
         ? `${line.authorName || "Unknown author"} <${line.authorEmail}>`
         : line.authorName || "Unknown author";
-      summary.textContent = line.summary || "No commit summary";
+      summary.textContent =
+        line.message?.trim() || line.summary || "No commit message";
+      hash.textContent = line.shortHash;
+      hash.title = line.hash;
       const committedAt =
-        line.authorTime > 0
-          ? new Date(line.authorTime * 1000).toLocaleString()
-          : "Unknown date";
-      metadata.textContent = `${line.shortHash} · ${committedAt}`;
+        line.authorTime > 0 ? new Date(line.authorTime * 1000) : null;
+      timestampDate.textContent = committedAt
+        ? committedAt.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
+        : "Unknown date";
+      timestampTime.textContent = committedAt
+        ? committedAt.toLocaleTimeString(undefined, {
+            hour: "numeric",
+            minute: "2-digit",
+          })
+        : "";
     },
     hide,
     dispose() {
       hide();
       anchor.removeEventListener("mouseenter", show);
       anchor.removeEventListener("mousemove", move);
-      anchor.removeEventListener("mouseleave", hide);
+      anchor.removeEventListener("mouseleave", hideWhenLeavingSurface);
+      popover.removeEventListener("mouseleave", hideWhenLeavingSurface);
       document.removeEventListener("mousemove", trackDocumentPointer, true);
       document.removeEventListener(
         "visibilitychange",

@@ -14,7 +14,6 @@ import { textFileCache } from "../files/textFileCache";
 import {
   retainWatchedPath,
   releaseWatchedPath,
-  releaseAllWatchedPaths,
 } from "./watchedPaths";
 
 type NativeWatcherListener = (
