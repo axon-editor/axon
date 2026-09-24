@@ -480,6 +480,10 @@ html.axon-native-glass .axon-tooltip {
   opacity: 0.9;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.axon-line-trace-popover[data-visible="true"] .axon-line-trace-popover__summary {
   pointer-events: auto;
 }
 

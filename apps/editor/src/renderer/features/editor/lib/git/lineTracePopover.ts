@@ -55,6 +55,12 @@ export function createLineTracePopover(
   const timestampTime = document.createElement("span");
   popover.className = "axon-line-trace-popover";
   popover.setAttribute("role", "tooltip");
+  // Anchor off-screen until a real position is resolved. Interacting with a
+  // blame gutter without waiting for the show timer had left the popover
+  // stranded at the body's static origin, where its scrollable summary child
+  // swallowed clicks on the file tree below it.
+  popover.style.left = "-10000px";
+  popover.style.top = "-10000px";
   identity.className = "axon-line-trace-popover__identity";
   avatar.className = "axon-line-trace-popover__avatar";
   avatar.alt = "";
@@ -111,7 +117,8 @@ export function createLineTracePopover(
     hide();
   };
   const trackDocumentPointer = (event: MouseEvent) => {
-    if (!pointerOverAnchor && hoverTimer === null) return;
+    const visible = popover.dataset.visible === "true";
+    if (!visible && !pointerOverAnchor && hoverTimer === null) return;
     const target = event.target;
     if (
       target instanceof Node &&
@@ -123,7 +130,9 @@ export function createLineTracePopover(
     // Monaco can detach or relocate a content widget while the pointer is on
     // it. Browsers do not guarantee a mouseleave event for a detached node, so
     // the document-level pointer check closes a popover that would otherwise
-    // remain stranded over the editor.
+    // remain stranded over the editor. Checking against the live visibility
+    // flag also dismisses a popover whose hover state fell out of sync, so it
+    // never lingers as an invisible click-blocking surface.
     hide();
   };
   const hideWhenDocumentIsHidden = () => {
