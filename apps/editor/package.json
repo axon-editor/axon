@@ -812,7 +812,19 @@
         "dmg",
         "zip"
       ],
-      "icon": "build/axon.png"
+      "icon": "build/axon.png",
+      "extendInfo": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Folder",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [
+              "public.folder"
+            ]
+          }
+        ]
+      }
     },
     "win": {
       "target": [
