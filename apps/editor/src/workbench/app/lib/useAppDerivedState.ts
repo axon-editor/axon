@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getWorkspaceTrustState } from "../../../renderer/features/sidebar";
 import { isDiagnosticInWorkspace } from "@axon-builtin-problems/lib/diagnosticCache";
 import { getModel } from "../../../renderer/features/editor/lib/buffer/monacoModels";
@@ -181,20 +181,40 @@ export function useAppDerivedState({
     [diagnostics],
   );
 
-  const activeFileSymbols: FileSymbol[] = (() => {
-    const activeFile = activePane?.activeFile;
+  const activeFile = activePane?.activeFile ?? null;
+  const [modelContentVersion, setModelContentVersion] = useState(0);
+  useEffect(() => {
+    const model = activeFile ? getModel(activeFile) : null;
+    if (!model || model.isDisposed()) {
+      setModelContentVersion((version) => version + 1);
+      return;
+    }
+    const contentSubscription = model.onDidChangeContent(() => {
+      setModelContentVersion((version) => version + 1);
+    });
+    setModelContentVersion((version) => version + 1);
+    return () => contentSubscription.dispose();
+  }, [activeFile]);
+
+  // Symbol navigation and buffer previews only need to react to the active
+  // file's text, not to every unrelated workbench render. Computing them from
+  // the model content version keeps those whole-file scans and copies off the
+  // hot path that previously re-ran the IIFE on every AxonApp render.
+  const activeFileSymbols = useMemo<FileSymbol[]>(() => {
     if (!activeFile) return [];
     const model = getModel(activeFile);
     if (!model || model.isDisposed()) return [];
+    void modelContentVersion;
     return collectFileSymbols(model.getValue());
-  })();
+  }, [activeFile, modelContentVersion]);
 
-  const activeFileContent = (() => {
-    const activeFile = activePane?.activeFile;
+  const activeFileContent = useMemo(() => {
     if (!activeFile) return "";
     const model = getModel(activeFile);
-    return model && !model.isDisposed() ? model.getValue() : "";
-  })();
+    if (!model || model.isDisposed()) return "";
+    void modelContentVersion;
+    return model.getValue();
+  }, [activeFile, modelContentVersion]);
 
   const gitChangeCount = gitStatus?.changes.length ?? 0;
   const deletedFiles = useMemo(() => {

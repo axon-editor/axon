@@ -103,6 +103,7 @@ export default function SingleEditor({
   const semanticDecorationRetryTimerRef = useRef<number | null>(null);
   const semanticDecorationRetryRef = useRef({ key: "", count: 0 });
   const semanticDecorationRequestRef = useRef(0);
+  const semanticDecorationFingerprintRef = useRef("");
   const navigationDecorationsRef =
     useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const semanticDecorationsRef =
@@ -298,6 +299,22 @@ export default function SingleEditor({
         model.getVersionId() === modelVersion;
       if (!stillCurrent) return;
 
+      // The decoration stream is a pure function of the model version and the
+      // painted theme, so rebroadcasting an identical set every refresh would
+      // only churn Monaco's interval tree. Skipping the no-op apply keeps
+      // repeated refresh ticks from rewriting tens of thousands of decoration
+      // nodes on the main thread.
+      const fingerprint = `${model.uri.toString()}::${modelVersion}::${editorSettings.themeId}::${decorations.length}::${Object.keys(themeSyntax).length}`;
+      const paintedCollection = semanticDecorationsRef.current;
+      if (
+        paintedCollection &&
+        paintedCollection.length === decorations.length &&
+        semanticDecorationFingerprintRef.current === fingerprint
+      ) {
+        return;
+      }
+      semanticDecorationFingerprintRef.current = fingerprint;
+
       // Monaco's built-in semantic theming is not reliable enough in
       // standalone Electron, so Axon owns the last paint step with inline
       // decorations. The token source is still the shared LSP/TextMate pipeline;
@@ -450,30 +467,32 @@ export default function SingleEditor({
     [filePath],
   );
 
+  const visibleAppNotificationsRef = useRef<() => void>(() => {});
+  visibleAppNotificationsRef.current = () => {
+    onLanguageChange(detectLanguage(filePath));
+    onCursorChange(1, 1);
+  };
+  const refreshSemanticDecorationsRef = useRef<() => void>(() => {});
+  refreshSemanticDecorationsRef.current = () => {
+    void refreshSemanticTokenDecorations();
+  };
+
   useEffect(() => {
-    if (visible) {
-      onLanguageChange(detectLanguage(filePath));
-      onCursorChange(1, 1);
-      registerAxonTheme(
-        monaco,
-        editorSettings.themeId,
-        themeTokens,
-        [],
-        themeSyntax,
-      );
-      installSemanticTokenDecorationStyles(themeTokens, themeSyntax);
-      void refreshSemanticTokenDecorations();
-    }
-  }, [
-    filePath,
-    onCursorChange,
-    onLanguageChange,
-    visible,
-    editorSettings.themeId,
-    themeSyntax,
-    themeTokens,
-    refreshSemanticTokenDecorations,
-  ]);
+    if (!visible) return;
+    registerAxonTheme(
+      monaco,
+      editorSettings.themeId,
+      themeTokens,
+      [],
+      themeSyntax,
+    );
+    installSemanticTokenDecorationStyles(themeTokens, themeSyntax);
+    refreshSemanticDecorationsRef.current();
+    visibleAppNotificationsRef.current();
+    // The refresh and shell notifications read the latest render through refs,
+    // so this effect intentionally depends only on the values that actually
+    // change the painted theme or visibility.
+  }, [visible, editorSettings.themeId, themeTokens, themeSyntax]);
 
   useEffect(() => {
     if (!visible || !navigationTarget || loading) return;
