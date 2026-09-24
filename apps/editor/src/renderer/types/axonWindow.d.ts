@@ -159,7 +159,7 @@ declare global {
         rootPath: string,
       ) => Promise<{
         path: string;
-        content: string;
+        content: string | null;
         readOnly: boolean;
         external: boolean;
       }>;

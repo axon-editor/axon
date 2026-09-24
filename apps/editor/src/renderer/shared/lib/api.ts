@@ -120,7 +120,20 @@ export async function readFile(
 ): Promise<FileContent> {
   const requestedRoot = workspaceRootFor(path, root);
   try {
-    return await window.axon.readTextFile(path, requestedRoot);
+    const file = await window.axon.readTextFile(path, requestedRoot);
+    const content = file.content;
+    if (content === null) {
+      // The file was deleted while a pane or prefetch still referenced it.
+      // A missing file is not a read failure to retry: throwing a named error
+      // lets the tab surface "file no longer exists" and stop re-reading.
+      throw new Error("The file no longer exists on disk.");
+    }
+    return {
+      path: file.path,
+      content,
+      readOnly: file.readOnly,
+      external: file.external,
+    };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "The file could not be opened.";

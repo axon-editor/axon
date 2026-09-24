@@ -332,10 +332,21 @@ export function registerWorkspaceCapabilityHandlers(
       // Authorization is deliberately checked before the process-wide cache.
       // Cached bytes must improve speed without becoming a side channel that
       // lets a second renderer read a path it was never allowed to access.
-      const text = await textFileCache.read(authorizedPath);
+      const text = await textFileCache.read(authorizedPath).catch((error) => {
+        // The open tab can outlive the file: the user or a tool deleted it from
+        // disk while the pane stayed mounted. Rejecting here would resurface
+        // "[electron] Error occurred in handler ... ENOENT" on every pane
+        // remount and watcher re-sync, and the missing buffer would keep being
+        // re-read forever. A null content lets the renderer collapse the stale
+        // tab instead of retrying a file that can never come back.
+        if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return null;
+        throw error;
+      });
       return {
         path: authorizedPath,
-        content: text,
+        ...(text === null
+          ? { content: null }
+          : { content: text }),
         readOnly: registry.isReadOnlyFile(event.sender.id, authorizedPath),
         external: registry.isExternalFile(event.sender.id, authorizedPath),
       };

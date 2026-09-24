@@ -193,7 +193,7 @@ contextBridge.exposeInMainWorld("axon", {
     rootPath: string,
   ): Promise<{
     path: string;
-    content: string;
+    content: string | null;
     readOnly: boolean;
     external: boolean;
   }> => ipcRenderer.invoke("workspace:readTextFile", filePath, rootPath),
