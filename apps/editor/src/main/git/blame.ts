@@ -7,7 +7,10 @@ import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { type GitBlameLine, type GitBlameResult } from "../../shared/git";
-import { resolveGitAuthorIdentity } from "./authorIdentity";
+import {
+  resolveGitAuthorAvatars,
+  resolveGitAuthorIdentity,
+} from "./authorIdentity";
 
 const execFileAsync = promisify(execFile);
 
@@ -158,6 +161,16 @@ export async function getGitBlame(
       { timeout: 30_000, maxBuffer: 16 * 1024 * 1024 },
     );
     const lines = parseGitLinePorcelain(result.stdout);
+    const identities = await resolveGitAuthorAvatars(
+      lines.map((line) => line.authorEmail),
+    );
+    for (const line of lines) {
+      const identity = identities.get(line.authorEmail.trim().toLowerCase());
+      if (identity) {
+        line.authorAvatarUrl = identity.avatarUrl;
+        line.authorProfileUrl = identity.profileUrl;
+      }
+    }
     const messages = await collectCommitMessageBodies(root, lines);
     return {
       path: path.resolve(root, relativePath),

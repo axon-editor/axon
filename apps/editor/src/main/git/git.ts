@@ -25,7 +25,10 @@ import {
   type GitStatusResult,
 } from "../../shared/git";
 import { isKnownBinaryFile } from "../../shared/binaryFiles";
-import { resolveGitAuthorIdentity } from "./authorIdentity";
+import {
+  resolveGitAuthorAvatars,
+  resolveGitAuthorIdentity,
+} from "./authorIdentity";
 import { findGitRepositoryRoot, runGit } from "./repository/command";
 
 export { findGitRepositoryRoot };
@@ -473,11 +476,22 @@ export async function getGitHistory(
       runGit(root, args),
       runGit(root, ["branch", "--show-current"]),
     ]);
+    const commits = parseGitHistory(root, result.stdout);
+    const identities = await resolveGitAuthorAvatars(
+      commits.map((commit) => commit.authorEmail),
+    );
+    for (const commit of commits) {
+      const identity = identities.get(commit.authorEmail.trim().toLowerCase());
+      if (identity) {
+        commit.authorAvatarUrl = identity.avatarUrl;
+        commit.authorProfileUrl = identity.profileUrl;
+      }
+    }
     return {
       isRepository: true,
       root,
       branch: branchResult.stdout.trim() || "detached",
-      commits: parseGitHistory(root, result.stdout),
+      commits,
     };
   } catch {
     return {
