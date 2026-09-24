@@ -499,6 +499,8 @@ registerSettingsHandlers({
     workspaceCapabilities.assertRoot(rendererId, rootPath),
   authorizeReadOnlyFile: (rendererId, filePath) =>
     workspaceCapabilities.authorizeReadOnlyFile(rendererId, filePath),
+  authorizeFile: (rendererId, filePath) =>
+    workspaceCapabilities.authorizeFile(rendererId, filePath),
   getActiveLanguageServers: () => getActiveLanguageServerSessions(),
   notifyPythonConfigurationForFolder: (folderPath) => {
     const session = [...getActiveLanguageServerSessions()].find(

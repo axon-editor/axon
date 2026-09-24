@@ -86,6 +86,7 @@ interface SettingsHandlersDependencies {
   ) => string;
   assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
   authorizeReadOnlyFile: (rendererId: number, filePath: string) => string;
+  authorizeFile: (rendererId: number, filePath: string) => string;
   getActiveLanguageServers: () => Iterable<{
     id: string;
     folderPath: string;
@@ -467,6 +468,11 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       if (folderPath) {
         deps.assertWorkspaceRoot(event.sender.id, folderPath);
       }
+      // The Settings JSON editor tab reads and writes the file through the
+      // workspace text APIs. Global settings live outside any approved workspace,
+      // so authorize this exact path for the sender or the tab would surface
+      // "This file is outside the active workspace" and reject saves.
+      deps.authorizeFile(event.sender.id, pathForSettings);
       if (fs.existsSync(pathForSettings)) return pathForSettings;
       if (!folderPath) return pathForSettings;
 
