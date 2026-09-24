@@ -212,7 +212,7 @@ describe("Git IPC capabilities", () => {
       path.join(process.cwd(), "main.ts"),
     );
 
-    expect(result).toEqual({ path: null, lines: [] });
+    expect(result).toEqual({ path: null, lines: [], messages: {} });
     expect(blameMocks.getGitBlame).not.toHaveBeenCalled();
   });
 

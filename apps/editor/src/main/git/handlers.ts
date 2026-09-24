@@ -342,7 +342,7 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       filePath: string,
     ): Promise<GitBlameResult> => {
       if (!folderPath || !filePath || !fs.existsSync(folderPath)) {
-        return { path: null, lines: [] };
+        return { path: null, lines: [], messages: {} };
       }
       const repository = await resolveRepositoryFile(
         event,
@@ -355,7 +355,7 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       // at all. Returning an empty result here is what keeps startup logs clean
       // in a plain folder; the previous throw surfaced as a per-file IPC error.
       if (!repository) {
-        return { path: null, lines: [] };
+        return { path: null, lines: [], messages: {} };
       }
       return getGitBlame(
         repository.repositoryRoot,

@@ -8,7 +8,7 @@ import { type GitBlameLine } from "@axon-editor/shared/git";
 export interface LineTracePopover {
   dispose: () => void;
   hide: () => void;
-  update: (line: GitBlameLine) => void;
+  update: (line: GitBlameLine, commitMessages?: Record<string, string>) => void;
 }
 
 function setPosition(
@@ -140,7 +140,7 @@ export function createLineTracePopover(
   window.addEventListener("scroll", hide, true);
 
   return {
-    update(line) {
+    update(line, commitMessages) {
       if (line.authorAvatarUrl) {
         avatar.src = line.authorAvatarUrl;
         avatar.hidden = false;
@@ -152,7 +152,7 @@ export function createLineTracePopover(
         ? `${line.authorName || "Unknown author"} <${line.authorEmail}>`
         : line.authorName || "Unknown author";
       summary.textContent =
-        line.message?.trim() || line.summary || "No commit message";
+        commitMessages?.[line.hash]?.trim() || line.summary || "No commit message";
       hash.textContent = line.shortHash;
       hash.title = line.hash;
       const committedAt =

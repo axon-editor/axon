@@ -64,16 +64,18 @@ describe("Axon Line Trace popover", () => {
       "Add the trace popover\n\nShows the full commit message in a " +
       "fixed-height modal that scrolls for long commits.";
 
-    controller.update({
-      lineNumber: 4,
-      hash: "1234567890abcdef1234567890abcdef12345678",
-      shortHash: "12345678",
-      authorName: "Gorden Archer",
-      authorEmail: "gorden@example.com",
-      authorTime: 1720000000,
-      summary: "Add the trace popover",
-      message,
-    });
+    controller.update(
+      {
+        lineNumber: 4,
+        hash: "1234567890abcdef1234567890abcdef12345678",
+        shortHash: "12345678",
+        authorName: "Gorden Archer",
+        authorEmail: "gorden@example.com",
+        authorTime: 1720000000,
+        summary: "Add the trace popover",
+      },
+      { "1234567890abcdef1234567890abcdef12345678": message },
+    );
 
     expect(summary?.textContent).toBe(message);
 

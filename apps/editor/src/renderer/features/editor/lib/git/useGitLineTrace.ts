@@ -73,6 +73,7 @@ export default function useGitLineTrace({
   visible,
 }: Options) {
   const blameLinesRef = useRef<Map<number, GitBlameLine>>(new Map());
+  const blameMessagesRef = useRef<Record<string, string>>({});
   const widgetRef = useRef<LineTraceWidgetState | null>(null);
   const requestRef = useRef(0);
   const refreshTimerRef = useRef<number | null>(null);
@@ -154,7 +155,7 @@ export default function useGitLineTrace({
     current.domNode.style.fontFamily = editor.getOption(
       monaco.editor.EditorOption.fontInfo,
     ).fontFamily;
-    current.popover.update(blameLine);
+    current.popover.update(blameLine, blameMessagesRef.current);
     if (!current.added) {
       editor.addContentWidget(current.widget);
       current.added = true;
@@ -181,6 +182,7 @@ export default function useGitLineTrace({
     ) {
       requestRef.current += 1;
       blameLinesRef.current.clear();
+      blameMessagesRef.current = {};
       clearWidget();
       return;
     }
@@ -198,12 +200,14 @@ export default function useGitLineTrace({
         blameLinesRef.current = new Map(
           result.lines.map((line) => [line.lineNumber, line]),
         );
+        blameMessagesRef.current = result.messages;
         paintCurrentLine();
       })
       .catch(() => {
         if (request !== requestRef.current) return;
         blameCache.delete(key);
         blameLinesRef.current.clear();
+        blameMessagesRef.current = {};
         clearWidget();
       });
   }, [

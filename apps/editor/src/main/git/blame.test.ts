@@ -39,7 +39,6 @@ describe("Git line porcelain parser", () => {
         authorProfileUrl: "",
         authorTime: 1720000000,
         summary: "refine editor trace",
-        message: "",
       },
     ]);
   });
@@ -59,7 +58,6 @@ describe("Git line porcelain parser", () => {
       hash,
       shortHash: "abcdefab",
       lineNumber: 1,
-      message: "",
     });
   });
 });

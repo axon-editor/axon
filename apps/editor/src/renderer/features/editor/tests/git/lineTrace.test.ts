@@ -29,7 +29,6 @@ describe("Axon Line Trace formatting", () => {
         authorTime: now / 1000 - 3_600,
         summary:
           "A very long commit summary that should not take over the editor viewport when shown",
-        message: "",
       },
       now,
     );

@@ -22,7 +22,6 @@ export function parseGitLinePorcelain(output: string): GitBlameLine[] {
         authorEmail: string;
         authorTime: number;
         summary: string;
-        message: string;
       }
     | undefined;
 
@@ -37,7 +36,6 @@ export function parseGitLinePorcelain(output: string): GitBlameLine[] {
         authorEmail: "",
         authorTime: 0,
         summary: "",
-        message: "",
       };
       continue;
     }
@@ -83,10 +81,11 @@ export function parseCommitMessageBatch(output: string): Map<string, string> {
   return messages;
 }
 
-async function attachCommitMessageBodies(
+async function collectCommitMessageBodies(
   root: string,
   lines: GitBlameLine[],
-): Promise<void> {
+): Promise<Record<string, string>> {
+  const messages: Record<string, string> = {};
   const uniqueHashes = [
     ...new Set(
       lines
@@ -94,7 +93,7 @@ async function attachCommitMessageBodies(
         .filter((hash) => /^[0-9a-f]{40}$/i.test(hash)),
     ),
   ];
-  if (uniqueHashes.length === 0) return;
+  if (uniqueHashes.length === 0) return messages;
 
   try {
     const result = await execFileAsync(
@@ -109,14 +108,14 @@ async function attachCommitMessageBodies(
       ],
       { timeout: 30_000, maxBuffer: 32 * 1024 * 1024 },
     );
-    const messages = parseCommitMessageBatch(result.stdout);
-    for (const line of lines) {
-      const message = messages.get(line.hash.toLowerCase());
-      if (message !== undefined) line.message = message.trim();
+    for (const [hash, message] of parseCommitMessageBatch(result.stdout)) {
+      const trimmed = message.trim();
+      if (trimmed) messages[hash] = trimmed;
     }
   } catch {
     // Commit message bodies are a display enhancement; blame itself is unaffected.
   }
+  return messages;
 }
 
 export async function getGitBlame(
@@ -136,7 +135,7 @@ export async function getGitBlame(
       );
       root = repository.stdout.trim();
     } catch {
-      return { path: null, lines: [] };
+      return { path: null, lines: [], messages: {} };
     }
   }
 
@@ -149,7 +148,7 @@ export async function getGitBlame(
     path.isAbsolute(relativePath) ||
     relativePath.split(path.sep).includes("..")
   ) {
-    return { path: null, lines: [] };
+    return { path: null, lines: [], messages: {} };
   }
 
   try {
@@ -159,12 +158,17 @@ export async function getGitBlame(
       { timeout: 30_000, maxBuffer: 16 * 1024 * 1024 },
     );
     const lines = parseGitLinePorcelain(result.stdout);
-    await attachCommitMessageBodies(root, lines);
+    const messages = await collectCommitMessageBodies(root, lines);
     return {
       path: path.resolve(root, relativePath),
       lines,
+      messages,
     };
   } catch {
-    return { path: path.resolve(root, relativePath), lines: [] };
+    return {
+      path: path.resolve(root, relativePath),
+      lines: [],
+      messages: {},
+    };
   }
 }

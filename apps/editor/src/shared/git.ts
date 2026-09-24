@@ -49,12 +49,15 @@ export interface GitBlameLine {
   authorProfileUrl?: string;
   authorTime: number;
   summary: string;
-  message: string;
 }
 
 export interface GitBlameResult {
   path: string | null;
   lines: GitBlameLine[];
+  // Full commit message bodies keyed by hash. Stored once per result instead
+  // of on every line to avoid duplicating a large body over IPC for each line
+  // a commit owns; the line-trace popover looks the message up by hash.
+  messages: Record<string, string>;
 }
 
 export interface GitActionResult {
