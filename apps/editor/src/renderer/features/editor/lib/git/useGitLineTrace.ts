@@ -18,6 +18,24 @@ import { isLargeDocumentModel } from "@axon-editor/shared/largeDocument";
 
 const blameCache = new Map<string, Promise<GitBlameResult>>();
 
+// One resolved blame result carries a record per line (commit hash, author,
+// date), so every entry is worth hundreds of bytes to megabytes depending on
+// file size. Line-trace is on by default and adds an entry for each repository
+// file the cursor visits, which means an unbounded map pins the blame history
+// of every file seen across a whole day. Capping it as an LRU keeps small
+// files hot; a revisited file re-issues the request and moves to the back.
+const BLAME_CACHE_MAX_ENTRIES = 256;
+
+function cacheBlame(key: string, pending: Promise<GitBlameResult>) {
+  blameCache.delete(key);
+  blameCache.set(key, pending);
+  while (blameCache.size > BLAME_CACHE_MAX_ENTRIES) {
+    const oldestKey = blameCache.keys().next().value as string | undefined;
+    if (oldestKey === undefined) break;
+    blameCache.delete(oldestKey);
+  }
+}
+
 function cacheKey(folderPath: string, filePath: string) {
   return `${folderPath}\0${filePath}`;
 }
@@ -172,7 +190,7 @@ export default function useGitLineTrace({
     staleRef.current = false;
     const pending =
       blameCache.get(key) ?? window.axon.getGitBlame(folderPath, filePath);
-    blameCache.set(key, pending);
+    cacheBlame(key, pending);
 
     void pending
       .then((result) => {

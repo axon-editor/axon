@@ -4,7 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as monaco from "monaco-editor";
-import { detectLanguageServerLanguage } from "../../../renderer/features/editor/lib/buffer/monacoModels";
+import {
+  addModelDisposeListener,
+  detectLanguageServerLanguage,
+} from "../../../renderer/features/editor/lib/buffer/monacoModels";
 import { createTextMateSemanticTokens } from "./textMateSemanticTokens";
 import { canUseWorkspaceLanguageTools } from "./lspFileAccess";
 import {
@@ -35,6 +38,20 @@ const TEXTMATE_LSP_WARM_MERGE_WAIT_MS = 30;
 // session and let later merges converge on the short wait, so a warm server
 // resolves in ~5-30ms and the second paint is skipped entirely.
 let languageServerSessionWarm = false;
+
+// The cache trim on insert only bounds entries while the map is being written
+// to. A closed file's model keeps its URI, so without disposal eviction the
+// last ~80 whole-file token snapshots stay pinned in memory forever, including
+// across HMR reloads. Dumping every entry for a disposed model URI on the
+// buffer engine's dispose broadcast lets those snapshots be collected the
+// moment the buffer can no longer be shown.
+function discardSemanticTokensForModel(uri: string) {
+  const prefix = `${uri}::`;
+  for (const key of semanticTokenCache.keys()) {
+    if (key.startsWith(prefix)) semanticTokenCache.delete(key);
+  }
+}
+addModelDisposeListener(discardSemanticTokensForModel);
 
 function getSemanticTokenCacheKey(model: monaco.editor.ITextModel) {
   return `${model.uri.toString()}::${model.getVersionId()}`;

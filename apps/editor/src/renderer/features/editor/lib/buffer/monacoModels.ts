@@ -50,7 +50,24 @@ const modelListeners = new Map<
   string,
   Set<(model: monaco.editor.ITextModel) => void>
 >();
+const modelDisposeListeners = new Set<(uri: string) => void>();
 let accessClock = 0;
+
+// Module-level caches elsewhere (semantic tokens, for example) hold data
+// keyed by model URI. Models die when they leave the LRU buffer budget without
+// Monaco's own dispose events firing for every path, so the buffer engine
+// broadcasts the URI here and those caches can drop whole-file snapshots for
+// buffers that can never be painted again.
+export function addModelDisposeListener(listener: (uri: string) => void): {
+  dispose: () => void;
+} {
+  modelDisposeListeners.add(listener);
+  return {
+    dispose: () => {
+      modelDisposeListeners.delete(listener);
+    },
+  };
+}
 
 export function detectLanguage(path: string): string {
   return detectMonacoLanguage(path);
@@ -106,6 +123,9 @@ function cancelDisposal(filePath: string) {
 function disposeBuffer(filePath: string, expected: AxonBufferEntry) {
   if (buffers.get(filePath) !== expected || expected.references > 0) return;
   cancelDisposal(filePath);
+  modelDisposeListeners.forEach((listener) =>
+    listener(expected.model.uri.toString()),
+  );
   if (!expected.model.isDisposed()) expected.model.dispose();
   buffers.delete(filePath);
 }
