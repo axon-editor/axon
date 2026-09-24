@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const editorRoot = path.resolve(__dirname, "..");
+const editorRoot = path.resolve(__dirname, "..", "..");
 const repoRoot = path.resolve(editorRoot, "..", "..");
 const coreRoot = path.join(repoRoot, "services", "core");
 const outputDir = path.join(editorRoot, "build", "core");

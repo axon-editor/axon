@@ -38,7 +38,8 @@ export type SettingsSectionId =
   | "background"
   | "fonts"
   | "languageServers"
-  | "ai";
+  | "ai"
+  | "finder";
 
 export type SettingsGroupId = "appearance" | "editor" | "terminal" | "intelligence";
 
@@ -141,6 +142,13 @@ export const SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     label: "AI",
     description: "Local models, inline completions, and workspace context",
     keywords: ["model", "provider", "inline completion", "agent", "chat", "workspace context"],
+  },
+  {
+    id: "finder",
+    group: "appearance",
+    label: "Finder",
+    description: "Open folders in Axon from the Finder",
+    keywords: ["context menu", "open in axon", "macos", "file manager", "extension"],
   },
 ];
 

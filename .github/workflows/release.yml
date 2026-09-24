@@ -69,7 +69,7 @@ jobs:
         run: npm ci
 
       - name: Ensure native build binding
-        run: node apps/editor/scripts/ensure-native-build-binding.mjs
+        run: node apps/editor/scripts/build/ensure-native-build-binding.mjs
 
       - name: Bundle managed language servers
         run: npm --workspace axon run build:language-servers
@@ -77,7 +77,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Verify managed language server bundles
-        run: node apps/editor/scripts/verify-language-servers.mjs
+        run: node apps/editor/scripts/language-servers/verify-language-servers.mjs
 
       - name: Build packaged desktop target
         run: ${{ matrix.platform.command }}
@@ -121,7 +121,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Verify release version and notes
-        run: node apps/editor/scripts/verify-release-version.mjs "$RELEASE_TAG"
+        run: node apps/editor/scripts/packaging/verify-release-version.mjs "$RELEASE_TAG"
         env:
           RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}
 
@@ -132,7 +132,7 @@ jobs:
           path: release-inputs
 
       - name: Prepare architecture-aware updater metadata
-        run: node apps/editor/scripts/prepare-release-assets.mjs release-inputs release-assets
+        run: node apps/editor/scripts/packaging/prepare-release-assets.mjs release-inputs release-assets
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

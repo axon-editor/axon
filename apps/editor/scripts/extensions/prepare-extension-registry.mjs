@@ -5,8 +5,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const editorRoot = process.cwd();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const editorRoot = path.resolve(__dirname, "..", "..");
 const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const manifestFile = "axon.extension.json";
 const extensionRoots = [

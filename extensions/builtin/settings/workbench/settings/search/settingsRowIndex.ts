@@ -48,6 +48,7 @@ export const SETTINGS_ROW_ITEMS: SettingsRowItem[] = [
   { rowKey: "ui-font", sectionId: "appearance", label: "UI font", keywords: ["interface", "system ui", "zed sans", "axon sans"] },
   { rowKey: "settings-surface", sectionId: "appearance", label: "Open settings in", keywords: ["tab", "window", "separate window", "surface", "preference"] },
   { rowKey: "sidebar-side", sectionId: "appearance", label: "Sidebar side", keywords: ["layout", "left", "right", "file explorer position"] },
+  { rowKey: "finder-open-in-axon", sectionId: "finder", label: "Open in Axon from the Finder", keywords: ["context menu", "open with", "right click", "macos", "extension", "folder"] },
 
   { rowKey: "app-glass", sectionId: "background", label: "App glass", keywords: ["glass mode", "vibrancy", "mica", "acrylic", "transparency", "native material"] },
   { rowKey: "overlay-opacity", sectionId: "background", label: "Overlay opacity", keywords: ["modal", "popup", "backdrop", "translucency"] },

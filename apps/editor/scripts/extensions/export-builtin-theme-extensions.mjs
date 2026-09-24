@@ -5,21 +5,23 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 
-const editorRoot = process.cwd();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const editorRoot = path.resolve(__dirname, "..", "..");
 const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const jiti = createJiti(import.meta.url);
 
-const { axonDarkTheme } = jiti("../src/renderer/shared/themes/axonDark.ts");
-const { axonMonochromeThemes } = jiti("../src/renderer/shared/themes/axonMonochrome.ts");
-const { axonMoonlightTheme } = jiti("../src/renderer/shared/themes/axonMoonlight.ts");
-const { soraTheme } = jiti("../src/renderer/shared/themes/sora.ts");
-const { zedDarkTheme } = jiti("../src/renderer/shared/themes/zedDark.ts");
-const { catppuccinMochaTheme } = jiti("../src/renderer/shared/themes/catppuccinMocha.ts");
-const { ayuDarkTheme, ayuLightTheme, ayuMirageTheme } = jiti("../src/renderer/shared/themes/ayuDark.ts");
-const { oneThemes } = jiti("../src/renderer/shared/themes/one.ts");
-const { solarizedThemes } = jiti("../src/renderer/shared/themes/solarized.ts");
+const { axonDarkTheme } = jiti("../../src/renderer/shared/themes/axonDark.ts");
+const { axonMonochromeThemes } = jiti("../../src/renderer/shared/themes/axonMonochrome.ts");
+const { axonMoonlightTheme } = jiti("../../src/renderer/shared/themes/axonMoonlight.ts");
+const { soraTheme } = jiti("../../src/renderer/shared/themes/sora.ts");
+const { zedDarkTheme } = jiti("../../src/renderer/shared/themes/zedDark.ts");
+const { catppuccinMochaTheme } = jiti("../../src/renderer/shared/themes/catppuccinMocha.ts");
+const { ayuDarkTheme, ayuLightTheme, ayuMirageTheme } = jiti("../../src/renderer/shared/themes/ayuDark.ts");
+const { oneThemes } = jiti("../../src/renderer/shared/themes/one.ts");
+const { solarizedThemes } = jiti("../../src/renderer/shared/themes/solarized.ts");
 
 const themePackages = [
   {

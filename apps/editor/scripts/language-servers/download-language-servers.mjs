@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const editorRoot = path.resolve(__dirname, "..");
+const editorRoot = path.resolve(__dirname, "..", "..");
 const platformKey = `${process.platform}-${process.arch}`;
 const targetRoot = path.join(
   editorRoot,

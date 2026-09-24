@@ -41,6 +41,7 @@ import BackgroundSettingsSection from "./sections/BackgroundSettingsSection";
 import FontsSettingsSection from "./sections/FontsSettingsSection";
 import LanguageServersSettingsSection from "./sections/LanguageServersSettingsSection";
 import AxonAgentSettingsSection from "./sections/AxonAgentSettingsSection";
+import FinderSettingsSection from "./sections/FinderSettingsSection";
 
 interface SettingsTabProps {
   folderPath: string | null;
@@ -707,6 +708,10 @@ export default function SettingsTab({
               }
               onUpdateAi={updateAi}
             />
+          )}
+
+          {activeSection === "finder" && (
+            <FinderSettingsSection />
           )}
         </div>
 

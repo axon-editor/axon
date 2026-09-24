@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const editorRoot = path.resolve(__dirname, "..");
+const editorRoot = path.resolve(__dirname, "..", "..");
 const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const requireFromEditor = createRequire(path.join(editorRoot, "package.json"));
 const packageLockPath = path.join(workspaceRoot, "package-lock.json");

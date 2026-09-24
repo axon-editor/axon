@@ -357,10 +357,6 @@ export default function MarkdownPreview({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Synchronous render pipeline
-// ---------------------------------------------------------------------------
-
 // Synchronous render for use in the React effect. Math blocks are
 // rendered as plain text since KaTeX requires async loading.
 function renderSync(

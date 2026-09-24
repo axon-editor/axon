@@ -25,7 +25,7 @@ jobs:
         run: npm ci
 
       - name: Ensure native build binding
-        run: node apps/editor/scripts/ensure-native-build-binding.mjs
+        run: node apps/editor/scripts/build/ensure-native-build-binding.mjs
 
       - name: Build shared packages
         run: npm run build:packages

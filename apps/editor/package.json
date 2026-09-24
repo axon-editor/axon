@@ -16,20 +16,21 @@
   },
   "main": "dist/main/index.js",
   "scripts": {
-    "predev": "npm --prefix ../.. run build:packages && npm run patch:xterm-scrollback && npm run patch:language-servers && node scripts/write-build-config.mjs && tsc -p tsconfig.main.json && npm run build:dev-cli",
+    "predev": "npm --prefix ../.. run build:packages && npm run patch:xterm-scrollback && npm run patch:language-servers && node scripts/build/write-build-config.mjs && tsc -p tsconfig.main.json && npm run build:dev-cli",
     "dev": "npm run prepare:extension-registry && npm run check:language-servers && cross-env AXON_CORE_TOKEN=axon-development-only AXON_PTY_TOKEN=axon-development-terminal-only concurrently -k -n core,pty,renderer,electron \"cross-env AXON_CORE_PORT=17777 go -C ../../services/core run cmd/axon/main.go\" \"cross-env AXON_PTY_PORT=17778 AXON_PTY_CONTROL= AXON_PTY_OWNER_STDIN= AXON_PTY_LOG_PATH= go -C ../../services/core run ./cmd/axon-pty-host\" \"cross-env NODE_ENV=development VITE_AXON_CORE_URL=http://127.0.0.1:17777 vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development AXON_CORE_PORT=17777 AXON_PTY_PORT=17778 AXON_PTY_CONTROL= AXON_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
-    "check:language-servers": "node scripts/check-language-servers.mjs",
-    "build:language-servers": "node scripts/download-language-servers.mjs",
-    "build:dev-cli": "node scripts/build-dev-cli.mjs",
-    "build:core": "node scripts/build-core.mjs",
+    "check:language-servers": "node scripts/language-servers/check-language-servers.mjs",
+    "build:language-servers": "node scripts/language-servers/download-language-servers.mjs",
+    "build:dev-cli": "node scripts/build/build-dev-cli.mjs",
+    "build:core": "node scripts/build/build-core.mjs",
+    "build:finder-extension": "node scripts/build/build-finder-extension.mjs",
     "prebuild:main": "npm --prefix ../.. run build:packages",
-    "build:main": "node scripts/write-build-config.mjs && tsc -p tsconfig.main.json",
-    "prepare:extension-registry": "node scripts/prepare-extension-registry.mjs",
+    "build:main": "node scripts/build/write-build-config.mjs && tsc -p tsconfig.main.json",
+    "prepare:extension-registry": "node scripts/extensions/prepare-extension-registry.mjs",
     "sync:builtin-assets": "npm run prepare:extension-registry",
     "sync:builtin-themes": "npm run prepare:extension-registry",
     "sync:builtin": "npm run prepare:extension-registry",
     "prebuild:renderer": "npm --prefix ../.. run build:packages && npm run patch:xterm-scrollback",
-    "build:renderer": "npm run prepare:extension-registry && cross-env AXON_BUILD_ENTRY= vite build && cross-env AXON_BUILD_ENTRY=settings vite build && node scripts/prune-renderer-fonts.mjs",
+    "build:renderer": "npm run prepare:extension-registry && cross-env AXON_BUILD_ENTRY= vite build && cross-env AXON_BUILD_ENTRY=settings vite build && node scripts/renderer/prune-renderer-fonts.mjs",
     "lint": "npm --prefix ../.. run lint",
     "pretest": "npm run patch:xterm-scrollback",
     "test": "vitest run --exclude src/platform/terminal/terminalRendererPixel.integration.test.ts",
@@ -38,13 +39,13 @@
     "preview": "electron .",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder --publish never",
-    "dist:mac": "npm run build && electron-builder --mac --publish never",
-    "dist:mac:x64": "npm run build && electron-builder --mac --x64 --publish never",
-    "dist:mac:arm64": "npm run build && electron-builder --mac --arm64 --publish never",
+    "dist:mac": "npm run build:finder-extension && npm run build && electron-builder --mac --publish never",
+    "dist:mac:x64": "npm run build:finder-extension && npm run build && electron-builder --mac --x64 --publish never",
+    "dist:mac:arm64": "npm run build:finder-extension && npm run build && electron-builder --mac --arm64 --publish never",
     "dist:win": "npm run build && electron-builder --win --publish never",
     "dist:linux": "npm run build && electron-builder --linux --publish never",
-    "patch:language-servers": "node scripts/patch-language-servers.mjs",
-    "patch:xterm-scrollback": "node scripts/patch-xterm-scrollback.mjs"
+    "patch:language-servers": "node scripts/language-servers/patch-language-servers.mjs",
+    "patch:xterm-scrollback": "node scripts/renderer/patch-xterm-scrollback.mjs"
   },
   "build": {
     "appId": "com.gorden.axon",
@@ -799,20 +800,30 @@
         ]
       }
     ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "axon-editor",
-        "repo": "axon"
-      }
-    ],
-    "mac": {
+"publish": [
+        {
+          "provider": "github",
+          "owner": "axon-editor",
+          "repo": "axon"
+        }
+      ],
+      "afterSign": "scripts/packaging/after-sign-finder-extension.mjs",
+      "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
         "dmg",
         "zip"
       ],
       "icon": "build/axon.png",
+      "extraFiles": [
+        {
+          "from": "build/native/AxonFinderSync.appex",
+          "to": "PlugIns/AxonFinderSync.appex",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ],
       "extendInfo": {
         "CFBundleDocumentTypes": [
           {

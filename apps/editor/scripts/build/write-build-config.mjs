@@ -5,6 +5,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const editorRoot = path.resolve(__dirname, "..", "..");
+const repoRoot = path.resolve(editorRoot, "..", "..");
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -25,11 +30,11 @@ function loadEnvFile(filePath) {
   }
 }
 
-loadEnvFile(path.resolve(process.cwd(), "../.env"));
-loadEnvFile(path.resolve(process.cwd(), ".env"));
+loadEnvFile(path.resolve(repoRoot, ".env"));
+loadEnvFile(path.resolve(editorRoot, ".env"));
 
 const configPath = path.resolve(
-  process.cwd(),
+  editorRoot,
   "src/main/generated/buildConfig.ts",
 );
 const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? "";

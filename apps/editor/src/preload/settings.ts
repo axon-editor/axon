@@ -62,6 +62,10 @@ contextBridge.exposeInMainWorld("axon", {
     ),
   listAiModels: (folderPath?: string | null): Promise<AiModelInfo[]> =>
     ipcRenderer.invoke("ai:listModels", folderPath),
+  getFinderSyncEnabled: (): Promise<boolean> =>
+    ipcRenderer.invoke("finderSync:getEnabled"),
+  setFinderSyncEnabled: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke("finderSync:setEnabled", enabled),
   setWindowGlass: (
     mode: AppGlassMode,
     opaqueBackground: string,

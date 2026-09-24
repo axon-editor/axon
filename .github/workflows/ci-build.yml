@@ -25,13 +25,13 @@ jobs:
         run: npm ci
 
       - name: Ensure native build binding
-        run: node apps/editor/scripts/ensure-native-build-binding.mjs
+        run: node apps/editor/scripts/build/ensure-native-build-binding.mjs
 
       - name: Build main process
         run: npm --workspace axon run build:main
 
       - name: Verify npm language-server release packaging
-        run: node apps/editor/scripts/verify-language-servers.mjs --packaging-only
+        run: node apps/editor/scripts/language-servers/verify-language-servers.mjs --packaging-only
 
       - name: Validate extension registry inputs
         working-directory: apps/editor

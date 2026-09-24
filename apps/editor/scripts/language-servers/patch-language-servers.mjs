@@ -5,8 +5,10 @@
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const editorRoot = process.cwd();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const editorRoot = path.resolve(__dirname, "..", "..");
 const workspaceRoot = path.resolve(editorRoot, "..", "..");
 const vscodeUriBridgePath = path.join(
   editorRoot,

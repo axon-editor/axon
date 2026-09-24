@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const editorRoot = path.resolve(__dirname, "..");
+const editorRoot = path.resolve(__dirname, "..", "..");
 const cliArgs = process.argv.slice(2);
 const packagingOnly = cliArgs.includes("--packaging-only");
 const platformKey =

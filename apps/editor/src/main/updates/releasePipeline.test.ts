@@ -19,7 +19,7 @@ async function createTemporaryDirectory(label: string) {
 }
 
 async function loadReleaseScript<T>(fileName: string) {
-  const scriptPath = path.resolve(process.cwd(), "scripts", fileName);
+  const scriptPath = path.resolve(process.cwd(), "scripts", "packaging", fileName);
   return (await import(pathToFileURL(scriptPath).href)) as T;
 }
 

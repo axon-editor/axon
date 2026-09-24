@@ -192,6 +192,8 @@ declare global {
         callback: (request: AgentResumeRequest) => void,
       ) => () => void;
       onCliOpenFolder: (callback: (folderPath: string) => void) => () => void;
+      getFinderSyncEnabled: () => Promise<boolean>;
+      setFinderSyncEnabled: (enabled: boolean) => Promise<boolean>;
       importFont: () => Promise<CustomFont | null>;
       listAvailableFonts: () => Promise<CustomFont[]>;
       selectEditorBackgroundImage: () => Promise<string | null>;

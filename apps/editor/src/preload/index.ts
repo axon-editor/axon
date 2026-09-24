@@ -652,6 +652,10 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("app:consumeCliOpenFolder"),
   openDevTools: (): Promise<void> => ipcRenderer.invoke("app:openDevTools"),
   isDev: (): Promise<boolean> => ipcRenderer.invoke("app:isDev"),
+  getFinderSyncEnabled: (): Promise<boolean> =>
+    ipcRenderer.invoke("finderSync:getEnabled"),
+  setFinderSyncEnabled: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke("finderSync:setEnabled", enabled),
   checkForUpdates: (): Promise<UpdateInfo> =>
     ipcRenderer.invoke("app:checkForUpdates"),
   // The renderer can request updater actions, but it still cannot touch

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { app, BrowserWindow, dialog, Menu, protocol } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import { execFile } from "child_process";
@@ -22,6 +22,7 @@ import {
   notifyLanguageServerConfiguration,
 } from "./lsp/session";
 import { registerAppHandlers } from "./app/handlers";
+import { registerFinderSyncHandlers } from "./app/finderSync";
 import { findCliOpenFolderArgument } from "./app/cliOpenFolder";
 import { consumePendingAgentResumeRequest } from "./app/resumeRequest";
 import { registerDiagnosticsHandlers } from "./diagnostics/handlers";
@@ -437,6 +438,9 @@ registerAppHandlers({
   consumePendingCliOpenFolder,
   isDev,
 });
+if (process.platform === "darwin") {
+  registerFinderSyncHandlers(ipcMain, () => app.getPath("userData"));
+}
 registerCoreProxyHandlers({
   axonCorePort,
   axonCoreToken,

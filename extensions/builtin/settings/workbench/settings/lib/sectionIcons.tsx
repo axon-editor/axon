@@ -6,6 +6,7 @@
 // One Lucide icon per settings section, kept out of the sidebar and the
 // settings page so future sections only touch this map and settingsData.
 import {
+  FolderOpen,
   Image,
   Palette,
   Sparkles,
@@ -24,4 +25,5 @@ export const SETTINGS_SECTION_ICONS: Record<SettingsSectionId, LucideIcon> = {
   fonts: Type,
   ai: Sparkles,
   languageServers: Wifi,
+  finder: FolderOpen,
 };
