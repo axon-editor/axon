@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import fs from "fs";
+import { readFile } from "node:fs/promises";
 import path from "path";
 
 // Shared plumbing for the axon:// asset routes. Both the workspace ticket route
@@ -79,7 +79,7 @@ export async function createAssetProtocolResponse(
   });
 
   try {
-    const body = await fs.readFile(filePath);
+    const body = await readFile(filePath);
     return new Response(body, { status: 200, headers });
   } catch (err) {
     return new Response(
