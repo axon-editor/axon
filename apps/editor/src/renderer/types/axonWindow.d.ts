@@ -44,6 +44,7 @@ import type {
   HtmlPreviewActionResult,
   HtmlPreviewConsoleEvent,
 } from "../../shared/htmlPreview";
+import type { ExtensionWebviewActionResult } from "../../shared/extensionWebview";
 import type { WorkspaceIndexSummary } from "../../shared/workspaceIndex";
 import type {
   LanguageServerCodeActionRequest,
@@ -476,6 +477,9 @@ declare global {
         filePath: string,
         folderPath?: string | null,
       ) => Promise<HtmlPreviewActionResult>;
+      getExtensionWebviewTarget: (
+        extensionId: string,
+      ) => Promise<ExtensionWebviewActionResult>;
       copyText: (text: string) => Promise<void>;
       copyImage: (dataUrl: string) => Promise<void>;
       saveCodeSnapshot: (

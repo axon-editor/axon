@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import chokidar, { type FSWatcher } from "chokidar";
 import { randomBytes } from "crypto";
 import fs from "fs";
 import http, {
@@ -12,126 +11,62 @@ import http, {
   type ServerResponse,
 } from "http";
 import path from "path";
-import {
-  type HtmlPreviewConsoleEvent,
-  type HtmlPreviewTarget,
-} from "../../shared/htmlPreview";
-import { injectHtmlPreviewClient } from "./inject";
+import { type ExtensionWebviewTarget } from "../../../../shared/extensionWebview";
+import { type HtmlPreviewConsoleEvent } from "../../../../shared/htmlPreview";
+import { authorizeHtmlPreviewRequest } from "../../../htmlPreview/server";
+import { getHtmlPreviewContentType } from "../../../htmlPreview/server";
+import { injectHtmlPreviewClient } from "../../../htmlPreview/inject";
 
-type WatchOptions = NonNullable<Parameters<typeof chokidar.watch>[1]>;
-
-interface HtmlPreviewServerDependencies {
-  buildWatcherOptions: () => WatchOptions;
-  shouldIgnoreWorkspaceWatchPath: (candidatePath: string) => boolean;
+interface ExtensionWebviewServerDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
 }
 
-export function authorizeHtmlPreviewRequest(input: {
-  accessToken: string;
-  cookieHeader?: string;
-  pathname: string;
-  serverId: string;
-}) {
-  const accessPrefix = `/${input.accessToken}`;
-  const cookieName = `axon_preview_${input.serverId.replace(/[^a-z0-9_]/gi, "_")}`;
-  const cookieValue = `${cookieName}=${input.accessToken}`;
-  const authorizedByCookie = (input.cookieHeader ?? "")
-    .split(";")
-    .some((cookie) => cookie.trim() === cookieValue);
-  if (input.pathname.startsWith(`${accessPrefix}/`)) {
-    return {
-      authorized: true,
-      pathname: input.pathname.slice(accessPrefix.length) || "/",
-      setCookie: `${cookieValue}; HttpOnly; SameSite=Strict; Path=/`,
-    };
-  }
-  return {
-    authorized: authorizedByCookie,
-    pathname: input.pathname,
-    setCookie: null,
-  };
-}
-
-export function getHtmlPreviewContentType(filePath: string) {
-  const extension = path.extname(filePath).toLowerCase();
-  const types: Record<string, string> = {
-    ".html": "text/html; charset=utf-8",
-    ".htm": "text/html; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".js": "text/javascript; charset=utf-8",
-    ".mjs": "text/javascript; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".ico": "image/x-icon",
-    ".wasm": "application/wasm",
-  };
-
-  return types[extension] ?? "application/octet-stream";
-}
-
-export class HtmlPreviewServer {
+// An extension webview is the content its package ships in a `webview/` folder.
+// The editor renders it as a tab in the same sandboxed iframe pattern used by
+// HTML preview, and this server is the only process that reads those files.
+// Requests are authorization-gated with the same access-token/cookie scheme as
+// the preview server, so an arbitrary localhost client cannot read extension
+// assets, and path resolution never escapes the package's own webview folder.
+export class ExtensionWebviewServer {
   private server: Server | null = null;
   private rootPath: string | null = null;
   private serverId: string | null = null;
   private baseUrl: string | null = null;
   private accessToken: string | null = null;
-  private watcher: FSWatcher | null = null;
-  private reloadTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly clients = new Set<ServerResponse>();
 
-  constructor(private readonly deps: HtmlPreviewServerDependencies) {}
+  constructor(private readonly deps: ExtensionWebviewServerDependencies) {}
 
   async getTarget(
-    filePath: string,
-    folderPath?: string | null,
-  ): Promise<HtmlPreviewTarget> {
-    const resolvedFilePath = path.resolve(filePath);
-    const rootPath = this.resolveRoot(resolvedFilePath, folderPath);
-
-    if (!fs.existsSync(resolvedFilePath)) {
-      throw new Error("HTML file does not exist.");
+    extensionId: string,
+    extensionPath: string,
+  ): Promise<ExtensionWebviewTarget> {
+    const webviewRoot = path.resolve(extensionPath, "webview");
+    if (!fs.existsSync(webviewRoot) || !fs.statSync(webviewRoot).isDirectory()) {
+      throw new Error(
+        `Extension "${extensionId}" does not ship a webview folder.`,
+      );
     }
 
-    await this.ensureServer(rootPath);
+    await this.ensureServer(webviewRoot);
 
-    if (!this.baseUrl || !this.serverId || !this.rootPath || !this.accessToken) {
-      throw new Error("HTML preview server did not start.");
+    if (!this.baseUrl || !this.serverId || !this.accessToken) {
+      throw new Error("Extension webview server did not start.");
     }
-
-    const relativePath = path
-      .relative(this.rootPath, resolvedFilePath)
-      .split(path.sep)
-      .map(encodeURIComponent)
-      .join("/");
 
     return {
-      filePath: resolvedFilePath,
-      rootPath: this.rootPath,
+      extensionId,
+      rootPath: webviewRoot,
       serverId: this.serverId,
-      url: `${this.baseUrl}/${this.accessToken}/${relativePath}`,
+      url: `${this.baseUrl}/${this.accessToken}/index.html`,
     };
   }
 
   async close() {
-    if (this.reloadTimer) {
-      clearTimeout(this.reloadTimer);
-      this.reloadTimer = null;
-    }
-
     for (const client of this.clients) {
       client.end();
     }
     this.clients.clear();
-
-    if (this.watcher) {
-      await this.watcher.close();
-      this.watcher = null;
-    }
 
     if (this.server) {
       const serverToClose = this.server;
@@ -143,34 +78,6 @@ export class HtmlPreviewServer {
     this.serverId = null;
     this.baseUrl = null;
     this.accessToken = null;
-  }
-
-  private normalizeRoot(rootPath: string) {
-    return path.resolve(rootPath);
-  }
-
-  private isPathInsideRoot(candidatePath: string, rootPath: string) {
-    const relativePath = path.relative(rootPath, candidatePath);
-    return (
-      relativePath === "" ||
-      (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
-    );
-  }
-
-  private resolveRoot(filePath: string, folderPath?: string | null) {
-    const resolvedFilePath = path.resolve(filePath);
-    if (folderPath) {
-      const workspaceRoot = this.normalizeRoot(folderPath);
-      if (this.isPathInsideRoot(resolvedFilePath, workspaceRoot)) {
-        return workspaceRoot;
-      }
-    }
-
-    return path.dirname(resolvedFilePath);
-  }
-
-  private getContentType(filePath: string) {
-    return getHtmlPreviewContentType(filePath);
   }
 
   private writeJson(
@@ -192,7 +99,7 @@ export class HtmlPreviewServer {
       request.on("data", (chunk) => {
         body += chunk;
         if (body.length > 1024 * 1024) {
-          reject(new Error("Preview console payload is too large."));
+          reject(new Error("Webview console payload is too large."));
         }
       });
       request.on("end", () => resolve(body));
@@ -212,7 +119,7 @@ export class HtmlPreviewServer {
         serverId:
           typeof payload.serverId === "string"
             ? payload.serverId
-            : (this.serverId ?? "preview"),
+            : (this.serverId ?? "extension-webview"),
         level:
           payload.level === "log" ||
           payload.level === "info" ||
@@ -231,14 +138,17 @@ export class HtmlPreviewServer {
       this.deps.sendToRenderer("htmlPreview:console", event);
       response.writeHead(204, { "Cache-Control": "no-store" });
       response.end();
-    } catch (err) {
+    } catch {
       this.writeJson(response, 400, {
-        error: err instanceof Error ? err.message : "Invalid console payload.",
+        error: "Invalid webview console payload.",
       });
     }
   }
 
   private handleEventStream(response: ServerResponse) {
+    // The injected preview client opens this stream so reload events can be
+    // broadcast. Extension webview assets ship inside their installed package
+    // and are not written on disk while the tab is open, so nothing ever sends.
     response.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-store",
@@ -249,28 +159,9 @@ export class HtmlPreviewServer {
     response.on("close", () => this.clients.delete(response));
   }
 
-  private broadcastReload(changedPath: string) {
-    if (this.reloadTimer) clearTimeout(this.reloadTimer);
-
-    this.reloadTimer = setTimeout(() => {
-      const payload = JSON.stringify({ path: changedPath, timestamp: Date.now() });
-      for (const client of this.clients) {
-        if (client.destroyed) {
-          this.clients.delete(client);
-          continue;
-        }
-        client.write(`data: ${payload}\n\n`);
-      }
-      this.deps.sendToRenderer("htmlPreview:changed", {
-        path: changedPath,
-        serverId: this.serverId,
-      });
-    }, 100);
-  }
-
   private async serveFile(response: ServerResponse, requestUrl: URL) {
-    if (!this.rootPath || !this.serverId) {
-      this.writeJson(response, 503, { error: "Preview server is not ready." });
+    if (!this.rootPath) {
+      this.writeJson(response, 503, { error: "Webview server is not ready." });
       return;
     }
 
@@ -278,13 +169,17 @@ export class HtmlPreviewServer {
     const normalizedRequestPath = decodedPath === "/" ? "/index.html" : decodedPath;
     const requestedPath = path.resolve(this.rootPath, `.${normalizedRequestPath}`);
 
-    // The preview server behaves like a tiny browser server, but it must never
-    // become a general filesystem reader. Every request is resolved relative to
-    // the active workspace root and rejected if path normalization would escape
-    // that root through "../" traversal.
-    if (!this.isPathInsideRoot(requestedPath, this.rootPath)) {
+    // Extension packages live in the user data folder, not the workspace, so
+    // the traversal guard has to be absolute. A request can only ever reach
+    // files inside the extension's own webview folder.
+    const relativePath = path.relative(this.rootPath, requestedPath);
+    if (
+      relativePath === ".." ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath)
+    ) {
       this.writeJson(response, 403, {
-        error: "Preview path is outside workspace.",
+        error: "Webview path is outside the package.",
       });
       return;
     }
@@ -294,7 +189,7 @@ export class HtmlPreviewServer {
       const filePath = stat.isDirectory()
         ? path.join(requestedPath, "index.html")
         : requestedPath;
-      const contentType = this.getContentType(filePath);
+      const contentType = getHtmlPreviewContentType(filePath);
       const rawBuffer = await fs.promises.readFile(filePath);
 
       response.writeHead(200, {
@@ -306,7 +201,7 @@ export class HtmlPreviewServer {
         response.end(
           injectHtmlPreviewClient(
             rawBuffer.toString("utf8"),
-            this.serverId,
+            this.serverId ?? "extension-webview",
             `/${this.accessToken}`,
           ),
         );
@@ -315,7 +210,7 @@ export class HtmlPreviewServer {
 
       response.end(rawBuffer);
     } catch {
-      this.writeJson(response, 404, { error: "Preview file was not found." });
+      this.writeJson(response, 404, { error: "Webview file was not found." });
     }
   }
 
@@ -326,7 +221,7 @@ export class HtmlPreviewServer {
     const host = request.headers.host ?? "127.0.0.1";
     const requestUrl = new URL(request.url ?? "/", `http://${host}`);
     if (!this.accessToken || !this.serverId) {
-      this.writeJson(response, 503, { error: "Preview server is not ready." });
+      this.writeJson(response, 503, { error: "Webview server is not ready." });
       return;
     }
     const authorization = authorizeHtmlPreviewRequest({
@@ -336,7 +231,7 @@ export class HtmlPreviewServer {
       serverId: this.serverId,
     });
     if (!authorization.authorized) {
-      this.writeJson(response, 404, { error: "Preview target was not found." });
+      this.writeJson(response, 404, { error: "Webview target was not found." });
       return;
     }
     requestUrl.pathname = authorization.pathname;
@@ -357,14 +252,14 @@ export class HtmlPreviewServer {
     await this.serveFile(response, requestUrl);
   }
 
-  private async ensureServer(rootPath: string) {
-    const normalizedRoot = this.normalizeRoot(rootPath);
+  private async ensureServer(webviewRoot: string) {
+    const normalizedRoot = path.resolve(webviewRoot);
     if (this.server && this.rootPath === normalizedRoot) return;
 
     await this.close();
 
     this.rootPath = normalizedRoot;
-    this.serverId = `preview-${Date.now()}-${Math.random()
+    this.serverId = `webview-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2)}`;
     this.accessToken = randomBytes(24).toString("base64url");
@@ -380,22 +275,9 @@ export class HtmlPreviewServer {
     const address = this.server.address();
     if (!address || typeof address === "string") {
       await this.close();
-      throw new Error("Could not bind the HTML preview server.");
+      throw new Error("Could not bind the extension webview server.");
     }
 
     this.baseUrl = `http://127.0.0.1:${address.port}`;
-    this.watcher = chokidar.watch(normalizedRoot, {
-      ...this.deps.buildWatcherOptions(),
-      ignored: this.deps.shouldIgnoreWorkspaceWatchPath,
-      depth: 8,
-    });
-
-    const notifyReload = (changedPath: string) => {
-      this.broadcastReload(changedPath);
-    };
-
-    this.watcher.on("change", notifyReload);
-    this.watcher.on("add", notifyReload);
-    this.watcher.on("unlink", notifyReload);
   }
 }

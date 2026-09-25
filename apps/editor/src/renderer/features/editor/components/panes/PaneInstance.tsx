@@ -34,6 +34,10 @@ import {
   isHtmlPreviewTabPath,
 } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import {
+  getExtensionWebviewExtensionId,
+  isExtensionWebviewTabPath,
+} from "@axon-editor/workbench/contrib/extensions/webview/lib/extensionWebviewTabs";
+import {
   createMarkdownPreviewTabPath,
   getMarkdownPreviewFilePath,
   isMarkdownPreviewTabPath,
@@ -47,6 +51,7 @@ import MediaPreview, {
 import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
 import { isKnownBinaryFile } from "@axon-editor/shared/binaryFiles";
 import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
+import ExtensionWebview from "@axon-editor/workbench/contrib/extensions/webview/ExtensionWebview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
 import SingleEditor from "../surface/SingleEditor";
 import EmptyPane from "./EmptyPane";
@@ -387,6 +392,10 @@ export default function PaneInstance({
                   <HtmlPreview
                     filePath={getHtmlPreviewFilePath(path)}
                     folderPath={folderPath}
+                  />
+                ) : isExtensionWebviewTabPath(path) ? (
+                  <ExtensionWebview
+                    extensionId={getExtensionWebviewExtensionId(path) ?? path}
                   />
                 ) : isMarkdownPreviewTabPath(path) ? (
                   <MarkdownPreviewTab

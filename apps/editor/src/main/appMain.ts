@@ -41,6 +41,8 @@ import { TaskManager } from "./tasks/tasks";
 import { registerTestHandlers } from "./tests/handlers";
 import { TestManager } from "./tests/tests";
 import { HtmlPreviewServer } from "./htmlPreview/server";
+import { registerExtensionWebviewHandlers } from "./extensions/host/webview/handlers";
+import { ExtensionWebviewServer } from "./extensions/host/webview/server";
 import { createWindow } from "./window/createWindow";
 import { createSettingsWindow } from "./window/createSettingsWindow";
 import { OpenWorkspaceRegistry } from "./window/openWorkspaceRegistry";
@@ -161,6 +163,7 @@ const axonReleaseApiUrl =
 const axonReleasePageUrl =
   "https://github.com/axon-editor/axon/releases/latest";
 const htmlPreviewServers = new Map<number, HtmlPreviewServer>();
+const extensionWebviewServers = new Map<number, ExtensionWebviewServer>();
 const workspaceCapabilities = new WorkspaceCapabilityRegistry();
 registerWorkspaceCapabilityHandlers(workspaceCapabilities);
 const localAssetTickets = new LocalAssetTicketRegistry(workspaceCapabilities);
@@ -533,6 +536,7 @@ const fileWatcherRegistry = registerFileWatcherHandlers(
   },
 );
 registerHtmlPreviewHandlers(getHtmlPreviewServer, workspaceCapabilities);
+registerExtensionWebviewHandlers(getExtensionWebviewServer);
 registerTaskHandlers(taskManager, workspaceCapabilities);
 registerTestHandlers(testManager, workspaceCapabilities);
 
@@ -553,6 +557,19 @@ function getHtmlPreviewServer(
       sendToRenderer: sendPreviewEvent,
     });
     htmlPreviewServers.set(rendererId, server);
+  }
+
+  return server;
+}
+
+function getExtensionWebviewServer(
+  rendererId: number,
+  sendPreviewEvent: (channel: string, payload?: unknown) => void,
+) {
+  let server = extensionWebviewServers.get(rendererId);
+  if (!server) {
+    server = new ExtensionWebviewServer({ sendToRenderer: sendPreviewEvent });
+    extensionWebviewServers.set(rendererId, server);
   }
 
   return server;
@@ -635,6 +652,9 @@ function createManagedWindow(
     const previewServer = htmlPreviewServers.get(createdWebContentsId);
     htmlPreviewServers.delete(createdWebContentsId);
     if (previewServer) void previewServer.close();
+    const extensionWebviewServer = extensionWebviewServers.get(createdWebContentsId);
+    extensionWebviewServers.delete(createdWebContentsId);
+    if (extensionWebviewServer) void extensionWebviewServer.close();
     openWorkspaceRegistry.release(createdWebContentsId);
     if (mainWindow === createdWindow.window) {
       mainWindow =
@@ -833,8 +853,10 @@ app.on("before-quit", (event) => {
     const resourceResults = await Promise.allSettled([
       fileWatcherRegistry.closeAll(),
       ...[...htmlPreviewServers.values()].map((server) => server.close()),
+      ...[...extensionWebviewServers.values()].map((server) => server.close()),
     ]);
     htmlPreviewServers.clear();
+    extensionWebviewServers.clear();
     for (const result of [...serviceResults, ...resourceResults]) {
       if (result.status === "rejected") {
         console.error("Axon shutdown cleanup failed:", result.reason);

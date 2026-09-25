@@ -23,6 +23,11 @@ import {
   isCodeSnapshotTabPath,
 } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 import { isSettingsTabPath } from "@axon-builtin-settings/settings/lib/settingsTab";
+import {
+  getExtensionWebviewExtensionId,
+  getExtensionWebviewTabLabel,
+  isExtensionWebviewTabPath,
+} from "@axon-editor/workbench/contrib/extensions/webview/lib/extensionWebviewTabs";
 
 export function getTabFilePath(tabPath: string) {
   if (isHtmlPreviewTabPath(tabPath)) return getHtmlPreviewFilePath(tabPath);
@@ -44,6 +49,8 @@ export function getTabDisplayName(tabPath: string) {
   }
   if (isCodeSnapshotTabPath(tabPath)) return "Code Snapshot";
   if (isSettingsTabPath(tabPath)) return "Settings";
+  if (isExtensionWebviewTabPath(tabPath))
+    return getExtensionWebviewTabLabel(tabPath);
 
   const filePath = getTabFilePath(tabPath);
   const name = filePath.split("/").pop() ?? filePath;
@@ -72,6 +79,11 @@ export function getTabTooltipLabel(tabPath: string) {
   if (isSettingsTabPath(tabPath)) {
     return "Workspace and application preferences";
   }
+  if (isExtensionWebviewTabPath(tabPath)) {
+    return `Extension view: ${
+      getExtensionWebviewExtensionId(tabPath) ?? tabPath
+    }`;
+  }
 
   const filePath = getTabFilePath(tabPath);
   if (isHtmlPreviewTabPath(tabPath)) return `HTML preview: ${filePath}`;
@@ -88,6 +100,7 @@ export function isVirtualTabPath(tabPath: string) {
     isCodeSnapshotTabPath(tabPath) ||
     isSettingsTabPath(tabPath) ||
     isHtmlPreviewTabPath(tabPath) ||
-    isMarkdownPreviewTabPath(tabPath)
+    isMarkdownPreviewTabPath(tabPath) ||
+    isExtensionWebviewTabPath(tabPath)
   );
 }

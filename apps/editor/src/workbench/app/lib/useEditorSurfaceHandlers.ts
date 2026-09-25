@@ -14,6 +14,7 @@ import type {
 } from "../../../renderer/features/editor/lib/layout/types";
 import type { EditorNavigationTarget } from "../../../renderer/features/editor/lib/layout/navigation";
 import { createHtmlPreviewTabPath } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
+import { createExtensionWebviewTabPath } from "@axon-editor/workbench/contrib/extensions/webview/lib/extensionWebviewTabs";
 import type { WorkspaceSearchResult } from "../../../renderer/shared/lib/api";
 import { AXON_OPEN_CODE_SNAPSHOT_EVENT } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 import type {
@@ -93,6 +94,24 @@ export function useEditorSurfaceHandlers({
     );
   };
 
+  const handleOpenExtensionWebview = (extensionId: string) => {
+    if (!extensionId) return;
+
+    // Extension webviews get the full editor height just like HTML previews.
+    // The hosted page is a browser surface, not a workspace document, so the
+    // wrapped tab identity keeps it separate from any file tabs while still
+    // letting it move, close, and persist like every other pane tab.
+    setTerminalOpen(false);
+    setBottomPanelOpen(false);
+    setLayout((prev) =>
+      openFileInPane(
+        prev,
+        prev.activePaneId,
+        createExtensionWebviewTabPath(extensionId),
+      ),
+    );
+  };
+
   const handleWorkspaceSearchResult = (
     result: WorkspaceSearchResult,
     query: string,
@@ -153,6 +172,7 @@ export function useEditorSurfaceHandlers({
 
   return {
     handleNewTerminal,
+    handleOpenExtensionWebview,
     handleOpenHtmlPreview,
     handleOpenPathInTerminal,
     handleOpenTabInTerminal,

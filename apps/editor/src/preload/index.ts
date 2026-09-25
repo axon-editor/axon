@@ -114,6 +114,7 @@ import {
   type HtmlPreviewActionResult,
   type HtmlPreviewConsoleEvent,
 } from "../shared/htmlPreview";
+import { type ExtensionWebviewActionResult } from "../shared/extensionWebview";
 import { type WorkspaceIndexSummary } from "../shared/workspaceIndex";
 import {
   type ExtensionActionResult,
@@ -682,6 +683,10 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath?: string | null,
   ): Promise<HtmlPreviewActionResult> =>
     ipcRenderer.invoke("htmlPreview:openExternal", filePath, folderPath),
+  getExtensionWebviewTarget: (
+    extensionId: string,
+  ): Promise<ExtensionWebviewActionResult> =>
+    ipcRenderer.invoke("extensions:getWebviewTarget", extensionId),
   copyText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   copyImage: (dataUrl: string): Promise<void> =>
     ipcRenderer.invoke("clipboard:writeImage", dataUrl),

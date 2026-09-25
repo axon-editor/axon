@@ -390,6 +390,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
   });
   const {
     handleNewTerminal,
+    handleOpenExtensionWebview,
     handleOpenHtmlPreview,
     handleOpenPathInTerminal,
     handleOpenTabInTerminal,
@@ -727,6 +728,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     handleCloseActiveTab,
     handleNewFile,
     handleNewTerminal,
+    handleOpenExtensionWebview,
     handleOpenHtmlPreview,
     handleOpenSettingsJson,
     handleOpenSettingsTab,
@@ -740,6 +742,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     requireTrustedWorkspace,
     runEditorAction,
     folderPath,
+    extensionState,
     setExtensionState,
     terminalOpen,
     updateAvailable: updateInfo?.updateAvailable,

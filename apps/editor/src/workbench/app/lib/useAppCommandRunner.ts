@@ -31,6 +31,7 @@ interface AppCommandRunnerOptions {
   handleCloseActiveTab: () => void;
   handleNewFile: () => Promise<void>;
   handleNewTerminal: () => void;
+  handleOpenExtensionWebview: (extensionId: string) => void;
   handleOpenHtmlPreview: (filePath: string) => void;
   handleOpenSettingsJson: () => Promise<void>;
   handleOpenSettingsTab: () => void;
@@ -44,6 +45,7 @@ interface AppCommandRunnerOptions {
   requireTrustedWorkspace: RequireTrustedWorkspace;
   runEditorAction: (action: EditorActionRequest) => void;
   folderPath: string | null;
+  extensionState: ExtensionState | null;
   setExtensionState: StateSetter<ExtensionState>;
   terminalOpen: boolean;
   updateAvailable: boolean | undefined;
@@ -79,6 +81,7 @@ export function useAppCommandRunner({
   handleCloseActiveTab,
   handleNewFile,
   handleNewTerminal,
+  handleOpenExtensionWebview,
   handleOpenHtmlPreview,
   handleOpenSettingsJson,
   handleOpenSettingsTab,
@@ -92,6 +95,7 @@ export function useAppCommandRunner({
   requireTrustedWorkspace,
   runEditorAction,
   folderPath,
+  extensionState,
   setExtensionState,
   terminalOpen,
   updateAvailable,
@@ -158,6 +162,48 @@ export function useAppCommandRunner({
     [appendOutput, folderPath, setExtensionState],
   );
 
+  const tryOpenExtensionWebview = useCallback(
+    async (commandId: string, fallbackMessage: string) => {
+      // A contributed command with no runtime handler may belong to a webview
+      // extension: one that ships an HTML page in its package. When the command
+      // does not map to a native built-in alias, ask the extension host for a
+      // target before reporting failure so webview extensions can open their
+      // tab through the exact same command palette entry.
+      const record = extensionState?.contributionRegistry.commands.find(
+        (candidate) => candidate.contribution.id === commandId,
+      );
+      if (!record) {
+        appendOutput("extensions", fallbackMessage, "warning");
+        return;
+      }
+
+      try {
+        const result = await window.axon.getExtensionWebviewTarget(
+          record.extensionId,
+        );
+        if (!result.ok || !result.target) {
+          appendOutput("extensions", result.message ?? fallbackMessage, "warning");
+          return;
+        }
+        handleOpenExtensionWebview(result.target.extensionId);
+        appendOutput(
+          "extensions",
+          `Opened webview for ${result.target.extensionId}.`,
+          "info",
+        );
+      } catch (err) {
+        appendOutput(
+          "extensions",
+          `Failed to open webview for ${record.extensionId}: ${
+            err instanceof Error ? err.message : "unknown error"
+          }`,
+          "error",
+        );
+      }
+    },
+    [appendOutput, extensionState, handleOpenExtensionWebview],
+  );
+
   return useCallback(
     (command: AxonCommand) => {
       let runnableCommand = command;
@@ -199,7 +245,7 @@ export function useAppCommandRunner({
             setExtensionState(result.state);
             if (result.ok) return;
             if (getBuiltinCommandAlias(commandId)) return;
-            appendOutput("extensions", result.message, "warning");
+            return tryOpenExtensionWebview(commandId, result.message);
           })
           .catch((err) => {
             appendOutput(
@@ -477,6 +523,7 @@ export function useAppCommandRunner({
       runEditorAction,
       terminalOpen,
       updateAvailable,
+      tryOpenExtensionWebview,
       setAboutOpen,
       setAgentActionRequest,
       setAgentSidebarOpen,
