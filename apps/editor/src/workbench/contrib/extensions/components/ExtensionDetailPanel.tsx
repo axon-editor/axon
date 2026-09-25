@@ -218,7 +218,9 @@ export function ExtensionDetailPanel({
         {sourceLink && <SourceLinkButton href={sourceLink} />}
       </div>
 
-      {item.installed && <ExtensionReadme extensionId={item.id} />}
+      {item.installed && !item.builtin && (
+        <ExtensionReadme extensionId={item.id} />
+      )}
 
       <div className="mt-auto pt-6">
         <div className="grid grid-cols-2 gap-x-8 gap-y-2 border-t border-[var(--axon-panel-border)] pt-4 text-[11px]">
