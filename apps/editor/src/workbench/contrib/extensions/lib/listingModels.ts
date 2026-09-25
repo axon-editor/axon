@@ -29,6 +29,8 @@ export interface ExtensionListModel {
   keywords: string[];
   repositoryUrl: string | null;
   homepageUrl: string | null;
+  // Registry-published README used when the package is not installed yet.
+  readme: string | null;
 }
 
 export function toInstalledListModel(
@@ -54,6 +56,7 @@ export function toInstalledListModel(
     keywords: summary.keywords,
     repositoryUrl: summary.repositoryUrl,
     homepageUrl: summary.homepageUrl,
+    readme: null,
   };
 }
 
@@ -80,5 +83,6 @@ export function toDownloadListModel(
     keywords: item.categories,
     repositoryUrl: item.repositoryUrl,
     homepageUrl: item.homepageUrl,
+    readme: item.readme,
   };
 }

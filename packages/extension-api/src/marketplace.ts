@@ -37,6 +37,12 @@ export interface ExtensionRegistryIndexEntry {
   // language tool assets.
   sha256?: string;
   size?: number;
+  // README markdown published alongside the package. The Downloads view has no
+  // local package to read yet, so the registry copy is the only way a
+  // not-yet-installed extension can show its documentation. It must be
+  // self-contained: relative image paths cannot resolve before install, so the
+  // registry build rewrites them to absolute https URLs.
+  readme?: string;
 }
 
 // Install requests intentionally point at either a local manifest path or a

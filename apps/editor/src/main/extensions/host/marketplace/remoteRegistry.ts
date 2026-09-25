@@ -21,6 +21,7 @@ const DEFAULT_REMOTE_EXTENSION_REGISTRY_URL =
 
 const REMOTE_EXTENSION_REGISTRY_TTL_MS = 15 * 60 * 1000;
 const REMOTE_EXTENSION_REGISTRY_MAX_BYTES = 5 * 1024 * 1024;
+const REMOTE_EXTENSION_README_MAX_BYTES = 256 * 1024;
 export const REMOTE_EXTENSION_PACKAGE_MAX_BYTES = 50 * 1024 * 1024;
 const REMOTE_EXTENSION_FETCH_TIMEOUT_MS = 10_000;
 
@@ -116,6 +117,7 @@ export function normalizeRegistryEntry(
   const size = Number(value.size);
   const description = normalizeString(value.description);
   const icon = normalizeString(value.icon);
+  const readmeText = normalizeString(value.readme);
 
   return {
     id,
@@ -134,6 +136,14 @@ export function normalizeRegistryEntry(
     icon: icon || undefined,
     sha256: installMode === "download" ? sha256 : undefined,
     size: Number.isSafeInteger(size) && size > 0 ? size : undefined,
+    // A registry is remote input, so the README is size-capped before it can
+    // reach the renderer. The cap mirrors the installed-package README cap in
+    // the extension host so both paths render identically.
+    readme:
+      readmeText &&
+      Buffer.byteLength(readmeText, "utf-8") <= REMOTE_EXTENSION_README_MAX_BYTES
+        ? readmeText
+        : undefined,
   };
 }
 
@@ -250,6 +260,7 @@ export function toRemoteMarketplaceItems(
     themes: [],
     contributionLabels: entry.categories ?? [],
     installed: installedIds.has(entry.id),
+    readme: entry.readme ?? null,
     source: "remote",
   }));
 }

@@ -218,8 +218,11 @@ export function ExtensionDetailPanel({
         {sourceLink && <SourceLinkButton href={sourceLink} />}
       </div>
 
-      {item.installed && !item.builtin && (
-        <ExtensionReadme extensionId={item.id} />
+      {!item.builtin && (
+        <ExtensionReadme
+          extensionId={item.id}
+          fallbackReadme={item.readme}
+        />
       )}
 
       <div className="mt-auto pt-6">

@@ -29,6 +29,7 @@ import {
 import fs from "fs";
 import path from "path";
 import { getUserExtensionsPath } from "../paths";
+import { type ExtensionAssetTicketRegistry } from "./assets/extensionAssetTickets";
 
 // README candidates in preference order, matched case-insensitively by
 // extension authors. The cap keeps a pathological README from pushing a
@@ -42,6 +43,21 @@ const README_CANDIDATES = [
   "readme.txt",
 ] as const;
 const MAX_README_BYTES = 256 * 1024;
+// Screenshots are the common case, but an author may inline a short video or a
+// large GIF. The cap stops one oversized asset from being pulled into the
+// privileged renderer origin.
+const MAX_README_ASSET_BYTES = 12 * 1024 * 1024;
+
+// Injected by the app bootstrap because the same registry backs the
+// axon://extension protocol route. Kept module-scoped so the exported service
+// singleton stays a singleton.
+let assetTickets: ExtensionAssetTicketRegistry | null = null;
+
+export function configureExtensionAssetTickets(
+  registry: ExtensionAssetTicketRegistry,
+) {
+  assetTickets = registry;
+}
 
 export class ExtensionHostService {
   getState(folderPath?: string | null) {
@@ -96,6 +112,55 @@ export class ExtensionHostService {
 
   install(extensionId: string, folderPath?: string | null) {
     return installExtensionPackage(extensionId, folderPath);
+  }
+
+  // Mints axon://extension URLs for the relative media a README references
+  // (screenshots, icons). The renderer sends the raw markdown paths and gets
+  // back a URL per path that actually exists inside the package, so a broken
+  // image in one row never fails the whole README.
+  //
+  // Path containment is checked here rather than in the ticket registry: a
+  // markdown image may point anywhere ("../../secrets"), and only the host
+  // knows which folder belongs to the requested extension.
+  async getReadmeAssetUrls(
+    rendererId: number,
+    extensionId: string,
+    relativePaths: string[],
+  ) {
+    const urls: Record<string, string> = {};
+    const state = await this.getState();
+    const extension = state.extensions.find(
+      (candidate) => candidate.id === extensionId,
+    );
+
+    if (!extension || !Array.isArray(relativePaths) || !assetTickets) {
+      return { ok: false, message: `${extensionId} is not installed.`, urls };
+    }
+
+    for (const requested of relativePaths) {
+      if (typeof requested !== "string" || requested.length === 0) continue;
+      const candidatePath = path.resolve(extension.path, requested);
+      const relativePath = path.relative(extension.path, candidatePath);
+      if (
+        relativePath === "" ||
+        relativePath.startsWith("..") ||
+        path.isAbsolute(relativePath)
+      ) {
+        continue;
+      }
+
+      let stats: fs.Stats;
+      try {
+        stats = fs.statSync(candidatePath);
+      } catch {
+        continue;
+      }
+      if (!stats.isFile() || stats.size > MAX_README_ASSET_BYTES) continue;
+
+      urls[requested] = assetTickets.issue(rendererId, candidatePath);
+    }
+
+    return { ok: true, message: "", urls };
   }
 
   async uninstall(

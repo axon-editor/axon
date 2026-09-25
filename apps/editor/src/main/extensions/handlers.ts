@@ -11,6 +11,7 @@ import {
   type ExtensionCommandExecutionResult,
   type ExtensionMarketplaceState,
   type ExtensionReadmeResult,
+  type ExtensionReadmeAssetUrlsResult,
   type ExtensionState,
 } from "../../shared/extensions";
 import { extensionHostService } from "./host/service";
@@ -150,6 +151,21 @@ export function registerExtensionHandlers(
       extensionId: string,
     ): Promise<ExtensionReadmeResult> => {
       return extensionHostService.getReadme(extensionId);
+    },
+  );
+
+  ipcMain.handle(
+    EXTENSION_IPC_CHANNELS.getReadmeAssetUrls,
+    async (
+      event,
+      extensionId: string,
+      relativePaths: string[],
+    ): Promise<ExtensionReadmeAssetUrlsResult> => {
+      return extensionHostService.getReadmeAssetUrls(
+        event.sender.id,
+        extensionId,
+        relativePaths,
+      );
     },
   );
 

@@ -145,3 +145,12 @@ export interface ExtensionReadmeResult {
   message: string;
   readme: string | null;
 }
+
+export interface ExtensionReadmeAssetUrlsResult {
+  ok: boolean;
+  message: string;
+  // Maps the markdown-relative path to a renderer-loadable axon://extension
+  // URL. Paths that escape the package or do not exist are omitted so one bad
+  // image cannot blank the rest of the README.
+  urls: Record<string, string>;
+}

@@ -14,6 +14,7 @@ export const EXTENSION_IPC_CHANNELS = {
   installTheme: "extensions:installTheme",
   uninstall: "extensions:uninstall",
   getReadme: "extensions:getReadme",
+  getReadmeAssetUrls: "extensions:getReadmeAssetUrls",
   openFolder: "extensions:openFolder",
   executeCommand: "extensions:executeCommand",
 } as const;

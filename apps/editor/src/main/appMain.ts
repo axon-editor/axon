@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol } from "electron";
-import fs from "fs/promises";
 import path from "path";
 import { execFile } from "child_process";
 import { randomBytes } from "crypto";
@@ -75,9 +74,18 @@ import {
   registerSpotifyProtocolClient,
 } from "./spotify/protocol";
 import {
+  allowedAssetProtocolOrigin,
+  createAssetProtocolResponse,
+} from "./security/assets/assetProtocol";
+import {
   LocalAssetTicketRegistry,
   registerLocalAssetTicketHandler,
 } from "./security/assets/localAssetTickets";
+import {
+  createExtensionAssetProtocolResponse,
+  ExtensionAssetTicketRegistry,
+} from "./extensions/host/assets/extensionAssetTickets";
+import { configureExtensionAssetTickets } from "./extensions/host/service";
 import {
   registerWindowSessionHandlers,
   WindowSessionStore,
@@ -168,6 +176,10 @@ const workspaceCapabilities = new WorkspaceCapabilityRegistry();
 registerWorkspaceCapabilityHandlers(workspaceCapabilities);
 const localAssetTickets = new LocalAssetTicketRegistry(workspaceCapabilities);
 registerLocalAssetTicketHandler(localAssetTickets);
+// The extension asset registry is shared with the extension host so a README
+// image can be ticketed from the same object the axon://extension route reads.
+const extensionAssetTickets = new ExtensionAssetTicketRegistry();
+configureExtensionAssetTickets(extensionAssetTickets);
 const windowSessionStore = new WindowSessionStore();
 registerWindowSessionHandlers(windowSessionStore);
 const openWorkspaceRegistry = new OpenWorkspaceRegistry();
@@ -184,79 +196,14 @@ const settingsWindowController = createSettingsWindow({
   getAxonIconPath: () => getAxonIconPath(isDev),
 });
 
-function getLocalProtocolContentType(filePath: string) {
-  const extension = path.extname(filePath).toLowerCase();
-  if (extension === ".otf") return "font/otf";
-  if (extension === ".ttf") return "font/ttf";
-  if (extension === ".woff") return "font/woff";
-  if (extension === ".woff2") return "font/woff2";
-  if (extension === ".svg") return "image/svg+xml";
-  if (extension === ".png") return "image/png";
-  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
-  if (extension === ".webp") return "image/webp";
-  if (extension === ".gif") return "image/gif";
-  if (extension === ".avif") return "image/avif";
-  if (extension === ".bmp") return "image/bmp";
-  if (extension === ".ico") return "image/x-icon";
-  if (extension === ".mp4") return "video/mp4";
-  if (extension === ".webm") return "video/webm";
-  if (extension === ".mov") return "video/quicktime";
-  if (extension === ".m4v") return "video/x-m4v";
-  if (extension === ".ogv") return "video/ogg";
-  return null;
-}
-
 function allowedLocalProtocolOrigin(origin: string | null) {
-  return (
-    origin === null ||
-    origin === "null" ||
-    origin === "file://" ||
-    origin === "http://127.0.0.1:5173" ||
-    origin === "http://localhost:5173"
-  );
+  return allowedAssetProtocolOrigin(origin);
 }
 
 async function createLocalProtocolResponse(request: Request) {
-  const requestUrl = new URL(request.url);
-  const ticket = requestUrl.pathname.split("/").filter(Boolean)[0] ?? "";
-  const filePath = localAssetTickets.resolve(ticket);
-  if (!filePath) {
-    return new Response("Local asset ticket is invalid or expired.", {
-      status: 404,
-    });
-  }
-  const contentType = getLocalProtocolContentType(filePath);
-  const origin = request.headers.get("Origin");
-  if (!allowedLocalProtocolOrigin(origin)) {
-    return new Response("Origin is not allowed.", { status: 403 });
-  }
-  if (!contentType) {
-    // axon://local is an asset transport, not a second arbitrary file-reading
-    // API. Refusing documents and executable content prevents local HTML/JS or
-    // project secrets from being loaded into Axon's privileged renderer origin.
-    return new Response("Local asset type is not allowed.", { status: 403 });
-  }
-  const headers = new Headers({
-    "Access-Control-Allow-Origin": origin ?? "null",
-    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Cross-Origin-Resource-Policy": "same-site",
-    "Content-Type": contentType,
-    "X-Content-Type-Options": "nosniff",
-  });
-
-  try {
-    const body = await fs.readFile(filePath);
-    return new Response(body, { status: 200, headers });
-  } catch (err) {
-    return new Response(
-      err instanceof Error ? err.message : "Local asset was not found.",
-      {
-        status: 404,
-        headers,
-      },
-    );
-  }
+  return createAssetProtocolResponse(request, (ticket) =>
+    localAssetTickets.resolve(ticket),
+  );
 }
 async function deliverPendingAgentResumeRequest() {
   const request = await consumePendingAgentResumeRequest();
@@ -648,6 +595,7 @@ function createManagedWindow(
     cliReadyRenderers.delete(createdWebContentsId);
     workspaceCapabilities.releaseRenderer(createdWebContentsId);
     localAssetTickets.releaseRenderer(createdWebContentsId);
+    extensionAssetTickets.releaseRenderer(createdWebContentsId);
     windowSessionStore.releaseRenderer(createdWebContentsId);
     const previewServer = htmlPreviewServers.get(createdWebContentsId);
     htmlPreviewServers.delete(createdWebContentsId);
@@ -766,6 +714,10 @@ app.whenReady().then(async () => {
         });
       }
       return createLocalProtocolResponse(request);
+    }
+
+    if (requestUrl.hostname === "extension") {
+      return createExtensionAssetProtocolResponse(request, extensionAssetTickets);
     }
 
     return new Response("Unknown Axon protocol route.", { status: 404 });

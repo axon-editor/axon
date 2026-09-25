@@ -101,6 +101,9 @@ export function toMarketplaceItem(
     })),
     contributionLabels: createContributionLabels(contributes),
     installed: installedIds.has(manifest.id),
+    // Bundled packages are readable from disk, so they never need a registry
+    // copy. The Downloads view falls back to the local read on install.
+    readme: null,
   };
 }
 

@@ -171,6 +171,9 @@ export interface ExtensionMarketplaceItem {
   themes: ExtensionMarketplaceTheme[];
   contributionLabels: string[];
   installed: boolean;
+  // Registry-supplied README for extensions that are not installed yet. Null
+  // for bundled packages, which the host reads from disk on demand instead.
+  readme: string | null;
   // Where the downloadable package lives. Local marketplace folders are
   // bundled with the build; remote items come from the hosted registry and are
   // fetched, checksum-verified, and unpacked by the extension host.
