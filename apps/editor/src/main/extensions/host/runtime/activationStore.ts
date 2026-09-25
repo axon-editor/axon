@@ -11,7 +11,7 @@ import { extensionMatchesActivationEvent } from "./activation";
 import {
   markExtensionHostTiming,
   startExtensionHostTiming,
-} from "./lib/diagnostics";
+} from "./diagnostics";
 
 const activationRecords = new Map<string, ExtensionActivationRecord[]>();
 

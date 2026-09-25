@@ -12,7 +12,7 @@ import {
   type Disposable,
   type ExtensionInfo,
 } from "@axon/extension-api";
-import { resolveExtensionPath } from "../paths";
+import { resolveExtensionPath } from "../../paths";
 
 interface RuntimeCommandRegistration {
   extensionId: string;

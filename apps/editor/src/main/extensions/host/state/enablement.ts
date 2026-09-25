@@ -5,8 +5,8 @@
 
 import fs from "fs";
 import path from "path";
-import { getExtensionStatePath } from "../paths";
-import { readJsonFile } from "./json";
+import { getExtensionStatePath } from "../../paths";
+import { readJsonFile } from "../shared/json";
 
 interface ExtensionEnablementState {
   disabled: string[];

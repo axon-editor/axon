@@ -170,8 +170,16 @@ export interface ExtensionMarketplaceItem {
   themes: ExtensionMarketplaceTheme[];
   contributionLabels: string[];
   installed: boolean;
+  // Where the downloadable package lives. Local marketplace folders are
+  // bundled with the build; remote items come from the hosted registry and are
+  // fetched, checksum-verified, and unpacked by the extension host.
+  source?: "local" | "remote";
 }
 
 export interface ExtensionMarketplaceState {
   items: ExtensionMarketplaceItem[];
+  // Set when the hosted registry could not be reached or parsed. Rendered as a
+  // non-fatal warning so a temporarily unreachable registry never hides the
+  // bundled marketplace packages that are always available offline.
+  remoteError?: string | null;
 }

@@ -18,37 +18,37 @@ import {
   getUserExtensionsPath,
   getWorkspaceExtensionsPath,
   resolveExtensionPath,
-} from "../paths";
-import { readExtensionTheme } from "../themeNormalizer";
+} from "../../paths";
+import { readExtensionTheme } from "../../themeNormalizer";
 import {
   AVAILABLE_EXTENSION_ACTIVATION_EVENTS,
   getExtensionActivationReason,
   getExtensionHostKind,
   getExtensionLifecycle,
-} from "./activation";
+} from "../runtime/activation";
 import {
   activateStartupExtensions,
   applyActivationState,
   getExtensionActivationRecords,
-} from "./activationStore";
-import { createExtensionContributionRegistry } from "./contributionRegistry";
-import { findExtensionDirectories } from "./discovery";
+} from "../runtime/activationStore";
+import { createExtensionContributionRegistry } from "../runtime/contributionRegistry";
+import { findExtensionDirectories } from "../shared/discovery";
 import { readDisabledExtensionIds } from "./enablement";
-import { readJsonFile } from "./json";
+import { readJsonFile } from "../shared/json";
 import {
   inferExtensionKind,
   normalizeExtensionContributions,
   normalizeExtensionManifest,
-} from "./manifest";
+} from "../shared/manifest";
 import {
   createExtensionRuntimeRegistrations,
   summarizeExtensionRuntime,
-} from "./runtime";
-import { getRuntimeDiagnostics } from "./runtimeHost";
+} from "../runtime/runtime";
+import { getRuntimeDiagnostics } from "../runtime/runtimeHost";
 import {
   markExtensionHostTiming,
   startExtensionHostTiming,
-} from "./lib/diagnostics";
+} from "../runtime/diagnostics";
 
 type ExtensionDiscoveryCacheEntry = {
   disabledKey: string;

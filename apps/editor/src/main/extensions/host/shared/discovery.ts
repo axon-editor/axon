@@ -5,7 +5,7 @@
 
 import fs from "fs";
 import path from "path";
-import { EXTENSION_MANIFEST_FILE } from "../paths";
+import { EXTENSION_MANIFEST_FILE } from "../../paths";
 
 export function findExtensionDirectories(rootPath: string | null) {
   if (!rootPath || !fs.existsSync(rootPath)) return [];

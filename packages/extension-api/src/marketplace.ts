@@ -31,6 +31,12 @@ export interface ExtensionRegistryIndexEntry {
   categories?: string[];
   tags?: string[];
   icon?: string;
+  // Download-mode packages are pinned by content hash so the client can verify
+  // the archive before unpacking it next to already-trusted extensions. The
+  // digest is a sha256 in the same lowercase hex form generated for the
+  // language tool assets.
+  sha256?: string;
+  size?: number;
 }
 
 // Install requests intentionally point at either a local manifest path or a

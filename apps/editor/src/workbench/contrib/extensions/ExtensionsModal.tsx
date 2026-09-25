@@ -282,6 +282,11 @@ function DownloadRow({
             <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-65">
               {item.kind}
             </span>
+            {item.source === "remote" ? (
+              <span className="rounded bg-[#152e3d] px-1.5 py-0.5 text-[10px] text-[#8fb5d1]">
+                remote
+              </span>
+            ) : null}
           </div>
           <div className="mt-2 max-w-2xl text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
             {item.description}
@@ -334,6 +339,9 @@ export default function ExtensionsModal({
     () => (extensionState?.extensions ?? []).map(summarizeExtension),
     [extensionState],
   );
+
+  const remoteItemCount =
+    marketplaceState?.items.filter((item) => item.source === "remote").length ?? 0;
 
   const setActionMessage = useCallback((nextMessage: string, ok = true) => {
     setMessage(nextMessage);
@@ -491,6 +499,19 @@ export default function ExtensionsModal({
                 <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[var(--axon-editor-foreground)] opacity-55">
                   {installedExtensions.length} installed
                 </span>
+                {activeTab === "downloads" && remoteItemCount > 0 ? (
+                  <span className="rounded bg-[#152e3d] px-2 py-1 text-[#8fb5d1]">
+                    {remoteItemCount} remote
+                  </span>
+                ) : null}
+                {activeTab === "downloads" && marketplaceState?.remoteError ? (
+                  <span
+                    title={marketplaceState.remoteError}
+                    className="rounded bg-[#2c2414] px-2 py-1 text-[#ffd580]"
+                  >
+                    registry unreachable
+                  </span>
+                ) : null}
                 {registrySummary.slice(0, 4).map(([label, count]) => (
                   <span
                     key={label}
@@ -586,7 +607,9 @@ export default function ExtensionsModal({
             </div>
           ) : marketplaceState.items.length === 0 ? (
             <div className="px-4 py-8 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
-              No downloadable extensions are available in this build.
+              {marketplaceState.remoteError
+                ? `The extension registry could not be reached. ${marketplaceState.remoteError}`
+                : "No downloadable extensions are available in this build."}
             </div>
           ) : (
             marketplaceState.items.map((item) => (

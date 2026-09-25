@@ -7,25 +7,25 @@ import {
   type ExtensionActionResult,
   type ExtensionCommandExecutionResult,
 } from "@axon/extension-api";
-import { readDisabledExtensionIds, writeDisabledExtensionIds } from "./enablement";
-import { getExtensionMarketplaceState } from "./marketplace";
-import { installExtensionPackage } from "./install";
+import { readDisabledExtensionIds, writeDisabledExtensionIds } from "./state/enablement";
+import { getExtensionMarketplaceState } from "./marketplace/marketplace";
+import { installExtensionPackage } from "./marketplace/install";
 import {
   getExtensionState,
   invalidateExtensionStateCache,
   refreshExtensionStateFromExistingState,
-} from "./state";
+} from "./state/state";
 import {
   activateExtensionsForEvent,
   clearExtensionActivationRecords,
   markExtensionActivationActive,
   markExtensionActivationFailed,
-} from "./activationStore";
+} from "./runtime/activationStore";
 import {
   activateRuntimeExtension,
   deactivateRuntimeExtension,
   executeRuntimeCommand,
-} from "./runtimeHost";
+} from "./runtime/runtimeHost";
 
 export class ExtensionHostService {
   getState(folderPath?: string | null) {

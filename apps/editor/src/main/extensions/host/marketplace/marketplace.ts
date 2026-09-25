@@ -14,13 +14,14 @@ import {
   EXTENSION_MANIFEST_FILE,
   getMarketplaceExtensionsPath,
   getUserExtensionsPath,
-} from "../paths";
-import { findExtensionDirectories } from "./discovery";
-import { readJsonFile } from "./json";
+} from "../../paths";
+import { findExtensionDirectories } from "../shared/discovery";
+import { readJsonFile } from "../shared/json";
 import {
   normalizeExtensionContributions,
   normalizeExtensionManifest,
-} from "./manifest";
+} from "../shared/manifest";
+import { fetchRemoteRegistry, toRemoteMarketplaceItems } from "./remoteRegistry";
 
 export interface CatalogPackage {
   manifest: NonNullable<ReturnType<typeof normalizeExtensionManifest>>;
@@ -108,9 +109,26 @@ export async function getExtensionMarketplaceState(): Promise<ExtensionMarketpla
     createInstalledIdSet(),
     readCatalogPackages(),
   ]);
-  return {
-    items: catalogPackages.map((catalogPackage) =>
-      toMarketplaceItem(catalogPackage, installedIds),
-    ),
-  };
+
+  const items = catalogPackages.map((catalogPackage) =>
+    toMarketplaceItem(catalogPackage, installedIds),
+  );
+
+  // The hosted registry is best-effort: a staging server, an offline laptop,
+  // or a moved repository must never hide the bundled marketplace, which stays
+  // installable offline. A failed fetch becomes a remoteError warning on the
+  // Downloads view instead of failing the whole marketplace.
+  let remoteError: string | null = null;
+  try {
+    const index = await fetchRemoteRegistry();
+    const localItemIds = new Set(items.map((item) => item.id));
+    for (const remoteItem of toRemoteMarketplaceItems(index, installedIds)) {
+      if (!localItemIds.has(remoteItem.id)) items.push(remoteItem);
+    }
+  } catch (err) {
+    remoteError =
+      err instanceof Error ? err.message : "The extension registry is unreachable.";
+  }
+
+  return { items, remoteError };
 }
