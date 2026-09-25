@@ -895,6 +895,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     handleNewFile,
     handleOpenDiagnostic,
     handleOpenFolder,
+    handleOpenExtensionWebview,
     handleOpenHtmlPreview,
     handleOpenNavigationTarget,
     handleOpenPathInTerminal,

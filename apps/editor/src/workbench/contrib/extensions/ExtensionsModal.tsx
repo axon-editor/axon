@@ -7,328 +7,56 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Blocks,
   CheckCircle2,
-  Download,
-  ExternalLink,
   FolderOpen,
-  PackageCheck,
+  PackageX,
   RefreshCw,
+  Search,
   ShieldCheck,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import {
-  type ExtensionInfo,
-  type ExtensionMarketplaceItem,
   type ExtensionMarketplaceState,
   type ExtensionState,
 } from "../../../shared/extensions";
 import CommandModal from "../../../renderer/shared/components/CommandModal";
+import { ExtensionDetailPanel } from "./components/ExtensionDetailPanel";
+import { ExtensionListItem } from "./components/ExtensionListItem";
+import {
+  getErrorMessage,
+  hasMarketplaceApi,
+  matchesSearch,
+} from "./lib/extensionModalUtils";
+import {
+  toDownloadListModel,
+  toInstalledListModel,
+} from "./lib/listingModels";
+import { summarizeExtension } from "./lib/extensionSummaries";
 
 interface Props {
   folderPath: string | null;
   extensionState: ExtensionState | null;
   onExtensionsChanged: (state: ExtensionState) => void;
+  onOpenWebview: (extensionId: string) => void;
   onClose: () => void;
 }
 
 type ExtensionTab = "installed" | "downloads";
 
-interface ExtensionSummary {
-  id: string;
-  name: string;
-  publisher: string;
-  version: string;
-  description: string;
-  source: ExtensionInfo["source"];
-  repositoryUrl: string | null;
-  homepageUrl: string | null;
-  kind: ExtensionInfo["kind"];
-  enabled: boolean;
-  builtin: boolean;
-  lifecycle: ExtensionInfo["lifecycle"];
-  contributionCount: number;
-  themeLabels: string[];
-  errors: string[];
-}
-
-function getErrorMessage(err: unknown) {
-  return err instanceof Error ? err.message : "Unknown extension error.";
-}
-
-function hasThemeMarketplaceApi() {
-  return (
-    (typeof window.axon.listExtensionMarketplace === "function" ||
-      typeof window.axon.listThemeMarketplace === "function") &&
-    (typeof window.axon.installExtension === "function" ||
-      typeof window.axon.installThemeExtension === "function")
-  );
-}
-
-function getContributionCount(extension: ExtensionInfo) {
-  return (
-    extension.contributes.themes.length +
-    extension.contributes.commands.length +
-    extension.contributes.languages.length +
-    extension.contributes.snippets.length +
-    extension.contributes.icons.length +
-    extension.contributes.iconThemes.length +
-    extension.contributes.views.length +
-    extension.contributes.agents.length +
-    extension.contributes.terminalProfiles.length +
-    extension.contributes.taskProviders.length +
-    extension.contributes.debuggerProviders.length +
-    extension.contributes.languagePacks.length
-  );
-}
-
-function summarizeExtension(extension: ExtensionInfo): ExtensionSummary {
-  return {
-    id: extension.id,
-    name: extension.name,
-    publisher: extension.publisher,
-    version: extension.version,
-    description: extension.description,
-    source: extension.source,
-    repositoryUrl: extension.repositoryUrl,
-    homepageUrl: extension.homepageUrl,
-    kind: extension.kind,
-    enabled: extension.enabled,
-    builtin: extension.builtin,
-    lifecycle: extension.lifecycle,
-    contributionCount: getContributionCount(extension),
-    themeLabels: extension.themes.map((theme) => theme.label),
-    errors: extension.errors,
-  };
-}
-
-function MiniToggle({
-  checked,
-  disabled,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  label: string;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => {
-        if (!disabled) onChange(!checked);
-      }}
-      className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md px-2 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-    >
-      <span
-        className={`relative h-5 w-9 rounded-full border transition-colors ${
-          checked
-            ? "border-[#5f8298] bg-[#315f77]"
-            : "border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]"
-        }`}
-      >
-        <span
-          className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.45)] transition-[left,background-color] ${
-            checked ? "left-[18px] bg-[#c8d7df]" : "left-[3px] bg-[#747982]"
-          }`}
-        />
-      </span>
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function StatusPill({ extension }: { extension: ExtensionSummary }) {
-  return (
-    <span
-      className={`rounded px-1.5 py-0.5 text-[10px] ${
-        extension.lifecycle === "active"
-          ? "bg-[#152019] text-[#8fe3a2]"
-          : extension.lifecycle === "failed"
-            ? "bg-[#341b20] text-[#ff8b92]"
-            : extension.lifecycle === "activating"
-              ? "bg-[#2c2414] text-[#ffd580]"
-            : "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)] opacity-55"
-      }`}
-    >
-      {extension.lifecycle}
-    </span>
-  );
-}
-
-function SourceLinkButton({ href }: { href: string | null }) {
-  if (!href) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={() => void window.axon.openExternalLink(href)}
-      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-70 transition-colors hover:border-[var(--axon-syntax-function)] hover:opacity-100"
-    >
-      <ExternalLink size={12} />
-      Source
-    </button>
-  );
-}
-
-function InstalledExtensionRow({
-  extension,
-  busy,
-  onToggle,
-}: {
-  extension: ExtensionSummary;
-  busy: boolean;
-  onToggle: (extensionId: string, enabled: boolean) => void;
-}) {
-  return (
-    <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-3 last:border-b-0">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-[13px] font-medium text-[var(--axon-editor-foreground)]">
-              {extension.name}
-            </span>
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
-              {extension.version}
-            </span>
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-syntax-function)]">
-              {extension.source}
-            </span>
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-65">
-              {extension.kind}
-            </span>
-            {extension.builtin ? (
-              <span className="inline-flex items-center gap-1 rounded bg-[#152019] px-1.5 py-0.5 text-[10px] text-[#8fe3a2]">
-                <ShieldCheck size={10} />
-                built-in
-              </span>
-            ) : null}
-            <StatusPill extension={extension} />
-          </div>
-
-          <div className="mt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
-            {extension.publisher} / {extension.id}
-          </div>
-
-          {extension.description ? (
-            <div className="mt-2 max-w-2xl text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
-              {extension.description}
-            </div>
-          ) : null}
-
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
-              {extension.contributionCount} contributions
-            </span>
-            {extension.themeLabels.slice(0, 3).map((label) => (
-              <span
-                key={`${extension.id}:${label}`}
-                className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-65"
-              >
-                {label}
-              </span>
-            ))}
-            {extension.themeLabels.length > 3 ? (
-              <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-                +{extension.themeLabels.length - 3}
-              </span>
-            ) : null}
-          </div>
-
-          {extension.errors.length > 0 ? (
-            <div className="mt-2 text-[11px] text-[#ff9aa2]">
-              {extension.errors[0]}
-            </div>
-          ) : null}
-        </div>
-
-        <MiniToggle
-          checked={extension.enabled}
-          disabled={extension.builtin || busy}
-          label={extension.enabled ? "Enabled" : "Disabled"}
-          onChange={(checked) => onToggle(extension.id, checked)}
-        />
-        <SourceLinkButton href={extension.repositoryUrl ?? extension.homepageUrl} />
-      </div>
-    </div>
-  );
-}
-
-function DownloadRow({
-  item,
-  busyAction,
-  onInstall,
-}: {
-  item: ExtensionMarketplaceItem;
-  busyAction: string | null;
-  onInstall: (extensionId: string) => void;
-}) {
-  const installing = busyAction === `download:${item.id}`;
-
-  return (
-    <div className="shrink-0 border-b border-[var(--axon-panel-border)] px-4 py-3 last:border-b-0">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13px] font-medium text-[var(--axon-editor-foreground)]">
-              {item.name}
-            </span>
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
-              {item.version}
-            </span>
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-syntax-function)]">
-              {item.publisher}
-            </span>
-            <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-65">
-              {item.kind}
-            </span>
-            {item.source === "remote" ? (
-              <span className="rounded bg-[#152e3d] px-1.5 py-0.5 text-[10px] text-[#8fb5d1]">
-                remote
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-2 max-w-2xl text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
-            {item.description}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {item.contributionLabels.map((label) => (
-              <span
-                key={`${item.id}:${label}`}
-                className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-65"
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onInstall(item.id)}
-          disabled={item.installed || busyAction !== null}
-          className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] disabled:cursor-default disabled:opacity-55"
-        >
-          {item.installed ? (
-            <PackageCheck size={13} />
-          ) : (
-            <Download size={13} className={installing ? "animate-pulse" : ""} />
-          )}
-          {item.installed ? "Installed" : installing ? "Installing" : "Download"}
-        </button>
-        <SourceLinkButton href={item.repositoryUrl ?? item.homepageUrl} />
-      </div>
-    </div>
-  );
-}
-
 export default function ExtensionsModal({
   folderPath,
   extensionState,
   onExtensionsChanged,
+  onOpenWebview,
   onClose,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ExtensionTab>("installed");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showBundled, setShowBundled] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [confirmingUninstallId, setConfirmingUninstallId] = useState<
+    string | null
+  >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<"info" | "error">("info");
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -340,8 +68,66 @@ export default function ExtensionsModal({
     [extensionState],
   );
 
+  const visibleInstalled = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return installedExtensions.filter(
+      (extension) =>
+        (showBundled || !extension.builtin) &&
+        matchesSearch(
+          query,
+          extension.id,
+          extension.name,
+          extension.publisher,
+          extension.description,
+          extension.themeLabels.join(" "),
+          extension.keywords.join(" "),
+          extension.errors.join(" "),
+        ),
+    );
+  }, [installedExtensions, searchQuery, showBundled]);
+
+  const visibleDownloads = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return (marketplaceState?.items ?? []).filter((item) =>
+      matchesSearch(
+        query,
+        item.id,
+        item.name,
+        item.publisher,
+        item.description,
+        item.categories.join(" "),
+      ),
+    );
+  }, [marketplaceState, searchQuery]);
+
+  const installedModels = useMemo(
+    () => visibleInstalled.map(toInstalledListModel),
+    [visibleInstalled],
+  );
+  const downloadModels = useMemo(
+    () => visibleDownloads.map(toDownloadListModel),
+    [visibleDownloads],
+  );
+
+  const listModels =
+    activeTab === "installed" ? installedModels : downloadModels;
+
+  const effectiveSelectedId =
+    selectedId && listModels.some((item) => item.id === selectedId)
+      ? selectedId
+      : (listModels[0]?.id ?? null);
+
+  const selectedModel =
+    listModels.find((item) => item.id === effectiveSelectedId) ?? null;
+
   const remoteItemCount =
-    marketplaceState?.items.filter((item) => item.source === "remote").length ?? 0;
+    marketplaceState?.items.filter((item) => item.source === "remote").length ??
+    0;
+
+  const bundledCount = installedExtensions.filter(
+    (extension) => extension.builtin,
+  ).length;
+  const managedCount = installedExtensions.length - bundledCount;
 
   const setActionMessage = useCallback((nextMessage: string, ok = true) => {
     setMessage(nextMessage);
@@ -349,7 +135,7 @@ export default function ExtensionsModal({
   }, []);
 
   const reloadExtensionMarketplace = useCallback(async () => {
-    if (!hasThemeMarketplaceApi()) {
+    if (!hasMarketplaceApi()) {
       setMarketplaceState({ items: [] });
       setActionMessage(
         "Extension downloads need the latest preload API. Restart Axon after this build so the install command is available.",
@@ -359,9 +145,7 @@ export default function ExtensionsModal({
     }
 
     try {
-      const listMarketplace =
-        window.axon.listExtensionMarketplace ?? window.axon.listThemeMarketplace;
-      setMarketplaceState(await listMarketplace());
+      setMarketplaceState(await window.axon.listExtensionMarketplace());
     } catch (err) {
       console.error("failed to load extension marketplace:", err);
       setActionMessage(
@@ -374,6 +158,7 @@ export default function ExtensionsModal({
   const reloadExtensions = async () => {
     setBusyAction("reload");
     setMessage(null);
+    setConfirmingUninstallId(null);
     try {
       const result = await window.axon.reloadExtensions(folderPath);
       onExtensionsChanged(result.state);
@@ -427,8 +212,34 @@ export default function ExtensionsModal({
     }
   };
 
+  const requestUninstall = (extensionId: string | null) => {
+    setConfirmingUninstallId((current) =>
+      extensionId && current === extensionId ? null : extensionId,
+    );
+  };
+
+  const uninstallExtension = async (extensionId: string) => {
+    setBusyAction(extensionId);
+    setMessage(null);
+    setConfirmingUninstallId(null);
+    try {
+      const result = await window.axon.uninstallExtension(extensionId, folderPath);
+      onExtensionsChanged(result.state);
+      setActionMessage(result.message, result.ok);
+      await reloadExtensionMarketplace();
+    } catch (err) {
+      console.error("failed to uninstall extension:", err);
+      setActionMessage(
+        `Failed to uninstall extension. ${getErrorMessage(err)}`,
+        false,
+      );
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const installExtensionPackage = async (extensionId: string) => {
-    if (!hasThemeMarketplaceApi()) {
+    if (!hasMarketplaceApi()) {
       setActionMessage(
         "Extension downloads need the latest preload API. Restart Axon after this build so the install command is available.",
         false,
@@ -439,9 +250,7 @@ export default function ExtensionsModal({
     setBusyAction(`download:${extensionId}`);
     setMessage(null);
     try {
-      const installExtension =
-        window.axon.installExtension ?? window.axon.installThemeExtension;
-      const result = await installExtension(extensionId, folderPath);
+      const result = await window.axon.installExtension(extensionId, folderPath);
       onExtensionsChanged(result.state);
       setActionMessage(result.message, result.ok);
       await reloadExtensionMarketplace();
@@ -454,6 +263,11 @@ export default function ExtensionsModal({
   };
 
   useEffect(() => {
+    setConfirmingUninstallId(null);
+    setSelectedId(null);
+  }, [activeTab, searchQuery]);
+
+  useEffect(() => {
     if (activeTab === "downloads" && !marketplaceState) {
       void reloadExtensionMarketplace();
     }
@@ -463,67 +277,103 @@ export default function ExtensionsModal({
   const registrySummary = registry
     ? [
         ["commands", registry.commands.length],
-        ["views", registry.views.length],
         ["themes", registry.themes.length],
-        ["icons", registry.iconThemes.length],
         ["languages", registry.languages.length],
-        ["terminals", registry.terminalProfiles.length],
       ].filter(([, count]) => Number(count) > 0)
     : [];
+
+  const renderList = () => {
+    if (activeTab === "installed") {
+      if (installedExtensions.length === 0) {
+        return (
+          <div className="flex items-center justify-center px-6 py-10 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
+            No extensions loaded.
+          </div>
+        );
+      }
+
+      if (listModels.length === 0) {
+        return (
+          <div className="flex items-center justify-center px-6 py-10 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
+            <div>
+              <PackageX size={22} className="mx-auto mb-2 opacity-50" />
+              {searchQuery
+                ? `Nothing matches "${searchQuery}".`
+                : showBundled
+                  ? "No extensions to show."
+                  : "No user-installed extensions yet."}
+            </div>
+          </div>
+        );
+      }
+    } else if (!marketplaceState) {
+      return (
+        <div className="flex items-center justify-center px-6 py-10 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
+          Loading extension downloads.
+        </div>
+      );
+    }
+
+    return listModels.map((item) => (
+      <ExtensionListItem
+        key={item.id}
+        item={item}
+        selected={item.id === effectiveSelectedId}
+        onSelect={setSelectedId}
+      />
+    ));
+  };
+
+  const renderDetailPlaceholder = (): React.ReactNode => {
+    if (activeTab === "downloads" && !marketplaceState) {
+      return (
+        <div className="flex flex-col items-center gap-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-50">
+          <RefreshCw size={20} className="animate-spin" />
+          Loading the extension registry…
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-2 text-[12px] text-[var(--axon-editor-foreground)] opacity-50">
+        <Blocks size={20} className="opacity-50" />
+        {searchQuery
+          ? "No extensions match your search."
+          : activeTab === "installed"
+            ? "Select an installed extension to see its details."
+            : "Select an extension to install."}
+      </div>
+    );
+  };
 
   return (
     <CommandModal
       title="extensions"
       onClose={onClose}
-      width="w-[min(860px,calc(100vw-2rem))]"
+      width="w-[min(1240px,calc(100vw-2rem))]"
       bodyClassName="flex min-h-0 flex-1 overflow-hidden"
       panelStyle={{
-        height: "min(720px, calc(100vh - 3rem))",
-        minHeight: "min(560px, calc(100vh - 3rem))",
+        height: "min(860px, calc(100vh - 3rem))",
+        minHeight: "min(680px, calc(100vh - 3rem))",
       }}
     >
       <div className="flex h-full min-h-0 w-full flex-col bg-transparent">
-        <div className="border-b border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--axon-editor-foreground)]">
-                <Blocks size={15} className="text-[var(--axon-syntax-function)]" />
-                Extensions
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
-                <span className="rounded bg-[#152019] px-2 py-1 text-[#8fe3a2]">
-                  {extensionState?.hostStatus.safeMode !== false
-                    ? "safe declarative mode"
-                    : "extension code enabled"}
-                </span>
-                <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[var(--axon-editor-foreground)] opacity-55">
-                  {installedExtensions.length} installed
-                </span>
-                {activeTab === "downloads" && remoteItemCount > 0 ? (
-                  <span className="rounded bg-[#152e3d] px-2 py-1 text-[#8fb5d1]">
-                    {remoteItemCount} remote
-                  </span>
-                ) : null}
-                {activeTab === "downloads" && marketplaceState?.remoteError ? (
-                  <span
-                    title={marketplaceState.remoteError}
-                    className="rounded bg-[#2c2414] px-2 py-1 text-[#ffd580]"
-                  >
-                    registry unreachable
-                  </span>
-                ) : null}
-                {registrySummary.slice(0, 4).map(([label, count]) => (
-                  <span
-                    key={label}
-                    className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[var(--axon-editor-foreground)] opacity-55"
-                  >
-                    {count} {label}
-                  </span>
-                ))}
-              </div>
+        <div className="border-b border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2 text-[14px] font-semibold text-[var(--axon-editor-foreground)]">
+              <Blocks size={16} className="text-[var(--axon-syntax-function)]" />
+              Extensions
             </div>
-
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void openExtensionsFolder()}
+                disabled={busyAction !== null}
+                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] disabled:cursor-default disabled:opacity-60"
+              >
+                <FolderOpen size={13} />
+                Folder
+              </button>
               <button
                 type="button"
                 onClick={() => void reloadExtensions()}
@@ -536,92 +386,152 @@ export default function ExtensionsModal({
                 />
                 Reload
               </button>
-              <button
-                type="button"
-                onClick={() => void openExtensionsFolder()}
-                disabled={busyAction !== null}
-                className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] disabled:cursor-default disabled:opacity-60"
-              >
-                <FolderOpen size={13} />
-                Folder
-              </button>
             </div>
           </div>
 
-          <div className="mt-3 flex w-fit rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1">
-            {(["installed", "downloads"] as ExtensionTab[]).map((tab) => (
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3">
+            <Search
+              size={14}
+              className="shrink-0 text-[var(--axon-syntax-function)] opacity-70"
+            />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search extensions by name, publisher, or id"
+              spellCheck={false}
+              autoFocus
+              className="h-9 w-full bg-transparent text-[13px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-40"
+            />
+            {searchQuery ? (
               <button
-                key={tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`h-8 cursor-pointer rounded px-3 text-[12px] capitalize transition-colors ${
-                  activeTab === tab
-                    ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
-                    : "text-[var(--axon-editor-foreground)] opacity-55 hover:opacity-90"
+                onClick={() => setSearchQuery("")}
+                className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                aria-label="Clear search"
+              >
+                <X size={13} />
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="flex w-fit rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1">
+              {(["installed", "downloads"] as ExtensionTab[]).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex h-8 cursor-pointer items-center gap-1.5 rounded px-3 text-[12px] capitalize transition-colors ${
+                    activeTab === tab
+                      ? "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                      : "text-[var(--axon-editor-foreground)] opacity-55 hover:opacity-90"
+                  }`}
+                >
+                  {tab}
+                  <span className="rounded bg-[var(--axon-editor-background)] px-1 text-[10px] opacity-70">
+                    {tab === "installed"
+                      ? managedCount
+                      : marketplaceState?.items.length ?? 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {activeTab === "installed" && bundledCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowBundled((current) => !current)}
+                className={`flex h-8 cursor-pointer items-center gap-2 rounded border px-2 text-[11px] transition-colors ${
+                  showBundled
+                    ? "border-[var(--axon-syntax-function)] bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-editor-foreground)]"
+                    : "border-[var(--axon-panel-border)] text-[var(--axon-editor-foreground)] opacity-55 hover:opacity-90"
                 }`}
               >
-                {tab}
+                <ShieldCheck size={11} />
+                {bundledCount} bundled
               </button>
-            ))}
+            ) : null}
+
+            <div className="ml-auto flex flex-wrap items-center gap-2 text-[10px]">
+              <span className="rounded bg-[#152019] px-2 py-1 text-[#8fe3a2]">
+                {extensionState?.hostStatus.safeMode !== false
+                  ? "safe declarative mode"
+                  : "extension code enabled"}
+              </span>
+              {activeTab === "downloads" && remoteItemCount > 0 ? (
+                <span className="rounded bg-[#152e3d] px-2 py-1 text-[#8fb5d1]">
+                  {remoteItemCount} remote
+                </span>
+              ) : null}
+              {activeTab === "downloads" && marketplaceState?.remoteError ? (
+                <span
+                  title={marketplaceState.remoteError}
+                  className="rounded bg-[#2c2414] px-2 py-1 text-[#ffd580]"
+                >
+                  registry unreachable
+                </span>
+              ) : null}
+              {registrySummary.slice(0, 3).map(([label, count]) => (
+                <span
+                  key={label}
+                  className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[var(--axon-editor-foreground)] opacity-55"
+                >
+                  {count} {label}
+                </span>
+              ))}
+            </div>
           </div>
-
-          {message ? (
-            <div
-              className={`mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[11px] ${
-                messageTone === "error"
-                  ? "border-[#3a2024] bg-[#1b0f13] text-[#ff9aa2]"
-                  : "border-[#1d3443] bg-[#0d1d26] text-[var(--axon-syntax-function)]"
-              }`}
-            >
-              {messageTone === "error" ? (
-                <TriangleAlert size={13} className="mt-0.5 shrink-0" />
-              ) : (
-                <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
-              )}
-              <span>{message}</span>
-            </div>
-          ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {activeTab === "installed" ? (
-            installedExtensions.length === 0 ? (
-              <div className="px-4 py-8 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
-                No extensions loaded.
-              </div>
+        <div className="flex min-h-0 flex-1">
+          <aside className="flex w-[340px] shrink-0 flex-col overflow-y-auto overscroll-contain border-r border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
+            {renderList()}
+          </aside>
+
+          <section className="min-w-0 flex-1 overflow-y-auto overscroll-contain bg-transparent">
+            <ExtensionDetailPanel
+              item={selectedModel}
+              variant={activeTab === "installed" ? "installed" : "download"}
+              placeholder={renderDetailPlaceholder()}
+              busy={busyAction !== null}
+              confirmingUninstall={
+                selectedModel !== null &&
+                confirmingUninstallId === selectedModel.id
+              }
+              onToggle={(extensionId, enabled) =>
+                void toggleExtension(extensionId, enabled)
+              }
+              onRequestUninstall={(extensionId) => requestUninstall(extensionId)}
+              onConfirmUninstall={(extensionId) =>
+                void uninstallExtension(extensionId)
+              }
+              onOpen={(extensionId) => {
+                onOpenWebview(extensionId);
+                onClose();
+              }}
+              onInstall={(extensionId) =>
+                void installExtensionPackage(extensionId)
+              }
+            />
+          </section>
+        </div>
+
+        {message ? (
+          <div
+            className={`flex shrink-0 items-start gap-2 border-t px-5 py-2.5 text-[11px] ${
+              messageTone === "error"
+                ? "border-[#3a2024] bg-[#1b0f13] text-[#ff9aa2]"
+                : "border-[#1d3443] bg-[#0d1d26] text-[var(--axon-syntax-function)]"
+            }`}
+          >
+            {messageTone === "error" ? (
+              <TriangleAlert size={13} className="mt-0.5 shrink-0" />
             ) : (
-              installedExtensions.map((extension) => (
-                <InstalledExtensionRow
-                  key={extension.id}
-                  extension={extension}
-                  busy={busyAction !== null}
-                  onToggle={(extensionId, enabled) =>
-                    void toggleExtension(extensionId, enabled)
-                  }
-                />
-              ))
-            )
-          ) : !marketplaceState ? (
-            <div className="px-4 py-8 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
-              Loading extension downloads.
-            </div>
-          ) : marketplaceState.items.length === 0 ? (
-            <div className="px-4 py-8 text-[12px] text-[var(--axon-editor-foreground)] opacity-45">
-              {marketplaceState.remoteError
-                ? `The extension registry could not be reached. ${marketplaceState.remoteError}`
-                : "No downloadable extensions are available in this build."}
-            </div>
-          ) : (
-            marketplaceState.items.map((item) => (
-              <DownloadRow
-                key={item.id}
-                item={item}
-                busyAction={busyAction}
-                onInstall={(extensionId) => void installExtensionPackage(extensionId)}
-              />
-            ))
-          )}
-        </div>
+              <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
+            )}
+            <span>{message}</span>
+          </div>
+        ) : null}
       </div>
     </CommandModal>
   );

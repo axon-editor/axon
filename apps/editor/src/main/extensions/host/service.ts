@@ -26,6 +26,9 @@ import {
   deactivateRuntimeExtension,
   executeRuntimeCommand,
 } from "./runtime/runtimeHost";
+import fs from "fs";
+import path from "path";
+import { getUserExtensionsPath } from "../paths";
 
 export class ExtensionHostService {
   getState(folderPath?: string | null) {
@@ -38,6 +41,59 @@ export class ExtensionHostService {
 
   install(extensionId: string, folderPath?: string | null) {
     return installExtensionPackage(extensionId, folderPath);
+  }
+
+  async uninstall(
+    extensionId: string,
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> {
+    const state = await this.getState(folderPath);
+    const extension = state.extensions.find(
+      (candidate) => candidate.id === extensionId,
+    );
+
+    if (!extension) {
+      return {
+        ok: false,
+        message: `${extensionId} is not installed.`,
+        state,
+      };
+    }
+
+    if (extension.builtin || extension.source !== "user") {
+      return {
+        ok: false,
+        message: `Only user-installed extensions can be removed.`,
+        state,
+      };
+    }
+
+    // Never delete anything outside the user extensions root, even if a
+    // corrupted state record points a user extension id at another directory.
+    const userExtensionsPath = getUserExtensionsPath();
+    const relativePath = path.relative(userExtensionsPath, extension.path);
+    if (
+      relativePath === "" ||
+      relativePath.startsWith("..") ||
+      path.isAbsolute(relativePath)
+    ) {
+      return {
+        ok: false,
+        message: `Refusing to remove ${extensionId} outside the user extensions folder.`,
+        state,
+      };
+    }
+
+    clearExtensionActivationRecords(extensionId);
+    await deactivateRuntimeExtension(extensionId);
+    fs.rmSync(extension.path, { recursive: true, force: true });
+    invalidateExtensionStateCache();
+
+    return {
+      ok: true,
+      message: `Uninstalled ${extension.name}.`,
+      state: await this.getState(folderPath),
+    };
   }
 
   async reload(folderPath?: string | null): Promise<ExtensionActionResult> {

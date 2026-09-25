@@ -451,6 +451,10 @@ declare global {
         extensionId: string,
         folderPath?: string | null,
       ) => Promise<ExtensionActionResult>;
+      uninstallExtension: (
+        extensionId: string,
+        folderPath?: string | null,
+      ) => Promise<ExtensionActionResult>;
       listThemeMarketplace: () => Promise<ExtensionMarketplaceState>;
       installThemeExtension: (
         extensionId: string,

@@ -129,6 +129,20 @@ export function registerExtensionHandlers(
   );
 
   ipcMain.handle(
+    EXTENSION_IPC_CHANNELS.uninstall,
+    async (
+      event,
+      extensionId: string,
+      folderPath?: string | null,
+    ): Promise<ExtensionActionResult> => {
+      return await extensionHostService.uninstall(
+        extensionId,
+        authorizeFolder(event.sender.id, folderPath),
+      );
+    },
+  );
+
+  ipcMain.handle(
     EXTENSION_IPC_CHANNELS.installTheme,
     async (
       event,

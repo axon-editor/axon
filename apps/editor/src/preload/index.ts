@@ -142,6 +142,7 @@ const EXTENSION_IPC_CHANNELS = {
   themeMarketplace: "extensions:themeMarketplace",
   install: "extensions:install",
   installTheme: "extensions:installTheme",
+  uninstall: "extensions:uninstall",
   openFolder: "extensions:openFolder",
   executeCommand: "extensions:executeCommand",
 } as const;
@@ -630,6 +631,15 @@ contextBridge.exposeInMainWorld("axon", {
     folderPath?: string | null,
   ): Promise<ExtensionActionResult> =>
     ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.install, extensionId, folderPath),
+  uninstallExtension: (
+    extensionId: string,
+    folderPath?: string | null,
+  ): Promise<ExtensionActionResult> =>
+    ipcRenderer.invoke(
+      EXTENSION_IPC_CHANNELS.uninstall,
+      extensionId,
+      folderPath,
+    ),
   listThemeMarketplace: (): Promise<ExtensionMarketplaceState> =>
     ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.themeMarketplace),
   installThemeExtension: (

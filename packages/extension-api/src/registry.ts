@@ -48,6 +48,7 @@ export interface ExtensionInfo {
   activationReason: string;
   hostKind: "declarative" | "isolated-process";
   lifecycle: "active" | "inactive" | "activating" | "disabled" | "failed";
+  hasWebview: boolean;
 }
 
 export interface ExtensionActivationRecord {

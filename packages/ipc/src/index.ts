@@ -12,6 +12,7 @@ export const EXTENSION_IPC_CHANNELS = {
   themeMarketplace: "extensions:themeMarketplace",
   install: "extensions:install",
   installTheme: "extensions:installTheme",
+  uninstall: "extensions:uninstall",
   openFolder: "extensions:openFolder",
   executeCommand: "extensions:executeCommand",
 } as const;

@@ -65,6 +65,7 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     handleFileSelect,
     handleInstallUpdate,
     handleOpenNavigationTarget,
+    handleOpenExtensionWebview,
     handleOpenUpdatePage,
     handleRunWorkspaceTask,
     handleSwitchWorkspaceRoot,
@@ -213,6 +214,7 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
             folderPath={folderPath}
             extensionState={extensionState}
             onExtensionsChanged={setExtensionState}
+            onOpenWebview={handleOpenExtensionWebview}
             onClose={() => setExtensionsOpen(false)}
           />
         )}
