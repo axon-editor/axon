@@ -30,6 +30,19 @@ import fs from "fs";
 import path from "path";
 import { getUserExtensionsPath } from "../paths";
 
+// README candidates in preference order, matched case-insensitively by
+// extension authors. The cap keeps a pathological README from pushing a
+// multi-megabyte string across IPC.
+const README_CANDIDATES = [
+  "README.md",
+  "readme.md",
+  "README.markdown",
+  "readme.markdown",
+  "README.txt",
+  "readme.txt",
+] as const;
+const MAX_README_BYTES = 256 * 1024;
+
 export class ExtensionHostService {
   getState(folderPath?: string | null) {
     return getExtensionState(folderPath);
@@ -37,6 +50,48 @@ export class ExtensionHostService {
 
   getMarketplaceState() {
     return getExtensionMarketplaceState();
+  }
+
+  async getReadme(extensionId: string) {
+    const state = await this.getState();
+    const extension = state.extensions.find(
+      (candidate) => candidate.id === extensionId,
+    );
+
+    if (!extension) {
+      return {
+        ok: false,
+        message: `${extensionId} is not installed.`,
+        readme: null,
+      };
+    }
+
+    for (const name of README_CANDIDATES) {
+      const candidatePath = path.resolve(extension.path, name);
+      const relativePath = path.relative(extension.path, candidatePath);
+      if (
+        relativePath === "" ||
+        relativePath.startsWith("..") ||
+        path.isAbsolute(relativePath)
+      ) {
+        continue;
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = fs.readFileSync(candidatePath);
+      } catch {
+        continue;
+      }
+      if (buffer.byteLength > MAX_README_BYTES) continue;
+
+      const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
+      if (text.trim().length === 0) continue;
+
+      return { ok: true, message: "", readme: text };
+    }
+
+    return { ok: true, message: "", readme: null };
   }
 
   install(extensionId: string, folderPath?: string | null) {

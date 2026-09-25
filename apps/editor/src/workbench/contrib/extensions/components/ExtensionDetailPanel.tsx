@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import { type ReactNode } from "react";
 import type { ExtensionListModel } from "../lib/listingModels";
+import { isNoteworthyLifecycle } from "../lib/extensionModalUtils";
 import { ExtensionAvatar } from "./ExtensionAvatar";
+import { ExtensionReadme } from "./ExtensionReadme";
 import { SourceLinkButton } from "./SourceLinkButton";
 import { StatusPill } from "./StatusPill";
 
@@ -68,13 +70,15 @@ export function ExtensionDetailPanel({
             <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
               v{item.version}
             </span>
-            {item.builtin ? (
+            {item.builtin && (
               <span className="inline-flex items-center gap-1 rounded bg-[#152019] px-1.5 py-0.5 text-[10px] text-[#8fe3a2]">
                 <ShieldCheck size={10} />
                 built-in
               </span>
-            ) : null}
-            {item.lifecycle ? <StatusPill status={item.lifecycle} /> : null}
+            )}
+            {isNoteworthyLifecycle(item.lifecycle) && (
+              <StatusPill status={item.lifecycle} />
+            )}
           </div>
           <div className="mt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
             {item.publisher} / {item.id}
@@ -86,28 +90,28 @@ export function ExtensionDetailPanel({
             <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-syntax-function)] opacity-80">
               {item.sourceLabel}
             </span>
-            {item.hasWebview ? (
+            {item.hasWebview && (
               <span className="rounded bg-[#152e3d] px-1.5 py-0.5 text-[10px] text-[#8fb5d1]">
                 webview page
               </span>
-            ) : null}
+            )}
           </div>
         </div>
       </div>
 
-      {item.description ? (
+      {item.description && (
         <p className="mt-5 max-w-[58ch] text-[13px] leading-6 text-[var(--axon-editor-foreground)] opacity-75">
           {item.description}
         </p>
-      ) : null}
+      )}
 
-      {(item.contributionCount > 0 || item.contributionLabels.length > 0) ? (
+      {(item.contributionCount > 0 || item.contributionLabels.length > 0) && (
         <div className="mt-5 flex flex-wrap gap-1.5">
-          {variant === "installed" ? (
+          {variant === "installed" && (
             <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-2 py-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-55">
               {item.contributionCount} contributions
             </span>
-          ) : null}
+          )}
           {item.contributionLabels.map((label) => (
             <span
               key={label}
@@ -125,19 +129,19 @@ export function ExtensionDetailPanel({
             </span>
           ))}
         </div>
-      ) : null}
+      )}
 
-      {item.errors.length > 0 ? (
+      {item.errors.length > 0 && (
         <div className="mt-5 flex items-start gap-2 rounded-md border border-[#3a2024] bg-[#1b0f13] px-3 py-2 text-[11px] text-[#ff9aa2]">
           <TriangleAlert size={13} className="mt-0.5 shrink-0" />
           <span>{item.errors[0]}</span>
         </div>
-      ) : null}
+      )}
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
         {variant === "installed" ? (
           <>
-            {item.hasWebview ? (
+            {item.hasWebview && (
               <button
                 type="button"
                 onClick={() => onOpen(item.id)}
@@ -147,18 +151,18 @@ export function ExtensionDetailPanel({
                 <Play size={13} />
                 Open
               </button>
-            ) : null}
-            {item.enabled !== null ? (
+            )}
+            {item.enabled !== null && !item.builtin && (
               <button
                 type="button"
                 onClick={() => onToggle(item.id, !item.enabled)}
-                disabled={item.builtin || busy}
+                disabled={busy}
                 className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-4 text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)] disabled:cursor-default disabled:opacity-55"
               >
                 {item.enabled ? "Disable" : "Enable"}
               </button>
-            ) : null}
-            {removeable ? (
+            )}
+            {removeable && (
               confirmingUninstall ? (
                 <>
                   <button
@@ -190,7 +194,7 @@ export function ExtensionDetailPanel({
                   Uninstall
                 </button>
               )
-            ) : null}
+            )}
           </>
         ) : (
           <button
@@ -211,8 +215,10 @@ export function ExtensionDetailPanel({
                 : "Install"}
           </button>
         )}
-        {sourceLink ? <SourceLinkButton href={sourceLink} /> : null}
+        {sourceLink && <SourceLinkButton href={sourceLink} />}
       </div>
+
+      {item.installed && <ExtensionReadme extensionId={item.id} />}
 
       <div className="mt-auto pt-6">
         <div className="grid grid-cols-2 gap-x-8 gap-y-2 border-t border-[var(--axon-panel-border)] pt-4 text-[11px]">
@@ -225,9 +231,9 @@ export function ExtensionDetailPanel({
             label="Webview"
             value={item.hasWebview ? "Yes" : "No"}
           />
-          {item.lifecycle ? (
+          {isNoteworthyLifecycle(item.lifecycle) && (
             <MetaLabel label="Lifecycle" value={item.lifecycle} />
-          ) : null}
+          )}
           <MetaLabel
             label="Contributions"
             value={

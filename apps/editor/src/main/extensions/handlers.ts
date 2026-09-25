@@ -10,6 +10,7 @@ import {
   type ExtensionActionResult,
   type ExtensionCommandExecutionResult,
   type ExtensionMarketplaceState,
+  type ExtensionReadmeResult,
   type ExtensionState,
 } from "../../shared/extensions";
 import { extensionHostService } from "./host/service";
@@ -139,6 +140,16 @@ export function registerExtensionHandlers(
         extensionId,
         authorizeFolder(event.sender.id, folderPath),
       );
+    },
+  );
+
+  ipcMain.handle(
+    EXTENSION_IPC_CHANNELS.getReadme,
+    async (
+      _event,
+      extensionId: string,
+    ): Promise<ExtensionReadmeResult> => {
+      return extensionHostService.getReadme(extensionId);
     },
   );
 

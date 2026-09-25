@@ -18,6 +18,7 @@ import type {
   ExtensionActionResult,
   ExtensionCommandExecutionResult,
   ExtensionMarketplaceState,
+  ExtensionReadmeResult,
   ExtensionState,
 } from "../../shared/extensions";
 import type {
@@ -455,6 +456,9 @@ declare global {
         extensionId: string,
         folderPath?: string | null,
       ) => Promise<ExtensionActionResult>;
+      getExtensionReadme: (
+        extensionId: string,
+      ) => Promise<ExtensionReadmeResult>;
       listThemeMarketplace: () => Promise<ExtensionMarketplaceState>;
       installThemeExtension: (
         extensionId: string,

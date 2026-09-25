@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { ExtensionMarketplaceItem } from "../../../../shared/extensions";
+import { formatPublisher } from "./extensionModalUtils";
 import type { ExtensionSummary } from "./extensionSummaries";
 
 // Normalized shape shared by the Installed list and the Downloads list so the
@@ -36,7 +37,7 @@ export function toInstalledListModel(
   return {
     id: summary.id,
     name: summary.name,
-    publisher: summary.publisher,
+    publisher: formatPublisher(summary.publisher),
     version: summary.version,
     description: summary.description,
     kind: summary.kind,
@@ -62,7 +63,7 @@ export function toDownloadListModel(
   return {
     id: item.id,
     name: item.name,
-    publisher: item.publisher,
+    publisher: formatPublisher(item.publisher),
     version: item.version,
     description: item.description,
     kind: item.kind,

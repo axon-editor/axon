@@ -402,7 +402,7 @@ export default function ExtensionsModal({
               autoFocus
               className="h-9 w-full bg-transparent text-[13px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-40"
             />
-            {searchQuery ? (
+            {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
@@ -411,7 +411,7 @@ export default function ExtensionsModal({
               >
                 <X size={13} />
               </button>
-            ) : null}
+            )}
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -437,7 +437,7 @@ export default function ExtensionsModal({
               ))}
             </div>
 
-            {activeTab === "installed" && bundledCount > 0 ? (
+            {activeTab === "installed" && bundledCount > 0 && (
               <button
                 type="button"
                 onClick={() => setShowBundled((current) => !current)}
@@ -450,7 +450,7 @@ export default function ExtensionsModal({
                 <ShieldCheck size={11} />
                 {bundledCount} bundled
               </button>
-            ) : null}
+            )}
 
             <div className="ml-auto flex flex-wrap items-center gap-2 text-[10px]">
               <span className="rounded bg-[#152019] px-2 py-1 text-[#8fe3a2]">
@@ -458,19 +458,19 @@ export default function ExtensionsModal({
                   ? "safe declarative mode"
                   : "extension code enabled"}
               </span>
-              {activeTab === "downloads" && remoteItemCount > 0 ? (
+              {activeTab === "downloads" && remoteItemCount > 0 && (
                 <span className="rounded bg-[#152e3d] px-2 py-1 text-[#8fb5d1]">
                   {remoteItemCount} remote
                 </span>
-              ) : null}
-              {activeTab === "downloads" && marketplaceState?.remoteError ? (
+              )}
+              {activeTab === "downloads" && marketplaceState?.remoteError && (
                 <span
                   title={marketplaceState.remoteError}
                   className="rounded bg-[#2c2414] px-2 py-1 text-[#ffd580]"
                 >
                   registry unreachable
                 </span>
-              ) : null}
+              )}
               {registrySummary.slice(0, 3).map(([label, count]) => (
                 <span
                   key={label}
@@ -516,7 +516,7 @@ export default function ExtensionsModal({
           </section>
         </div>
 
-        {message ? (
+        {message && (
           <div
             className={`flex shrink-0 items-start gap-2 border-t px-5 py-2.5 text-[11px] ${
               messageTone === "error"
@@ -531,7 +531,7 @@ export default function ExtensionsModal({
             )}
             <span>{message}</span>
           </div>
-        ) : null}
+        )}
       </div>
     </CommandModal>
   );

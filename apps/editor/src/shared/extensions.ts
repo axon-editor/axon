@@ -139,3 +139,9 @@ export interface ExtensionCommandExecutionResult
   extends Omit<ApiExtensionCommandExecutionResult, "state"> {
   state: ExtensionState;
 }
+
+export interface ExtensionReadmeResult {
+  ok: boolean;
+  message: string;
+  readme: string | null;
+}

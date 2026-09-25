@@ -5,6 +5,7 @@
 
 import { CheckCircle2 } from "lucide-react";
 import type { ExtensionListModel } from "../lib/listingModels";
+import { isNoteworthyLifecycle } from "../lib/extensionModalUtils";
 import { ExtensionAvatar } from "./ExtensionAvatar";
 import { StatusPill } from "./StatusPill";
 
@@ -33,13 +34,13 @@ export function ExtensionListItem({
           <span className="truncate text-[13px] font-medium text-[var(--axon-editor-foreground)]">
             {item.name}
           </span>
-          {item.installed ? (
+          {item.installed && (
             <CheckCircle2
               size={13}
               className="shrink-0 text-[#8fe3a2]"
               aria-label="installed"
             />
-          ) : null}
+          )}
         </div>
         <div className="mt-0.5 truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
           {item.publisher} · v{item.version}
@@ -51,14 +52,14 @@ export function ExtensionListItem({
           <span className="rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-60">
             {item.kind}
           </span>
-          {item.lifecycle && item.lifecycle !== "active" ? (
+          {isNoteworthyLifecycle(item.lifecycle) && (
             <StatusPill status={item.lifecycle} />
-          ) : null}
-          {item.hasWebview ? (
+          )}
+          {item.hasWebview && (
             <span className="rounded bg-[#152e3d] px-1.5 py-0.5 text-[10px] text-[#8fb5d1]">
               webview
             </span>
-          ) : null}
+          )}
         </div>
       </div>
     </button>

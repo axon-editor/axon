@@ -120,6 +120,7 @@ import {
   type ExtensionActionResult,
   type ExtensionCommandExecutionResult,
   type ExtensionMarketplaceState,
+  type ExtensionReadmeResult,
   type ExtensionState,
 } from "../shared/extensions";
 import type {
@@ -143,6 +144,7 @@ const EXTENSION_IPC_CHANNELS = {
   install: "extensions:install",
   installTheme: "extensions:installTheme",
   uninstall: "extensions:uninstall",
+  getReadme: "extensions:getReadme",
   openFolder: "extensions:openFolder",
   executeCommand: "extensions:executeCommand",
 } as const;
@@ -640,6 +642,8 @@ contextBridge.exposeInMainWorld("axon", {
       extensionId,
       folderPath,
     ),
+  getExtensionReadme: (extensionId: string): Promise<ExtensionReadmeResult> =>
+    ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.getReadme, extensionId),
   listThemeMarketplace: (): Promise<ExtensionMarketplaceState> =>
     ipcRenderer.invoke(EXTENSION_IPC_CHANNELS.themeMarketplace),
   installThemeExtension: (
