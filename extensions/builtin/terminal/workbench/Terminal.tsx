@@ -23,6 +23,7 @@ import {
   Trash2,
 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
+import "./styles/terminalSuggestion.css";
 import type {
   EditorSettings,
   TerminalSettings,
@@ -105,6 +106,7 @@ export default function Terminal({
     zoomed,
   } = useTerminalSessionManager({
     activePanelTab,
+    commandSuggestions: terminalSettings.commandSuggestions,
     createNonce,
     createWorkingDirectory,
     gpuAcceleration: terminalSettings.gpuAcceleration,

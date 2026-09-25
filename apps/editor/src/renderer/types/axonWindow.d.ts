@@ -149,6 +149,7 @@ declare global {
       createTerminalTicket: (
         workingDirectory: string | null,
       ) => Promise<string>;
+      getTerminalCommandHistory: () => Promise<string[]>;
       getLocalAssetUrl: (filePath: string) => Promise<string>;
       openFolder: () => Promise<string | null>;
       authorizeWorkspaceRoot: (rootPath: string) => Promise<string>;

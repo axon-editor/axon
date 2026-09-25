@@ -250,6 +250,7 @@ export interface AxonSettings {
 }
 
 export interface TerminalSettings {
+  commandSuggestions: boolean;
   gpuAcceleration: TerminalGpuAcceleration;
 }
 
@@ -320,6 +321,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     rememberExpandedFolders: true,
   },
   terminal: {
+    commandSuggestions: true,
     gpuAcceleration: "auto",
   },
   ai: {
@@ -734,6 +736,10 @@ export function normalizeSettings(value: unknown): AxonSettings {
           : DEFAULT_SETTINGS.editor.rememberExpandedFolders,
     },
     terminal: {
+      commandSuggestions:
+        typeof terminal.commandSuggestions === "boolean"
+          ? terminal.commandSuggestions
+          : DEFAULT_SETTINGS.terminal.commandSuggestions,
       gpuAcceleration: isTerminalGpuAcceleration(terminal.gpuAcceleration)
         ? terminal.gpuAcceleration
         : DEFAULT_SETTINGS.terminal.gpuAcceleration,

@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Inline command suggestions rendered over the xterm cursor. The color is
+ * inherited from the terminal panel so the ghost follows the active theme instead
+ * of introducing a second palette that would need its own light and dark values.
+ *
+ * The z-index sits above the renderer canvas and the DOM rows, and below xterm's
+ * helpers and decorations, so text selection, links and the IME candidate window
+ * still paint on top of the suggestion.
+ */
+.axon-terminal-suggestion {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  overflow: hidden;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.42;
+}

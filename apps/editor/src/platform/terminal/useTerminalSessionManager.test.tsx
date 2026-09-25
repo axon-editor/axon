@@ -15,10 +15,12 @@ import {
   it,
   vi,
 } from "vitest";
+import { resetCommandHistoryForTests } from "../../../../../extensions/builtin/terminal/workbench/lib/commandHistoryStore";
 import { useTerminalSessionManager } from "../../../../../extensions/builtin/terminal/workbench/lib/useTerminalSessionManager";
 
 const terminalBridgeMock = vi.hoisted(() => ({
   createTerminalTicket: vi.fn(),
+  getTerminalCommandHistory: vi.fn(),
   openExternalLink: vi.fn(),
 }));
 
@@ -26,13 +28,78 @@ const webLinksAddonMock = vi.hoisted(() => ({
   handlers: [] as Array<(event: MouseEvent, uri: string) => void>,
 }));
 
+const MOCK_CELL_WIDTH = 8;
+const MOCK_CELL_HEIGHT = 17;
+
 const xtermMock = vi.hoisted(() => ({
   focus: vi.fn(),
+  handlers: {
+    key: [] as Array<(event: { key: string }) => void>,
+    write: [] as Array<() => void>,
+  },
+  // The suggestion controller reads the echoed line from the buffer, so the mock
+  // needs a settable row and cursor instead of a frozen placeholder.
+  row: "",
+  cursorX: 0,
   instances: [] as Array<{
+    customKeyEventHandler?: (event: KeyboardEvent) => boolean;
+    element: HTMLElement | undefined;
     modes: { sendFocusMode: boolean };
     options: Record<string, unknown>;
   }>,
 }));
+
+function installBuffer(term: { buffer: unknown; cols: number; rows: number }) {
+  const cell = { getWidth: () => 1 };
+  term.buffer = {
+    active: {
+      type: "normal",
+      baseY: 0,
+      viewportY: 0,
+      get cursorX() {
+        return xtermMock.cursorX;
+      },
+      cursorY: 0,
+      length: 1,
+      getLine: () => ({
+        isWrapped: false,
+        length: xtermMock.row.length,
+        getCell: (x: number) => (x < xtermMock.row.length ? cell : undefined),
+        translateToString: (
+          trimRight = false,
+          startColumn = 0,
+          endColumn = xtermMock.row.length,
+        ) => {
+          const text = xtermMock.row.slice(startColumn, endColumn);
+          return trimRight ? text.replace(/\s+$/, "") : text;
+        },
+      }),
+    },
+  };
+}
+
+function installScreen(term: { element: HTMLElement | undefined }) {
+  // The ghost text is positioned from the screen element's own pixel size, and
+  // jsdom reports zero for every layout box, so the geometry is pinned to a
+  // fixed cell size instead of being left to a real layout pass.
+  const screen = document.createElement("div");
+  screen.className = "xterm-screen";
+  Object.defineProperty(screen, "clientWidth", {
+    configurable: true,
+    value: MOCK_CELL_WIDTH * 80,
+  });
+  Object.defineProperty(screen, "clientHeight", {
+    configurable: true,
+    value: MOCK_CELL_HEIGHT * 24,
+  });
+  const element = document.createElement("div");
+  element.className = "xterm";
+  element.appendChild(screen);
+  // The suggestion overlay is only treated as shown while it is connected to the
+  // document, so the fake terminal has to live in the tree like a real one.
+  document.body.appendChild(element);
+  term.element = element;
+}
 
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
@@ -43,20 +110,35 @@ vi.mock("@xterm/xterm", () => ({
     rows = 24;
     modes = { sendFocusMode: true };
     options: Record<string, unknown>;
+    customKeyEventHandler?: (event: KeyboardEvent) => boolean;
+    element: HTMLElement | undefined;
 
     constructor(options: Record<string, unknown>) {
       this.options = { ...options };
       xtermMock.instances.push(this);
     }
 
-    attachCustomKeyEventHandler() {}
+    attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean) {
+      this.customKeyEventHandler = handler;
+    }
     clear() {}
-    dispose() {}
+    dispose() {
+      this.element?.remove();
+    }
     focus() {
       xtermMock.focus();
     }
     loadAddon() {}
-    open() {}
+    open() {
+      const target = this as unknown as {
+        buffer: unknown;
+        cols: number;
+        element: HTMLElement | undefined;
+        rows: number;
+      };
+      installBuffer(target);
+      installScreen(target);
+    }
     paste() {}
     refresh() {}
     scrollToBottom() {}
@@ -66,6 +148,20 @@ vi.mock("@xterm/xterm", () => ({
       return { dispose() {} };
     }
     onScroll() {
+      return { dispose() {} };
+    }
+    onCursorMove() {
+      return { dispose() {} };
+    }
+    onWriteParsed(handler: () => void) {
+      xtermMock.handlers.write.push(handler);
+      return { dispose() {} };
+    }
+    onResize() {
+      return { dispose() {} };
+    }
+    onKey(handler: (event: { key: string }) => void) {
+      xtermMock.handlers.key.push(handler);
       return { dispose() {} };
     }
   },
@@ -126,17 +222,20 @@ const reactTestEnvironment = globalThis as typeof globalThis & {
 
 interface TerminalHarnessProps {
   background?: string;
+  commandSuggestions?: boolean;
   foreground?: string;
   red?: string;
 }
 
 function TerminalHarness({
   background = "#000000",
+  commandSuggestions = true,
   foreground = "#ffffff",
   red = "#cd3131",
 }: TerminalHarnessProps) {
   const manager = useTerminalSessionManager({
     activePanelTab: "terminal",
+    commandSuggestions,
     createNonce: 0,
     createWorkingDirectory: null,
     gpuAcceleration: "off",
@@ -160,6 +259,45 @@ function TerminalHarness({
   return manager.tabs.map((tab) => (
     <div key={tab.id} ref={(node) => manager.attachContainer(tab.id, node)} />
   ));
+}
+
+const PROMPT = "~/code %";
+const SUGGESTED_COMMAND = "git commit -m 'fix ghost text'";
+
+function terminalKeyEvent(overrides: Partial<KeyboardEvent> = {}) {
+  return {
+    altKey: false,
+    code: "Tab",
+    ctrlKey: false,
+    key: "Tab",
+    metaKey: false,
+    shiftKey: false,
+    type: "keydown",
+    ...overrides,
+  } as KeyboardEvent;
+}
+
+async function flushSuggestion() {
+  // The controller coalesces refreshes into an animation frame, so the assertions
+  // have to run after jsdom has delivered one.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  });
+}
+
+async function typeRow(row: string) {
+  xtermMock.row = row;
+  xtermMock.cursorX = row.length;
+  await act(async () => {
+    for (const handler of xtermMock.handlers.write) handler();
+  });
+  await flushSuggestion();
+}
+
+function getSuggestionElement() {
+  return xtermMock.instances[0]?.element?.querySelector(
+    ".axon-terminal-suggestion",
+  );
 }
 
 describe("useTerminalSessionManager", () => {
@@ -195,12 +333,21 @@ describe("useTerminalSessionManager", () => {
     terminalBridgeMock.createTerminalTicket.mockResolvedValue(
       "ws://127.0.0.1:17778/terminal?ticket=test-ticket",
     );
+    terminalBridgeMock.getTerminalCommandHistory.mockReset();
+    terminalBridgeMock.getTerminalCommandHistory.mockResolvedValue([
+      "git commit -m 'fix ghost text'",
+    ]);
     terminalBridgeMock.openExternalLink.mockReset();
     terminalBridgeMock.openExternalLink.mockResolvedValue(undefined);
+    xtermMock.handlers.key.length = 0;
+    xtermMock.handlers.write.length = 0;
+    xtermMock.row = "";
+    xtermMock.cursorX = 0;
     webLinksAddonMock.handlers.length = 0;
     xtermMock.focus.mockReset();
     xtermMock.instances.length = 0;
     FakeWebSocket.instances.length = 0;
+    resetCommandHistoryForTests();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -348,5 +495,119 @@ describe("useTerminalSessionManager", () => {
       document.removeEventListener("mouseup", onDocumentMouseUp);
       linkTarget.remove();
     }
+  });
+  it("accepts the visible suggestion on Tab without letting the shell see it", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushSuggestion();
+
+    // The first row the controller sees is treated as the prompt, which is how it
+    // learns where the user's own input starts.
+    await typeRow(PROMPT);
+    await typeRow(`${PROMPT}git`);
+    expect(getSuggestionElement()?.textContent).toBe(
+      SUGGESTED_COMMAND.slice("git".length),
+    );
+
+    const handled = xtermMock.instances[0]?.customKeyEventHandler?.(
+      terminalKeyEvent(),
+    );
+    expect(handled).toBe(false);
+
+    const socket = FakeWebSocket.instances[0];
+    expect(socket.sent).toContain(SUGGESTED_COMMAND.slice("git".length));
+    expect(socket.sent).not.toContain("\t");
+    expect(getSuggestionElement()).toBeNull();
+  });
+
+  it("leaves Tab to the shell when there is no suggestion to accept", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushSuggestion();
+
+    await typeRow(PROMPT);
+    await typeRow(`${PROMPT}zsh`);
+
+    expect(getSuggestionElement()).toBeNull();
+    expect(
+      xtermMock.instances[0]?.customKeyEventHandler?.(terminalKeyEvent()),
+    ).toBe(true);
+  });
+
+  it("brings suggestions back once the input line changes after Escape", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushSuggestion();
+
+    await typeRow(PROMPT);
+    await typeRow(`${PROMPT}git`);
+    expect(getSuggestionElement()).not.toBeNull();
+
+    await act(async () => {
+      for (const handler of xtermMock.handlers.key) handler({ key: "Escape" });
+    });
+    expect(getSuggestionElement()).toBeNull();
+
+    // The dismissed line must not resurface on the next refresh, and anything
+    // typed after it counts as a new line the user wants help with.
+    await act(async () => {
+      for (const handler of xtermMock.handlers.key) handler({ key: "Escape" });
+    });
+    expect(getSuggestionElement()).toBeNull();
+
+    await typeRow(`${PROMPT}git c`);
+    expect(getSuggestionElement()?.textContent).toBe(
+      SUGGESTED_COMMAND.slice("git c".length),
+    );
+  });
+
+  it("suggests a command that was run in this session", async () => {
+    terminalBridgeMock.getTerminalCommandHistory.mockResolvedValue([]);
+
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushSuggestion();
+
+    await typeRow(PROMPT);
+    await typeRow(`${PROMPT}npm run build`);
+    await act(async () => {
+      for (const handler of xtermMock.handlers.key) handler({ key: "Enter" });
+    });
+
+    await typeRow(PROMPT);
+    await typeRow(`${PROMPT}npm`);
+
+    expect(getSuggestionElement()?.textContent).toBe(" run build");
+  });
+
+  it("keeps suggestions off when the setting is disabled", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness commandSuggestions={false} />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushSuggestion();
+
+    await typeRow(PROMPT);
+    await typeRow(`${PROMPT}git`);
+
+    expect(getSuggestionElement()).toBeNull();
   });
 });

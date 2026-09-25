@@ -4,7 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
-import { shouldClearTerminal } from "../../../../../extensions/builtin/terminal/workbench/lib/terminalShortcuts";
+import {
+  getCommandSuggestionAcceptKey,
+  shouldClearTerminal,
+} from "../../../../../extensions/builtin/terminal/workbench/lib/terminalShortcuts";
 
 function keyEvent(overrides: Partial<KeyboardEvent> = {}) {
   return {
@@ -36,5 +39,33 @@ describe("terminal shortcuts", () => {
     expect(shouldClearTerminal(keyEvent({ altKey: true, metaKey: true }))).toBe(
       false,
     );
+  });
+});
+
+describe("command suggestion keys", () => {
+  it("accepts a suggestion with an unmodified Tab or Right-arrow", () => {
+    expect(getCommandSuggestionAcceptKey(keyEvent({ key: "Tab" }))).toBe("Tab");
+    expect(getCommandSuggestionAcceptKey(keyEvent({ key: "ArrowRight" }))).toBe(
+      "ArrowRight",
+    );
+  });
+
+  it("leaves modified completion keys to the shell", () => {
+    expect(
+      getCommandSuggestionAcceptKey(keyEvent({ key: "Tab", shiftKey: true })),
+    ).toBeNull();
+    expect(
+      getCommandSuggestionAcceptKey(keyEvent({ key: "Tab", ctrlKey: true })),
+    ).toBeNull();
+    expect(
+      getCommandSuggestionAcceptKey(keyEvent({ key: "Tab", altKey: true })),
+    ).toBeNull();
+  });
+
+  it("does not claim keys the shell owns for its own line editing", () => {
+    expect(getCommandSuggestionAcceptKey(keyEvent({ key: "k" }))).toBeNull();
+    expect(getCommandSuggestionAcceptKey(keyEvent({ key: "r" }))).toBeNull();
+    expect(getCommandSuggestionAcceptKey(keyEvent({ key: "ArrowLeft" }))).toBeNull();
+    expect(getCommandSuggestionAcceptKey(keyEvent({ key: "Enter" }))).toBeNull();
   });
 });

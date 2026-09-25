@@ -94,6 +94,7 @@ export const SETTINGS_ROW_ITEMS: SettingsRowItem[] = [
   { rowKey: "minimap", sectionId: "editor", subgroup: "Editor behavior", label: "Minimap", keywords: ["code overview", "scrollbar map", "preview map"] },
   { rowKey: "scrollbar-markers", sectionId: "editor", subgroup: "Editor behavior", label: "Scrollbar markers", keywords: ["overview ruler", "diagnostic marks", "search matches"] },
 
+  { rowKey: "command-suggestions", sectionId: "terminal", label: "Command suggestions", keywords: ["autosuggest", "ghost text", "tab completion", "shell history", "inline suggestion"] },
   { rowKey: "gpu-acceleration", sectionId: "terminal", label: "GPU acceleration", keywords: ["webgl", "xterm renderer", "dom renderer", "performance"] },
 
   { rowKey: "lsp-enabled", sectionId: "languageServers", label: "Language services", keywords: ["lsp", "diagnostics", "intellisense", "language server"] },

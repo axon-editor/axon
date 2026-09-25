@@ -14,11 +14,24 @@ export interface TerminalRendererController {
   sync: (visible: boolean, mode: TerminalGpuAcceleration) => void;
 }
 
+// Declared here rather than in the terminal extension because the session owns
+// the controller's lifetime. Keeping the shape on the platform side avoids the
+// platform module depending on a builtin extension to describe its own sessions.
+export type TerminalSuggestionAcceptKey = "Tab" | "ArrowRight";
+
+export interface TerminalSuggestionController {
+  accept: (key: TerminalSuggestionAcceptKey) => boolean;
+  dispose: () => void;
+  hasSuggestion: () => boolean;
+  setVisible: (visible: boolean) => void;
+}
+
 export interface TerminalSession {
   container: HTMLDivElement | null;
   term: XTerm | null;
   fitAddon: FitAddon | null;
   rendererController: TerminalRendererController | null;
+  suggestionController: TerminalSuggestionController | null;
   ws: WebSocket | null;
   reconnectTimer: number | null;
   connectionFailureCount: number;

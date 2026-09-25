@@ -31,7 +31,11 @@ import {
   writeTerminalOutput,
 } from "@axon-editor/platform/terminal/terminalSessionIo";
 import { createTerminalRendererController } from "./terminalRenderer";
-import { shouldClearTerminal } from "./terminalShortcuts";
+import {
+  getCommandSuggestionAcceptKey,
+  shouldClearTerminal,
+} from "./terminalShortcuts";
+import { createTerminalSuggestionController } from "./terminalSuggestionOverlay";
 
 export interface TerminalTab {
   id: string;
@@ -40,6 +44,7 @@ export interface TerminalTab {
 
 interface UseTerminalSessionManagerOptions {
   activePanelTab: string;
+  commandSuggestions: boolean;
   createNonce: number;
   createWorkingDirectory?: string | null;
   gpuAcceleration: TerminalGpuAcceleration;
@@ -51,6 +56,7 @@ interface UseTerminalSessionManagerOptions {
 }
 
 export function useTerminalSessionManager({
+  commandSuggestions,
   createNonce,
   createWorkingDirectory,
   gpuAcceleration,
@@ -148,6 +154,7 @@ export function useTerminalSessionManager({
     session?.resizeObserver?.disconnect();
     session?.dataDisposable?.dispose();
     session?.multilineDisposable?.dispose();
+    session?.suggestionController?.dispose();
     session?.rendererController?.dispose();
     if (session) {
       session.disposed = true;
@@ -198,6 +205,7 @@ export function useTerminalSessionManager({
         term: null,
         fitAddon: null,
         rendererController: null,
+        suggestionController: null,
         ws: null,
         reconnectTimer: null,
         connectionFailureCount: 0,
@@ -464,6 +472,17 @@ export function useTerminalSessionManager({
           return false;
         }
 
+        // Accepting has to win before the shell sees the key, otherwise Tab
+        // would run zsh's own completion on top of the ghost text. Returning
+        // false keeps xterm from encoding the key at all, and when nothing is
+        // being suggested the key falls through to the shell untouched.
+        if (session.suggestionController?.hasSuggestion()) {
+          const acceptKey = getCommandSuggestionAcceptKey(event);
+          if (acceptKey && session.suggestionController.accept(acceptKey)) {
+            return false;
+          }
+        }
+
         if (!shouldClearTerminal(event)) return true;
 
         term.clear();
@@ -494,6 +513,25 @@ export function useTerminalSessionManager({
       terminalOptions,
       terminalVisible,
     ],
+  );
+
+  const createSuggestionController = useCallback(
+    (session: TerminalSession) => {
+      if (!session.term || session.suggestionController) return;
+      session.suggestionController = createTerminalSuggestionController({
+        fontFamily: terminalOptions.fontFamily,
+        fontSize: terminalOptions.fontSize,
+        fontWeight: terminalOptions.fontWeight,
+        term: session.term,
+        // Accepting writes the rest of the command straight to the PTY instead of
+        // pasting it, so the shell echoes and handles the inserted text exactly as
+        // it would have if the user typed it by hand.
+        onAccept: (text) => {
+          sendOrQueueTerminalInput(session, text);
+        },
+      });
+    },
+    [terminalOptions],
   );
 
   const resizeActiveTerminal = useCallback(() => {
@@ -548,12 +586,28 @@ export function useTerminalSessionManager({
 
   useEffect(() => {
     for (const [id, session] of Object.entries(sessionsRef.current)) {
-      session.rendererController?.sync(
-        terminalVisible && id === activeTabId,
-        gpuAcceleration,
-      );
+      const isActive = terminalVisible && id === activeTabId;
+      session.rendererController?.sync(isActive, gpuAcceleration);
+      if (commandSuggestions) {
+        createSuggestionController(session);
+      } else {
+        // Turning the setting off has to reach terminals that are already open,
+        // otherwise the toggle would only affect sessions created afterwards.
+        session.suggestionController?.dispose();
+        session.suggestionController = null;
+      }
+      // A suggestion belongs to the visible tab only. A hidden tab still has a
+      // live shell, but its ghost would sit over a panel the user cannot see and
+      // would be accepted by a Tab aimed at another terminal.
+      session.suggestionController?.setVisible(isActive);
     }
-  }, [activeTabId, gpuAcceleration, terminalVisible]);
+  }, [
+    activeTabId,
+    commandSuggestions,
+    createSuggestionController,
+    gpuAcceleration,
+    terminalVisible,
+  ]);
 
   useEffect(() => {
     if (!terminalVisible || !activeTabId) return;

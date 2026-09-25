@@ -170,6 +170,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("core:cancelRequest", requestId),
   createTerminalTicket: (workingDirectory: string | null): Promise<string> =>
     ipcRenderer.invoke("core:createTerminalTicket", workingDirectory),
+  getTerminalCommandHistory: (): Promise<string[]> =>
+    ipcRenderer.invoke("terminal:getCommandHistory"),
   getLocalAssetUrl: (filePath: string): Promise<string> =>
     ipcRenderer.invoke("assets:getLocalUrl", filePath),
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),

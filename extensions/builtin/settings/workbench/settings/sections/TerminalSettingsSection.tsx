@@ -8,6 +8,7 @@ import { type AxonSettings } from "@axon-editor/shared/settings";
 import { TERMINAL_GPU_ACCELERATION_ITEMS } from "../lib/settingsData";
 import SettingsField from "../controls/SettingsField";
 import SettingsSection from "../controls/SettingsSection";
+import SettingsToggle from "../controls/SettingsToggle";
 
 export default function TerminalSettingsSection({
   draft,
@@ -21,6 +22,19 @@ export default function TerminalSettingsSection({
 }) {
   return (
     <SettingsSection>
+      <SettingsField
+        rowKey="command-suggestions"
+        label="Command suggestions"
+        description="Show a faint completion of a matching past command while you type. Tab or Right-arrow accepts it."
+      >
+        <SettingsToggle
+          checked={draft.terminal.commandSuggestions}
+          onChange={(checked) =>
+            onUpdateTerminal("commandSuggestions", checked)
+          }
+          label={draft.terminal.commandSuggestions ? "Enabled" : "Disabled"}
+        />
+      </SettingsField>
       <SettingsField
         rowKey="gpu-acceleration"
         label="GPU acceleration"

@@ -90,6 +90,7 @@ import {
   registerWindowSessionHandlers,
   WindowSessionStore,
 } from "./app/sessions/windowSessionStore";
+import { registerTerminalHandlers } from "./terminal/handlers";
 
 const isDev = process.env.NODE_ENV === "development";
 const axonDevServerUrl =
@@ -407,6 +408,7 @@ registerCoreProxyHandlers({
 });
 registerDiagnosticsHandlers(workspaceCapabilities);
 registerExtensionHandlers(workspaceCapabilities);
+registerTerminalHandlers();
 registerGitHandlers({
   authorizeWorkspaceRoot: (rendererId, rootPath, persist) =>
     workspaceCapabilities.authorize(rendererId, rootPath, persist),

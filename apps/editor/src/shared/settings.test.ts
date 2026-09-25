@@ -228,4 +228,16 @@ describe("terminal settings", () => {
         .gpuAcceleration,
     ).toBe("auto");
   });
+
+  it("keeps command suggestions on unless the user turns them off", () => {
+    expect(normalizeSettings({}).terminal.commandSuggestions).toBe(true);
+    expect(
+      normalizeSettings({ terminal: { commandSuggestions: false } }).terminal
+        .commandSuggestions,
+    ).toBe(false);
+    expect(
+      normalizeSettings({ terminal: { commandSuggestions: "yes" } }).terminal
+        .commandSuggestions,
+    ).toBe(true);
+  });
 });
