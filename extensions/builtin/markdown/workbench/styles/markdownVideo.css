@@ -1,0 +1,68 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Video presentation for the Markdown preview.
+ *
+ * Videos reach the preview as raw HTML, so the author controls the element
+ * and its attributes. Everything here is therefore expressed as a descendant
+ * rule on the preview root rather than as a class on the element itself: a
+ * document can opt out with `axon-video-*` utilities, and the print path
+ * reuses these same rules because it serializes the live stylesheets.
+ */
+.axon-markdown-preview video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5rem auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--axon-panel-border);
+  background-color: #000;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
+  /* Reserve a 16:9 stage so a video letterboxes inside a stable frame
+   * instead of shifting the surrounding prose as metadata arrives. */
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+/* A video narrower than the prose column should keep its intrinsic width
+ * rather than stretching, so opt-out classes reset the block behavior. */
+.axon-markdown-preview video.axon-video-inline {
+  display: inline-block;
+  width: auto;
+  margin: 1.5rem 0.5rem 1.5rem 0;
+  vertical-align: middle;
+  aspect-ratio: auto;
+}
+
+.axon-markdown-preview video.axon-video-plain {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: transparent;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+
+/* Native controls sit flush against the frame edge, so the gradient keeps
+ * them legible against a bright first frame without restyling the bar. */
+.axon-markdown-preview video::-webkit-media-controls-panel {
+  background-image: linear-gradient(transparent, rgb(0 0 0 / 0.45));
+}
+
+.axon-markdown-preview video:focus-visible {
+  outline: 2px solid var(--axon-syntax-function);
+  outline-offset: 2px;
+}
+
+/* Print and PDF export share these rules, but a static page cannot play
+ * media, so the frame keeps its poster and drops the interactive shadow. */
+@media print {
+  .axon-markdown-preview video {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}

@@ -24,6 +24,7 @@ import {
   findVisibleSourceLine,
 } from "../lib/sync/scrollSync";
 import MarkdownPreviewToolbar from "./MarkdownPreviewToolbar";
+import "../styles/markdownVideo.css";
 
 // The preview reads prose in the editor's own monospace face so the
 // rendered document stays visually continuous with the code view. The
@@ -267,6 +268,19 @@ export default function MarkdownPreview({
     (e: React.MouseEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement;
 
+      // Bare video without native controls has no way to start playback.
+      // Videos that do render controls keep their own click behavior so the
+      // native bar stays usable.
+      const video = target.closest("video");
+      if (video && !video.hasAttribute("controls")) {
+        if (video.paused) {
+          void video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+        return;
+      }
+
       // Task checkbox toggle.
       if (
         target.tagName === "INPUT" &&
@@ -351,7 +365,7 @@ export default function MarkdownPreview({
         onScroll={handleScroll}
         onClick={handleClick}
         style={{ fontFamily }}
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-6 text-[14px] leading-[22px] text-[var(--axon-editor-foreground)]"
+        className="axon-markdown-preview min-h-0 flex-1 overflow-y-auto px-5 py-6 text-[14px] leading-[22px] text-[var(--axon-editor-foreground)]"
       />
     </div>
   );

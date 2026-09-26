@@ -201,6 +201,124 @@ describe("MarkdownPreview", () => {
     );
   });
 
+  it("exposes a preview root that the video frame stylesheet targets", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={'<video controls src="docs/media/demo.mp4"></video>'}
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    await flushPreview();
+
+    const scroller = container.querySelector(".axon-markdown-preview");
+    expect(scroller).not.toBeNull();
+    expect(scroller?.querySelector("video")).not.toBeNull();
+  });
+
+  it("plays a bare video on click and pauses it on a second click", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={'<video src="docs/media/demo.mp4"></video>'}
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    await flushPreview();
+
+    const element = container.querySelector("video");
+    expect(element).not.toBeNull();
+    const video = element as HTMLVideoElement;
+    const play = vi.fn().mockResolvedValue(undefined);
+    const pause = vi.fn();
+    video.play = play as unknown as typeof video.play;
+    video.pause = pause as unknown as typeof video.pause;
+
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      value: true,
+      writable: true,
+    });
+
+    await act(async () => {
+      video.click();
+    });
+    expect(play).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      value: false,
+      writable: true,
+    });
+
+    await act(async () => {
+      video.click();
+    });
+    expect(pause).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a video that renders native controls to its own click behavior", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={'<video controls src="docs/media/demo.mp4"></video>'}
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+    await flushPreview();
+
+    const element = container.querySelector("video");
+    expect(element).not.toBeNull();
+    const video = element as HTMLVideoElement;
+    const play = vi.fn().mockResolvedValue(undefined);
+    const pause = vi.fn();
+    video.play = play as unknown as typeof video.play;
+    video.pause = pause as unknown as typeof video.pause;
+
+    await act(async () => {
+      video.click();
+    });
+    expect(play).not.toHaveBeenCalled();
+    expect(pause).not.toHaveBeenCalled();
+  });
+
+  it("keeps checkbox toggles working alongside a bare video", async () => {
+    const onContentChange = vi.fn();
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            '<video src="docs/media/demo.mp4"></video>\n\n- [ ] task one'
+          }
+          filePath="/workspace/site/README.md"
+          folderPath="/workspace"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    await flushPreview();
+    await flushPreview();
+
+    const checkbox = container.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    expect(checkbox).not.toBeNull();
+
+    await act(async () => {
+      checkbox!.click();
+    });
+    expect(onContentChange).toHaveBeenCalledTimes(1);
+  });
+
   it("does not repaint a preview during an unrelated workbench heartbeat", async () => {
     const onOpenFile = vi.fn();
     const preview = (
