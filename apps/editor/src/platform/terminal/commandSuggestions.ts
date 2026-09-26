@@ -44,26 +44,30 @@ function countCellsBefore(line: IBufferLine | undefined, cursorX: number) {
   return cells;
 }
 
+// Every row of a terminal is allocated to the full grid width, and an unused cell
+// still reports a width of 1, so cell geometry cannot answer "is anything written
+// here". Asking the row for its text is the only reliable content test, and
+// trimming keeps a prompt's trailing space from counting as text after the cursor.
 function hasCellsAfterCursor(
   line: IBufferLine | undefined,
   cursorX: number,
   cols: number,
 ) {
   if (!line) return true;
-
-  // A row keeps its old allocation after a resize, so the scan stops at the grid
-  // width instead of the row length to avoid reading stale columns.
-  for (let column = cursorX; column < Math.min(line.length, cols); column += 1) {
-    if ((line.getCell(column)?.getWidth() ?? 0) > 0) return true;
-  }
-  return false;
+  return line.translateToString(true, cursorX, Math.min(line.length, cols)) !== "";
 }
 
-// cols comes from the terminal rather than the buffer because a row keeps the cell
-// count it had before a resize, so the grid width is the only honest end of line.
+function isRowBlank(buffer: IBufferNamespace, row: number) {
+  return (buffer.active.getLine(row)?.translateToString(true) ?? "") === "";
+}
+
+// cols and rows come from the terminal rather than the buffer because a row keeps
+// the cell count it had before a resize, so the grid size is the only honest
+// measure of where the line ends.
 export function readTerminalInputSnapshot(
   buffer: IBufferNamespace,
   cols: number,
+  rows: number,
 ): TerminalInputSnapshot {
   const active = buffer.active;
   const cursorRow = active.getLine(active.cursorY);
@@ -78,28 +82,54 @@ export function readTerminalInputSnapshot(
   // actually typing starts on an earlier row. Walking back to the first
   // non-wrapped row is what makes a long `git commit` still match its history
   // entry instead of matching only the tail that happens to fit on screen.
-  const rows: string[] = [];
+  const walkedRows: string[] = [];
   for (let offset = 0; offset < MAX_WALKED_ROWS; offset += 1) {
     const row = active.cursorY - offset;
     if (row < 0) break;
     const bufferLine = active.getLine(row);
     if (!bufferLine) break;
     if (row === active.cursorY) {
-      rows.unshift(bufferLine.translateToString(true, 0, active.cursorX));
+      walkedRows.unshift(bufferLine.translateToString(true, 0, active.cursorX));
     } else {
-      rows.unshift(bufferLine.translateToString(true));
+      walkedRows.unshift(bufferLine.translateToString(true));
     }
     if (!bufferLine.isWrapped) break;
   }
+
+  // A terminal allocates a full page of blank rows on startup and grows the buffer
+  // with its scrollback, so `length` is never the number of rows the shell has
+  // actually written. What decides whether the prompt is the freshest thing on
+  // screen is whether the viewport already reaches the end of the buffer, and
+  // whether the rest of that viewport is blank.
+  //
+  // Reading the tail is wasted work on the keystroke path, where no prompt is being
+  // looked for, so the getter keeps that scan for the moments that ask the question.
+  let isLastRowCache: boolean | null = null;
+  const isLastRow = () => {
+    if (isLastRowCache !== null) return isLastRowCache;
+    isLastRowCache = false;
+    if (active.length <= active.baseY + rows) {
+      isLastRowCache = true;
+      for (let row = active.cursorY + 1; row < rows; row += 1) {
+        if (!isRowBlank(buffer, row)) {
+          isLastRowCache = false;
+          break;
+        }
+      }
+    }
+    return isLastRowCache;
+  };
 
   return {
     // Trailing blanks before the cursor are real input, a prompt such as "% "
     // ends with one, so nothing is trimmed here. Only the walked rows drop their
     // unused cells.
-    line: rows.join(""),
+    line: walkedRows.join(""),
     cellsBeforeCursor,
     cursorIsAtLineEnd,
-    isLastRow: active.cursorY >= active.length - 1,
+    get isLastRow() {
+      return isLastRow();
+    },
     rowsAboveCursor: active.cursorY - active.viewportY,
     isShellBuffer: active.type === "normal",
   };

@@ -60,20 +60,26 @@ function installBuffer(term: { buffer: unknown; cols: number; rows: number }) {
         return xtermMock.cursorX;
       },
       cursorY: 0,
-      length: 1,
-      getLine: () => ({
-        isWrapped: false,
-        length: xtermMock.row.length,
-        getCell: (x: number) => (x < xtermMock.row.length ? cell : undefined),
-        translateToString: (
-          trimRight = false,
-          startColumn = 0,
-          endColumn = xtermMock.row.length,
-        ) => {
-          const text = xtermMock.row.slice(startColumn, endColumn);
-          return trimRight ? text.replace(/\s+$/, "") : text;
-        },
-      }),
+      length: 24,
+      // Only the cursor row carries text. A real terminal fills the rest of the
+      // page with blank rows, and the controller refuses to treat a row with
+      // content under it as a prompt.
+      getLine: (y: number) => {
+        const row = y === 0 ? xtermMock.row : "";
+        return {
+          isWrapped: false,
+          length: row.length,
+          getCell: (x: number) => (x < row.length ? cell : undefined),
+          translateToString: (
+            trimRight = false,
+            startColumn = 0,
+            endColumn = row.length,
+          ) => {
+            const text = row.slice(startColumn, endColumn);
+            return trimRight ? text.replace(/\s+$/, "") : text;
+          },
+        };
+      },
     },
   };
 }

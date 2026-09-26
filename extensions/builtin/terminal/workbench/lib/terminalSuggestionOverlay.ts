@@ -142,7 +142,7 @@ export function createTerminalSuggestionController({
   function evaluate() {
     if (disposed) return;
 
-    const snapshot = readTerminalInputSnapshot(term.buffer, term.cols);
+    const snapshot = readTerminalInputSnapshot(term.buffer, term.cols, term.rows);
     if (!snapshot.isShellBuffer) {
       // A full-screen program owns the alternate buffer, so the row under the
       // cursor is that program's UI and has nothing to do with a shell command.
@@ -182,7 +182,7 @@ export function createTerminalSuggestionController({
   const resizeDisposable = term.onResize(scheduleEvaluate);
   const keyDisposable = term.onKey(({ key }) => {
     if (key === "Enter") {
-      const snapshot = readTerminalInputSnapshot(term.buffer, term.cols);
+      const snapshot = readTerminalInputSnapshot(term.buffer, term.cols, term.rows);
       if (snapshot.isShellBuffer) {
         recordTypedCommand(readInput(snapshot));
       }
@@ -194,7 +194,7 @@ export function createTerminalSuggestionController({
       return;
     }
     if (key === "Escape") {
-      const snapshot = readTerminalInputSnapshot(term.buffer, term.cols);
+      const snapshot = readTerminalInputSnapshot(term.buffer, term.cols, term.rows);
       // Dismiss on the same stripped input the matcher uses, otherwise the ghost
       // would come straight back on the next refresh.
       dismissedInput = snapshot.isShellBuffer ? readInput(snapshot) : null;
@@ -206,7 +206,7 @@ export function createTerminalSuggestionController({
     accept(key: TerminalSuggestionAcceptKey) {
       if (disposed) return false;
 
-      const snapshot = readTerminalInputSnapshot(term.buffer, term.cols);
+      const snapshot = readTerminalInputSnapshot(term.buffer, term.cols, term.rows);
       if (!snapshot.isShellBuffer) return false;
       // Right-arrow is only an accept key at the end of the line. Anywhere else it
       // is the user's cursor movement, and taking it over would break editing in
