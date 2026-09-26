@@ -7,6 +7,57 @@
 
 ## Next
 
+## v1.3.9
+
+- Installed extensions from the hosted axon-editor registry, opened extension
+  webviews in editor tabs, and added marketplace detail views, uninstall, and
+  bundled README rendering through local-asset tickets.
+- Replaced react-markdown with an owned Markdown pipeline built on a line-by-line
+  plugin parser, a Shiki HTML renderer, and in-place DOM patching with
+  bidirectional scroll synchronization.
+- Fixed the out-of-memory crash caused by a code-fence pattern matching
+  headings, and sanitized raw HTML before it reached the Markdown preview.
+- Kept the Markdown preview live while typing, resolved local media to axon
+  ticket URLs, parsed inline formatting, and eliminated redundant repaints.
+- Framed Markdown videos as centered cards on a stable 16:9 stage with opt-out
+  classes, and started a bare video on click.
+- Rebuilt the AI chat sidebar with context chips, a `/` command menu,
+  conversation search, pinning, and a per-message context menu.
+- Added native inline AI completions with details rendered in the suggest
+  widget, and restricted the DevTools inspector to development builds.
+- Opened settings in a dedicated window with live preview and convergent saves,
+  added a row-level search popup, and made the JSON tab edit the global
+  settings file.
+- Kept nested sidebar folder expansions alive across collapses and restores.
+- Showed commit author avatars across Git history surfaces, full commit bodies
+  in the line-trace popover, and deduplicated blame results.
+- Painted rich semantic tokens on Git diff surfaces, improved file-status
+  badges, and gated every Git operation on repository detection.
+- Registered Axon as a macOS folder handler and added an Open in Axon Finder
+  menu item for folders and directories.
+- Tracked file watchers per path with reference-counted cache trust, watched
+  every mounted buffer, and stopped re-reading files deleted on disk.
+- Removed blocking synchronous file reads from main-process hot paths,
+  fingerprinted cache hits with a single stat call, and registered Monaco
+  languages once per session.
+- Warmed the Shiki highlighter at startup and made LSP overlay waits adapt to
+  session warmth instead of always paying the cold cost.
+- Stopped renderer layout rebuilds on editor clicks, fixed memory leaks that
+  grew during long sessions, and reworked cache tests around the promise API.
+- Suggested past commands inline in the terminal from real xterm prompt-row
+  geometry and the terminal host's actual shell.
+- Kept a zoomed terminal panel clickable, restorable with Escape, and resettable
+  when hidden, and added drag-to-reorder for terminal tabs without rebuilding
+  PTYs.
+- Fixed a close-timer race that could strand a full-window modal over the
+  workbench, and kept zoomed panel tooltips off their own buttons.
+- Established guarded repository pipelines across Go, editor, filesystem,
+  terminal, and build validation with an aggregate required check.
+- Added MIT copyright headers to all source files, documented the managed
+  language-server build step, and pinned all Tailwind oxide platform binaries.
+- Patched vulnerable npm dependencies, made the CLI install prompt theme-aware,
+  and suppressed the Shiki dynamic-import warning.
+
 ## v1.3.8
 
 - Preserved rich TextMate and language-server token identity through final theme

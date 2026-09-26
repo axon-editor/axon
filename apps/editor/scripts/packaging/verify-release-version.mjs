@@ -73,7 +73,13 @@ const invokedPath = process.argv[1]
   ? pathToFileURL(path.resolve(process.argv[1])).href
   : "";
 if (import.meta.url === invokedPath) {
-  const workspaceRoot = path.resolve(import.meta.dirname, "..", "..", "..");
+  const workspaceRoot = path.resolve(
+    import.meta.dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+  );
   const releaseTag = process.argv[2]?.trim() ?? "";
   const result = verifyReleaseVersion(workspaceRoot, releaseTag);
   console.log(
