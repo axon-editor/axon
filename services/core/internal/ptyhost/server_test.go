@@ -22,6 +22,38 @@ func authenticatedRequest(method string, target string, body []byte) *http.Reque
 	return request
 }
 
+func TestShellRouteReportsTheResolvedShellOverAuthentication(t *testing.T) {
+	host := New(testToken)
+
+	unauthenticated := httptest.NewRecorder()
+	host.Router().ServeHTTP(unauthenticated, httptest.NewRequest(http.MethodGet, "/terminal/shell", nil))
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("expected the shell route to require authentication, got %d", unauthenticated.Code)
+	}
+
+	recorder := httptest.NewRecorder()
+	host.Router().ServeHTTP(
+		recorder,
+		authenticatedRequest(http.MethodGet, "/terminal/shell", nil),
+	)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected the resolved shell, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response struct {
+		Data struct {
+			Shell string `json:"shell"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("could not decode shell response: %v", err)
+	}
+	// The editor reads this to find the history file of the shell that will really
+	// run, so an empty answer would silently disable inline suggestions.
+	if response.Data.Shell == "" {
+		t.Fatal("expected a shell path, got none")
+	}
+}
+
 func TestTerminalTicketsAreSingleUseAndWorkspaceBound(t *testing.T) {
 	host := New(testToken)
 	workspace := t.TempDir()

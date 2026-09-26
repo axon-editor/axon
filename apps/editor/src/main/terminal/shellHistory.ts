@@ -18,55 +18,138 @@ const FISH_COMMAND_ENTRY = /^\s*- cmd: ?(.*)$/;
 const BASH_TIMESTAMP_ENTRY = /^#\d{9,}$/;
 
 interface ShellHistoryEnvironment {
+  APPDATA?: string;
+  HISTFILE?: string;
   HOME?: string;
   SHELL?: string;
-  HISTFILE?: string;
+  USERPROFILE?: string;
 }
 
-function getShellName(env: ShellHistoryEnvironment) {
-  const shellPath = env.SHELL?.trim();
-  if (!shellPath) return "";
-  return path.basename(shellPath);
+export interface ShellHistoryContext {
+  // The shell the terminal host reported it will actually start. It is the
+  // authoritative answer, because a desktop launch can leave SHELL unset in this
+  // process while the host still falls back to a real shell.
+  shell?: string | null;
+  env?: ShellHistoryEnvironment;
+  platform?: NodeJS.Platform;
 }
 
-// The renderer cannot read files outside a workspace root, so the home
-// directory history files are resolved and read here and only the parsed
-// commands cross the IPC boundary. Candidate order matters because the first
-// existing file wins: an explicit HISTFILE always beats a shell default, and an
-// unknown shell falls back to probing every known location instead of guessing
-// one and returning nothing.
-export function getShellHistoryCandidates(env: ShellHistoryEnvironment) {
-  const home = env.HOME?.trim() || os.homedir();
+function normalizeShellName(shell: string | null | undefined) {
+  const trimmed = shell?.trim();
+  if (!trimmed) return "";
+  // A Windows shell arrives as a backslash path such as
+  // "C:\\Windows\\...\\powershell.exe" and a Unix one as "/bin/zsh", so the
+  // separator has to be split on both even when this process runs on the other
+  // platform and path.basename would treat the whole string as one name.
+  return trimmed
+    .split(/[\\/]/)
+    .pop()!
+    .replace(/\.(exe|cmd|com)$/i, "")
+    .toLowerCase();
+}
+
+function fishHistoryPaths(home: string) {
+  return [
+    path.join(home, ".config", "fish", "fish_history"),
+    path.join(home, ".local", "share", "fish", "fish_history"),
+  ];
+}
+
+// Every supported shell with the files it actually writes. Guessing a file name
+// and being wrong yields an empty suggestion list with no way to tell why, so an
+// unknown shell falls back to the platform defaults instead.
+function getShellHistoryPaths(
+  shellName: string,
+  env: ShellHistoryEnvironment,
+  home: string,
+  platform: NodeJS.Platform,
+) {
+  switch (shellName) {
+    case "zsh":
+      return [
+        path.join(home, ".zsh_history"),
+        path.join(home, ".zlocal", "history"),
+      ];
+    case "bash":
+      return [path.join(home, ".bash_history")];
+    case "fish":
+      return fishHistoryPaths(home);
+    case "sh":
+      return [path.join(home, ".sh_history"), path.join(home, ".history")];
+    case "powershell":
+    case "pwsh": {
+      const profileRoot =
+        platform === "win32"
+          ? env.APPDATA?.trim() || path.join(home, "AppData", "Roaming")
+          : path.join(home, ".config", "powershell");
+      return [
+        path.join(
+          profileRoot,
+          "Microsoft",
+          "Windows",
+          "PowerShell",
+          "PSReadLine",
+          "ConsoleHost_history.txt",
+        ),
+        path.join(
+          home,
+          ".config",
+          "powershell",
+          "Microsoft.PowerShell_profile.ps1.history",
+        ),
+      ];
+    }
+    default:
+      return [];
+  }
+}
+
+// The renderer cannot read files outside a workspace root, so the home directory
+// history files are resolved and read here and only the parsed commands cross the
+// IPC boundary. Candidate order matters because the first existing file wins:
+// HISTFILE comes first because it is what a shell actually loaded, then the shell
+// the terminal host reported, then the platform's own default shell.
+export function getShellHistoryCandidates(context: ShellHistoryContext = {}) {
+  const env = context.env ?? process.env;
+  const platform = context.platform ?? process.platform;
+  const home = env.HOME?.trim() || env.USERPROFILE?.trim() || os.homedir();
   const candidates: string[] = [];
 
   const configured = env.HISTFILE?.trim();
   if (configured) candidates.push(configured);
 
-  const zshHistory = path.join(home, ".zsh_history");
-  const bashHistory = path.join(home, ".bash_history");
-  const fishHistories = [
-    path.join(home, ".config", "fish", "fish_history"),
-    path.join(home, ".local", "share", "fish", "fish_history"),
-  ];
+  const reportedShell =
+    normalizeShellName(context.shell) || normalizeShellName(env.SHELL);
+  candidates.push(...getShellHistoryPaths(reportedShell, env, home, platform));
 
-  switch (getShellName(env)) {
-    case "zsh":
-      candidates.push(zshHistory);
-      break;
-    case "bash":
-      candidates.push(bashHistory);
-      break;
-    case "fish":
-      candidates.push(...fishHistories);
-      break;
-    default:
-      // A GUI launch on macOS inherits a minimal environment, so SHELL is often
-      // missing entirely. The PTY host falls back to zsh then bash for the same
-      // reason, and the same default is the most likely place to find history.
-      candidates.push(zshHistory, bashHistory);
+  // A missing or unusual shell still gets the most likely locations for the
+  // platform, ordered by how likely they are to hold the user's real history.
+  if (platform === "darwin") {
+    candidates.push(
+      path.join(home, ".zsh_history"),
+      path.join(home, ".bash_history"),
+    );
+  } else if (platform === "win32") {
+    const profileRoot =
+      env.APPDATA?.trim() || path.join(home, "AppData", "Roaming");
+    candidates.push(
+      path.join(
+        profileRoot,
+        "Microsoft",
+        "Windows",
+        "PowerShell",
+        "PSReadLine",
+        "ConsoleHost_history.txt",
+      ),
+    );
+  } else {
+    candidates.push(
+      path.join(home, ".bash_history"),
+      path.join(home, ".zsh_history"),
+    );
   }
 
-  candidates.push(...fishHistories);
+  candidates.push(...fishHistoryPaths(home));
   return [...new Set(candidates)];
 }
 
@@ -139,12 +222,17 @@ export async function readShellCommandHistory(options?: {
   env?: ShellHistoryEnvironment;
   limit?: number;
   maxBytes?: number;
+  platform?: NodeJS.Platform;
+  shell?: string | null;
 }) {
-  const env = options?.env ?? process.env;
   const limit = options?.limit ?? SHELL_HISTORY_COMMAND_LIMIT;
   const maxBytes = options?.maxBytes ?? SHELL_HISTORY_TAIL_BYTES;
 
-  for (const candidate of getShellHistoryCandidates(env)) {
+  for (const candidate of getShellHistoryCandidates({
+    env: options?.env,
+    platform: options?.platform,
+    shell: options?.shell,
+  })) {
     // A missing or unreadable candidate just means this shell keeps no history
     // there. Trying the next candidate keeps a locked-down or containerized
     // home directory from turning into a hard failure for the terminal.

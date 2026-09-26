@@ -6,7 +6,15 @@
 import { ipcMain } from "electron";
 import { readShellCommandHistory } from "./shellHistory";
 
-export function registerTerminalHandlers() {
+export interface TerminalHandlerDependencies {
+  // The terminal host reports the shell it will really start, which is more
+  // reliable than this process's SHELL after a desktop launch stripped it.
+  resolveTerminalShell?: () => Promise<string | null>;
+}
+
+export function registerTerminalHandlers({
+  resolveTerminalShell,
+}: TerminalHandlerDependencies = {}) {
   // Command history is only ever used to build inline suggestions inside Axon
   // terminals. It is read on demand from the shell's own history file instead of
   // being persisted by Axon, so the corpus cannot drift from what the user's
@@ -14,7 +22,9 @@ export function registerTerminalHandlers() {
   // strings rather than a path to the raw file.
   ipcMain.handle("terminal:getCommandHistory", async (): Promise<string[]> => {
     try {
-      return await readShellCommandHistory();
+      return await readShellCommandHistory({
+        shell: await resolveTerminalShell?.(),
+      });
     } catch {
       return [];
     }

@@ -55,7 +55,10 @@ import {
   createBundledServiceController,
   type CoreRestartConfirmation,
 } from "./core/process";
-import { registerCoreProxyHandlers } from "./core/proxy";
+import {
+  createTerminalShellResolver,
+  registerCoreProxyHandlers,
+} from "./core/proxy";
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { registerAiHandlers } from "./ai/handlers";
 import { registerManagedLanguageToolHandlers } from "./languageTools/handlers";
@@ -408,7 +411,14 @@ registerCoreProxyHandlers({
 });
 registerDiagnosticsHandlers(workspaceCapabilities);
 registerExtensionHandlers(workspaceCapabilities);
-registerTerminalHandlers();
+registerTerminalHandlers({
+  resolveTerminalShell: createTerminalShellResolver({
+    axonPtyPort,
+    axonPtyToken,
+    axonPtyControlPath,
+    ensureReady: () => bundledPtyHost.ensureReady(),
+  }),
+});
 registerGitHandlers({
   authorizeWorkspaceRoot: (rendererId, rootPath, persist) =>
     workspaceCapabilities.authorize(rendererId, rootPath, persist),
@@ -602,7 +612,8 @@ function createManagedWindow(
     const previewServer = htmlPreviewServers.get(createdWebContentsId);
     htmlPreviewServers.delete(createdWebContentsId);
     if (previewServer) void previewServer.close();
-    const extensionWebviewServer = extensionWebviewServers.get(createdWebContentsId);
+    const extensionWebviewServer =
+      extensionWebviewServers.get(createdWebContentsId);
     extensionWebviewServers.delete(createdWebContentsId);
     if (extensionWebviewServer) void extensionWebviewServer.close();
     openWorkspaceRegistry.release(createdWebContentsId);
@@ -719,7 +730,10 @@ app.whenReady().then(async () => {
     }
 
     if (requestUrl.hostname === "extension") {
-      return createExtensionAssetProtocolResponse(request, extensionAssetTickets);
+      return createExtensionAssetProtocolResponse(
+        request,
+        extensionAssetTickets,
+      );
     }
 
     return new Response("Unknown Axon protocol route.", { status: 404 });

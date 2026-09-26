@@ -38,59 +38,111 @@ interface TerminalTicketPayload {
   error?: string;
 }
 
+interface TerminalShellPayload {
+  status?: string;
+  data?: { shell?: string };
+  error?: string;
+}
+
+// The terminal host is the only process that knows which shell it will really
+// start, because a desktop launch can leave SHELL unset in the main process while
+// the host still falls back to a real shell. Reading that answer over the private
+// control socket is what lets the editor read the right history file instead of
+// guessing from the launcher's environment.
+export function createTerminalShellResolver(input: {
+  axonPtyControlPath?: string | null;
+  axonPtyPort: string;
+  axonPtyToken: string;
+  ensureReady?: () => Promise<void>;
+}) {
+  return async function resolveTerminalShell(): Promise<string | null> {
+    try {
+      await input.ensureReady?.();
+      const response = await requestTerminalControl<TerminalShellPayload>({
+        controlPath: input.axonPtyControlPath,
+        method: "GET",
+        path: "/terminal/shell",
+        port: input.axonPtyPort,
+        token: input.axonPtyToken,
+      });
+      if (response.status < 200 || response.status >= 300) return null;
+      const payload = response.payload;
+      const shell = payload?.data?.shell?.trim();
+      return payload.status === "ok" && shell ? shell : null;
+    } catch {
+      // A missing or slow host only costs the shell-specific history file. The
+      // reader still falls back to the platform defaults, so this stays quiet.
+      return null;
+    }
+  };
+}
+
+function requestTerminalControl<T>(input: {
+  body?: string;
+  controlPath?: string | null;
+  method: string;
+  path: string;
+  port: string;
+  token: string;
+}): Promise<{ status: number; payload: T }> {
+  return new Promise<{ status: number; payload: T }>((resolve, reject) => {
+    const request = http.request(
+      input.controlPath
+        ? {
+            socketPath: input.controlPath,
+            path: input.path,
+            method: input.method,
+            headers: {
+              Authorization: `Bearer ${input.token}`,
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(input.body ?? ""),
+            },
+          }
+        : {
+            hostname: "127.0.0.1",
+            port: Number(input.port),
+            path: input.path,
+            method: input.method,
+            headers: {
+              Authorization: `Bearer ${input.token}`,
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(input.body ?? ""),
+            },
+          },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => {
+          try {
+            resolve({
+              status: response.statusCode ?? 500,
+              payload: JSON.parse(Buffer.concat(chunks).toString("utf8")),
+            });
+          } catch {
+            reject(new Error("Terminal host returned an invalid response."));
+          }
+        });
+      },
+    );
+    request.once("error", reject);
+    request.setTimeout(1500, () => {
+      request.destroy(new Error("Terminal host did not respond in time."));
+    });
+    request.end(input.body);
+  });
+}
+
 function requestTerminalTicket(input: {
   body: string;
   controlPath?: string | null;
   port: string;
   token: string;
 }) {
-  return new Promise<{ status: number; payload: TerminalTicketPayload }>(
-    (resolve, reject) => {
-      const request = http.request(
-        input.controlPath
-          ? {
-              socketPath: input.controlPath,
-              path: "/terminal/ticket",
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${input.token}`,
-                "Content-Type": "application/json",
-                "Content-Length": Buffer.byteLength(input.body),
-              },
-            }
-          : {
-              hostname: "127.0.0.1",
-              port: Number(input.port),
-              path: "/terminal/ticket",
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${input.token}`,
-                "Content-Type": "application/json",
-                "Content-Length": Buffer.byteLength(input.body),
-              },
-            },
-        (response) => {
-          const chunks: Buffer[] = [];
-          response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-          response.on("end", () => {
-            try {
-              resolve({
-                status: response.statusCode ?? 500,
-                payload: JSON.parse(Buffer.concat(chunks).toString("utf8")),
-              });
-            } catch {
-              reject(new Error("Terminal host returned an invalid response."));
-            }
-          });
-        },
-      );
-      request.once("error", reject);
-      request.setTimeout(1500, () => {
-        request.destroy(new Error("Terminal host did not respond in time."));
-      });
-      request.end(input.body);
-    },
-  );
+  return requestTerminalControl<TerminalTicketPayload>({
+    ...input,
+    method: "POST",
+    path: "/terminal/ticket",
+  });
 }
 
 export function validateRendererCorePath(rawPath: string) {

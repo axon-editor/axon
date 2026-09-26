@@ -249,6 +249,7 @@ func (s *Server) ControlRouter() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/terminal/health", terminal.HealthHandler)
+	mux.HandleFunc("/terminal/shell", terminal.ShellHandler)
 	mux.HandleFunc("/terminal/ticket", s.handleTicket)
 	return s.requireBearerAuthentication(mux)
 }
@@ -260,6 +261,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/terminal", terminal.Handler)
 	mux.HandleFunc("/terminal/health", terminal.HealthHandler)
+	mux.HandleFunc("/terminal/shell", terminal.ShellHandler)
 	mux.HandleFunc("/terminal/ticket", s.handleTicket)
 	return corsMiddleware(s.requireAuthentication(mux))
 }

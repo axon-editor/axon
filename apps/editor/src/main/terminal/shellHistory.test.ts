@@ -31,21 +31,79 @@ describe("getShellHistoryCandidates", () => {
   it("prefers an explicit HISTFILE and then the shell default", () => {
     expect(
       getShellHistoryCandidates({
-        HOME: "/home/dev",
-        HISTFILE: "/tmp/custom_history",
-        SHELL: "/bin/zsh",
+        env: {
+          HOME: "/home/dev",
+          HISTFILE: "/tmp/custom_history",
+          SHELL: "/bin/zsh",
+        },
+        platform: "linux",
       })[0],
     ).toBe("/tmp/custom_history");
     expect(
-      getShellHistoryCandidates({ HOME: "/home/dev", SHELL: "/bin/zsh" })[0],
+      getShellHistoryCandidates({
+        env: { HOME: "/home/dev", SHELL: "/bin/zsh" },
+        platform: "linux",
+      })[0],
     ).toBe("/home/dev/.zsh_history");
     expect(
-      getShellHistoryCandidates({ HOME: "/home/dev", SHELL: "/usr/bin/bash" })[0],
+      getShellHistoryCandidates({
+        env: { HOME: "/home/dev", SHELL: "/usr/bin/bash" },
+        platform: "linux",
+      })[0],
     ).toBe("/home/dev/.bash_history");
   });
 
-  it("probes every known location when the shell is unknown", () => {
-    const candidates = getShellHistoryCandidates({ HOME: "/home/dev" });
+  it("trusts the shell the terminal host reported over the launcher environment", () => {
+    // A desktop launch leaves SHELL pointing at a login shell the user never
+    // runs, while the host starts the shell it reported here.
+    const candidates = getShellHistoryCandidates({
+      env: { HOME: "/home/dev", SHELL: "/usr/bin/fish" },
+      platform: "linux",
+      shell: "/bin/zsh",
+    });
+
+    expect(candidates[0]).toBe("/home/dev/.zsh_history");
+    // Other shells stay as a last-resort tail, only reached when the reported
+    // shell's own file turns out not to exist.
+    expect(candidates.indexOf("/home/dev/.zsh_history")).toBeLessThan(
+      candidates.indexOf("/home/dev/.config/fish/fish_history"),
+    );
+  });
+
+  it("reads the PowerShell history of a Windows host", () => {
+    const candidates = getShellHistoryCandidates({
+      env: {
+        APPDATA: "C:\\Users\\dev\\AppData\\Roaming",
+        USERPROFILE: "C:\\Users\\dev",
+      },
+      platform: "win32",
+      shell: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    });
+
+    expect(candidates[0]).toContain("PSReadLine");
+    expect(candidates[0]).toContain("ConsoleHost_history.txt");
+  });
+
+  it("falls back to the platform defaults when the shell is unknown", () => {
+    expect(
+      getShellHistoryCandidates({
+        env: { HOME: "/home/dev" },
+        platform: "darwin",
+      })[0],
+    ).toBe("/home/dev/.zsh_history");
+    expect(
+      getShellHistoryCandidates({
+        env: { HOME: "/home/dev" },
+        platform: "linux",
+      })[0],
+    ).toBe("/home/dev/.bash_history");
+  });
+
+  it("covers every known location when the shell is unknown", () => {
+    const candidates = getShellHistoryCandidates({
+      env: { HOME: "/home/dev" },
+      platform: "darwin",
+    });
 
     expect(candidates).toContain("/home/dev/.zsh_history");
     expect(candidates).toContain("/home/dev/.bash_history");
@@ -54,13 +112,16 @@ describe("getShellHistoryCandidates", () => {
 
   it("does not repeat a HISTFILE that matches a shell default", () => {
     const candidates = getShellHistoryCandidates({
-      HOME: "/home/dev",
-      HISTFILE: "/home/dev/.zsh_history",
-      SHELL: "/bin/zsh",
+      env: {
+        HOME: "/home/dev",
+        HISTFILE: "/home/dev/.zsh_history",
+        SHELL: "/bin/zsh",
+      },
+      platform: "linux",
     });
 
     expect(
-      candidates.filter((path) => path === "/home/dev/.zsh_history"),
+      candidates.filter((entry) => entry === "/home/dev/.zsh_history"),
     ).toHaveLength(1);
   });
 });
