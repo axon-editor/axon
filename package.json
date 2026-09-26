@@ -28,6 +28,9 @@
     "check:examples": "npm run build:extension-api && node tools/check-extension-examples.mjs && tsc -p examples/extensions/runtime-api/tsconfig.json --noEmit"
   },
   "overrides": {
+    "browserslist": "4.28.7",
+    "colord": "2.9.4",
+    "joi": "18.2.5",
     "editorconfig": {
       "minimatch": "10.2.5"
     },
