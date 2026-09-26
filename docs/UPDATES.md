@@ -30,6 +30,11 @@ So Axon treats in-app updating as best-effort:
 This is not a Windows/Linux signing limitation in the same way, but each
 platform package still needs testing before a release is treated as stable.
 
+The same missing certificate also blocks the first launch of a freshly
+downloaded macOS build, because the download arrives quarantined. See
+[Opening an unsigned build on macOS](../README.md#opening-an-unsigned-build-on-macos)
+in the README for the exact dialog wording and how to allow the app.
+
 ## Release Workflow
 
 1. Bump `editor/package.json`.

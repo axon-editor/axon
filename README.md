@@ -273,6 +273,34 @@ Use the file that matches your platform and CPU:
 If macOS says the app is not supported, the downloaded build probably does not
 match your CPU architecture.
 
+### Opening an unsigned build on macOS
+
+Axon is a personal-use project and is not signed with an Apple Developer ID, so
+macOS quarantines the downloaded build and blocks it on first launch. The exact
+wording differs by macOS version and processor, but every variant means the same
+thing and none of them indicate a corrupt download:
+
+- "Axon is damaged and can't be opened. You should move it to the Bin."
+- "Axon is not trusted" or "cannot be opened because it is from an unidentified
+  developer", with only Cancel available.
+
+Choose **Cancel** rather than moving the app to the Trash, then allow it from
+System Settings, which always works on an unsigned build:
+
+1. Open System Settings.
+2. Go to Privacy & Security.
+3. Scroll to the Security section and click **Open Anyway** next to the Axon
+   entry.
+
+Right-clicking the app and choosing **Open** is the quicker equivalent, and
+clearing the quarantine flag from a terminal works too:
+
+```bash
+xattr -cr /Applications/Axon.app
+```
+
+You only do this once per install. Later launches are unaffected.
+
 ## Updates
 
 Axon checks GitHub releases for newer versions. On unsigned personal macOS
