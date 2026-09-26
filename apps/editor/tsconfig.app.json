@@ -65,6 +65,9 @@
         "../../extensions/builtin/problems/workbench/*"
       ],
       "@axon/protocol": ["../../node_modules/@axon/protocol/dist/index.d.ts"],
+      "@dnd-kit/core": ["node_modules/@dnd-kit/core/dist/index.d.ts"],
+      "@dnd-kit/sortable": ["node_modules/@dnd-kit/sortable/dist/index.d.ts"],
+      "@dnd-kit/utilities": ["node_modules/@dnd-kit/utilities/dist/index.d.ts"],
       "@xterm/addon-fit": [
         "node_modules/@xterm/addon-fit/typings/addon-fit.d.ts"
       ],

@@ -188,6 +188,24 @@ export default defineConfig({
         "dist",
         "index.js",
       ),
+      "@dnd-kit/core": dependencyPath(
+        "@dnd-kit",
+        "core",
+        "dist",
+        "core.esm.js",
+      ),
+      "@dnd-kit/sortable": dependencyPath(
+        "@dnd-kit",
+        "sortable",
+        "dist",
+        "sortable.esm.js",
+      ),
+      "@dnd-kit/utilities": dependencyPath(
+        "@dnd-kit",
+        "utilities",
+        "dist",
+        "utilities.esm.js",
+      ),
       "@xterm/addon-fit": dependencyPath(
         "@xterm",
         "addon-fit",

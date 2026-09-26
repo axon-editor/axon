@@ -12,6 +12,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -33,11 +34,9 @@ import {
   type OutputEntry,
 } from "@axon-editor/platform/panel/bottomPanel";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import ChromeTab from "@axon-editor/renderer/features/editor/components/tabs/ChromeTab";
 import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
-import {
-  BottomPanelContent,
-} from "./BottomPanel";
+import { BottomPanelContent } from "./BottomPanel";
+import TerminalTabBar from "./TerminalTabBar";
 import { type TerminalWorkbenchContribution } from "./lib/contribution";
 import { getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
 import {
@@ -46,6 +45,7 @@ import {
   getFolderName,
 } from "@axon-editor/platform/terminal/terminalProtocol";
 import { useTerminalSessionManager } from "./lib/useTerminalSessionManager";
+import { useZoomedPanelEscape } from "./lib/useZoomedPanelEscape";
 
 interface Props {
   open: boolean;
@@ -99,6 +99,7 @@ export default function Terminal({
     attachContainer,
     closeTab,
     createTab,
+    reorderTabs,
     resizeActiveTerminal,
     setActiveTabId,
     setZoomed,
@@ -116,6 +117,8 @@ export default function Terminal({
     workingDirectory,
     onHide,
   });
+
+  useZoomedPanelEscape(zoomed, setZoomed);
 
   const handleHide = useCallback(() => {
     setZoomed(false);
@@ -143,7 +146,9 @@ export default function Terminal({
 
       const handlePointerMove = (moveEvent: PointerEvent) => {
         const nextHeight = startHeight + startY - moveEvent.clientY;
-        setHeight(Math.min(maxHeight, Math.max(MIN_TERMINAL_HEIGHT, nextHeight)));
+        setHeight(
+          Math.min(maxHeight, Math.max(MIN_TERMINAL_HEIGHT, nextHeight)),
+        );
       };
 
       const handlePointerUp = () => {
@@ -164,14 +169,14 @@ export default function Terminal({
     resizeActiveTerminal();
   }, [height, resizeActiveTerminal, terminalVisible, zoomed]);
 
+  const controlTooltipSide = zoomed ? "bottom" : "top";
+
   if (!panelOpen && tabs.length === 0) return null;
 
   return (
     <div
       className={`${panelOpen ? "flex" : "hidden"} ${
-        zoomed
-          ? "absolute inset-0 z-30"
-          : "relative z-10 shrink-0 border-t"
+        zoomed ? "absolute inset-0 z-30" : "relative z-10 shrink-0 border-t"
       } flex-col`}
       style={{
         height: zoomed ? "100%" : `${height}px`,
@@ -191,7 +196,12 @@ export default function Terminal({
       />
       <div
         className="relative z-20 flex h-9 shrink-0 items-center justify-between border-b pl-3 pr-3"
-        style={{ borderColor: "var(--axon-panel-border)" }}
+        style={
+          {
+            borderColor: "var(--axon-panel-border)",
+            WebkitAppRegion: "no-drag",
+          } as CSSProperties
+        }
       >
         <div className="flex min-w-0 flex-1 items-stretch gap-3 overflow-hidden">
           <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[#647086]">
@@ -201,28 +211,20 @@ export default function Terminal({
               {terminalTitle}
             </span>
           </div>
-          <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto overflow-y-hidden">
-            {tabs.map((tab) => (
-              <ChromeTab
-                key={tab.id}
-                label={tab.title}
-                active={activePanelTab === "terminal" && tab.id === activeTabId}
-                closeLabel={`Close ${tab.title}`}
-                closeButtonClassName="h-7 w-7"
-                onClick={() => {
-                  setActiveTabId(tab.id);
-                  onActivePanelTabChange("terminal");
-                }}
-                onClose={(event) => {
-                  event.stopPropagation();
-                  closeTab(tab.id);
-                }}
-              />
-            ))}
-          </div>
+          <TerminalTabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            active={activePanelTab === "terminal"}
+            onSelect={(id) => {
+              setActiveTabId(id);
+              onActivePanelTabChange("terminal");
+            }}
+            onClose={closeTab}
+            onReorder={reorderTabs}
+          />
           <Tooltip
             label="New terminal tab (plus)"
-            side="top"
+            side={controlTooltipSide}
             triggerClassName="inline-flex shrink-0"
           >
             <button
@@ -240,7 +242,7 @@ export default function Terminal({
 
         <div className="ml-2 flex shrink-0 items-center gap-1">
           {activePanelTab === "output" && (
-            <Tooltip label="Clear output" side="top">
+            <Tooltip label="Clear output" side={controlTooltipSide}>
               <button
                 onClick={onClearOutput}
                 aria-label="Clear output"
@@ -251,8 +253,10 @@ export default function Terminal({
             </Tooltip>
           )}
           <Tooltip
-            label={zoomed ? "Restore terminal (panel)" : "Zoom terminal (panel)"}
-            side="top"
+            label={
+              zoomed ? "Restore terminal (panel)" : "Zoom terminal (panel)"
+            }
+            side={controlTooltipSide}
           >
             <button
               onClick={handleZoomToggle}
@@ -262,7 +266,7 @@ export default function Terminal({
               {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
           </Tooltip>
-          <Tooltip label="Hide terminal (Cmd+J)" side="top">
+          <Tooltip label="Hide terminal (Cmd+J)" side={controlTooltipSide}>
             <button
               onClick={handleHide}
               aria-label="Hide terminal"

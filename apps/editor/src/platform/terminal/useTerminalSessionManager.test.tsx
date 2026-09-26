@@ -230,13 +230,18 @@ interface TerminalHarnessProps {
   background?: string;
   commandSuggestions?: boolean;
   foreground?: string;
+  open?: boolean;
   red?: string;
 }
+
+// The panel tests need the manager itself, not only the mounted xterm nodes.
+let latestManager: ReturnType<typeof useTerminalSessionManager> | null = null;
 
 function TerminalHarness({
   background = "#000000",
   commandSuggestions = true,
   foreground = "#ffffff",
+  open = true,
   red = "#cd3131",
 }: TerminalHarnessProps) {
   const manager = useTerminalSessionManager({
@@ -245,7 +250,7 @@ function TerminalHarness({
     createNonce: 0,
     createWorkingDirectory: null,
     gpuAcceleration: "off",
-    open: true,
+    open,
     terminalOptions: {
       fontFamily: "monospace",
       fontSize: 13,
@@ -257,10 +262,11 @@ function TerminalHarness({
         red,
       },
     },
-    terminalVisible: true,
+    terminalVisible: open,
     workingDirectory: "/workspace",
     onHide: vi.fn(),
   });
+  latestManager = manager;
 
   return manager.tabs.map((tab) => (
     <div key={tab.id} ref={(node) => manager.attachContainer(tab.id, node)} />
@@ -354,6 +360,7 @@ describe("useTerminalSessionManager", () => {
     xtermMock.instances.length = 0;
     FakeWebSocket.instances.length = 0;
     resetCommandHistoryForTests();
+    latestManager = null;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -519,9 +526,8 @@ describe("useTerminalSessionManager", () => {
       SUGGESTED_COMMAND.slice("git".length),
     );
 
-    const handled = xtermMock.instances[0]?.customKeyEventHandler?.(
-      terminalKeyEvent(),
-    );
+    const handled =
+      xtermMock.instances[0]?.customKeyEventHandler?.(terminalKeyEvent());
     expect(handled).toBe(false);
 
     const socket = FakeWebSocket.instances[0];
@@ -615,5 +621,74 @@ describe("useTerminalSessionManager", () => {
     await typeRow(`${PROMPT}git`);
 
     expect(getSuggestionElement()).toBeNull();
+  });
+
+  it("reorders tabs without rebuilding their sessions", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      latestManager?.createTab();
+    });
+
+    const [first, second] = latestManager?.tabs.map((tab) => tab.id) ?? [];
+    const activeTabId = latestManager?.activeTabId;
+    const termsBefore = [...xtermMock.instances];
+    const socketsBefore = FakeWebSocket.instances.length;
+
+    await act(async () => {
+      latestManager?.reorderTabs([second, first]);
+    });
+
+    expect(latestManager?.tabs.map((tab) => tab.id)).toEqual([second, first]);
+    // Reordering is presentation only, so the active tab, the xterm instances,
+    // and the PTY websockets all have to survive the drag untouched.
+    expect(latestManager?.activeTabId).toBe(activeTabId);
+    expect(xtermMock.instances).toEqual(termsBefore);
+    expect(FakeWebSocket.instances.length).toBe(socketsBefore);
+  });
+
+  it("ignores a reorder request that would drop a tab", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      latestManager?.createTab();
+    });
+
+    const orderBefore = latestManager?.tabs.map((tab) => tab.id);
+    await act(async () => {
+      latestManager?.reorderTabs([]);
+    });
+
+    expect(latestManager?.tabs.map((tab) => tab.id)).toEqual(orderBefore);
+  });
+
+  it("clears the zoom flag when the panel is hidden", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      latestManager?.setZoomed(true);
+    });
+    expect(latestManager?.zoomed).toBe(true);
+
+    // The toggle command and zen mode both hide the panel through `open`, so a
+    // zoomed panel must come back unzoomed instead of stranding its controls in
+    // the window's top strip.
+    await act(async () => {
+      root.render(<TerminalHarness open={false} />);
+    });
+
+    expect(latestManager?.zoomed).toBe(false);
   });
 });

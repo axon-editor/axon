@@ -258,6 +258,20 @@ export function useTerminalSessionManager({
     [disposeSession, onHide],
   );
 
+  const reorderTabs = useCallback((orderedIds: string[]) => {
+    // Reordering is presentation only. Every tab keeps its own PTY, WebSocket,
+    // and scrollback, so the drag must move nothing but the order of the ids
+    // instead of rebuilding the session map.
+    setTabs((currentTabs) => {
+      const byId = new Map(currentTabs.map((tab) => [tab.id, tab]));
+      const reordered = orderedIds
+        .map((id) => byId.get(id))
+        .filter((tab): tab is TerminalTab => tab !== undefined);
+      if (reordered.length !== currentTabs.length) return currentTabs;
+      return reordered;
+    });
+  }, []);
+
   const connectSession = useCallback(
     (id: string) => {
       const session = sessionsRef.current[id];
@@ -565,6 +579,14 @@ export function useTerminalSessionManager({
   }, [open]);
 
   useEffect(() => {
+    // Every route that hides the panel has to clear the zoom flag, including the
+    // toggle command and zen mode. A panel that was zoomed when it went away
+    // used to come back zoomed, which parked its controls in the window's top
+    // strip and left the user without a reachable restore button.
+    if (!open) setZoomed(false);
+  }, [open, setZoomed]);
+
+  useEffect(() => {
     if (!terminalVisible || tabs.length > 0) return;
     if (suppressAutoCreateRef.current) return;
     if (createNonce !== lastCreateNonceRef.current) return;
@@ -675,6 +697,7 @@ export function useTerminalSessionManager({
     attachContainer,
     closeTab,
     createTab,
+    reorderTabs,
     resizeActiveTerminal,
     setActiveTabId,
     setZoomed,

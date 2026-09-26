@@ -76,16 +76,25 @@ export default function CommandModal({
     setClosing(true);
 
     // The modal has to stay mounted long enough for the leave animation to
-    // play. Without this small handoff React removes the overlay immediately,
-    // which makes close feel abrupt even when the enter motion is polished.
-    // I call the latest onClose through a ref because search and command
-    // surfaces often update while they are closing. If this timeout is tied to
-    // a callback identity from the previous render, React can run the cleanup,
-    // clear the timer, and leave an invisible fixed overlay mounted forever.
+    // play, otherwise React removes the overlay immediately and close feels
+    // abrupt even when the enter motion is polished. The timer is deliberately
+    // not owned by the document listener effect below: that effect re-runs
+    // whenever the title or the close callback identity changes, and a cleanup
+    // that cleared this timer would strand a full-window fixed overlay on top
+    // of the workbench with nothing left to dismiss it. A separate unmount
+    // effect owns the timer so only real teardown can cancel the close.
     closeTimerRef.current = window.setTimeout(() => {
       onCloseRef.current();
     }, closeDelayMs);
   }, [animate, closeDelayMs, modalName, modalPerformanceName]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     markAxonPerformance(`axon.modal.${modalPerformanceName}.open`, {
@@ -110,9 +119,6 @@ export default function CommandModal({
     return () => {
       document.removeEventListener("mousedown", handler);
       document.removeEventListener("keydown", keyHandler);
-      if (closeTimerRef.current) {
-        window.clearTimeout(closeTimerRef.current);
-      }
       markAxonPerformance(`axon.modal.${modalPerformanceName}.unmount`, {
         modal: modalName,
       });
