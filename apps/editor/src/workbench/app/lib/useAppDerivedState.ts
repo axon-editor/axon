@@ -16,6 +16,7 @@ import { resolveActiveTheme } from "../../../renderer/shared/themes";
 import type { FileSymbol } from "../../../renderer/features/sidebar/files/lib/fileSymbols";
 import { getEnabledExtensionThemes } from "../../../shared/extensions";
 import { createGlassThemeCssVariables } from "./glassTheme";
+import { triggerCompositorRepaint } from "../components/WorkspaceRenderBoundary";
 import { type EditorDiagnostic } from "../../../shared/diagnostics";
 import { type ExtensionState } from "../../../shared/extensions";
 import { type GitStatusResult } from "../../../shared/git";
@@ -105,14 +106,28 @@ export function useAppDerivedState({
         console.warn("failed to synchronize native window glass:", error);
       });
 
-    return () => {
+    const clearGlassClass = () => {
       document.documentElement.classList.remove("axon-native-glass");
     };
-  }, [
-    settings.editor.appGlassMode,
-    themeAppearance,
-    themeTokens.background,
-  ]);
+
+    // Turning glass on, or changing the theme or background while it is
+    // already on, swaps the OS material underneath the renderer and leaves
+    // backdrop-filter layers painted against the previous frame. Without a
+    // flush the first hover in the new material exposes that stale frame, so
+    // the same pulse WorkspaceRenderBoundary uses on a workspace switch runs
+    // here too. Cancelling it matters as much as starting it, because a
+    // pending frame pair would otherwise strip the class from under a newer
+    // pulse when this effect tears down.
+    if (glassActive) {
+      const cancelRepaint = triggerCompositorRepaint();
+      return () => {
+        clearGlassClass();
+        cancelRepaint();
+      };
+    }
+
+    return clearGlassClass;
+  }, [settings.editor.appGlassMode, themeAppearance, themeTokens.background]);
 
   useEffect(() => {
     const roots = [document.documentElement, document.body].filter(Boolean);
