@@ -8,7 +8,7 @@ import type { ResolvedThemeTokens } from "../../../renderer/shared/lib/themeToke
 import type { ThemeAppearance } from "../../../renderer/shared/themes/themeAppearance";
 
 function colorWithAlpha(color: string, alpha: number) {
-  const normalizedColor = color.trim();
+  const normalizedColor = color?.trim() ?? "";
   const match = normalizedColor.match(
     /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i,
   );
@@ -22,10 +22,36 @@ function colorWithAlpha(color: string, alpha: number) {
   return `rgba(${Number.parseInt(red, 16)}, ${Number.parseInt(green, 16)}, ${Number.parseInt(blue, 16)}, ${finalAlpha})`;
 }
 
+// A fully transparent renderer surface leaves Chromium with no stable backdrop
+// to damage against. A hover that dirties one small rectangle then composites
+// that region against a stale snapshot, which shows up as a ghost of the
+// previous frame stacked under the new one until something forces a full
+// repaint, such as resizing the window. MonoCode hits the same failure in
+// WKWebView and answers it by putting a nearly transparent AppKit view behind
+// the web content rather than by filtering inside it. Same reasoning applies
+// here: this alpha is far too low to tint the native material visibly, but it
+// gives the compositor an actual surface to repaint against.
+const GLASS_SURFACE_ALPHA = 0.01;
+
 function opaqueColor(color: string) {
-  const normalizedColor = color.trim();
+  const normalizedColor = color?.trim() ?? "";
   const match = normalizedColor.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
   return match ? `#${match[1]}` : color;
+}
+
+// colorWithAlpha passes any value it cannot parse through untouched, which
+// would leave a theme that already resolves to `transparent` fully clear and
+// reintroduce the ghosting. Fall back to a neutral of the right appearance so
+// every persistent surface ends up with a nonzero alpha regardless of how the
+// theme authored its color.
+function glassSurface(color: string, lightGlass: boolean) {
+  const tinted = colorWithAlpha(color, GLASS_SURFACE_ALPHA);
+  const authored =
+    typeof color === "string" &&
+    /^(#([0-9a-f]{2}){3,4}|rgba?\()/.test(color.trim());
+  return authored
+    ? tinted
+    : colorWithAlpha(lightGlass ? "#ffffff" : "#000000", GLASS_SURFACE_ALPHA);
 }
 
 export function createGlassThemeCssVariables(
@@ -50,10 +76,13 @@ export function createGlassThemeCssVariables(
     : "rgba(255, 255, 255, 0.10)";
   // Native vibrancy and material already own the persistent application
   // surface. Applying translucent theme or neutral colors on top creates a
-  // second tint and defeats the purpose of revealing that material. Every
-  // long-lived renderer surface therefore stays completely transparent; the
-  // main process aligns the native material's light/dark appearance with the
-  // selected theme so that themed text remains readable without a CSS wash.
+  // second tint and defeats the purpose of revealing that material. These
+  // surfaces therefore stay at a barely-there alpha of their own theme color:
+  // visually indistinguishable from clear once composited over the OS
+  // material, but opaque enough that the compositor always has a real surface
+  // to repaint when a hover dirties a small region. The main process aligns
+  // the native material's light/dark appearance with the selected theme so
+  // that themed text remains readable without a CSS wash.
   return {
     ...themeCssVariables,
     "--axon-glass-surface-blur": `${blur * 2}px`,
@@ -72,19 +101,31 @@ export function createGlassThemeCssVariables(
     "--axon-solid-popup-background": opaqueColor(
       themeTokens["panel.background"],
     ),
-    "--axon-background": "transparent",
-    "--axon-title-bar-background": "transparent",
-    "--axon-toolbar-background": "transparent",
-    "--axon-sidebar-background": "transparent",
+    "--axon-background": glassSurface(themeTokens.background),
+    "--axon-title-bar-background": glassSurface(
+      themeTokens["title_bar.background"],
+    ),
+    "--axon-toolbar-background": glassSurface(
+      themeTokens["toolbar.background"],
+    ),
+    "--axon-sidebar-background": glassSurface(
+      themeTokens["sidebar.background"],
+    ),
     "--axon-sidebar-hover-background": neutralHover,
     "--axon-sidebar-border": neutralBorder,
     "--axon-tab-active-background": neutralHover,
-    "--axon-panel-background": "transparent",
+    "--axon-panel-background": glassSurface(themeTokens["panel.background"]),
     "--axon-panel-border": neutralBorder,
     "--axon-panel-overlay-hover": neutralHover,
-    "--axon-status-bar-background": "transparent",
-    "--axon-editor-background": "transparent",
-    "--axon-editor-gutter-background": "transparent",
-    "--axon-terminal-background": "transparent",
+    "--axon-status-bar-background": glassSurface(
+      themeTokens["status_bar.background"],
+    ),
+    "--axon-editor-background": glassSurface(themeTokens["editor.background"]),
+    "--axon-editor-gutter-background": glassSurface(
+      themeTokens["editor.gutter.background"],
+    ),
+    "--axon-terminal-background": glassSurface(
+      themeTokens["terminal.background"],
+    ),
   } as CSSProperties;
 }
