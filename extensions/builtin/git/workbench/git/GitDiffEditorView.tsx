@@ -127,36 +127,41 @@ export default function GitDiffEditorView({
   );
 
   return (
-    <DiffEditor
-      height="100%"
-      original={original}
-      modified={modified}
-      keepCurrentOriginalModel
-      keepCurrentModifiedModel
-      onMount={handleMount}
-      language={detectLanguage(filePath)}
-      theme={getMonacoThemeId(editorSettings.themeId)}
-      beforeMount={(monacoInstance) =>
-        registerAxonTheme(
-          monacoInstance,
-          editorSettings.themeId,
-          themeTokens,
-          [],
-          themeSyntax,
-        )
-      }
-      options={{
-        readOnly: true,
-        renderSideBySide: true,
-        fontSize: editorSettings.fontSize,
-        fontFamily: editorFontStack(editorSettings.fontFamily),
-        fontWeight: String(editorSettings.fontWeight),
-        lineHeight: editorSettings.lineHeight,
-        letterSpacing: 0,
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        originalEditable: false,
-      }}
-    />
+    // The diff panes are read-only editor tabs, so they show the native
+    // material the same way the main editor does instead of painting an opaque
+    // Monaco background. Unconditional, matching the main editor surface.
+    <div className="axon-editor-transparent-surface h-full min-h-0 w-full">
+      <DiffEditor
+        height="100%"
+        original={original}
+        modified={modified}
+        keepCurrentOriginalModel
+        keepCurrentModifiedModel
+        onMount={handleMount}
+        language={detectLanguage(filePath)}
+        theme={getMonacoThemeId(editorSettings.themeId)}
+        beforeMount={(monacoInstance) =>
+          registerAxonTheme(
+            monacoInstance,
+            editorSettings.themeId,
+            themeTokens,
+            [],
+            themeSyntax,
+          )
+        }
+        options={{
+          readOnly: true,
+          renderSideBySide: true,
+          fontSize: editorSettings.fontSize,
+          fontFamily: editorFontStack(editorSettings.fontFamily),
+          fontWeight: String(editorSettings.fontWeight),
+          lineHeight: editorSettings.lineHeight,
+          letterSpacing: 0,
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          originalEditable: false,
+        }}
+      />
+    </div>
   );
 }

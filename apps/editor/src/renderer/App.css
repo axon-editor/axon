@@ -267,6 +267,19 @@ html.axon-native-glass .axon-context-menu {
     saturate(var(--axon-glass-surface-saturation, 100%));
 }
 
+/* The blame popover was the one overlay no glass rule covered, so it fell
+ * through to the bare panel surface and read as an unfinished card. */
+html.axon-native-glass .axon-line-trace-popover {
+  background: var(
+    --axon-popup-background,
+    var(--axon-panel-background)
+  ) !important;
+  -webkit-backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
+    saturate(var(--axon-glass-surface-saturation, 100%));
+  backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
+    saturate(var(--axon-glass-surface-saturation, 100%));
+}
+
 html.axon-native-glass .axon-select-control,
 html.axon-native-glass .axon-select-popover,
 html.axon-native-glass .axon-tooltip {
@@ -483,7 +496,8 @@ html.axon-native-glass .axon-tooltip {
   pointer-events: none;
 }
 
-.axon-line-trace-popover[data-visible="true"] .axon-line-trace-popover__summary {
+.axon-line-trace-popover[data-visible="true"]
+  .axon-line-trace-popover__summary {
   pointer-events: auto;
 }
 
@@ -506,11 +520,7 @@ html.axon-native-glass .axon-tooltip {
   padding: 2px 8px;
   border: 1px solid var(--axon-panel-border);
   border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--axon-editor-foreground) 7%,
-    transparent
-  );
+  background: color-mix(in srgb, var(--axon-editor-foreground) 7%, transparent);
   opacity: 0.85;
 }
 
@@ -796,6 +806,14 @@ html.axon-native-glass .axon-tooltip {
 .axon-editor-transparent-surface .monaco-editor-background,
 .axon-editor-transparent-surface .monaco-editor .margin,
 .axon-editor-transparent-surface .monaco-editor .inputarea.ime-input {
+  background: transparent !important;
+}
+
+/* The sticky scroll fold paints its own background, which the rules above do
+ * not reach, so it stayed opaque over the material in both the main editor and
+ * the diff panes. */
+.axon-editor-transparent-surface .monaco-editor .sticky-widget,
+.axon-editor-transparent-surface .monaco-editor .sticky-widget-background {
   background: transparent !important;
 }
 
