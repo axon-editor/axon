@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderTree, Play, RefreshCw, Square, X } from "lucide-react";
 import {
   type TestDiscoveryResult,
@@ -43,10 +43,22 @@ export default function TestExplorerModal({
   onClose,
   onOutput,
 }: Props) {
+  // Output is a notification sink supplied by the workbench, and its function
+  // identity changes whenever appending an output entry rerenders that parent.
+  // Discovery was keyed on it, so every message it emitted rebuilt the callback,
+  // which retriggered discovery, which emitted another message, spinning the
+  // refresh icon forever. Reading the latest callback through a ref keeps
+  // messages current without turning a notification rerender into a request.
+  const onOutputRef = useRef(onOutput);
+  onOutputRef.current = onOutput;
   const [discovery, setDiscovery] = useState<TestDiscoveryResult | null>(null);
   const [discovering, setDiscovering] = useState(false);
-  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set());
-  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(
+    new Set(),
+  );
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
+    null,
+  );
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [outputFilter, setOutputFilter] = useState<OutputFilter>("selected");
@@ -70,12 +82,14 @@ export default function TestExplorerModal({
     null;
   const selectedTarget =
     selectedTargetId && selectedProvider
-      ? providerItems(selectedProvider).find((item) => item.id === selectedTargetId) ?? null
+      ? (providerItems(selectedProvider).find(
+          (item) => item.id === selectedTargetId,
+        ) ?? null)
       : null;
   const selectedRunKey = selectedProvider
     ? runKeyFor(selectedProvider.id, selectedTarget?.id ?? null)
     : null;
-  const selectedRun = selectedRunKey ? runs[selectedRunKey] ?? null : null;
+  const selectedRun = selectedRunKey ? (runs[selectedRunKey] ?? null) : null;
 
   const filteredProviders = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -132,17 +146,22 @@ export default function TestExplorerModal({
     setDiscovering(true);
     const result = await testingApi.discover(folderPath);
     setDiscovery(result);
-    setExpandedProviders(new Set(result.providers.map((provider) => provider.id)));
+    setExpandedProviders(
+      new Set(result.providers.map((provider) => provider.id)),
+    );
     setSelectedProviderId((current) => {
-      if (current && result.providers.some((provider) => provider.id === current)) {
+      if (
+        current &&
+        result.providers.some((provider) => provider.id === current)
+      ) {
         return current;
       }
       return result.providers[0]?.id ?? null;
     });
     setSelectedTargetId(null);
     setDiscovering(false);
-    onOutput(result.message, result.ok ? "info" : "warning");
-  }, [folderPath, onOutput]);
+    onOutputRef.current(result.message, result.ok ? "info" : "warning");
+  }, [folderPath]);
 
   useEffect(() => {
     setDiscovery(null);
@@ -159,9 +178,9 @@ export default function TestExplorerModal({
     void discover().catch((err) => {
       setDiscovering(false);
       console.error("test discovery failed:", err);
-      onOutput("Test discovery failed.", "error");
+      onOutputRef.current("Test discovery failed.", "error");
     });
-  }, [discover, onOutput, open]);
+  }, [discover, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -195,7 +214,7 @@ export default function TestExplorerModal({
             : event.status === "passed"
               ? `${event.label} passed in ${formatDuration(event.durationMs)}.`
               : `${event.label} failed in ${formatDuration(event.durationMs)}.`;
-        onOutput(
+        onOutputRef.current(
           summary,
           event.status === "stopped"
             ? "warning"
@@ -209,7 +228,7 @@ export default function TestExplorerModal({
       cleanupOutput();
       cleanupFinished();
     };
-  }, [folderPath, onOutput, open]);
+  }, [folderPath, open]);
 
   const toggleProvider = (providerId: string) => {
     setExpandedProviders((current) => {
@@ -231,7 +250,10 @@ export default function TestExplorerModal({
     setSelectedTargetId(item.id);
   };
 
-  const runProvider = async (provider: TestProvider, target?: TestItem | null) => {
+  const runProvider = async (
+    provider: TestProvider,
+    target?: TestItem | null,
+  ) => {
     if (!folderPath) return;
     const runKey = runKeyFor(provider.id, target?.id ?? null);
     const label = target?.label ?? provider.label;
@@ -308,7 +330,10 @@ export default function TestExplorerModal({
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <FolderTree size={15} className="text-[var(--axon-syntax-function)]" />
+            <FolderTree
+              size={15}
+              className="text-[var(--axon-syntax-function)]"
+            />
             <div className="min-w-0">
               <div className="truncate text-[12px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-75">
                 test explorer
@@ -325,7 +350,8 @@ export default function TestExplorerModal({
                 type="button"
                 aria-label="Run selected test target"
                 onClick={() =>
-                  selectedProvider && void runProvider(selectedProvider, selectedTarget)
+                  selectedProvider &&
+                  void runProvider(selectedProvider, selectedTarget)
                 }
                 disabled={!selectedProvider || activeRunCount > 0}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[var(--axon-syntax-function)] transition-colors hover:bg-[var(--axon-panel-overlay-hover)] disabled:cursor-not-allowed disabled:opacity-30"
@@ -352,7 +378,10 @@ export default function TestExplorerModal({
                 disabled={discovering}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <RefreshCw size={14} className={discovering ? "animate-spin" : ""} />
+                <RefreshCw
+                  size={14}
+                  className={discovering ? "animate-spin" : ""}
+                />
               </button>
             </Tooltip>
             <Tooltip label="Close test explorer" side="bottom">
@@ -382,7 +411,9 @@ export default function TestExplorerModal({
             selectedProvider={selectedProvider}
             selectedTarget={selectedTarget}
             onQueryChange={setQuery}
-            onRunProvider={(provider, target) => void runProvider(provider, target)}
+            onRunProvider={(provider, target) =>
+              void runProvider(provider, target)
+            }
             onSelectProvider={selectProvider}
             onSelectTarget={selectTarget}
             onToggleProvider={toggleProvider}
@@ -396,7 +427,8 @@ export default function TestExplorerModal({
                 selectedRun={selectedRun}
                 selectedTarget={selectedTarget}
                 onRunSelected={() =>
-                  selectedProvider && void runProvider(selectedProvider, selectedTarget)
+                  selectedProvider &&
+                  void runProvider(selectedProvider, selectedTarget)
                 }
               />
               <TestExplorerOutput
