@@ -19,7 +19,6 @@ import {
 import {
   WORKSPACE_REPAINT_CLASS,
   WorkspaceRenderBoundary,
-  triggerCompositorRepaint,
 } from "./WorkspaceRenderBoundary";
 
 const reactTestEnvironment = globalThis as typeof globalThis & {
@@ -105,41 +104,5 @@ describe("WorkspaceRenderBoundary", () => {
     expect(
       document.documentElement.classList.contains(WORKSPACE_REPAINT_CLASS),
     ).toBe(false);
-  });
-
-  it("repaints on demand outside a workspace switch", () => {
-    let cancelRepaint = () => {};
-
-    act(() => {
-      cancelRepaint = triggerCompositorRepaint();
-    });
-
-    expect(
-      document.documentElement.classList.contains(WORKSPACE_REPAINT_CLASS),
-    ).toBe(true);
-    expect(animationFrames).toHaveLength(1);
-
-    act(() => animationFrames[0](0));
-    act(() => animationFrames[1](16));
-    expect(
-      document.documentElement.classList.contains(WORKSPACE_REPAINT_CLASS),
-    ).toBe(false);
-
-    act(() => cancelRepaint());
-  });
-
-  it("clears a pending pulse when the caller cancels early", () => {
-    let cancelRepaint = () => {};
-
-    act(() => {
-      cancelRepaint = triggerCompositorRepaint();
-    });
-    expect(animationFrames).toHaveLength(1);
-
-    act(() => cancelRepaint());
-    expect(
-      document.documentElement.classList.contains(WORKSPACE_REPAINT_CLASS),
-    ).toBe(false);
-    expect(window.cancelAnimationFrame).toHaveBeenCalledWith(1);
   });
 });

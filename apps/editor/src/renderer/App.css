@@ -215,6 +215,7 @@
 .axon-context-menu {
   transform-origin: top left;
   animation: axonContextMenuIn 150ms cubic-bezier(0.18, 0.9, 0.2, 1) both;
+  will-change: opacity, transform;
 }
 
 .axon-context-menu__panel {
@@ -242,18 +243,6 @@ html.axon-workspace-repaint .axon-app-root {
   opacity: 0.999999;
 }
 
-/* Native glass surfaces need an explicit compositing boundary. backdrop-filter
- * under axon-native-glass reads from the OS vibrancy buffer beneath the
- * renderer, and those layers do not self invalidate on a partial React
- * re-render, so a hover or title change can leave the previously painted frame
- * stacked under the new one. Isolation plus layout containment makes each
- * surface a self contained unit, where a dirty rect means a full redraw.
- *
- * will-change is deliberately absent from the popup base rules below. These
- * elements already animate, and Chromium promotes them for the animation
- * duration on its own. Declaring will-change keeps the layer alive after the
- * animation ends, and combined with the backdrop-filter promotion that
- * double promotion is what made the stale frames stick. Do not re-add it. */
 html.axon-native-glass .axon-modal-panel {
   background: var(
     --axon-modal-glass-background,
@@ -263,8 +252,6 @@ html.axon-native-glass .axon-modal-panel {
     saturate(var(--axon-glass-surface-saturation, 100%));
   backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
     saturate(var(--axon-glass-surface-saturation, 100%));
-  isolation: isolate;
-  contain: layout style;
 }
 
 html.axon-native-glass .axon-popup-surface,
@@ -278,8 +265,6 @@ html.axon-native-glass .axon-context-menu {
     saturate(var(--axon-glass-surface-saturation, 100%));
   backdrop-filter: blur(var(--axon-glass-surface-blur, 20px))
     saturate(var(--axon-glass-surface-saturation, 100%));
-  isolation: isolate;
-  contain: layout style;
 }
 
 html.axon-native-glass .axon-select-control,
@@ -298,6 +283,7 @@ html.axon-native-glass .axon-tooltip {
 .axon-modal-panel {
   transform-origin: top center;
   animation: axonModalPanelIn 190ms cubic-bezier(0.18, 0.9, 0.2, 1) both;
+  will-change: opacity, translate, scale;
 }
 
 .axon-git-modal-panel {
@@ -312,6 +298,7 @@ html.axon-native-glass .axon-tooltip {
 .axon-popover {
   transform-origin: top right;
   animation: axonPopoverIn 140ms cubic-bezier(0.18, 0.9, 0.2, 1) both;
+  will-change: opacity, transform;
 }
 
 .axon-navigation-hit {
@@ -496,8 +483,7 @@ html.axon-native-glass .axon-tooltip {
   pointer-events: none;
 }
 
-.axon-line-trace-popover[data-visible="true"]
-  .axon-line-trace-popover__summary {
+.axon-line-trace-popover[data-visible="true"] .axon-line-trace-popover__summary {
   pointer-events: auto;
 }
 
@@ -520,7 +506,11 @@ html.axon-native-glass .axon-tooltip {
   padding: 2px 8px;
   border: 1px solid var(--axon-panel-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--axon-editor-foreground) 7%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--axon-editor-foreground) 7%,
+    transparent
+  );
   opacity: 0.85;
 }
 
