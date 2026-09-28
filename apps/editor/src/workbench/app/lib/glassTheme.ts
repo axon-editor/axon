@@ -101,31 +101,43 @@ export function createGlassThemeCssVariables(
     "--axon-solid-popup-background": opaqueColor(
       themeTokens["panel.background"],
     ),
-    "--axon-background": glassSurface(themeTokens.background),
+    "--axon-background": glassSurface(themeTokens.background, lightGlass),
     "--axon-title-bar-background": glassSurface(
       themeTokens["title_bar.background"],
+      lightGlass,
     ),
     "--axon-toolbar-background": glassSurface(
       themeTokens["toolbar.background"],
+      lightGlass,
     ),
     "--axon-sidebar-background": glassSurface(
       themeTokens["sidebar.background"],
+      lightGlass,
     ),
     "--axon-sidebar-hover-background": neutralHover,
     "--axon-sidebar-border": neutralBorder,
     "--axon-tab-active-background": neutralHover,
-    "--axon-panel-background": glassSurface(themeTokens["panel.background"]),
+    "--axon-panel-background": glassSurface(
+      themeTokens["panel.background"],
+      lightGlass,
+    ),
     "--axon-panel-border": neutralBorder,
     "--axon-panel-overlay-hover": neutralHover,
     "--axon-status-bar-background": glassSurface(
       themeTokens["status_bar.background"],
+      lightGlass,
     ),
-    "--axon-editor-background": glassSurface(themeTokens["editor.background"]),
+    "--axon-editor-background": glassSurface(
+      themeTokens["editor.background"],
+      lightGlass,
+    ),
     "--axon-editor-gutter-background": glassSurface(
       themeTokens["editor.gutter.background"],
+      lightGlass,
     ),
     "--axon-terminal-background": glassSurface(
       themeTokens["terminal.background"],
+      lightGlass,
     ),
   } as CSSProperties;
 }
