@@ -23,9 +23,15 @@
     "build:editor-main": "npm --workspace axon run build:main",
     "build:editor-renderer": "npm --workspace axon run build:renderer",
     "lint": "eslint apps/editor/src extensions/builtin --config eslint.config.mjs",
-    "test": "npm --workspace axon test && go -C services/core test ./...",
+    "typecheck": "tsc -p apps/editor/tsconfig.app.json",
     "check:line-count": "node tools/check-file-lines.mjs",
-    "check:examples": "npm run build:extension-api && node tools/check-extension-examples.mjs && tsc -p examples/extensions/runtime-api/tsconfig.json --noEmit"
+    "check:examples": "npm run build:extension-api && node tools/check-extension-examples.mjs && tsc -p examples/extensions/runtime-api/tsconfig.json --noEmit",
+    "check:language-servers": "npm --workspace axon run check:language-servers",
+    "prepare:extension-registry": "npm --workspace axon run prepare:extension-registry",
+    "test": "npm --workspace axon test && go -C services/core test ./...",
+    "test:go": "go -C services/core test -race ./... && go -C services/core vet ./...",
+    "test:filesystem": "npm --workspace axon test -- --run src/main/fs/watcher.test.ts src/renderer/features/sidebar/files/lib/treeRefresh.test.ts src/workbench/app/lib/latestTaskQueue.test.ts && go -C services/core test ./internal/fs",
+    "ci:local": "npm run build:packages && npm run check:examples && npm run prepare:extension-registry && npm run typecheck && npm run lint && npm run check:line-count && npm run test && npm run test:filesystem && npm run test:go"
   },
   "overrides": {
     "browserslist": "4.28.7",
