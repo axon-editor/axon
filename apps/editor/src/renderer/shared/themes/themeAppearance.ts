@@ -24,6 +24,13 @@ export const gitAppearanceColors = {
   },
 } as const;
 
+// The inline Git line tint in the editor and the diff line backgrounds have to
+// land on the same weight, otherwise the same change reads twice as strong in
+// one surface as the other. The inline lines mix against transparent rather
+// than the editor background because the glass surfaces reduce that background
+// to a near-zero alpha, which collapsed the mix to a few percent.
+export const gitLineTintAlpha = "15%";
+
 export function resolveThemeGitColors(appearance: ThemeAppearance) {
   // Git colors communicate repository state, so they must not borrow syntax
   // colors from the active editor theme. A theme may legitimately render

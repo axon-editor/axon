@@ -386,24 +386,24 @@ html.axon-native-glass .axon-tooltip {
 .axon-git-line--added {
   background: color-mix(
     in srgb,
-    var(--axon-editor-background) 94%,
-    var(--axon-git-added)
+    var(--axon-git-added) var(--axon-git-line-tint),
+    transparent
   );
 }
 
 .axon-git-line--modified {
   background: color-mix(
     in srgb,
-    var(--axon-editor-background) 94%,
-    var(--axon-git-modified)
+    var(--axon-git-modified) var(--axon-git-line-tint),
+    transparent
   );
 }
 
 .axon-git-line--deleted {
   background: color-mix(
     in srgb,
-    var(--axon-editor-background) 94%,
-    var(--axon-git-deleted)
+    var(--axon-git-deleted) var(--axon-git-line-tint),
+    transparent
   );
 }
 
@@ -807,6 +807,18 @@ html.axon-native-glass .axon-tooltip {
 .axon-editor-transparent-surface .monaco-editor .margin,
 .axon-editor-transparent-surface .monaco-editor .inputarea.ime-input {
   background: transparent !important;
+}
+
+.monaco-editor .char-insert.diff-range-empty {
+  border-left-color: rgb(
+    from var(--vscode-diffEditor-insertedTextBackground) r g b / 0.9
+  );
+}
+
+.monaco-editor .char-delete.diff-range-empty {
+  border-left-color: rgb(
+    from var(--vscode-diffEditor-removedTextBackground) r g b / 0.9
+  );
 }
 
 /* The sticky scroll fold paints its own background, which the rules above do

@@ -41,9 +41,13 @@ export default function GitDiffEditorView({
   const [mounted, setMounted] = useState(false);
   const diffEditorRef = useRef<MonacoEditor.IDiffEditor | null>(null);
   const modelsRef = useRef<MonacoEditor.IDiffEditorModel | null>(null);
-  const paintCollectionsRef = useRef<
-    MonacoEditor.IEditorDecorationsCollection[]
-  >([]);
+  // One collection per diff side, reused across semantic token updates. Creating
+  // a new collection on every update left the previous one live, so decorations
+  // stacked on each other until the effect tore them all down.
+  const paintCollectionsRef = useRef<{
+    original: MonacoEditor.IEditorDecorationsCollection | null;
+    modified: MonacoEditor.IEditorDecorationsCollection | null;
+  }>({ original: null, modified: null });
 
   const handleMount: DiffOnMount = (diffEditor) => {
     diffEditorRef.current = diffEditor;
@@ -56,6 +60,13 @@ export default function GitDiffEditorView({
     const diffEditor = diffEditorRef.current;
     if (!diffEditor) return;
 
+    // A single deleted letter inside a word leaves an empty range, which Monaco
+    // cannot paint a background on. It falls back to a 3px border whose color is
+    // the diff text background, and that token is a low-alpha wash meant to sit
+    // behind text, so the marker all but disappears. App.css re-alpha the same
+    // variable to 0.9 for .char-insert/.char-delete.diff-range-empty, which keeps
+    // one source of color instead of adding a marker-specific key.
+    //
     // The main editor paints Axon's semantic token decorations over Monaco's
     // grammar colors. The diff surfaces re-use the same Monaco theme but skip
     // that overlay, so reading a diff always looked flatter than the code it
@@ -67,12 +78,18 @@ export default function GitDiffEditorView({
     const paintSide = (
       model: MonacoEditor.ITextModel,
       editor: MonacoEditor.ICodeEditor,
+      side: "original" | "modified",
     ) => {
       void createSemanticTokenDecorations(model, themeTokens, themeSyntax)
         .then((decorations) => {
           if (cancelled || model.isDisposed()) return;
-          const collection = editor.createDecorationsCollection(decorations);
-          paintCollectionsRef.current.push(collection);
+          const existing = paintCollectionsRef.current[side];
+          if (existing) {
+            existing.set(decorations);
+            return;
+          }
+          paintCollectionsRef.current[side] =
+            editor.createDecorationsCollection(decorations);
         })
         .catch((error) => {
           console.warn("failed to paint semantic diff decorations:", error);
@@ -80,27 +97,35 @@ export default function GitDiffEditorView({
     };
 
     const models: MonacoEditor.IDiffEditorModel | null = diffEditor.getModel();
-    if (models && !models.original.isDisposed() && !models.modified.isDisposed()) {
-      paintSide(models.original, diffEditor.getOriginalEditor());
-      paintSide(models.modified, diffEditor.getModifiedEditor());
+    if (
+      models &&
+      !models.original.isDisposed() &&
+      !models.modified.isDisposed()
+    ) {
+      paintSide(models.original, diffEditor.getOriginalEditor(), "original");
+      paintSide(models.modified, diffEditor.getModifiedEditor(), "modified");
 
-      const subscriptions = [models.original, models.modified].map(
-        (model) =>
-          onDidUpdateSemanticTokens((updatedModel) => {
-            if (updatedModel !== model || updatedModel.isDisposed()) return;
-            const editor =
-              model === models.original
-                ? diffEditor.getOriginalEditor()
-                : diffEditor.getModifiedEditor();
-            paintSide(model, editor);
-          }),
+      const subscriptions = [models.original, models.modified].map((model) =>
+        onDidUpdateSemanticTokens((updatedModel) => {
+          if (updatedModel !== model || updatedModel.isDisposed()) return;
+          const editor =
+            model === models.original
+              ? diffEditor.getOriginalEditor()
+              : diffEditor.getModifiedEditor();
+          paintSide(
+            model,
+            editor,
+            model === models.original ? "original" : "modified",
+          );
+        }),
       );
 
       return () => {
         cancelled = true;
         subscriptions.forEach((subscription) => subscription.dispose());
-        paintCollectionsRef.current.forEach((collection) => collection.clear());
-        paintCollectionsRef.current = [];
+        paintCollectionsRef.current.original?.clear();
+        paintCollectionsRef.current.modified?.clear();
+        paintCollectionsRef.current = { original: null, modified: null };
       };
     }
 

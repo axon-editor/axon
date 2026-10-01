@@ -8,6 +8,7 @@ import { resolveThemeTokens, type ThemeTokenMap } from "../themes/tokenThemes";
 import { type ResolvedExtensionTheme } from "../../../shared/extensions";
 import {
   appearanceBorderColor,
+  gitLineTintAlpha,
   resolveThemeGitColors,
   type ThemeAppearance,
 } from "../themes/themeAppearance";
@@ -62,6 +63,7 @@ export function createThemeCssVariables(
     "--axon-git-modified": gitColors.modified,
     "--axon-git-deleted": gitColors.deleted,
     "--axon-git-mixed": gitColors.mixed,
+    "--axon-git-line-tint": gitLineTintAlpha,
     "--axon-info-foreground": gitColors.mixed,
     "--axon-warning-foreground": gitColors.modified,
     "--axon-danger-foreground": gitColors.deleted,

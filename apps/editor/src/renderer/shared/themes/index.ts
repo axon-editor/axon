@@ -16,6 +16,7 @@ import {
 import {
   appearanceBorderColor,
   resolveThemeGitColors,
+  gitLineTintAlpha,
   inferThemeAppearance,
 } from "./themeAppearance";
 import { type ThemeId } from "../../../shared/settings";
@@ -32,6 +33,12 @@ export {
 type MonacoInstance = typeof monaco;
 
 const registeredMonacos = new WeakSet<MonacoInstance>();
+
+const gitLineTintHex = Math.round(
+  (Number.parseFloat(gitLineTintAlpha) / 100) * 255,
+)
+  .toString(16)
+  .padStart(2, "0");
 
 function buildMonacoTheme(
   theme: AxonThemeDefinition,
@@ -89,10 +96,10 @@ function buildMonacoTheme(
       // editor without turning additions red, deletions green, or modifications
       // into an unrelated syntax accent. Alpha changes visual weight only; the
       // underlying green/gold/red/cyan meanings remain stable everywhere.
-      "diffEditor.insertedTextBackground": `${gitColors.added}30`,
-      "diffEditor.removedTextBackground": `${gitColors.deleted}30`,
-      "diffEditor.insertedLineBackground": `${gitColors.added}18`,
-      "diffEditor.removedLineBackground": `${gitColors.deleted}18`,
+      "diffEditor.insertedTextBackground": `${gitColors.added}4d`,
+      "diffEditor.removedTextBackground": `${gitColors.deleted}4d`,
+      "diffEditor.insertedLineBackground": `${gitColors.added}${gitLineTintHex}`,
+      "diffEditor.removedLineBackground": `${gitColors.deleted}${gitLineTintHex}`,
       "editorGutter.addedBackground": `${gitColors.added}b3`,
       "editorGutter.modifiedBackground": `${gitColors.modified}b3`,
       "editorGutter.deletedBackground": `${gitColors.deleted}b3`,
