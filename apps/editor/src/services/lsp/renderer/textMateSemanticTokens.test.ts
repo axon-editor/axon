@@ -158,6 +158,89 @@ describe("resolveTextMateCaptureCandidates", () => {
       })[0],
     ).toBe("constant.builtin");
   });
+
+  it("does not treat tokens inside a method body as the method", () => {
+    // meta.method.declaration is a wrapper scope TextMate pushes onto every
+    // token in the body, not just the method name, so matching it painted the
+    // whole body in the function color.
+    const candidates = resolveTextMateCaptureCandidates({
+      scopeNames: [
+        "source.js",
+        "meta.objectliteral.js",
+        "meta.method.declaration.js",
+        "meta.block.js",
+        "keyword.control.flow.js",
+      ],
+      tokenType: "keyword",
+      languageId: "javascript",
+      lineContent: "return state.cells;",
+      identifier: "return",
+      startColumnZeroBased: 0,
+    });
+
+    expect(candidates).not.toContain("function.method");
+    expect(candidates).not.toContain("function.method.call");
+    expect(candidates[0]).toMatch(/^keyword/);
+  });
+
+  it("keeps a string inside a method body as a string", () => {
+    const candidates = resolveTextMateCaptureCandidates({
+      scopeNames: [
+        "source.js",
+        "meta.objectliteral.js",
+        "meta.method.declaration.js",
+        "meta.block.js",
+        "string.quoted.double.js",
+      ],
+      tokenType: "string",
+      languageId: "javascript",
+      lineContent: 'addEventListener("keydown", handleKey);',
+      identifier: '"keydown"',
+      startColumnZeroBased: 18,
+    });
+
+    expect(candidates[0]).toBe("string:javascript");
+    expect(candidates).not.toContain("function.method");
+  });
+
+  it("still treats the method name token as a method", () => {
+    const candidates = resolveTextMateCaptureCandidates({
+      scopeNames: [
+        "source.js",
+        "meta.objectliteral.js",
+        "meta.method.declaration.js",
+        "meta.definition.method.js",
+        "entity.name.function.js",
+      ],
+      tokenType: "function",
+      languageId: "javascript",
+      lineContent: "attach() {",
+      identifier: "attach",
+      startColumnZeroBased: 0,
+    });
+
+    // The name keeps method identity, unlike every token around it.
+    expect(candidates).toContain("function.method.call");
+  });
+
+  it("keeps a method call inside a body as a call", () => {
+    const candidates = resolveTextMateCaptureCandidates({
+      scopeNames: [
+        "source.js",
+        "meta.method.declaration.js",
+        "meta.block.js",
+        "meta.function-call.js",
+        "entity.name.function.js",
+      ],
+      tokenType: "function",
+      languageId: "javascript",
+      lineContent: "document.addEventListener(\"keydown\", fn);",
+      identifier: "addEventListener",
+      startColumnZeroBased: 9,
+    });
+
+    expect(candidates[0]).toBe("function.method.call");
+  });
 });
 
 describe("createTextMateSemanticTokens", () => {

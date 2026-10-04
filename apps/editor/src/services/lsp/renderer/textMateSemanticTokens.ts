@@ -663,7 +663,13 @@ export function resolveTextMateCaptureCandidates(input: {
     candidates.push("constructor");
   } else if (
     hasScope(scopeNames, "entity.name.method") ||
-    hasScope(scopeNames, "meta.method") ||
+    // meta.method is a wrapper scope that TextMate puts on every token inside
+    // the body, so matching it paints the whole body as a method. Only the
+    // name token carries meta.definition.method next to entity.name.function,
+    // so both are required. Calls in the body still resolve through the
+    // previous-character check below and keep function.method.call.
+    (hasScope(scopeNames, "meta.definition.method") &&
+      hasScope(scopeNames, "entity.name.function")) ||
     (previousCharacter === "." && nextCharacter === "(" && !qualifiedType)
   ) {
     candidates.push(
