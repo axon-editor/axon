@@ -69,6 +69,7 @@ export function useTerminalSessionManager({
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
+  const [floating, setFloating] = useState(false);
   const sessionsRef = useRef<Record<string, TerminalSession>>({});
   const connectionAbortRef = useRef<Record<string, AbortController>>({});
   const lastCreateNonceRef = useRef(createNonce);
@@ -583,8 +584,16 @@ export function useTerminalSessionManager({
     // toggle command and zen mode. A panel that was zoomed when it went away
     // used to come back zoomed, which parked its controls in the window's top
     // strip and left the user without a reachable restore button.
-    if (!open) setZoomed(false);
-  }, [open, setZoomed]);
+    //
+    // Floating clears for the same reason, and because Cmd+J is a visibility
+    // toggle: leaving a floating terminal on screen while the docked panel hid
+    // would mean "hide" did not hide, and the floating window could cover the
+    // editor with no visible way back to the panel.
+    if (!open) {
+      setZoomed(false);
+      setFloating(false);
+    }
+  }, [open, setFloating, setZoomed]);
 
   useEffect(() => {
     if (!terminalVisible || tabs.length > 0) return;
@@ -697,9 +706,11 @@ export function useTerminalSessionManager({
     attachContainer,
     closeTab,
     createTab,
+    floating,
     reorderTabs,
     resizeActiveTerminal,
     setActiveTabId,
+    setFloating,
     setZoomed,
     tabs,
     zoomed,

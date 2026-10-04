@@ -55,6 +55,12 @@ export interface TerminalSession {
 
 export const DEFAULT_TERMINAL_HEIGHT = 280;
 export const MIN_TERMINAL_HEIGHT = 180;
+export const MIN_FLOATING_TERMINAL_WIDTH = 420;
+export const MIN_FLOATING_TERMINAL_HEIGHT = 200;
+// The floating panel is clamped inside the window so a drag can never park it
+// off-screen, where the header would be unreachable and the terminal could not
+// be dragged back.
+export const FLOATING_TERMINAL_MARGIN = 12;
 export const MAX_RECONNECT_INPUT_BYTES = TERMINAL_REPLAY.maxReconnectInputBytes;
 export const TERMINAL_ACK_BYTE_THRESHOLD = TERMINAL_REPLAY.ackByteThreshold;
 export const TERMINAL_ACK_DEBOUNCE_MS = TERMINAL_REPLAY.ackDebounceMs;
