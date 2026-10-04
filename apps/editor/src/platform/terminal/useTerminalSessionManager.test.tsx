@@ -691,4 +691,50 @@ describe("useTerminalSessionManager", () => {
 
     expect(latestManager?.zoomed).toBe(false);
   });
+
+  it("clears the floating flag when the panel is hidden", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      latestManager?.setFloating(true);
+    });
+    expect(latestManager?.floating).toBe(true);
+
+    // Cmd+J is a visibility toggle. If hiding only docked the strip while the
+    // floating frame stayed on screen, "hide" would not hide, and the floating
+    // terminal could cover the editor with no visible way back to the panel.
+    await act(async () => {
+      root.render(<TerminalHarness open={false} />);
+    });
+
+    expect(latestManager?.floating).toBe(false);
+  });
+
+  it("keeps sessions alive while the terminal floats", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      latestManager?.createTab();
+    });
+
+    const tabsBefore = latestManager?.tabs.map((tab) => tab.id);
+
+    await act(async () => {
+      latestManager?.setFloating(true);
+    });
+
+    // Floating is presentation only. The whole point of the feature is that
+    // shells, scrollback, and websockets survive the move, so neither the tab
+    // list nor the session map may change.
+    expect(latestManager?.floating).toBe(true);
+    expect(latestManager?.tabs.map((tab) => tab.id)).toEqual(tabsBefore);
+  });
 });
