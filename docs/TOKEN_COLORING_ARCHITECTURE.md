@@ -297,6 +297,65 @@ pair colorization.
 Axon now maps all bracket pair foreground slots back to the active theme's
 bracket token so bracket highlighting does not fight the theme.
 
+## A Wrapper Scope Painted A Whole Method Body
+
+A later bug was subtler than the earlier ones because every individual part of the
+pipeline looked correct.
+
+Opening a JavaScript file under Ayu Dark, every token inside a method body came out
+the same amber as the function itself. `return` should be a control keyword.
+Strings should be green. Local variables should be neutral. Instead the entire body
+read as one function call. Tokens in a top-level function body were fine, which
+made it look like something about class methods specifically was broken.
+
+The theme data was not the problem. `ayuSyntax.ts` had correct colors for
+`keyword`, `string`, and `variable`, and the capture registry routed all three
+correctly. This was another case where the failure lived in the classification
+layer between the grammar and the theme, not in the theme.
+
+The cause was one line. `hasScope` matches a scope by substring, so the check for
+`meta.method` matched `meta.method.declaration.js`. TextMate treats
+`meta.method.declaration` as a wrapper scope: it sits on the method name, but it
+also sits on every single token inside the body. Because the method branch pushes
+`function.method` ahead of the semantic fallback candidates, and the first
+resolvable candidate wins, one wrapper scope on a whole block of text turned every
+token in that block into a function.
+
+The lesson is about scope semantics, not about `hasScope`. Substring matching is
+the right tool for finding a real scope in a stack that includes language suffixes
+like `entity.name.method.ts`. It is the wrong tool for matching a scope that
+TextMate uses as a structural wrapper, because a wrapper is by definition broader
+than one token.
+
+The fix requires two scopes together. Only the name token carries
+`meta.definition.method` next to `entity.name.function`, so requiring both keeps
+method identity on the name and nothing else. Calls written inside a body still
+resolve correctly through the existing previous-character check, so
+`document.addEventListener(...)` keeps `function.method.call`.
+
+Two things were worth verifying rather than assuming, because the bug report only
+had JavaScript evidence. TypeScript uses the same
+`meta.method.declaration.ts > meta.definition.method.ts > entity.name.function.ts`
+shape, so the fix holds there. Rust and Python have no `meta.method` scope at all,
+and their body tokens carry no `meta.definition.*` scope either, so the fix cannot
+over-correct them.
+
+The tests were checked in both directions. With the source fix stashed and only
+the new tests applied, the two body-token tests fail. That confirms they are real
+regression tests rather than assertions that describe current behavior. Writing
+them also exposed three wrong assumptions in the original bug report, each
+verified against the real scope stacks before being written down:
+
+- `keyword.return` is never emitted. That capture requires a scope containing the
+  literal text `return`, and the actual scope is `keyword.control.flow.js`. The
+  winning capture is the generic `keyword:javascript`.
+- A string in a body resolves to `string:javascript`, not `string`.
+- A method name followed by an open paren resolves to `function.method.call`, not
+  `function.method`, and `function.definition` is unshifted ahead of it.
+
+That last one is pre-existing behavior for method names, not a consequence of this
+fix. It is recorded here because the same assumption will otherwise be made again.
+
 ## Language Fallbacks Matter
 
 Python exposed a different gap. The TextMate grammar can identify an import
@@ -330,6 +389,8 @@ The working architecture is:
 - TextMate scopes improve grammar richness.
 - LSP semantic tokens improve symbol meaning.
 - Axon fallbacks repair common high-value gaps.
+- Scope matching distinguishes real scopes from structural wrapper scopes, so one
+  `meta.method` cannot repaint an entire method body.
 - Named capture candidates preserve grammar and server identity until the active
   theme resolves them.
 - Axon decorations apply the complete resolved style where Monaco's built-in
@@ -355,11 +416,16 @@ from zero. The order is:
 5. Check whether LSP semantic tokens exist for that range.
 6. Check the semantic selector and expected color.
 7. Check whether a bracket or decoration class is overriding the visible color.
-8. Add a capture alias only if the theme has the right syntax key but Axon does
+8. If a whole region shares one wrong color, suspect a TextMate wrapper scope
+   such as `meta.method` or `meta.class` before suspecting the theme. Print the
+   real scope stack and compare it against a token that is colored correctly.
+9. Add a capture alias only if the theme has the right syntax key but Axon does
    not route the emitted token to it.
-9. Add a language fallback only if the grammar/LSP consistently misses a
-   high-value local syntax pattern.
-10. Treat Monaco's built-in semantic paint path as helpful but not authoritative.
+10. Add a language fallback only if the grammar/LSP consistently misses a
+    high-value local syntax pattern.
+11. Treat Monaco's built-in semantic paint path as helpful but not authoritative.
+12. Write regression tests from real scope stacks, then confirm they fail with the
+    fix stashed. A test that passes both ways is not a regression test.
 
 This is the guardrail. Axon should keep getting richer without turning syntax
 highlighting into scattered theme-specific patches.
