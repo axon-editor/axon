@@ -1,11 +1,11 @@
 module github.com/GordenArcher/axon-core
 
-go 1.25.1
+go 1.26.0
 
 require (
 	github.com/creack/pty v1.1.24
 	github.com/google/uuid v1.6.0
-	golang.org/x/sys v0.45.0
+	golang.org/x/sys v0.48.0
 )
 
 require github.com/gorilla/websocket v1.5.3
