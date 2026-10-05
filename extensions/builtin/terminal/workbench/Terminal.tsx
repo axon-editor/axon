@@ -53,6 +53,7 @@ import { type TerminalWorkbenchContribution } from "./lib/contribution";
 import { getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
 import {
   DEFAULT_TERMINAL_HEIGHT,
+  FLOATING_TERMINAL_MARGIN,
   MIN_TERMINAL_HEIGHT,
   getFolderName,
 } from "@axon-editor/platform/terminal/terminalProtocol";
