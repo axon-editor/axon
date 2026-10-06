@@ -15,8 +15,8 @@ import {
   it,
   vi,
 } from "vitest";
-import TerminalTabBar from "../../../../../extensions/builtin/terminal/workbench/TerminalTabBar";
-import { useZoomedPanelEscape } from "../../../../../extensions/builtin/terminal/workbench/lib/useZoomedPanelEscape";
+import TerminalTabBar from "../../../../../extensions/builtin/terminal/workbench/components/TerminalTabBar";
+import { useZoomedPanelEscape } from "../../../../../extensions/builtin/terminal/workbench/hooks/useZoomedPanelEscape";
 
 const reactTestEnvironment = globalThis as unknown as {
   IS_REACT_ACT_ENVIRONMENT: boolean;

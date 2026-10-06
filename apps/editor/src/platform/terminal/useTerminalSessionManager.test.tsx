@@ -16,7 +16,7 @@ import {
   vi,
 } from "vitest";
 import { resetCommandHistoryForTests } from "../../../../../extensions/builtin/terminal/workbench/lib/commandHistoryStore";
-import { useTerminalSessionManager } from "../../../../../extensions/builtin/terminal/workbench/lib/useTerminalSessionManager";
+import { useTerminalSessionManager } from "../../../../../extensions/builtin/terminal/workbench/hooks/useTerminalSessionManager";
 
 const terminalBridgeMock = vi.hoisted(() => ({
   createTerminalTicket: vi.fn(),

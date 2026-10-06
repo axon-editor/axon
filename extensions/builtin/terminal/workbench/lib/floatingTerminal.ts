@@ -114,6 +114,65 @@ export function getFloatingDragPosition(
 }
 
 /**
+ * Which edges a resize handle owns. The opposite edges are the anchor and
+ * never move, which is what keeps a west drag pinned to the right side while
+ * the width follows the pointer.
+ */
+export type FloatingResizeEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+
+/**
+ * One frame of edge/corner resize for the floating modal. The viewport clamp
+ * runs before the minimum clamp on purpose: in a window too small to hold both,
+ * the minimum wins and the frame may overflow, which is the same priority
+ * clampFloatingRect already applies. Clamping the stationary edges is skipped
+ * because the start rect always comes in already clamped, so only the moving
+ * edge can ever be illegal.
+ */
+export function getFloatingResizeRect(
+  start: FloatingTerminalRect,
+  delta: { x: number; y: number },
+  edge: FloatingResizeEdge,
+  viewport: FloatingTerminalViewport,
+): FloatingTerminalRect {
+  const movesWest = edge === "w" || edge === "nw" || edge === "sw";
+  const movesEast = edge === "e" || edge === "ne" || edge === "se";
+  const movesNorth = edge === "n" || edge === "nw" || edge === "ne";
+  const movesSouth = edge === "s" || edge === "sw" || edge === "se";
+
+  const startRight = start.left + start.width;
+  const startBottom = start.top + start.height;
+
+  let left = start.left;
+  let top = start.top;
+  let right = startRight;
+  let bottom = startBottom;
+
+  if (movesWest) left = start.left + delta.x;
+  if (movesEast) right = startRight + delta.x;
+  if (movesNorth) top = start.top + delta.y;
+  if (movesSouth) bottom = startBottom + delta.y;
+
+  if (movesWest) left = Math.max(left, FLOATING_TERMINAL_MARGIN);
+  if (movesEast) right = Math.min(right, viewport.width - FLOATING_TERMINAL_MARGIN);
+  if (movesNorth) top = Math.max(top, FLOATING_TERMINAL_MARGIN);
+  if (movesSouth) bottom = Math.min(bottom, viewport.height - FLOATING_TERMINAL_MARGIN);
+
+  // The stationary edge is the fixed point the minimum stretches back to, so
+  // overshooting a shrink can never invert the rect.
+  if (movesWest) left = Math.min(left, right - MIN_FLOATING_TERMINAL_WIDTH);
+  if (movesEast) right = Math.max(right, left + MIN_FLOATING_TERMINAL_WIDTH);
+  if (movesNorth) top = Math.min(top, bottom - MIN_FLOATING_TERMINAL_HEIGHT);
+  if (movesSouth) bottom = Math.max(bottom, top + MIN_FLOATING_TERMINAL_HEIGHT);
+
+  return {
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+  };
+}
+
+/**
  * Transition hook for the docked/floating swap. A React state flip alone cannot
  * animate between two parents, so the frame animates its own inset properties
  * while the same DOM node stays mounted and the xterm inside it never detaches.

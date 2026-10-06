@@ -30,12 +30,12 @@ import {
   terminateDetachedSession,
   writeTerminalOutput,
 } from "@axon-editor/platform/terminal/terminalSessionIo";
-import { createTerminalRendererController } from "./terminalRenderer";
+import { createTerminalRendererController } from "../lib/terminalRenderer";
 import {
   getCommandSuggestionAcceptKey,
   shouldClearTerminal,
-} from "./terminalShortcuts";
-import { createTerminalSuggestionController } from "./terminalSuggestionOverlay";
+} from "../lib/terminalShortcuts";
+import { createTerminalSuggestionController } from "../lib/terminalSuggestionOverlay";
 
 export interface TerminalTab {
   id: string;

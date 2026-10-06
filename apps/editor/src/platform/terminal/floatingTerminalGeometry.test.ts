@@ -13,6 +13,7 @@ import {
   clampFloatingRect,
   getDefaultFloatingRect,
   getFloatingDragPosition,
+  getFloatingResizeRect,
   type FloatingTerminalViewport,
 } from "../../../../../extensions/builtin/terminal/workbench/lib/floatingTerminal";
 
@@ -129,5 +130,118 @@ describe("getFloatingDragPosition", () => {
 
     expect(position.left).toBe(FLOATING_TERMINAL_MARGIN);
     expect(position.top).toBe(FLOATING_TERMINAL_MARGIN);
+  });
+});
+
+describe("getFloatingResizeRect", () => {
+  // right edge 1000, bottom edge 550: every assertion below checks that the
+  // stationary edges stay welded at those values while the dragged one moves.
+  const start = { left: 200, top: 150, width: 800, height: 400 };
+
+  it("anchors the opposite edge on a west drag", () => {
+    const rect = getFloatingResizeRect(
+      start,
+      { x: -50, y: 999 },
+      "w",
+      desktop,
+    );
+
+    expect(rect.left).toBe(150);
+    expect(rect.left + rect.width).toBe(1000);
+    expect(rect.top).toBe(150);
+    expect(rect.height).toBe(400);
+  });
+
+  it("anchors the opposite edge on an east drag", () => {
+    const rect = getFloatingResizeRect(
+      start,
+      { x: 60, y: -999 },
+      "e",
+      desktop,
+    );
+
+    expect(rect.left).toBe(200);
+    expect(rect.left + rect.width).toBe(1060);
+    expect(rect.top).toBe(150);
+    expect(rect.height).toBe(400);
+  });
+
+  it("moves the top edge on a north drag and leaves the bottom put", () => {
+    const rect = getFloatingResizeRect(
+      start,
+      { x: 0, y: -40 },
+      "n",
+      desktop,
+    );
+
+    expect(rect.top).toBe(110);
+    expect(rect.top + rect.height).toBe(550);
+    expect(rect.left).toBe(200);
+    expect(rect.width).toBe(800);
+  });
+
+  it("moves both owning edges on a corner drag", () => {
+    const rect = getFloatingResizeRect(
+      start,
+      { x: -30, y: 70 },
+      "sw",
+      desktop,
+    );
+
+    expect(rect.left).toBe(170);
+    expect(rect.left + rect.width).toBe(1000);
+    expect(rect.top).toBe(150);
+    expect(rect.top + rect.height).toBe(620);
+  });
+
+  it("refuses to shrink past the minimum even when the pointer overshoots", () => {
+    const rect = getFloatingResizeRect(
+      start,
+      { x: 99999, y: 99999 },
+      "nw",
+      desktop,
+    );
+
+    expect(rect.width).toBe(MIN_FLOATING_TERMINAL_WIDTH);
+    expect(rect.left + rect.width).toBe(1000);
+    expect(rect.height).toBe(MIN_FLOATING_TERMINAL_HEIGHT);
+    expect(rect.top + rect.height).toBe(550);
+  });
+
+  it("pins an expanding edge to the window margin", () => {
+    const rect = getFloatingResizeRect(
+      start,
+      { x: 99999, y: 0 },
+      "e",
+      desktop,
+    );
+
+    expect(rect.left + rect.width).toBe(
+      desktop.width - FLOATING_TERMINAL_MARGIN,
+    );
+
+    const south = getFloatingResizeRect(
+      start,
+      { x: 0, y: 99999 },
+      "s",
+      desktop,
+    );
+
+    expect(south.top + south.height).toBe(
+      desktop.height - FLOATING_TERMINAL_MARGIN,
+    );
+  });
+
+  it("lets the minimum win when the window cannot hold it", () => {
+    // Same priority as clampFloatingRect: a frame smaller than the minimum is
+    // legal even though it overflows a window this size.
+    const rect = getFloatingResizeRect(
+      { left: FLOATING_TERMINAL_MARGIN, top: FLOATING_TERMINAL_MARGIN, width: MIN_FLOATING_TERMINAL_WIDTH, height: MIN_FLOATING_TERMINAL_HEIGHT },
+      { x: -100, y: 0 },
+      "e",
+      { width: 300, height: 200 },
+    );
+
+    expect(rect.width).toBe(MIN_FLOATING_TERMINAL_WIDTH);
   });
 });
