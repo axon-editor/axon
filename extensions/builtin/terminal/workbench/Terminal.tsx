@@ -76,6 +76,13 @@ interface Props {
   onClearOutput: () => void;
   onHide: () => void;
   floatingNotice?: ReactNode;
+  // Clearance for the OS window controls (mac traffic lights, Windows caption
+  // overlay) that float above the renderer. Only used while zoomed, since that
+  // is the state that parks this header in the window's top strip.
+  nativeControlInset?: {
+    start: number;
+    end: number;
+  };
 }
 
 const terminalControlClassName =
@@ -97,6 +104,7 @@ export default function Terminal({
   onClearOutput,
   onHide,
   floatingNotice,
+  nativeControlInset = { start: 0, end: 0 },
 }: Props) {
   const [height, setHeight] = useState(DEFAULT_TERMINAL_HEIGHT);
   const [floatingRect, setFloatingRect] = useState<FloatingTerminalRect | null>(
@@ -463,6 +471,18 @@ export default function Terminal({
             {
               borderColor: "var(--axon-panel-border)",
               WebkitAppRegion: "no-drag",
+              // The frame's class ternary gives floating precedence over
+              // zoomed, so mirror it here: a floating header drags from its own
+              // geometry and must not pick up the titlebar inset. Zero insets
+              // fall through to the pl-3/pr-3 classes, which is what keeps the
+              // docked header unchanged when the sidebar still owns the
+              // traffic-light corner.
+              ...(zoomed && !floating
+                ? {
+                    paddingLeft: nativeControlInset.start || undefined,
+                    paddingRight: nativeControlInset.end || undefined,
+                  }
+                : null),
             } as CSSProperties
           }
         >

@@ -37,6 +37,15 @@ const SpotifyFloatingPlayer = React.lazy(
   () => import("@axon-builtin-spotify/SpotifyFloatingPlayer"),
 );
 
+// Matches the sidebar header's pl-20. The mac traffic lights sit at x:14 and
+// span roughly 66px, so 80px clears them with room to spare. Anything smaller
+// and the last light kisses the label again.
+const MAC_TRAFFIC_LIGHT_INSET_PX = 80;
+// Windows draws its caption overlay (min/max/close, ~138px wide) over the
+// top-right of the renderer. 150 keeps the terminal header buttons clear of it
+// and matches the zen-mode end inset.
+const WINDOWS_CAPTION_INSET_PX = 150;
+
 export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
   const {
     activeFileContent,
@@ -163,6 +172,26 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         end: platform === "win32" ? 150 : 0,
       }
     : undefined;
+  // A zoomed terminal stretches to the window's top strip, so its header only
+  // collides with the native controls when the editor column is the outermost
+  // element: sidebar collapsed (it unmounts instead of shrinking) or parked on
+  // the right. Docked panels never need this because their header sits at the
+  // bottom of the column, and zen mode hides the terminal outright. The end
+  // inset mirrors the same logic for the Windows caption overlay on the right
+  // edge, where the agent sidebar or a right-side main sidebar would cover it.
+  const terminalNativeControlInset = {
+    start:
+      reserveMacTrafficLightSpace &&
+      (sidebarCollapsed || mainSidebarSide === "right")
+        ? MAC_TRAFFIC_LIGHT_INSET_PX
+        : 0,
+    end:
+      platform === "win32" &&
+      mainSidebarSide !== "right" &&
+      !shouldShowAgentSidebar
+        ? WINDOWS_CAPTION_INSET_PX
+        : 0,
+  };
   const uiFontFamily = fontStack(
     settings.editor.uiFontFamily,
     "system-ui, sans-serif",
@@ -448,6 +477,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
                   setBottomPanelOpen(false);
                 }}
                 onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
+                nativeControlInset={terminalNativeControlInset}
               />
             </React.Suspense>
           ) : null}
