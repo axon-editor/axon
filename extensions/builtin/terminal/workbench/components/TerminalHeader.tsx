@@ -8,7 +8,7 @@
 // the panel stays in Terminal instead of drifting into the chrome. Extracted
 // from Terminal, which had the header markup fused into the frame's geometry
 // concerns.
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties } from "react";
 import {
   Maximize2,
   Minimize2,
@@ -31,11 +31,17 @@ interface Props {
   activePanelTab: "terminal" | BottomPanelTab;
   contribution: TerminalWorkbenchContribution;
   terminalTitle: string;
+  // True while the dedicated terminal window owns the sessions. The float
+  // button flips to its dock state and the traffic-light clearance applies
+  // unconditionally, mirroring the zoomed header for a window that is already
+  // parked under the OS titlebar.
   floating: boolean;
   zoomed: boolean;
-  // Clearance for the OS window controls (mac traffic lights, Windows caption
-  // overlay) that float above the renderer. Only applied while zoomed, since
-  // that is the state that parks this header in the window's top strip.
+  // True when the terminal fills a dedicated window. The header becomes the
+  // native drag region, the zoom control is replaced by dock/hide, and the
+  // traffic-light/caption clearance applies unconditionally instead of only in
+  // the zoomed state.
+  windowed?: boolean;
   nativeControlInset: {
     start: number;
     end: number;
@@ -50,9 +56,6 @@ interface Props {
   onZoomToggle: () => void;
   onFloatingToggle: () => void;
   onHide: () => void;
-  onDragStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onDragMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onDragEnd: () => void;
 }
 
 export default function TerminalHeader({
@@ -61,6 +64,7 @@ export default function TerminalHeader({
   terminalTitle,
   floating,
   zoomed,
+  windowed = false,
   nativeControlInset,
   tabs,
   activeTabId,
@@ -72,35 +76,34 @@ export default function TerminalHeader({
   onZoomToggle,
   onFloatingToggle,
   onHide,
-  onDragStart,
-  onDragMove,
-  onDragEnd,
 }: Props) {
+  const isWindowed = windowed === true;
   // Tooltips flip below the header while zoomed because the top of the screen
   // is where the panel sits in that state and an upward tooltip would clip
   // off the window.
   const controlTooltipSide = zoomed ? "bottom" : "top";
+  // Preserve the native drag surface around the whole windowed header: empty
+  // areas (and the traffic-light inset) move the window, while the tab strip
+  // and the control buttons opt back out of the drag region.
+  const noDragStyle = isWindowed
+    ? ({ WebkitAppRegion: "no-drag" } as CSSProperties)
+    : undefined;
+  // The header parks under the window's top strip whenever the panel is
+  // zoomed, or always while the surface is itself a window. A docked header
+  // never needs the inset because the workbench titlebar owns the traffic
+  // lights there. Zero insets fall through to the pl-3/pr-3 classes, which is
+  // what keeps the docked header unchanged when the sidebar still owns the
+  // corner.
+  const useNativeControlInset = isWindowed || zoomed;
 
   return (
     <div
-      className={`relative z-20 flex h-9 shrink-0 items-center justify-between border-b pl-3 pr-3 ${
-        floating ? "cursor-grab active:cursor-grabbing" : ""
-      }`}
-      onPointerDown={floating ? onDragStart : undefined}
-      onPointerMove={floating ? onDragMove : undefined}
-      onPointerUp={floating ? onDragEnd : undefined}
-      onPointerCancel={floating ? onDragEnd : undefined}
+      className={`relative z-20 flex h-9 shrink-0 items-center justify-between border-b pl-3 pr-3`}
       style={
         {
           borderColor: "var(--axon-panel-border)",
-          WebkitAppRegion: "no-drag",
-          // The frame's class ternary gives floating precedence over
-          // zoomed, so mirror it here: a floating header drags from its own
-          // geometry and must not pick up the titlebar inset. Zero insets
-          // fall through to the pl-3/pr-3 classes, which is what keeps the
-          // docked header unchanged when the sidebar still owns the
-          // traffic-light corner.
-          ...(zoomed && !floating
+          WebkitAppRegion: isWindowed ? "drag" : "no-drag",
+          ...(useNativeControlInset
             ? {
                 paddingLeft: nativeControlInset.start || undefined,
                 paddingRight: nativeControlInset.end || undefined,
@@ -124,6 +127,7 @@ export default function TerminalHeader({
           onSelect={onTabSelect}
           onClose={onTabClose}
           onReorder={onTabReorder}
+          windowed={isWindowed}
         />
         <Tooltip
           label="New terminal tab (plus)"
@@ -135,13 +139,14 @@ export default function TerminalHeader({
             onClick={onNewTab}
             aria-label="New terminal tab"
             className={terminalControlClassName}
+            style={noDragStyle}
           >
             <Plus size={13} />
           </button>
         </Tooltip>
       </div>
 
-      <div className="ml-2 flex shrink-0 items-center gap-1">
+      <div className="ml-2 flex shrink-0 items-center gap-1" style={noDragStyle}>
         {activePanelTab === "output" && (
           <Tooltip label="Clear output" side={controlTooltipSide}>
             <button
@@ -153,23 +158,25 @@ export default function TerminalHeader({
             </button>
           </Tooltip>
         )}
-        <Tooltip
-          label={zoomed ? "Restore terminal (panel)" : "Zoom terminal (panel)"}
-          side={controlTooltipSide}
-        >
-          <button
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={onZoomToggle}
-            aria-label={zoomed ? "Restore terminal" : "Zoom terminal"}
-            className={terminalControlClassName}
+        {!isWindowed && (
+          <Tooltip
+            label={zoomed ? "Restore terminal (panel)" : "Zoom terminal (panel)"}
+            side={controlTooltipSide}
           >
-            {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </button>
-        </Tooltip>
+            <button
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={onZoomToggle}
+              aria-label={zoomed ? "Restore terminal" : "Zoom terminal"}
+              className={terminalControlClassName}
+            >
+              {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            </button>
+          </Tooltip>
+        )}
         <Tooltip
           label={
-            floating
-              ? "Dock terminal back to the bottom"
+            floating || isWindowed
+              ? "Dock terminal back to the editor"
               : "Show terminal as a floating window"
           }
           side={controlTooltipSide}
@@ -178,20 +185,23 @@ export default function TerminalHeader({
             onPointerDown={(event) => event.stopPropagation()}
             onClick={onFloatingToggle}
             aria-label={
-              floating
-                ? "Dock terminal back to the bottom"
+              floating || isWindowed
+                ? "Dock terminal back to the editor"
                 : "Show terminal as a floating window"
             }
             className={terminalControlClassName}
           >
-            {floating ? (
+            {floating || isWindowed ? (
               <PanelBottom size={13} />
             ) : (
               <MoveDiagonal2 size={13} />
             )}
           </button>
         </Tooltip>
-        <Tooltip label="Hide terminal (Cmd+J)" side={controlTooltipSide}>
+        <Tooltip
+          label={isWindowed ? "Hide terminal" : "Hide terminal (Cmd+J)"}
+          side={controlTooltipSide}
+        >
           <button
             onPointerDown={(event) => event.stopPropagation()}
             onClick={onHide}

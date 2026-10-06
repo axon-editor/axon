@@ -117,6 +117,10 @@ import type {
 } from "../../shared/updates";
 import type { AppInfo } from "../shared/components/AboutModal";
 import type {
+  TerminalSurfaceDockMode,
+  TerminalWindowHandoff,
+} from "../../shared/terminalWindow";
+import type {
   AiChatRequest,
   AiChatResult,
   AiChatStreamEvent,
@@ -136,9 +140,10 @@ declare global {
     axonEditorSettings?: AxonSettings;
     axon: {
       // Present only in the dedicated Settings window (editor.openSettingsIn =
-      // "window"); undefined in editor windows. Lets the surface boot choose
-      // the slim settings mount instead of the full editor app shell.
-      surface?: "settings";
+      // "window") and the dedicated Terminal window; undefined in editor
+      // windows. Each surface boots its own slim mount instead of the full
+      // editor app shell.
+      surface?: "settings" | "terminal";
       platform: string;
       isWindowFullScreen: () => Promise<boolean>;
       onWindowFullScreenChanged: (
@@ -150,6 +155,19 @@ declare global {
         workingDirectory: string | null,
       ) => Promise<string>;
       getTerminalCommandHistory: () => Promise<string[]>;
+      openTerminalWindow: (handoff: TerminalWindowHandoff) => Promise<void>;
+      closeTerminalWindow: (
+        dockMode: TerminalSurfaceDockMode,
+      ) => Promise<void>;
+      onTerminalDocked: (
+        callback: (handoff: TerminalWindowHandoff | null) => void,
+      ) => () => void;
+      // Present only in the dedicated Terminal window preload; undefined in
+      // editor windows. The narrow preload exposes the dock handshake while
+      // the editor surface only drives the window lifecycle.
+      getTerminalWindowHandoff?: () => Promise<TerminalWindowHandoff | null>;
+      onTerminalDockRequest?: (callback: () => void) => () => void;
+      dockTerminalWindow?: (handoff: TerminalWindowHandoff) => Promise<void>;
       getLocalAssetUrl: (filePath: string) => Promise<string>;
       openFolder: () => Promise<string | null>;
       authorizeWorkspaceRoot: (rootPath: string) => Promise<string>;

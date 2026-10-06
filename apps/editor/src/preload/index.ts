@@ -16,6 +16,10 @@ import {
 } from "../shared/settings";
 import { type AxonCommand } from "../shared/commands";
 import {
+  type TerminalSurfaceDockMode,
+  type TerminalWindowHandoff,
+} from "../shared/terminalWindow";
+import {
   type AgentResumeRequest,
   type CliToolInstallResult,
   type CliToolStatus,
@@ -172,6 +176,19 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("core:createTerminalTicket", workingDirectory),
   getTerminalCommandHistory: (): Promise<string[]> =>
     ipcRenderer.invoke("terminal:getCommandHistory"),
+  openTerminalWindow: (handoff: TerminalWindowHandoff): Promise<void> =>
+    ipcRenderer.invoke("terminal:openWindow", handoff),
+  closeTerminalWindow: (
+    dockMode: TerminalSurfaceDockMode,
+  ): Promise<void> => ipcRenderer.invoke("terminal:closeWindow", dockMode),
+  onTerminalDocked: (
+    callback: (handoff: TerminalWindowHandoff | null) => void,
+  ) => {
+    const handler = (_: unknown, handoff: TerminalWindowHandoff | null) =>
+      callback(handoff);
+    ipcRenderer.on("terminal:docked", handler);
+    return () => ipcRenderer.removeListener("terminal:docked", handler);
+  },
   getLocalAssetUrl: (filePath: string): Promise<string> =>
     ipcRenderer.invoke("assets:getLocalUrl", filePath),
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),

@@ -45,6 +45,7 @@ import { ExtensionWebviewServer } from "./extensions/host/webview/server";
 import { createWindow } from "./window/createWindow";
 import { createSettingsWindow } from "./window/createSettingsWindow";
 import { OpenWorkspaceRegistry } from "./window/openWorkspaceRegistry";
+import { createTerminalWindowController } from "./terminal/windowController";
 import { readSettingsFromDisk } from "./settings/io";
 import { getAxonIconPath } from "./fonts/fonts";
 import { registerSettingsHandlers } from "./settings/handlers";
@@ -198,6 +199,14 @@ const settingsWindowController = createSettingsWindow({
   isMac,
   isWindows,
   getAxonIconPath: () => getAxonIconPath(isDev),
+});
+const terminalWindowController = createTerminalWindowController({
+  axonDevServerUrl,
+  isDev,
+  isMac,
+  isWindows,
+  getAxonIconPath: () => getAxonIconPath(isDev),
+  workspaceCapabilities,
 });
 
 function allowedLocalProtocolOrigin(origin: string | null) {
@@ -606,6 +615,7 @@ function createManagedWindow(
     pendingCliOpenFolders.delete(createdWebContentsId);
     cliReadyRenderers.delete(createdWebContentsId);
     workspaceCapabilities.releaseRenderer(createdWebContentsId);
+    terminalWindowController.ownerClosed(createdWebContentsId);
     localAssetTickets.releaseRenderer(createdWebContentsId);
     extensionAssetTickets.releaseRenderer(createdWebContentsId);
     windowSessionStore.releaseRenderer(createdWebContentsId);

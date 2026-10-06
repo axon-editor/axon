@@ -36,6 +36,10 @@ import {
   shouldClearTerminal,
 } from "../lib/terminalShortcuts";
 import { createTerminalSuggestionController } from "../lib/terminalSuggestionOverlay";
+import type {
+  TerminalSurfaceTab,
+  TerminalWindowHandoff,
+} from "@axon-editor/shared/terminalWindow";
 
 export interface TerminalTab {
   id: string;
@@ -51,8 +55,45 @@ interface UseTerminalSessionManagerOptions {
   open: boolean;
   terminalOptions: ReturnType<typeof getTerminalOptions>;
   terminalVisible: boolean;
+  windowed?: boolean;
+  adoptHandoff?: TerminalWindowHandoff | null;
   workingDirectory: string | null;
   onHide: () => void;
+}
+
+// The session record is created in two places (a fresh tab and an adopted tab
+// that was born in the floating window), so its shape lives in one factory to
+// stop the two paths from drifting apart.
+function createTerminalSessionShell(
+  workingDirectory: string | null,
+): TerminalSession {
+  return {
+    container: null,
+    term: null,
+    fitAddon: null,
+    rendererController: null,
+    suggestionController: null,
+    ws: null,
+    reconnectTimer: null,
+    connectionFailureCount: 0,
+    resizeDebounceTimer: null,
+    resizeObserver: null,
+    dataDisposable: null,
+    multilineDisposable: null,
+    workingDirectory,
+    cwdSynced: false,
+    receivedBytes: 0,
+    lastAckedBytes: 0,
+    ackTimer: null,
+    pendingXtermWriteBytes: 0,
+    inputQueue: [],
+    queuedInputBytes: 0,
+    lastResizeCols: null,
+    lastResizeRows: null,
+    disposed: false,
+    terminating: false,
+    parked: false,
+  };
 }
 
 export function useTerminalSessionManager({
@@ -63,19 +104,43 @@ export function useTerminalSessionManager({
   open,
   terminalOptions,
   terminalVisible,
+  windowed = false,
+  adoptHandoff,
   workingDirectory,
   onHide,
 }: UseTerminalSessionManagerOptions) {
-  const [tabs, setTabs] = useState<TerminalTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<TerminalTab[]>(() => {
+    if (!windowed || !adoptHandoff) return [];
+    return adoptHandoff.tabs.map((tab) => ({ id: tab.id, title: tab.title }));
+  });
+  const [activeTabId, setActiveTabId] = useState<string | null>(
+    () => (windowed && adoptHandoff ? adoptHandoff.activeTabId : null),
+  );
   const [zoomed, setZoomed] = useState(false);
   const [floating, setFloating] = useState(false);
-  const sessionsRef = useRef<Record<string, TerminalSession>>({});
+  const [seededSessions] = useState<Record<string, TerminalSession>>(() => {
+    if (!windowed || !adoptHandoff) return {};
+    // The window adopts the exact session ids from the handoff, so the PTY host
+    // keeps one identity per shell across the move. Term-less shells connect
+    // when their tab container renders below.
+    const seeded: Record<string, TerminalSession> = {};
+    for (const tab of adoptHandoff.tabs) {
+      seeded[tab.id] = createTerminalSessionShell(tab.workingDirectory);
+    }
+    return seeded;
+  });
+  const sessionsRef = useRef<Record<string, TerminalSession>>(seededSessions);
   const connectionAbortRef = useRef<Record<string, AbortController>>({});
   const lastCreateNonceRef = useRef(createNonce);
   const suppressAutoCreateRef = useRef(false);
   const previousOpenRef = useRef(open);
   const previousWorkingDirectoryRef = useRef(workingDirectory);
+
+  // Serialization reads tab order and selection from a ref so the stable
+  // callback handed to the floating window always reflects the latest render
+  // instead of capturing a stale snapshot at registration time.
+  const surfaceStateRef = useRef({ tabs, activeTabId });
+  surfaceStateRef.current = { tabs, activeTabId };
 
   const openTerminalLink = useCallback((event: MouseEvent, uri: string) => {
     event.preventDefault();
@@ -187,6 +252,56 @@ export function useTerminalSessionManager({
     }
   }, [disposeSession]);
 
+  const parkSessions = useCallback(() => {
+    // Park hands every live session to the floating window without destroying
+    // the PTY or the editor's xterm buffer. Clearing reconnect timers and nulling
+    // the socket handlers is what stops a session from re-attaching to the host
+    // while the window has already taken it: the host rejects concurrent owners,
+    // but a stale reconnect would still fight for the same session id.
+    for (const [id, session] of Object.entries(sessionsRef.current)) {
+      if (session.disposed) continue;
+      session.parked = true;
+      connectionAbortRef.current[id]?.abort();
+      delete connectionAbortRef.current[id];
+      if (session.reconnectTimer !== null) {
+        window.clearTimeout(session.reconnectTimer);
+        session.reconnectTimer = null;
+      }
+      if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+        sendTerminalAck(session, true);
+      }
+      if (session.ws) {
+        session.ws.onopen = null;
+        session.ws.onmessage = null;
+        session.ws.onclose = null;
+        session.ws.onerror = null;
+        session.ws.close();
+        session.ws = null;
+      }
+    }
+  }, []);
+
+  const serializeWindowSnapshot = useCallback(
+    (): TerminalWindowHandoff | null => {
+      const { tabs: snapshotTabs, activeTabId: snapshotActiveTabId } =
+        surfaceStateRef.current;
+      const sessionTabs: TerminalSurfaceTab[] = snapshotTabs.map((tab) => ({
+        id: tab.id,
+        title: tab.title,
+        workingDirectory:
+          sessionsRef.current[tab.id]?.workingDirectory ?? workingDirectory,
+      }));
+      return {
+        workspaceRoot: workingDirectory,
+        tabs: sessionTabs,
+        activeTabId: snapshotActiveTabId,
+        createNonce: lastCreateNonceRef.current,
+        dockMode: "show",
+      };
+    },
+    [workingDirectory],
+  );
+
   const createTab = useCallback(
     (sessionWorkingDirectory = workingDirectory) => {
       const id = createTerminalId();
@@ -201,32 +316,9 @@ export function useTerminalSessionManager({
         },
       ]);
       setActiveTabId(id);
-      sessionsRef.current[id] = {
-        container: null,
-        term: null,
-        fitAddon: null,
-        rendererController: null,
-        suggestionController: null,
-        ws: null,
-        reconnectTimer: null,
-        connectionFailureCount: 0,
-        resizeDebounceTimer: null,
-        resizeObserver: null,
-        dataDisposable: null,
-        multilineDisposable: null,
-        workingDirectory: sessionWorkingDirectory,
-        cwdSynced: false,
-        receivedBytes: 0,
-        lastAckedBytes: 0,
-        ackTimer: null,
-        pendingXtermWriteBytes: 0,
-        inputQueue: [],
-        queuedInputBytes: 0,
-        lastResizeCols: null,
-        lastResizeRows: null,
-        disposed: false,
-        terminating: false,
-      };
+      sessionsRef.current[id] = createTerminalSessionShell(
+        sessionWorkingDirectory,
+      );
     },
     [workingDirectory],
   );
@@ -359,7 +451,8 @@ export function useTerminalSessionManager({
           if (
             !latestSession ||
             latestSession.disposed ||
-            latestSession.terminating
+            latestSession.terminating ||
+            latestSession.parked
           ) {
             return;
           }
@@ -402,6 +495,60 @@ export function useTerminalSessionManager({
       })();
     },
     [scheduleReconnect, sendResize],
+  );
+
+  // resumeSessions lives after connectSession on purpose: its callback closes
+  // over connectSession, and referencing it earlier would read a const that is
+  // still in the temporal dead zone during the hook's first render.
+  const resumeSessions = useCallback(
+    (adopted: TerminalWindowHandoff | null = null) => {
+      if (adopted) {
+        // Reconcile the editor's tab set with what the window handed back. Tabs
+        // created in the window become fresh sessions here (their PTY owns the
+        // shell now), while tabs that traveled from the editor reconnect with
+        // the editor's own byte offset so only the output produced while
+        // floating replays into an untouched buffer.
+        const adoptedIds = new Set(adopted.tabs.map((tab) => tab.id));
+        const nextTabs: TerminalTab[] = [];
+        for (const adoptedTab of adopted.tabs) {
+          const existing = sessionsRef.current[adoptedTab.id];
+          if (existing && !existing.disposed) {
+            existing.parked = false;
+            existing.workingDirectory =
+              adoptedTab.workingDirectory ?? existing.workingDirectory;
+            nextTabs.push({ id: adoptedTab.id, title: adoptedTab.title });
+          } else {
+            sessionsRef.current[adoptedTab.id] = createTerminalSessionShell(
+              adoptedTab.workingDirectory,
+            );
+            nextTabs.push({ id: adoptedTab.id, title: adoptedTab.title });
+          }
+        }
+        // The window closed tabs it no longer wanted; those PTYs are already
+        // gone there, so detaching (terminate=false) never sends a second
+        // terminate against a dead session.
+        for (const id of Object.keys(sessionsRef.current)) {
+          if (adoptedIds.has(id)) continue;
+          disposeSession(id, false);
+        }
+        setTabs(nextTabs);
+        setActiveTabId(adopted.activeTabId);
+        suppressAutoCreateRef.current = true;
+        for (const adoptedTab of adopted.tabs) {
+          if (sessionsRef.current[adoptedTab.id]?.term) {
+            connectSession(adoptedTab.id);
+          }
+        }
+        return;
+      }
+
+      for (const [id, session] of Object.entries(sessionsRef.current)) {
+        if (session.disposed) continue;
+        session.parked = false;
+        if (session.term) connectSession(id);
+      }
+    },
+    [connectSession, disposeSession],
   );
 
   const attachContainer = useCallback(
@@ -707,8 +854,11 @@ export function useTerminalSessionManager({
     closeTab,
     createTab,
     floating,
+    parkSessions,
     reorderTabs,
     resizeActiveTerminal,
+    resumeSessions,
+    serializeWindowSnapshot,
     setActiveTabId,
     setFloating,
     setZoomed,

@@ -704,9 +704,10 @@ describe("useTerminalSessionManager", () => {
     });
     expect(latestManager?.floating).toBe(true);
 
-    // Cmd+J is a visibility toggle. If hiding only docked the strip while the
-    // floating frame stayed on screen, "hide" would not hide, and the floating
-    // terminal could cover the editor with no visible way back to the panel.
+    // Cmd+J is a visibility toggle. The floating terminal lives in its own OS
+    // window, and the bridge effect closes that window for real when the panel
+    // hides. The manager clears floating in the same commit so the editor state
+    // and the window shuttling stay in lockstep.
     await act(async () => {
       root.render(<TerminalHarness open={false} />);
     });

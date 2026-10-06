@@ -13,13 +13,16 @@ const workspaceRoot = path.resolve(__dirname, "..", "..");
 const editorNodeModules = path.resolve(__dirname, "node_modules");
 const workspaceNodeModules = path.resolve(workspaceRoot, "node_modules");
 
-// build:renderer runs this config twice. The editor build (default) is the full
-// app; the settings build (AXON_BUILD_ENTRY=settings) produces a isolated,
-// editor-free bundle by running a second Vite pass on settings.html and folding
-// its chunks into the same dist/renderer folder. Doing this as two independent
-// passes (instead of one multi-page input) is what keeps Monaco, Shiki, xterm,
-// and react-markdown out of the Settings window's module graph entirely.
+// build:renderer runs this config up to three times. The editor build (default)
+// is the full app; the settings build (AXON_BUILD_ENTRY=settings) and the
+// terminal build (AXON_BUILD_ENTRY=terminal) each produce an isolated,
+// editor-free bundle by running an extra Vite pass on their html file and
+// folding the chunks into the same dist/renderer folder. Doing this as
+// independent passes (instead of one multi-page input) is what keeps Monaco,
+// Shiki, xterm, and react-markdown out of each isolated surface's module graph.
 const settingsBuild = process.env.AXON_BUILD_ENTRY === "settings";
+const terminalBuild = process.env.AXON_BUILD_ENTRY === "terminal";
+const isolatedSurfaceBuild = settingsBuild || terminalBuild;
 
 function dependencyPath(...segments: string[]) {
   const editorPath = path.resolve(editorNodeModules, ...segments);
@@ -297,18 +300,22 @@ export default defineConfig({
   publicDir: path.resolve(__dirname, "public"),
   build: {
     outDir: path.resolve(__dirname, "dist/renderer"),
-    // The editor pass owns the folder; the settings pass folds its chunks next
-    // to the editor output instead of clearing it.
-    emptyOutDir: !settingsBuild,
+    // The editor pass owns the folder; the settings and terminal passes fold
+    // their chunks next to the editor output instead of clearing it.
+    emptyOutDir: !isolatedSurfaceBuild,
     rolldownOptions: {
       input: settingsBuild
         ? {
             // A dedicated entry file, never the index.html shared bundle.
             settings: path.resolve(__dirname, "src/renderer/settings.html"),
           }
-        : {
-            main: path.resolve(__dirname, "src/renderer/index.html"),
-          },
+        : terminalBuild
+          ? {
+              terminal: path.resolve(__dirname, "src/renderer/terminal.html"),
+            }
+          : {
+              main: path.resolve(__dirname, "src/renderer/index.html"),
+            },
       output: {
         codeSplitting: {
           groups: [

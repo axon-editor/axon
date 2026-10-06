@@ -7,7 +7,9 @@
 // shared ChromeTab shell so the panel and the editor panes keep one tab shape,
 // and they reuse the editor tab bar's dnd-kit wiring so a drag behaves the same
 // in both places. Order is reported back to the session manager as ids, which
-// is what keeps a drag from touching any live PTY.
+// is what keeps a drag from touching any live PTY. In the windowed surface the
+// strip also opts back out of the header's native drag region, so grabbing a
+// tab (or empty strip) moves the tab, not the whole window.
 import {
   DndContext,
   PointerSensor,
@@ -23,6 +25,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { CSSProperties } from "react";
 import ChromeTab from "@axon-editor/renderer/features/editor/components/tabs/ChromeTab";
 
 export interface TerminalTabItem {
@@ -34,6 +37,7 @@ interface Props {
   tabs: TerminalTabItem[];
   activeTabId: string | null;
   active: boolean;
+  windowed?: boolean;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
@@ -89,6 +93,7 @@ export default function TerminalTabBar({
   tabs,
   activeTabId,
   active,
+  windowed = false,
   onSelect,
   onClose,
   onReorder,
@@ -119,7 +124,14 @@ export default function TerminalTabBar({
         items={tabs.map((tab) => tab.id)}
         strategy={horizontalListSortingStrategy}
       >
-        <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto overflow-y-hidden">
+        <div
+          className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto overflow-y-hidden"
+          style={
+            windowed
+              ? ({ WebkitAppRegion: "no-drag" } as CSSProperties)
+              : undefined
+          }
+        >
           {tabs.map((tab) => (
             <SortableTerminalTab
               key={tab.id}
