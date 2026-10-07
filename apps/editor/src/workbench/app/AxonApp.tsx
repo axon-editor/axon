@@ -58,6 +58,7 @@ import { useSaveFileAs } from "./lib/useSaveFileAs";
 import { useGitStatusRefresh } from "./lib/useGitStatusRefresh";
 import { useAutoSave } from "./lib/useAutoSave";
 import { useSaveFileFromModel } from "./lib/useSaveFileFromModel";
+import { useFloatingSurfaceRepaint } from "./lib/useFloatingSurfaceRepaint";
 import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
 import { dispatchEditorSave } from "../../renderer/features/editor/lib/buffer/editorSave";
 import {
@@ -989,5 +990,6 @@ export type AxonAppViewProps = ReturnType<typeof useAxonAppViewModel>;
 
 export default function App(props: AppProps) {
   const viewProps = useAxonAppViewModel(props);
+  useFloatingSurfaceRepaint();
   return <AxonAppView {...viewProps} />;
 }

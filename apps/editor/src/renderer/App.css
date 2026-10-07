@@ -806,7 +806,7 @@ html.axon-native-glass .axon-tooltip {
 .axon-editor-transparent-surface .monaco-editor-background,
 .axon-editor-transparent-surface .monaco-editor .margin,
 .axon-editor-transparent-surface .monaco-editor .inputarea.ime-input {
-  background: transparent !important;
+  background: rgba(0, 0, 0, 0.01) !important;
 }
 
 .monaco-editor .char-insert.diff-range-empty {
@@ -826,11 +826,11 @@ html.axon-native-glass .axon-tooltip {
  * the diff panes. */
 .axon-editor-transparent-surface .monaco-editor .sticky-widget,
 .axon-editor-transparent-surface .monaco-editor .sticky-widget-background {
-  background: transparent !important;
+  background: rgba(0, 0, 0, 0.01) !important;
 }
 
 .axon-editor-transparent-surface .monaco-editor .view-overlays,
 .axon-editor-transparent-surface .monaco-editor .view-lines,
 .axon-editor-transparent-surface .monaco-editor .margin-view-overlays {
-  background: transparent !important;
+  background: rgba(0, 0, 0, 0.01) !important;
 }
