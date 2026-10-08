@@ -267,14 +267,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         } as React.CSSProperties
       }
     >
-      {zenActive && (
-        <div
-          className="absolute top-0 left-0 right-0 h-9 z-40"
-          style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-        />
-      )}
-
-      <div className={`flex flex-1 overflow-hidden ${zenActive ? "pt-9" : ""}`}>
+      <div className="flex flex-1 overflow-hidden">
         {(chromeMounted || !sidebarCollapsed) && (
           <div
             className={`${chromeMounted ? "axon-zen-chrome" : ""} flex shrink-0`}

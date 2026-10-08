@@ -7,7 +7,7 @@
 // Uses dnd-kit metadata instead of raw file-path IDs so the same file can be
 // open in multiple panes without confusing the drag target.
 // Active tab highlighted, dirty tabs show cyan dot that reveals close on hover.
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
   SortableContext,
@@ -115,7 +115,8 @@ function SortableTab({
     transition,
     zIndex: isDragging ? 50 : undefined,
     opacity: isDragging ? 0 : 1,
-  };
+    WebkitAppRegion: "no-drag",
+  } as CSSProperties;
 
   const name = getTabDisplayName(path);
   return (
@@ -268,6 +269,12 @@ function ContextMenu({
   );
 }
 
+// Tab strip doubles as the window drag region in zen: with the toolbar and
+// sidebar hidden it is the first UI under Electron's frameless titlebar. macOS
+// owns the left traffic-light area and Windows the right caption overlay, so
+// nativeControlInset pads the scroll container to keep tabs clickable without
+// shifting editor content in normal mode. Each tab opts out of the drag region
+// with -webkit-app-region: no-drag so reordering and clicks keep working.
 export default function TabBar({
   openTabs,
   activeFile,
@@ -303,14 +310,17 @@ export default function TabBar({
     return (
       <div
         className="axon-tab-strip flex h-9 items-center border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3"
-        style={{
-          paddingLeft: nativeControlInset.start
-            ? `calc(0.75rem + ${nativeControlInset.start}px)`
-            : undefined,
-          paddingRight: nativeControlInset.end
-            ? `calc(0.75rem + ${nativeControlInset.end}px)`
-            : undefined,
-        }}
+        style={
+          {
+            paddingLeft: nativeControlInset.start
+              ? `calc(0.75rem + ${nativeControlInset.start}px)`
+              : undefined,
+            paddingRight: nativeControlInset.end
+              ? `calc(0.75rem + ${nativeControlInset.end}px)`
+              : undefined,
+            WebkitAppRegion: "drag",
+          } as CSSProperties
+        }
       >
         <span className="text-[11px] text-[var(--axon-editor-foreground)] opacity-35">
           no file open
@@ -326,15 +336,13 @@ export default function TabBar({
     >
       <div
         className="axon-tab-strip flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)]"
-        style={{
-          // Zen mode hides the sidebar and toolbar, so the tab strip becomes
-          // the first UI under Electron's hidden titlebar. macOS owns the left
-          // traffic-light area and Windows owns the right caption-button area;
-          // padding the scroll container keeps tabs clickable without shifting
-          // editor content in normal mode.
-          paddingLeft: nativeControlInset.start || undefined,
-          paddingRight: nativeControlInset.end || undefined,
-        }}
+        style={
+          {
+            paddingLeft: nativeControlInset.start || undefined,
+            paddingRight: nativeControlInset.end || undefined,
+            WebkitAppRegion: "drag",
+          } as CSSProperties
+        }
       >
         {openTabs.map((path) => (
           <SortableTab
