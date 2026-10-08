@@ -121,6 +121,7 @@ export function detectMonacoLanguage(path: string): string {
     proto: "proto",
     md: "markdown",
     markdown: "markdown",
+    mdx: "markdown",
     json: "json",
     jsonc: "json",
     json5: "json",
@@ -147,5 +148,6 @@ export function detectLanguageServerLanguage(path: string): string {
   if (extension === "tsx") return "typescriptreact";
   if (extension === "jsx") return "javascriptreact";
   if (extension === "astro") return "astro";
+  if (extension === "mdx") return "mdx";
   return detectMonacoLanguage(path);
 }

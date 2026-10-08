@@ -31,6 +31,12 @@ describe("structured language detection", () => {
     expect(detectLanguageServerLanguage(filePath)).toBe("proto");
   });
 
+  it("highlights MDX as markdown while routing it to the MDX language server", () => {
+    const filePath = "/workspace/guide.mdx";
+    expect(detectMonacoLanguage(filePath)).toBe("markdown");
+    expect(detectLanguageServerLanguage(filePath)).toBe("mdx");
+  });
+
   it.each([
     ["Package.swift", "swift"],
     ["Gemfile", "ruby"],

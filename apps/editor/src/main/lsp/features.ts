@@ -408,6 +408,9 @@ export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
   if (normalizedLanguageId === "xml") {
     return "xml" satisfies LanguageServerDefinition["id"];
   }
+  if (normalizedLanguageId === "mdx") {
+    return "mdx" satisfies LanguageServerDefinition["id"];
+  }
 
   const additionalLanguageServers: Partial<
     Record<string, LanguageServerDefinition["id"]>
