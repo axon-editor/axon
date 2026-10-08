@@ -302,7 +302,7 @@ export default function TabBar({
   if (openTabs.length === 0) {
     return (
       <div
-        className="flex h-9 items-center border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3"
+        className="axon-tab-strip flex h-9 items-center border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-3"
         style={{
           paddingLeft: nativeControlInset.start
             ? `calc(0.75rem + ${nativeControlInset.start}px)`
@@ -325,7 +325,7 @@ export default function TabBar({
       strategy={horizontalListSortingStrategy}
     >
       <div
-        className="flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)]"
+        className="axon-tab-strip flex h-9 items-stretch overflow-x-auto border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)]"
         style={{
           // Zen mode hides the sidebar and toolbar, so the tab strip becomes
           // the first UI under Electron's hidden titlebar. macOS owns the left

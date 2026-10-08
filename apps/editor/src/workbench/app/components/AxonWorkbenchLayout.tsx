@@ -26,8 +26,14 @@ import { fontStack } from "../../../renderer/shared/lib/fonts";
 import WorkbenchOverlays from "./WorkbenchOverlays";
 import WorkbenchStatusBar from "./WorkbenchStatusBar";
 import WorkspaceSafetyOverlays from "./WorkspaceSafetyOverlays";
+import ZenCommandLine from "./ZenCommandLine";
+import { useZenTransition } from "../lib/useZenTransition";
 import { openGitCommitDiff } from "@axon-builtin-git/git/lib/gitGraphTab";
 import type { AxonWorkbenchLayoutProps } from "../AxonAppView";
+
+// Matches the fade duration of .axon-zen-chrome in App.css so chrome unmounts
+// exactly when its cross-fade finishes.
+const ZEN_CHROME_TRANSITION_MS = 200;
 
 const Terminal = React.lazy(() => import("@axon-builtin-terminal/Terminal"));
 const AxonAgentSidebar = React.lazy(
@@ -116,13 +122,13 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     setLanguage,
     setLanguageToolsOpen,
     setLayout,
+    setSidebarCollapsed,
     setSidebarWidth,
     setSpotifyPlayerOpen,
     setTerminalOpen,
     setUpdateModalOpen,
     setWorkspaceTrustNonce,
     setCursorInfo,
-    setZenMode,
   } = props;
   const {
     agentSidebarWidth,
@@ -134,8 +140,58 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
   } = props;
   const mainSidebarSide =
     settings.editor.sidebarSide === "right" ? "right" : "left";
+  const { zenActive, chromeMounted } = useZenTransition(
+    zenMode,
+    ZEN_CHROME_TRANSITION_MS,
+  );
+  // Zen entry must land on a clean canvas: panels, terminals and the agent
+  // sidebar drop away with the rest of the chrome and can be summoned back one
+  // keystroke at a time. The sidebar collapses (not unmounts, that would break
+  // Cmd+B) but everything is remembered and restored on the way out so zen never
+  // permanently reshapes the layout it found.
+  const wasZen = React.useRef(zenMode);
+  const preZenStateRef = React.useRef<{
+    sidebarCollapsed: boolean;
+    terminalOpen: boolean;
+    bottomPanelOpen: boolean;
+    agentSidebarOpen: boolean;
+  } | null>(null);
+  React.useEffect(() => {
+    if (zenMode && !wasZen.current) {
+      preZenStateRef.current = {
+        sidebarCollapsed,
+        terminalOpen,
+        bottomPanelOpen,
+        agentSidebarOpen,
+      };
+      setTerminalOpen(false);
+      setBottomPanelOpen(false);
+      setAgentSidebarOpen(false);
+      setSidebarCollapsed(true);
+    } else if (!zenMode && wasZen.current) {
+      const previous = preZenStateRef.current;
+      if (previous) {
+        setSidebarCollapsed(previous.sidebarCollapsed);
+        setTerminalOpen(previous.terminalOpen);
+        setBottomPanelOpen(previous.bottomPanelOpen);
+        setAgentSidebarOpen(previous.agentSidebarOpen);
+        preZenStateRef.current = null;
+      }
+    }
+    wasZen.current = zenMode;
+  }, [
+    agentSidebarOpen,
+    bottomPanelOpen,
+    setAgentSidebarOpen,
+    setBottomPanelOpen,
+    setSidebarCollapsed,
+    setTerminalOpen,
+    sidebarCollapsed,
+    terminalOpen,
+    zenMode,
+  ]);
   const shouldShowAgentSidebar =
-    !zenMode && settings.ai.enabled && agentSidebarOpen && !!agentContribution;
+    settings.ai.enabled && agentSidebarOpen && !!agentContribution;
   const canShowSpotify = !!spotifyContribution;
   const agentSidebarNode = shouldShowAgentSidebar ? (
     <React.Suspense fallback={null}>
@@ -166,7 +222,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
   const agentSidebarOrder = 4;
   const reserveMacTrafficLightSpace =
     platform === "darwin" && !windowFullScreen;
-  const zenNativeControlInset = zenMode
+  const zenNativeControlInset = zenActive
     ? {
         start: reserveMacTrafficLightSpace ? 92 : 0,
         end: platform === "win32" ? 150 : 0,
@@ -199,7 +255,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
 
   return (
     <div
-      className="axon-app-root relative flex h-full w-full flex-col overflow-hidden"
+      className={`axon-app-root relative flex h-full w-full flex-col overflow-hidden${zenActive ? " axon-zen-mode" : ""}`}
       style={
         {
           ...appThemeCssVariables,
@@ -211,33 +267,19 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         } as React.CSSProperties
       }
     >
-      {zenMode && (
-        <>
-          <div
-            className="absolute top-0 left-0 right-0 h-9 z-40"
-            style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-          />
-          <div
-            className="absolute top-11 right-3 z-50"
-            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-          >
-            <button
-              onClick={() => setZenMode(false)}
-              className="flex cursor-pointer items-center gap-1.5 rounded border px-2.5 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:border-[var(--axon-syntax-function)] hover:opacity-100"
-              style={{
-                background: "var(--axon-panel-background)",
-                borderColor: "var(--axon-panel-border)",
-              }}
-            >
-              exit zen
-            </button>
-          </div>
-        </>
+      {zenActive && (
+        <div
+          className="absolute top-0 left-0 right-0 h-9 z-40"
+          style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+        />
       )}
 
-      <div className={`flex flex-1 overflow-hidden ${zenMode ? "pt-9" : ""}`}>
-        {!zenMode && (
-          <div className="flex shrink-0" style={{ order: mainSidebarOrder }}>
+      <div className={`flex flex-1 overflow-hidden ${zenActive ? "pt-9" : ""}`}>
+        {(chromeMounted || !sidebarCollapsed) && (
+          <div
+            className={`${chromeMounted ? "axon-zen-chrome" : ""} flex shrink-0`}
+            style={{ order: mainSidebarOrder }}
+          >
             <Sidebar
               tree={tree}
               folderPath={folderPath}
@@ -316,9 +358,9 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
           className="relative flex flex-col flex-1 overflow-hidden"
           style={{ order: editorOrder }}
         >
-          {!zenMode && (
+          {chromeMounted && (
             <div
-              className="flex items-center border-b pr-1"
+              className="axon-zen-chrome flex items-center border-b pr-1"
               style={
                 {
                   background: "var(--axon-toolbar-background)",
@@ -449,7 +491,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
           {workspaceTrusted && terminalContribution ? (
             <React.Suspense fallback={null}>
               <Terminal
-                open={terminalOpen && !zenMode}
+                open={terminalOpen}
                 createNonce={terminalCreateNonce}
                 createWorkingDirectory={terminalCreateWorkingDirectory}
                 editorSettings={settings.editor}
@@ -457,9 +499,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
                 terminalColors={terminalColors}
                 themeTokens={themeTokens}
                 workingDirectory={folderPath}
-                activePanelTab={
-                  !zenMode && bottomPanelOpen ? bottomPanelTab : "terminal"
-                }
+                activePanelTab={bottomPanelOpen ? bottomPanelTab : "terminal"}
                 outputEntries={outputEntries}
                 contribution={terminalContribution}
                 onActivePanelTabChange={(tab) => {
@@ -490,7 +530,13 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         ) : null}
       </div>
 
-      <WorkbenchStatusBar {...props} />
+      {chromeMounted && (
+        <div className="axon-zen-chrome">
+          <WorkbenchStatusBar visible={chromeMounted} {...props} />
+        </div>
+      )}
+
+      {zenActive && <ZenCommandLine />}
 
       <WorkbenchOverlays {...props} />
 

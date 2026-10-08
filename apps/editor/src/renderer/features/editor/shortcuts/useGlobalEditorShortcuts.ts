@@ -7,6 +7,11 @@ import { useEffect } from "react";
 import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands";
 import { type AxonSettings } from "../../../../shared/settings";
 import { settingsFromEditorFontZoomShortcut } from "./fontZoom";
+import { announceZenCommand } from "../../../../shared/zenCommandLine";
+
+function isZenShortcut(event: KeyboardEvent) {
+  return (event.metaKey || event.ctrlKey) && !event.altKey;
+}
 
 interface GlobalEditorShortcutsOptions {
   settings: AxonSettings;
@@ -134,6 +139,7 @@ export function useGlobalEditorShortcuts({
       if ((event.metaKey || event.ctrlKey) && event.key === "j") {
         event.preventDefault();
         runCommand(AXON_COMMANDS.TOGGLE_TERMINAL);
+        if (zenMode) announceZenCommand("terminal");
         return;
       }
       if (
@@ -143,6 +149,31 @@ export function useGlobalEditorShortcuts({
       ) {
         event.preventDefault();
         runCommand(AXON_COMMANDS.TOGGLE_SIDEBAR);
+        if (zenMode) announceZenCommand("sidebar");
+        return;
+      }
+      if (isZenShortcut(event) && event.shiftKey && event.key === "A") {
+        event.preventDefault();
+        runCommand(AXON_COMMANDS.TOGGLE_AGENT_SIDEBAR);
+        if (zenMode) announceZenCommand("agent");
+        return;
+      }
+      if (isZenShortcut(event) && event.shiftKey && event.key === "M") {
+        event.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_PROBLEMS_PANEL);
+        if (zenMode) announceZenCommand("problems");
+        return;
+      }
+      if (isZenShortcut(event) && event.shiftKey && event.key === "U") {
+        event.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_OUTPUT_PANEL);
+        if (zenMode) announceZenCommand("output");
+        return;
+      }
+      if (isZenShortcut(event) && event.shiftKey && event.key === "T") {
+        event.preventDefault();
+        runCommand(AXON_COMMANDS.OPEN_TEST_EXPLORER);
+        if (zenMode) announceZenCommand("tests");
         return;
       }
       if (

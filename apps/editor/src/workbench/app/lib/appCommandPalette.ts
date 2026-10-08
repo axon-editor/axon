@@ -407,6 +407,17 @@ export function buildAppPaletteCommands({
       disabled: !settings.ai.enabled,
     },
     {
+      id: AXON_COMMANDS.TOGGLE_AGENT_SIDEBAR,
+      title: "Toggle Agent Sidebar",
+      group: "AI",
+      shortcut: "Cmd Shift A",
+      subtitle: settings.ai.enabled
+        ? "Open or close the Axon agent sidebar"
+        : "Enable Axon Agent in settings",
+      keywords: ["ai", "agent", "toggle"],
+      disabled: !settings.ai.enabled,
+    },
+    {
       id: AXON_COMMANDS.AI_EXPLAIN_SELECTION,
       title: "AI: Explain Active File",
       group: "AI",

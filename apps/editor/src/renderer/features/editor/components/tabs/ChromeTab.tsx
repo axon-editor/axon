@@ -65,12 +65,12 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
     <div
       ref={ref}
       {...props}
-      className={`group relative flex h-9 w-fit min-w-[92px] max-w-[220px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden border-r px-2.5 pl-3 text-[12px] transition-colors before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-r ${stateClass} ${className}`}
+      className={`axon-tab group relative flex h-9 w-fit min-w-[92px] max-w-[220px] shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden border-r px-2.5 pl-3 text-[12px] transition-colors before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-r ${stateClass} ${className}`}
     >
       {pinned ? (
         <Pin
           size={12}
-          className="shrink-0 text-[var(--axon-syntax-function)]"
+          className="axon-tab-pin shrink-0 text-[var(--axon-syntax-function)]"
         />
       ) : null}
 
@@ -111,7 +111,7 @@ const ChromeTab = forwardRef<HTMLDivElement, Props>(function ChromeTab(
             aria-label={closeLabel}
             onPointerDown={handleClosePointerDown}
             onClick={onClose}
-            className={`ml-0.5 flex shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-55 focus:opacity-100 ${closeButtonClassName}`}
+            className={`axon-tab-close ml-0.5 flex shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 group-hover:opacity-55 focus:opacity-100 ${closeButtonClassName}`}
           >
             <X size={11} />
           </button>

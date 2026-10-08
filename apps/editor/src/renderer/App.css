@@ -834,3 +834,123 @@ html.axon-native-glass .axon-tooltip {
 .axon-editor-transparent-surface .monaco-editor .margin-view-overlays {
   background: rgba(0, 0, 0, 0.01) !important;
 }
+
+/* Zen mode cross-fades chrome instead of popping it out of the tree. Entering
+ * zen mounts the shell chrome, hands it the hiding classes, then unmounts it
+ * once the fade is done; exiting mounts it again so the enter animation can
+ * play back over the same window. */
+.axon-zen-chrome {
+  transition:
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.axon-app-root.axon-zen-mode .axon-zen-chrome {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+}
+
+.axon-app-root:not(.axon-zen-mode) .axon-zen-chrome {
+  animation: axonZenChromeIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes axonZenChromeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Zen tabs stay clickable but drop the per-tab furniture: closer returns to
+ * Cmd+W and the context menu, pins to the context menu. Height comes down so
+ * the strip reads as a quiet underline rather than a browser bar. */
+.axon-app-root.axon-zen-mode .axon-tab-strip {
+  height: 30px;
+}
+
+.axon-app-root.axon-zen-mode .axon-tab {
+  height: 30px;
+  min-width: 76px;
+}
+
+.axon-app-root.axon-zen-mode .axon-tab-pin,
+.axon-app-root.axon-zen-mode .axon-tab-close {
+  display: none;
+}
+
+.axon-app-root.axon-zen-mode .axon-tab:not(.axon-tab--active) {
+  opacity: 0.7;
+}
+
+/* Vim-style command readout. Shows the label of the chrome shortcut that last
+ * fired while the status bar is hidden, then fades on its own. Mounted only in
+ * zen, so the event bus it listens to is inert elsewhere. */
+.axon-zen-cmdline {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(480px, 62vw);
+  padding: 5px 12px;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in srgb, var(--axon-panel-border) 60%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--axon-panel-background) 84%, transparent);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  color: var(--axon-editor-foreground);
+  font-family: var(--axon-ui-font-family);
+  font-size: 12px;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: axonZenCmdLine 1.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.axon-zen-cmdline::before {
+  content: ":";
+  flex-shrink: 0;
+  color: var(--axon-syntax-function, var(--axon-syntax-method));
+  font-weight: 600;
+}
+
+@keyframes axonZenCmdLine {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.96);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .axon-zen-cmdline {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  .axon-zen-chrome {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+  }
+}

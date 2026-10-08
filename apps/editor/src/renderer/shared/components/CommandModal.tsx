@@ -15,6 +15,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import Tooltip from "./Tooltip";
 import {
@@ -125,7 +126,7 @@ export default function CommandModal({
     };
   }, [modalName, modalPerformanceName, requestClose]);
 
-  return (
+  return createPortal(
     <div
       className={`axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center px-4 py-6 ${overlayClassName} ${
         closing && animate ? "axon-modal-overlay--leaving" : ""
@@ -156,6 +157,7 @@ export default function CommandModal({
         )}
         <div className={bodyClassName}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

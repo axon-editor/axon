@@ -182,7 +182,11 @@ export function useAppCommandRunner({
           record.extensionId,
         );
         if (!result.ok || !result.target) {
-          appendOutput("extensions", result.message ?? fallbackMessage, "warning");
+          appendOutput(
+            "extensions",
+            result.message ?? fallbackMessage,
+            "warning",
+          );
           return;
         }
         handleOpenExtensionWebview(result.target.extensionId);
@@ -433,6 +437,9 @@ export function useAppCommandRunner({
           if (updateAvailable) {
             setUpdateModalOpen(true);
           }
+          break;
+        case AXON_COMMANDS.TOGGLE_AGENT_SIDEBAR:
+          setAgentSidebarOpen((open: boolean) => !open);
           break;
         case AXON_COMMANDS.ASK_AXON:
           if (!requireTrustedWorkspace("Ask Axon")) break;

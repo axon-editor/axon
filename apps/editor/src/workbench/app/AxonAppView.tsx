@@ -35,6 +35,7 @@ export type AxonWorkbenchLayoutProps = AxonAppViewProps & {
     label: string;
     source: string;
   }>;
+  visible?: boolean;
 };
 
 export function AxonAppView(props: AxonAppViewProps) {

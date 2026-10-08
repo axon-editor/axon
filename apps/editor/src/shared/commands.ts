@@ -44,6 +44,7 @@ export const AXON_COMMANDS = {
   OPEN_SETTINGS_JSON: "open-settings-json",
   OPEN_UPDATE_NOTES: "open-update-notes",
   TOGGLE_ZEN_MODE: "toggle-zen-mode",
+  TOGGLE_AGENT_SIDEBAR: "toggle-agent-sidebar",
   NEW_TERMINAL: "new-terminal",
   ASK_AXON: "ask-axon",
   AI_EXPLAIN_SELECTION: "ai-explain-selection",

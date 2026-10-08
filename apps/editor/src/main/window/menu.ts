@@ -13,7 +13,9 @@ function closeFocusedWindow() {
   targetWindow?.close();
 }
 
-function buildViewMenu(sendMenuCommand: (command: AxonCommand) => void): MenuItemConstructorOptions {
+function buildViewMenu(
+  sendMenuCommand: (command: AxonCommand) => void,
+): MenuItemConstructorOptions {
   return {
     label: "View",
     submenu: [
@@ -37,6 +39,27 @@ function buildViewMenu(sendMenuCommand: (command: AxonCommand) => void): MenuIte
         label: "Toggle Terminal",
         accelerator: "CmdOrCtrl+J",
         click: () => sendMenuCommand(AXON_COMMANDS.TOGGLE_TERMINAL),
+      },
+      {
+        label: "Toggle Agent Sidebar",
+        accelerator: "CmdOrCtrl+Shift+A",
+        click: () => sendMenuCommand(AXON_COMMANDS.TOGGLE_AGENT_SIDEBAR),
+      },
+      { type: "separator" },
+      {
+        label: "Problems",
+        accelerator: "CmdOrCtrl+Shift+M",
+        click: () => sendMenuCommand(AXON_COMMANDS.OPEN_PROBLEMS_PANEL),
+      },
+      {
+        label: "Output",
+        accelerator: "CmdOrCtrl+Shift+U",
+        click: () => sendMenuCommand(AXON_COMMANDS.OPEN_OUTPUT_PANEL),
+      },
+      {
+        label: "Tests",
+        accelerator: "CmdOrCtrl+Shift+T",
+        click: () => sendMenuCommand(AXON_COMMANDS.OPEN_TEST_EXPLORER),
       },
       {
         label: "Toggle Zen Mode",

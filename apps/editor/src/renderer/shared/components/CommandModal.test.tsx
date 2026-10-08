@@ -38,8 +38,8 @@ function Harness({ title, onClose }: { title: string; onClose: () => void }) {
   );
 }
 
-function overlay(container: HTMLElement): HTMLElement | null {
-  return container.querySelector<HTMLElement>(".axon-modal-overlay");
+function overlay(): HTMLElement | null {
+  return document.body.querySelector<HTMLElement>(".axon-modal-overlay");
 }
 
 describe("CommandModal", () => {
@@ -88,7 +88,7 @@ describe("CommandModal", () => {
     await render({ title: "open folder", onClose });
 
     await clickOutside();
-    expect(overlay(container)).not.toBeNull();
+    expect(overlay()).not.toBeNull();
     expect(onClose).not.toHaveBeenCalled();
 
     await act(async () => {
