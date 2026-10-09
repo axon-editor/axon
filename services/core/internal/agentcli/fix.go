@@ -9,6 +9,11 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/GordenArcher/axon-core/internal/agentcli/colors"
+	"github.com/GordenArcher/axon-core/internal/agentcli/diagnostics"
+	"github.com/GordenArcher/axon-core/internal/agentcli/proposal"
+	"github.com/GordenArcher/axon-core/internal/agentcli/stream"
 )
 
 // runFix is the terminal version of the Problems-to-edit loop. It reads the
@@ -17,47 +22,47 @@ import (
 // pipeline to refresh the UI after the files change.
 func runFix(args []string) int {
 	if len(args) > 0 {
-		fmt.Fprintln(os.Stderr, red("Usage: axon fix"))
+		fmt.Fprintln(os.Stderr, colors.Red("Usage: axon fix"))
 		return 1
 	}
 
-	snapshot, err := readDiagnosticsSnapshotForCurrentWorkspace()
+	snapshot, err := diagnostics.ReadDiagnosticsSnapshotForCurrentWorkspace()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 
-	fmt.Fprintf(os.Stderr, "%s\n", dim(fmt.Sprintf("Reading %d problem(s) from Axon...", len(snapshot.Diagnostics))))
+	fmt.Fprintf(os.Stderr, "%s\n", colors.Dim(fmt.Sprintf("Reading %d problem(s) from Axon...", len(snapshot.Diagnostics))))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	response, err := streamAgentRequest(ctx, streamRequestInput{
+	response, err := stream.StreamAgentRequest(ctx, stream.StreamRequestInput{
 		Action:      "fix-problem",
 		Prompt:      fixPrompt(snapshot),
 		FolderPath:  snapshot.Workspace,
 		Diagnostics: snapshot.Diagnostics,
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 
-	proposal, err := extractEditProposal(response)
+	edit, err := proposal.ExtractEditProposal(response)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
-	if err := applyEditProposal(snapshot.Workspace, proposal); err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+	if err := proposal.ApplyEditProposal(snapshot.Workspace, edit); err != nil {
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 
-	fmt.Fprintf(os.Stderr, "%s\n", dim("Done. Axon will refresh diagnostics from the changed files."))
+	fmt.Fprintf(os.Stderr, "%s\n", colors.Dim("Done. Axon will refresh diagnostics from the changed files."))
 	return 0
 }
 
-func fixPrompt(snapshot diagnosticsSnapshot) string {
+func fixPrompt(snapshot diagnostics.DiagnosticsSnapshot) string {
 	lines := []string{
 		"Fix the current Axon Problems for this workspace.",
 		"Return an editProposal JSON block with full replacement file content for every changed file.",

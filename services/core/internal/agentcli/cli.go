@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
-	"github.com/GordenArcher/axon-core/internal/ai"
+
+	"github.com/GordenArcher/axon-core/internal/agentcli/colors"
+	"github.com/GordenArcher/axon-core/internal/agentcli/composer"
+	"github.com/GordenArcher/axon-core/internal/agentcli/session"
+	"github.com/GordenArcher/axon-core/internal/agentcli/workspacepath"
 )
 
 // Run is the small command router for the shipped `axon` binary.
@@ -34,7 +37,7 @@ func Run(args []string) int {
 		return runAsk(args[1:])
 	case "resume":
 		printCommandBanner(args)
-		return runResume(args[1:])
+		return session.RunResume(args[1:])
 	case "commit":
 		printCommandBanner(args)
 		return runCommit(args[1:])
@@ -54,7 +57,7 @@ func Run(args []string) int {
 		// useful information. Errors still print below, where the user can act on
 		// them.
 		if err := openInEditor(args[0]); err != nil {
-			fmt.Fprintln(os.Stderr, red(err.Error()))
+			fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 			return 1
 		}
 		return 0
@@ -64,42 +67,31 @@ func Run(args []string) int {
 func runSession(args []string) int {
 	workspace, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 
-	workspace, err = normalizeWorkspacePath(workspace)
+	workspace, err = workspacepath.NormalizeWorkspacePath(workspace)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 
 	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
 		sessionID := strings.TrimSpace(strings.TrimPrefix(args[0], ":"))
-		session, err := findWorkspaceSession(workspace, sessionID)
+		record, err := session.FindWorkspaceSession(workspace, sessionID)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, red(err.Error()))
+			fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 			return 1
 		}
-		if session != nil {
-			loaded := newAgentTerminalSession(
-				workspace,
-				append([]ai.ConversationMessage(nil), session.Conversation...),
-				session.ID,
-			)
-			if createdAt, err := time.Parse(time.RFC3339, session.CreatedAt); err == nil {
-				loaded.createdAt = createdAt
-			}
-			if updatedAt, err := time.Parse(time.RFC3339, session.UpdatedAt); err == nil {
-				loaded.updatedAt = updatedAt
-			}
-			return runTerminalSession(workspace, &loaded)
+		if record != nil {
+			return session.RunWorkspaceSession(workspace, record)
 		}
-		fmt.Fprintln(os.Stderr, red("No session found with that id in this workspace."))
-		return printSessionList(workspace)
+		fmt.Fprintln(os.Stderr, colors.Red("No session found with that id in this workspace."))
+		return session.PrintSessionList(workspace)
 	}
 
-	return runTerminalSession(workspace, nil)
+	return session.RunTerminalSession(workspace, nil)
 }
 
 func printCommandBanner(args []string) {
@@ -149,22 +141,22 @@ func runAsk(args []string) int {
 	// This mirrors the Codex/Claude Code style the user asked for: the CLI can
 	// expose fast commands like `/models` without paying the cost of a stream
 	// round-trip or polluting the conversation with tool output.
-	if handled, exitCode := runSlashCommand(prompt); handled {
+	if handled, exitCode := composer.RunSlashCommand(prompt); handled {
 		return exitCode
 	}
 
 	workspace, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
-	workspace, err = normalizeWorkspacePath(workspace)
+	workspace, err = workspacepath.NormalizeWorkspacePath(workspace)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 
-	return runOneShotSession(workspace, prompt)
+	return session.RunOneShotSession(workspace, prompt)
 }
 
 // printHelp uses the installed command name, not the source directory name.

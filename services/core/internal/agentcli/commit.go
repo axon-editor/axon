@@ -11,6 +11,9 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/GordenArcher/axon-core/internal/agentcli/colors"
+	"github.com/GordenArcher/axon-core/internal/agentcli/stream"
 )
 
 // runCommit turns the staged Git diff into a commit message draft.
@@ -19,7 +22,7 @@ import (
 // the final commit action in the terminal.
 func runCommit(args []string) int {
 	if len(args) > 0 {
-		fmt.Fprintln(os.Stderr, red("Usage: axon commit"))
+		fmt.Fprintln(os.Stderr, colors.Red("Usage: axon commit"))
 		return 1
 	}
 
@@ -28,44 +31,44 @@ func runCommit(args []string) int {
 	// from leaking into a message the user may run immediately.
 	diff, err := stagedDiff()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 	if strings.TrimSpace(diff) == "" {
-		fmt.Fprintln(os.Stderr, dim("No staged changes found. Stage files before asking Axon Agent for a commit message."))
+		fmt.Fprintln(os.Stderr, colors.Dim("No staged changes found. Stage files before asking Axon Agent for a commit message."))
 		return 1
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	message, err := streamAgentRequest(ctx, streamRequestInput{
+	message, err := stream.StreamAgentRequest(ctx, stream.StreamRequestInput{
 		Action:  "draft-commit-message",
 		Prompt:  "Draft a concise production commit message for the staged diff.",
 		GitDiff: diff,
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, red(err.Error()))
+		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
 
 	commitMessage := cleanCommitMessage(message)
 	if commitMessage == "" {
-		fmt.Fprintln(os.Stderr, red("Axon Agent did not return a usable commit message."))
+		fmt.Fprintln(os.Stderr, colors.Red("Axon Agent did not return a usable commit message."))
 		return 1
 	}
 
 	// The CLI streams the draft first, then asks before executing git commit.
 	// This keeps terminal usage fast while still making the destructive step
 	// explicit enough that a bad model response cannot silently create history.
-	fmt.Print(dim("Run git commit with this message? [y/N] "))
+	fmt.Print(colors.Dim("Run git commit with this message? [y/N] "))
 	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	if strings.EqualFold(strings.TrimSpace(answer), "y") || strings.EqualFold(strings.TrimSpace(answer), "yes") {
 		command := exec.Command("git", "commit", "-m", commitMessage)
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
 		if err := command.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, red(err.Error()))
+			fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 			return 1
 		}
 	}
