@@ -6,7 +6,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { type AgentResumeRequest } from "../../shared/app";
+import { type AgentResumeRequest } from "../../shared/core/app";
 
 const resumeRequestPath = path.join(os.homedir(), ".axon", "agent-resume.json");
 

@@ -7,7 +7,7 @@ import {
   type GitCommitDiffResult,
   type GitHistoryCommit,
   type GitHistoryFile,
-} from "@axon-editor/shared/git";
+} from "@axon-editor/shared/workspace/git";
 
 export const AXON_GIT_GRAPH_TAB_PATH = "axon-git://graph";
 export const AXON_GIT_COMMIT_DIFF_TAB_PREFIX = "axon-git://commit-diff/";

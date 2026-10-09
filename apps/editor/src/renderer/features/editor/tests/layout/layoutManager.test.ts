@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
-import { activatePane } from "../../lib/layout/paneActivation";
+import { activatePane } from "../../lib/layout/navigation/paneActivation";
 import { type Layout } from "../../lib/layout/types";
 
 function createLayout(): Layout {

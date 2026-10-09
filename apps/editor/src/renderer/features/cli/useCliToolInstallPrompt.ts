@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useCallback, useEffect, useState } from "react";
-import { type CliToolStatus } from "../../../shared/app";
+import { type CliToolStatus } from "../../../shared/core/app";
 
 const dismissedStorageKey = "axon.cliToolInstallPrompt.dismissed";
 

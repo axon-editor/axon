@@ -8,7 +8,7 @@ import {
   type ExtensionContributionRecord,
   type ExtensionState,
   type ExtensionViewContribution,
-} from "@axon-editor/shared/extensions";
+} from "@axon-editor/shared/extensions/extensions";
 
 export const AXON_AGENT_EXTENSION_ID = "axon.agent";
 export const AXON_AGENT_VIEW_ID = "axon.agent";

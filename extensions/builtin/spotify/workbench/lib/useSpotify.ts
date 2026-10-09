@@ -16,8 +16,8 @@ import type {
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
   SpotifyTrack,
-} from "@axon-editor/shared/spotify";
-import { SPOTIFY_LIKED_SONGS_ID } from "@axon-editor/shared/spotify";
+} from "@axon-editor/shared/extensions/spotify";
+import { SPOTIFY_LIKED_SONGS_ID } from "@axon-editor/shared/extensions/spotify";
 
 const POLL_INTERVAL_MS = 2000;
 const DEVICE_PREFERENCE_KEY = "axon:spotifyDevicePreference";

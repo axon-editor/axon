@@ -25,23 +25,23 @@ import {
   type AxonSettings,
   type EditorSettings,
   type ThemeId,
-} from "@axon-editor/shared/settings";
-import { type GitChange } from "@axon-editor/shared/git";
-import { type EditorDiagnostic } from "@axon-editor/shared/diagnostics";
+} from "@axon-editor/shared/core/settings";
+import { type GitChange } from "@axon-editor/shared/workspace/git";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
 import {
   type ExtensionState,
   type ExtensionThemeSyntaxStyle,
-} from "@axon-editor/shared/extensions";
+} from "@axon-editor/shared/extensions/extensions";
 import { type Layout } from "../../lib/layout/types";
-import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import { type EditorNavigationTarget } from "../../lib/layout/navigation";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
+import { type EditorNavigationTarget } from "../../lib/layout/navigation/navigation";
 import PaneInstance from "./PaneInstance";
 import { type WelcomeThemeItem } from "@axon-editor/renderer/features/onboarding/WelcomeTab";
 import PaneDivider from "./PaneDivider";
 import { type DragTabData, type PaneDropData } from "../tabs/TabBar";
-import { getTree, type FileNode } from "@axon-editor/renderer/shared/lib/api";
+import { getTree, type FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
 import { addRecentFolder } from "@axon-editor/renderer/features/sidebar";
-import { getTabDisplayName } from "../../lib/layout/tabIdentity";
+import { getTabDisplayName } from "../../lib/layout/navigation/tabIdentity";
 
 interface Props {
   layout: Layout;

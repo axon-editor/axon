@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ManagedLanguageToolId } from "../../../shared/languageTools";
+import type { ManagedLanguageToolId } from "../../../shared/editor/language/languageTools";
 
 const DISMISSED_STORAGE_PREFIX = "axon.languageTools.dismissed.";
 

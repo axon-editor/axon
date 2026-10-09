@@ -13,15 +13,15 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
+import { type LanguageServerStatus } from "@axon-editor/shared/editor/language/lsp";
 import {
   isManagedLanguageToolProgressActive,
   type ManagedLanguageToolId,
   type ManagedLanguageToolProgress,
   type ManagedLanguageToolStatus,
-} from "@axon-editor/shared/languageTools";
+} from "@axon-editor/shared/editor/language/languageTools";
 import { enableManagedLanguageToolPrompt } from "@axon-editor/renderer/features/languageTools/languageToolPreferences";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import {
   normalizeLanguage,
   serverMatchesLanguage,

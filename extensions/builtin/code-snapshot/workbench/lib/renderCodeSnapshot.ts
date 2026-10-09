@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as monaco from "monaco-editor";
-import type { ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
+import type { ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
 import type { ThemeTokenMap } from "@axon-editor/renderer/shared/themes/types";
-import { publicAsset } from "@axon-editor/renderer/shared/lib/assets";
+import { publicAsset } from "@axon-editor/renderer/shared/lib/assets/assets";
 import { createSnapshotTokenStyleResolver } from "./snapshotTokenStyle";
 
 export interface CodeSnapshotPalette {

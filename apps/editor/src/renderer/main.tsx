@@ -17,20 +17,20 @@ import "@fontsource-variable/ibm-plex-sans/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import App from "./App";
 import "./index.css";
-import { registerAxonTheme } from "./shared/lib/soraTheme";
-import { configureMonacoDiagnostics } from "../services/lsp/renderer/monacoDiagnostics";
+import { registerAxonTheme } from "./shared/lib/theme/soraTheme";
+import { configureMonacoDiagnostics } from "../services/lsp/renderer/diagnostics/monacoDiagnostics";
 import { configureInlineAiCompletions } from "../services/ai/renderer/inlineCompletions";
-import { configureLspCompletions } from "../services/lsp/renderer/lspCompletions";
-import { configureLspNavigation } from "../services/lsp/renderer/lspNavigation";
+import { configureLspCompletions } from "../services/lsp/renderer/completions/lspCompletions";
+import { configureLspNavigation } from "../services/lsp/renderer/navigation/lspNavigation";
 import { registerMonacoReactLanguages } from "./features/editor/lib/language/monacoReactLanguages";
 import { registerMonacoStructuredLanguages } from "./features/editor/lib/language/monacoStructuredLanguages";
 import { registerMonacoAdditionalLanguages } from "./features/editor/lib/language/monacoAdditionalLanguages";
-import { preloadTextMateLanguage } from "../services/lsp/renderer/textMateSemanticTokens";
-import { getEnabledExtensionThemes } from "../shared/extensions";
+import { preloadTextMateLanguage } from "../services/lsp/renderer/semanticTokens/textMateSemanticTokens";
+import { getEnabledExtensionThemes } from "../shared/extensions/extensions";
 import {
   markAxonPerformance,
   measureAxonPerformance,
-} from "./shared/lib/performanceMarks";
+} from "./shared/lib/perf/performanceMarks";
 
 loader.config({ monaco });
 

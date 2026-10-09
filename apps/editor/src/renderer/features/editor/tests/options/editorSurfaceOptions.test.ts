@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "@axon-editor/shared/settings";
+import { DEFAULT_SETTINGS } from "@axon-editor/shared/core/settings";
 import { createEditorSurfaceOptions } from "../../lib/options/editorSurfaceOptions";
 
 describe("editor surface options", () => {

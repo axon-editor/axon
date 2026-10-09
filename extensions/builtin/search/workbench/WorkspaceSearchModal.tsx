@@ -11,10 +11,10 @@ import {
   searchWorkspace,
   writeFile,
   type WorkspaceSearchResult,
-} from "@axon-editor/renderer/shared/lib/api";
-import { getFileIcon } from "@axon-editor/renderer/features/sidebar/files/lib/fileIcons";
-import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
-import { type WorkspaceIndexSummary } from "@axon-editor/shared/workspaceIndex";
+} from "@axon-editor/renderer/shared/lib/backend/api";
+import { getFileIcon } from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileIcons";
+import CommandModal from "@axon-editor/renderer/shared/components/modals/CommandModal";
+import { type WorkspaceIndexSummary } from "@axon-editor/shared/workspace/workspaceIndex";
 
 const SEARCH_HISTORY_KEY = "axon.workspaceSearch.history";
 

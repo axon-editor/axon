@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands";
+import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands/commands";
 import {
   type ExtensionCommandContribution,
   type ExtensionContributionRecord,
   type ExtensionState,
   type ExtensionViewContribution,
-} from "../../../../shared/extensions";
+} from "../../../../shared/extensions/extensions";
 
 interface RequiredWorkbenchContribution {
   extensionId: string;

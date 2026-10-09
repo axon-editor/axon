@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as monaco from "monaco-editor";
-import { isLargeDocumentModel } from "../../../shared/largeDocument";
-import { canUseWorkspaceLanguageTools } from "../../lsp/renderer/lspFileAccess";
+import { isLargeDocumentModel } from "../../../shared/editor/documents/largeDocument";
+import { canUseWorkspaceLanguageTools } from "../../lsp/renderer/fileAccess/lspFileAccess";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
 const maxPrefixCharacters = 12_000;

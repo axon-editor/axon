@@ -12,9 +12,9 @@ import { resolveTestingWorkbenchContribution } from "@axon-builtin-testing/lib/c
 import { resolveTasksWorkbenchContribution } from "@axon-builtin-tasks/lib/contribution";
 import { resolveLanguageToolsWorkbenchContribution } from "@axon-builtin-language-tools/lib/contribution";
 import { resolveSpotifyWorkbenchContribution } from "@axon-builtin-spotify/lib/contribution";
-import { getEnabledExtensionThemes } from "../../shared/extensions";
-import AxonWorkbenchLayout from "./components/AxonWorkbenchLayout";
-import { WorkspaceRenderBoundary } from "./components/WorkspaceRenderBoundary";
+import { getEnabledExtensionThemes } from "../../shared/extensions/extensions";
+import AxonWorkbenchLayout from "./components/layout/AxonWorkbenchLayout";
+import { WorkspaceRenderBoundary } from "./components/boundaries/WorkspaceRenderBoundary";
 import type { AxonAppViewProps } from "./AxonApp";
 
 export type AxonWorkbenchLayoutProps = AxonAppViewProps & {

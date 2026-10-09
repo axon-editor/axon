@@ -8,7 +8,7 @@ import { useMemo, useState } from "react";
 import {
   type FileSymbol,
   type FileSymbolKind,
-} from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";
+} from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileSymbols";
 
 interface Props {
   activeSymbolId?: string | null;

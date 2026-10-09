@@ -15,10 +15,10 @@ import {
   type AppGlassMode,
   type AxonSettings,
   type CustomFont,
-} from "../shared/settings";
-import { type ExtensionState } from "../shared/extensions";
-import { type AiModelInfo } from "../shared/ai";
-import { type PythonWorkspaceEnvironmentStatus } from "../shared/lsp";
+} from "../shared/core/settings";
+import { type ExtensionState } from "../shared/extensions/extensions";
+import { type AiModelInfo } from "../shared/ai/ai";
+import { type PythonWorkspaceEnvironmentStatus } from "../shared/editor/language/lsp";
 
 contextBridge.exposeInMainWorld("axon", {
   surface: "settings",

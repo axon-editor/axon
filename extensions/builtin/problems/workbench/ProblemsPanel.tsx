@@ -13,7 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { type EditorDiagnostic } from "./lib/diagnostics";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import {
   countDiagnosticsBySeverity,
   filterDiagnostics,

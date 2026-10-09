@@ -14,7 +14,7 @@ import {
   type TestProvider,
   type TestRunResult,
   type TestStopResult,
-} from "../../shared/tests";
+} from "../../shared/editor/testing/tests";
 import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 
 interface TestManagerDependencies {

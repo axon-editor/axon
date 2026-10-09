@@ -5,8 +5,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Braces, Box, CircleDot, FunctionSquare, Search } from "lucide-react";
-import { type FileSymbol } from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";
-import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
+import { type FileSymbol } from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileSymbols";
+import CommandModal from "@axon-editor/renderer/shared/components/modals/CommandModal";
 
 interface Props {
   open: boolean;

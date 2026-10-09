@@ -13,12 +13,12 @@ import {
   type AppGlassMode,
   type AxonSettings,
   type CustomFont,
-} from "../shared/settings";
-import { type AxonCommand } from "../shared/commands";
+} from "../shared/core/settings";
+import { type AxonCommand } from "../shared/commands/commands";
 import {
   type TerminalSurfaceDockMode,
   type TerminalWindowHandoff,
-} from "../shared/terminalWindow";
+} from "../shared/terminal/terminalWindow";
 import {
   type AgentResumeRequest,
   type CliToolInstallResult,
@@ -26,7 +26,7 @@ import {
   type CoreRequest,
   type CoreResponse,
   type OpenWorkspaceFolder,
-} from "../shared/app";
+} from "../shared/core/app";
 import {
   type AiChatRequest,
   type AiChatResult,
@@ -39,9 +39,9 @@ import {
   type AiPullEvent,
   type AiPullStarted,
   type AiRuntimeStatus,
-} from "../shared/ai";
-import { type EditorDiagnostic } from "../shared/diagnostics";
-import { type FolderChangeEvent } from "../shared/fs";
+} from "../shared/ai/ai";
+import { type EditorDiagnostic } from "../shared/editor/language/diagnostics";
+import { type FolderChangeEvent } from "../shared/workspace/fs";
 import {
   type GitActionResult,
   type GitBranchAction,
@@ -61,20 +61,20 @@ import {
   type GitStatusResult,
   type GitWorktreeAction,
   type GitWorktreeListResult,
-} from "../shared/git";
+} from "../shared/workspace/git";
 import {
   type TaskFinishedEvent,
   type TaskOutputEvent,
   type TaskRunResult,
   type WorkspaceTask,
-} from "../shared/tasks";
+} from "../shared/extensions/tasks";
 import {
   type TestDiscoveryResult,
   type TestFinishedEvent,
   type TestOutputEvent,
   type TestRunResult,
   type TestStopResult,
-} from "../shared/tests";
+} from "../shared/editor/testing/tests";
 import {
   type LanguageServerCodeActionRequest,
   type LanguageServerCodeActionResult,
@@ -102,24 +102,24 @@ import {
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
   type PythonWorkspaceEnvironmentStatus,
-} from "../shared/lsp";
+} from "../shared/editor/language/lsp";
 import {
   type ManagedLanguageToolId,
   type ManagedLanguageToolInstallResult,
   type ManagedLanguageToolProgress,
   type ManagedLanguageToolStatus,
-} from "../shared/languageTools";
+} from "../shared/editor/language/languageTools";
 import {
   type UpdateActionResult,
   type UpdateInfo,
   type UpdateInstallState,
-} from "../shared/updates";
+} from "../shared/core/updates";
 import {
   type HtmlPreviewActionResult,
   type HtmlPreviewConsoleEvent,
-} from "../shared/htmlPreview";
-import { type ExtensionWebviewActionResult } from "../shared/extensionWebview";
-import { type WorkspaceIndexSummary } from "../shared/workspaceIndex";
+} from "../shared/extensions/htmlPreview";
+import { type ExtensionWebviewActionResult } from "../shared/extensions/extensionWebview";
+import { type WorkspaceIndexSummary } from "../shared/workspace/workspaceIndex";
 import {
   type ExtensionActionResult,
   type ExtensionCommandExecutionResult,
@@ -127,7 +127,7 @@ import {
   type ExtensionReadmeResult,
   type ExtensionReadmeAssetUrlsResult,
   type ExtensionState,
-} from "../shared/extensions";
+} from "../shared/extensions/extensions";
 import type {
   SpotifyActionResult,
   SpotifyAuthResult,
@@ -137,7 +137,7 @@ import type {
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
   SpotifyTracksResult,
-} from "../shared/spotify";
+} from "../shared/extensions/spotify";
 
 const EXTENSION_IPC_CHANNELS = {
   list: "extensions:list",

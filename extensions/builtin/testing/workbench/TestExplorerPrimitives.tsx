@@ -15,7 +15,7 @@ import {
   type TestOutputEvent,
   type TestProvider,
   type TestRunStatus,
-} from "@axon-editor/shared/tests";
+} from "@axon-editor/shared/editor/testing/tests";
 
 export interface RunRecord {
   runId: string;

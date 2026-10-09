@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useState } from "react";
-import { type FileNode } from "../../../shared/lib/api";
-import { publicAsset } from "../../../shared/lib/assets";
+import { type FileNode } from "../../../shared/lib/backend/api";
+import { publicAsset } from "../../../shared/lib/assets/assets";
 import { type GitTreeDecoration } from "..";
 import FileTreeNode from "./FileTreeNode";
 import FileTreeLoading from "./FileTreeLoading";
 import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
-import { type FolderChangeEvent } from "../../../../shared/fs";
+import { type FolderChangeEvent } from "../../../../shared/workspace/fs";
 
 export interface ImportedExternalEntry {
   sourcePath: string;

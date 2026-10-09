@@ -11,8 +11,8 @@ import http, {
   type ServerResponse,
 } from "http";
 import path from "path";
-import { type ExtensionWebviewTarget } from "../../../../shared/extensionWebview";
-import { type HtmlPreviewConsoleEvent } from "../../../../shared/htmlPreview";
+import { type ExtensionWebviewTarget } from "../../../../shared/extensions/extensionWebview";
+import { type HtmlPreviewConsoleEvent } from "../../../../shared/extensions/htmlPreview";
 import { authorizeHtmlPreviewRequest } from "../../../htmlPreview/server";
 import { getHtmlPreviewContentType } from "../../../htmlPreview/server";
 import { injectHtmlPreviewClient } from "../../../htmlPreview/inject";

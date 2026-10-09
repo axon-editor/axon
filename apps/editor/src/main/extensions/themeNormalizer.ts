@@ -8,12 +8,12 @@ import {
   THEME_COLOR_TOKENS,
   type ThemeColorToken,
   type ThemeOverride,
-} from "../../shared/settings";
+} from "../../shared/core/settings";
 import {
   type ExtensionThemeDefinition,
   type ExtensionThemeSyntaxStyle,
   type ResolvedExtensionTheme,
-} from "../../shared/extensions";
+} from "../../shared/extensions/extensions";
 
 const zedToAxonTokenMap: Partial<Record<ThemeColorToken, readonly string[]>> = {
   background: ["background", "editor.background"],

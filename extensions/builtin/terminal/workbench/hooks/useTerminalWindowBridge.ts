@@ -10,8 +10,8 @@
 // always see the latest floating/open state instead of a stale registration.
 
 import { useCallback, useEffect } from "react";
-import { type TerminalSurfaceDockMode } from "@axon-editor/shared/terminalWindow";
-import { type TerminalWindowHandoff } from "@axon-editor/shared/terminalWindow";
+import { type TerminalSurfaceDockMode } from "@axon-editor/shared/terminal/terminalWindow";
+import { type TerminalWindowHandoff } from "@axon-editor/shared/terminal/terminalWindow";
 
 interface UseTerminalWindowBridgeOptions {
   // False for the windowed surface itself, which routes its dock/hide through

@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from "react";
-import { type OpenWorkspaceFolder } from "../../../../../shared/app";
-import { type WorkspaceRoot } from "../../../../shared/lib/workspaceRoots";
+import { type OpenWorkspaceFolder } from "../../../../../shared/core/app";
+import { type WorkspaceRoot } from "../../../../shared/lib/workspace/workspaceRoots";
 
 function createLocalFallback(roots: WorkspaceRoot[]): OpenWorkspaceFolder[] {
   return roots.map((root) => ({

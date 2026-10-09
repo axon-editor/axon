@@ -11,13 +11,13 @@ const { getModel, primeModel, readFile } = vi.hoisted(() => ({
   readFile: vi.fn(),
 }));
 
-vi.mock("@axon-editor/renderer/shared/lib/api", () => ({ readFile }));
-vi.mock("../../lib/buffer/monacoModels", () => ({ getModel, primeModel }));
+vi.mock("@axon-editor/renderer/shared/lib/backend/api", () => ({ readFile }));
+vi.mock("../../lib/buffer/loading/monacoModels", () => ({ getModel, primeModel }));
 
 import {
   loadAxonBuffer,
   prefetchAxonBuffer,
-} from "../../lib/buffer/axonBufferLoader";
+} from "../../lib/buffer/loading/axonBufferLoader";
 
 beforeEach(() => {
   readFile.mockReset();

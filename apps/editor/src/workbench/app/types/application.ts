@@ -5,7 +5,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 
-import type { AiActionId } from "../../../shared/ai";
+import type { AiActionId } from "../../../shared/ai/ai";
 import type { OutputEntryLevel } from "../../../platform/panel/bottomPanel";
 
 export type StateSetter<T> = Dispatch<SetStateAction<T>>;

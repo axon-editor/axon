@@ -8,7 +8,7 @@ import {
   AXON_MONACO_THEME,
   completeThemeTokens,
   type ThemeTokenMap,
-} from "./tokenThemes";
+} from "./syntax/tokenThemes";
 import {
   createSyntaxRules,
   type AxonThemeDefinition,
@@ -18,9 +18,9 @@ import {
   resolveThemeGitColors,
   gitLineTintAlpha,
   inferThemeAppearance,
-} from "./themeAppearance";
-import { type ThemeId } from "../../../shared/settings";
-import { type ResolvedExtensionTheme } from "../../../shared/extensions";
+} from "./appearance/themeAppearance";
+import { type ThemeId } from "../../../shared/core/settings";
+import { type ResolvedExtensionTheme } from "../../../shared/extensions/extensions";
 
 export {
   AXON_MONACO_THEME,
@@ -28,7 +28,7 @@ export {
   resolveThemeTokens,
   getThemeLabel,
   type ThemeTokenMap,
-} from "./tokenThemes";
+} from "./syntax/tokenThemes";
 
 type MonacoInstance = typeof monaco;
 

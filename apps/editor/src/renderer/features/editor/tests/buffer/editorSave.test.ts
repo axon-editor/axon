@@ -8,7 +8,7 @@ import {
   AXON_EDITOR_SAVE_EVENT,
   dispatchEditorSave,
   type EditorSaveEventDetail,
-} from "../../lib/buffer/editorSave";
+} from "../../lib/buffer/persistence/editorSave";
 
 describe("editor save dispatch", () => {
   afterEach(() => {

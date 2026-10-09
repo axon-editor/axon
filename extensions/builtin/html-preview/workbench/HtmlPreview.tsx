@@ -11,8 +11,8 @@ import {
   Smartphone,
   Tablet,
 } from "lucide-react";
-import { type HtmlPreviewTarget } from "@axon-editor/shared/htmlPreview";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import { type HtmlPreviewTarget } from "@axon-editor/shared/extensions/htmlPreview";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 
 interface Props {
   filePath: string;

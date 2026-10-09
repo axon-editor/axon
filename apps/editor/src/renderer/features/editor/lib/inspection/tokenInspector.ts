@@ -5,21 +5,21 @@
 
 import * as monaco from "monaco-editor";
 import { type ThemeTokenMap } from "@axon-editor/renderer/shared/themes";
-import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
-import { getSemanticTokensForModel } from "@axon-editor/services/lsp/renderer/lspSemanticTokens";
-import { getTextMateSemanticTokenStatus } from "@axon-editor/services/lsp/renderer/textMateSemanticTokens";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
+import { getSemanticTokensForModel } from "@axon-editor/services/lsp/renderer/semanticTokens/lspSemanticTokens";
+import { getTextMateSemanticTokenStatus } from "@axon-editor/services/lsp/renderer/semanticTokens/textMateSemanticTokens";
 import {
   createDefaultCaptureEntries,
   createLayeredCaptureStyleMap,
   findCapturesForMonacoToken,
   resolveCaptureStyle,
   type AxonTokenCaptureMatch,
-} from "@axon-editor/renderer/shared/themes/captureRegistry";
-import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/themes/syntaxTheme";
+} from "@axon-editor/renderer/shared/themes/appearance/captureRegistry";
+import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/themes/syntax/syntaxTheme";
 import {
   resolveHighlightCapture,
   semanticClassName,
-} from "@axon-editor/services/lsp/renderer/semanticTokenDecorations";
+} from "@axon-editor/services/lsp/renderer/semanticTokens/semanticTokenDecorations";
 
 export interface TokenInspectorCapture {
   capture: string;

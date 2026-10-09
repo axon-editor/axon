@@ -15,7 +15,7 @@ import {
   type PointerEvent,
 } from "react";
 import { Pin, X } from "lucide-react";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 interface Props extends HTMLAttributes<HTMLDivElement> {
   label: string;
   active: boolean;

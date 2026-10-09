@@ -79,7 +79,7 @@ An extension can be visible to Axon in three different states:
   `extensions/marketplace/example-theme/`.
 - Installed package: a copied package under the user extensions root.
 
-The marketplace contract in `src/marketplace.ts` is intentionally small. Local
+The marketplace contract in `src/marketplace/marketplace.ts` is intentionally small. Local
 registry entries use `installMode: "copy"` and point at a manifest path. A future
 remote registry can use `installMode: "download"` and a package URL without
 changing the modal or install IPC contract.
@@ -90,7 +90,7 @@ then the extension loader reads that installed snapshot on the next refresh.
 
 ## Runtime Status
 
-`src/runtime.ts` defines `ExtensionContext` and `AxonExtensionApi`. Runtime
+`src/runtime/runtime.ts` defines `ExtensionContext` and `AxonExtensionApi`. Runtime
 commands execute for trusted built-in extensions today. Terminal, debug, view,
 and workspace-index providers can register ownership and appear in runtime
 diagnostics, while their full provider execution paths are still being built.

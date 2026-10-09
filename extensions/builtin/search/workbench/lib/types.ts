@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { AxonCommand } from "@axon-editor/shared/commands";
+import type { AxonCommand } from "@axon-editor/shared/commands/commands";
 
 export interface CommandPaletteCommand {
   id: AxonCommand;

@@ -5,8 +5,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, GitMerge, RefreshCw } from "lucide-react";
-import { type GitConflictListResult } from "@axon-editor/shared/git";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import { type GitConflictListResult } from "@axon-editor/shared/workspace/git";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 
 interface Props {
   folderPath: string | null;

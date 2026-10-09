@@ -27,8 +27,8 @@ import {
   SquareTerminal,
   Wrench,
 } from "lucide-react";
-import { AXON_COMMANDS, type AxonCommand } from "../../../shared/commands";
-import Tooltip from "../../../renderer/shared/components/Tooltip";
+import { AXON_COMMANDS, type AxonCommand } from "../../../shared/commands/commands";
+import Tooltip from "../../../renderer/shared/components/primitives/Tooltip";
 
 interface AppMenuAction {
   id: string;

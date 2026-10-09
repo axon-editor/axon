@@ -93,7 +93,7 @@ import {
   getModel,
   markModelDirty,
   releaseModel,
-} from "../../lib/buffer/monacoModels";
+} from "../../lib/buffer/loading/monacoModels";
 
 beforeEach(() => {
   vi.useFakeTimers();

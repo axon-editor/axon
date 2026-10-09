@@ -25,13 +25,13 @@ import {
   getExtensionActivationReason,
   getExtensionHostKind,
   getExtensionLifecycle,
-} from "../runtime/activation";
+} from "../runtime/activation/activation";
 import {
   activateStartupExtensions,
   applyActivationState,
   getExtensionActivationRecords,
-} from "../runtime/activationStore";
-import { createExtensionContributionRegistry } from "../runtime/contributionRegistry";
+} from "../runtime/activation/activationStore";
+import { createExtensionContributionRegistry } from "../runtime/contributions/contributionRegistry";
 import { findExtensionDirectories } from "../shared/discovery";
 import { readDisabledExtensionIds } from "./enablement";
 import { readJsonFile } from "../shared/json";
@@ -43,12 +43,12 @@ import {
 import {
   createExtensionRuntimeRegistrations,
   summarizeExtensionRuntime,
-} from "../runtime/runtime";
-import { getRuntimeDiagnostics } from "../runtime/runtimeHost";
+} from "../runtime/host/runtime";
+import { getRuntimeDiagnostics } from "../runtime/host/runtimeHost";
 import {
   markExtensionHostTiming,
   startExtensionHostTiming,
-} from "../runtime/diagnostics";
+} from "../runtime/diagnostics/diagnostics";
 
 type ExtensionDiscoveryCacheEntry = {
   disabledKey: string;

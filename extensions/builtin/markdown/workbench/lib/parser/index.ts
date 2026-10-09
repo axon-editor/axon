@@ -6,7 +6,7 @@
 import type { Token, InlineToken, ParseOptions } from "./types";
 import { tokenizeBlocks } from "./tokenizer";
 import { createPlugins } from "./plugins";
-import { extractFrontmatter } from "./plugins/frontmatter";
+import { extractFrontmatter } from "./plugins/core/frontmatter";
 
 // Public API for the Axon markdown parser. Converts markdown text into
 // an array of typed tokens that the renderer can convert to HTML.

@@ -7,7 +7,7 @@ import { ipcMain } from "electron";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { type EditorDiagnostic } from "../../shared/diagnostics";
+import { type EditorDiagnostic } from "../../shared/editor/language/diagnostics";
 import { runProjectDiagnostics } from "./diagnostics";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 

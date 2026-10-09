@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { type ExtensionWebviewTarget } from "@axon-editor/shared/extensionWebview";
+import { type ExtensionWebviewTarget } from "@axon-editor/shared/extensions/extensionWebview";
 import { getExtensionWebviewTabLabel } from "./lib/extensionWebviewTabs";
 
 interface Props {

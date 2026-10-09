@@ -1,0 +1,560 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { useCallback } from "react";
+import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands/commands";
+import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
+import { parseExtensionViewCommandId } from "../../../contrib/extensions/lib/extensionViews";
+import {
+  getBuiltinCommandAlias,
+  getBuiltinViewAlias,
+} from "../../../contrib/extensions/lib/builtinWorkbenchContributions";
+import type { ExtensionState } from "../../../../shared/extensions/extensions";
+import type { FolderPickerIntent } from "../../../../shared/core/app";
+import type { BottomPanelTab } from "../../../../platform/panel/bottomPanel";
+import type {
+  AgentActionRequest,
+  AppendOutput,
+  EditorActionRequest,
+  RefreshGitStatus,
+  RequireTrustedWorkspace,
+  SidebarView,
+  StateSetter,
+} from "../../types/application";
+
+interface AppCommandRunnerOptions {
+  activeFilePath: string | null;
+  appendOutput: AppendOutput;
+  clearOutputEntries: () => void;
+  handleCloseActiveTab: () => void;
+  handleNewFile: () => Promise<void>;
+  handleNewTerminal: () => void;
+  handleOpenExtensionWebview: (extensionId: string) => void;
+  handleOpenHtmlPreview: (filePath: string) => void;
+  handleOpenSettingsJson: () => Promise<void>;
+  handleOpenSettingsTab: () => void;
+  handleSaveActiveFile: () => void;
+  handleSaveActiveFileAs: () => Promise<void>;
+  handleToggleAutoSave: () => void;
+  navigateDiagnostic: (direction: 1 | -1) => void;
+  openProblemsTab: () => void;
+  refreshGitStatus: RefreshGitStatus;
+  refreshProjectDiagnostics: () => Promise<void>;
+  requireTrustedWorkspace: RequireTrustedWorkspace;
+  runEditorAction: (action: EditorActionRequest) => void;
+  folderPath: string | null;
+  extensionState: ExtensionState | null;
+  setExtensionState: StateSetter<ExtensionState>;
+  terminalOpen: boolean;
+  updateAvailable: boolean | undefined;
+  setAboutOpen: StateSetter<boolean>;
+  setAgentActionRequest: StateSetter<AgentActionRequest | null>;
+  setAgentSidebarOpen: StateSetter<boolean>;
+  setBottomPanelOpen: StateSetter<boolean>;
+  setBottomPanelTab: StateSetter<BottomPanelTab>;
+  setDiffFilePath: StateSetter<string | null>;
+  setDiffOpen: StateSetter<boolean>;
+  setExtensionsOpen: StateSetter<boolean>;
+  setExtensionViewOpenId: StateSetter<string | null>;
+  setFileOutlineOpen: StateSetter<boolean>;
+  setFolderPickerIntent: StateSetter<FolderPickerIntent | null>;
+  setLanguageToolsOpen: StateSetter<boolean>;
+  setPaletteOpen: StateSetter<boolean>;
+  setSidebarCollapsed: StateSetter<boolean>;
+  setSidebarView: StateSetter<SidebarView>;
+  setSourceControlOpen: StateSetter<boolean>;
+  setTaskRunnerOpen: StateSetter<boolean>;
+  setTerminalOpen: StateSetter<boolean>;
+  setTestExplorerOpen: StateSetter<boolean>;
+  setUpdateModalOpen: StateSetter<boolean>;
+  setWorkspaceOverviewOpen: StateSetter<boolean>;
+  setWorkspaceSearchOpen: StateSetter<boolean>;
+  setZenMode: StateSetter<boolean>;
+}
+
+export function useAppCommandRunner({
+  activeFilePath,
+  appendOutput,
+  clearOutputEntries,
+  handleCloseActiveTab,
+  handleNewFile,
+  handleNewTerminal,
+  handleOpenExtensionWebview,
+  handleOpenHtmlPreview,
+  handleOpenSettingsJson,
+  handleOpenSettingsTab,
+  handleSaveActiveFile,
+  handleSaveActiveFileAs,
+  handleToggleAutoSave,
+  navigateDiagnostic,
+  openProblemsTab,
+  refreshGitStatus,
+  refreshProjectDiagnostics,
+  requireTrustedWorkspace,
+  runEditorAction,
+  folderPath,
+  extensionState,
+  setExtensionState,
+  terminalOpen,
+  updateAvailable,
+  setAboutOpen,
+  setAgentActionRequest,
+  setAgentSidebarOpen,
+  setBottomPanelOpen,
+  setBottomPanelTab,
+  setDiffFilePath,
+  setDiffOpen,
+  setExtensionsOpen,
+  setExtensionViewOpenId,
+  setFileOutlineOpen,
+  setFolderPickerIntent,
+  setLanguageToolsOpen,
+  setPaletteOpen,
+  setSidebarCollapsed,
+  setSidebarView,
+  setSourceControlOpen,
+  setTaskRunnerOpen,
+  setTerminalOpen,
+  setTestExplorerOpen,
+  setUpdateModalOpen,
+  setWorkspaceOverviewOpen,
+  setWorkspaceSearchOpen,
+  setZenMode,
+}: AppCommandRunnerOptions) {
+  const activateExtensionEvent = useCallback(
+    (activationEvent: string, reportSuccess = false) => {
+      const startedAt = performance.now();
+      void window.axon
+        .activateExtensionEvent(activationEvent, folderPath)
+        .then((result) => {
+          setExtensionState(result.state);
+          if (reportSuccess || !result.ok) {
+            appendOutput(
+              "extensions",
+              result.message,
+              result.ok ? "info" : "warning",
+            );
+          }
+          if (performance.now() - startedAt > 120) {
+            appendOutput(
+              "extensions",
+              `${activationEvent} activation finished in ${Math.round(
+                performance.now() - startedAt,
+              )}ms.`,
+              result.ok ? "info" : "warning",
+            );
+          }
+        })
+        .catch((err) => {
+          appendOutput(
+            "extensions",
+            `Failed to activate '${activationEvent}': ${
+              err instanceof Error
+                ? err.message
+                : "unknown extension host error"
+            }`,
+            "error",
+          );
+        });
+    },
+    [appendOutput, folderPath, setExtensionState],
+  );
+
+  const tryOpenExtensionWebview = useCallback(
+    async (commandId: string, fallbackMessage: string) => {
+      // A contributed command with no runtime handler may belong to a webview
+      // extension: one that ships an HTML page in its package. When the command
+      // does not map to a native built-in alias, ask the extension host for a
+      // target before reporting failure so webview extensions can open their
+      // tab through the exact same command palette entry.
+      const record = extensionState?.contributionRegistry.commands.find(
+        (candidate) => candidate.contribution.id === commandId,
+      );
+      if (!record) {
+        appendOutput("extensions", fallbackMessage, "warning");
+        return;
+      }
+
+      try {
+        const result = await window.axon.getExtensionWebviewTarget(
+          record.extensionId,
+        );
+        if (!result.ok || !result.target) {
+          appendOutput(
+            "extensions",
+            result.message ?? fallbackMessage,
+            "warning",
+          );
+          return;
+        }
+        handleOpenExtensionWebview(result.target.extensionId);
+        appendOutput(
+          "extensions",
+          `Opened webview for ${result.target.extensionId}.`,
+          "info",
+        );
+      } catch (err) {
+        appendOutput(
+          "extensions",
+          `Failed to open webview for ${record.extensionId}: ${
+            err instanceof Error ? err.message : "unknown error"
+          }`,
+          "error",
+        );
+      }
+    },
+    [appendOutput, extensionState, handleOpenExtensionWebview],
+  );
+
+  return useCallback(
+    (command: AxonCommand) => {
+      let runnableCommand = command;
+      const extensionViewId = parseExtensionViewCommandId(command);
+
+      if (extensionViewId) {
+        if (!requireTrustedWorkspace("Extension views")) return;
+
+        activateExtensionEvent(`onView:${extensionViewId}`, true);
+        const aliasedViewCommand = getBuiltinViewAlias(extensionViewId);
+        if (aliasedViewCommand) {
+          runnableCommand = aliasedViewCommand;
+        } else {
+          setExtensionViewOpenId(extensionViewId);
+          return;
+        }
+      }
+
+      if (runnableCommand.startsWith("extension:")) {
+        if (!requireTrustedWorkspace("Extension commands")) return;
+
+        const commandId = runnableCommand.slice("extension:".length);
+        void window.axon
+          .activateExtensionEvent(`onCommand:${commandId}`, folderPath)
+          .then((activationResult) => {
+            setExtensionState(activationResult.state);
+            appendOutput(
+              "extensions",
+              activationResult.message,
+              activationResult.ok ? "info" : "warning",
+            );
+            return window.axon.executeExtensionCommand(
+              commandId,
+              [],
+              folderPath,
+            );
+          })
+          .then((result) => {
+            setExtensionState(result.state);
+            if (result.ok) return;
+            if (getBuiltinCommandAlias(commandId)) return;
+            return tryOpenExtensionWebview(commandId, result.message);
+          })
+          .catch((err) => {
+            appendOutput(
+              "extensions",
+              `Failed to execute '${commandId}': ${
+                err instanceof Error
+                  ? err.message
+                  : "unknown extension host error"
+              }`,
+              "error",
+            );
+          });
+        const aliasedCommand = getBuiltinCommandAlias(commandId);
+        if (!aliasedCommand) return;
+
+        // Built-in workbench contributions are exposed through the same command
+        // registry as user extensions, so the command palette should not stop
+        // at "activation happened". This alias bridge lets a contributed
+        // manifest command open the existing React surface today while keeping
+        // the command identity stable for the future executable extension host.
+        runnableCommand = aliasedCommand;
+      }
+
+      switch (runnableCommand) {
+        case AXON_COMMANDS.ABOUT:
+          setAboutOpen(true);
+          break;
+        case AXON_COMMANDS.NEW_FILE:
+          void handleNewFile();
+          break;
+        case AXON_COMMANDS.OPEN_FOLDER:
+          setFolderPickerIntent("folder");
+          break;
+        case AXON_COMMANDS.OPEN_RECENT:
+          setFolderPickerIntent("recent");
+          break;
+        case AXON_COMMANDS.SAVE:
+          handleSaveActiveFile();
+          break;
+        case AXON_COMMANDS.SAVE_AS:
+          void handleSaveActiveFileAs();
+          break;
+        case AXON_COMMANDS.TOGGLE_AUTO_SAVE:
+          handleToggleAutoSave();
+          break;
+        case AXON_COMMANDS.CLOSE_TAB:
+          handleCloseActiveTab();
+          break;
+        case AXON_COMMANDS.OPEN_COMMAND_PALETTE:
+          setPaletteOpen((prev: boolean) => !prev);
+          break;
+        case AXON_COMMANDS.OPEN_WORKSPACE_OVERVIEW:
+          setWorkspaceOverviewOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_WORKSPACE_SEARCH:
+          activateExtensionEvent("onCommand:axon.search.openWorkspace");
+          activateExtensionEvent("onView:axon.search.workspace");
+          setWorkspaceSearchOpen((prev: boolean) => !prev);
+          break;
+        case AXON_COMMANDS.OPEN_TASK_RUNNER:
+          if (!requireTrustedWorkspace("Tasks")) break;
+          setTaskRunnerOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_TEST_EXPLORER:
+          if (!requireTrustedWorkspace("Tests")) break;
+          activateExtensionEvent("onCommand:axon.testing.open");
+          activateExtensionEvent("onView:axon.tests");
+          setTestExplorerOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_FILE_OUTLINE:
+          setFileOutlineOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_LANGUAGE_TOOLS:
+          setLanguageToolsOpen(true);
+          break;
+        case AXON_COMMANDS.INSPECT_EDITOR_TOKEN:
+          runEditorAction("inspect-token");
+          break;
+        case AXON_COMMANDS.GO_TO_DEFINITION:
+          if (!requireTrustedWorkspace("Language server navigation")) break;
+          runEditorAction("definition");
+          break;
+        case AXON_COMMANDS.FIND_REFERENCES:
+          if (!requireTrustedWorkspace("Language server navigation")) break;
+          runEditorAction("references");
+          break;
+        case AXON_COMMANDS.RENAME_SYMBOL:
+          if (!requireTrustedWorkspace("Language server features")) break;
+          runEditorAction("rename");
+          break;
+        case AXON_COMMANDS.FORMAT_DOCUMENT:
+          if (!requireTrustedWorkspace("Language server features")) break;
+          runEditorAction("format");
+          break;
+        case AXON_COMMANDS.OPEN_CODE_SNAPSHOT:
+          activateExtensionEvent("onCommand:axon.codeSnapshot.open");
+          runEditorAction("snapshot");
+          break;
+        case AXON_COMMANDS.OPEN_HTML_PREVIEW:
+          if (activeFilePath && isHtmlFile(activeFilePath)) {
+            handleOpenHtmlPreview(activeFilePath);
+          }
+          break;
+        case AXON_COMMANDS.OPEN_PROBLEMS_PANEL:
+          activateExtensionEvent("onCommand:axon.problems.open");
+          activateExtensionEvent("onView:axon.problems");
+          openProblemsTab();
+          appendOutput("panel", "Opened Problems tab.");
+          break;
+        case AXON_COMMANDS.OPEN_OUTPUT_PANEL:
+          setBottomPanelTab("output");
+          setBottomPanelOpen(true);
+          setTerminalOpen(false);
+          appendOutput("panel", "Opened Output panel.");
+          break;
+        case AXON_COMMANDS.REFRESH_DIAGNOSTICS:
+          if (!requireTrustedWorkspace("Language server diagnostics")) break;
+          activateExtensionEvent("onCommand:axon.problems.refresh");
+          openProblemsTab();
+          void refreshProjectDiagnostics();
+          break;
+        case AXON_COMMANDS.NEXT_PROBLEM:
+          navigateDiagnostic(1);
+          break;
+        case AXON_COMMANDS.PREVIOUS_PROBLEM:
+          navigateDiagnostic(-1);
+          break;
+        case AXON_COMMANDS.CLEAR_OUTPUT:
+          setBottomPanelTab("output");
+          setBottomPanelOpen(true);
+          setTerminalOpen(false);
+          clearOutputEntries();
+          break;
+        case AXON_COMMANDS.OPEN_DIFF_VIEW:
+          if (activeFilePath) {
+            setDiffFilePath(activeFilePath);
+            setDiffOpen(true);
+          }
+          break;
+        case AXON_COMMANDS.OPEN_SOURCE_CONTROL:
+          activateExtensionEvent("onCommand:axon.git.openSourceControl");
+          activateExtensionEvent("onView:axon.sourceControl");
+          setSourceControlOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_GIT_HISTORY:
+          activateExtensionEvent("onCommand:axon.git.openHistory");
+          activateExtensionEvent("onView:axon.history");
+          setSidebarCollapsed(false);
+          setSidebarView("history");
+          void refreshGitStatus({ silent: true });
+          break;
+        case AXON_COMMANDS.OPEN_SPOTIFY:
+          activateExtensionEvent("onView:axon.spotify");
+          setSidebarCollapsed(false);
+          setSidebarView("spotify");
+          break;
+        case AXON_COMMANDS.TOGGLE_SIDEBAR:
+          setSidebarCollapsed((collapsed: boolean) => !collapsed);
+          break;
+        case AXON_COMMANDS.TOGGLE_TERMINAL:
+          if (!requireTrustedWorkspace("Terminal")) break;
+          activateExtensionEvent("onCommand:axon.terminal.toggle");
+          activateExtensionEvent("onTerminalProfile:axon.terminal.default");
+          setBottomPanelOpen(false);
+          setTerminalOpen((prev: boolean) => !prev);
+          appendOutput(
+            "terminal",
+            terminalOpen ? "Hid terminal." : "Showed terminal.",
+          );
+          break;
+        case AXON_COMMANDS.OPEN_SETTINGS:
+          activateExtensionEvent("onCommand:axon.settings.open");
+          activateExtensionEvent("onView:axon.settings");
+          handleOpenSettingsTab();
+          break;
+        case AXON_COMMANDS.OPEN_EXTENSIONS:
+          if (!requireTrustedWorkspace("Extensions")) break;
+          setExtensionsOpen(true);
+          break;
+        case AXON_COMMANDS.OPEN_SETTINGS_JSON:
+          activateExtensionEvent("onCommand:axon.settings.openJson");
+          void handleOpenSettingsJson();
+          break;
+        case AXON_COMMANDS.OPEN_UPDATE_NOTES:
+          if (updateAvailable) {
+            setUpdateModalOpen(true);
+          }
+          break;
+        case AXON_COMMANDS.TOGGLE_AGENT_SIDEBAR:
+          setAgentSidebarOpen((open: boolean) => !open);
+          break;
+        case AXON_COMMANDS.ASK_AXON:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
+          activateExtensionEvent("onCommand:axon.agent.open");
+          activateExtensionEvent("onView:axon.agent");
+          activateExtensionEvent("onAgent:axon.agent.local");
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({ action: "ask", nonce: Date.now() });
+          break;
+        case AXON_COMMANDS.AI_EXPLAIN_SELECTION:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "explain-selection",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_FIX_PROBLEM:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
+          activateExtensionEvent("onCommand:axon.agent.fixProblems");
+          activateExtensionEvent("onView:axon.agent");
+          activateExtensionEvent("onAgent:axon.agent.local");
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({ action: "fix-problem", nonce: Date.now() });
+          break;
+        case AXON_COMMANDS.AI_REFACTOR_SELECTION:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "refactor-selection",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_GENERATE_TESTS:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "generate-tests",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_REVIEW_GIT_DIFF:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "review-git-diff",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.AI_DRAFT_COMMIT_MESSAGE:
+          if (!requireTrustedWorkspace("Ask Axon")) break;
+          setAgentSidebarOpen(true);
+          setAgentActionRequest({
+            action: "draft-commit-message",
+            nonce: Date.now(),
+          });
+          break;
+        case AXON_COMMANDS.TOGGLE_ZEN_MODE:
+          setZenMode((prev: boolean) => !prev);
+          break;
+        case AXON_COMMANDS.NEW_TERMINAL:
+          activateExtensionEvent("onCommand:axon.terminal.new");
+          activateExtensionEvent("onTerminalProfile:axon.terminal.default");
+          handleNewTerminal();
+          break;
+      }
+    },
+    [
+      activeFilePath,
+      activateExtensionEvent,
+      appendOutput,
+      clearOutputEntries,
+      handleCloseActiveTab,
+      handleNewFile,
+      handleNewTerminal,
+      handleOpenHtmlPreview,
+      handleOpenSettingsJson,
+      handleOpenSettingsTab,
+      handleSaveActiveFile,
+      handleSaveActiveFileAs,
+      handleToggleAutoSave,
+      folderPath,
+      navigateDiagnostic,
+      openProblemsTab,
+      refreshGitStatus,
+      refreshProjectDiagnostics,
+      requireTrustedWorkspace,
+      runEditorAction,
+      terminalOpen,
+      updateAvailable,
+      tryOpenExtensionWebview,
+      setAboutOpen,
+      setAgentActionRequest,
+      setAgentSidebarOpen,
+      setBottomPanelOpen,
+      setBottomPanelTab,
+      setDiffFilePath,
+      setDiffOpen,
+      setExtensionsOpen,
+      setExtensionState,
+      setExtensionViewOpenId,
+      setFileOutlineOpen,
+      setFolderPickerIntent,
+      setLanguageToolsOpen,
+      setPaletteOpen,
+      setSidebarCollapsed,
+      setSidebarView,
+      setSourceControlOpen,
+      setTaskRunnerOpen,
+      setTerminalOpen,
+      setTestExplorerOpen,
+      setUpdateModalOpen,
+      setWorkspaceOverviewOpen,
+      setWorkspaceSearchOpen,
+      setZenMode,
+    ],
+  );
+}

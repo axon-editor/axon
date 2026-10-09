@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as monaco from "monaco-editor";
-import { type LanguageServerTextEdit } from "@axon-editor/shared/lsp";
+import { type LanguageServerTextEdit } from "@axon-editor/shared/editor/language/lsp";
 
 export function normalizePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");

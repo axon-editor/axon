@@ -8,13 +8,13 @@ import * as monaco from "monaco-editor";
 import {
   type GitBlameLine,
   type GitBlameResult,
-} from "@axon-editor/shared/git";
+} from "@axon-editor/shared/workspace/git";
 import { createLineTraceLabel } from "./lineTrace";
 import {
   createLineTracePopover,
   type LineTracePopover,
 } from "./lineTracePopover";
-import { isLargeDocumentModel } from "@axon-editor/shared/largeDocument";
+import { isLargeDocumentModel } from "@axon-editor/shared/editor/documents/largeDocument";
 
 const blameCache = new Map<string, Promise<GitBlameResult>>();
 

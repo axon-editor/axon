@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Blocks, ExternalLink, X } from "lucide-react";
-import CommandModal from "../../../../renderer/shared/components/CommandModal";
+import CommandModal from "../../../../renderer/shared/components/modals/CommandModal";
 import {
   getWorkbenchExtensionViews,
   type WorkbenchExtensionView,
 } from "../lib/extensionViews";
-import { type ExtensionState } from "../../../../shared/extensions";
+import { type ExtensionState } from "../../../../shared/extensions/extensions";
 
 interface Props {
   extensionState: ExtensionState | null;

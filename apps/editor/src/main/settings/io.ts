@@ -9,7 +9,7 @@ import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   type AxonSettings,
-} from "../../shared/settings";
+} from "../../shared/core/settings";
 import { getUserSettingsPath, getWorkspaceSettingsPath } from "./paths";
 
 // Settings reads sit on AI, LSP, and startup paths. Keeping this cache keyed by

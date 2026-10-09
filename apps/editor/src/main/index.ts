@@ -14,7 +14,7 @@ import {
   getWindowGlassBackground,
   getWindowGlassConstructorOptions,
   synchronizeNativeGlassAppearance,
-} from "./window/windowGlass";
+} from "./window/glass/windowGlass";
 
 // Development and installed builds can expose different bundled extension
 // versions while both processes identify as Axon. Electron would otherwise

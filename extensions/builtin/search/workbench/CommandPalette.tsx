@@ -8,7 +8,7 @@
 // surface so the palette can become the future AI action launcher without
 // splitting navigation into several competing modals.
 import { useState, useEffect, useRef, useMemo } from "react";
-import { type FileNode } from "@axon-editor/renderer/shared/lib/api";
+import { type FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
 import {
   CircleSlash,
   FileCode,
@@ -17,9 +17,9 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { getFileIcon } from "@axon-editor/renderer/features/sidebar/files/lib/fileIcons";
-import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
-import { type AxonCommand } from "@axon-editor/shared/commands";
+import { getFileIcon } from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileIcons";
+import CommandModal from "@axon-editor/renderer/shared/components/modals/CommandModal";
+import { type AxonCommand } from "@axon-editor/shared/commands/commands";
 import { type CommandPaletteCommand } from "./lib/types";
 
 interface Props {

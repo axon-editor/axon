@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as monaco from "monaco-editor";
-import { type EditorSettings } from "@axon-editor/shared/settings";
-import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
+import { type EditorSettings } from "@axon-editor/shared/core/settings";
+import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts/fonts";
 import { createEditorFormattingOptions } from "../formatting/editorFormattingOptions";
 
 interface EditorSurfaceOptionsInput {

@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { MarkdownPlugin, ParseOptions } from "../types";
-import { frontmatterPlugin } from "./frontmatter";
-import { gfmPlugin } from "./gfm";
-import { mathPlugin } from "./math";
-import { calloutsPlugin } from "./callouts";
-import { wikiLinksPlugin } from "./wikiLinks";
-import { sourceLinesPlugin } from "./sourceLines";
+import { frontmatterPlugin } from "./core/frontmatter";
+import { gfmPlugin } from "./core/gfm";
+import { mathPlugin } from "./axon/math";
+import { calloutsPlugin } from "./axon/callouts";
+import { wikiLinksPlugin } from "./axon/wikiLinks";
+import { sourceLinesPlugin } from "./core/sourceLines";
 
 // Plugin registry. Creates the ordered list of plugins based on the
 // parser options. Plugin order matters: some transformations depend

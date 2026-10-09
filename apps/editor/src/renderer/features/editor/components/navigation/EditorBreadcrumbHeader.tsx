@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo, useState, type RefObject } from "react";
 import * as monaco from "monaco-editor";
-import { collectFileSymbols } from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";
+import { collectFileSymbols } from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileSymbols";
 import { normalizePath } from "../../lib/formatting/editorDocumentHelpers";
 import EditorBreadcrumbs from "./EditorBreadcrumbs";
 

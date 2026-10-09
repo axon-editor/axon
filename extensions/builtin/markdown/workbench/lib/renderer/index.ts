@@ -5,15 +5,15 @@
 
 import type { Token, FootnoteDefinitionToken } from "../parser/types";
 import type { RenderContext } from "./context";
-import { renderHeading } from "./elements/heading";
-import { renderParagraph } from "./elements/paragraph";
-import { renderCodeBlock } from "./elements/code";
-import { renderTable } from "./elements/table";
-import { renderList } from "./elements/list";
-import { renderBlockquote } from "./elements/blockquote";
-import { renderFootnotesSection } from "./elements/footnote";
-import { renderHtmlBlock } from "./elements/html";
-import { renderHr } from "./elements/hr";
+import { renderHeading } from "./elements/block/leaf/heading";
+import { renderParagraph } from "./elements/block/leaf/paragraph";
+import { renderCodeBlock } from "./elements/block/leaf/code";
+import { renderTable } from "./elements/block/leaf/table";
+import { renderList } from "./elements/block/container/list";
+import { renderBlockquote } from "./elements/block/container/blockquote";
+import { renderFootnotesSection } from "./elements/inline/footnote";
+import { renderHtmlBlock } from "./elements/block/leaf/html";
+import { renderHr } from "./elements/block/leaf/hr";
 
 // Main renderer. Converts an array of tokens into an HTML string.
 // The renderer processes tokens sequentially and handles math blocks
@@ -75,7 +75,7 @@ async function renderToken(
         return `<pre class="my-4 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-4 text-[13px] text-[var(--axon-editor-foreground)]">${escapeHtml(token.content)}</pre>`;
       }
       try {
-        const { renderMathBlock } = await import("./elements/math");
+        const { renderMathBlock } = await import("./elements/inline/math");
         return await renderMathBlock(token);
       } catch {
         return `<pre class="my-4 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-4 text-[13px] text-[var(--axon-editor-foreground)]">${escapeHtml(token.content)}</pre>`;

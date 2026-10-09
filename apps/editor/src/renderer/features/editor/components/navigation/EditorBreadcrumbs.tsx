@@ -5,7 +5,7 @@
 
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { type FileSymbol } from "@axon-editor/renderer/features/sidebar/files/lib/fileSymbols";
+import { type FileSymbol } from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileSymbols";
 import BufferSymbolsPopover from "./BufferSymbolsPopover";
 
 interface Props {

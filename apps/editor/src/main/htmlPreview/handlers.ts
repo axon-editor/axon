@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ipcMain, shell } from "electron";
-import { type HtmlPreviewActionResult } from "../../shared/htmlPreview";
+import { type HtmlPreviewActionResult } from "../../shared/extensions/htmlPreview";
 import { HtmlPreviewServer } from "./server";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 

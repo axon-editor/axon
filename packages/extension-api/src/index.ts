@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export * from "./contribution-points.js";
-export * from "./manifest.js";
-export * from "./marketplace.js";
-export * from "./runtime.js";
-export * from "./registry.js";
-export * from "./validation.js";
+export * from "./manifest/manifest.js";
+export * from "./manifest/contribution-points.js";
+export * from "./manifest/validation.js";
+export * from "./marketplace/marketplace.js";
+export * from "./runtime/runtime.js";
+export * from "./registry/registry.js";

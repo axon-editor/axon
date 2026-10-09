@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { AxonCommand } from "../../shared/commands";
+import type { AxonCommand } from "../../shared/commands/commands";
 import type {
   AgentResumeRequest,
   CliToolInstallResult,
@@ -11,9 +11,9 @@ import type {
   CoreRequest,
   CoreResponse,
   OpenWorkspaceFolder,
-} from "../../shared/app";
+} from "../../shared/core/app";
 import type { EditorDiagnostic } from "@axon-builtin-problems/lib/diagnostics";
-import type { FolderChangeEvent } from "../../shared/fs";
+import type { FolderChangeEvent } from "../../shared/workspace/fs";
 import type {
   ExtensionActionResult,
   ExtensionCommandExecutionResult,
@@ -21,7 +21,7 @@ import type {
   ExtensionReadmeResult,
   ExtensionReadmeAssetUrlsResult,
   ExtensionState,
-} from "../../shared/extensions";
+} from "../../shared/extensions/extensions";
 import type {
   GitActionResult,
   GitBlameResult,
@@ -41,13 +41,13 @@ import type {
   GitStatusResult,
   GitWorktreeAction,
   GitWorktreeListResult,
-} from "../../shared/git";
+} from "../../shared/workspace/git";
 import type {
   HtmlPreviewActionResult,
   HtmlPreviewConsoleEvent,
-} from "../../shared/htmlPreview";
-import type { ExtensionWebviewActionResult } from "../../shared/extensionWebview";
-import type { WorkspaceIndexSummary } from "../../shared/workspaceIndex";
+} from "../../shared/extensions/htmlPreview";
+import type { ExtensionWebviewActionResult } from "../../shared/extensions/extensionWebview";
+import type { WorkspaceIndexSummary } from "../../shared/workspace/workspaceIndex";
 import type {
   LanguageServerCodeActionRequest,
   LanguageServerCodeActionResult,
@@ -75,13 +75,13 @@ import type {
   LanguageServerStartForFileRequest,
   LanguageServerStatus,
   PythonWorkspaceEnvironmentStatus,
-} from "../../shared/lsp";
+} from "../../shared/editor/language/lsp";
 import type {
   ManagedLanguageToolId,
   ManagedLanguageToolInstallResult,
   ManagedLanguageToolProgress,
   ManagedLanguageToolStatus,
-} from "../../shared/languageTools";
+} from "../../shared/editor/language/languageTools";
 import type {
   SpotifyActionResult,
   SpotifyAuthResult,
@@ -91,35 +91,35 @@ import type {
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
   SpotifyTracksResult,
-} from "../../shared/spotify";
+} from "../../shared/extensions/spotify";
 import type {
   AppGlassMode,
   AxonSettings,
   CustomFont,
-} from "../../shared/settings";
+} from "../../shared/core/settings";
 import type {
   TaskFinishedEvent,
   TaskOutputEvent,
   TaskRunResult,
   WorkspaceTask,
-} from "../../shared/tasks";
+} from "../../shared/extensions/tasks";
 import type {
   TestDiscoveryResult,
   TestFinishedEvent,
   TestOutputEvent,
   TestRunResult,
   TestStopResult,
-} from "../../shared/tests";
+} from "../../shared/editor/testing/tests";
 import type {
   UpdateActionResult,
   UpdateInfo,
   UpdateInstallState,
-} from "../../shared/updates";
-import type { AppInfo } from "../shared/components/AboutModal";
+} from "../../shared/core/updates";
+import type { AppInfo } from "../shared/components/modals/AboutModal";
 import type {
   TerminalSurfaceDockMode,
   TerminalWindowHandoff,
-} from "../../shared/terminalWindow";
+} from "../../shared/terminal/terminalWindow";
 import type {
   AiChatRequest,
   AiChatResult,
@@ -132,7 +132,7 @@ import type {
   AiPullEvent,
   AiPullStarted,
   AiRuntimeStatus,
-} from "../../shared/ai";
+} from "../../shared/ai/ai";
 
 declare global {
   interface Window {

@@ -5,7 +5,7 @@
 
 import { WebglAddon } from "@xterm/addon-webgl";
 import type { Terminal } from "@xterm/xterm";
-import type { TerminalRendererController } from "@axon-editor/platform/terminal/terminalProtocol";
+import type { TerminalRendererController } from "@axon-editor/platform/terminal/protocol/terminalProtocol";
 
 export function createTerminalRendererController(
   terminal: Terminal,

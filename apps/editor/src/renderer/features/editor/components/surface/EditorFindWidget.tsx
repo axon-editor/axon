@@ -5,7 +5,7 @@
 
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { type RefObject } from "react";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 
 interface Props {
   findIndex: number;

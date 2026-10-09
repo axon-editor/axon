@@ -6,9 +6,9 @@
 // Welcome screen shown when a pane has no open files.
 // Shows the Axon logo, quick action buttons, and recent folders.
 import { FolderOpen, Clock, ChevronRight, X } from "lucide-react";
-import { publicAsset } from "@axon-editor/renderer/shared/lib/assets";
+import { publicAsset } from "@axon-editor/renderer/shared/lib/assets/assets";
 import { getRecentFolders } from "@axon-editor/renderer/features/sidebar";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 
 interface Props {
   onOpenFolder: () => void;

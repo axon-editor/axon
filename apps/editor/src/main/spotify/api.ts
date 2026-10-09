@@ -20,7 +20,7 @@ import type {
   SpotifyPlaylist,
   SpotifyPlaylistTracksResult,
   SpotifyTrack,
-} from "../../shared/spotify";
+} from "../../shared/extensions/spotify";
 
 // Injected at startup from the settings or env. The client_id never changes
 // for a given Axon build, it comes from the Spotify developer dashboard.

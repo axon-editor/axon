@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { editor } from "monaco-editor";
-import { type ThemeColorToken } from "../../../shared/settings";
-import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions";
+import { type ThemeColorToken } from "../../../shared/core/settings";
+import { type ExtensionThemeSyntaxStyle } from "../../../shared/extensions/extensions";
 import {
   createAxonSyntaxTheme,
   createExtensionSyntaxThemeEntries,
-} from "./syntaxTheme";
+} from "./syntax/syntaxTheme";
 
 export type ThemeTokenMap = Record<ThemeColorToken, string>;
 

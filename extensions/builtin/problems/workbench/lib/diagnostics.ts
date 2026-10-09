@@ -7,7 +7,7 @@ import * as monaco from "monaco-editor";
 import {
   type DiagnosticSeverity,
   type EditorDiagnostic,
-} from "@axon-editor/shared/diagnostics";
+} from "@axon-editor/shared/editor/language/diagnostics";
 
 export { type DiagnosticSeverity, type EditorDiagnostic };
 

@@ -12,18 +12,18 @@
 // Drop target shows a distinct highlight to confirm the landing zone.
 import { useState, useRef, useEffect } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
-import { getTree, type FileNode } from "../../../shared/lib/api";
+import { getTree, type FileNode } from "../../../shared/lib/backend/api";
 import {
   encodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
-} from "../../editor/lib/layout/dragData";
-import { getFileIcon, getFolderIcon } from "./lib/fileIcons";
+} from "../../editor/lib/layout/drag/dragData";
+import { getFileIcon, getFolderIcon } from "./lib/icons/fileIcons";
 import { type GitTreeDecoration } from "..";
 import InlineCreateRow, { type InlineCreateTarget } from "./InlineCreateRow";
 import { type FileTreeOperation, type ImportedExternalEntry } from "./FileTree";
-import { type FolderChangeEvent } from "../../../../shared/fs";
-import { shouldReloadFolderNode } from "./lib/treeRefresh";
-import { prefetchAxonBuffer } from "../../editor/lib/buffer/axonBufferLoader";
+import { type FolderChangeEvent } from "../../../../shared/workspace/fs";
+import { shouldReloadFolderNode } from "./lib/tree/treeRefresh";
+import { prefetchAxonBuffer } from "../../editor/lib/buffer/loading/axonBufferLoader";
 
 interface Props {
   node: FileNode;

@@ -7,8 +7,8 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
 import path from "path";
-import { type EditorDiagnostic } from "../../shared/diagnostics";
-import { resolveBundledAppFilePath } from "../lsp/paths";
+import { type EditorDiagnostic } from "../../shared/editor/language/diagnostics";
+import { resolveBundledAppFilePath } from "../lsp/definitions/paths";
 
 const execFileAsync = promisify(execFile);
 

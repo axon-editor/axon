@@ -13,13 +13,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import Tooltip from "../../../../shared/components/Tooltip";
-import { type OpenWorkspaceFolder } from "../../../../../shared/app";
+import Tooltip from "../../../../shared/components/primitives/Tooltip";
+import { type OpenWorkspaceFolder } from "../../../../../shared/core/app";
 import {
   getWorkspacePathComparisonKey,
   getWorkspaceRootName,
   type WorkspaceRoot,
-} from "../../../../shared/lib/workspaceRoots";
+} from "../../../../shared/lib/workspace/workspaceRoots";
 
 interface Props {
   activeRootId: string | null;

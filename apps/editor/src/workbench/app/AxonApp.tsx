@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AxonAppView } from "./AxonAppView";
-import { writeFile, type FileNode } from "../../renderer/shared/lib/api";
+import { writeFile, type FileNode } from "../../renderer/shared/lib/backend/api";
 import {
   clearLanguageServerDiagnosticsFromMonaco,
   collectEditorDiagnostics,
@@ -24,43 +24,43 @@ import {
   createInitialLayout,
   openFileInPane,
   closeTabInPane,
-} from "../../renderer/features/editor/lib/layout/layoutManager";
+} from "../../renderer/features/editor/lib/layout/manager/layoutManager";
 import { type Layout } from "../../renderer/features/editor/lib/layout/types";
 import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   type AxonSettings,
   type CustomFont,
-} from "../../shared/settings";
-import { type AiActionId } from "../../shared/ai";
-import { type GitStatusResult } from "../../shared/git";
-import { type WorkspaceTask } from "../../shared/tasks";
-import { type UpdateInfo, type UpdateInstallState } from "../../shared/updates";
-import { type ExtensionState } from "../../shared/extensions";
+} from "../../shared/core/settings";
+import { type AiActionId } from "../../shared/ai/ai";
+import { type GitStatusResult } from "../../shared/workspace/git";
+import { type WorkspaceTask } from "../../shared/extensions/tasks";
+import { type UpdateInfo, type UpdateInstallState } from "../../shared/core/updates";
+import { type ExtensionState } from "../../shared/extensions/extensions";
 import {
   type AgentResumeRequest,
   type FolderPickerIntent,
-} from "../../shared/app";
-import { type EditorNavigationTarget } from "../../renderer/features/editor/lib/layout/navigation";
+} from "../../shared/core/app";
+import { type EditorNavigationTarget } from "../../renderer/features/editor/lib/layout/navigation/navigation";
 import {
   type BottomPanelTab,
   type OutputEntry,
   type OutputEntryLevel,
 } from "../../platform/panel/bottomPanel";
-import { buildAppPaletteCommands } from "./lib/appCommandPalette";
-import { useAppDerivedState } from "./lib/useAppDerivedState";
-import { useAxonAppEffects } from "./lib/useAxonAppEffects";
-import { useAppCommandRunner } from "./lib/useAppCommandRunner";
-import { useSettingsWindowSync } from "./lib/useSettingsWindowSync";
-import { useWorkspaceHandlers } from "./lib/useWorkspaceHandlers";
-import { useEditorSurfaceHandlers } from "./lib/useEditorSurfaceHandlers";
-import { useSaveFileAs } from "./lib/useSaveFileAs";
-import { useGitStatusRefresh } from "./lib/useGitStatusRefresh";
-import { useAutoSave } from "./lib/useAutoSave";
-import { useSaveFileFromModel } from "./lib/useSaveFileFromModel";
-import { useFloatingSurfaceRepaint } from "./lib/useFloatingSurfaceRepaint";
-import { type WorkspaceRoot } from "../../renderer/shared/lib/workspaceRoots";
-import { dispatchEditorSave } from "../../renderer/features/editor/lib/buffer/editorSave";
+import { buildAppPaletteCommands } from "./lib/commands/appCommandPalette";
+import { useAppDerivedState } from "./lib/state/useAppDerivedState";
+import { useAxonAppEffects } from "./lib/workspace/hooks/useAxonAppEffects";
+import { useAppCommandRunner } from "./lib/commands/useAppCommandRunner";
+import { useSettingsWindowSync } from "./lib/workspace/hooks/useSettingsWindowSync";
+import { useWorkspaceHandlers } from "./lib/workspace/hooks/useWorkspaceHandlers";
+import { useEditorSurfaceHandlers } from "./lib/workspace/hooks/useEditorSurfaceHandlers";
+import { useSaveFileAs } from "./lib/editing/useSaveFileAs";
+import { useGitStatusRefresh } from "./lib/workspace/hooks/useGitStatusRefresh";
+import { useAutoSave } from "./lib/editing/useAutoSave";
+import { useSaveFileFromModel } from "./lib/editing/useSaveFileFromModel";
+import { useFloatingSurfaceRepaint } from "./lib/ui/useFloatingSurfaceRepaint";
+import { type WorkspaceRoot } from "../../renderer/shared/lib/workspace/workspaceRoots";
+import { dispatchEditorSave } from "../../renderer/features/editor/lib/buffer/persistence/editorSave";
 import {
   AXON_OPEN_GIT_COMMIT_DIFF_EVENT,
   releaseGitCommitDiffTab,
@@ -71,7 +71,7 @@ import { useCliToolInstallPrompt } from "../../renderer/features/cli/useCliToolI
 import { useLanguageToolInstallPrompt } from "../../renderer/features/languageTools/useLanguageToolInstallPrompt";
 import { useManagedLanguageToolInstallations } from "../../renderer/features/languageTools/useManagedLanguageToolInstallations";
 import { useSpotify } from "@axon-builtin-spotify/lib/useSpotify";
-import { useWindowFullScreen } from "./lib/useWindowFullScreen";
+import { useWindowFullScreen } from "./lib/ui/useWindowFullScreen";
 import {
   hasSeenAxonOnboarding,
   markAxonOnboardingSeen,

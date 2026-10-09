@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Braces, Download, X } from "lucide-react";
-import Tooltip from "../../shared/components/Tooltip";
+import Tooltip from "../../shared/components/primitives/Tooltip";
 import type { useLanguageToolInstallPrompt } from "./useLanguageToolInstallPrompt";
 
 interface Props {

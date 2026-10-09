@@ -11,8 +11,8 @@ import {
   type TestItem,
   type TestOutputEvent,
   type TestProvider,
-} from "@axon-editor/shared/tests";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+} from "@axon-editor/shared/editor/testing/tests";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import TestExplorerDetails from "./TestExplorerDetails";
 import TestExplorerOutput from "./TestExplorerOutput";
 import { createTestingWorkbenchApi } from "./lib/testingWorkbenchApi";

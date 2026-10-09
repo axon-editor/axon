@@ -9,7 +9,7 @@ import {
   type OutputEntry,
   type OutputEntryLevel,
 } from "@axon-editor/platform/panel/bottomPanel";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 
 interface Props {
   open: boolean;

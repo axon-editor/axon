@@ -12,7 +12,7 @@ import * as crypto from "crypto";
 import { app, shell } from "electron";
 import * as fs from "fs";
 import * as path from "path";
-import type { SpotifyTokens } from "../../shared/spotify";
+import type { SpotifyTokens } from "../../shared/extensions/spotify";
 
 const SPOTIFY_SCOPES = [
   "user-read-playback-state",

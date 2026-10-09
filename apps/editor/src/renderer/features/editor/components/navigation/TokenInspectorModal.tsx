@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Copy, Palette, TextCursorInput } from "lucide-react";
-import CommandModal from "@axon-editor/renderer/shared/components/CommandModal";
+import CommandModal from "@axon-editor/renderer/shared/components/modals/CommandModal";
 import { type TokenInspectorReport } from "../../lib/inspection/tokenInspector";
 
 interface TokenInspectorModalProps {

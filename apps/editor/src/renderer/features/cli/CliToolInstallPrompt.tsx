@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Terminal, X } from "lucide-react";
-import Tooltip from "../../shared/components/Tooltip";
+import Tooltip from "../../shared/components/primitives/Tooltip";
 import { type useCliToolInstallPrompt } from "./useCliToolInstallPrompt";
 
 interface Props {

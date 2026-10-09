@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { readFile } from "@axon-editor/renderer/shared/lib/api";
+import { readFile } from "@axon-editor/renderer/shared/lib/backend/api";
 import {
   getModel,
   onModelReady,
-} from "@axon-editor/renderer/features/editor/lib/buffer/monacoModels";
+} from "@axon-editor/renderer/features/editor/lib/buffer/loading/monacoModels";
 import MarkdownPreview from "./MarkdownPreview";
 
 interface Props {

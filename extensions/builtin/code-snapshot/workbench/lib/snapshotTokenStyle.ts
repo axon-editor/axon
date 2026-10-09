@@ -3,14 +3,14 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
+import type { ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
 import {
   createDefaultCaptureEntries,
   createLayeredCaptureStyleMap,
   findCapturesForMonacoToken,
   resolveCaptureStyle,
-} from "@axon-editor/renderer/shared/themes/captureRegistry";
-import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/themes/syntaxTheme";
+} from "@axon-editor/renderer/shared/themes/appearance/captureRegistry";
+import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/themes/syntax/syntaxTheme";
 import type { ThemeTokenMap } from "@axon-editor/renderer/shared/themes/types";
 
 export interface SnapshotTokenStyle {

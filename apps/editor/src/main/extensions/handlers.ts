@@ -13,7 +13,7 @@ import {
   type ExtensionReadmeResult,
   type ExtensionReadmeAssetUrlsResult,
   type ExtensionState,
-} from "../../shared/extensions";
+} from "../../shared/extensions/extensions";
 import { extensionHostService } from "./host/service";
 import { getUserExtensionsPath } from "./paths";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { TerminalSuggestionAcceptKey } from "@axon-editor/platform/terminal/terminalProtocol";
+import type { TerminalSuggestionAcceptKey } from "@axon-editor/platform/terminal/protocol/terminalProtocol";
 
 type TerminalKeyEvent = Pick<
   KeyboardEvent,

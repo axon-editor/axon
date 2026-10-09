@@ -7,7 +7,7 @@ import {
   type ExtensionContributionRecord,
   type ExtensionState,
   type ExtensionViewContribution,
-} from "../../../../shared/extensions";
+} from "../../../../shared/extensions/extensions";
 
 export interface WorkbenchExtensionView {
   id: string;

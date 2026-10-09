@@ -5,9 +5,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GitFork, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { type GitWorktreeListResult } from "@axon-editor/shared/git";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
-import GitConfirmationDialog from "../GitConfirmationDialog";
+import { type GitWorktreeListResult } from "@axon-editor/shared/workspace/git";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import GitConfirmationDialog from "../dialogs/GitConfirmationDialog";
 
 interface Props {
   folderPath: string | null;

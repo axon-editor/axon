@@ -13,16 +13,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
-import { getEnabledExtensionThemes } from "@axon-editor/shared/extensions";
-import type { ExtensionState } from "@axon-editor/shared/extensions";
+import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/core/settings";
+import { getEnabledExtensionThemes } from "@axon-editor/shared/extensions/extensions";
+import type { ExtensionState } from "@axon-editor/shared/extensions/extensions";
 import {
   createThemeCssVariables,
   resolveThemeTokens,
-} from "@axon-editor/renderer/shared/lib/themeTokens";
-import { resolveActiveTheme } from "@axon-editor/renderer/shared/themes/tokenThemes";
+} from "@axon-editor/renderer/shared/lib/theme/themeTokens";
+import { resolveActiveTheme } from "@axon-editor/renderer/shared/themes/syntax/tokenThemes";
 import SettingsTab from "@axon-builtin-settings/settings/SettingsTab";
-import { createGlassThemeCssVariables } from "../../workbench/app/lib/glassTheme";
+import { createGlassThemeCssVariables } from "../../workbench/app/lib/glass/glassTheme";
 
 export default function SettingsSurfaceRoot() {
   const [settings, setSettings] = useState<AxonSettings | null>(null);

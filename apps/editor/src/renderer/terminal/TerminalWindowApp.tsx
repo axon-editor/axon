@@ -12,21 +12,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
-import { getEnabledExtensionThemes } from "@axon-editor/shared/extensions";
-import type { ExtensionState } from "@axon-editor/shared/extensions";
+import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/core/settings";
+import { getEnabledExtensionThemes } from "@axon-editor/shared/extensions/extensions";
+import type { ExtensionState } from "@axon-editor/shared/extensions/extensions";
 import {
   createThemeCssVariables,
   resolveThemeTokens,
-} from "@axon-editor/renderer/shared/lib/themeTokens";
-import { resolveActiveTheme } from "@axon-editor/renderer/shared/themes/tokenThemes";
+} from "@axon-editor/renderer/shared/lib/theme/themeTokens";
+import { resolveActiveTheme } from "@axon-editor/renderer/shared/themes/syntax/tokenThemes";
 import Terminal from "@axon-builtin-terminal/Terminal";
 import { resolveTerminalWorkbenchContribution } from "@axon-builtin-terminal/lib/contribution";
 import {
   type TerminalSurfaceDockMode,
   type TerminalWindowHandoff,
-} from "@axon-editor/shared/terminalWindow";
-import { createGlassThemeCssVariables } from "../../workbench/app/lib/glassTheme";
+} from "@axon-editor/shared/terminal/terminalWindow";
+import { createGlassThemeCssVariables } from "../../workbench/app/lib/glass/glassTheme";
 
 export default function TerminalWindowApp() {
   const workspaceRoot = useMemo(() => {

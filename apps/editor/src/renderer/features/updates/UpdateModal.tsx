@@ -7,9 +7,9 @@ import { Download, ExternalLink, X } from "lucide-react";
 import {
   type UpdateInfo,
   type UpdateInstallState,
-} from "../../../shared/updates";
+} from "../../../shared/core/updates";
 import MarkdownPreview from "@axon-builtin-markdown/MarkdownPreview";
-import Tooltip from "../../shared/components/Tooltip";
+import Tooltip from "../../shared/components/primitives/Tooltip";
 
 interface UpdateModalProps {
   updateInfo: UpdateInfo;

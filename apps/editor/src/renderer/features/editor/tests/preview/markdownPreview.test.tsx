@@ -42,12 +42,11 @@ const monacoModelsMock = vi.hoisted(() => ({
   onModelReady: vi.fn(),
 }));
 
-vi.mock("@axon-editor/renderer/shared/lib/api", () => ({
+vi.mock("@axon-editor/renderer/shared/lib/backend/api", () => ({
   readFile: markdownFileMock.readFile,
 }));
 
-vi.mock(
-  "@axon-editor/renderer/features/editor/lib/buffer/monacoModels",
+vi.mock("@axon-editor/renderer/features/editor/lib/buffer/loading/monacoModels",
   () => ({
     getModel: monacoModelsMock.getModel,
     onModelReady: monacoModelsMock.onModelReady,

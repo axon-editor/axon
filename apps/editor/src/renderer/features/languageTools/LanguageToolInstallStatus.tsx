@@ -15,8 +15,8 @@ import {
   isManagedLanguageToolProgressActive,
   type ManagedLanguageToolId,
   type ManagedLanguageToolProgress,
-} from "../../../shared/languageTools";
-import Tooltip from "../../shared/components/Tooltip";
+} from "../../../shared/editor/language/languageTools";
+import Tooltip from "../../shared/components/primitives/Tooltip";
 import type { ManagedLanguageToolInstallations } from "./useManagedLanguageToolInstallations";
 
 interface Props {

@@ -15,7 +15,7 @@ import path from "path";
 import {
   type HtmlPreviewConsoleEvent,
   type HtmlPreviewTarget,
-} from "../../shared/htmlPreview";
+} from "../../shared/extensions/htmlPreview";
 import { injectHtmlPreviewClient } from "./inject";
 
 type WatchOptions = NonNullable<Parameters<typeof chokidar.watch>[1]>;

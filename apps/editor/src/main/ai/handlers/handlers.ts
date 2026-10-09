@@ -1,0 +1,290 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { ipcMain } from "electron";
+import {
+  type AiChatRequest,
+  type AiChatResult,
+  type AiChatStreamStarted,
+  type AiInlineCompletionRequest,
+  type AiInlineCompletionResult,
+  type AiModelInfo,
+  type AiProjectContext,
+  type AiPullStarted,
+  type AiRuntimeStatus,
+} from "../../../shared/ai/ai";
+import { readSettingsForFolder } from "../../settings/io";
+import { runLocalAiChat } from "../providers/localProvider";
+import {
+  cancelCoreAiStream,
+  cancelCoreModelPull,
+  startCoreAiStream,
+  startCoreModelPullStream,
+} from "../streaming/coreStream";
+import { requestCoreInlineCompletion } from "../completion/inlineCompletion";
+import { type WorkspaceCapabilityRegistry } from "../../security/workspaceCapabilities";
+
+interface CoreResponse<T> {
+  status: "success" | "error";
+  http_status: number;
+  message: string;
+  data: T | null;
+  errors: Record<string, string[]> | null;
+  code: string | null;
+  request_id: string;
+  meta: unknown | null;
+}
+
+function coreErrorMessage(json: CoreResponse<unknown>, fallback: string) {
+  return json.message || json.code || fallback;
+}
+
+async function listCoreAiModels(input: {
+  axonCorePort: string;
+  axonCoreToken: string;
+  model: string;
+}): Promise<AiModelInfo[]> {
+  const response = await fetch(
+    `http://127.0.0.1:${input.axonCorePort}/ai/models?model=${encodeURIComponent(input.model)}`,
+    { headers: { Authorization: `Bearer ${input.axonCoreToken}` } },
+  );
+  const json = (await response.json()) as CoreResponse<AiModelInfo[]>;
+  if (!response.ok || json.status !== "success") {
+    throw new Error(
+      coreErrorMessage(json, `axon-core returned ${response.status}`),
+    );
+  }
+  return json.data ?? [];
+}
+
+async function getCoreAiRuntimeStatus(input: {
+  axonCorePort: string;
+  axonCoreToken: string;
+  model: string;
+}): Promise<AiRuntimeStatus> {
+  const response = await fetch(
+    `http://127.0.0.1:${input.axonCorePort}/ai/runtime?model=${encodeURIComponent(input.model)}`,
+    { headers: { Authorization: `Bearer ${input.axonCoreToken}` } },
+  );
+  const json = (await response.json()) as CoreResponse<AiRuntimeStatus>;
+  if (!response.ok || json.status !== "success" || !json.data) {
+    throw new Error(
+      coreErrorMessage(json, `axon-core returned ${response.status}`),
+    );
+  }
+  return json.data;
+}
+
+async function getCoreAiProjectContext(input: {
+  axonCorePort: string;
+  axonCoreToken: string;
+  folderPath: string;
+}): Promise<AiProjectContext> {
+  const response = await fetch(
+    `http://127.0.0.1:${input.axonCorePort}/ai/project-context?root=${encodeURIComponent(input.folderPath)}`,
+    { headers: { Authorization: `Bearer ${input.axonCoreToken}` } },
+  );
+  const json = (await response.json()) as CoreResponse<AiProjectContext>;
+  if (!response.ok || json.status !== "success" || !json.data) {
+    throw new Error(
+      coreErrorMessage(json, `axon-core returned ${response.status}`),
+    );
+  }
+  return json.data;
+}
+
+export function registerAiHandlers(deps: {
+  axonCorePort: string;
+  axonCoreToken: string;
+  workspaceCapabilities: WorkspaceCapabilityRegistry;
+}) {
+  const authorizeFolder = (rendererId: number, folderPath?: string | null) =>
+    folderPath
+      ? deps.workspaceCapabilities.assertRoot(rendererId, folderPath)
+      : folderPath;
+  const authorizeChatRequest = (rendererId: number, request: AiChatRequest) => {
+    const folderPath = authorizeFolder(rendererId, request.folderPath) ?? null;
+    const activeFilePath = request.activeFilePath
+      ? deps.workspaceCapabilities.assertReadablePath(
+          rendererId,
+          request.activeFilePath,
+        )
+      : request.activeFilePath;
+    const files = request.files.map((file) => ({
+      ...file,
+      path: deps.workspaceCapabilities.assertReadablePath(
+        rendererId,
+        file.path,
+      ),
+    }));
+    return { ...request, folderPath, activeFilePath, files };
+  };
+  const authorizeInlineCompletionRequest = (
+    rendererId: number,
+    request: AiInlineCompletionRequest,
+  ) => {
+    const folderPath = authorizeFolder(rendererId, request.folderPath) ?? null;
+    const filePath = deps.workspaceCapabilities.assertReadablePath(
+      rendererId,
+      request.filePath,
+    );
+    return { ...request, folderPath, filePath };
+  };
+
+  ipcMain.handle(
+    "ai:getRuntimeStatus",
+    async (event, folderPath?: string | null): Promise<AiRuntimeStatus> => {
+      const authorizedFolder = authorizeFolder(event.sender.id, folderPath);
+      const settings = await readSettingsForFolder(authorizedFolder);
+      return getCoreAiRuntimeStatus({
+        axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
+        model: settings.ai.model,
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "ai:listModels",
+    async (event, folderPath?: string | null): Promise<AiModelInfo[]> => {
+      const authorizedFolder = authorizeFolder(event.sender.id, folderPath);
+      const settings = await readSettingsForFolder(authorizedFolder);
+      return listCoreAiModels({
+        axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
+        model: settings.ai.model,
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "ai:getProjectContext",
+    async (event, folderPath: string): Promise<AiProjectContext> => {
+      return getCoreAiProjectContext({
+        axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
+        folderPath: deps.workspaceCapabilities.assertRoot(
+          event.sender.id,
+          folderPath,
+        ),
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "ai:chat",
+    async (event, request: AiChatRequest): Promise<AiChatResult> => {
+      // AI requests stay in the main process because model endpoints, future
+      // credentials, and provider routing are privileged integration details.
+      // The renderer sends user intent and prepared context; the main process
+      // decides which provider can execute it and returns a safe result shape.
+      const authorizedRequest = authorizeChatRequest(event.sender.id, request);
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
+      return runLocalAiChat(authorizedRequest, settings);
+    },
+  );
+
+  ipcMain.handle(
+    "ai:chatStream",
+    async (event, request: AiChatRequest): Promise<AiChatStreamStarted> => {
+      const authorizedRequest = authorizeChatRequest(event.sender.id, request);
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
+      if (!settings.ai.enabled) {
+        return {
+          success: false,
+          requestId: "",
+          message: "Axon Agent is disabled in settings.",
+        };
+      }
+
+      return startCoreAiStream({
+        axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
+        request: {
+          ...authorizedRequest,
+          model: authorizedRequest.model?.trim() || settings.ai.model,
+        },
+        send: (payload) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("ai:chatStreamEvent", payload);
+          }
+        },
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "ai:inlineCompletion",
+    async (
+      event,
+      request: AiInlineCompletionRequest,
+    ): Promise<AiInlineCompletionResult> => {
+      const authorizedRequest = authorizeInlineCompletionRequest(
+        event.sender.id,
+        request,
+      );
+      const settings = await readSettingsForFolder(
+        authorizedRequest.folderPath,
+      );
+      if (!settings.ai.enabled || !settings.ai.inlineCompletionsEnabled) {
+        return {
+          success: true,
+          completion: "",
+          message: "Inline AI completion is disabled in settings.",
+          modelLabel: settings.ai.model,
+          providerLabel: "Axon models",
+        };
+      }
+
+      return requestCoreInlineCompletion({
+        axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
+        request: {
+          ...authorizedRequest,
+          model: authorizedRequest.model?.trim() || settings.ai.model,
+        },
+      });
+    },
+  );
+
+  ipcMain.handle(
+    "ai:cancelChatStream",
+    (_event, requestId: string): boolean => {
+      return cancelCoreAiStream(requestId);
+    },
+  );
+
+  ipcMain.handle(
+    "ai:pullModel",
+    async (event, model: string): Promise<AiPullStarted> => {
+      if (!model.trim()) {
+        return {
+          success: false,
+          requestId: "",
+          message: "Model is required.",
+        };
+      }
+
+      return startCoreModelPullStream({
+        axonCorePort: deps.axonCorePort,
+        axonCoreToken: deps.axonCoreToken,
+        model,
+        send: (payload) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("ai:pullEvent", payload);
+          }
+        },
+      });
+    },
+  );
+
+  ipcMain.handle("ai:cancelPullModel", (_event, requestId: string): boolean => {
+    return cancelCoreModelPull(requestId);
+  });
+}

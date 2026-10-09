@@ -6,7 +6,7 @@
 import { app } from "electron";
 import fs from "fs";
 import path from "path";
-import { type CustomFont } from "../../shared/settings";
+import { type CustomFont } from "../../shared/core/settings";
 import { getCustomFontsDirectory } from "../settings/paths";
 
 function getFontFamilyFromPath(filePath: string) {

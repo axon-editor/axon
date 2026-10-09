@@ -8,7 +8,7 @@ import {
   isManagedLanguageToolProgressActive,
   type ManagedLanguageToolId,
   type ManagedLanguageToolProgress,
-} from "../../../shared/languageTools";
+} from "../../../shared/editor/language/languageTools";
 
 const TERMINAL_PROGRESS_LIFETIME_MS = 5000;
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ipcMain } from "electron";
-import { type UpdateActionResult } from "../../shared/updates";
+import { type UpdateActionResult } from "../../shared/core/updates";
 import { type UpdateManager } from "./updater";
 
 export function registerUpdateHandlers(updateManager: UpdateManager) {

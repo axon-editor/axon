@@ -11,9 +11,9 @@
 // through core:createTerminalTicket on the editor's granted workspace root.
 
 import { contextBridge, ipcRenderer } from "electron";
-import { type AppGlassMode, type AxonSettings } from "../shared/settings";
-import { type ExtensionState } from "../shared/extensions";
-import { type TerminalWindowHandoff } from "../shared/terminalWindow";
+import { type AppGlassMode, type AxonSettings } from "../shared/core/settings";
+import { type ExtensionState } from "../shared/extensions/extensions";
+import { type TerminalWindowHandoff } from "../shared/terminal/terminalWindow";
 
 contextBridge.exposeInMainWorld("axon", {
   surface: "terminal",

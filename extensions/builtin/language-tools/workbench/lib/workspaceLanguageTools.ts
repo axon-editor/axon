@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type LanguageServerStatus } from "@axon-editor/shared/lsp";
+import { type LanguageServerStatus } from "@axon-editor/shared/editor/language/lsp";
 
 export function normalizeLanguage(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9+#]/g, "");

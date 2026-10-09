@@ -7,7 +7,7 @@ import {
   BUILTIN_WORKBENCH_CONTRIBUTIONS,
   resolveRequiredWorkbenchContribution,
 } from "@axon-editor/workbench/contrib/extensions/lib/builtinWorkbenchContributions";
-import { type ExtensionState } from "@axon-editor/shared/extensions";
+import { type ExtensionState } from "@axon-editor/shared/extensions/extensions";
 
 export const AXON_TESTING_EXTENSION_ID = "axon.testing";
 export const AXON_TESTING_VIEW_ID = "axon.tests";

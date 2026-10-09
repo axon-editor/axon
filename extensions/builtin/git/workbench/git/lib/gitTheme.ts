@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type GitFileState } from "@axon-editor/shared/git";
+import { type GitFileState } from "@axon-editor/shared/workspace/git";
 
 export function getGitFileStateColor(state: GitFileState) {
   switch (state) {

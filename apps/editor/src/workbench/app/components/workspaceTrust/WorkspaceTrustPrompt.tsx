@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getPathBasename } from "../../lib/appPath";
+import { getPathBasename } from "../../lib/util/appPath";
 
 interface WorkspaceTrustPromptProps {
   onReject: () => void;

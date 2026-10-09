@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type GitChange, type GitDiffResult } from "@axon-editor/shared/git";
+import { type GitChange, type GitDiffResult } from "@axon-editor/shared/workspace/git";
 
 export type GitMutationAction = "stage" | "unstage" | "discard";
 

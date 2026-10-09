@@ -5,7 +5,7 @@
 
 import fs from "fs";
 import path from "path";
-import { isPathWatched } from "../fs/watchedPaths";
+import { isPathWatched } from "../fs/watch/watchedPaths";
 
 interface FileFingerprint {
   ctimeMs: number;

@@ -6,23 +6,23 @@
 import { BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import fs from "fs";
 import path from "path";
-import { type PythonWorkspaceEnvironmentStatus } from "../../shared/lsp";
-import { type AxonSettings, type CustomFont } from "../../shared/settings";
+import { type PythonWorkspaceEnvironmentStatus } from "../../shared/editor/language/lsp";
+import { type AxonSettings, type CustomFont } from "../../shared/core/settings";
 import { readSettingsForFolder, writeSettingsToDisk } from "./io";
 import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";
 import { getSettingsPath } from "./paths";
 import { setClientId } from "../spotify/api";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
-import { AXON_AUTO_SAVE_MENU_ITEM_ID } from "../window/menu";
+import { AXON_AUTO_SAVE_MENU_ITEM_ID } from "../window/menu/menu";
 import { extensionHostService } from "../extensions/host/service";
 import { writeBootAppearance } from "./bootAppearance";
-import { applyWindowGlass } from "../window/windowGlass";
+import { applyWindowGlass } from "../window/glass/windowGlass";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
   isPythonWorkspace,
   resolvePythonEnvironmentSelection,
-} from "../lsp/pythonEnvironment";
+} from "../lsp/discovery/pythonEnvironment";
 
 const EMPTY_PYTHON_WORKSPACE_STATUS: PythonWorkspaceEnvironmentStatus = {
   pythonDetected: false,

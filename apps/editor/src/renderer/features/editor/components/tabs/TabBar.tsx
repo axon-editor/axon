@@ -29,7 +29,7 @@ import {
   getTabFilePath,
   getTabTooltipLabel,
   isVirtualTabPath,
-} from "../../lib/layout/tabIdentity";
+} from "../../lib/layout/navigation/tabIdentity";
 
 export interface DragTabData {
   type: "tab";

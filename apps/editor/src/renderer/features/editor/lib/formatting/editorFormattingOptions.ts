@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as monaco from "monaco-editor";
-import type { EditorSettings } from "@axon-editor/shared/settings";
+import type { EditorSettings } from "@axon-editor/shared/core/settings";
 
 type EditorFormattingSettings = Pick<
   EditorSettings,

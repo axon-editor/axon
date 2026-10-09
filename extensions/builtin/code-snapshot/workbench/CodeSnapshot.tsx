@@ -5,10 +5,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImageOff } from "lucide-react";
-import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
-import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
-import { type EditorSettings } from "@axon-editor/shared/settings";
+import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts/fonts";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
+import { type EditorSettings } from "@axon-editor/shared/core/settings";
 import {
   CodeSnapshotControls,
   type SnapshotPaletteOption,

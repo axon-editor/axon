@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { TerminalSquare } from "lucide-react";
-import { type TestOutputEvent } from "@axon-editor/shared/tests";
+import { type TestOutputEvent } from "@axon-editor/shared/editor/testing/tests";
 import { type OutputFilter } from "./TestExplorerPrimitives";
 
 interface Props {

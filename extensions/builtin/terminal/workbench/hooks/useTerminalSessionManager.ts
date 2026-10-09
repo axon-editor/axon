@@ -17,9 +17,9 @@ import {
   sendTerminate,
   TERMINAL_SCROLLBACK_LINES,
   type TerminalSession,
-} from "@axon-editor/platform/terminal/terminalProtocol";
-import { type getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
-import { type TerminalGpuAcceleration } from "@axon-editor/shared/settings";
+} from "@axon-editor/platform/terminal/protocol/terminalProtocol";
+import { type getTerminalOptions } from "@axon-editor/platform/terminal/theme/terminalTheme";
+import { type TerminalGpuAcceleration } from "@axon-editor/shared/core/settings";
 import {
   flushQueuedTerminalInput,
   hasPendingTerminalOutput,
@@ -29,7 +29,7 @@ import {
   sendWorkspaceCd,
   terminateDetachedSession,
   writeTerminalOutput,
-} from "@axon-editor/platform/terminal/terminalSessionIo";
+} from "@axon-editor/platform/terminal/session/terminalSessionIo";
 import { createTerminalRendererController } from "../lib/terminalRenderer";
 import {
   getCommandSuggestionAcceptKey,
@@ -39,7 +39,7 @@ import { createTerminalSuggestionController } from "../lib/terminalSuggestionOve
 import type {
   TerminalSurfaceTab,
   TerminalWindowHandoff,
-} from "@axon-editor/shared/terminalWindow";
+} from "@axon-editor/shared/terminal/terminalWindow";
 
 export interface TerminalTab {
   id: string;

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FileCode2, Play } from "lucide-react";
-import { type TestItem, type TestProvider } from "@axon-editor/shared/tests";
+import { type TestItem, type TestProvider } from "@axon-editor/shared/editor/testing/tests";
 import {
   RunPill,
   providerRootLabel,

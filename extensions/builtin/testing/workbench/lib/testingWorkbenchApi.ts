@@ -9,7 +9,7 @@ import {
   type TestOutputEvent,
   type TestRunResult,
   type TestStopResult,
-} from "@axon-editor/shared/tests";
+} from "@axon-editor/shared/editor/testing/tests";
 
 export interface TestingWorkbenchApi {
   discover(folderPath: string): Promise<TestDiscoveryResult>;

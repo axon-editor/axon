@@ -23,7 +23,7 @@ import {
   type FileNode,
   deleteEntry,
   renameEntry,
-} from "../../../shared/lib/api";
+} from "../../../shared/lib/backend/api";
 import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
 import { type InlineCreateKind } from "./InlineCreateRow";
 

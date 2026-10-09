@@ -17,7 +17,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { FolderTree, Plus, ShieldCheck, ShieldAlert } from "lucide-react";
-import { type FileNode, moveEntry, getTree } from "../../shared/lib/api";
+import { type FileNode, moveEntry, getTree } from "../../shared/lib/backend/api";
 import FileTree, {
   type FileTreeOperation,
   type ImportedExternalEntry,
@@ -32,13 +32,13 @@ import {
   type GitHistoryCommit,
   type GitHistoryFile,
   type GitFileState,
-} from "../../../shared/git";
-import { type FolderPickerIntent } from "../../../shared/app";
-import SpotifyPanel from "@axon-builtin-spotify/SpotifyPanel";
+} from "../../../shared/workspace/git";
+import { type FolderPickerIntent } from "../../../shared/core/app";
+import SpotifyPanel from "@axon-builtin-spotify/panel/SpotifyPanel";
 import type { SpotifyActions, SpotifyState } from "@axon-builtin-spotify/lib/useSpotify";
-import { clearWorkspaceSession } from "../../shared/lib/workspaceSession";
-import { type WorkspaceRoot } from "../../shared/lib/workspaceRoots";
-import { useTreeRefreshRequest } from "./files/lib/useTreeRefreshRequest";
+import { clearWorkspaceSession } from "../../shared/lib/workspace/workspaceSession";
+import { type WorkspaceRoot } from "../../shared/lib/workspace/workspaceRoots";
+import { useTreeRefreshRequest } from "./files/lib/tree/useTreeRefreshRequest";
 import { useOpenWorkspaceFolders } from "./files/folderPicker/useOpenWorkspaceFolders";
 import {
   addRecentFolder,

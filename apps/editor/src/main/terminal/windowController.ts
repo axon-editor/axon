@@ -25,13 +25,13 @@ import {
   applyWindowGlass,
   getWindowGlassBackground,
   getWindowGlassConstructorOptions,
-} from "../window/windowGlass";
+} from "../window/glass/windowGlass";
 import {
   TERMINAL_WINDOW_SURFACE,
   TERMINAL_WINDOW_TITLE,
   type TerminalSurfaceDockMode,
   type TerminalWindowHandoff,
-} from "../../shared/terminalWindow";
+} from "../../shared/terminal/terminalWindow";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
 interface TerminalWindowDependencies {

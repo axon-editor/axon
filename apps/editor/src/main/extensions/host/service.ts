@@ -20,12 +20,12 @@ import {
   clearExtensionActivationRecords,
   markExtensionActivationActive,
   markExtensionActivationFailed,
-} from "./runtime/activationStore";
+} from "./runtime/activation/activationStore";
 import {
   activateRuntimeExtension,
   deactivateRuntimeExtension,
   executeRuntimeCommand,
-} from "./runtime/runtimeHost";
+} from "./runtime/host/runtimeHost";
 import fs from "fs";
 import path from "path";
 import { getUserExtensionsPath } from "../paths";

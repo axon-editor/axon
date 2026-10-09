@@ -6,7 +6,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import fs from "fs";
 import path from "path";
-import { type TaskFinishedEvent, type TaskOutputEvent, type TaskRunResult, type WorkspaceTask } from "../../shared/tasks";
+import { type TaskFinishedEvent, type TaskOutputEvent, type TaskRunResult, type WorkspaceTask } from "../../shared/extensions/tasks";
 import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 
 interface TaskManagerDependencies {

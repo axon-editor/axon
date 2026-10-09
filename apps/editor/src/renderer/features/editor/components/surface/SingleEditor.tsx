@@ -6,19 +6,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { type EditorSettings } from "@axon-editor/shared/settings";
-import { isLargeDocumentModel } from "@axon-editor/shared/largeDocument";
-import { type GitChange } from "@axon-editor/shared/git";
-import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
-import { type EditorNavigationTarget } from "../../lib/layout/navigation";
-import { registerAxonTheme } from "@axon-editor/renderer/shared/lib/soraTheme";
-import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+import { type EditorSettings } from "@axon-editor/shared/core/settings";
+import { isLargeDocumentModel } from "@axon-editor/shared/editor/documents/largeDocument";
+import { type GitChange } from "@axon-editor/shared/workspace/git";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
+import { type EditorNavigationTarget } from "../../lib/layout/navigation/navigation";
+import { registerAxonTheme } from "@axon-editor/renderer/shared/lib/theme/soraTheme";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import {
   createSemanticTokenDecorations,
   installSemanticTokenDecorationStyles,
   RICH_SEMANTIC_DECORATION_LANGUAGES,
-} from "@axon-editor/services/lsp/renderer/semanticTokenDecorations";
-import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/lspSemanticTokens";
+} from "@axon-editor/services/lsp/renderer/semanticTokens/semanticTokenDecorations";
+import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/semanticTokens/lspSemanticTokens";
 import EditorBreadcrumbHeader from "../navigation/EditorBreadcrumbHeader";
 import MonacoEditorSurface from "./MonacoEditorSurface";
 import TokenInspectorModal from "../navigation/TokenInspectorModal";
@@ -28,31 +28,31 @@ import {
   detectLanguageServerLanguage,
   markModelDirty,
   refreshModelLanguage,
-} from "../../lib/buffer/monacoModels";
-import { useEditorFind } from "../../lib/hooks/useEditorFind";
+} from "../../lib/buffer/loading/monacoModels";
+import { useEditorFind } from "../../lib/hooks/actions/useEditorFind";
 import {
   normalizePath,
 } from "../../lib/formatting/editorDocumentHelpers";
 import { isMarkdownFile } from "@axon-builtin-markdown/lib/markdownPreviewTabs";
-import { markEditorMounted } from "../../lib/buffer/editorPerformance";
+import { markEditorMounted } from "../../lib/buffer/performance/editorPerformance";
 import { type TokenInspectorReport } from "../../lib/inspection/tokenInspector";
-import { useEditorActions } from "../../lib/hooks/useEditorActions";
-import { useTrailingTask } from "../../lib/hooks/useTrailingTask";
-import { useActiveFileServices } from "../../lib/hooks/useActiveFileServices";
-import { useEditorIndentationSettings } from "../../lib/hooks/useEditorIndentationSettings";
-import { useEditorDiskBaseline } from "../../lib/buffer/useEditorDiskBaseline";
-import { useEditorZoomViewport } from "../../lib/hooks/useEditorZoomViewport";
+import { useEditorActions } from "../../lib/hooks/actions/useEditorActions";
+import { useTrailingTask } from "../../lib/hooks/persistence/useTrailingTask";
+import { useActiveFileServices } from "../../lib/hooks/services/useActiveFileServices";
+import { useEditorIndentationSettings } from "../../lib/hooks/settings/useEditorIndentationSettings";
+import { useEditorDiskBaseline } from "../../lib/buffer/persistence/useEditorDiskBaseline";
+import { useEditorZoomViewport } from "../../lib/hooks/actions/useEditorZoomViewport";
 import useGitLineDecorations from "../../lib/git/useGitLineDecorations";
 import useGitLineTrace from "../../lib/git/useGitLineTrace";
-import { useAxonBufferDocument } from "../../lib/buffer/useAxonBufferDocument";
-import { useEditorSave } from "../../lib/hooks/useEditorSave";
+import { useAxonBufferDocument } from "../../lib/buffer/loading/useAxonBufferDocument";
+import { useEditorSave } from "../../lib/hooks/persistence/useEditorSave";
 import {
   AXON_EDITOR_SAVE_EVENT,
   type EditorSaveEventDetail,
-} from "../../lib/buffer/editorSave";
+} from "../../lib/buffer/persistence/editorSave";
 import { EditorErrorState, EditorLoadingState } from "./EditorDocumentState";
 import { useLocalAssetUrl } from "../../../../shared/hooks/useLocalAssetUrl";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import { Eye } from "lucide-react";
 interface Props {
   filePath: string;

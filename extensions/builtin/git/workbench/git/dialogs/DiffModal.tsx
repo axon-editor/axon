@@ -1,0 +1,171 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
+import { type EditorSettings } from "@axon-editor/shared/core/settings";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
+import { readFile } from "@axon-editor/renderer/shared/lib/backend/api";
+import { getModel } from "@axon-editor/renderer/features/editor/lib/buffer/loading/monacoModels";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import { isKnownBinaryFile } from "@axon-editor/shared/editor/documents/binaryFiles";
+import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
+import { isMediaFile } from "@axon-builtin-media-preview/MediaPreview";
+import GitDiffEditorView from "../editor/GitDiffEditorView";
+
+interface Props {
+  filePath: string;
+  folderPath: string | null;
+  editorSettings: EditorSettings;
+  themeSyntax: Record<string, ExtensionThemeSyntaxStyle>;
+  themeTokens: ResolvedThemeTokens;
+  onClose: () => void;
+}
+
+export default function DiffModal({
+  filePath,
+  folderPath,
+  editorSettings,
+  themeSyntax,
+  themeTokens,
+  onClose,
+}: Props) {
+  const [baseContent, setBaseContent] = useState("");
+  const [currentContent, setCurrentContent] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fileName = useMemo(
+    () => filePath.split("/").pop() ?? filePath,
+    [filePath],
+  );
+  const binary = isKnownBinaryFile(filePath) || isMediaFile(filePath);
+
+  useEffect(() => {
+    let cancelled = false;
+    let modelDisposable: { dispose: () => void } | null = null;
+    setLoading(true);
+    setError(null);
+
+    // Direct "Open diff" actions bypass the Source Control preview's normal
+    // file-kind router. Stop known binaries at this boundary as well so neither
+    // the working copy nor `git show` is requested as a UTF-8 string merely
+    // because the user opened the larger comparison modal.
+    if (binary) {
+      setBaseContent("");
+      setCurrentContent("");
+      setLoading(false);
+      return;
+    }
+
+    const currentModel = getModel(filePath);
+    if (currentModel) {
+      setCurrentContent(currentModel.getValue());
+
+      // The compare modal is meant to show "Git base vs the editor buffer",
+      // not only "Git base vs whatever was on disk when the modal opened".
+      // Monaco keeps unsaved edits in its model, so I subscribe directly to
+      // that model while the modal is mounted. Without this listener, the user
+      // has to close/reopen the compare view before fresh edits appear, which
+      // makes the diff feel stale even though the editor already has the data.
+      modelDisposable = currentModel.onDidChangeContent(() => {
+        if (!cancelled) setCurrentContent(currentModel.getValue());
+      });
+    } else {
+      setCurrentContent("");
+    }
+
+    const loadCurrentContent = readFile(filePath).then((file) => {
+      if (!currentModel) setCurrentContent(file.content);
+      return file.content;
+    });
+
+    const loadBaseContent = folderPath
+      ? window.axon.getGitFileBase(folderPath, filePath)
+      : readFile(filePath).then((file) => file.content);
+
+    Promise.all([loadBaseContent, loadCurrentContent])
+      .then(([base]) => {
+        if (cancelled) return;
+        setBaseContent(base);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      modelDisposable?.dispose();
+    };
+  }, [binary, filePath, folderPath]);
+
+  // The whole-screen compare view has no visible backdrop to click, so Escape
+  // is the only fallback close path if the header button is ever unreachable.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="axon-modal-overlay fixed inset-0 z-[70] flex items-center justify-center px-6 py-6">
+      <div className="axon-modal-panel axon-git-modal-panel flex h-[calc(100vh-3rem)] max-h-[900px] min-h-[min(660px,calc(100vh-3rem))] w-[min(1180px,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]">
+        <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
+          <div className="min-w-0">
+            <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
+              {fileName}
+            </div>
+            <div className="truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
+              git base to current buffer
+            </div>
+          </div>
+
+          <Tooltip label="Close diff" side="bottom">
+            <button
+              onClick={onClose}
+              aria-label="Close diff"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-editor-foreground)]"
+            >
+              <X size={14} />
+            </button>
+          </Tooltip>
+        </div>
+
+        {loading && (
+          <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--axon-editor-foreground)] opacity-45">
+            loading diff...
+          </div>
+        )}
+
+        {error && (
+          <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--axon-danger-foreground)]">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && binary && (
+          <BinaryFilePreview filePath={filePath} context="git" />
+        )}
+
+        {!loading && !error && !binary && (
+          <GitDiffEditorView
+            filePath={filePath}
+            original={baseContent}
+            modified={currentContent}
+            editorSettings={editorSettings}
+            themeSyntax={themeSyntax}
+            themeTokens={themeTokens}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

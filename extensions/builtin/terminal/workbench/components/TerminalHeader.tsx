@@ -20,7 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { type BottomPanelTab } from "@axon-editor/platform/panel/bottomPanel";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import TerminalTabBar, { type TerminalTabItem } from "./TerminalTabBar";
 import { type TerminalWorkbenchContribution } from "../lib/contribution";
 

@@ -10,7 +10,7 @@ import {
   type TestDiscoveryResult,
   type TestRunResult,
   type TestStopResult,
-} from "../../shared/tests";
+} from "../../shared/editor/testing/tests";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
 
 export function registerTestHandlers(

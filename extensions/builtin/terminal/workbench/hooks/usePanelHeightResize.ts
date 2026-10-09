@@ -9,7 +9,7 @@ import { useCallback, useState, type PointerEvent as ReactPointerEvent } from "r
 import {
   DEFAULT_TERMINAL_HEIGHT,
   MIN_TERMINAL_HEIGHT,
-} from "@axon-editor/platform/terminal/terminalProtocol";
+} from "@axon-editor/platform/terminal/protocol/terminalProtocol";
 
 // The docked panel may claim at most 78% of the window: past that the editor
 // behind it stops being usable, which is the whole difference between a bottom

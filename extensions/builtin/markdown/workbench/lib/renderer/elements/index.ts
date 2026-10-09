@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { Token, InlineToken } from "../../parser/types";
-import { renderHeading, renderInline } from "./heading";
-import { renderParagraph } from "./paragraph";
-import { renderCodeBlock } from "./code";
-import { renderMathBlock } from "./math";
-import { renderTable } from "./table";
-import { renderList } from "./list";
-import { renderBlockquote } from "./blockquote";
-import { renderImage, renderVideo } from "./media";
-import { renderLink, renderWikiLink, renderCitation } from "./link";
-import { renderFootnotesSection } from "./footnote";
-import { renderHtmlBlock } from "./html";
-import { renderHr } from "./hr";
+import { renderHeading, renderInline } from "./block/leaf/heading";
+import { renderParagraph } from "./block/leaf/paragraph";
+import { renderCodeBlock } from "./block/leaf/code";
+import { renderMathBlock } from "./inline/math";
+import { renderTable } from "./block/leaf/table";
+import { renderList } from "./block/container/list";
+import { renderBlockquote } from "./block/container/blockquote";
+import { renderImage, renderVideo } from "./inline/media";
+import { renderLink, renderWikiLink, renderCitation } from "./inline/link";
+import { renderFootnotesSection } from "./inline/footnote";
+import { renderHtmlBlock } from "./block/leaf/html";
+import { renderHr } from "./block/leaf/hr";
 import type { RenderContext } from "../context";
 
 // Element renderer registry. Maps token types to their render functions.

@@ -8,7 +8,7 @@ import {
   type ExtensionState,
   type ExtensionTerminalProfileContribution,
   type ExtensionViewContribution,
-} from "@axon-editor/shared/extensions";
+} from "@axon-editor/shared/extensions/extensions";
 
 export const AXON_TERMINAL_EXTENSION_ID = "axon.terminal";
 export const AXON_TERMINAL_VIEW_ID = "axon.terminal";

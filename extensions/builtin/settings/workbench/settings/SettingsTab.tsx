@@ -4,44 +4,44 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/settings";
-import { type AiModelInfo } from "@axon-editor/shared/ai";
+import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/core/settings";
+import { type AiModelInfo } from "@axon-editor/shared/ai/ai";
 import {
   getEnabledExtensionThemes,
   type ExtensionState,
-} from "@axon-editor/shared/extensions";
+} from "@axon-editor/shared/extensions/extensions";
 import {
   EDITOR_FONT_ITEMS,
   SETTINGS_SECTIONS,
   UI_FONT_ITEMS,
   type SettingsSectionId,
-} from "./lib/settingsData";
-import { FONT_PRESET_VALUES } from "./lib/fontPresets";
+} from "./lib/data/settingsData";
+import { FONT_PRESET_VALUES } from "./lib/presets/fontPresets";
 import { matchSettingsSections } from "./search/settingsSearch";
 import {
   matchSettingsRows,
   type SettingsRowMatch,
 } from "./search/settingsRowIndex";
-import { revealSettingsRow } from "./lib/settingsRowFocus";
+import { revealSettingsRow } from "./lib/ui/settingsRowFocus";
 import {
   getSettingsPythonWorkspaceEnvironment,
   importSettingsFont,
   selectSettingsBackgroundImage,
   selectSettingsPythonVirtualEnv,
-} from "./lib/settingsPlatform";
-import SettingsSidebar from "./chrome/SettingsSidebar";
-import SettingsHeader from "./chrome/SettingsHeader";
-import SettingsFooter from "./chrome/SettingsFooter";
+} from "./lib/platform/settingsPlatform";
+import SettingsSidebar from "./chrome/sidebar/SettingsSidebar";
+import SettingsHeader from "./chrome/header/SettingsHeader";
+import SettingsFooter from "./chrome/status/SettingsFooter";
 import { type SettingsSaveState } from "./chrome/types";
-import AppearanceSettingsSection from "./sections/AppearanceSettingsSection";
-import EditorSettingsSection from "./sections/EditorSettingsSection";
-import EditorBehaviorSettingsSection from "./sections/EditorBehaviorSettingsSection";
-import TerminalSettingsSection from "./sections/TerminalSettingsSection";
-import BackgroundSettingsSection from "./sections/BackgroundSettingsSection";
-import FontsSettingsSection from "./sections/FontsSettingsSection";
-import LanguageServersSettingsSection from "./sections/LanguageServersSettingsSection";
-import AxonAgentSettingsSection from "./sections/AxonAgentSettingsSection";
-import FinderSettingsSection from "./sections/FinderSettingsSection";
+import AppearanceSettingsSection from "./sections/appearance/AppearanceSettingsSection";
+import EditorSettingsSection from "./sections/editor/EditorSettingsSection";
+import EditorBehaviorSettingsSection from "./sections/editor/EditorBehaviorSettingsSection";
+import TerminalSettingsSection from "./sections/terminal/TerminalSettingsSection";
+import BackgroundSettingsSection from "./sections/appearance/BackgroundSettingsSection";
+import FontsSettingsSection from "./sections/appearance/FontsSettingsSection";
+import LanguageServersSettingsSection from "./sections/language/LanguageServersSettingsSection";
+import AxonAgentSettingsSection from "./sections/agent/AxonAgentSettingsSection";
+import FinderSettingsSection from "./sections/integrations/FinderSettingsSection";
 
 interface SettingsTabProps {
   folderPath: string | null;

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ExtensionInfo } from "../../../../shared/extensions";
+import type { ExtensionInfo } from "../../../../shared/extensions/extensions";
 
 export interface ExtensionSummary {
   id: string;

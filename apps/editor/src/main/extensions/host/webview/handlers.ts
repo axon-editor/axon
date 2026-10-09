@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ipcMain } from "electron";
-import { type ExtensionWebviewActionResult } from "../../../../shared/extensionWebview";
+import { type ExtensionWebviewActionResult } from "../../../../shared/extensions/extensionWebview";
 import { extensionHostService } from "../service";
 import { type ExtensionWebviewServer } from "./server";
 

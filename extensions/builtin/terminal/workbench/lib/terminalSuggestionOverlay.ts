@@ -9,11 +9,11 @@ import {
   findCommandSuggestion,
   readTerminalInputSnapshot,
   type TerminalInputSnapshot,
-} from "@axon-editor/platform/terminal/commandSuggestions";
+} from "@axon-editor/platform/terminal/suggestions/commandSuggestions";
 import type {
   TerminalSuggestionAcceptKey,
   TerminalSuggestionController,
-} from "@axon-editor/platform/terminal/terminalProtocol";
+} from "@axon-editor/platform/terminal/protocol/terminalProtocol";
 import {
   getCommandHistory,
   loadCommandHistory,

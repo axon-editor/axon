@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FilePlus } from "lucide-react";
-import { publicAsset } from "@axon-editor/renderer/shared/lib/assets";
+import { publicAsset } from "@axon-editor/renderer/shared/lib/assets/assets";
 
 export default function WorkspaceBlankPane({
   onNewFile,

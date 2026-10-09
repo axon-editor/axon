@@ -28,11 +28,11 @@ import {
   Info,
   Bug,
 } from "lucide-react";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import {
   type UpdateInfo,
   type UpdateInstallState,
-} from "@axon-editor/shared/updates";
+} from "@axon-editor/shared/core/updates";
 
 interface Props {
   onNewFile: () => void;

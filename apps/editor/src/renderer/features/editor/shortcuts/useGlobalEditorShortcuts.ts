@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect } from "react";
-import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands";
-import { type AxonSettings } from "../../../../shared/settings";
+import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands/commands";
+import { type AxonSettings } from "../../../../shared/core/settings";
 import { settingsFromEditorFontZoomShortcut } from "./fontZoom";
-import { announceZenCommand } from "../../../../shared/zenCommandLine";
+import { announceZenCommand } from "../../../../shared/commands/zenCommandLine";
 
 function isZenShortcut(event: KeyboardEvent) {
   return (event.metaKey || event.ctrlKey) && !event.altKey;

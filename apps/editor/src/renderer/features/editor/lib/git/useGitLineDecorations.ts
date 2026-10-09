@@ -5,14 +5,14 @@
 
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import * as monaco from "monaco-editor";
-import { type GitChange } from "@axon-editor/shared/git";
-import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+import { type GitChange } from "@axon-editor/shared/workspace/git";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import {
   inferThemeAppearance,
   resolveThemeGitColors,
-} from "@axon-editor/renderer/shared/themes/themeAppearance";
+} from "@axon-editor/renderer/shared/themes/appearance/themeAppearance";
 import { computeGitLineDecorations } from "./gitLineDecorations";
-import { isLargeDocumentModel } from "@axon-editor/shared/largeDocument";
+import { isLargeDocumentModel } from "@axon-editor/shared/editor/documents/largeDocument";
 
 interface Options {
   editorRef: RefObject<monaco.editor.IStandaloneCodeEditor | null>;

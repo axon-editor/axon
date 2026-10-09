@@ -16,7 +16,7 @@
 import {
   SETTINGS_SECTIONS,
   type SettingsSectionId,
-} from "../lib/settingsData";
+} from "../lib/data/settingsData";
 import { tokenizeQuery } from "./tokenize";
 
 export interface SettingsRowItem {

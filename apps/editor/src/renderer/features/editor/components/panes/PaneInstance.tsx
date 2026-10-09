@@ -13,20 +13,20 @@ import {
   type AxonSettings,
   type EditorSettings,
   type ThemeId,
-} from "@axon-editor/shared/settings";
-import { type GitChange } from "@axon-editor/shared/git";
-import { type EditorDiagnostic } from "@axon-editor/shared/diagnostics";
+} from "@axon-editor/shared/core/settings";
+import { type GitChange } from "@axon-editor/shared/workspace/git";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
 import {
   type ExtensionState,
   type ExtensionThemeSyntaxStyle,
-} from "@axon-editor/shared/extensions";
+} from "@axon-editor/shared/extensions/extensions";
 import {
   decodeFileTreeDragPayload,
   FILE_TREE_DRAG_TYPE,
-} from "../../lib/layout/dragData";
-import { type EditorNavigationTarget } from "../../lib/layout/navigation";
-import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
-import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts";
+} from "../../lib/layout/drag/dragData";
+import { type EditorNavigationTarget } from "../../lib/layout/navigation/navigation";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
+import { editorFontStack } from "@axon-editor/renderer/shared/lib/fonts/fonts";
 import { type Pane } from "../../lib/layout/types";
 import TabBar, { getPaneDropId, type PaneDropData } from "../tabs/TabBar";
 import {
@@ -49,7 +49,7 @@ import MediaPreview, {
   isMediaFile,
 } from "@axon-builtin-media-preview/MediaPreview";
 import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
-import { isKnownBinaryFile } from "@axon-editor/shared/binaryFiles";
+import { isKnownBinaryFile } from "@axon-editor/shared/editor/documents/binaryFiles";
 import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
 import ExtensionWebview from "@axon-editor/workbench/contrib/extensions/webview/ExtensionWebview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
@@ -60,7 +60,7 @@ import WelcomeTab, {
   type WelcomeThemeItem,
 } from "@axon-editor/renderer/features/onboarding/WelcomeTab";
 import GitGraphPanel from "@axon-builtin-git/git/advanced/GitGraphPanel";
-import GitCommitDiffTab from "@axon-builtin-git/git/GitCommitDiffTab";
+import GitCommitDiffTab from "@axon-builtin-git/git/editor/GitCommitDiffTab";
 import {
   isGitCommitDiffTabPath,
   isGitGraphTabPath,
@@ -68,7 +68,7 @@ import {
 import CodeSnapshot from "@axon-builtin-code-snapshot/CodeSnapshot";
 import { isCodeSnapshotTabPath } from "@axon-builtin-code-snapshot/lib/codeSnapshotTabs";
 import SettingsTab from "@axon-builtin-settings/settings/SettingsTab";
-import { isSettingsTabPath } from "@axon-builtin-settings/settings/lib/settingsTab";
+import { isSettingsTabPath } from "@axon-builtin-settings/settings/lib/ui/settingsTab";
 
 interface Props {
   pane: Pane;

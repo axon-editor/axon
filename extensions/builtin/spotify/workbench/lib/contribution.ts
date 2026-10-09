@@ -7,7 +7,7 @@ import {
   BUILTIN_WORKBENCH_CONTRIBUTIONS,
   resolveRequiredWorkbenchContribution,
 } from "@axon-editor/workbench/contrib/extensions/lib/builtinWorkbenchContributions";
-import { type ExtensionState } from "@axon-editor/shared/extensions";
+import { type ExtensionState } from "@axon-editor/shared/extensions/extensions";
 
 export const AXON_SPOTIFY_EXTENSION_ID = "axon.spotify";
 export const AXON_SPOTIFY_VIEW_ID = "axon.spotify";

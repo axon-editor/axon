@@ -6,7 +6,7 @@
 import DOMPurify from "dompurify";
 import { FileDown, LoaderCircle, Printer } from "lucide-react";
 import { useState, type RefObject } from "react";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 
 const THEME_VARIABLES = [
   "--axon-editor-background",

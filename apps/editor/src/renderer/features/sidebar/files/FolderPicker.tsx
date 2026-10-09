@@ -5,13 +5,13 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { FolderOpen, GitFork } from "lucide-react";
-import CommandModal from "../../../shared/components/CommandModal";
-import { type WorkspaceRoot } from "../../../shared/lib/workspaceRoots";
-import { type GitCloneProgress } from "../../../../shared/git";
+import CommandModal from "../../../shared/components/modals/CommandModal";
+import { type WorkspaceRoot } from "../../../shared/lib/workspace/workspaceRoots";
+import { type GitCloneProgress } from "../../../../shared/workspace/git";
 import {
   type FolderPickerIntent,
   type OpenWorkspaceFolder,
-} from "../../../../shared/app";
+} from "../../../../shared/core/app";
 import FolderPickerClone from "./folderPicker/FolderPickerClone";
 import FolderPickerLocal from "./folderPicker/FolderPickerLocal";
 

@@ -8,13 +8,13 @@ import { type CSSProperties, type RefObject, useMemo } from "react";
 import {
   type EditorBackgroundImageFit,
   type EditorSettings,
-} from "@axon-editor/shared/settings";
-import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions";
-import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+} from "@axon-editor/shared/core/settings";
+import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import {
   getMonacoThemeId,
   registerAxonTheme,
-} from "@axon-editor/renderer/shared/lib/soraTheme";
+} from "@axon-editor/renderer/shared/lib/theme/soraTheme";
 import EditorFindWidget from "./EditorFindWidget";
 import { createEditorSurfaceOptions } from "../../lib/options/editorSurfaceOptions";
 

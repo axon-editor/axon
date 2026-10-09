@@ -11,7 +11,7 @@ import {
   type GitHistoryCommit,
   type GitHistoryFile,
   type GitHistoryResult,
-} from "@axon-editor/shared/git";
+} from "@axon-editor/shared/workspace/git";
 import { getGitFileStateBadgeStyle } from "../git/lib/gitTheme";
 
 const stateLabels: Record<GitFileState, string> = {

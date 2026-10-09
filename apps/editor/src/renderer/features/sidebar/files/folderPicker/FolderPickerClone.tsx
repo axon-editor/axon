@@ -5,7 +5,7 @@
 
 import { type FormEventHandler } from "react";
 import { FolderOpen, GitFork, LoaderCircle } from "lucide-react";
-import { type GitCloneProgress } from "../../../../../shared/git";
+import { type GitCloneProgress } from "../../../../../shared/workspace/git";
 
 interface Props {
   cloneError: string | null;

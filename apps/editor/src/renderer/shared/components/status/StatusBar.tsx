@@ -1,0 +1,386 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// Bottom status bar showing active file language, cursor position, encoding.
+// Left side has sidebar toggle and the workspace switcher.
+// Right side has terminal toggle, language, cursor position.
+import {
+  AlertCircle,
+  Camera,
+  FileCode,
+  Files,
+  FlaskConical,
+  GitBranch,
+  GitGraph,
+  ListChecks,
+  Music4,
+  PanelLeft,
+  Search,
+  Sparkles,
+  TerminalSquare,
+  Zap,
+} from "lucide-react";
+import Tooltip from "../primitives/Tooltip";
+import { type BottomPanelTab } from "../../../../platform/panel/bottomPanel";
+import { type ResolvedThemeTokens } from "../../lib/theme/themeTokens";
+
+type view = "files" | "history" | "spotify";
+
+function getLanguageStatusLabel(language: string) {
+  const labels: Record<string, string> = {
+    javascript: "JavaScript",
+    javascriptreact: "JSX",
+    json: "JSON",
+    markdown: "Markdown",
+    plaintext: "Plain Text",
+    typescript: "TypeScript",
+    typescriptreact: "TSX",
+  };
+
+  // Monaco and the LSP use protocol-oriented ids such as `typescriptreact`
+  // because TSX needs a different script kind from plain TypeScript. The
+  // status bar is user-facing, so it should show the familiar editor label
+  // while leaving the internal id untouched for diagnostics, tokenization, and
+  // completions.
+  return labels[language.toLowerCase()] ?? language;
+}
+
+interface Props {
+  activeFile: string | null;
+  codeSnapshotAvailable: boolean;
+  hasWorkspace: boolean;
+  language: string;
+  languageToolsOpen: boolean;
+  cursor: { line: number; col: number };
+  sidebarCollapsed: boolean;
+  terminalOpen: boolean;
+  aiEnabled: boolean;
+  agentSidebarOpen: boolean;
+  bottomPanelOpen: boolean;
+  bottomPanelTab: BottomPanelTab;
+  problemCount: number;
+  errorCount: number;
+  warningCount: number;
+  gitBranch: string | null;
+  gitChangeCount: number;
+  gitGraphOpen: boolean;
+  themeTokens: ResolvedThemeTokens;
+  onToggleSidebar: () => void;
+  onOpenWorkspaceSearch: () => void;
+  onToggleTerminal: () => void;
+  onToggleAgentSidebar: () => void;
+  onOpenProblems: () => void;
+  onOpenBottomPanel: (tab: BottomPanelTab) => void;
+  onOpenCodeSnapshot: () => void;
+  onOpenLanguageTools: () => void;
+  onOpenSourceControl: () => void;
+  onOpenGitGraph: () => void;
+  onOpenTests: () => void;
+  onViewChange: (view: view) => void;
+  view: view;
+}
+
+export default function StatusBar({
+  activeFile,
+  codeSnapshotAvailable,
+  hasWorkspace,
+  language,
+  languageToolsOpen,
+  cursor,
+  sidebarCollapsed,
+  terminalOpen,
+  aiEnabled,
+  agentSidebarOpen,
+  bottomPanelOpen,
+  bottomPanelTab,
+  problemCount,
+  errorCount,
+  warningCount,
+  gitBranch,
+  gitChangeCount,
+  gitGraphOpen,
+  themeTokens,
+  onToggleSidebar,
+  onOpenWorkspaceSearch,
+  onToggleTerminal,
+  onToggleAgentSidebar,
+  onOpenProblems,
+  onOpenBottomPanel,
+  onOpenCodeSnapshot,
+  onOpenLanguageTools,
+  onOpenSourceControl,
+  onOpenGitGraph,
+  onOpenTests,
+  onViewChange,
+  view,
+}: Props) {
+  const languageLabel = getLanguageStatusLabel(language);
+  const activeControlClass =
+    "bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-syntax-function)]";
+  const idleControlClass =
+    "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-panel-overlay-hover)] hover:text-[var(--axon-syntax-function)] hover:opacity-100";
+
+  return (
+    <div
+      className="relative flex h-8 shrink-0 items-center justify-between gap-2 border-t px-2 text-[11px] text-[var(--axon-editor-foreground)]"
+      style={{
+        background: themeTokens["status_bar.background"],
+        borderColor: "var(--axon-panel-border)",
+      }}
+    >
+      <div
+        aria-hidden="true"
+        className="axon-status-flow-strip absolute left-0 top-0 h-px w-full"
+      />
+      <div className="flex min-w-0 items-center gap-1 shrink-0">
+        <Tooltip label="Toggle sidebar (Cmd+B)" side="top">
+          <button
+            onClick={onToggleSidebar}
+            aria-label="Toggle sidebar"
+            className={`flex h-5 w-6 items-center justify-center rounded transition-colors cursor-pointer
+            ${sidebarCollapsed ? idleControlClass : activeControlClass}`}
+          >
+            <PanelLeft size={13} />
+          </button>
+        </Tooltip>
+
+        {hasWorkspace && (
+          <Tooltip label="Search workspace (Cmd+Shift+F)" side="top">
+            <button
+              onClick={onOpenWorkspaceSearch}
+              aria-label="Search workspace"
+              className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${idleControlClass}`}
+            >
+              <Search size={12} />
+            </button>
+          </Tooltip>
+        )}
+
+        {hasWorkspace && (
+          <Tooltip label="Workspace language tools" side="top">
+            <button
+              type="button"
+              onClick={onOpenLanguageTools}
+              aria-label="Workspace language tools"
+              aria-pressed={languageToolsOpen}
+              className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+                languageToolsOpen ? activeControlClass : idleControlClass
+              }`}
+            >
+              <Zap size={12} />
+            </button>
+          </Tooltip>
+        )}
+
+        <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+
+        <Tooltip label="Files (Status bar)" side="top">
+          <button
+            type="button"
+            onClick={() => onViewChange("files")}
+            aria-label="Show files"
+            className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+              view === "files" ? activeControlClass : idleControlClass
+            }`}
+          >
+            <Files size={13} />
+          </button>
+        </Tooltip>
+
+        {gitBranch && (
+          <Tooltip label="Git History (Status bar)" side="top">
+            <button
+              type="button"
+              onClick={() => onViewChange("history")}
+              aria-label="Show Git history"
+              className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+                view === "history" ? activeControlClass : idleControlClass
+              }`}
+            >
+              <GitBranch size={13} />
+            </button>
+          </Tooltip>
+        )}
+
+        <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+
+        <Tooltip label="Spotify" side="top">
+          <button
+            type="button"
+            onClick={() => onViewChange("spotify")}
+            aria-label="Show Spotify"
+            className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+              view === "spotify" ? activeControlClass : idleControlClass
+            }`}
+          >
+            <Music4 size={13} />
+          </button>
+        </Tooltip>
+
+        {gitBranch ? (
+          <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+        ) : null}
+
+        {gitBranch && (
+          <>
+            <Tooltip label="Source control (Cmd+Shift+G)" side="top">
+              <button
+                onClick={onOpenSourceControl}
+                aria-label="Source control"
+                className={`flex h-5 cursor-pointer items-center gap-1 rounded px-2 transition-colors ${idleControlClass}`}
+              >
+                <GitBranch size={12} />
+                <span className="max-w-32 truncate">{gitBranch}</span>
+                {gitChangeCount > 0 && (
+                  <span className="text-[var(--axon-syntax-function)]">
+                    {gitChangeCount}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip label="Git Graph" side="top">
+              <button
+                type="button"
+                onClick={onOpenGitGraph}
+                aria-label="Open Git Graph"
+                aria-pressed={gitGraphOpen}
+                className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${gitGraphOpen ? activeControlClass : idleControlClass}`}
+              >
+                <GitGraph size={12} />
+              </button>
+            </Tooltip>
+          </>
+        )}
+      </div>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {activeFile && (
+          <>
+            {codeSnapshotAvailable ? (
+              <>
+                <Tooltip label="Capture code snapshot" side="top">
+                  <button
+                    type="button"
+                    onClick={onOpenCodeSnapshot}
+                    aria-label="Capture code snapshot"
+                    className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${idleControlClass}`}
+                  >
+                    <Camera size={12} />
+                  </button>
+                </Tooltip>
+                <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
+              </>
+            ) : null}
+            <span className="flex h-5 items-center gap-1 px-1.5 text-[var(--axon-editor-foreground)] opacity-70">
+              <FileCode size={11} />
+              {languageLabel}
+            </span>
+            <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
+            <span className="px-2 text-[var(--axon-editor-foreground)] opacity-55">
+              UTF-8
+            </span>
+            <div className="h-4 w-px bg-[var(--axon-panel-border)]" />
+            <span className="px-2 text-[var(--axon-editor-foreground)] opacity-55">
+              Ln {cursor.line}, Col {cursor.col}
+            </span>
+            <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+          </>
+        )}
+
+        {hasWorkspace && (
+          <>
+            <Tooltip
+              label={`Problems (Cmd+Shift+M) - ${errorCount} errors, ${warningCount} warnings`}
+              side="top"
+            >
+              <button
+                onClick={onOpenProblems}
+                aria-label="Problems"
+                className={`flex items-center gap-1 rounded px-2 h-5 transition-colors cursor-pointer
+                ${activeFile?.startsWith("axon://workbench/problems") ? activeControlClass : idleControlClass}`}
+              >
+                <AlertCircle size={12} />
+                <span
+                  className={
+                    errorCount > 0 ? "text-[var(--axon-danger-foreground)]" : ""
+                  }
+                >
+                  {errorCount}
+                </span>
+                <span className="text-[var(--axon-editor-foreground)] opacity-35">
+                  /
+                </span>
+                <span
+                  className={
+                    warningCount > 0
+                      ? "text-[var(--axon-warning-foreground)]"
+                      : ""
+                  }
+                >
+                  {warningCount}
+                </span>
+                {problemCount > errorCount + warningCount && (
+                  <span className="text-[var(--axon-editor-foreground)] opacity-55">
+                    +{problemCount - errorCount - warningCount}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+
+            <Tooltip label="Output (Status bar)" side="top">
+              <button
+                onClick={() => onOpenBottomPanel("output")}
+                aria-label="Output"
+                className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer
+                ${bottomPanelOpen && bottomPanelTab === "output" ? activeControlClass : idleControlClass}`}
+              >
+                <ListChecks size={13} />
+              </button>
+            </Tooltip>
+
+            <Tooltip label="Test Explorer" side="top">
+              <button
+                onClick={onOpenTests}
+                aria-label="Test Explorer"
+                className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${idleControlClass}`}
+              >
+                <FlaskConical size={13} />
+              </button>
+            </Tooltip>
+
+            <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+
+            <Tooltip label="Toggle terminal (Cmd+J)" side="top">
+              <button
+                onClick={onToggleTerminal}
+                aria-label="Toggle terminal"
+                className={`flex items-center justify-center w-6 h-5 rounded transition-colors cursor-pointer ml-1
+                ${terminalOpen ? activeControlClass : idleControlClass}`}
+              >
+                <TerminalSquare size={13} />
+              </button>
+            </Tooltip>
+
+            {aiEnabled && (
+              <>
+                <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+                <Tooltip label="Toggle Axon Agent (Status bar)" side="top">
+                  <button
+                    onClick={onToggleAgentSidebar}
+                    aria-label="Toggle Axon Agent"
+                    className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors
+                    ${agentSidebarOpen ? activeControlClass : idleControlClass}`}
+                  >
+                    <Sparkles size={13} />
+                  </button>
+                </Tooltip>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -8,7 +8,7 @@ import path from "path";
 import { execFile } from "child_process";
 import { randomBytes } from "crypto";
 import { promisify } from "util";
-import { registerLspHandlers } from "./lsp/handlers";
+import { registerLspHandlers } from "./lsp/handlers/handlers";
 import {
   getActiveLanguageServerSessions,
   notifyLanguageServersOfFileChange,
@@ -19,21 +19,21 @@ import {
 import {
   notifyLanguageServer,
   notifyLanguageServerConfiguration,
-} from "./lsp/session";
+} from "./lsp/session/session";
 import { registerAppHandlers } from "./app/handlers";
-import { registerFinderSyncHandlers } from "./app/finderSync";
-import { findCliOpenFolderArgument } from "./app/cliOpenFolder";
+import { registerFinderSyncHandlers } from "./app/integration/finderSync";
+import { findCliOpenFolderArgument } from "./app/integration/cliOpenFolder";
 import { consumePendingAgentResumeRequest } from "./app/resumeRequest";
 import { registerDiagnosticsHandlers } from "./diagnostics/handlers";
 import { registerExtensionHandlers } from "./extensions/handlers";
-import { registerFileWatcherHandlers } from "./fs/handlers";
-import { invalidateWorkspaceIndex } from "./fs/workspaceIndex";
+import { registerFileWatcherHandlers } from "./fs/handlers/handlers";
+import { invalidateWorkspaceIndex } from "./fs/workspace/workspaceIndex";
 import {
   FileWatcherManager,
   shouldIgnoreWorkspaceWatchPath,
-} from "./fs/watcher";
-import { registerGitHandlers } from "./git/handlers";
-import { getGitWatchPaths } from "./git/git";
+} from "./fs/watch/watcher";
+import { registerGitHandlers } from "./git/handlers/handlers";
+import { getGitWatchPaths } from "./git/core/git";
 import { registerHtmlPreviewHandlers } from "./htmlPreview/handlers";
 import { registerTaskHandlers } from "./tasks/handlers";
 import { TaskManager } from "./tasks/tasks";
@@ -42,29 +42,29 @@ import { TestManager } from "./tests/tests";
 import { HtmlPreviewServer } from "./htmlPreview/server";
 import { registerExtensionWebviewHandlers } from "./extensions/host/webview/handlers";
 import { ExtensionWebviewServer } from "./extensions/host/webview/server";
-import { createWindow } from "./window/createWindow";
-import { createSettingsWindow } from "./window/createSettingsWindow";
-import { OpenWorkspaceRegistry } from "./window/openWorkspaceRegistry";
+import { createWindow } from "./window/create/createWindow";
+import { createSettingsWindow } from "./window/create/createSettingsWindow";
+import { OpenWorkspaceRegistry } from "./window/workspace/openWorkspaceRegistry";
 import { createTerminalWindowController } from "./terminal/windowController";
 import { readSettingsFromDisk } from "./settings/io";
 import { getAxonIconPath } from "./fonts/fonts";
 import { registerSettingsHandlers } from "./settings/handlers";
 import { registerUpdateHandlers } from "./updates/handlers";
 import { UpdateManager } from "./updates/updater";
-import { createMainProcessIpc } from "./core/ipc";
+import { createMainProcessIpc } from "./core/ipc/ipc";
 import {
   createBundledServiceController,
   type CoreRestartConfirmation,
-} from "./core/process";
+} from "./core/process/process";
 import {
   createTerminalShellResolver,
   registerCoreProxyHandlers,
-} from "./core/proxy";
+} from "./core/proxy/proxy";
 import { registerSpotifyHandlers } from "./spotify/handlers";
-import { registerAiHandlers } from "./ai/handlers";
-import { registerManagedLanguageToolHandlers } from "./languageTools/handlers";
-import { ManagedLanguageToolManager } from "./languageTools/manager";
-import { warmUpAiRuntime } from "./ai/runtimeWarmup";
+import { registerAiHandlers } from "./ai/handlers/handlers";
+import { registerManagedLanguageToolHandlers } from "./languageTools/manager/handlers";
+import { ManagedLanguageToolManager } from "./languageTools/manager/manager";
+import { warmUpAiRuntime } from "./ai/streaming/runtimeWarmup";
 import { setClientId } from "./spotify/api";
 import {
   registerWorkspaceCapabilityHandlers,

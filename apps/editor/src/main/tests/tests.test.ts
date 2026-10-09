@@ -7,7 +7,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { TestFinishedEvent } from "../../shared/tests";
+import type { TestFinishedEvent } from "../../shared/editor/testing/tests";
 import { TestManager } from "./tests";
 
 const temporaryRoots = new Set<string>();

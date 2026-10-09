@@ -7,7 +7,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { type TaskOutputEvent } from "../../shared/tasks";
+import { type TaskOutputEvent } from "../../shared/extensions/tasks";
 import { TaskManager } from "./tasks";
 
 const temporaryRoots: string[] = [];

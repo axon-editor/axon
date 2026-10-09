@@ -18,10 +18,10 @@ import {
 import {
   type ExtensionMarketplaceState,
   type ExtensionState,
-} from "../../../shared/extensions";
-import CommandModal from "../../../renderer/shared/components/CommandModal";
-import { ExtensionDetailPanel } from "./components/ExtensionDetailPanel";
-import { ExtensionListItem } from "./components/ExtensionListItem";
+} from "../../../shared/extensions/extensions";
+import CommandModal from "../../../renderer/shared/components/modals/CommandModal";
+import { ExtensionDetailPanel } from "./components/detail/ExtensionDetailPanel";
+import { ExtensionListItem } from "./components/list/ExtensionListItem";
 import {
   getErrorMessage,
   hasMarketplaceApi,

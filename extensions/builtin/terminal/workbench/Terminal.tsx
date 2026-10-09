@@ -21,19 +21,19 @@ import "./styles/terminalSuggestion.css";
 import type {
   EditorSettings,
   TerminalSettings,
-} from "@axon-editor/shared/settings";
-import type { TerminalWindowHandoff } from "@axon-editor/shared/terminalWindow";
+} from "@axon-editor/shared/core/settings";
+import type { TerminalWindowHandoff } from "@axon-editor/shared/terminal/terminalWindow";
 import {
   type BottomPanelTab,
   type OutputEntry,
 } from "@axon-editor/platform/panel/bottomPanel";
-import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/themeTokens";
+import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import { BottomPanelContent } from "./components/BottomPanel";
 import FloatingDockNotice from "./components/FloatingDockNotice";
 import TerminalHeader from "./components/TerminalHeader";
 import { type TerminalWorkbenchContribution } from "./lib/contribution";
-import { getTerminalOptions } from "@axon-editor/platform/terminal/terminalTheme";
-import { getFolderName } from "@axon-editor/platform/terminal/terminalProtocol";
+import { getTerminalOptions } from "@axon-editor/platform/terminal/theme/terminalTheme";
+import { getFolderName } from "@axon-editor/platform/terminal/protocol/terminalProtocol";
 import { usePanelHeightResize } from "./hooks/usePanelHeightResize";
 import { useTerminalSessionManager } from "./hooks/useTerminalSessionManager";
 import { useTerminalWindowBridge } from "./hooks/useTerminalWindowBridge";

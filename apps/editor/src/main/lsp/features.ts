@@ -6,13 +6,13 @@
 import path from "path";
 import url from "url";
 import { BrowserWindow } from "electron";
-import { type EditorDiagnostic } from "../../shared/diagnostics";
+import { type EditorDiagnostic } from "../../shared/editor/language/diagnostics";
 import {
   type LanguageServerDocumentSyncRequest,
   type LanguageServerTextEdit,
   type LanguageServerLocation,
-} from "../../shared/lsp";
-import { type LanguageServerDefinition } from "./definitions";
+} from "../../shared/editor/language/lsp";
+import { type LanguageServerDefinition } from "./definitions/definitions";
 import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 import {
   emitLanguageServerLog,
@@ -22,8 +22,8 @@ import {
   type LanguageServerSession,
   type LspSessionDependencies,
   writeLanguageServerMessage,
-} from "./session";
-import { isTypeScriptProjectConfig } from "./typescriptProjects";
+} from "./session/session";
+import { isTypeScriptProjectConfig } from "./discovery/typescriptProjects";
 
 export const activeLanguageServers = new Map<string, LanguageServerSession>();
 export const activeLanguageServerFailures = new Map<
@@ -925,8 +925,8 @@ export {
   startRelevantLanguageServers,
   stopAllLanguageServers,
   stopRelevantLanguageServers,
-} from "./features/lifecycle";
-export { getLanguageServerStatus } from "./features/status";
+} from "./features/lifecycle/lifecycle";
+export { getLanguageServerStatus } from "./features/status/status";
 export {
   executeLanguageServerCommand,
   formatLanguageServerDocument,
@@ -938,5 +938,5 @@ export {
   getLanguageServerSignatureHelp,
   resolveLanguageServerCompletionItem,
   renameLanguageServerSymbol,
-} from "./features/requests";
-export { getLanguageServerSemanticTokens } from "./features/semanticTokens";
+} from "./features/requests/requests";
+export { getLanguageServerSemanticTokens } from "./features/tokens/semanticTokens";

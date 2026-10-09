@@ -14,8 +14,8 @@ import {
   type TestDiscoveryResult,
   type TestItem,
   type TestProvider,
-} from "@axon-editor/shared/tests";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+} from "@axon-editor/shared/editor/testing/tests";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import {
   EmptyState,
   Metric,

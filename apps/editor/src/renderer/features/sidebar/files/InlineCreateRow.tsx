@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useRef, useState } from "react";
-import { createDir, createFile } from "../../../shared/lib/api";
-import { getFileIcon, getFolderIcon } from "./lib/fileIcons";
+import { createDir, createFile } from "../../../shared/lib/backend/api";
+import { getFileIcon, getFolderIcon } from "./lib/icons/fileIcons";
 
 export type InlineCreateKind = "file" | "folder";
 

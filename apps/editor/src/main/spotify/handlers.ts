@@ -41,7 +41,7 @@ import type {
   SpotifyPlayTrackRequest,
   SpotifyStatusResult,
   SpotifyTracksResult,
-} from "../../shared/spotify";
+} from "../../shared/extensions/spotify";
 import { readSettingsFromDisk } from "../settings/io";
 import { getUserSettingsPath } from "../settings/paths";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";

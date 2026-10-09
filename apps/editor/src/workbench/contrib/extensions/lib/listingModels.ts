@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ExtensionMarketplaceItem } from "../../../../shared/extensions";
+import type { ExtensionMarketplaceItem } from "../../../../shared/extensions/extensions";
 import { formatPublisher } from "./extensionModalUtils";
 import type { ExtensionSummary } from "./extensionSummaries";
 

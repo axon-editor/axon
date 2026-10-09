@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as monaco from "monaco-editor";
+import { type LanguageServerTextEdit } from "../../../../shared/editor/language/lsp";
+
+export function toMonacoEdit(edit: LanguageServerTextEdit) {
+  return {
+    range: new monaco.Range(
+      edit.range.start.line + 1,
+      edit.range.start.character + 1,
+      edit.range.end.line + 1,
+      edit.range.end.character + 1,
+    ),
+    text: edit.newText,
+    forceMoveMarkers: true,
+  };
+}

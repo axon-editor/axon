@@ -9,18 +9,18 @@ import path from "path";
 import type {
   ExtensionState,
   ResolvedExtensionTheme,
-} from "../../shared/extensions";
+} from "../../shared/extensions/extensions";
 import {
   getEnabledExtensionThemes,
   resolveExtensionTheme,
-} from "../../shared/extensions";
+} from "../../shared/extensions/extensions";
 import {
   DEFAULT_THEME_ID,
   isAppGlassMode,
   type AppGlassMode,
   type AxonSettings,
   type ThemeColorToken,
-} from "../../shared/settings";
+} from "../../shared/core/settings";
 
 export interface BootAppearance {
   themeId: string;

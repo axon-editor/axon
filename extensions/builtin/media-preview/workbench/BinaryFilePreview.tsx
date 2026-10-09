@@ -7,7 +7,7 @@ import { FileWarning } from "lucide-react";
 import {
   binaryFileKindLabels,
   getKnownBinaryFileKind,
-} from "@axon-editor/shared/binaryFiles";
+} from "@axon-editor/shared/editor/documents/binaryFiles";
 
 interface Props {
   filePath: string;

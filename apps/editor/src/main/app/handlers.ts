@@ -22,12 +22,12 @@ import {
   type AgentResumeRequest,
   type CliToolInstallResult,
   type CliToolStatus,
-} from "../../shared/app";
+} from "../../shared/core/app";
 import {
   consumePendingAgentResumeRequest,
   writePendingAgentResumeRequest,
 } from "./resumeRequest";
-import { decodeSnapshotPng } from "./snapshotPng";
+import { decodeSnapshotPng } from "./snapshot/snapshotPng";
 
 interface AppHandlerDependencies {
   windowSessionRestore: Map<number, boolean>;

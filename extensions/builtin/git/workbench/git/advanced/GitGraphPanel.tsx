@@ -8,16 +8,16 @@ import { GitBranch, RefreshCw, Search } from "lucide-react";
 import {
   type GitGraphResult,
   type GitHistoryResult,
-} from "@axon-editor/shared/git";
-import Tooltip from "@axon-editor/renderer/shared/components/Tooltip";
+} from "@axon-editor/shared/workspace/git";
+import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import { openGitCommitDiff } from "../lib/gitGraphTab";
-import CommitDetails from "./gitGraph/CommitDetails";
-import CommitRow from "./gitGraph/CommitRow";
-import RefChip from "./gitGraph/RefChip";
+import CommitDetails from "./gitGraph/commit/CommitDetails";
+import CommitRow from "./gitGraph/commit/CommitRow";
+import RefChip from "./gitGraph/graph/RefChip";
 import {
   getCachedGitGraphData,
   loadGitGraphData,
-} from "./gitGraph/gitGraphData";
+} from "./gitGraph/graph/gitGraphData";
 
 interface Props {
   folderPath: string | null;

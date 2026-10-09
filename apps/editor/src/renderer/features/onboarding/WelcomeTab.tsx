@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import {
   type ThemeId,
-} from "../../../shared/settings";
-import { publicAsset } from "../../shared/lib/assets";
+} from "../../../shared/core/settings";
+import { publicAsset } from "../../shared/lib/assets/assets";
 
 export interface WelcomeThemeItem {
   id: ThemeId;
