@@ -845,9 +845,11 @@ html.axon-native-glass .axon-tooltip {
 }
 
 /* Zen mode cross-fades chrome instead of popping it out of the tree. Entering
- * zen mounts the shell chrome, hands it the hiding classes, then unmounts it
- * once the fade is done; exiting mounts it again so the enter animation can
- * play back over the same window. */
+ * zen keeps the chrome mounted under the hiding class while the fade drains;
+ * exiting remounts it under that class so the transition can play it back.
+ * Both directions ride the transition, never a keyframe: an always-applied
+ * animation leaves the chrome as a stacking context that traps its toolbar
+ * popovers behind the editor pane and reanchors any fixed overlays. */
 .axon-zen-chrome {
   transition:
     opacity 200ms ease,
@@ -858,21 +860,6 @@ html.axon-native-glass .axon-tooltip {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-6px);
-}
-
-.axon-app-root:not(.axon-zen-mode) .axon-zen-chrome {
-  animation: axonZenChromeIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes axonZenChromeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 /* Zen tabs stay clickable but drop the per-tab furniture: closer returns to
