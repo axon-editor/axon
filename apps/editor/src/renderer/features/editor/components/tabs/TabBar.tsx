@@ -269,12 +269,16 @@ function ContextMenu({
   );
 }
 
-// Tab strip doubles as the window drag region in zen: with the toolbar and
-// sidebar hidden it is the first UI under Electron's frameless titlebar. macOS
-// owns the left traffic-light area and Windows the right caption overlay, so
-// nativeControlInset pads the scroll container to keep tabs clickable without
-// shifting editor content in normal mode. Each tab opts out of the drag region
-// with -webkit-app-region: no-drag so reordering and clicks keep working.
+// In zen the toolbar and sidebar are hidden and the tab strip is the first UI
+// under Electron's frameless titlebar, so App.css makes it the window drag
+// region for that mode only. In normal mode the toolbar owns the drag region;
+// keeping it off the strip here prevents the full-width drag band from
+// swallowing clicks on the toolbar popovers and full-height modal headers that
+// open over it. macOS owns the left traffic-light area and Windows the right
+// caption overlay, so nativeControlInset pads the scroll container to keep tabs
+// clickable without shifting editor content in normal mode. Each tab opts out
+// of the drag region with -webkit-app-region: no-drag so reordering and clicks
+// keep working.
 export default function TabBar({
   openTabs,
   activeFile,
@@ -318,7 +322,6 @@ export default function TabBar({
             paddingRight: nativeControlInset.end
               ? `calc(0.75rem + ${nativeControlInset.end}px)`
               : undefined,
-            WebkitAppRegion: "drag",
           } as CSSProperties
         }
       >
@@ -340,7 +343,6 @@ export default function TabBar({
           {
             paddingLeft: nativeControlInset.start || undefined,
             paddingRight: nativeControlInset.end || undefined,
-            WebkitAppRegion: "drag",
           } as CSSProperties
         }
       >

@@ -105,6 +105,16 @@ export default function DiffModal({
     };
   }, [binary, filePath, folderPath]);
 
+  // The whole-screen compare view has no visible backdrop to click, so Escape
+  // is the only fallback close path if the header button is ever unreachable.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="axon-modal-overlay fixed inset-0 z-[70] flex items-center justify-center px-6 py-6">
       <div className="axon-modal-panel axon-git-modal-panel flex h-[calc(100vh-3rem)] max-h-[900px] min-h-[min(660px,calc(100vh-3rem))] w-[min(1180px,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]">

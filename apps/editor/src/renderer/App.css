@@ -228,6 +228,7 @@
     color-mix(in srgb, var(--axon-editor-background) 72%, transparent)
   );
   animation: none;
+  -webkit-app-region: no-drag;
 }
 
 html.axon-native-glass,
@@ -306,6 +307,14 @@ html.axon-native-glass .axon-tooltip {
 
 .axon-modal-panel--leaving {
   animation: axonModalPanelOut 150ms ease-in both;
+}
+
+/* Popovers open below the toolbar into the tab strip's window-drag band. An
+ * element that is neutral for -webkit-app-region does not cut a hole in that
+ * band, so the drag region swallows the clicks on the popover's top rows. */
+.axon-popover,
+.axon-popup-surface {
+  -webkit-app-region: no-drag;
 }
 
 .axon-popover {
@@ -871,6 +880,7 @@ html.axon-native-glass .axon-tooltip {
  * the strip reads as a quiet underline rather than a browser bar. */
 .axon-app-root.axon-zen-mode .axon-tab-strip {
   height: 30px;
+  -webkit-app-region: drag;
 }
 
 .axon-app-root.axon-zen-mode .axon-tab {
