@@ -886,7 +886,7 @@
     "graphql": "^16.14.2",
     "graphql-language-service-server": "^2.14.10",
     "intelephense": "^1.18.4",
-    "katex": "^0.16.47",
+    "katex": "^0.18.2",
     "lucide-react": "^1.16.0",
     "mermaid": "^11.17.2",
     "minimatch": "10.2.5",
