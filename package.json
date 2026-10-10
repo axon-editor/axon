@@ -30,7 +30,7 @@
     "prepare:extension-registry": "npm --workspace axon run prepare:extension-registry",
     "test": "npm --workspace axon test && go -C services/core test ./...",
     "test:go": "go -C services/core test -race ./... && go -C services/core vet ./...",
-    "test:filesystem": "npm --workspace axon test -- --run src/main/fs/watcher.test.ts src/renderer/features/sidebar/files/lib/treeRefresh.test.ts src/workbench/app/lib/latestTaskQueue.test.ts && go -C services/core test ./internal/fs",
+    "test:filesystem": "npm --workspace axon test -- --run src/main/fs/watch/watcher.test.ts src/renderer/features/sidebar/files/lib/tree/treeRefresh.test.ts src/workbench/app/lib/async/latestTaskQueue.test.ts && go -C services/core test ./internal/fs",
     "ci:local": "npm run build:packages && npm run check:examples && npm run prepare:extension-registry && npm run typecheck && npm run lint && npm run check:line-count && npm run test && npm run test:filesystem && npm run test:go"
   },
   "overrides": {

@@ -42,7 +42,7 @@ jobs:
       # failures that the main Linux lanes cannot represent without rebuilding
       # the complete renderer on every supported operating system.
       - name: Run editor filesystem regressions
-        run: npm --workspace axon test -- --run src/main/fs/watcher.test.ts src/renderer/features/sidebar/files/lib/treeRefresh.test.ts src/workbench/app/lib/latestTaskQueue.test.ts
+        run: npm --workspace axon test -- --run src/main/fs/watch/watcher.test.ts src/renderer/features/sidebar/files/lib/tree/treeRefresh.test.ts src/workbench/app/lib/async/latestTaskQueue.test.ts
 
       - name: Run Core file-tree regressions
         working-directory: services/core
