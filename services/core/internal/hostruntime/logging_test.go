@@ -1,7 +1,7 @@
 // Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-package main
+package hostruntime
 
 import (
 	"bytes"
@@ -13,24 +13,24 @@ import (
 	"testing"
 )
 
-func TestConfigureHostLoggingPersistsDiagnostics(t *testing.T) {
+func TestConfigureHostLogging(t *testing.T) {
 	restoreConsoleLog := discardConsoleLog(t)
 	defer restoreConsoleLog()
 
-	logPath := filepath.Join(t.TempDir(), "pty-host.log")
-	closeLog, err := configureHostLogging(logPath)
+	logPath := filepath.Join(t.TempDir(), "host.log")
+	closeLog, err := ConfigureHostLogging(logPath)
 	if err != nil {
 		t.Fatalf("configure host log: %v", err)
 	}
-	log.Print("owner pipe connected")
+	log.Print("host started")
 	closeLog()
 
 	contents, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read host log: %v", err)
 	}
-	if !strings.Contains(string(contents), "owner pipe connected") {
-		t.Fatalf("host diagnostic was not persisted: %q", contents)
+	if !strings.Contains(string(contents), "host started") {
+		t.Fatalf("host log did not receive output: %q", contents)
 	}
 	info, err := os.Stat(logPath)
 	if err != nil {
@@ -45,13 +45,13 @@ func TestConfigureHostLoggingRotatesBoundedFile(t *testing.T) {
 	restoreConsoleLog := discardConsoleLog(t)
 	defer restoreConsoleLog()
 
-	logPath := filepath.Join(t.TempDir(), "pty-host.log")
+	logPath := filepath.Join(t.TempDir(), "host.log")
 	seedSize := maxHostLogBytes + 1024
 	if err := os.WriteFile(logPath, bytes.Repeat([]byte("x"), int(seedSize)), 0600); err != nil {
 		t.Fatalf("seed full host log: %v", err)
 	}
 
-	closeLog, err := configureHostLogging(logPath)
+	closeLog, err := ConfigureHostLogging(logPath)
 	if err != nil {
 		t.Fatalf("rotate host log: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestConfigureHostLoggingRotatesBoundedFile(t *testing.T) {
 		t.Fatalf("stat rotated host log: %v", err)
 	}
 	if rotated.Size() != maxHostLogBytes {
-		t.Fatalf("expected oversized rotated log to be capped at %d, got %d", maxHostLogBytes, rotated.Size())
+		t.Fatalf("expected oversized rotated log capped at %d, got %d", maxHostLogBytes, rotated.Size())
 	}
 	current, err := os.ReadFile(logPath)
 	if err != nil {
@@ -78,8 +78,8 @@ func TestConfigureHostLoggingRotatesWhileHostIsRunning(t *testing.T) {
 	restoreConsoleLog := discardConsoleLog(t)
 	defer restoreConsoleLog()
 
-	logPath := filepath.Join(t.TempDir(), "pty-host.log")
-	closeLog, err := configureHostLogging(logPath)
+	logPath := filepath.Join(t.TempDir(), "host.log")
+	closeLog, err := ConfigureHostLogging(logPath)
 	if err != nil {
 		t.Fatalf("configure host log: %v", err)
 	}
@@ -108,8 +108,8 @@ func TestConfigureHostLoggingBoundsSingleOversizedEntry(t *testing.T) {
 	restoreConsoleLog := discardConsoleLog(t)
 	defer restoreConsoleLog()
 
-	logPath := filepath.Join(t.TempDir(), "pty-host.log")
-	closeLog, err := configureHostLogging(logPath)
+	logPath := filepath.Join(t.TempDir(), "host.log")
+	closeLog, err := ConfigureHostLogging(logPath)
 	if err != nil {
 		t.Fatalf("configure host log: %v", err)
 	}
