@@ -11,7 +11,7 @@ import { createHmac, randomBytes } from "crypto";
 
 export interface BundledServiceControllerDependencies {
   isDev: boolean;
-  service: "core" | "pty-host";
+  service: BundledServiceName;
   displayName: string;
   binaryName: string;
   port: string;
@@ -41,6 +41,8 @@ export function getBundledServiceStdio(
     : ["ignore", "pipe", "pipe"];
 }
 
+export type BundledServiceName = "core" | "pty-host" | "kernel-host";
+
 export type CoreProcessStatus =
   | "starting"
   | "healthy"
@@ -50,7 +52,7 @@ export type CoreProcessStatus =
   | "crashed";
 
 export interface CoreRestartConfirmation {
-  service: "core" | "pty-host";
+  service: BundledServiceName;
   displayName: string;
   reason: "unresponsive" | "crashed";
   terminalSessionCount: number | null;

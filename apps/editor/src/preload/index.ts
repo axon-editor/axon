@@ -174,6 +174,18 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("core:cancelRequest", requestId),
   createTerminalTicket: (workingDirectory: string | null): Promise<string> =>
     ipcRenderer.invoke("core:createTerminalTicket", workingDirectory),
+  // Notebook kernels connect to the kernel host through a ticket minted by main.
+  // getKernelBackendUrl calls this for every (re)connect; main resolves the
+  // workspace interpreter and working directory so the renderer only names a
+  // notebook path it already has open.
+  createKernelTicket: (
+    sessionId: string,
+    notebookPath: string,
+  ): Promise<string> =>
+    ipcRenderer.invoke("notebook:createKernelTicket", {
+      sessionId,
+      notebookPath,
+    }),
   getTerminalCommandHistory: (): Promise<string[]> =>
     ipcRenderer.invoke("terminal:getCommandHistory"),
   openTerminalWindow: (handoff: TerminalWindowHandoff): Promise<void> =>

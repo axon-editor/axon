@@ -154,6 +154,10 @@ declare global {
       createTerminalTicket: (
         workingDirectory: string | null,
       ) => Promise<string>;
+      createKernelTicket: (
+        sessionId: string,
+        notebookPath: string,
+      ) => Promise<string>;
       getTerminalCommandHistory: () => Promise<string[]>;
       openTerminalWindow: (handoff: TerminalWindowHandoff) => Promise<void>;
       closeTerminalWindow: (

@@ -25,6 +25,10 @@ const builds = [
     outputName: `axon-pty-host${executableSuffix}`,
   },
   {
+    packagePath: "./cmd/axon-kernel-host",
+    outputName: `axon-kernel-host${executableSuffix}`,
+  },
+  {
     packagePath: "./cmd/axon-agent",
     outputName: `axon${executableSuffix}`,
   },
