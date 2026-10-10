@@ -53,6 +53,8 @@ import { isKnownBinaryFile } from "@axon-editor/shared/editor/documents/binaryFi
 import HtmlPreview from "@axon-builtin-html-preview/HtmlPreview";
 import ExtensionWebview from "@axon-editor/workbench/contrib/extensions/webview/ExtensionWebview";
 import MarkdownPreviewTab from "@axon-builtin-markdown/MarkdownPreviewTab";
+import NotebookEditor from "@axon-editor/renderer/features/notebook/components/NotebookEditor";
+import { isNotebookFile } from "@axon-editor/renderer/features/notebook/lib/notebookFile";
 import SingleEditor from "../surface/SingleEditor";
 import EmptyPane from "./EmptyPane";
 import WorkspaceBlankPane from "./WorkspaceBlankPane";
@@ -403,6 +405,16 @@ export default function PaneInstance({
                     folderPath={folderPath}
                     fontFamily={editorFontStack(editorSettings.fontFamily)}
                     onOpenFile={onOpenFile}
+                  />
+                ) : isNotebookFile(path) ? (
+                  <NotebookEditor
+                    filePath={path}
+                    folderPath={folderPath}
+                    visible={path === pane.activeFile && isActive}
+                    onDirtyChange={onDirtyChange}
+                    editorSettings={editorSettings}
+                    themeSyntax={themeSyntax}
+                    themeTokens={themeTokens}
                   />
                 ) : isMediaFile(path) ? (
                   <MediaPreview filePath={path} />
