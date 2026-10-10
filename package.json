@@ -36,7 +36,7 @@
   "overrides": {
     "browserslist": "4.28.7",
     "colord": "2.9.4",
-    "joi": "18.2.5",
+    "joi": "18.2.9",
     "editorconfig": {
       "minimatch": "10.2.5"
     },
