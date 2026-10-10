@@ -283,7 +283,9 @@ function terminalKeyEvent(overrides: Partial<KeyboardEvent> = {}) {
     ctrlKey: false,
     key: "Tab",
     metaKey: false,
+    preventDefault: vi.fn(),
     shiftKey: false,
+    stopPropagation: vi.fn(),
     type: "keydown",
     ...overrides,
   } as KeyboardEvent;
@@ -526,9 +528,13 @@ describe("useTerminalSessionManager", () => {
       SUGGESTED_COMMAND.slice("git".length),
     );
 
-    const handled =
-      xtermMock.instances[0]?.customKeyEventHandler?.(terminalKeyEvent());
+    const acceptEvent = terminalKeyEvent();
+    const handled = xtermMock.instances[0]?.customKeyEventHandler?.(acceptEvent);
     expect(handled).toBe(false);
+    // Accepting has to cancel the default Tab action so the browser does not
+    // move focus off the terminal and onto a toolbar control.
+    expect(acceptEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(acceptEvent.stopPropagation).toHaveBeenCalledOnce();
 
     const socket = FakeWebSocket.instances[0];
     expect(socket.sent).toContain(SUGGESTED_COMMAND.slice("git".length));
@@ -549,9 +555,13 @@ describe("useTerminalSessionManager", () => {
     await typeRow(`${PROMPT}zsh`);
 
     expect(getSuggestionElement()).toBeNull();
+    const shellEvent = terminalKeyEvent();
     expect(
-      xtermMock.instances[0]?.customKeyEventHandler?.(terminalKeyEvent()),
+      xtermMock.instances[0]?.customKeyEventHandler?.(shellEvent),
     ).toBe(true);
+    // With nothing to accept the key belongs to the shell, so xterm keeps
+    // control of the default action and we must not cancel it.
+    expect(shellEvent.preventDefault).not.toHaveBeenCalled();
   });
 
   it("brings suggestions back once the input line changes after Escape", async () => {

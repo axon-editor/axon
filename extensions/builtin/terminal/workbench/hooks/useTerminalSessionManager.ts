@@ -641,6 +641,14 @@ export function useTerminalSessionManager({
         if (session.suggestionController?.hasSuggestion()) {
           const acceptKey = getCommandSuggestionAcceptKey(event);
           if (acceptKey && session.suggestionController.accept(acceptKey)) {
+            // xterm returns early on a false custom-handler result without ever
+            // calling preventDefault itself, so the browser's native Tab
+            // focus-navigation still runs and moves focus onto the next toolbar
+            // control. That control then owns the keyup, so xterm never gets its
+            // usual keyup focus() restore and the selection sticks. Cancelling the
+            // default (and the propagation) keeps focus in the terminal.
+            event.preventDefault();
+            event.stopPropagation();
             return false;
           }
         }
