@@ -46,6 +46,7 @@ import { createWindow } from "./window/create/createWindow";
 import { createSettingsWindow } from "./window/create/createSettingsWindow";
 import { OpenWorkspaceRegistry } from "./window/workspace/openWorkspaceRegistry";
 import { createTerminalWindowController } from "./terminal/windowController";
+import { registerNotebookHandlers } from "./notebook/handlers";
 import { readSettingsFromDisk } from "./settings/io";
 import { getAxonIconPath } from "./fonts/fonts";
 import { registerSettingsHandlers } from "./settings/handlers";
@@ -151,6 +152,11 @@ const axonCorePort =
 const axonPtyPort =
   developmentEnvironmentValue("AXON_PTY_PORT") ||
   String(Number(axonCorePort) + 1);
+// The kernel host owns notebook kernels on its own process and port so a kernel
+// that pins a CPU core or leaks memory cannot disturb interactive shells.
+const axonKernelPort =
+  developmentEnvironmentValue("AXON_KERNEL_PORT") ||
+  String(Number(axonCorePort) + 2);
 // Development supplies one process-scoped token to the independently launched
 // Go process. Packaged Axon generates a fresh secret for every app launch and
 // passes it only to its child core process and trusted preload bridge.
@@ -159,6 +165,9 @@ const axonCoreToken =
   randomBytes(32).toString("hex");
 const axonPtyToken =
   developmentEnvironmentValue("AXON_PTY_TOKEN") ||
+  randomBytes(32).toString("hex");
+const axonKernelToken =
+  developmentEnvironmentValue("AXON_KERNEL_TOKEN") ||
   randomBytes(32).toString("hex");
 const axonPtyControlPath = isDev
   ? null
@@ -171,6 +180,19 @@ const axonPtyControlPath = isDev
 const axonPtyLogPath = isDev
   ? ""
   : path.join(app.getPath("logs"), "pty-host.log");
+// Notebook kernel control travels over a private socket, so the reusable launch
+// token never rides alongside kernel WebSocket traffic.
+const axonKernelControlPath = isDev
+  ? null
+  : process.platform === "win32"
+    ? `\\\\.\\pipe\\axon-kernel-${process.pid}-${randomBytes(8).toString("hex")}`
+    : path.join(
+        app.getPath("temp"),
+        `axon-kernel-${process.pid}-${randomBytes(8).toString("hex")}.sock`,
+      );
+const axonKernelLogPath = isDev
+  ? ""
+  : path.join(app.getPath("logs"), "kernel-host.log");
 const axonReleaseApiUrl =
   "https://api.github.com/repos/axon-editor/axon/releases/latest";
 const axonReleasePageUrl =
@@ -296,10 +318,14 @@ async function confirmServiceRestart({
     reason === "crashed"
       ? service === "pty-host"
         ? `${displayName} exited unexpectedly${processExit}. Its terminal processes have already stopped.`
-        : `${displayName} exited unexpectedly${processExit}. The isolated PTY host and running terminals were not stopped.`
+        : service === "kernel-host"
+          ? `${displayName} exited unexpectedly${processExit}. Its notebook kernels have already stopped.`
+          : `${displayName} exited unexpectedly${processExit}. The isolated PTY host and running terminals were not stopped.`
       : service === "pty-host"
         ? `${displayName} has stopped responding. ${terminalImpact}`
-        : `${displayName} has stopped responding. Restarting interrupts in-flight filesystem and AI requests, but the isolated PTY host and running terminals stay alive.`;
+        : service === "kernel-host"
+          ? `${displayName} has stopped responding. Restarting stops every running notebook kernel, but terminals and filesystem requests stay alive.`
+          : `${displayName} has stopped responding. Restarting interrupts in-flight filesystem and AI requests, but the isolated PTY host and running terminals stay alive.`;
   const options = {
     type: "warning" as const,
     title: `${displayName} needs attention`,
@@ -355,6 +381,32 @@ const bundledPtyHost = createBundledServiceController({
       },
   isShuttingDown: () => isQuitting,
   onStatusChange: (status) => broadcastToRenderers("pty:status", { status }),
+  confirmRestart: confirmServiceRestart,
+});
+const bundledKernelHost = createBundledServiceController({
+  isDev,
+  service: "kernel-host",
+  displayName: "Axon Kernel Host",
+  binaryName: "axon-kernel-host",
+  port: axonKernelPort,
+  token: axonKernelToken,
+  portEnvironmentVariable: "AXON_KERNEL_PORT",
+  tokenEnvironmentVariable: "AXON_KERNEL_TOKEN",
+  controlSocketPath: axonKernelControlPath,
+  controlEnvironmentVariable: "AXON_KERNEL_CONTROL",
+  // A busy kernel can briefly miss a control-plane probe while several cells run.
+  // Its child-process exit is the authoritative signal, so the watchdog preserves
+  // a live host and lets running kernels recover instead of killing them.
+  preserveProcessOnHealthTimeout: true,
+  monitorParentLifetime: !isDev,
+  additionalEnvironment: isDev
+    ? undefined
+    : {
+        AXON_KERNEL_OWNER_STDIN: "1",
+        AXON_KERNEL_LOG_PATH: axonKernelLogPath,
+      },
+  isShuttingDown: () => isQuitting,
+  onStatusChange: (status) => broadcastToRenderers("kernel:status", { status }),
   confirmRestart: confirmServiceRestart,
 });
 const taskManager = new TaskManager({
@@ -413,6 +465,16 @@ registerCoreProxyHandlers({
   ensureTerminalHostReady: () => bundledPtyHost.ensureReady(),
   assertWorkspaceRoot: (rendererId, rootPath) =>
     workspaceCapabilities.assertRoot(rendererId, rootPath),
+  assertWorkspacePath: (rendererId, candidatePath) =>
+    workspaceCapabilities.assertPath(rendererId, candidatePath),
+  resolveWorkspaceRoot: (rendererId, candidatePath) =>
+    workspaceCapabilities.resolveRootForPath(rendererId, candidatePath),
+});
+registerNotebookHandlers({
+  axonKernelPort,
+  axonKernelToken,
+  axonKernelControlPath,
+  ensureKernelHostReady: () => bundledKernelHost.ensureReady(),
   assertWorkspacePath: (rendererId, candidatePath) =>
     workspaceCapabilities.assertPath(rendererId, candidatePath),
   resolveWorkspaceRoot: (rendererId, candidatePath) =>
@@ -757,6 +819,7 @@ app.whenReady().then(async () => {
   const bundledServicesReady = Promise.all([
     bundledCore.start(),
     bundledPtyHost.start(),
+    bundledKernelHost.start(),
   ]);
   // A cold `axon .` launch can queue an open-file request before the app is
   // ready. In that case restoring the previous session first is actively wrong:
@@ -772,6 +835,7 @@ app.whenReady().then(async () => {
   void bundledServicesReady.then(() => {
     bundledCore.startWatchdog();
     bundledPtyHost.startWatchdog();
+    bundledKernelHost.startWatchdog();
     void warmUpAiRuntime({ axonCorePort, axonCoreToken });
   });
 
@@ -822,11 +886,13 @@ app.on("before-quit", (event) => {
   testManager.stopAll();
   bundledCore.stopWatchdog();
   bundledPtyHost.stopWatchdog();
+  bundledKernelHost.stopWatchdog();
   shutdownPromise = (async () => {
     const serviceResults = await Promise.allSettled([
       stopAllLanguageServers(),
       bundledCore.stop(),
       bundledPtyHost.stop(),
+      bundledKernelHost.stop(),
     ]);
     const resourceResults = await Promise.allSettled([
       fileWatcherRegistry.closeAll(),
