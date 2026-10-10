@@ -1,7 +1,7 @@
 // Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-package main
+package hostruntime
 
 import (
 	"errors"
@@ -23,7 +23,7 @@ func TestMonitorOwnerReportsPipeClosure(t *testing.T) {
 	}
 	defer reader.Close()
 
-	ownerLost := monitorOwner(reader)
+	ownerLost := MonitorOwner(reader)
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close owner pipe: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestMonitorOwnerReportsPipeClosure(t *testing.T) {
 	select {
 	case <-ownerLost:
 	case <-time.After(time.Second):
-		t.Fatal("owner closure did not stop the PTY host monitor")
+		t.Fatal("owner closure did not stop the host monitor")
 	}
 }
 
@@ -43,7 +43,7 @@ func TestMonitorOwnerStaysAliveWhilePipeIsOpen(t *testing.T) {
 	defer reader.Close()
 	defer writer.Close()
 
-	ownerLost := monitorOwner(reader)
+	ownerLost := MonitorOwner(reader)
 	select {
 	case <-ownerLost:
 		t.Fatal("open owner pipe was treated as a dead Electron process")
@@ -52,11 +52,11 @@ func TestMonitorOwnerStaysAliveWhilePipeIsOpen(t *testing.T) {
 }
 
 func TestMonitorOwnerReportsNonEOFReadFailure(t *testing.T) {
-	ownerLost := monitorOwner(failingOwnerReader{})
+	ownerLost := MonitorOwner(failingOwnerReader{})
 
 	select {
 	case <-ownerLost:
 	case <-time.After(time.Second):
-		t.Fatal("owner read failure did not stop the PTY host monitor")
+		t.Fatal("owner read failure did not stop the host monitor")
 	}
 }

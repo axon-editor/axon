@@ -15,11 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/hostruntime"
 	"github.com/GordenArcher/axon-core/internal/ptyhost"
 )
 
 func main() {
-	closeLog, logErr := configureHostLogging(strings.TrimSpace(os.Getenv("AXON_PTY_LOG_PATH")))
+	closeLog, logErr := hostruntime.ConfigureHostLogging(strings.TrimSpace(os.Getenv("AXON_PTY_LOG_PATH")))
 	if logErr != nil {
 		log.Printf("failed to configure persistent PTY host logging: %v", logErr)
 	}
@@ -52,7 +53,7 @@ func main() {
 	var controlListener net.Listener
 	cleanupControl := func() {}
 	if controlPath != "" {
-		controlListener, cleanupControl, err = listenControl(controlPath)
+		controlListener, cleanupControl, err = hostruntime.ListenControl(controlPath)
 		if err != nil {
 			_ = listener.Close()
 			log.Fatalf("failed to bind Axon PTY control transport: %v", err)
@@ -61,7 +62,7 @@ func main() {
 	}
 
 	log.Printf("Axon PTY host listening on %s", listener.Addr())
-	ownerLost := monitorOwnerPipe(
+	ownerLost := hostruntime.MonitorOwnerPipe(
 		strings.TrimSpace(os.Getenv("AXON_PTY_OWNER_STDIN")) == "1",
 	)
 
@@ -96,11 +97,12 @@ func main() {
 	defer cancelControl()
 	if controlListener != nil {
 		go func() {
-			serveErrors <- serveControlTransport(
+			serveErrors <- hostruntime.ServeControlTransport(
 				controlContext,
 				host.ControlRouter(),
 				controlPath,
 				authToken,
+				"PTY",
 				controlListener,
 				cleanupControl,
 				5*time.Second,

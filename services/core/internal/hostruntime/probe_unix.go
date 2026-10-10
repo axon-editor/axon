@@ -3,7 +3,7 @@
 
 //go:build !windows
 
-package main
+package hostruntime
 
 import (
 	"context"
@@ -16,7 +16,13 @@ import (
 	"time"
 )
 
-func controlPathReachesHost(controlPath string, authToken string) bool {
+// ControlPathReachesHost proves the socket at controlPath is still this process's
+// listener. An unrelated process can unlink and replace a Unix socket pathname
+// without closing the original listener, so the caller uses this to detect that
+// its control endpoint was stolen and rebind before Electron's watchdog gives up
+// on the host. The HMAC challenge-response also confirms the peer is holding the
+// launch token rather than merely accepting connections.
+func ControlPathReachesHost(controlPath string, authToken string) bool {
 	challengeBytes := make([]byte, 24)
 	if _, err := rand.Read(challengeBytes); err != nil {
 		return false
@@ -29,11 +35,7 @@ func controlPathReachesHost(controlPath string, authToken string) bool {
 	transport := &http.Transport{
 		DisableKeepAlives: true,
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return (&net.Dialer{Timeout: 300 * time.Millisecond}).DialContext(
-				ctx,
-				"unix",
-				controlPath,
-			)
+			return (&net.Dialer{Timeout: 300 * time.Millisecond}).DialContext(ctx, "unix", controlPath)
 		},
 	}
 	defer transport.CloseIdleConnections()

@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GordenArcher/axon-core/internal/hostruntime"
 	"github.com/GordenArcher/axon-core/internal/ptyhost"
 )
 
@@ -53,7 +54,7 @@ func TestControlTransportReclaimsReplacedSocketPath(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDirectory)
 	controlPath := filepath.Join(tempDirectory, "control.sock")
-	listener, cleanup, err := listenControl(controlPath)
+	listener, cleanup, err := hostruntime.ListenControl(controlPath)
 	if err != nil {
 		t.Fatalf("listen on control path: %v", err)
 	}
@@ -61,11 +62,12 @@ func TestControlTransportReclaimsReplacedSocketPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	serveDone := make(chan error, 1)
 	go func() {
-		serveDone <- serveControlTransport(
+		serveDone <- hostruntime.ServeControlTransport(
 			ctx,
 			ptyhost.New(authToken).ControlRouter(),
 			controlPath,
 			authToken,
+			"PTY",
 			listener,
 			cleanup,
 			10*time.Millisecond,

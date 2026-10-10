@@ -1,7 +1,7 @@
 // Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-package main
+package hostruntime
 
 import (
 	"context"
@@ -12,7 +12,9 @@ import (
 	"time"
 )
 
-func newControlHTTPServer(handler http.Handler) *http.Server {
+// NewControlHTTPServer builds the low-volume server used for health, capability
+// tickets, and other control traffic over the private transport.
+func NewControlHTTPServer(handler http.Handler) *http.Server {
 	return &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -21,18 +23,19 @@ func newControlHTTPServer(handler http.Handler) *http.Server {
 	}
 }
 
-// serveControlTransport keeps ticket and health traffic attached to the Unix
-// socket pathname Electron knows. An unrelated or nested Axon process can
-// unlink and replace a Unix socket without closing the original listener; the
-// old host then keeps streaming existing PTYs but can never issue another
-// terminal ticket. Periodically comparing the bound listener with the current
-// path lets this host reclaim its process-private endpoint without restarting
-// the PTYs that are still running behind the TCP stream server.
-func serveControlTransport(
+// ServeControlTransport keeps control traffic attached to the socket pathname
+// Electron knows. An unrelated or nested Axon process can unlink and replace a
+// Unix socket without closing the original listener; the old host then keeps its
+// live sessions but can never issue another capability ticket. Periodically
+// comparing the bound listener with the current path lets this host reclaim its
+// process-private endpoint without restarting what is running behind the public
+// stream server. label names the service in diagnostics.
+func ServeControlTransport(
 	ctx context.Context,
 	handler http.Handler,
 	controlPath string,
 	authToken string,
+	label string,
 	initialListener net.Listener,
 	initialCleanup func(),
 	ownershipCheckInterval time.Duration,
@@ -43,7 +46,7 @@ func serveControlTransport(
 	consecutiveProbeFailures := 0
 
 	for {
-		server := newControlHTTPServer(handler)
+		server := NewControlHTTPServer(handler)
 		serveDone := make(chan error, 1)
 		go func(activeListener net.Listener) {
 			err := server.Serve(activeListener)
@@ -68,29 +71,29 @@ func serveControlTransport(
 				if err == nil {
 					return nil
 				}
-				return fmt.Errorf("Axon PTY control transport stopped: %w", err)
+				return fmt.Errorf("Axon %s control transport stopped: %w", label, err)
 			case <-ticker.C:
-				if controlPathReachesHost(controlPath, authToken) {
+				if ControlPathReachesHost(controlPath, authToken) {
 					consecutiveProbeFailures = 0
 					continue
 				}
 				consecutiveProbeFailures++
-				// A busy machine can miss one short local probe without losing
-				// the socket. Rebinding only after consecutive authenticated
-				// failures avoids turning transient scheduler pressure into a
-				// control-plane restart while still repairing a replaced path
-				// before Electron's slower watchdog asks to kill the whole host.
+				// A busy machine can miss one short local probe without losing the
+				// socket. Rebinding only after consecutive authenticated failures
+				// avoids turning transient scheduler pressure into a control-plane
+				// restart while still repairing a replaced path before Electron's
+				// slower watchdog asks to kill the whole host.
 				shouldRebind = consecutiveProbeFailures >= probeFailuresBeforeRebind
 			}
 		}
 
 		ticker.Stop()
-		log.Printf("Axon PTY control socket identity changed; rebinding %s", controlPath)
+		log.Printf("Axon %s control socket identity changed; rebinding %s", label, controlPath)
 		_ = server.Close()
 		cleanup()
-		reboundListener, reboundCleanup, err := listenControl(controlPath)
+		reboundListener, reboundCleanup, err := ListenControl(controlPath)
 		if err != nil {
-			return fmt.Errorf("failed to rebind Axon PTY control transport: %w", err)
+			return fmt.Errorf("failed to rebind Axon %s control transport: %w", label, err)
 		}
 		listener = reboundListener
 		cleanup = reboundCleanup
