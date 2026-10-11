@@ -55,6 +55,12 @@ export default function NotebookEditor({
   const documentRef = useRef<NotebookDocument | null>(null);
   const baselineRef = useRef("");
   const lastDirtyRef = useRef<boolean | null>(null);
+  // The pane hands this callback down as a fresh inline function on every render,
+  // so keeping it in a ref keeps the load effect keyed only to the file identity.
+  // Depending on the callback directly would reload the notebook and flash the
+  // loading state on any click that re-renders the pane.
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
 
   useEffect(() => {
     documentRef.current = document;
@@ -74,7 +80,7 @@ export default function NotebookEditor({
         baselineRef.current = serializeNotebook(parsed);
         documentRef.current = parsed;
         lastDirtyRef.current = false;
-        onDirtyChange(filePath, false);
+        onDirtyChangeRef.current(filePath, false);
         setDocument(parsed);
         setLoading(false);
       })
@@ -88,7 +94,7 @@ export default function NotebookEditor({
     return () => {
       cancelled = true;
     };
-  }, [filePath, folderPath, onDirtyChange]);
+  }, [filePath, folderPath]);
 
   const mergedDocument = useMemo(
     () => (document ? mergeRuntimeIntoDocument(document, cellRuntime) : null),
@@ -103,9 +109,9 @@ export default function NotebookEditor({
     const dirty = serializeNotebook(mergedDocument) !== baselineRef.current;
     if (dirty !== lastDirtyRef.current) {
       lastDirtyRef.current = dirty;
-      onDirtyChange(filePath, dirty);
+      onDirtyChangeRef.current(filePath, dirty);
     }
-  }, [mergedDocument, filePath, onDirtyChange]);
+  }, [mergedDocument, filePath]);
 
   const handleSave = useCallback(async () => {
     const current = documentRef.current;
@@ -121,13 +127,13 @@ export default function NotebookEditor({
       await writeFile(filePath, serialized, folderPath);
       baselineRef.current = serialized;
       lastDirtyRef.current = false;
-      onDirtyChange(filePath, false);
+      onDirtyChangeRef.current(filePath, false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "The notebook could not be saved.");
     } finally {
       setSaving(false);
     }
-  }, [cellRuntime, filePath, folderPath, onDirtyChange]);
+  }, [cellRuntime, filePath, folderPath]);
 
   useEffect(() => {
     const handleMenuSave = (event: Event) => {
