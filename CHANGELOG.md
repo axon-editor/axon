@@ -7,6 +7,45 @@
 
 ## Next
 
+## v4.0.0
+
+- Added a zen aesthetic mode that hides the toolbar, sidebar, status bar, and
+  footer, keeps commands reachable through Cmd+Shift chords, and restores the
+  previous layout when zen is exited.
+- Moved the terminal panel into a dedicated OS window that survives the move:
+  PTYs are handed off with a delta replay, the window force-docks if its
+  renderer stalls, and the docked panel collapses to a slim bar while floating.
+- Gave the floating terminal full edge and corner resize, extracted the resize
+  math into tested helpers, and split the terminal module into components and
+  hooks.
+- Kept macOS command shortcuts working while the terminal has focus, and stopped
+  a Tab-accepted suggestion from stranding focus on the toolbar.
+- Fixed ghost-frame stacking behind native glass popups by containing the
+  composited layers, repainting the surface on hover, and keeping chrome
+  surfaces barely tinted so the compositor always has a backdrop.
+- Reverted the glass compositor hints that could not affect a clear renderer
+  surface, and passed the resolved appearance through to the glass fallback so
+  a light theme stops falling back to a dark neutral.
+- Unified the git line paint between the editor and the diff, so the modified
+  side reads as Axon gold instead of a native green insertion, deleted lines
+  stop marking the wrong line, and changed files render for every node in the
+  git graph.
+- Showed the native glass material through the git side-by-side diff and fixed
+  its empty-range marker and per-side token collections.
+- Recognized `.mdx` files as Markdown, and stopped method body tokens from
+  inheriting the function color by requiring the method definition scope with
+  the function name.
+- Stopped the test explorer refresh from spinning forever by reading the output
+  callback through a ref and keying listeners on the workspace.
+- Removed the blank strip above zen tabs and stopped workbench chrome and the
+  tab strip drag band from trapping toolbar menus and swallowing clicks.
+- Resolved settings and editor window preload paths after the window sources
+  moved, and repointed CI test paths at the reorganized files.
+- Reorganized the editor, extension, and CLI sources into domain subpackages
+  without changing behavior.
+- Added root scripts for the checks CI runs, and documented the macOS
+  first-launch block on unsigned builds.
+
 ## v1.3.9
 
 - Installed extensions from the hosted axon-editor registry, opened extension
