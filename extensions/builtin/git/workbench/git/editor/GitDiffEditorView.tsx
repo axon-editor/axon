@@ -20,6 +20,12 @@ import {
   installSemanticTokenDecorationStyles,
 } from "@axon-editor/services/lsp/renderer/semanticTokens/semanticTokenDecorations";
 import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/semanticTokens/lspSemanticTokens";
+import { computeGitLineDecorations } from "@axon-editor/renderer/shared/lib/git/gitLineDecorations";
+import { buildGitLineDecorations } from "@axon-editor/renderer/shared/lib/git/gitLinePaint";
+import {
+  inferThemeAppearance,
+  resolveThemeGitColors,
+} from "@axon-editor/renderer/shared/themes/appearance/themeAppearance";
 
 interface GitDiffEditorViewProps {
   filePath: string;
@@ -30,6 +36,9 @@ interface GitDiffEditorViewProps {
   themeTokens: ResolvedThemeTokens;
 }
 
+// The diff panes are read-only editor tabs, so they show the native material
+// the same way the main editor does instead of painting an opaque Monaco
+// background. Unconditional, matching the main editor surface.
 export default function GitDiffEditorView({
   filePath,
   original,
@@ -48,6 +57,9 @@ export default function GitDiffEditorView({
     original: MonacoEditor.IEditorDecorationsCollection | null;
     modified: MonacoEditor.IEditorDecorationsCollection | null;
   }>({ original: null, modified: null });
+  const gitPaintRef = useRef<MonacoEditor.IEditorDecorationsCollection | null>(
+    null,
+  );
 
   const handleMount: DiffOnMount = (diffEditor) => {
     diffEditorRef.current = diffEditor;
@@ -132,6 +144,29 @@ export default function GitDiffEditorView({
     return undefined;
   }, [mounted, modified, original, themeSyntax, themeTokens]);
 
+  // The editor paints Git state as a whole-line wash plus a gutter bar, a glyph,
+  // and an overview-ruler tick. The diff surfaces previously relied on Monaco's
+  // own inserted-line tint, so a modified line read as a plain insertion here
+  // and as a modification in the editor. Reusing the shared builder on the
+  // modified side keeps the same change reading the same way on both surfaces.
+  // The original side keeps Monaco's native removal rendering.
+  useEffect(() => {
+    if (!mounted) return;
+    const diffEditor = diffEditorRef.current;
+    if (!diffEditor) return;
+
+    const decorations = buildGitLineDecorations(
+      computeGitLineDecorations(original, modified),
+      resolveThemeGitColors(inferThemeAppearance(themeTokens)),
+    );
+    gitPaintRef.current ??= diffEditor
+      .getModifiedEditor()
+      .createDecorationsCollection();
+    gitPaintRef.current.set(decorations);
+
+    return () => gitPaintRef.current?.clear();
+  }, [mounted, original, modified, themeTokens]);
+
   useEffect(
     () => () => {
       const models = modelsRef.current;
@@ -151,10 +186,25 @@ export default function GitDiffEditorView({
     [],
   );
 
+  // The shared Git paint draws a glyph margin marker, mirroring the change
+  // marker in the main editor. Monaco hides the glyph margin by default, which
+  // would silently drop that half of the decoration and make a diff read leaner
+  // than the code it compares.
+  const diffEditorOptions = {
+    readOnly: true,
+    renderSideBySide: true,
+    fontSize: editorSettings.fontSize,
+    fontFamily: editorFontStack(editorSettings.fontFamily),
+    fontWeight: String(editorSettings.fontWeight),
+    lineHeight: editorSettings.lineHeight,
+    letterSpacing: 0,
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    originalEditable: false,
+    glyphMargin: true,
+  };
+
   return (
-    // The diff panes are read-only editor tabs, so they show the native
-    // material the same way the main editor does instead of painting an opaque
-    // Monaco background. Unconditional, matching the main editor surface.
     <div className="axon-editor-transparent-surface h-full min-h-0 w-full">
       <DiffEditor
         height="100%"
@@ -174,18 +224,7 @@ export default function GitDiffEditorView({
             themeSyntax,
           )
         }
-        options={{
-          readOnly: true,
-          renderSideBySide: true,
-          fontSize: editorSettings.fontSize,
-          fontFamily: editorFontStack(editorSettings.fontFamily),
-          fontWeight: String(editorSettings.fontWeight),
-          lineHeight: editorSettings.lineHeight,
-          letterSpacing: 0,
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          originalEditable: false,
-        }}
+        options={diffEditorOptions}
       />
     </div>
   );

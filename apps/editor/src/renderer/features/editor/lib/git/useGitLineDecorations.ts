@@ -4,14 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useCallback, useEffect, useRef, type RefObject } from "react";
-import * as monaco from "monaco-editor";
+import type * as monaco from "monaco-editor";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import {
   inferThemeAppearance,
   resolveThemeGitColors,
 } from "@axon-editor/renderer/shared/themes/appearance/themeAppearance";
-import { computeGitLineDecorations } from "./gitLineDecorations";
+import { computeGitLineDecorations } from "@axon-editor/renderer/shared/lib/git/gitLineDecorations";
+import { buildGitLineDecorations } from "@axon-editor/renderer/shared/lib/git/gitLinePaint";
 import { isLargeDocumentModel } from "@axon-editor/shared/editor/documents/largeDocument";
 
 interface Options {
@@ -54,37 +55,12 @@ export default function useGitLineDecorations({
       return;
     }
 
-    const decorations = computeGitLineDecorations(
-      baseContent,
-      model.getValue(),
+    const decorations = buildGitLineDecorations(
+      computeGitLineDecorations(baseContent, model.getValue()),
+      resolveThemeGitColors(inferThemeAppearance(themeTokens)),
     );
-    const gitColors = resolveThemeGitColors(inferThemeAppearance(themeTokens));
     collectionRef.current ??= editor.createDecorationsCollection();
-    collectionRef.current.set(
-      decorations.map((decoration) => ({
-        range: new monaco.Range(
-          decoration.lineNumber,
-          1,
-          decoration.lineNumber,
-          1,
-        ),
-        options: {
-          isWholeLine: true,
-          className: `axon-git-line axon-git-line--${decoration.kind}`,
-          linesDecorationsClassName: `axon-git-gutter axon-git-gutter--${decoration.kind}`,
-          glyphMarginClassName: `axon-git-glyph axon-git-glyph--${decoration.kind}`,
-          overviewRuler: {
-            color:
-              decoration.kind === "added"
-                ? gitColors.added
-                : decoration.kind === "modified"
-                  ? gitColors.modified
-                  : gitColors.deleted,
-            position: monaco.editor.OverviewRulerLane.Left,
-          },
-        },
-      })),
-    );
+    collectionRef.current.set(decorations);
   }, [editorRef, themeTokens]);
 
   const scheduleGitDecorationRefresh = useCallback(

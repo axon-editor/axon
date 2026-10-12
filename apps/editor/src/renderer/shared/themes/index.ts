@@ -98,7 +98,13 @@ function buildMonacoTheme(
       // underlying green/gold/red/cyan meanings remain stable everywhere.
       "diffEditor.insertedTextBackground": `${gitColors.added}4d`,
       "diffEditor.removedTextBackground": `${gitColors.deleted}4d`,
-      "diffEditor.insertedLineBackground": `${gitColors.added}${gitLineTintHex}`,
+      // The modified side is painted by the shared Axon line-decoration
+      // pipeline (gitLinePaint), which already knows how to tell an addition
+      // from a modification. Leaving Monaco's own inserted-line tint on would
+      // stack a second green wash on every change and read modifications as
+      // additions. The original side keeps the removed-line tint because Monaco
+      // is still the one rendering that pane.
+      "diffEditor.insertedLineBackground": "#00000000",
       "diffEditor.removedLineBackground": `${gitColors.deleted}${gitLineTintHex}`,
       "editorGutter.addedBackground": `${gitColors.added}b3`,
       "editorGutter.modifiedBackground": `${gitColors.modified}b3`,

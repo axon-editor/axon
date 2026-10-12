@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
-import { computeGitLineDecorations } from "../../lib/git/gitLineDecorations";
+import { computeGitLineDecorations } from "./gitLineDecorations";
 
 describe("live Git line decorations", () => {
   it("marks lines added to a new file", () => {
