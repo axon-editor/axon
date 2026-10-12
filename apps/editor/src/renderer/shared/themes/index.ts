@@ -96,15 +96,18 @@ function buildMonacoTheme(
       // editor without turning additions red, deletions green, or modifications
       // into an unrelated syntax accent. Alpha changes visual weight only; the
       // underlying green/gold/red/cyan meanings remain stable everywhere.
-      "diffEditor.insertedTextBackground": `${gitColors.added}4d`,
       "diffEditor.removedTextBackground": `${gitColors.deleted}4d`,
       // The modified side is painted by the shared Axon line-decoration
       // pipeline (gitLinePaint), which already knows how to tell an addition
-      // from a modification. Leaving Monaco's own inserted-line tint on would
-      // stack a second green wash on every change and read modifications as
-      // additions. The original side keeps the removed-line tint because Monaco
-      // is still the one rendering that pane.
+      // from a modification. Monaco's own inserted tint would stack on top of
+      // that paint: the whole-line char tint used by a fully added line pushed
+      // the combined alpha to roughly twice the editor's inline wash, which
+      // sank comment text into its own background. Both inserted backgrounds
+      // stay transparent so the modified pane renders at the weight of the
+      // editor. The original side keeps the removed tints because Monaco is
+      // still the one rendering that pane.
       "diffEditor.insertedLineBackground": "#00000000",
+      "diffEditor.insertedTextBackground": "#00000000",
       "diffEditor.removedLineBackground": `${gitColors.deleted}${gitLineTintHex}`,
       "editorGutter.addedBackground": `${gitColors.added}b3`,
       "editorGutter.modifiedBackground": `${gitColors.modified}b3`,
