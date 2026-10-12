@@ -106,7 +106,7 @@ export function createSettingsWindow(deps: SettingsWindowDependencies) {
       // the privileged core/fs/LSP file surface - so an exploit in the settings
       // renderer has the smallest possible window.axon to reach for.
       webPreferences: {
-        preload: path.join(__dirname, "../../preload/settings.js"),
+        preload: path.join(__dirname, "../../../preload/settings.js"),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
@@ -141,7 +141,7 @@ export function createSettingsWindow(deps: SettingsWindowDependencies) {
       });
       settingsWindow.loadURL(rendererUrl.toString());
     } else {
-      settingsWindow.loadFile(path.join(__dirname, "../../renderer/settings.html"), {
+      settingsWindow.loadFile(path.join(__dirname, "../../../renderer/settings.html"), {
         query: bootAppearanceQuery,
       });
     }

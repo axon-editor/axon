@@ -147,7 +147,7 @@ export function createWindow(
           ),
           icon: axonIconPath,
           webPreferences: getEditorWebPreferences(
-            path.join(__dirname, "../../preload/index.js"),
+            path.join(__dirname, "../../../preload/index.js"),
           ),
         });
 
@@ -188,7 +188,7 @@ export function createWindow(
     });
     window.loadURL(rendererUrl.toString());
   } else {
-    window.loadFile(path.join(__dirname, "../../renderer/index.html"), {
+    window.loadFile(path.join(__dirname, "../../../renderer/index.html"), {
       query: bootAppearanceQuery,
     });
   }
