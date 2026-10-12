@@ -39,6 +39,21 @@ export function isTerminalShortcutTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest(".xterm"));
 }
 
+// xterm only owns the keys a PTY can actually receive: Ctrl/Alt sequences and
+// plain typing. The macOS Command key never reaches the PTY, so Cmd chords
+// (Cmd+B, Cmd+S, Cmd+P, ...) are application shortcuts that must keep working
+// while the terminal has focus. Ctrl chords stay with the terminal so Ctrl+T
+// and Ctrl+R still reach programs like Codex and the shell.
+export function isTerminalCommandChord(event: KeyboardEvent) {
+  return (
+    typeof window !== "undefined" &&
+    window.axon?.platform === "darwin" &&
+    event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey
+  );
+}
+
 function getEditorShortcutPath(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return undefined;
   return target.closest<HTMLElement>("[data-axon-editor-path]")?.dataset
@@ -55,12 +70,18 @@ export function useGlobalEditorShortcuts({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       // xterm is an application input surface, not editor chrome. Once its
-      // hidden textarea owns the event, every key chord must stay available to
-      // the program running in the PTY: Ctrl+T opens Codex's transcript,
-      // Ctrl+R searches shell history, and terminal TUIs define many more. A
-      // single boundary here prevents Axon's capture-phase editor bindings from
-      // selectively consuming those keys before xterm can encode them.
-      if (isTerminalShortcutTarget(event.target)) return;
+      // hidden textarea owns the event, Ctrl/Alt chords and plain keys must stay
+      // available to the program running in the PTY: Ctrl+T opens Codex's
+      // transcript, Ctrl+R searches shell history, and terminal TUIs define many
+      // more. A single boundary here prevents Axon's capture-phase editor
+      // bindings from consuming those keys before xterm can encode them. macOS
+      // Cmd chords are exempt because the PTY never receives them.
+      if (
+        isTerminalShortcutTarget(event.target) &&
+        !isTerminalCommandChord(event)
+      ) {
+        return;
+      }
 
       const nextFontSettings = settingsFromEditorFontZoomShortcut(
         event,
