@@ -55,6 +55,7 @@ import {
   type GitCommitDiffResult,
   type GitDiffResult,
   type GitGraphResult,
+  type GitHistoryCommit,
   type GitHistoryResult,
   type GitStashAction,
   type GitStashListResult,
@@ -555,6 +556,11 @@ contextBridge.exposeInMainWorld("axon", {
     filePath?: string | null,
   ): Promise<GitHistoryResult> =>
     ipcRenderer.invoke("git:history", folderPath, filePath),
+  getGitCommitDetail: (
+    folderPath: string,
+    hash: string,
+  ): Promise<GitHistoryCommit | null> =>
+    ipcRenderer.invoke("git:commitDetail", folderPath, hash),
   getGitCommitDiff: (
     folderPath: string,
     hash: string,

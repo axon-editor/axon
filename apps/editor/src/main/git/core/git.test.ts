@@ -7,7 +7,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getGitCommitDetail } from "./advancedGit";
 import {
   getGitDiff,
   getGitStatus,
@@ -31,6 +32,7 @@ function createRepository() {
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   for (const repository of repositories.splice(0)) {
     fs.rmSync(repository, { force: true, recursive: true });
   }
@@ -133,4 +135,41 @@ describe("nested workspace repositories", () => {
     },
     15_000,
   );
+});
+
+describe("Git commit details across branches", () => {
+  it("loads a commit that is not on the checked-out branch", async () => {
+    // The graph draws every branch while the sidebar history stays HEAD-only, so
+    // a graph node from another branch has to resolve its files by hash.
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const repository = createRepository();
+    fs.writeFileSync(path.join(repository, "base.txt"), "one\n", "utf8");
+    git(repository, ["add", "."]);
+    git(repository, ["commit", "-m", "base"]);
+    const baseBranch = execFileSync(
+      "git",
+      ["-C", repository, "rev-parse", "--abbrev-ref", "HEAD"],
+      { stdio: "pipe" },
+    )
+      .toString()
+      .trim();
+
+    git(repository, ["checkout", "-b", "feature"]);
+    fs.writeFileSync(path.join(repository, "feature.txt"), "two\n", "utf8");
+    git(repository, ["add", "."]);
+    git(repository, ["commit", "-m", "feature work"]);
+    const featureHash = execFileSync(
+      "git",
+      ["-C", repository, "rev-parse", "feature"],
+      { stdio: "pipe" },
+    )
+      .toString()
+      .trim();
+
+    git(repository, ["checkout", baseBranch]);
+    const detail = await getGitCommitDetail(repository, featureHash);
+
+    expect(detail?.subject).toBe("feature work");
+    expect(detail?.files.map((file) => file.path)).toEqual(["feature.txt"]);
+  });
 });

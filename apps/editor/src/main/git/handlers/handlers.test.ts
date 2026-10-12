@@ -22,6 +22,7 @@ const gitMocks = vi.hoisted(() => ({
   runGitStashAction: vi.fn(),
 }));
 const advancedGitMocks = vi.hoisted(() => ({
+  getGitCommitDetail: vi.fn(),
   getGitGraph: vi.fn(),
   listGitConflicts: vi.fn(),
   listGitWorktrees: vi.fn(),
@@ -253,5 +254,51 @@ describe("Git IPC capabilities", () => {
       message: "Open a Git workspace before committing changes.",
     });
     expect(gitMocks.commitGitChanges).not.toHaveBeenCalled();
+  });
+
+  it("loads one commit's file list by hash for a graph node", async () => {
+    const dependencies = createDependencies();
+    advancedGitMocks.getGitCommitDetail.mockResolvedValue({
+      hash: "abc1234",
+      shortHash: "abc1234",
+      subject: "feature work",
+      authorName: "Axon Test",
+      authorEmail: "axon@example.com",
+      authorAvatarUrl: "",
+      authorProfileUrl: "",
+      date: "",
+      relativeDate: "",
+      body: "",
+      files: [],
+    });
+    registerGitHandlers(dependencies);
+
+    const detail = await ipcHandlers.get("git:commitDetail")!(
+      createEvent(16),
+      process.cwd(),
+      "abc1234",
+    );
+
+    expect(advancedGitMocks.getGitCommitDetail).toHaveBeenCalledWith(
+      process.cwd(),
+      "abc1234",
+      process.cwd(),
+    );
+    expect(detail).toEqual(expect.objectContaining({ hash: "abc1234" }));
+  });
+
+  it("answers commit detail with null outside a Git repository", async () => {
+    const dependencies = createDependencies();
+    gitMocks.findGitRepositoryRoot.mockResolvedValue(null);
+    registerGitHandlers(dependencies);
+
+    const detail = await ipcHandlers.get("git:commitDetail")!(
+      createEvent(17),
+      process.cwd(),
+      "abc1234",
+    );
+
+    expect(detail).toBeNull();
+    expect(advancedGitMocks.getGitCommitDetail).not.toHaveBeenCalled();
   });
 });

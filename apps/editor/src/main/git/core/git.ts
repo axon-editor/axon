@@ -224,7 +224,7 @@ function parseGitHistoryFile(
   };
 }
 
-function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
+export function parseGitHistory(root: string, output: string): GitHistoryCommit[] {
   const commitSeparator = "\x1e";
   const fieldSeparator = "\x1f";
 
@@ -431,11 +431,25 @@ export async function getGitFileBase(
   }
 }
 
+export async function attachGitAuthorAvatars(commits: GitHistoryCommit[]) {
+  const identities = await resolveGitAuthorAvatars(
+    commits.map((commit) => commit.authorEmail),
+  );
+  for (const commit of commits) {
+    const identity = identities.get(commit.authorEmail.trim().toLowerCase());
+    if (identity) {
+      commit.authorAvatarUrl = identity.avatarUrl;
+      commit.authorProfileUrl = identity.profileUrl;
+    }
+  }
+}
+
 export async function getGitHistory(
   folderPath: string,
   filePath?: string | null,
   knownRepositoryRoot?: string | null,
 ): Promise<GitHistoryResult> {
+
   const root = knownRepositoryRoot ?? (await findGitRepositoryRoot(folderPath));
   if (!root) {
     return {
@@ -450,7 +464,11 @@ export async function getGitHistory(
     "log",
     "--date=iso-strict",
     "--name-status",
-    "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%ar%x1f%s%x1f%b",
+    // The trailing %n matters: git only prints a blank line between the commit
+    // header and its name-status list when the format already ends with a
+    // newline. parseGitHistory splits on that blank line, so without it every
+    // commit parsed with an empty file list.
+    "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%ar%x1f%s%x1f%b%n",
   ];
   const relativePath = filePath
     ? normalizeGitRequestPath(root, filePath)
@@ -477,16 +495,7 @@ export async function getGitHistory(
       runGit(root, ["branch", "--show-current"]),
     ]);
     const commits = parseGitHistory(root, result.stdout);
-    const identities = await resolveGitAuthorAvatars(
-      commits.map((commit) => commit.authorEmail),
-    );
-    for (const commit of commits) {
-      const identity = identities.get(commit.authorEmail.trim().toLowerCase());
-      if (identity) {
-        commit.authorAvatarUrl = identity.avatarUrl;
-        commit.authorProfileUrl = identity.profileUrl;
-      }
-    }
+    await attachGitAuthorAvatars(commits);
     return {
       isRepository: true,
       root,

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GitBranch, RefreshCw, Search } from "lucide-react";
 import {
   type GitGraphResult,
+  type GitHistoryCommit,
   type GitHistoryResult,
 } from "@axon-editor/shared/workspace/git";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
@@ -16,6 +17,7 @@ import CommitRow from "./gitGraph/commit/CommitRow";
 import RefChip from "./gitGraph/graph/RefChip";
 import {
   getCachedGitGraphData,
+  invalidateGitGraphData,
   loadGitGraphData,
 } from "./gitGraph/graph/gitGraphData";
 
@@ -38,6 +40,10 @@ export default function GitGraphPanel({
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
+  const [detailByHash, setDetailByHash] = useState<
+    Map<string, GitHistoryCommit>
+  >(new Map());
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const refresh = useCallback(
     async (forceRefresh = false) => {
@@ -51,7 +57,6 @@ export default function GitGraphPanel({
         const data = await loadGitGraphData(folderPath, forceRefresh);
         setGraph(data.graph);
         setHistory(data.history);
-        setSelectedHash(null);
       } finally {
         setLoading(false);
       }
@@ -61,29 +66,31 @@ export default function GitGraphPanel({
 
   useEffect(() => {
     let active = true;
+    setSelectedHash(null);
+    setDetailByHash(new Map());
     if (!folderPath) {
       setGraph(null);
       setHistory(null);
-      setSelectedHash(null);
       return;
     }
 
+    // Paint the cached graph first so switching tabs never flashes empty, then
+    // reconcile in the background. The shared cache is keyed by folder and does
+    // not know about external checkouts or history rewrites, so this background
+    // pass is what keeps the panel honest after the repository moves under it.
     const cached = getCachedGitGraphData(folderPath);
     if (cached) {
       setGraph(cached.graph);
       setHistory(cached.history);
-      setSelectedHash(null);
-      setLoading(false);
-      return;
+    } else {
+      setLoading(true);
     }
 
-    setLoading(true);
-    void loadGitGraphData(folderPath)
+    void loadGitGraphData(folderPath, true)
       .then((data) => {
         if (!active) return;
         setGraph(data.graph);
         setHistory(data.history);
-        setSelectedHash(null);
       })
       .catch((err) => {
         if (active) console.error("failed to load Git graph:", err);
@@ -96,6 +103,21 @@ export default function GitGraphPanel({
       active = false;
     };
   }, [folderPath]);
+
+  useEffect(() => {
+    if (!folderPath) return;
+    const dispose = window.axon.onGitChanged((event) => {
+      if (event?.folderPath && event.folderPath !== folderPath) return;
+      // Working-tree edits carry `paths`; HEAD and ref updates do not. Only ref
+      // changes (checkout, commit, rebase) reload the graph, otherwise an
+      // autosave would reset the panel while the user is inspecting a commit.
+      if (event?.paths && event.paths.length > 0) return;
+      invalidateGitGraphData(folderPath);
+      void refresh(true);
+    });
+    return dispose;
+    return dispose;
+  }, [folderPath, refresh]);
 
   const historyByHash = useMemo(
     () =>
@@ -119,8 +141,41 @@ export default function GitGraphPanel({
     Math.max(1, ...visibleCommits.map((commit) => commit.lane + 1)),
   );
   const selectedCommit = selectedHash
-    ? (historyByHash.get(selectedHash) ?? null)
+    ? (historyByHash.get(selectedHash) ??
+      detailByHash.get(selectedHash) ??
+      null)
     : null;
+
+  useEffect(() => {
+    if (!folderPath || !selectedHash) return;
+    // The shared history only covers the checked-out branch, but the graph draws
+    // every branch. Fetch the file list for the clicked node when it is not in
+    // that history, then keep it in a local map so re-selecting is instant.
+    if (historyByHash.has(selectedHash) || detailByHash.has(selectedHash)) {
+      return;
+    }
+
+    let active = true;
+    setLoadingDetail(true);
+    window.axon
+      .getGitCommitDetail(folderPath, selectedHash)
+      .then((detail) => {
+        if (!active || !detail) return;
+        setDetailByHash((current) =>
+          new Map(current).set(selectedHash, detail),
+        );
+      })
+      .catch((err) => {
+        if (active) console.error("failed to load commit details:", err);
+      })
+      .finally(() => {
+        if (active) setLoadingDetail(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [folderPath, selectedHash, historyByHash, detailByHash]);
 
   const openCommitFile = async (
     file: NonNullable<typeof selectedCommit>["files"][number],
@@ -176,10 +231,10 @@ export default function GitGraphPanel({
         </div>
       </div>
       <div
-        className={`grid min-h-0 flex-1 overflow-hidden ${selectedCommit ? "grid-cols-[minmax(0,1fr)_320px]" : "grid-cols-1"}`}
+        className={`grid min-h-0 flex-1 overflow-hidden ${selectedCommit || loadingDetail ? "grid-cols-[minmax(0,1fr)_320px]" : "grid-cols-1"}`}
       >
         <div
-          className={`flex min-h-0 min-w-0 flex-col ${selectedCommit ? "border-r border-[var(--axon-panel-border)]" : ""}`}
+          className={`flex min-h-0 min-w-0 flex-col ${selectedCommit || loadingDetail ? "border-r border-[var(--axon-panel-border)]" : ""}`}
         >
           <div className="grid h-8 shrink-0 grid-cols-[110px_minmax(220px,1fr)_120px_130px_72px] items-center border-b border-[var(--axon-panel-border)] px-3 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
             <span>Graph</span>
@@ -206,9 +261,10 @@ export default function GitGraphPanel({
             ) : null}
           </div>
         </div>
-        {selectedCommit ? (
+        {selectedCommit || loadingDetail ? (
           <CommitDetails
             commit={selectedCommit}
+            loading={loadingDetail && !selectedCommit}
             onOpenFile={(file) =>
               void openCommitFile(file).catch((error) =>
                 console.error("failed to open commit diff:", error),

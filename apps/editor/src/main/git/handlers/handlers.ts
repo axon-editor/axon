@@ -18,6 +18,7 @@ import {
   type GitCommitDiffResult,
   type GitCommitResult,
   type GitGraphResult,
+  type GitHistoryCommit,
   type GitHistoryResult,
   type GitStashAction,
   type GitStashListResult,
@@ -27,6 +28,7 @@ import {
 } from "../../../shared/workspace/git";
 import { getGitBlame } from "../blame/blame";
 import {
+  getGitCommitDetail,
   getGitGraph,
   listGitConflicts,
   listGitWorktrees,
@@ -399,6 +401,26 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       return getGitHistory(
         repository.repositoryRoot,
         repositoryFile?.filePath ?? filePath,
+        repository.repositoryRoot,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "git:commitDetail",
+    async (
+      event,
+      folderPath: string,
+      hash: string,
+    ): Promise<GitHistoryCommit | null> => {
+      if (!folderPath || !fs.existsSync(folderPath)) return null;
+      const repository = await resolveRepositoryRoot(event, folderPath);
+      // A graph node can point at a commit outside the checked-out branch, so
+      // "no repository" is a normal empty answer rather than an error.
+      if (!repository) return null;
+      return getGitCommitDetail(
+        repository.repositoryRoot,
+        hash,
         repository.repositoryRoot,
       );
     },

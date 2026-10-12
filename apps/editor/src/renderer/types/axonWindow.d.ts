@@ -35,6 +35,7 @@ import type {
   GitCommitResult,
   GitDiffResult,
   GitGraphResult,
+  GitHistoryCommit,
   GitHistoryResult,
   GitStashAction,
   GitStashListResult,
@@ -408,6 +409,10 @@ declare global {
         folderPath: string,
         filePath?: string | null,
       ) => Promise<GitHistoryResult>;
+      getGitCommitDetail: (
+        folderPath: string,
+        hash: string,
+      ) => Promise<GitHistoryCommit | null>;
       getGitCommitDiff: (
         folderPath: string,
         hash: string,

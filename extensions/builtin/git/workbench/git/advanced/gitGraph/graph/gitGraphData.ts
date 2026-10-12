@@ -20,6 +20,14 @@ export function getCachedGitGraphData(folderPath: string) {
   return graphDataByRepository.get(folderPath) ?? null;
 }
 
+export function invalidateGitGraphData(folderPath?: string | null) {
+  if (folderPath) {
+    graphDataByRepository.delete(folderPath);
+    return;
+  }
+  graphDataByRepository.clear();
+}
+
 export async function loadGitGraphData(
   folderPath: string,
   forceRefresh = false,

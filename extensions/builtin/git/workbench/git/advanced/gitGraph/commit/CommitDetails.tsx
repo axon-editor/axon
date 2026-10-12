@@ -12,9 +12,11 @@ import { buildGitGraphFileTree } from "../graph/gitGraphTree";
 
 export default function CommitDetails({
   commit,
+  loading = false,
   onOpenFile,
 }: {
   commit: GitHistoryCommit | null;
+  loading?: boolean;
   onOpenFile: (file: GitHistoryCommit["files"][number]) => void;
 }) {
   const tree = useMemo(
@@ -25,7 +27,9 @@ export default function CommitDetails({
   if (!commit)
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-40">
-        Select a commit to inspect its details and changed files.
+        {loading
+          ? "Loading commit details..."
+          : "Select a commit to inspect its details and changed files."}
       </div>
     );
   return (

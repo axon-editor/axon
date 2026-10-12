@@ -13,11 +13,17 @@ import {
   type GitConflictResolution,
   type GitGraphCommit,
   type GitGraphResult,
+  type GitHistoryCommit,
   type GitWorktree,
   type GitWorktreeAction,
   type GitWorktreeListResult,
 } from "../../../shared/workspace/git";
-import { getGitStatus } from "./git";
+import {
+  attachGitAuthorAvatars,
+  findGitRepositoryRoot,
+  getGitStatus,
+  parseGitHistory,
+} from "./git";
 
 const execFileAsync = promisify(execFile);
 
@@ -383,5 +389,37 @@ export async function getGitGraph(folderPath: string): Promise<GitGraphResult> {
       branch: repository.branch,
       commits: [],
     };
+  }
+}
+
+export async function getGitCommitDetail(
+  folderPath: string,
+  hash: string,
+  knownRepositoryRoot?: string | null,
+): Promise<GitHistoryCommit | null> {
+  const root = knownRepositoryRoot ?? (await findGitRepositoryRoot(folderPath));
+  if (!root || !/^[0-9a-f]{7,40}$/i.test(hash)) return null;
+
+  try {
+    // The graph is drawn with `git log --all`, but the shared history query stays
+    // HEAD-only so the sidebar file-chase view is not polluted by other branches.
+    // Fetching a single commit by hash gives graph nodes on other branches their
+    // file list on demand instead of widening every history request. The trailing
+    // %n matches getGitHistory so parseGitHistory sees the file-list blank line.
+    const result = await runGit(root, [
+      "log",
+      "-1",
+      "--name-status",
+      "--date=iso-strict",
+      "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%ar%x1f%s%x1f%b%n",
+      hash,
+    ]);
+    const commit = parseGitHistory(root, result.stdout)[0] ?? null;
+    if (commit) {
+      await attachGitAuthorAvatars([commit]);
+    }
+    return commit;
+  } catch {
+    return null;
   }
 }
