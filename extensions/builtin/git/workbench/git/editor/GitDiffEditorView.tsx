@@ -149,7 +149,9 @@ export default function GitDiffEditorView({
   // own inserted-line tint, so a modified line read as a plain insertion here
   // and as a modification in the editor. Reusing the shared builder on the
   // modified side keeps the same change reading the same way on both surfaces.
-  // The original side keeps Monaco's native removal rendering.
+  // Deletions are dropped: this pane has no line for a removed line, so the
+  // editor's deleted marker would clamp onto the next surviving line and paint
+  // it red. The original side keeps Monaco's native removal rendering.
   useEffect(() => {
     if (!mounted) return;
     const diffEditor = diffEditorRef.current;
@@ -158,6 +160,7 @@ export default function GitDiffEditorView({
     const decorations = buildGitLineDecorations(
       computeGitLineDecorations(original, modified),
       resolveThemeGitColors(inferThemeAppearance(themeTokens)),
+      { includeDeleted: false },
     );
     gitPaintRef.current ??= diffEditor
       .getModifiedEditor()

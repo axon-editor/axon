@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { buildGitLineDecorations } from "./gitLinePaint";
+import { computeGitLineDecorations } from "./gitLineDecorations";
 
 const gitColors = {
   added: "#56d38b",
@@ -67,5 +68,25 @@ describe("git line paint", () => {
 
   it("returns no paint when the base matches the current buffer", () => {
     expect(buildGitLineDecorations([], gitColors)).toEqual([]);
+  });
+
+  it("keeps a deleted property off the modified pane so the next unchanged line stays clean", () => {
+    const base =
+      '{\n  folder: "zed",\n  id: "axon.zed-theme",\n  name: "Zed Theme",\n}';
+    const modified = '{\n  folder: "zed",\n  name: "Zed Theme",\n}';
+
+    // The editor anchors the deletion to the surviving line 3, which is the
+    // unchanged name property here. That is the whole point of the editor
+    // marker, but painting it on the diff pane would blame the wrong line.
+    expect(computeGitLineDecorations(base, modified)).toEqual([
+      { lineNumber: 3, kind: "deleted" },
+    ]);
+    expect(
+      buildGitLineDecorations(
+        computeGitLineDecorations(base, modified),
+        gitColors,
+        { includeDeleted: false },
+      ),
+    ).toEqual([]);
   });
 });
