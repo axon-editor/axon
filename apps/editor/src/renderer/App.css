@@ -237,10 +237,14 @@ html.axon-native-glass #root {
   background: transparent !important;
 }
 
-/* Rebuild Chromium's full-window layer after a workspace switch. Values this
- * close to one quantize to the same visible alpha while still creating a new
- * compositing boundary, so the native material remains completely untinted. */
-html.axon-workspace-repaint .axon-app-root {
+/* Rebuild Chromium's full-window layer after a workspace switch or a floating
+ * glass surface repaint. The boundary is the body rather than the app root so
+ * the overlays portaled directly under it (command modals, tab context menus,
+ * tooltips, the line-trace popover) resubmit in the same pass instead of
+ * compositing a stale snapshot. Values this close to one quantize to the same
+ * visible alpha while still creating a new compositing boundary, so the native
+ * material remains completely untinted. */
+html.axon-workspace-repaint body {
   opacity: 0.999999;
 }
 

@@ -10,8 +10,9 @@ import { useEffect } from "react";
 // composites that region against a stale snapshot, so the current translucent
 // popup sits on top of ghosted earlier frames. An opaque surface would let the
 // newest paint cover them, a glass surface does not. The workspace render
-// boundary already answers this by pushing the app root through a temporary
-// opacity layer that makes Chromium submit the complete surface once. This
+// boundary already answers this by pushing the document body through a
+// temporary opacity layer that makes Chromium submit the complete surface
+// once, which includes the overlays portaled directly under the body. This
 // hook runs the identical pulse whenever a floating glass surface repaints,
 // so state A to B to C only ever leaves the current frame underneath.
 const FLOATING_GLASS_SELECTOR = [
