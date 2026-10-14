@@ -5,7 +5,10 @@
 
 import { useState } from "react";
 import { type AiEditFileProposal } from "@axon-editor/shared/ai/ai";
-import { type AgentMessage } from "../../lib/conversation/agentConversation";
+import {
+  type AgentMessage,
+  type AgentToolCallState,
+} from "../../lib/conversation/agentConversation";
 import AssistantMessage from "./AssistantMessage";
 import MessageContextMenu from "./MessageContextMenu";
 import UserMessage from "./UserMessage";
@@ -17,6 +20,8 @@ interface Props {
   onCopied: (messageId: number) => void;
   onRetry?: (messageId: number) => void;
   onEdit?: (messageId: number, content: string) => void;
+  onRunTool?: (messageId: number, tool: AgentToolCallState) => void;
+  onSkipTool?: (messageId: number, tool: AgentToolCallState) => void;
   scrollAnchorRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -67,9 +72,12 @@ export default function AgentMessageList(props: Props) {
             editProposal={message.result?.editProposal}
             messageId={message.id}
             copiedId={props.copiedId}
+            toolCalls={message.toolCalls}
             onApplyEdit={props.onApplyEdit}
             onCopied={props.onCopied}
             onCopyContent={handleCopyContent}
+            onRunTool={props.onRunTool}
+            onSkipTool={props.onSkipTool}
           />
         ),
       )}

@@ -52,6 +52,17 @@ type ConversationMessage struct {
 	Content string `json:"content"`
 }
 
+type UIState struct {
+	SidebarCollapsed bool     `json:"sidebarCollapsed"`
+	AgentSidebarOpen bool     `json:"agentSidebarOpen"`
+	TerminalOpen     bool     `json:"terminalOpen"`
+	BottomPanelOpen  bool     `json:"bottomPanelOpen"`
+	BottomPanelTab   *string  `json:"bottomPanelTab"`
+	ZenMode          bool     `json:"zenMode"`
+	ActiveFilePath   *string  `json:"activeFilePath"`
+	OpenFilePaths    []string `json:"openFilePaths"`
+}
+
 type ChatRequest struct {
 	Action         string                `json:"action"`
 	Prompt         string                `json:"prompt"`
@@ -64,6 +75,14 @@ type ChatRequest struct {
 	ProjectContext *ProjectContext       `json:"projectContext"`
 	GitDiff        string                `json:"gitDiff"`
 	Model          string                `json:"model"`
+	// UIState lets the editor describe what is currently on screen so UI tool
+	// calls are grounded in the real workbench instead of the model guessing.
+	UIState *UIState `json:"uiState,omitempty"`
+	// Messages lets the editor own the agent tool loop by sending the full
+	// conversation it has accumulated so far. When it is empty, axon-core builds
+	// the prompt itself so the CLI and simpler callers keep their behavior.
+	Messages []ModelMessage          `json:"messages,omitempty"`
+	Tools    []ProjectToolDefinition `json:"tools,omitempty"`
 }
 
 type StreamEvent struct {
@@ -138,17 +157,17 @@ var modelCatalog = []catalogModel{
 	},
 }
 
-type modelMessage struct {
+type ModelMessage struct {
 	Role      string          `json:"role"`
 	Content   string          `json:"content"`
-	ToolCalls []modelToolCall `json:"tool_calls,omitempty"`
+	ToolCalls []ModelToolCall `json:"tool_calls,omitempty"`
 }
 
-type modelToolCall struct {
-	Function modelToolFunction `json:"function"`
+type ModelToolCall struct {
+	Function ModelToolFunction `json:"function"`
 }
 
-type modelToolFunction struct {
+type ModelToolFunction struct {
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
 }
@@ -162,7 +181,7 @@ type localModelListResponse struct {
 type modelStreamResponse struct {
 	Message *struct {
 		Content   string          `json:"content"`
-		ToolCalls []modelToolCall `json:"tool_calls"`
+		ToolCalls []ModelToolCall `json:"tool_calls"`
 	} `json:"message"`
 	Response string `json:"response"`
 	Error    string `json:"error"`
@@ -170,7 +189,7 @@ type modelStreamResponse struct {
 }
 
 type modelChatResponse struct {
-	Message modelMessage `json:"message"`
+	Message ModelMessage `json:"message"`
 	Error   string       `json:"error"`
 }
 
@@ -291,8 +310,8 @@ func catalogModelInfo(installedRuntimeModels map[string]bool) []ModelInfo {
 	return models
 }
 
-func BuildMessages(request ChatRequest) []modelMessage {
-	messages := []modelMessage{
+func BuildMessages(request ChatRequest) []ModelMessage {
+	messages := []ModelMessage{
 		{
 			Role: "system",
 			Content: strings.Join([]string{
@@ -314,7 +333,7 @@ func BuildMessages(request ChatRequest) []modelMessage {
 	}
 
 	messages = append(messages, priorConversationMessages(request.Conversation)...)
-	messages = append(messages, modelMessage{
+	messages = append(messages, ModelMessage{
 		Role: "user",
 		Content: strings.Join([]string{
 			"Action: " + request.Action,
@@ -327,7 +346,7 @@ func BuildMessages(request ChatRequest) []modelMessage {
 	return messages
 }
 
-func priorConversationMessages(conversation []ConversationMessage) []modelMessage {
+func priorConversationMessages(conversation []ConversationMessage) []ModelMessage {
 	if len(conversation) == 0 {
 		return nil
 	}
@@ -341,14 +360,14 @@ func priorConversationMessages(conversation []ConversationMessage) []modelMessag
 		start = 0
 	}
 
-	messages := make([]modelMessage, 0, len(conversation)-start)
+	messages := make([]ModelMessage, 0, len(conversation)-start)
 	for _, message := range conversation[start:] {
 		role := normalizedConversationRole(message.Role)
 		content := strings.TrimSpace(message.Content)
 		if content == "" {
 			continue
 		}
-		messages = append(messages, modelMessage{
+		messages = append(messages, ModelMessage{
 			Role:    role,
 			Content: trimForPrompt(content, 4000),
 		})
@@ -398,6 +417,63 @@ func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent)
 	if err := emit(StreamEvent{Type: "status", Status: "Checking local model runtime..."}); err != nil {
 		return err
 	}
+	if err := ensureModelReady(ctx, request); err != nil {
+		return err
+	}
+
+	// A caller that sends Messages already owns the conversation and the agent
+	// tool loop, so core just streams the final reply. The CLI sends no messages,
+	// which keeps the original behavior where core builds the prompt and runs the
+	// project tool loop itself.
+	messages := request.Messages
+	if len(messages) == 0 {
+		trimProjectContextToTokenBudget(request.ProjectContext, maxProjectContextTokens)
+		builtMessages, err := buildToolAwareMessages(ctx, request, emit)
+		if err != nil {
+			return err
+		}
+		messages = builtMessages
+	}
+	if err := emit(StreamEvent{Type: "status", Status: "Streaming response..."}); err != nil {
+		return err
+	}
+	return streamChatMessages(ctx, request, messages, emit)
+}
+
+// TurnResult is one non-streaming planning turn. Messages carries the base
+// conversation the turn ran against so a caller that started with none keeps the
+// built system and project context, and Message is the assistant reply whose
+// ToolCalls decide what runs next.
+type TurnResult struct {
+	Messages []ModelMessage `json:"messages"`
+	Message  ModelMessage   `json:"message"`
+}
+
+// PlanTurn runs a single non-streaming model turn with the caller-supplied
+// tools and returns the assistant reply. It never executes a tool: the editor
+// owns the loop because UI actions can only run in the renderer, so this answers
+// only what the model wants to do next.
+func PlanTurn(ctx context.Context, request ChatRequest) (TurnResult, error) {
+	if err := ensureModelReady(ctx, request); err != nil {
+		return TurnResult{}, err
+	}
+
+	messages := request.Messages
+	if len(messages) == 0 {
+		trimProjectContextToTokenBudget(request.ProjectContext, maxProjectContextTokens)
+		messages = BuildMessages(request)
+	}
+	response, err := callChatOnce(ctx, request, messages, request.Tools)
+	if err != nil {
+		return TurnResult{}, err
+	}
+	return TurnResult{Messages: messages, Message: response.Message}, nil
+}
+
+// ensureModelReady makes sure the local runtime is up and the requested model is
+// installed. Both the self-contained and caller-driven chat paths share it so
+// the failure modes stay identical no matter who owns the tool loop.
+func ensureModelReady(ctx context.Context, request ChatRequest) error {
 	if err := StartRuntime(ctx); err != nil {
 		return UserError{
 			Field:   "runtime",
@@ -415,33 +491,19 @@ func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent)
 	if err != nil {
 		return err
 	}
-	selectedModelInstalled := false
 	for _, model := range models {
 		if model.ID == selectedModel.ID && model.Available {
-			selectedModelInstalled = true
-			break
+			return nil
 		}
 	}
-	if !selectedModelInstalled {
-		return UserError{
-			Field:   "model",
-			Code:    "model_not_installed",
-			Message: selectedModel.Label + " is not installed locally. Download it before chatting.",
-		}
+	return UserError{
+		Field:   "model",
+		Code:    "model_not_installed",
+		Message: selectedModel.Label + " is not installed locally. Download it before chatting.",
 	}
-
-	trimProjectContextToTokenBudget(request.ProjectContext, maxProjectContextTokens)
-	messages, err := buildToolAwareMessages(ctx, request, emit)
-	if err != nil {
-		return err
-	}
-	if err := emit(StreamEvent{Type: "status", Status: "Streaming response..."}); err != nil {
-		return err
-	}
-	return streamChatMessages(ctx, request, messages, emit)
 }
 
-func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(StreamEvent) error) ([]modelMessage, error) {
+func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(StreamEvent) error) ([]ModelMessage, error) {
 	messages := BuildMessages(request)
 	if request.FolderPath == nil || strings.TrimSpace(*request.FolderPath) == "" {
 		return messages, nil
@@ -456,7 +518,7 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 		}
 
 		planningCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-		response, err := callChatOnce(planningCtx, request, messages, true)
+		response, err := callChatOnce(planningCtx, request, messages, ProjectToolDefinitions())
 		cancel()
 		if err != nil {
 			// Tool planning is an optimization, not the user's answer. When a
@@ -466,7 +528,7 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 			// deterministic project probe when it can, then lets the final response
 			// use the normal workspace context without leaking the planning failure.
 			if probe := AutomaticProjectProbe(ctx, request); probe != "" {
-				messages = append(messages, modelMessage{
+				messages = append(messages, ModelMessage{
 					Role:    "tool",
 					Content: probe,
 				})
@@ -478,7 +540,7 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 				if err := emit(StreamEvent{Type: "status", Status: "Scanning project files..."}); err != nil {
 					return nil, err
 				}
-				messages = append(messages, modelMessage{
+				messages = append(messages, ModelMessage{
 					Role:    "tool",
 					Content: probe,
 				})
@@ -488,13 +550,13 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 		messages = append(messages, response.Message)
 		for _, toolCall := range response.Message.ToolCalls {
 			result := RunProjectTool(ctx, request, toolCall.Function.Name, toolCall.Function.Arguments)
-			messages = append(messages, modelMessage{
+			messages = append(messages, ModelMessage{
 				Role:    "tool",
 				Content: result,
 			})
 		}
 	}
-	messages = append(messages, modelMessage{
+	messages = append(messages, ModelMessage{
 		Role:    "tool",
 		Content: "Tool limit reached. Answer with the project information already gathered.",
 	})
@@ -534,15 +596,15 @@ func PromptNeedsProjectContext(prompt string) bool {
 	return len(strings.Fields(normalizedPrompt)) > 6
 }
 
-func callChatOnce(ctx context.Context, request ChatRequest, messages []modelMessage, withTools bool) (modelChatResponse, error) {
+func callChatOnce(ctx context.Context, request ChatRequest, messages []ModelMessage, tools []ProjectToolDefinition) (modelChatResponse, error) {
 	// Tool planning intentionally uses a non-streaming chat call because this
 	// path needs one complete structured response before it can decide which
 	// project tools to run. Streaming partial JSON would reduce perceived
 	// latency on slow local models, but it would make tool-call parsing fragile
 	// and could execute a half-emitted function call with incomplete arguments.
 	payload := chatPayload(request, messages, false)
-	if withTools {
-		payload["tools"] = ProjectToolDefinitions()
+	if len(tools) > 0 {
+		payload["tools"] = tools
 	}
 	rawPayload, err := json.Marshal(payload)
 	if err != nil {
@@ -581,7 +643,7 @@ func callChatOnce(ctx context.Context, request ChatRequest, messages []modelMess
 	return chatResponse, nil
 }
 
-func streamChatMessages(ctx context.Context, request ChatRequest, messages []modelMessage, emit func(StreamEvent) error) error {
+func streamChatMessages(ctx context.Context, request ChatRequest, messages []ModelMessage, emit func(StreamEvent) error) error {
 	rawPayload, err := json.Marshal(chatPayload(request, messages, true))
 	if err != nil {
 		return err
@@ -645,7 +707,7 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []mod
 	return emit(StreamEvent{Type: "done", Done: true})
 }
 
-func chatPayload(request ChatRequest, messages []modelMessage, stream bool) map[string]any {
+func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[string]any {
 	return map[string]any{
 		"model":    ModelName(request),
 		"messages": messages,
@@ -707,6 +769,10 @@ func buildContext(request ChatRequest) string {
 		parts = append(parts, "Git diff:\n"+trimForPrompt(request.GitDiff, 16000))
 	}
 
+	if request.UIState != nil {
+		parts = append(parts, formatUIStateForPrompt(*request.UIState))
+	}
+
 	if request.ProjectContext != nil {
 		parts = append(parts, formatProjectContextForPrompt(*request.ProjectContext))
 	}
@@ -727,6 +793,28 @@ func buildContext(request ChatRequest) string {
 	}
 
 	return strings.Join(parts, "\n\n---\n\n")
+}
+
+func formatUIStateForPrompt(state UIState) string {
+	lines := []string{
+		"Workbench (what the user can currently see):",
+		fmt.Sprintf("Explorer sidebar collapsed: %t", state.SidebarCollapsed),
+		fmt.Sprintf("Axon Agent panel open: %t", state.AgentSidebarOpen),
+		fmt.Sprintf("Terminal open: %t", state.TerminalOpen),
+		fmt.Sprintf("Bottom panel open: %t (tab: %s)", state.BottomPanelOpen, pointerString(state.BottomPanelTab, "none")),
+		fmt.Sprintf("Zen mode: %t", state.ZenMode),
+		"Active file: " + pointerString(state.ActiveFilePath, "No active file"),
+	}
+	if len(state.OpenFilePaths) > 0 {
+		lines = append(lines, "Open editor tabs:")
+		for index, path := range state.OpenFilePaths {
+			if index >= 40 {
+				break
+			}
+			lines = append(lines, "- "+path)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func formatProjectContextForPrompt(contextPack ProjectContext) string {

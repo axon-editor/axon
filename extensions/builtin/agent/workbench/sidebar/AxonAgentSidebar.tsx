@@ -18,6 +18,7 @@ import {
 import {
   type AiActionId,
   type AiEditFileProposal,
+  type AiUiState,
 } from "@axon-editor/shared/ai/ai";
 import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
@@ -35,6 +36,7 @@ import ContextChip from "../chat/composer/ContextChip";
 import SlashCommandMenu from "../chat/composer/SlashCommandMenu";
 import {
   type AgentMessage,
+  type AgentToolCallState,
   activeAgentConversation,
   clearAgentConversation,
   conversationContext,
@@ -45,6 +47,7 @@ import {
   startAgentConversation,
   togglePinConversation,
 } from "../lib/conversation/agentConversation";
+import { type AgentToolRunResult } from "../lib/actions/agentToolActions";
 import { resolveProposalPath } from "../lib/conversation/agentProposalPaths";
 import {
   buildContextFile,
@@ -66,8 +69,13 @@ interface Props {
   resumeRequested: boolean;
   side: "left" | "right";
   width: number;
+  uiState: AiUiState;
   onApplyEdit: (path: string, content: string) => Promise<void>;
   onClose: () => void;
+  onRunAgentAction: (
+    name: string,
+    args: Record<string, unknown>,
+  ) => AgentToolRunResult;
   onWidthChange: (width: number) => void;
 }
 
@@ -258,6 +266,7 @@ export default function AxonAgentSidebar(props: Props) {
       conversation: conversationContext(messages),
       gitDiff,
       model: selectedModel,
+      uiState: props.uiState,
     });
 
     if (!started.success) {
@@ -370,6 +379,48 @@ export default function AxonAgentSidebar(props: Props) {
     ]);
   };
 
+  const setToolStatus = (
+    messageId: number,
+    toolId: string,
+    status: AgentToolCallState["status"],
+    message?: string,
+  ) => {
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === messageId
+          ? {
+              ...item,
+              toolCalls: (item.toolCalls ?? []).map((tool) =>
+                tool.id === toolId
+                  ? { ...tool, status, message: message ?? tool.message }
+                  : tool,
+              ),
+            }
+          : item,
+      ),
+    );
+  };
+
+  const runTool = async (messageId: number, tool: AgentToolCallState) => {
+    setToolStatus(messageId, tool.id, "running");
+    const result = props.onRunAgentAction(tool.name, tool.arguments);
+    await window.axon.reportAiUiToolResult({
+      callId: tool.id,
+      ok: result.ok,
+      message: result.message,
+    });
+  };
+
+  const skipTool = async (messageId: number, tool: AgentToolCallState) => {
+    setToolStatus(messageId, tool.id, "rejected");
+    await window.axon.reportAiUiToolResult({
+      callId: tool.id,
+      ok: false,
+      rejected: true,
+      message: "Skipped by user.",
+    });
+  };
+
   return (
     <aside
       className={`relative flex shrink-0 flex-col overflow-hidden bg-[var(--axon-sidebar-background)] ${
@@ -474,6 +525,8 @@ export default function AxonAgentSidebar(props: Props) {
           copiedId={copiedId}
           messages={messages}
           onApplyEdit={(file) => void applyEdit(file)}
+          onRunTool={(messageId, tool) => void runTool(messageId, tool)}
+          onSkipTool={(messageId, tool) => void skipTool(messageId, tool)}
           onCopied={(messageId) => {
             setCopiedId(messageId);
             window.setTimeout(() => setCopiedId(null), 1200);

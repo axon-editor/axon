@@ -14,13 +14,17 @@ import {
   type AiProjectContext,
   type AiPullStarted,
   type AiRuntimeStatus,
+  type AiUiToolResult,
 } from "../../../shared/ai/ai";
 import { readSettingsForFolder } from "../../settings/io";
+import {
+  cancelAgentRun,
+  runAgentLoop,
+} from "../agent/agentLoop";
+import { resolveUiTool } from "../agent/uiToolBridge";
 import { runLocalAiChat } from "../providers/localProvider";
 import {
-  cancelCoreAiStream,
   cancelCoreModelPull,
-  startCoreAiStream,
   startCoreModelPullStream,
 } from "../streaming/coreStream";
 import { requestCoreInlineCompletion } from "../completion/inlineCompletion";
@@ -203,7 +207,7 @@ export function registerAiHandlers(deps: {
         };
       }
 
-      return startCoreAiStream({
+      const { requestId } = runAgentLoop({
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
         request: {
@@ -216,7 +220,14 @@ export function registerAiHandlers(deps: {
           }
         },
       });
+
+      return { success: true, requestId };
     },
+  );
+
+  ipcMain.handle(
+    "ai:uiToolResult",
+    (_event, result: AiUiToolResult): boolean => resolveUiTool(result),
   );
 
   ipcMain.handle(
@@ -256,7 +267,7 @@ export function registerAiHandlers(deps: {
   ipcMain.handle(
     "ai:cancelChatStream",
     (_event, requestId: string): boolean => {
-      return cancelCoreAiStream(requestId);
+      return cancelAgentRun(requestId);
     },
   );
 

@@ -202,6 +202,9 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/ai/project-context", s.handleAIProjectContext)
 	mux.HandleFunc("/ai/models/pull/stream", s.handleAIModelPullStream)
 	mux.HandleFunc("/ai/chat/stream", s.handleAIChatStream)
+	mux.HandleFunc("/ai/chat/turn", s.handleAIChatTurn)
+	mux.HandleFunc("/ai/tool-definitions", s.handleAIToolDefinitions)
+	mux.HandleFunc("/ai/run-tool", s.handleAIRunTool)
 	mux.HandleFunc("/ai/inline-completion", s.handleAIInlineCompletion)
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev

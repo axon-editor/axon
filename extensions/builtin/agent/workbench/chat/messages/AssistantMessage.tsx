@@ -5,18 +5,23 @@
 
 import { type AiEditFileProposal } from "@axon-editor/shared/ai/ai";
 import AssistantMarkdown from "../content/AssistantMarkdown";
+import AgentToolCard from "../content/AgentToolCard";
 import EditProposalCard from "../content/EditProposalCard";
 import MessageHeader from "./MessageHeader";
 import StreamingIndicator from "../indicators/StreamingIndicator";
+import { type AgentToolCallState } from "../../lib/conversation/agentConversation";
 
 interface AssistantMessageProps {
   content: string | null;
   editProposal?: { title: string; files: AiEditFileProposal[] };
   messageId: number;
   copiedId: number | null;
+  toolCalls?: AgentToolCallState[];
   onApplyEdit: (file: AiEditFileProposal) => void;
   onCopied: (messageId: number) => void;
   onCopyContent: (content: string) => void;
+  onRunTool?: (messageId: number, tool: AgentToolCallState) => void;
+  onSkipTool?: (messageId: number, tool: AgentToolCallState) => void;
 }
 
 export default function AssistantMessage({
@@ -24,9 +29,12 @@ export default function AssistantMessage({
   editProposal,
   messageId,
   copiedId,
+  toolCalls,
   onApplyEdit,
   onCopied,
   onCopyContent,
+  onRunTool,
+  onSkipTool,
 }: AssistantMessageProps) {
   return (
     <div className="group/assistant flex flex-col" data-message-id={messageId}>
@@ -43,11 +51,16 @@ export default function AssistantMessage({
       />
 
       <div className="w-full">
-        {content ? (
-          <AssistantMarkdown content={content} />
-        ) : (
-          <StreamingIndicator />
-        )}
+        {content && <AssistantMarkdown content={content} />}
+        {toolCalls?.map((tool) => (
+          <AgentToolCard
+            key={tool.id}
+            tool={tool}
+            onRun={(next) => onRunTool?.(messageId, next)}
+            onSkip={(next) => onSkipTool?.(messageId, next)}
+          />
+        ))}
+        {!content && !toolCalls?.length && <StreamingIndicator />}
 
         {editProposal && (
           <EditProposalCard

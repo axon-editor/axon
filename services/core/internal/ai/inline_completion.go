@@ -120,7 +120,7 @@ func emptyInlineCompletion(request InlineCompletionRequest) InlineCompletionResu
 func callInlineCompletionModel(ctx context.Context, request InlineCompletionRequest) (modelChatResponse, error) {
 	rawPayload, err := json.Marshal(map[string]any{
 		"model": ModelName(ChatRequest{Model: request.Model}),
-		"messages": []modelMessage{
+		"messages": []ModelMessage{
 			{
 				Role: "system",
 				Content: strings.Join([]string{

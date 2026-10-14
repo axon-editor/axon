@@ -39,6 +39,7 @@ import {
   type AiPullEvent,
   type AiPullStarted,
   type AiRuntimeStatus,
+  type AiUiToolResult,
 } from "../shared/ai/ai";
 import { type EditorDiagnostic } from "../shared/editor/language/diagnostics";
 import { type FolderChangeEvent } from "../shared/workspace/fs";
@@ -364,6 +365,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("ai:inlineCompletion", request),
   cancelAiChatStream: (requestId: string): Promise<boolean> =>
     ipcRenderer.invoke("ai:cancelChatStream", requestId),
+  reportAiUiToolResult: (result: AiUiToolResult): Promise<boolean> =>
+    ipcRenderer.invoke("ai:uiToolResult", result),
   pullAiModel: (model: string): Promise<AiPullStarted> =>
     ipcRenderer.invoke("ai:pullModel", model),
   cancelAiModelPull: (requestId: string): Promise<boolean> =>

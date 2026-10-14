@@ -94,8 +94,12 @@ export function startCoreAiStream(input: {
   axonCoreToken: string;
   request: AiChatRequest;
   send: (event: AiChatStreamEvent) => void;
+  requestId?: string;
 }): AiChatStreamStarted {
-  const requestId = randomUUID();
+  // The agent loop streams its final answer under the same request id it has
+  // been emitting status and tool events on, so the renderer sees one logical
+  // request from first status to last token.
+  const requestId = input.requestId ?? randomUUID();
   const controller = new AbortController();
   chatControllers.set(requestId, controller);
 

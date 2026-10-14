@@ -29,6 +29,8 @@ import WorkspaceSafetyOverlays from "../overlays/WorkspaceSafetyOverlays";
 import ZenCommandLine from "../zen/ZenCommandLine";
 import { useZenTransition } from "../../lib/ui/useZenTransition";
 import { openGitCommitDiff } from "@axon-builtin-git/git/lib/gitGraphTab";
+import { runAgentUiTool } from "@axon-builtin-agent/lib/actions/agentToolActions";
+import { type AiUiState } from "@axon-editor/shared/ai/ai";
 import type { AxonWorkbenchLayoutProps } from "../../AxonAppView";
 
 // Matches the fade duration of .axon-zen-chrome in App.css so chrome unmounts
@@ -193,6 +195,26 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
   const shouldShowAgentSidebar =
     settings.ai.enabled && agentSidebarOpen && !!agentContribution;
   const canShowSpotify = !!spotifyContribution;
+  // The agent needs a picture of the current workbench to decide which UI
+  // action makes sense, and the renderer is where that state actually lives.
+  const agentUiState: AiUiState = {
+    sidebarCollapsed,
+    agentSidebarOpen,
+    terminalOpen,
+    bottomPanelOpen,
+    bottomPanelTab,
+    zenMode,
+    activeFilePath: activePane?.activeFile ?? null,
+    openFilePaths: Array.from(
+      new Set(layout.panes.flatMap((pane) => pane.openTabs)),
+    ),
+  };
+  const runAgentAction = (name: string, args: Record<string, unknown>) =>
+    runAgentUiTool(
+      { folderPath, runCommand, openFile: handleFileSelect },
+      name,
+      args,
+    );
   const agentSidebarNode = shouldShowAgentSidebar ? (
     <React.Suspense fallback={null}>
       <AxonAgentSidebar
@@ -211,8 +233,10 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         resumeRequested={agentResumeRequested}
         side="right"
         width={agentSidebarWidth}
+        uiState={agentUiState}
         onApplyEdit={handleApplyAgentEdit}
         onClose={() => setAgentSidebarOpen(false)}
+        onRunAgentAction={runAgentAction}
         onWidthChange={setAgentSidebarWidth}
       />
     </React.Suspense>

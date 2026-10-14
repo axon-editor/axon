@@ -22,12 +22,12 @@ const (
 	maxToolSearchLineSize = 220
 )
 
-type projectToolDefinition struct {
+type ProjectToolDefinition struct {
 	Type     string              `json:"type"`
-	Function projectToolFunction `json:"function"`
+	Function ProjectToolFunction `json:"function"`
 }
 
-type projectToolFunction struct {
+type ProjectToolFunction struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
 	Parameters  map[string]any `json:"parameters"`
@@ -45,11 +45,11 @@ type listFilesArgs struct {
 	Path string `json:"path"`
 }
 
-func ProjectToolDefinitions() []projectToolDefinition {
-	return []projectToolDefinition{
+func ProjectToolDefinitions() []ProjectToolDefinition {
+	return []ProjectToolDefinition{
 		{
 			Type: "function",
-			Function: projectToolFunction{
+			Function: ProjectToolFunction{
 				Name:        "list_files",
 				Description: "List project files under a relative folder path. Use this before reading files when you need to understand structure.",
 				Parameters: objectSchema(map[string]any{
@@ -62,7 +62,7 @@ func ProjectToolDefinitions() []projectToolDefinition {
 		},
 		{
 			Type: "function",
-			Function: projectToolFunction{
+			Function: ProjectToolFunction{
 				Name:        "read_file",
 				Description: "Read a UTF-8 text file from the current workspace. Paths must be workspace-relative unless the path is already inside the workspace.",
 				Parameters: objectSchema(map[string]any{
@@ -75,7 +75,7 @@ func ProjectToolDefinitions() []projectToolDefinition {
 		},
 		{
 			Type: "function",
-			Function: projectToolFunction{
+			Function: ProjectToolFunction{
 				Name:        "search_project",
 				Description: "Search text across project source, config, and docs files. Use this when the user asks where something exists or how a feature is implemented.",
 				Parameters: objectSchema(map[string]any{

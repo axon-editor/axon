@@ -133,6 +133,7 @@ import type {
   AiPullEvent,
   AiPullStarted,
   AiRuntimeStatus,
+  AiUiToolResult,
 } from "../../shared/ai/ai";
 
 declare global {
@@ -276,6 +277,7 @@ declare global {
         request: AiInlineCompletionRequest,
       ) => Promise<AiInlineCompletionResult>;
       cancelAiChatStream: (requestId: string) => Promise<boolean>;
+      reportAiUiToolResult: (result: AiUiToolResult) => Promise<boolean>;
       pullAiModel: (model: string) => Promise<AiPullStarted>;
       cancelAiModelPull: (requestId: string) => Promise<boolean>;
       getLanguageServerStatus: (

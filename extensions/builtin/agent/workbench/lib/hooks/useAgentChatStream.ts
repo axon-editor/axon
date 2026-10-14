@@ -11,7 +11,10 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { type AgentMessage } from "../conversation/agentConversation";
+import {
+  type AgentMessage,
+  type AgentToolStatus,
+} from "../conversation/agentConversation";
 import {
   actionCanApplyEdits,
   parseEditProposal,
@@ -50,6 +53,60 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
       }
 
       if (event.type === "status") {
+        return;
+      }
+
+      const updateToolStatus = (
+        toolId: string,
+        status: AgentToolStatus,
+        message?: string,
+      ) => {
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === stream.messageId
+              ? {
+                  ...item,
+                  toolCalls: (item.toolCalls ?? []).map((tool) =>
+                    tool.id === toolId
+                      ? { ...tool, status, message: message ?? tool.message }
+                      : tool,
+                  ),
+                }
+              : item,
+          ),
+        );
+      };
+
+      if (event.type === "tool-proposed" && event.tool) {
+        const tool = event.tool;
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === stream.messageId
+              ? {
+                  ...item,
+                  toolCalls: [
+                    ...(item.toolCalls ?? []),
+                    { ...tool, status: "pending" },
+                  ],
+                }
+              : item,
+          ),
+        );
+        return;
+      }
+
+      if (event.type === "tool-started" && event.tool) {
+        updateToolStatus(event.tool.id, "running");
+        return;
+      }
+
+      if (event.type === "tool-result" && event.tool) {
+        const result = event.toolResult;
+        updateToolStatus(
+          event.tool.id,
+          result?.rejected ? "rejected" : result?.ok ? "done" : "error",
+          result?.message,
+        );
         return;
       }
 

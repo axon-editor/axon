@@ -59,6 +59,56 @@ export interface AiEditProposal {
   files: AiEditFileProposal[];
 }
 
+export interface AiUiState {
+  sidebarCollapsed: boolean;
+  agentSidebarOpen: boolean;
+  terminalOpen: boolean;
+  bottomPanelOpen: boolean;
+  bottomPanelTab: string | null;
+  zenMode: boolean;
+  activeFilePath: string | null;
+  openFilePaths: string[];
+}
+
+export interface AiModelToolCall {
+  function: {
+    name: string;
+    arguments: Record<string, unknown> | string;
+  };
+}
+
+export interface AiModelMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string;
+  tool_calls?: AiModelToolCall[];
+}
+
+export interface AiToolDefinition {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+export type AiToolKind = "workspace" | "ui";
+
+export interface AiToolCall {
+  id: string;
+  name: string;
+  kind: AiToolKind;
+  title: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface AiUiToolResult {
+  callId: string;
+  ok: boolean;
+  rejected?: boolean;
+  message?: string;
+}
+
 export interface AiChatRequest {
   action: AiActionId;
   prompt: string;
@@ -71,6 +121,13 @@ export interface AiChatRequest {
   projectContext?: AiProjectContext;
   gitDiff?: string;
   model?: string;
+  // The main process owns the agent tool loop and re-sends the full
+  // conversation it has accumulated so axon-core can plan the next turn. The
+  // renderer leaves these empty.
+  messages?: AiModelMessage[];
+  tools?: AiToolDefinition[];
+  // A snapshot of the workbench so UI actions are grounded in what is visible.
+  uiState?: AiUiState;
 }
 
 export interface AiChatResult {
@@ -106,13 +163,25 @@ export interface AiChatStreamStarted {
   message?: string;
 }
 
+export type AiChatStreamEventType =
+  | "delta"
+  | "status"
+  | "done"
+  | "error"
+  | "cancelled"
+  | "tool-proposed"
+  | "tool-started"
+  | "tool-result";
+
 export interface AiChatStreamEvent {
   requestId: string;
-  type: "delta" | "status" | "done" | "error" | "cancelled";
+  type: AiChatStreamEventType;
   delta?: string;
   status?: string;
   error?: string;
   done?: boolean;
+  tool?: AiToolCall;
+  toolResult?: AiUiToolResult;
 }
 
 export interface AiModelInfo {

@@ -7,7 +7,25 @@ import {
   type AiActionId,
   type AiChatResult,
   type AiConversationMessage,
+  type AiToolKind,
 } from "@axon-editor/shared/ai/ai";
+
+export type AgentToolStatus =
+  | "pending"
+  | "running"
+  | "done"
+  | "rejected"
+  | "error";
+
+export interface AgentToolCallState {
+  id: string;
+  name: string;
+  kind: AiToolKind;
+  title: string;
+  arguments: Record<string, unknown>;
+  status: AgentToolStatus;
+  message?: string;
+}
 
 export interface AgentMessage {
   id: number;
@@ -15,6 +33,7 @@ export interface AgentMessage {
   content: string;
   action?: AiActionId;
   result?: AiChatResult;
+  toolCalls?: AgentToolCallState[];
 }
 
 export interface AgentConversation {
