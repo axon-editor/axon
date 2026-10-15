@@ -115,45 +115,109 @@ type ModelInfo struct {
 	Description   string `json:"description,omitempty"`
 	ProviderLabel string `json:"providerLabel"`
 	Available     bool   `json:"available"`
+	// Memory footprint and host compatibility let every surface (settings,
+	// sidebar, agent runtime) agree on which models this machine can run.
+	MinMemoryGB         int    `json:"minMemoryGB"`
+	RecommendedMemoryGB int    `json:"recommendedMemoryGB"`
+	Compatibility       string `json:"compatibility"`
 }
+
+// Model compatibility levels reported to the editor. "great" runs comfortably,
+// "ok" runs but sits close to the memory ceiling, and "unsupported" should not
+// be offered on the host by default.
+const (
+	ModelCompatibilityGreat       = "great"
+	ModelCompatibilityOK          = "ok"
+	ModelCompatibilityUnsupported = "unsupported"
+)
 
 type catalogModel struct {
 	ID          string
 	Label       string
 	Description string
 	RuntimeName string
+	// MinMemoryGB is the smallest host memory that can load the model without
+	// swapping, and RecommendedMemoryGB leaves headroom for the OS, the editor,
+	// and a long context.
+	MinMemoryGB         int
+	RecommendedMemoryGB int
 }
 
+// modelCatalog is ordered from the smallest footprint to the largest so the UI
+// can show lighter, always-runnable models first and so the default model falls
+// back to the lightest entry when nothing fits.
 var modelCatalog = []catalogModel{
 	{
-		ID:          "axon-code",
-		Label:       "Axon Code",
-		Description: "Balanced local coding model for everyday editing, fixes, and explanations.",
-		RuntimeName: "qwen2.5-coder:7b",
+		ID:                  "axon-code-fast",
+		Label:               "Axon Code Fast",
+		Description:         "Fastest coding model for quick questions and small edits.",
+		RuntimeName:         "qwen2.5-coder:3b",
+		MinMemoryGB:         8,
+		RecommendedMemoryGB: 8,
 	},
 	{
-		ID:          "axon-code-fast",
-		Label:       "Axon Code Fast",
-		Description: "Lower-latency coding model for quick questions and small edits.",
-		RuntimeName: "qwen2.5-coder:3b",
+		ID:                  "axon-micro",
+		Label:               "Axon Micro",
+		Description:         "Tiny tool-capable model for low-memory machines and quick answers.",
+		RuntimeName:         "qwen3:4b",
+		MinMemoryGB:         8,
+		RecommendedMemoryGB: 8,
 	},
 	{
-		ID:          "axon-reason",
-		Label:       "Axon Reason",
-		Description: "Reasoning-focused local model for harder debugging and planning.",
-		RuntimeName: "deepseek-r1:8b",
+		ID:                  "axon-code",
+		Label:               "Axon Code",
+		Description:         "Balanced local coding model for everyday editing, fixes, and explanations.",
+		RuntimeName:         "qwen2.5-coder:7b",
+		MinMemoryGB:         12,
+		RecommendedMemoryGB: 16,
 	},
 	{
-		ID:          "axon-general",
-		Label:       "Axon General",
-		Description: "General local assistant for project questions and writing tasks.",
-		RuntimeName: "llama3.1:8b",
+		ID:                  "axon-reason",
+		Label:               "Axon Reason",
+		Description:         "Reasoning-focused local model for harder debugging and planning.",
+		RuntimeName:         "deepseek-r1:8b",
+		MinMemoryGB:         12,
+		RecommendedMemoryGB: 16,
 	},
 	{
-		ID:          "axon-compact",
-		Label:       "Axon Compact",
-		Description: "Small local model for machines with tighter memory limits.",
-		RuntimeName: "phi3:mini",
+		ID:                  "axon-compact",
+		Label:               "Axon Compact",
+		Description:         "Compact tool-capable assistant for chat and agent actions on modest machines.",
+		RuntimeName:         "qwen3:8b",
+		MinMemoryGB:         12,
+		RecommendedMemoryGB: 12,
+	},
+	{
+		ID:                  "axon-general",
+		Label:               "Axon General",
+		Description:         "General assistant with tool calling and vision for everyday work.",
+		RuntimeName:         "qwen3.5:9b",
+		MinMemoryGB:         16,
+		RecommendedMemoryGB: 16,
+	},
+	{
+		ID:                  "axon-agent",
+		Label:               "Axon Agent",
+		Description:         "Tool-calling workhorse for multi-step agent tasks; runs light but wants memory headroom.",
+		RuntimeName:         "gpt-oss:20b",
+		MinMemoryGB:         16,
+		RecommendedMemoryGB: 24,
+	},
+	{
+		ID:                  "axon-code-pro",
+		Label:               "Axon Code Pro",
+		Description:         "Strongest local coding agent with a long context for large projects.",
+		RuntimeName:         "qwen3-coder:30b",
+		MinMemoryGB:         24,
+		RecommendedMemoryGB: 32,
+	},
+	{
+		ID:                  "axon-frontier",
+		Label:               "Axon Frontier",
+		Description:         "Frontier-quality local model for demanding reasoning and agentic coding.",
+		RuntimeName:         "qwen3.6:35b",
+		MinMemoryGB:         32,
+		RecommendedMemoryGB: 40,
 	},
 }
 
@@ -208,7 +272,7 @@ func ModelName(request ChatRequest) string {
 	if strings.TrimSpace(request.Model) != "" {
 		return RuntimeModelName(strings.TrimSpace(request.Model))
 	}
-	return RuntimeModelName("axon-code")
+	return RuntimeModelName(DefaultModelID())
 }
 
 func RuntimeModelName(modelID string) string {
@@ -221,8 +285,37 @@ func RuntimeModelName(modelID string) string {
 	return trimmedModelID
 }
 
+// DefaultModelID picks the most capable model that still runs comfortably on
+// the host. When nothing is a comfortable fit it falls back to the lightest
+// catalog entry so a fresh install always has a usable selection.
 func DefaultModelID() string {
+	hostMemoryGB := HostMemoryGB()
+	defaultModelID := ""
+	for _, model := range modelCatalog {
+		if modelCompatibility(hostMemoryGB, model.MinMemoryGB, model.RecommendedMemoryGB) == ModelCompatibilityGreat {
+			defaultModelID = model.ID
+		}
+	}
+	if defaultModelID != "" {
+		return defaultModelID
+	}
 	return modelCatalog[0].ID
+}
+
+// modelCompatibility classifies a model against the host memory. A zero host
+// value means detection failed, so the model is treated as comfortable to avoid
+// hiding the whole catalog.
+func modelCompatibility(hostMemoryGB, minMemoryGB, recommendedMemoryGB int) string {
+	if hostMemoryGB <= 0 {
+		return ModelCompatibilityGreat
+	}
+	if hostMemoryGB >= recommendedMemoryGB {
+		return ModelCompatibilityGreat
+	}
+	if hostMemoryGB >= minMemoryGB {
+		return ModelCompatibilityOK
+	}
+	return ModelCompatibilityUnsupported
 }
 
 func CatalogModel(modelID string) catalogModel {
@@ -297,14 +390,18 @@ func ListModels(ctx context.Context, selectedModel string) ([]ModelInfo, error) 
 }
 
 func catalogModelInfo(installedRuntimeModels map[string]bool) []ModelInfo {
+	hostMemoryGB := HostMemoryGB()
 	models := make([]ModelInfo, 0, len(modelCatalog))
 	for _, model := range modelCatalog {
 		models = append(models, ModelInfo{
-			ID:            model.ID,
-			Label:         model.Label,
-			Description:   model.Description,
-			ProviderLabel: "Axon models",
-			Available:     installedRuntimeModels != nil && installedRuntimeModels[model.RuntimeName],
+			ID:                  model.ID,
+			Label:               model.Label,
+			Description:         model.Description,
+			ProviderLabel:       "Axon models",
+			Available:           installedRuntimeModels != nil && installedRuntimeModels[model.RuntimeName],
+			MinMemoryGB:         model.MinMemoryGB,
+			RecommendedMemoryGB: model.RecommendedMemoryGB,
+			Compatibility:       modelCompatibility(hostMemoryGB, model.MinMemoryGB, model.RecommendedMemoryGB),
 		})
 	}
 	return models

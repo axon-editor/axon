@@ -184,12 +184,17 @@ export interface AiChatStreamEvent {
   toolResult?: AiUiToolResult;
 }
 
+export type AiModelCompatibility = "great" | "ok" | "unsupported";
+
 export interface AiModelInfo {
   id: string;
   label: string;
   description?: string;
   providerLabel: string;
   available: boolean;
+  minMemoryGB?: number;
+  recommendedMemoryGB?: number;
+  compatibility?: AiModelCompatibility;
 }
 
 export interface AiRuntimeStatus {
@@ -200,6 +205,7 @@ export interface AiRuntimeStatus {
   selectedModel: string;
   selectedModelInstalled: boolean;
   models: AiModelInfo[];
+  memoryGB?: number;
   detail: string;
   installHint: string;
 }

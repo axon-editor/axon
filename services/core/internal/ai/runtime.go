@@ -27,6 +27,7 @@ type RuntimeStatus struct {
 	SelectedModel          string      `json:"selectedModel"`
 	SelectedModelInstalled bool        `json:"selectedModelInstalled"`
 	Models                 []ModelInfo `json:"models"`
+	MemoryGB               int         `json:"memoryGB"`
 	Detail                 string      `json:"detail"`
 	InstallHint            string      `json:"installHint"`
 }
@@ -149,6 +150,7 @@ func EnsureRuntimeStatus(ctx context.Context, selectedModel string) RuntimeStatu
 			Running:       false,
 			ProviderLabel: "Axon models",
 			SelectedModel: modelName,
+			MemoryGB:      HostMemoryGB(),
 			Detail:        "Axon models runtime is not installed.",
 			InstallHint:   "Install Ollama from https://ollama.com/download, then reopen Axon.",
 		}
@@ -160,6 +162,7 @@ func EnsureRuntimeStatus(ctx context.Context, selectedModel string) RuntimeStatu
 			Running:       false,
 			ProviderLabel: "Axon models",
 			SelectedModel: modelName,
+			MemoryGB:      HostMemoryGB(),
 			Detail:        err.Error(),
 			InstallHint:   "Axon found the local model runtime but could not start it automatically.",
 		}
@@ -172,6 +175,7 @@ func EnsureRuntimeStatus(ctx context.Context, selectedModel string) RuntimeStatu
 			Running:       true,
 			ProviderLabel: "Axon models",
 			SelectedModel: modelName,
+			MemoryGB:      HostMemoryGB(),
 			Detail:        err.Error(),
 		}
 	}
@@ -196,6 +200,7 @@ func EnsureRuntimeStatus(ctx context.Context, selectedModel string) RuntimeStatu
 		SelectedModel:          modelName,
 		SelectedModelInstalled: selectedInstalled,
 		Models:                 models,
+		MemoryGB:               HostMemoryGB(),
 		Detail:                 "Axon models runtime is ready.",
 	}
 }

@@ -90,11 +90,17 @@ export function summarizeContext(input: AgentWorkbenchContextInput) {
   return parts.join(" / ");
 }
 
+export function modelRunsOnHost(model: AiModelInfo) {
+  return model.compatibility !== "unsupported";
+}
+
 export function chooseModel(models: AiModelInfo[], requestedModel: string) {
   const requested = models.find((model) => model.id === requestedModel);
-  if (requested?.available) return requested.id;
-  const available = models.find((model) => model.available);
+  if (requested?.available && modelRunsOnHost(requested)) return requested.id;
+  const available = models.find((model) => model.available && modelRunsOnHost(model));
   if (available) return available.id;
+  const compatible = models.find(modelRunsOnHost);
+  if (compatible) return compatible.id;
   if (requested) return requested.id;
   return models[0]?.id ?? requestedModel;
 }

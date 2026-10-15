@@ -34,6 +34,21 @@ function statusTone(ready: boolean, loading: boolean) {
   return "border-[#62412c] bg-[#20170f] text-[#ffbf87]";
 }
 
+// memoryNoteFor warns when the selected model strains the host memory so the
+// panel can explain a slow or failing run before the user starts chatting.
+function memoryNoteFor(model: AiModelInfo | undefined, hostMemoryGB: number | undefined) {
+  if (!model) return "";
+  if (model.compatibility === "unsupported") {
+    const need = model.minMemoryGB ? `about ${model.minMemoryGB} GB` : "more memory";
+    const host = hostMemoryGB ? ` This machine has ${hostMemoryGB} GB.` : "";
+    return `This model needs ${need} of memory.${host}`;
+  }
+  if (model.compatibility === "ok") {
+    return "This model runs close to this machine's memory limit.";
+  }
+  return "";
+}
+
 export default function AgentRuntimeStatusPanel({
   diagnosticsCount,
   gitChangeCount,
@@ -49,6 +64,12 @@ export default function AgentRuntimeStatusPanel({
   onCancelPull,
   onPullSelectedModel,
 }: Props) {
+  const memoryNote = memoryNoteFor(selectedModelInfo, runtimeStatus?.memoryGB);
+  const memoryNoteTone =
+    selectedModelInfo?.compatibility === "unsupported"
+      ? "text-[#ffbf87]"
+      : "text-[var(--axon-editor-foreground)] opacity-55";
+
   return (
     <div className="mb-4 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/20">
       <div className="border-b border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-4 py-3">
@@ -68,6 +89,11 @@ export default function AgentRuntimeStatusPanel({
             <div className="mt-1 text-[11px] leading-5 text-[var(--axon-editor-foreground)] opacity-60">
               {runtimeStatus?.detail ?? modelStatus}
             </div>
+            {memoryNote.length > 0 && (
+              <div className={`mt-1 text-[11px] leading-5 ${memoryNoteTone}`}>
+                {memoryNote}
+              </div>
+            )}
           </div>
           <div
             className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium ${statusTone(

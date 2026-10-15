@@ -640,6 +640,10 @@ export default function AxonAgentSidebar(props: Props) {
                                 model.id === selectedModel
                                   ? "bg-[var(--axon-panel-overlay-hover)]"
                                   : "hover:bg-[var(--axon-panel-overlay-hover)]"
+                              }${
+                                model.compatibility === "unsupported"
+                                  ? " opacity-60"
+                                  : ""
                               }`}
                             >
                               <span
@@ -655,6 +659,13 @@ export default function AxonAgentSidebar(props: Props) {
                                 </span>
                                 <span className="mt-0.5 block text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-50">
                                   {model.available ? "Ready" : "Download required"}
+                                  {model.compatibility === "unsupported"
+                                    ? model.minMemoryGB
+                                      ? ` - needs about ${model.minMemoryGB} GB`
+                                      : " - too much memory for this machine"
+                                    : model.compatibility === "ok"
+                                      ? " - close to this machine's memory limit"
+                                      : ""}
                                 </span>
                               </span>
                             </button>

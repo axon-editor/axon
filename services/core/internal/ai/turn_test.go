@@ -12,20 +12,25 @@ import (
 	"testing"
 )
 
-const installedRuntimeModel = "qwen2.5-coder:7b"
-
 // newModelRuntimeServer points the ai package at a fake Ollama runtime so the
 // caller-driven turn and stream paths can be exercised without a real model.
-// /api/tags always reports the default runtime model as installed, and the
-// caller decides how /api/chat responds. captured receives the last decoded
-// chat payload so a test can assert what actually reached the model.
+// /api/tags reports every catalog runtime as installed so the host-aware
+// default model is always available, and the caller decides how /api/chat
+// responds. captured receives the last decoded chat payload so a test can
+// assert what actually reached the model.
 func newModelRuntimeServer(t *testing.T, chat http.HandlerFunc, captured *map[string]any) {
 	t.Helper()
+	installed := make([]map[string]string, 0, len(modelCatalog))
+	for _, model := range modelCatalog {
+		installed = append(installed, map[string]string{"name": model.RuntimeName})
+	}
+	tagsPayload, _ := json.Marshal(map[string]any{"models": installed})
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/tags":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"models":[{"name":"` + installedRuntimeModel + `"}]}`))
+			_, _ = w.Write(tagsPayload)
 		case "/api/chat":
 			if captured != nil {
 				_ = json.NewDecoder(r.Body).Decode(captured)
