@@ -55,14 +55,26 @@ export function useAgentModelRuntime(
   const [pullEvent, setPullEvent] = useState<AiPullEvent | null>(null);
   const pullRef = useRef<{ requestId: string; model: string } | null>(null);
 
+  // Tracking the selection in a ref instead of a dependency keeps the refresh
+  // callback stable across model changes. Previously every selection rebuilt the
+  // callback, which re-ran the refresh effect below: a full status fetch that
+  // flipped runtimeLoading back to true and let chooseModel snap the selection
+  // to the first installed model. That is what made the "needs download" panel
+  // flash and then vanish the moment the user picked an uninstalled model.
+  const selectedModelRef = useRef(selectedModel);
+  useEffect(() => {
+    selectedModelRef.current = selectedModel;
+  }, [selectedModel]);
+
   const refreshRuntimeStatus = useCallback(
-    async (nextSelectedModel = selectedModel) => {
+    async (nextSelectedModel?: string) => {
+      const targetModel = nextSelectedModel ?? selectedModelRef.current;
       setRuntimeLoading(true);
       try {
         const status = await window.axon.getAiRuntimeStatus(folderPath);
         setRuntimeStatus(status);
         setModels(status.models);
-        const nextModel = chooseModel(status.models, nextSelectedModel);
+        const nextModel = chooseModel(status.models, targetModel);
         setSelectedModel(nextModel);
         setModelStatus(status.detail);
       } catch (err) {
@@ -71,7 +83,7 @@ export function useAgentModelRuntime(
           running: false,
           startedByAxon: false,
           providerLabel: "Axon models",
-          selectedModel: nextSelectedModel,
+          selectedModel: targetModel,
           selectedModelInstalled: false,
           models: [],
           detail:
@@ -86,7 +98,7 @@ export function useAgentModelRuntime(
         setRuntimeLoading(false);
       }
     },
-    [folderPath, selectedModel],
+    [folderPath],
   );
 
   useEffect(() => {

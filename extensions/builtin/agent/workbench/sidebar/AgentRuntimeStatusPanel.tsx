@@ -9,21 +9,25 @@ import {
   type AiPullEvent,
   type AiRuntimeStatus,
 } from "@axon-editor/shared/ai/ai";
+import AgentInstalledModelPicker from "./AgentInstalledModelPicker";
 
 interface Props {
   diagnosticsCount: number;
   gitChangeCount: number;
+  models: AiModelInfo[];
   modelStatus: string;
   pulling: boolean;
   pullEvent: AiPullEvent | null;
   pullPercent: number;
   runtimeLoading: boolean;
   runtimeStatus: AiRuntimeStatus | null;
+  selectedModel: string;
   selectedModelInfo?: AiModelInfo;
   selectedModelInstalled: boolean;
   selectedModelLabel: string;
   onCancelPull: () => void;
   onPullSelectedModel: () => void;
+  onSelectModel: (model: string) => void;
 }
 
 function statusTone(ready: boolean, loading: boolean) {
@@ -52,23 +56,27 @@ function memoryNoteFor(model: AiModelInfo | undefined, hostMemoryGB: number | un
 export default function AgentRuntimeStatusPanel({
   diagnosticsCount,
   gitChangeCount,
+  models,
   modelStatus,
   pulling,
   pullEvent,
   pullPercent,
   runtimeLoading,
   runtimeStatus,
+  selectedModel,
   selectedModelInfo,
   selectedModelInstalled,
   selectedModelLabel,
   onCancelPull,
   onPullSelectedModel,
+  onSelectModel,
 }: Props) {
   const memoryNote = memoryNoteFor(selectedModelInfo, runtimeStatus?.memoryGB);
   const memoryNoteTone =
     selectedModelInfo?.compatibility === "unsupported"
       ? "text-[#ffbf87]"
       : "text-[var(--axon-editor-foreground)] opacity-55";
+  const installedModels = models.filter((model) => model.available);
 
   return (
     <div className="mb-4 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/20">
@@ -135,29 +143,29 @@ export default function AgentRuntimeStatusPanel({
           </div>
         </div>
       </div>
-      {runtimeStatus?.installHint ? (
+      {runtimeStatus?.installHint && (
         <div className="border-t border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-4 py-3 text-[11px] leading-5 text-[var(--axon-editor-foreground)]">
           {runtimeStatus.installHint}
         </div>
-      ) : null}
-      {runtimeStatus?.installed && runtimeStatus.running && !selectedModelInstalled ? (
+      )}
+      {runtimeStatus?.installed && runtimeStatus.running && !selectedModelInstalled && (
         <div className="border-t border-[var(--axon-panel-border)] p-4">
           <div className="mb-3 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-3">
             <div className="text-[12px] font-semibold text-[var(--axon-editor-foreground)]">
               {selectedModelLabel}
             </div>
-            {selectedModelInfo?.description ? (
+            {selectedModelInfo?.description && (
               <div className="mt-1 text-[11px] leading-5 text-[var(--axon-editor-foreground)] opacity-60">
                 {selectedModelInfo.description}
               </div>
-            ) : null}
+            )}
           </div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="min-w-0 truncate text-[11px] text-[var(--axon-editor-foreground)] opacity-65">
               Download {selectedModelLabel} to enable chat.
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              {pulling ? (
+              {pulling && (
                 <button
                   type="button"
                   onClick={onCancelPull}
@@ -166,7 +174,7 @@ export default function AgentRuntimeStatusPanel({
                   <Square size={11} />
                   Cancel
                 </button>
-              ) : null}
+              )}
               <button
                 type="button"
                 onClick={onPullSelectedModel}
@@ -182,7 +190,7 @@ export default function AgentRuntimeStatusPanel({
               </button>
             </div>
           </div>
-          {pullEvent ? (
+          {pullEvent && (
             <div className="rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-2">
               <div className="flex items-center justify-between text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                 <span className="truncate">
@@ -197,9 +205,21 @@ export default function AgentRuntimeStatusPanel({
                 />
               </div>
             </div>
-          ) : null}
+          )}
         </div>
-      ) : null}
+      )}
+      {runtimeStatus?.installed && runtimeStatus.running && installedModels.length > 0 && (
+        <div className="border-t border-[var(--axon-panel-border)] px-4 py-3">
+          <div className="mb-2 text-[10px] uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-45">
+            Or use an installed model
+          </div>
+          <AgentInstalledModelPicker
+            models={models}
+            selectedModel={selectedModel}
+            onSelectModel={onSelectModel}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -94,6 +94,32 @@ function conversationTitle(messages: AgentMessage[]) {
   return title.length > 48 ? `${title.slice(0, 45)}...` : title;
 }
 
+function isConversationEmpty(conversation: AgentConversation) {
+  return !conversation.messages.some(
+    (message) => message.role === "user" || message.role === "assistant",
+  );
+}
+
+// The "New conversation" button used to append a blank thread on every press,
+// so the picker could hold a stack of identical "New conversation" entries.
+// Keeping only the active blank one clears any trail that is already saved while
+// still leaving the user with an empty thread to type into.
+function pruneEmptyConversations(state: AgentConversationState): AgentConversationState {
+  const conversations = state.conversations.filter(
+    (conversation) =>
+      conversation.id === state.activeId ||
+      !isConversationEmpty(conversation) ||
+      conversation.pinned,
+  );
+  if (conversations.length === state.conversations.length) return state;
+  return {
+    activeId: conversations.some((conversation) => conversation.id === state.activeId)
+      ? state.activeId
+      : conversations[conversations.length - 1].id,
+    conversations,
+  };
+}
+
 function normalizeState(value: unknown): AgentConversationState | null {
   if (typeof value !== "object" || value === null) return null;
   const candidate = value as Partial<AgentConversationState>;
@@ -129,7 +155,7 @@ export function loadAgentConversationState(folderPath: string | null): AgentConv
   try {
     const parsed = JSON.parse(localStorage.getItem(conversationKey(folderPath)) ?? "null");
     const normalized = normalizeState(parsed);
-    if (normalized) return normalized;
+    if (normalized) return pruneEmptyConversations(normalized);
   } catch {
     // Fall through to legacy migration or a fresh empty conversation.
   }
@@ -207,10 +233,22 @@ export function startAgentConversation(
   folderPath: string | null,
   state: AgentConversationState,
 ) {
+  const active = state.conversations.find(
+    (conversation) => conversation.id === state.activeId,
+  );
+  const pruned = pruneEmptyConversations(state);
+  // Pressing "New conversation" while the active thread is still blank used to
+  // stack an identical empty entry every time, so the picker filled with
+  // duplicates. Reusing the blank thread keeps exactly one empty one in play,
+  // while pruning drops any other blanks left over from before.
+  if (active && isConversationEmpty(active)) {
+    saveAgentConversationState(folderPath, pruned);
+    return pruned;
+  }
   const conversation = newConversation();
   const nextState = {
     activeId: conversation.id,
-    conversations: [...state.conversations, conversation].slice(-30),
+    conversations: [...pruned.conversations, conversation].slice(-30),
   };
   saveAgentConversationState(folderPath, nextState);
   return nextState;

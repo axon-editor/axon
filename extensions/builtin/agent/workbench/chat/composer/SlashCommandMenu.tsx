@@ -12,10 +12,13 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
+import { useRef } from "react";
 import { type AiActionId } from "@axon-editor/shared/ai/ai";
+import { usePopoverDismiss } from "../../lib/hooks/usePopoverDismiss";
 
 interface SlashCommandMenuProps {
   onSelect: (action: AiActionId) => void;
+  onDismiss: () => void;
 }
 
 interface SlashCommand {
@@ -35,9 +38,15 @@ const commands: SlashCommand[] = [
   { id: "generate-tests", label: "Test", description: "Generate tests", icon: FileText },
 ];
 
-export default function SlashCommandMenu({ onSelect }: SlashCommandMenuProps) {
+export default function SlashCommandMenu({ onSelect, onDismiss }: SlashCommandMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(menuRef, true, onDismiss);
+
   return (
-    <div className="absolute bottom-full left-0 z-30 mb-1 w-[210px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40">
+    <div
+      ref={menuRef}
+      className="axon-agent-popup absolute bottom-full left-0 z-30 mb-1 w-[210px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
+    >
       <div className="px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--axon-editor-foreground)] opacity-30">
         Commands
       </div>

@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Copy, Pencil, RefreshCw } from "lucide-react";
+import { usePopoverDismiss } from "../../lib/hooks/usePopoverDismiss";
 
 interface MessageContextMenuProps {
   x: number;
@@ -27,27 +28,12 @@ export default function MessageContextMenu({
 }: MessageContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
+  usePopoverDismiss(menuRef, true, onClose);
 
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 w-[150px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
+      className="axon-agent-popup axon-agent-popup--down fixed z-50 w-[150px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
       style={{ left: x, top: y }}
     >
       <button

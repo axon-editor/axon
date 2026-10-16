@@ -3,10 +3,11 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, Pin, Search, Trash2 } from "lucide-react";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import { type AgentConversationState } from "../lib/conversation/agentConversation";
+import { usePopoverDismiss } from "../lib/hooks/usePopoverDismiss";
 
 interface Props {
   activeTitle: string;
@@ -20,6 +21,9 @@ interface Props {
 
 export default function AgentConversationPicker(props: Props) {
   const [search, setSearch] = useState("");
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  usePopoverDismiss(pickerRef, props.open, () => props.onOpenChange(false));
 
   const filtered = props.conversationState.conversations
     .slice()
@@ -35,7 +39,7 @@ export default function AgentConversationPicker(props: Props) {
     });
 
   return (
-    <div className="relative">
+    <div ref={pickerRef} className="relative">
       <Tooltip label="Switch Ask Axon conversation" side="left">
         <button
           type="button"
@@ -48,7 +52,7 @@ export default function AgentConversationPicker(props: Props) {
         </button>
       </Tooltip>
       {props.open && (
-        <div className="axon-popup-surface absolute right-0 top-9 z-50 w-72 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-xl shadow-black/40">
+        <div className="axon-popup-surface axon-agent-popup axon-agent-popup--down absolute right-0 top-9 z-50 w-72 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-xl shadow-black/40">
           <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-2 py-1.5">
             <Search size={12} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-40" />
             <input

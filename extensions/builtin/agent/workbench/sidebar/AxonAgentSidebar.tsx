@@ -23,6 +23,7 @@ import {
 import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import AxonIcon from "../components/AxonIcon";
 import {
   agentActionLabels,
   agentQuickActions,
@@ -56,6 +57,8 @@ import {
 import { useAgentChatStream } from "../lib/hooks/useAgentChatStream";
 import { useAgentModelRuntime } from "../lib/hooks/useAgentModelRuntime";
 import { useAgentSidebarResize } from "../lib/hooks/useAgentSidebarResize";
+import { usePopoverDismiss } from "../lib/hooks/usePopoverDismiss";
+import "../styles/agentPopups.css";
 
 interface Props {
   activeFileContent: string;
@@ -104,7 +107,10 @@ export default function AxonAgentSidebar(props: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const resumeRequestHandledRef = useRef<string | null>(null);
+  const modelPickerRef = useRef<HTMLDivElement | null>(null);
+  const actionPickerRef = useRef<HTMLDivElement | null>(null);
   const activeConversation = activeAgentConversation(conversationState);
+  const activeConversationEmpty = activeConversation.messages.length === 0;
   const {
     activeStreamId,
     beginStream,
@@ -140,6 +146,13 @@ export default function AxonAgentSidebar(props: Props) {
     width: props.width,
     onWidthChange: props.onWidthChange,
   });
+
+  usePopoverDismiss(modelPickerRef, modelPickerOpen, () =>
+    setModelPickerOpen(false),
+  );
+  usePopoverDismiss(actionPickerRef, actionPickerOpen, () =>
+    setActionPickerOpen(false),
+  );
 
   useEffect(() => {
     const resumeConversationId = props.resumeConversationId;
@@ -288,6 +301,7 @@ export default function AxonAgentSidebar(props: Props) {
   };
 
   const startNewConversation = async () => {
+    if (activeConversationEmpty) return;
     if (activeStreamId) {
       await cancelActiveStream();
     }
@@ -447,9 +461,7 @@ export default function AxonAgentSidebar(props: Props) {
         className="flex min-h-[48px] shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-transparent px-3 py-2"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-[var(--axon-syntax-function)]/15 text-[9px] font-bold text-[var(--axon-syntax-function)]">
-            A
-          </span>
+          <AxonIcon size={18} className="shrink-0" />
           <span className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
             Axon
           </span>
@@ -468,8 +480,9 @@ export default function AxonAgentSidebar(props: Props) {
             <button
               type="button"
               onClick={() => void startNewConversation()}
+              disabled={activeConversationEmpty}
               aria-label="Start new Ask Axon conversation"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
             >
               <MessageSquarePlus size={13} />
             </button>
@@ -492,25 +505,26 @@ export default function AxonAgentSidebar(props: Props) {
           <AgentRuntimeStatusPanel
             diagnosticsCount={props.diagnostics.length}
             gitChangeCount={props.gitChanges.length}
+            models={models}
             modelStatus={modelStatus}
             pulling={pulling}
             pullEvent={pullEvent}
             pullPercent={pullPercent}
             runtimeLoading={runtimeLoading}
             runtimeStatus={runtimeStatus}
+            selectedModel={selectedModel}
             selectedModelInfo={selectedModelInfo}
             selectedModelInstalled={selectedModelInstalled}
             selectedModelLabel={selectedModelLabel}
             onCancelPull={() => void cancelPull()}
             onPullSelectedModel={() => void pullSelectedModel()}
+            onSelectModel={setSelectedModel}
           />
         )}
         {messages.length === 0 && canChat && (
           <div className="flex flex-col items-center py-16 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--axon-syntax-function)]/10">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--axon-syntax-function)]/20 text-[13px] font-bold text-[var(--axon-syntax-function)]">
-                A
-              </span>
+            <div className="mb-4">
+              <AxonIcon size={44} />
             </div>
             <div className="text-[14px] font-medium text-[var(--axon-editor-foreground)]">
               What can I help with?
@@ -545,9 +559,9 @@ export default function AxonAgentSidebar(props: Props) {
       {canChat && (
         <div className="shrink-0 border-t border-[var(--axon-panel-border)] bg-transparent p-3">
           <div className="relative rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/10">
-            {(contextEnabled.activeFile && props.activeFilePath) ||
+            {((contextEnabled.activeFile && props.activeFilePath) ||
               (contextEnabled.diagnostics && props.diagnostics.length > 0) ||
-              (contextEnabled.gitChanges && props.gitChanges.length > 0) ? (
+              (contextEnabled.gitChanges && props.gitChanges.length > 0)) && (
               <div className="flex flex-wrap gap-1.5 border-b border-[var(--axon-panel-border)] px-3 py-2">
                 {contextEnabled.activeFile && props.activeFilePath && (
                   <ContextChip
@@ -568,7 +582,7 @@ export default function AxonAgentSidebar(props: Props) {
                   />
                 )}
               </div>
-            ) : null}
+            )}
 
             <textarea
               ref={textareaRef}
@@ -598,6 +612,7 @@ export default function AxonAgentSidebar(props: Props) {
 
             {slashCommandOpen && (
               <SlashCommandMenu
+                onDismiss={() => setSlashCommandOpen(false)}
                 onSelect={(selectedAction) => {
                   setAction(selectedAction);
                   setPrompt("");
@@ -612,7 +627,7 @@ export default function AxonAgentSidebar(props: Props) {
             <div className="flex items-center justify-between gap-2 border-t border-[var(--axon-panel-border)] px-2 py-1.5">
               <div className="flex min-w-0 items-center gap-1">
                 {canManageModels && (
-                  <div className="relative">
+                  <div ref={modelPickerRef} className="relative">
                     <button
                       type="button"
                       onClick={() => {
@@ -626,7 +641,7 @@ export default function AxonAgentSidebar(props: Props) {
                       <ChevronDown size={10} className="shrink-0 opacity-40" />
                     </button>
                     {modelPickerOpen && (
-                      <div className="absolute bottom-8 left-0 z-30 w-[300px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl shadow-black/50">
+                      <div className="axon-agent-popup absolute bottom-8 left-0 z-30 w-[300px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl shadow-black/50">
                         <div className="max-h-[260px] overflow-y-auto p-1.5">
                           {models.map((model) => (
                             <button
@@ -675,7 +690,7 @@ export default function AxonAgentSidebar(props: Props) {
                     )}
                   </div>
                 )}
-                <div className="relative">
+                <div ref={actionPickerRef} className="relative">
                   <button
                     type="button"
                     onClick={() => {
@@ -689,7 +704,7 @@ export default function AxonAgentSidebar(props: Props) {
                     <ChevronDown size={10} className="shrink-0 opacity-40" />
                   </button>
                   {actionPickerOpen && (
-                    <div className="absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
+                    <div className="axon-agent-popup absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
                       {(["ask", ...agentQuickActions] as AiActionId[]).map((item) => (
                         <button
                           key={item}

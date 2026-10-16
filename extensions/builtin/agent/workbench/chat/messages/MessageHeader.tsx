@@ -31,14 +31,9 @@ export default function MessageHeader({
       }`}
     >
       {isAssistant && (
-        <div className="flex items-center gap-1.5">
-          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--axon-syntax-function)]/15 text-[9px] font-bold text-[var(--axon-syntax-function)]">
-            A
-          </span>
-          <span className="text-[11px] font-medium text-[var(--axon-editor-foreground)] opacity-50">
-            Axon
-          </span>
-        </div>
+        <span className="text-[11px] font-medium text-[var(--axon-editor-foreground)] opacity-50">
+          Axon
+        </span>
       )}
 
       <div className="flex items-center gap-0.5">
