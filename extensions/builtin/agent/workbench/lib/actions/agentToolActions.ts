@@ -14,11 +14,14 @@ export interface AgentToolRunResult {
 export interface AgentUiToolDeps {
   folderPath: string | null;
   openFile: (path: string) => void;
+  closeFile: (path: string) => boolean;
   runCommand: (command: AxonCommand) => void;
 }
 
+// Absolute filesystem paths and URI-style tab paths (for example
+// axon://workbench/problems) must not be resolved against the workspace root.
 function isAbsolutePath(path: string) {
-  return /^([a-zA-Z]:[\\/]|\/)/.test(path);
+  return /^([a-zA-Z]:[\\/]|\/|[a-zA-Z][a-zA-Z0-9+.-]*:\/\/)/.test(path);
 }
 
 function resolvePath(path: string, folderPath: string | null) {
@@ -52,6 +55,18 @@ export function runAgentUiTool(
     }
     const resolvedPath = resolvePath(rawPath, deps.folderPath);
     deps.openFile(resolvedPath);
+    return { ok: true, message: resolvedPath };
+  }
+
+  if (spec.name === "close_file") {
+    const rawPath = typeof args.path === "string" ? args.path.trim() : "";
+    if (!rawPath) {
+      return { ok: false, message: "No tab path was provided." };
+    }
+    const resolvedPath = resolvePath(rawPath, deps.folderPath);
+    if (!deps.closeFile(resolvedPath)) {
+      return { ok: false, message: `No open tab matches ${resolvedPath}.` };
+    }
     return { ok: true, message: resolvedPath };
   }
 

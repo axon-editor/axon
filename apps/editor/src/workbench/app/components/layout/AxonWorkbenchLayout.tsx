@@ -209,9 +209,22 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
       new Set(layout.panes.flatMap((pane) => pane.openTabs)),
     ),
   };
+  const closeAgentFileTab = (path: string) => {
+    const pane = layout.panes.find((candidate) =>
+      candidate.openTabs.includes(path),
+    );
+    if (!pane) return false;
+    void requestCloseTab(pane.id, path);
+    return true;
+  };
   const runAgentAction = (name: string, args: Record<string, unknown>) =>
     runAgentUiTool(
-      { folderPath, runCommand, openFile: handleFileSelect },
+      {
+        folderPath,
+        runCommand,
+        openFile: handleFileSelect,
+        closeFile: closeAgentFileTab,
+      },
       name,
       args,
     );

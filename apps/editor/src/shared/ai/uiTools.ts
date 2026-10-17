@@ -21,6 +21,12 @@ export interface AiUiToolSpec {
 
 export const AI_UI_TOOL_SPECS: AiUiToolSpec[] = [
   {
+    name: "close_active_tab",
+    title: "Close active tab",
+    description: "Close the tab that is currently active.",
+    command: AXON_COMMANDS.CLOSE_TAB,
+  },
+  {
     name: "toggle_sidebar",
     title: "Toggle sidebar",
     description: "Show or hide the main explorer sidebar.",
@@ -124,6 +130,19 @@ export const AI_UI_TOOL_SPECS: AiUiToolSpec[] = [
       path: {
         type: "string",
         description: "Absolute path or path relative to the workspace root.",
+      },
+    },
+    required: ["path"],
+  },
+  {
+    name: "close_file",
+    title: "Close tab",
+    description:
+      "Close an open tab by its path. Accepts a file path or a built-in tab path such as axon://workbench/problems.",
+    parameters: {
+      path: {
+        type: "string",
+        description: "Path of the open tab to close.",
       },
     },
     required: ["path"],
