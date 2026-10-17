@@ -90,7 +90,7 @@ export default function AxonAgentSidebar(props: Props) {
     activeAgentConversation(loadAgentConversationState(props.folderPath)).messages,
   );
   const [prompt, setPrompt] = useState("");
-  const [action, setAction] = useState<AiActionId>("ask");
+  const [action, setAction] = useState<AiActionId>("agent");
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [actionPickerOpen, setActionPickerOpen] = useState(false);
@@ -236,7 +236,11 @@ export default function AxonAgentSidebar(props: Props) {
     setPrompt("");
     setBusy(true);
 
-    if (messages.length === 0 && nextAction === "ask" && isGreetingPrompt(finalPrompt)) {
+    if (
+      messages.length === 0 &&
+      (nextAction === "agent" || nextAction === "ask") &&
+      isGreetingPrompt(finalPrompt)
+    ) {
       setMessages((current) => [
         ...current,
         {
@@ -705,7 +709,7 @@ export default function AxonAgentSidebar(props: Props) {
                   </button>
                   {actionPickerOpen && (
                     <div className="axon-agent-popup absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
-                      {(["ask", ...agentQuickActions] as AiActionId[]).map((item) => (
+                      {(["agent", ...agentQuickActions] as AiActionId[]).map((item) => (
                         <button
                           key={item}
                           type="button"

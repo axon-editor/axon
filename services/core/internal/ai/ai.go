@@ -423,7 +423,7 @@ func BuildMessages(request ChatRequest) []ModelMessage {
 				"If Project context is present, you can see the workspace snapshot included in this request. Do not say you cannot inspect the project, cannot see the codebase, or need the user to provide files.",
 				"If the user asks whether you can see the codebase, answer directly: yes when Project context is present, then mention the workspace root and the indexed file/tree counts.",
 				projectFactInstruction(request),
-				"For normal Ask/chat prompts, answer in plain text only. Do not propose file edits. Do not output JSON.",
+				plainTextOnlyInstruction(request.Action),
 				editProposalInstruction(request.Action),
 			}, "\n"),
 		},
@@ -501,9 +501,20 @@ func projectFactInstruction(request ChatRequest) string {
 	)
 }
 
+func plainTextOnlyInstruction(action string) string {
+	// The autonomous agent decides for itself whether a plain answer, a tool
+	// call, or an edit proposal is the right response. Every other action keeps
+	// the original read-only default so Ask/chat and review actions never write
+	// files by surprise.
+	if action == "agent" {
+		return "Decide for yourself whether a plain answer, a tool call, or an edit proposal best serves the user. Use the available tools to gather any context you need before you act."
+	}
+	return "For normal Ask/chat prompts, answer in plain text only. Do not propose file edits. Do not output JSON."
+}
+
 func editProposalInstruction(action string) string {
 	switch action {
-	case "fix-problem", "refactor-selection", "generate-tests":
+	case "agent", "fix-problem", "refactor-selection", "generate-tests":
 		return "For this action, include an editProposal JSON block only when a concrete file edit is necessary. The JSON must be exactly shaped as {\"editProposal\":{\"title\":\"...\",\"files\":[{\"path\":\"absolute or workspace path\",\"summary\":\"...\",\"newContent\":\"full file content\"}]}}. Explain the change in normal text before or after the JSON."
 	default:
 		return "For this action, never include editProposal JSON and never create or rewrite files."
@@ -817,10 +828,12 @@ func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[
 
 func actionInstruction(action string) string {
 	switch action {
+	case "agent":
+		return "Act as an autonomous coding agent. Gather any context you need with the available tools (list_problems, read_file, search_project, list_files) and then decide what to do on your own. When a change to a file is needed, return an edit proposal."
 	case "explain-selection":
 		return "Explain the active code clearly. Focus on behavior, data flow, edge cases, and why the code exists."
 	case "fix-problem":
-		return "Fix the most relevant diagnostic or problem. Prefer a precise edit proposal when a file change is needed."
+		return "First call list_problems to see every problem in the workspace, then fix the most relevant one. Prefer a precise edit proposal when a file change is needed."
 	case "refactor-selection":
 		return "Refactor the active code without changing behavior. Prefer readable, maintainable code."
 	case "generate-tests":

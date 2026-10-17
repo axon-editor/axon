@@ -7,6 +7,7 @@ import { type EditorDiagnostic } from "../editor/language/diagnostics";
 import { type GitChange } from "../workspace/git";
 
 export const AI_ACTION_IDS = [
+  "agent",
   "ask",
   "explain-selection",
   "fix-problem",
@@ -92,7 +93,7 @@ export interface AiToolDefinition {
   };
 }
 
-export type AiToolKind = "workspace" | "ui";
+export type AiToolKind = "workspace" | "ui" | "editor";
 
 export interface AiToolCall {
   id: string;

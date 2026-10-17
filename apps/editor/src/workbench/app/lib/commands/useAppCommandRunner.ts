@@ -447,7 +447,7 @@ export function useAppCommandRunner({
           activateExtensionEvent("onView:axon.agent");
           activateExtensionEvent("onAgent:axon.agent.local");
           setAgentSidebarOpen(true);
-          setAgentActionRequest({ action: "ask", nonce: Date.now() });
+          setAgentActionRequest({ action: "agent", nonce: Date.now() });
           break;
         case AXON_COMMANDS.AI_EXPLAIN_SELECTION:
           if (!requireTrustedWorkspace("Ask Axon")) break;

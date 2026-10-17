@@ -15,6 +15,12 @@ import {
   aiUiToolDefinition,
   aiUiToolSpec,
 } from "../../../shared/ai/uiTools";
+import {
+  aiEditorToolDefinitions,
+  aiEditorToolSpec,
+  runEditorTool,
+} from "../../../shared/ai/editorTools";
+import { type EditorDiagnostic } from "../../../shared/editor/language/diagnostics";
 import { getToolDefinitions, planTurn, runTool } from "./coreClient";
 import { cancelCoreAiStream, startCoreAiStream } from "../streaming/coreStream";
 import { proposeUiTool, rejectUiToolsForRequest } from "./uiToolBridge";
@@ -114,6 +120,7 @@ async function runLoop(input: {
     const tools = [
       ...coreDefinitions,
       ...AI_UI_TOOL_SPECS.map(aiUiToolDefinition),
+      ...aiEditorToolDefinitions(),
     ];
 
     let messages = request.messages ? [...request.messages] : [];
@@ -152,6 +159,7 @@ async function runLoop(input: {
             call,
             core,
             folderPath: request.folderPath,
+            diagnostics: request.diagnostics,
             requestId,
             send,
             signal,
@@ -195,12 +203,13 @@ async function executeToolCall(input: {
   call: AiModelToolCall;
   core: CoreEndpoint;
   folderPath: string | null;
+  diagnostics: EditorDiagnostic[];
   requestId: string;
   send: (event: AiChatStreamEvent) => void;
   signal: AbortSignal;
   workspaceTools: Set<string>;
 }): Promise<string> {
-  const { call, core, folderPath, requestId, send, signal, workspaceTools } =
+  const { call, core, folderPath, diagnostics, requestId, send, signal, workspaceTools } =
     input;
   const name = call.function.name;
   const args = parseArguments(call.function.arguments);
@@ -223,6 +232,25 @@ async function executeToolCall(input: {
       toolResult: result,
     });
     return uiResultText(result, name);
+  }
+
+  const editorSpec = aiEditorToolSpec(name);
+  if (editorSpec) {
+    const tool: AiToolCall = {
+      id,
+      name,
+      kind: "editor",
+      title: editorSpec.title,
+      arguments: args,
+    };
+    send({ requestId, type: "tool-started", tool });
+    send({
+      requestId,
+      type: "tool-result",
+      tool,
+      toolResult: { callId: id, ok: true },
+    });
+    return runEditorTool(name, args, diagnostics);
   }
 
   if (!workspaceTools.has(name) || !folderPath) {

@@ -29,7 +29,7 @@ interface SlashCommand {
 }
 
 const commands: SlashCommand[] = [
-  { id: "ask", label: "Ask", description: "Ask a question", icon: HelpCircle },
+  { id: "agent", label: "Agent", description: "Let Axon decide and act", icon: HelpCircle },
   { id: "fix-problem", label: "Fix", description: "Fix a problem", icon: Bug },
   { id: "explain-selection", label: "Explain", description: "Explain code", icon: Lightbulb },
   { id: "refactor-selection", label: "Refactor", description: "Refactor code", icon: RefreshCw },

@@ -6,6 +6,7 @@
 import { type AiActionId } from "@axon-editor/shared/ai/ai";
 
 export const agentActionLabels: Record<AiActionId, string> = {
+  agent: "Agent",
   ask: "Ask",
   "explain-selection": "Explain",
   "fix-problem": "Fix problem",
@@ -26,6 +27,8 @@ export const agentQuickActions: AiActionId[] = [
 
 export function defaultPromptForAction(action: AiActionId) {
   switch (action) {
+    case "agent":
+      return "";
     case "explain-selection":
       return "Explain the active code and the important edge cases.";
     case "fix-problem":

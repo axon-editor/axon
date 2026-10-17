@@ -22,6 +22,7 @@ export interface AgentWorkbenchContextInput {
 
 export function actionCanApplyEdits(action?: AiActionId) {
   return (
+    action === "agent" ||
     action === "fix-problem" ||
     action === "refactor-selection" ||
     action === "generate-tests"
