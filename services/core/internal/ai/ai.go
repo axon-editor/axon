@@ -815,11 +815,19 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []Mod
 	return emit(StreamEvent{Type: "done", Done: true})
 }
 
+// modelKeepAlive keeps the local model resident between requests. Without it the
+// runtime unloads the weights after a short idle window, so every chat pays the
+// model load cost again on its first token. Every path that talks to the runtime
+// sets the same value so the model stays warm across chat, planning, and inline
+// completions.
+const modelKeepAlive = "30m"
+
 func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[string]any {
 	return map[string]any{
-		"model":    ModelName(request),
-		"messages": messages,
-		"stream":   stream,
+		"model":      ModelName(request),
+		"messages":   messages,
+		"stream":     stream,
+		"keep_alive": modelKeepAlive,
 		"options": map[string]any{
 			"temperature": temperatureForAction(request.Action),
 		},
@@ -848,6 +856,15 @@ func actionInstruction(action string) string {
 }
 
 func buildContext(request ChatRequest) string {
+	// The autonomous agent is expected to pull project detail with tools, so its
+	// context stays intentionally small: paths, a diagnostics summary, and the
+	// on-screen workbench state. Full file contents, the diagnostics list, and the
+	// git diff are the largest prompt blocks, and every one of them is reachable
+	// through read_file, search_project, list_problems, and the workspace tools.
+	if request.Action == "agent" {
+		return buildAgentContext(request)
+	}
+
 	parts := []string{
 		"Workspace: " + pointerString(request.FolderPath, "No workspace"),
 		"Active file: " + pointerString(request.ActiveFilePath, "No active file"),
@@ -903,6 +920,59 @@ func buildContext(request ChatRequest) string {
 	}
 
 	return strings.Join(parts, "\n\n---\n\n")
+}
+
+// buildAgentContext keeps the autonomous agent's prompt small. It carries the
+// facts the agent cannot discover with tools (where it is, what is on screen,
+// whether the workspace has problems) and points at the tools for everything
+// else, so the model reads files and diagnostics on demand instead of prefilling
+// the whole project on every turn.
+func buildAgentContext(request ChatRequest) string {
+	parts := []string{
+		"Workspace: " + pointerString(request.FolderPath, "No workspace"),
+		"Active file: " + pointerString(request.ActiveFilePath, "No active file"),
+	}
+
+	if len(request.Diagnostics) > 0 {
+		parts = append(parts, diagnosticsSummary(request.Diagnostics))
+	}
+
+	if len(request.GitChanges) > 0 {
+		lines := []string{"Git changes:"}
+		for index, change := range request.GitChanges {
+			if index >= 50 {
+				break
+			}
+			lines = append(lines, fmt.Sprintf("- %s staged=%t unstaged=%t index=%s worktree=%s", change.Path, change.Staged, change.Unstaged, change.IndexState, change.WorktreeState))
+		}
+		parts = append(parts, strings.Join(lines, "\n"))
+	}
+
+	if request.UIState != nil {
+		parts = append(parts, formatUIStateForPrompt(*request.UIState))
+	}
+
+	if request.ProjectContext != nil {
+		parts = append(parts, formatProjectContextForPrompt(*request.ProjectContext))
+	}
+
+	parts = append(parts, "File contents are not attached. Use read_file, search_project, list_files, and list_problems to inspect the project before you answer.")
+
+	return strings.Join(parts, "\n\n---\n\n")
+}
+
+func diagnosticsSummary(diagnostics []Diagnostic) string {
+	counts := map[string]int{}
+	for _, diagnostic := range diagnostics {
+		counts[strings.ToLower(strings.TrimSpace(diagnostic.Severity))]++
+	}
+	return fmt.Sprintf(
+		"Diagnostics: %d total (%d error, %d warning, %d info). Use list_problems for the full list.",
+		len(diagnostics),
+		counts["error"],
+		counts["warning"],
+		counts["info"],
+	)
 }
 
 func formatUIStateForPrompt(state UIState) string {

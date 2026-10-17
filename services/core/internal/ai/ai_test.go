@@ -76,3 +76,54 @@ func TestBuildMessagesSendsConversationAsModelTurns(t *testing.T) {
 		t.Fatalf("current prompt should remain the final user turn: %#v", messages[3])
 	}
 }
+
+func TestAgentContextDropsFileContentsAndSummarizesDiagnostics(t *testing.T) {
+	request := ChatRequest{
+		Action: "agent",
+		Prompt: "fix the bug",
+		Files: []ContextFile{
+			{Path: "main.go", LanguageID: "go", Active: true, Content: "SECRET_BODY"},
+		},
+		Diagnostics: []Diagnostic{
+			{Path: "main.go", Severity: "error", Line: 1, Column: 1, Message: "boom"},
+			{Path: "util.go", Severity: "warning", Line: 2, Column: 1, Message: "meh"},
+			{Path: "util.go", Severity: "info", Line: 3, Column: 1, Message: "fyi"},
+		},
+	}
+
+	messages := BuildMessages(request)
+	user := messages[len(messages)-1].Content
+
+	if strings.Contains(user, "SECRET_BODY") {
+		t.Fatalf("agent context should not prefill file contents\n%s", user)
+	}
+	if !strings.Contains(user, "Use read_file") {
+		t.Fatalf("agent context should point the model at tools\n%s", user)
+	}
+	if !strings.Contains(user, "Diagnostics: 3 total (1 error, 1 warning, 1 info)") {
+		t.Fatalf("agent context should summarize diagnostics\n%s", user)
+	}
+}
+
+func TestNonAgentContextKeepsFileContents(t *testing.T) {
+	request := ChatRequest{
+		Action: "explain-selection",
+		Prompt: "explain this",
+		Files: []ContextFile{
+			{Path: "main.go", LanguageID: "go", Active: true, Content: "BODY_MARKER"},
+		},
+	}
+
+	user := BuildMessages(request)[len(BuildMessages(request))-1].Content
+	if !strings.Contains(user, "BODY_MARKER") {
+		t.Fatalf("non-agent context should keep file contents\n%s", user)
+	}
+}
+
+func TestChatPayloadKeepsModelWarm(t *testing.T) {
+	payload := chatPayload(ChatRequest{Action: "ask"}, nil, false)
+
+	if payload["keep_alive"] != modelKeepAlive {
+		t.Fatalf("keep_alive = %#v, want %q", payload["keep_alive"], modelKeepAlive)
+	}
+}
