@@ -27,6 +27,16 @@ import { proposeUiTool, rejectUiToolsForRequest } from "./uiToolBridge";
 
 const MAX_TOOL_ROUNDS = 4;
 
+// The tool card shows a preview of what the agent saw, but the model still gets
+// the full output. Truncating here keeps large file reads and problem lists from
+// bloating the IPC payload without cutting the data the answer depends on.
+const TOOL_PREVIEW_LIMIT = 2000;
+
+function toolPreview(result: string) {
+  if (result.length <= TOOL_PREVIEW_LIMIT) return result;
+  return `${result.slice(0, TOOL_PREVIEW_LIMIT)}\n\n[truncated ${result.length - TOOL_PREVIEW_LIMIT} chars]`;
+}
+
 interface CoreEndpoint {
   axonCorePort: string;
   axonCoreToken: string;
@@ -244,13 +254,14 @@ async function executeToolCall(input: {
       arguments: args,
     };
     send({ requestId, type: "tool-started", tool });
+    const result = runEditorTool(name, args, diagnostics);
     send({
       requestId,
       type: "tool-result",
       tool,
-      toolResult: { callId: id, ok: true },
+      toolResult: { callId: id, ok: true, result: toolPreview(result) },
     });
-    return runEditorTool(name, args, diagnostics);
+    return result;
   }
 
   if (!workspaceTools.has(name) || !folderPath) {
@@ -275,7 +286,7 @@ async function executeToolCall(input: {
       requestId,
       type: "tool-result",
       tool,
-      toolResult: { callId: id, ok: true },
+      toolResult: { callId: id, ok: true, result: toolPreview(result) },
     });
     return result;
   } catch (err) {

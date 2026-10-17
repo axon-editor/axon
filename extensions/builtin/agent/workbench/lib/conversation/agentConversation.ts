@@ -25,6 +25,7 @@ export interface AgentToolCallState {
   arguments: Record<string, unknown>;
   status: AgentToolStatus;
   message?: string;
+  result?: string;
 }
 
 export interface AgentMessage {
@@ -34,6 +35,9 @@ export interface AgentMessage {
   action?: AiActionId;
   result?: AiChatResult;
   toolCalls?: AgentToolCallState[];
+  // Latest status line from the loop ("Thinking...", "Running read_file...") so
+  // the indicator can say what the agent is doing while it has no text yet.
+  activity?: string;
 }
 
 export interface AgentConversation {

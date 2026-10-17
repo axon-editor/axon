@@ -45,7 +45,11 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
         setMessages((current) =>
           current.map((message) =>
             message.id === stream.messageId
-              ? { ...message, content: message.content + event.delta }
+              ? {
+                  ...message,
+                  content: message.content + event.delta,
+                  activity: undefined,
+                }
               : message,
           ),
         );
@@ -53,6 +57,16 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
       }
 
       if (event.type === "status") {
+        // The loop emits a human-readable status before each planning pass and
+        // tool round. Storing it on the message lets the streaming indicator say
+        // what is happening while there is no text to show yet.
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === stream.messageId
+              ? { ...message, activity: event.status }
+              : message,
+          ),
+        );
         return;
       }
 
@@ -60,6 +74,7 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
         toolId: string,
         status: AgentToolStatus,
         message?: string,
+        result?: string,
       ) => {
         setMessages((current) =>
           current.map((item) =>
@@ -68,7 +83,12 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
                   ...item,
                   toolCalls: (item.toolCalls ?? []).map((tool) =>
                     tool.id === toolId
-                      ? { ...tool, status, message: message ?? tool.message }
+                      ? {
+                          ...tool,
+                          status,
+                          message: message ?? tool.message,
+                          result: result ?? tool.result,
+                        }
                       : tool,
                   ),
                 }
@@ -106,6 +126,7 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
           event.tool.id,
           result?.rejected ? "rejected" : result?.ok ? "done" : "error",
           result?.message,
+          result?.result,
         );
         return;
       }
@@ -120,6 +141,7 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
                     message.content ||
                     event.error ||
                     "Axon Agent stream failed.",
+                  activity: undefined,
                 }
               : message,
           ),
@@ -139,6 +161,7 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
                   content:
                     message.content.trim() ||
                     "Request cancelled before Axon returned content.",
+                  activity: undefined,
                 }
               : message,
           ),
@@ -159,6 +182,7 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
             const strippedContent = stripEditProposalJson(message.content);
             return {
               ...message,
+              activity: undefined,
               content: canApplyEdits
                 ? strippedContent || message.content
                 : strippedContent ||

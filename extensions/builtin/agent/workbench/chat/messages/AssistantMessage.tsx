@@ -17,6 +17,7 @@ interface AssistantMessageProps {
   messageId: number;
   copiedId: number | null;
   toolCalls?: AgentToolCallState[];
+  activity?: string;
   onApplyEdit: (file: AiEditFileProposal) => void;
   onCopied: (messageId: number) => void;
   onCopyContent: (content: string) => void;
@@ -30,6 +31,7 @@ export default function AssistantMessage({
   messageId,
   copiedId,
   toolCalls,
+  activity,
   onApplyEdit,
   onCopied,
   onCopyContent,
@@ -60,7 +62,7 @@ export default function AssistantMessage({
             onSkip={(next) => onSkipTool?.(messageId, next)}
           />
         ))}
-        {!content && !toolCalls?.length && <StreamingIndicator />}
+        {!content && <StreamingIndicator label={activity} />}
 
         {editProposal && (
           <EditProposalCard

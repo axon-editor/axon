@@ -108,6 +108,10 @@ export interface AiUiToolResult {
   ok: boolean;
   rejected?: boolean;
   message?: string;
+  // Raw tool output (file contents, search hits, problem lists). Carried back to
+  // the renderer only so the tool card can show what the agent actually saw; it
+  // is not part of the model's message history.
+  result?: string;
 }
 
 export interface AiChatRequest {

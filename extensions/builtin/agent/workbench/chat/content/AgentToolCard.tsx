@@ -12,10 +12,24 @@ interface Props {
   onSkip: (tool: AgentToolCallState) => void;
 }
 
+function formatArgumentValue(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return String(value);
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+// The card used to show only arguments.path, which left search and problem
+// tools looking empty because their inputs are a query or filters, not a path.
+// Showing every argument keeps the card honest about what the agent asked for.
 function toolDetail(tool: AgentToolCallState) {
-  const path = tool.arguments.path;
-  if (typeof path === "string" && path.trim()) return path;
-  return null;
+  const entries = Object.entries(tool.arguments);
+  if (entries.length === 0) return null;
+  return entries
+    .map(([key, value]) => `${key}: ${formatArgumentValue(value)}`)
+    .join("  ·  ");
 }
 
 export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
@@ -32,7 +46,7 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
           {tool.title}
         </span>
         <span className="shrink-0 rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-50">
-          action
+          {tool.kind}
         </span>
       </div>
 
@@ -40,6 +54,17 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
         <div className="truncate px-3 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-60">
           {detail}
         </div>
+      )}
+
+      {tool.result && (
+        <details className="border-t border-[var(--axon-panel-border)]">
+          <summary className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-50">
+            Result
+          </summary>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+            {tool.result}
+          </pre>
+        </details>
       )}
 
       <div className="flex items-center justify-between gap-2 px-3 py-2">
