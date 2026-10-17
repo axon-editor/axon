@@ -9,6 +9,7 @@ import {
 } from "../../../shared/ai/ai";
 
 const actionInstructions: Record<AiActionId, string> = {
+  agent: "Act as an autonomous coding agent. Gather any context you need with the available tools, then decide what to do on your own. When a file change is needed, return an edit proposal.",
   ask: "Answer the user's question using the supplied project context.",
   "explain-selection":
     "Explain the active code clearly. Focus on behavior, data flow, edge cases, and why the code exists.",
