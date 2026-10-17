@@ -13,6 +13,12 @@ import (
 // change constantly, so keeping them apart from the runtime and streaming
 // transport in ai.go keeps both files small enough to reason about.
 
+const (
+	maxConversationTurns        = 20
+	maxConversationMessageChars = 4000
+	maxConversationChars        = 24000
+)
+
 func BuildMessages(request ChatRequest) []ModelMessage {
 	messages := []ModelMessage{
 		{
@@ -58,24 +64,35 @@ func priorConversationMessages(conversation []ConversationMessage) []ModelMessag
 	// inside the latest prompt. Local models use role boundaries to understand
 	// follow-up questions, so resumed CLI sessions keep the last turns while the
 	// current user prompt is always appended separately by BuildMessages.
-	start := len(conversation) - 20
+	start := len(conversation) - maxConversationTurns
 	if start < 0 {
 		start = 0
 	}
 
-	messages := make([]ModelMessage, 0, len(conversation)-start)
-	for _, message := range conversation[start:] {
-		role := normalizedConversationRole(message.Role)
-		content := strings.TrimSpace(message.Content)
+	// Keep the most recent turns until the history budget is spent. The context
+	// window is shared with the tool schemas and the system prompt, so an
+	// unbounded history would push the tools out of context and the model would
+	// answer without them instead of calling one.
+	turns := make([]ModelMessage, 0, len(conversation)-start)
+	budget := maxConversationChars
+	for index := len(conversation) - 1; index >= start; index-- {
+		role := normalizedConversationRole(conversation[index].Role)
+		content := strings.TrimSpace(conversation[index].Content)
 		if content == "" {
 			continue
 		}
-		messages = append(messages, ModelMessage{
-			Role:    role,
-			Content: trimForPrompt(content, 4000),
-		})
+		content = trimForPrompt(content, maxConversationMessageChars)
+		if len(content) > budget {
+			break
+		}
+		budget -= len(content)
+		turns = append(turns, ModelMessage{Role: role, Content: content})
 	}
-	return messages
+
+	for left, right := 0, len(turns)-1; left < right; left, right = left+1, right-1 {
+		turns[left], turns[right] = turns[right], turns[left]
+	}
+	return turns
 }
 
 func normalizedConversationRole(role string) string {
@@ -113,7 +130,7 @@ func plainTextOnlyInstruction(action string) string {
 	// the original read-only default so Ask/chat and review actions never write
 	// files by surprise.
 	if action == "agent" {
-		return "Decide for yourself whether a plain answer, a tool call, or an edit proposal best serves the user. Use the available tools to gather any context you need before you act."
+		return "Decide for yourself whether a plain answer, a tool call, or an edit proposal best serves the user. Use the available tools to gather any context you need before you act, and to open panels, tabs, and views or run editor actions the user asks for. Prefer calling a tool over describing how the user could do it themselves."
 	}
 	return "For normal Ask/chat prompts, answer in plain text only. Do not propose file edits. Do not output JSON."
 }
@@ -130,7 +147,7 @@ func editProposalInstruction(action string) string {
 func actionInstruction(action string) string {
 	switch action {
 	case "agent":
-		return "Act as an autonomous coding agent. Gather any context you need with the available tools (list_problems, read_file, search_project, list_files) and then decide what to do on your own. When a change to a file is needed, return an edit proposal."
+		return "Act as an autonomous coding agent. Gather any context you need with the available tools (list_problems, read_file, search_project, list_files) and then decide what to do on your own. When the user asks to open, close, or toggle a panel, tab, or view, call the matching workbench tool instead of explaining how to do it by hand. When a change to a file is needed, return an edit proposal."
 	case "explain-selection":
 		return "Explain the active code clearly. Focus on behavior, data flow, edge cases, and why the code exists."
 	case "fix-problem":

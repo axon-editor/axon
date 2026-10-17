@@ -708,6 +708,13 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []Mod
 // completions.
 const modelKeepAlive = "30m"
 
+// modelContextTokens gives the runtime a real working window. Ollama defaults to
+// 4096 tokens, which is too small once the agent's tool schemas and the
+// conversation history are in play: the context shifts and the model degrades
+// into a non-answer instead of emitting tool calls. Every catalog model supports
+// far more than this.
+const modelContextTokens = 16384
+
 func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[string]any {
 	return map[string]any{
 		"model":      ModelName(request),
@@ -715,6 +722,7 @@ func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[
 		"stream":     stream,
 		"keep_alive": modelKeepAlive,
 		"options": map[string]any{
+			"num_ctx":     modelContextTokens,
 			"temperature": temperatureForAction(request.Action),
 		},
 	}

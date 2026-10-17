@@ -77,6 +77,29 @@ func TestBuildMessagesSendsConversationAsModelTurns(t *testing.T) {
 	}
 }
 
+func TestConversationHistoryStaysWithinBudget(t *testing.T) {
+	conversation := make([]ConversationMessage, 0, 40)
+	for index := 0; index < 40; index++ {
+		conversation = append(conversation, ConversationMessage{
+			Role:    "user",
+			Content: strings.Repeat("x", maxConversationMessageChars),
+		})
+	}
+
+	messages := priorConversationMessages(conversation)
+	if len(messages) == 0 {
+		t.Fatal("history should keep the most recent turns")
+	}
+
+	total := 0
+	for _, message := range messages {
+		total += len(message.Content)
+	}
+	if total > maxConversationChars {
+		t.Fatalf("history chars = %d, want <= %d", total, maxConversationChars)
+	}
+}
+
 func TestAgentContextDropsFileContentsAndSummarizesDiagnostics(t *testing.T) {
 	request := ChatRequest{
 		Action: "agent",
@@ -125,5 +148,33 @@ func TestChatPayloadKeepsModelWarm(t *testing.T) {
 
 	if payload["keep_alive"] != modelKeepAlive {
 		t.Fatalf("keep_alive = %#v, want %q", payload["keep_alive"], modelKeepAlive)
+	}
+}
+
+func TestChatPayloadSetsAWorkingContextWindow(t *testing.T) {
+	payload := chatPayload(ChatRequest{Action: "ask"}, nil, false)
+	options, ok := payload["options"].(map[string]any)
+	if !ok {
+		t.Fatalf("payload options missing: %#v", payload["options"])
+	}
+
+	if options["num_ctx"] != modelContextTokens {
+		t.Fatalf("num_ctx = %#v, want %d", options["num_ctx"], modelContextTokens)
+	}
+}
+
+func TestAgentActionTellsTheModelToUseWorkbenchTools(t *testing.T) {
+	messages := BuildMessages(ChatRequest{Action: "agent", Prompt: "open the problems pane"})
+	prompt := messages[0].Content + "\n" + messages[len(messages)-1].Content
+
+	expectedFragments := []string{
+		"open panels, tabs, and views",
+		"open, close, or toggle a panel",
+		"call the matching workbench tool instead of explaining how to do it by hand",
+	}
+	for _, fragment := range expectedFragments {
+		if !strings.Contains(prompt, fragment) {
+			t.Fatalf("agent prompt missing %q\n%s", fragment, prompt)
+		}
 	}
 }
