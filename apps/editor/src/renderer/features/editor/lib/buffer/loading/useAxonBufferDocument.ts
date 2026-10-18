@@ -5,7 +5,10 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import * as monaco from "monaco-editor";
-import { isLargeDocumentModel } from "@axon-editor/shared/editor/documents/largeDocument";
+import {
+  isLargeDocumentModel,
+  isPlainDocumentPath,
+} from "@axon-editor/shared/editor/documents/largeDocument";
 import { registerExternalLanguageToolFile } from "@axon-editor/services/lsp/renderer/fileAccess/lspFileAccess";
 import { preloadTextMateLanguage } from "@axon-editor/services/lsp/renderer/semanticTokens/textMateSemanticTokens";
 import { loadAxonBuffer } from "./axonBufferLoader";
@@ -85,7 +88,12 @@ export function useAxonBufferDocument(options: AxonBufferDocumentOptions) {
         readOnly: metadata?.readOnly ?? false,
       };
     });
-    void preloadTextMateLanguage(detectLanguage(options.filePath));
+    // The grammar warmup only serves the semantic overlay, which lockfile
+    // buffers never run. Warming anyway would initialize Shiki WASM for a
+    // grammar that is guaranteed unused.
+    if (!isPlainDocumentPath(options.filePath)) {
+      void preloadTextMateLanguage(detectLanguage(options.filePath));
+    }
 
     loadAxonBuffer(options.filePath, options.folderPath)
       .then((file) => {

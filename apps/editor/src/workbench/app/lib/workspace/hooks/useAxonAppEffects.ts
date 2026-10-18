@@ -290,6 +290,11 @@ export function useAxonAppEffects({
     }
 
     const languageId = detectLanguageServerLanguage(activePane.activeFile);
+    // Plaintext never has a server to warm (and lockfiles now detect as
+    // plaintext); the start IPC would only bounce a "No external language
+    // server" reply through the bridge and lock the start key until the
+    // response lands.
+    if (languageId === "plaintext") return;
     const startKey = `${folderPath}::${languageId}`;
     if (activeLanguageServerStartRef.current.has(startKey)) return;
     if (!window.axon.startLanguageServerForLanguage) return;

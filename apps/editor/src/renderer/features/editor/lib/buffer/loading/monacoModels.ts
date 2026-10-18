@@ -15,6 +15,7 @@ import {
 import {
   isLargeDocumentContent,
   isLargeDocumentModel,
+  isPlainDocumentPath,
 } from "@axon-editor/shared/editor/documents/largeDocument";
 
 // Axon Buffer Engine owns document identity and lifecycle while Monaco remains
@@ -78,9 +79,13 @@ export function refreshModelLanguage(
   model: monaco.editor.ITextModel,
 ) {
   const detectedLanguage = detectLanguage(filePath);
-  const modelLanguage = isLargeDocumentModel(model)
-    ? LARGE_DOCUMENT_LANGUAGE_ID
-    : detectedLanguage;
+  // Lockfile paths stay on the plain language even when the bytes are small;
+  // isLargeDocumentModel already reports true once the plain language is set,
+  // which keeps this refresh idempotent across acquire and update.
+  const modelLanguage =
+    isLargeDocumentModel(model) || isPlainDocumentPath(filePath)
+      ? LARGE_DOCUMENT_LANGUAGE_ID
+      : detectedLanguage;
   if (model.getLanguageId() !== modelLanguage) {
     monaco.editor.setModelLanguage(model, modelLanguage);
   }
@@ -169,9 +174,13 @@ function createBuffer(
   metadata: AxonBufferMetadata = { external: false, readOnly: false },
 ) {
   registerLanguages();
-  const language = isLargeDocumentContent(content)
-    ? LARGE_DOCUMENT_LANGUAGE_ID
-    : detectLanguage(filePath);
+  // Reduced-tier files keep their real language so Monaco's lazy native
+  // tokenization and the language servers stay attached; only the hard tier
+  // and lockfile paths drop to the plain language.
+  const language =
+    isLargeDocumentContent(content) || isPlainDocumentPath(filePath)
+      ? LARGE_DOCUMENT_LANGUAGE_ID
+      : detectLanguage(filePath);
   const uri = monaco.Uri.file(filePath);
   const model =
     monaco.editor.getModel(uri) ??

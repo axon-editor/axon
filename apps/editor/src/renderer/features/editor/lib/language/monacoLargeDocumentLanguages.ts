@@ -4,8 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as monaco from "monaco-editor";
+import { PLAIN_DOCUMENT_LANGUAGE_ID } from "@axon-editor/shared/editor/documents/largeDocument";
 
-export const LARGE_DOCUMENT_LANGUAGE_ID = "axon-large-document";
+// Aliased so existing importers and the lifecycle test mock keep their name
+// while the value stays single-sourced with the shared document policy.
+export const LARGE_DOCUMENT_LANGUAGE_ID = PLAIN_DOCUMENT_LANGUAGE_ID;
 
 const registeredMonacos = new WeakSet<typeof monaco>();
 

@@ -16,6 +16,12 @@ describe("structured language detection", () => {
     expect(detectLanguageServerLanguage(filePath)).toBe("gitignore");
   });
 
+  it("treats lockfiles as plaintext for language services but keeps json for monaco", () => {
+    const filePath = "/workspace/package-lock.json";
+    expect(detectMonacoLanguage(filePath)).toBe("json");
+    expect(detectLanguageServerLanguage(filePath)).toBe("plaintext");
+  });
+
   it.each(["xml", "xsd", "xsl", "xslt", "dtd", "svg"])(
     "maps .%s documents to XML",
     (extension) => {

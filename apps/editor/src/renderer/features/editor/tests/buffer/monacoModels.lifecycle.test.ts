@@ -149,4 +149,35 @@ describe("Axon Buffer Engine model lifecycle", () => {
     vi.advanceTimersByTime(500);
     expect(first.disposed).toBe(true);
   });
+
+  it("routes a lockfile to the plain large-document language on acquire", () => {
+    const filePath = "/workspace/package-lock.json";
+    const lockContent = "{\n  \"name\": \"axon\",\n  \"lockfileVersion\": 3,\n  \"packages\": {}\n}\n";
+    const model = acquireModel(filePath, lockContent) as unknown as FakeModel;
+    expect(model.language).toBe("axon-large-document");
+    releaseModel(filePath);
+  });
+
+  it("keeps a medium document on its detected language in the reduced tier", () => {
+    const filePath = "/workspace/reduced.ts";
+    // ~300KB with ~3k lines: crosses the reduced character threshold
+    // (256KB) but stays under the hard tier (2MB / 20k lines) and keeps
+    // every line well under the unsafe tokenization length.
+    const line = `${"x".repeat(80)}\n`;
+    let content = "export const x = 1;\n";
+    while (content.length < 300 * 1024) {
+      content += line;
+    }
+    const model = acquireModel(filePath, content) as unknown as FakeModel;
+    expect(model.language).toBe("typescript");
+    releaseModel(filePath);
+  });
+
+  it("drops hard-tier content to the plain language", () => {
+    const filePath = "/workspace/huge.json";
+    const content = "x".repeat(2 * 1024 * 1024);
+    const model = acquireModel(filePath, content) as unknown as FakeModel;
+    expect(model.language).toBe("axon-large-document");
+    releaseModel(filePath);
+  });
 });

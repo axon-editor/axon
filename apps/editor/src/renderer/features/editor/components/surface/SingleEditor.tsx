@@ -7,7 +7,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { type EditorSettings } from "@axon-editor/shared/core/settings";
-import { isLargeDocumentModel } from "@axon-editor/shared/editor/documents/largeDocument";
+import {
+  isLargeDocumentModel,
+  isReducedDocumentModel,
+} from "@axon-editor/shared/editor/documents/largeDocument";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
 import { type EditorNavigationTarget } from "../../lib/layout/navigation/navigation";
@@ -271,11 +274,16 @@ export default function SingleEditor({
   const refreshSemanticTokenDecorations = useCallback(async () => {
     const editor = editorRef.current;
     const model = editor?.getModel();
+    // The reduced tier keeps Monaco's native coloring and skips the overlay
+    // entirely, so returning before the retry bookkeeping also prevents the
+    // 2x700ms "rich language" repaint loop from starting on a file that will
+    // never produce decorations.
     if (
       !editor ||
       !model ||
       model.isDisposed() ||
-      isLargeDocumentModel(model)
+      isLargeDocumentModel(model) ||
+      isReducedDocumentModel(model)
     ) {
       semanticDecorationsRef.current?.clear();
       return;

@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isPlainDocumentPath } from "@axon-editor/shared/editor/documents/largeDocument";
+
 export function detectMonacoLanguage(path: string): string {
   const fileName = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   const extension = path.split(".").pop()?.toLowerCase();
@@ -144,6 +146,11 @@ export function detectMonacoLanguage(path: string): string {
 }
 
 export function detectLanguageServerLanguage(path: string): string {
+  // Lockfiles are machine-generated dumps. Routing them to a language server
+  // would push hundreds of kilobytes of dependency graph through IPC for
+  // diagnostics, formatting, and completions nobody edits by hand, and every
+  // consumer already treats plaintext as "no language services".
+  if (isPlainDocumentPath(path)) return "plaintext";
   const extension = path.split(".").pop()?.toLowerCase();
   if (extension === "tsx") return "typescriptreact";
   if (extension === "jsx") return "javascriptreact";

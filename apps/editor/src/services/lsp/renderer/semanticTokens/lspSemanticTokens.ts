@@ -15,7 +15,10 @@ import {
   mergeHighlightTokenLayers,
   type HighlightTokenSet,
 } from "./highlightTokenMerge";
-import { isLargeDocumentModel } from "../../../../shared/editor/documents/largeDocument";
+import {
+  isLargeDocumentModel,
+  isReducedDocumentModel,
+} from "../../../../shared/editor/documents/largeDocument";
 
 const semanticTokenCache = new Map<
   string,
@@ -197,10 +200,13 @@ function createSemanticTokenPromise(
 
 export function getSemanticTokensForModel(model: monaco.editor.ITextModel) {
   // Semantic coloring currently materializes a complete text snapshot and a
-  // complete decoration stream. Large-file mode uses Monaco's lazy lexical
-  // tokenizer instead, so this guard must run before model.getValue() copies
-  // the entire buffer or either token provider begins parsing it.
-  if (isLargeDocumentModel(model)) return Promise.resolve(null);
+  // complete decoration stream. Large-file mode and the reduced tier use
+  // Monaco's lazy lexical tokenizer instead, so this guard must run before
+  // model.getValue() copies the entire buffer or either token provider begins
+  // parsing it.
+  if (isLargeDocumentModel(model) || isReducedDocumentModel(model)) {
+    return Promise.resolve(null);
+  }
 
   const cacheKey = getSemanticTokenCacheKey(model);
   const cached = semanticTokenCache.get(cacheKey);
