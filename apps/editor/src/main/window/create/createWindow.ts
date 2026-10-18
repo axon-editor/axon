@@ -65,7 +65,10 @@ function routeExternalNavigation(window: BrowserWindow) {
   });
 }
 
-function notifyRendererOfFullScreen(window: BrowserWindow) {
+// Exported so the dedicated terminal window forwards the same native
+// lifecycle events; both renderers need the channel to drop their reserved
+// traffic-light inset while the OS chrome is gone.
+export function notifyRendererOfFullScreen(window: BrowserWindow) {
   if (window.isDestroyed() || window.webContents.isDestroyed()) return;
   window.webContents.send("window:fullScreenChanged", window.isFullScreen());
 }

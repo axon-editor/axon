@@ -27,6 +27,7 @@ import {
   type TerminalWindowHandoff,
 } from "@axon-editor/shared/terminal/terminalWindow";
 import { createGlassThemeCssVariables } from "../../workbench/app/lib/glass/glassTheme";
+import { useWindowFullScreen } from "../../workbench/app/lib/ui/useWindowFullScreen";
 
 export default function TerminalWindowApp() {
   const workspaceRoot = useMemo(() => {
@@ -44,10 +45,17 @@ export default function TerminalWindowApp() {
     () => null,
   );
 
+  const windowFullScreen = useWindowFullScreen();
   const nativeControlInset = useMemo(() => {
-    if (window.axon.platform === "darwin") return { start: 80, end: 0 };
+    if (window.axon.platform === "darwin") {
+      // macOS removes its traffic lights in native fullscreen, so keeping the
+      // 80px reserve would leave dead space where the controls were. Windows
+      // keeps its caption overlay while fullscreen, so only the mac inset
+      // drops; the hook restores it the moment the window leaves fullscreen.
+      return { start: windowFullScreen ? 0 : 80, end: 0 };
+    }
     return { start: 0, end: 150 };
-  }, []);
+  }, [windowFullScreen]);
 
   useEffect(() => {
     let cancelled = false;

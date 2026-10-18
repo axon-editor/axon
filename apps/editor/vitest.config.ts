@@ -62,6 +62,15 @@ export default defineConfig({
         "media-preview",
         "workbench",
       ),
+      "@axon-builtin-terminal": path.resolve(
+        __dirname,
+        "..",
+        "..",
+        "extensions",
+        "builtin",
+        "terminal",
+        "workbench",
+      ),
       "@dnd-kit/core": dependencyPath(
         "@dnd-kit",
         "core",

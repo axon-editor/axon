@@ -18,6 +18,20 @@ import { type TerminalWindowHandoff } from "../shared/terminal/terminalWindow";
 contextBridge.exposeInMainWorld("axon", {
   surface: "terminal",
   platform: process.platform,
+  // Native fullscreen is mirrored into the renderer because macOS removes its
+  // traffic lights while hidden-inset chrome would otherwise keep the header's
+  // reserved left inset and leave dead space at the top of the window.
+  isWindowFullScreen: (): Promise<boolean> =>
+    ipcRenderer.invoke("window:isFullScreen"),
+  onWindowFullScreenChanged: (callback: (isFullScreen: boolean) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      isFullScreen: boolean,
+    ) => callback(isFullScreen);
+    ipcRenderer.on("window:fullScreenChanged", listener);
+    return () =>
+      ipcRenderer.removeListener("window:fullScreenChanged", listener);
+  },
   getSettings: (folderPath?: string | null): Promise<AxonSettings> =>
     ipcRenderer.invoke("settings:get", folderPath),
   listExtensions: (folderPath?: string | null): Promise<ExtensionState> =>

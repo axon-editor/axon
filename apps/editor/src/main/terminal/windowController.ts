@@ -21,6 +21,7 @@
 import { app, BrowserWindow, ipcMain, shell, webContents } from "electron";
 import path from "path";
 import { readBootAppearance } from "../settings/bootAppearance";
+import { notifyRendererOfFullScreen } from "../window/create/createWindow";
 import {
   applyWindowGlass,
   getWindowGlassBackground,
@@ -262,6 +263,17 @@ export function createTerminalWindowController(
 
     terminalWindow.on("close", (event) => handleWindowClose(entry, event));
     terminalWindow.on("closed", () => cleanupEntry(entry));
+
+    // macOS hides its traffic lights in native fullscreen, so the renderer's
+    // reserved top-left inset would become dead space. Forward the native
+    // lifecycle events like the editor window does so the terminal header
+    // reclaims the inset immediately and restores it on return.
+    terminalWindow.on("enter-full-screen", () =>
+      notifyRendererOfFullScreen(terminalWindow),
+    );
+    terminalWindow.on("leave-full-screen", () =>
+      notifyRendererOfFullScreen(terminalWindow),
+    );
 
     if (deps.isDev) {
       const rendererUrl = new URL(deps.axonDevServerUrl);
