@@ -881,7 +881,7 @@
     "bash-language-server": "5.4.3",
     "chokidar": "^5.0.0",
     "dockerfile-language-server-nodejs": "^0.15.0",
-    "dompurify": "3.4.14",
+    "dompurify": "3.4.16",
     "electron-updater": "^6.8.9",
     "graphql": "^16.14.2",
     "graphql-language-service-server": "^2.14.10",
