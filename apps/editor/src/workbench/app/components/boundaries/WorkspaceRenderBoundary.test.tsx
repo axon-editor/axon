@@ -14,12 +14,8 @@ import {
   describe,
   expect,
   it,
-  vi,
 } from "vitest";
-import {
-  WORKSPACE_REPAINT_CLASS,
-  WorkspaceRenderBoundary,
-} from "./WorkspaceRenderBoundary";
+import { WorkspaceRenderBoundary } from "./WorkspaceRenderBoundary";
 
 const reactTestEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -28,7 +24,6 @@ const reactTestEnvironment = globalThis as typeof globalThis & {
 describe("WorkspaceRenderBoundary", () => {
   let container: HTMLDivElement;
   let root: Root;
-  let animationFrames: FrameRequestCallback[];
   let mountSequence: number;
 
   function WorkspaceState() {
@@ -58,51 +53,37 @@ describe("WorkspaceRenderBoundary", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    animationFrames = [];
     mountSequence = 0;
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      animationFrames.push(callback);
-      return animationFrames.length;
-    });
-    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
   });
 
   afterEach(() => {
     act(() => root.unmount());
-    document.documentElement.classList.remove(WORKSPACE_REPAINT_CLASS);
     container.remove();
   });
 
-  it("keeps the first workspace stable without scheduling a repaint", () => {
+  it("keeps the first workspace stable", () => {
     render("/workspace/one");
 
-    expect(animationFrames).toHaveLength(0);
     expect(container.firstElementChild?.getAttribute("data-mount-id")).toBe(
       "1",
     );
   });
 
-  it("remounts workspace state and submits one complete repaint pulse", () => {
+  it("remounts workspace state when the workspace changes", () => {
     render("/workspace/one");
     render("/workspace/two");
 
     expect(container.firstElementChild?.getAttribute("data-mount-id")).toBe(
       "2",
     );
-    expect(
-      document.documentElement.classList.contains(WORKSPACE_REPAINT_CLASS),
-    ).toBe(true);
-    expect(animationFrames).toHaveLength(1);
+  });
 
-    act(() => animationFrames[0](0));
-    expect(
-      document.documentElement.classList.contains(WORKSPACE_REPAINT_CLASS),
-    ).toBe(true);
-    expect(animationFrames).toHaveLength(2);
+  it("keeps workspace state across rerenders of the same workspace", () => {
+    render("/workspace/one");
+    render("/workspace/one");
 
-    act(() => animationFrames[1](16));
-    expect(
-      document.documentElement.classList.contains(WORKSPACE_REPAINT_CLASS),
-    ).toBe(false);
+    expect(container.firstElementChild?.getAttribute("data-mount-id")).toBe(
+      "1",
+    );
   });
 });

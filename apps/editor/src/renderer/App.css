@@ -231,21 +231,18 @@
   -webkit-app-region: no-drag;
 }
 
+/* I keep the root levels at the glass surface alpha instead of fully clear.
+ * A fully transparent region over the native material is what lets Chromium
+ * composite a damaged rect against a stale snapshot, which is the ghost frame
+ * stacking. --axon-background already carries the theme color at that alpha
+ * in glass mode (glassTheme.ts asserts it stays in the 0.01 range), so every
+ * pixel of the window becomes a real surface while the material stays
+ * visually untinted. The fallback only applies before the glass variables
+ * land, which is the old clear behavior for that one frame. */
 html.axon-native-glass,
 html.axon-native-glass body,
 html.axon-native-glass #root {
-  background: transparent !important;
-}
-
-/* Rebuild Chromium's full-window layer after a workspace switch or a floating
- * glass surface repaint. The boundary is the body rather than the app root so
- * the overlays portaled directly under it (command modals, tab context menus,
- * tooltips, the line-trace popover) resubmit in the same pass instead of
- * compositing a stale snapshot. Values this close to one quantize to the same
- * visible alpha while still creating a new compositing boundary, so the native
- * material remains completely untinted. */
-html.axon-workspace-repaint body {
-  opacity: 0.999999;
+  background: var(--axon-background, transparent) !important;
 }
 
 html.axon-native-glass .axon-modal-panel {
