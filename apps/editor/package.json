@@ -1,6 +1,6 @@
 {
   "name": "axon",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "private": true,
   "license": "MIT",
   "engines": {
@@ -800,15 +800,15 @@
         ]
       }
     ],
-"publish": [
-        {
-          "provider": "github",
-          "owner": "axon-editor",
-          "repo": "axon"
-        }
-      ],
-      "afterSign": "scripts/packaging/after-sign-finder-extension.mjs",
-      "mac": {
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "axon-editor",
+        "repo": "axon"
+      }
+    ],
+    "afterSign": "scripts/packaging/after-sign-finder-extension.mjs",
+    "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
         "dmg",

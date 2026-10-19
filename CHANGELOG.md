@@ -7,6 +7,36 @@
 
 ## Next
 
+## v4.1.0
+
+- Turned Axon Agent into a tool-driven assistant: it plans workbench actions
+  with model tool calls, proposes edits and UI actions as cards that run only
+  on approval, and reads problems, searches files, and closes tabs through a
+  shared editor-tool layer.
+- Added an autonomous agent mode next to the read-only CLI action, and showed
+  every tool argument and result in an expandable card while it works.
+- Cut agent latency by keeping the local model warm between turns, trimming
+  the autonomous context to paths, on-screen state, and diagnostics, and
+  raising the model context window so tool schemas survive longer runs.
+- Detected host memory and OS once in axon-core and used it to rank nine
+  models, so the sidebar and settings show what this machine can run and flag
+  models that need more memory.
+- Polished the Ask Axon sidebar with the real Axon mark, animated popovers
+  behind a shared dismiss hook, a stable installed-model dropdown, and
+  conversation handling that stops duplicating blank threads.
+- Degraded editor features on large and lockfile documents: a three-tier
+  document policy skips semantic tokens, Shiki decorations, completions, and
+  language-server warmups on heavy files so they open fast.
+- Made every modal panel viewport-scaled and drag-resizable, with sizes that
+  clamp to the window, persist per panel, and reset on double-click or Escape,
+  and removed the heavy drop shadows that sat behind modal panels.
+- Fixed ghost-frame stacking behind native glass popups by tinting the window
+  root at the glass alpha instead of leaving it fully transparent.
+- Reclaimed the macOS traffic-light inset in the dedicated terminal window
+  while it is fullscreen and restored it on exit.
+- Repaired the agent action CI break with the missing main-process action entry
+  and split prompt building out of ai.go to hold the line-count ceiling.
+
 ## v4.0.0
 
 - Added a zen aesthetic mode that hides the toolbar, sidebar, status bar, and

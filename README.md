@@ -351,7 +351,7 @@ More detail: [Language Server Guide](docs/LANGUAGE_SERVERS.md).
 ## Release Notes
 
 See the [Changelog](CHANGELOG.md) for the full history and the
-[v4.0.0 Release Notes](docs/releases/v4.0.0.md) for the latest release
+[v4.1.0 Release Notes](docs/releases/v4.1.0.md) for the latest release
 notes.
 
 ## License
