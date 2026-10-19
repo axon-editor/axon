@@ -22,7 +22,7 @@ export default function GitConfirmationDialog({
 }: Props) {
   return (
     <div className="axon-modal-overlay fixed inset-0 z-[120] flex items-center justify-center px-4">
-      <div className="axon-modal-panel axon-git-modal-panel w-full max-w-sm rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 text-[var(--axon-editor-foreground)]">
+      <div className="axon-modal-panel w-full max-w-[clamp(24rem,27vw,30rem)] rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 text-[var(--axon-editor-foreground)]">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[var(--axon-danger-background)] text-[var(--axon-danger-foreground)]">
             <AlertTriangle size={17} />

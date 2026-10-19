@@ -350,7 +350,8 @@ export default function ExtensionsModal({
     <CommandModal
       title="extensions"
       onClose={onClose}
-      width="w-[min(1240px,calc(100vw-2rem))]"
+      width="w-[clamp(77.5rem,86vw,100rem)]"
+      resizable="extensions-browser-modal"
       bodyClassName="flex min-h-0 flex-1 overflow-hidden"
       panelStyle={{
         height: "min(860px, calc(100vh - 3rem))",

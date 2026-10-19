@@ -133,7 +133,8 @@ export default function FolderPicker({
     <CommandModal
       title={intent === "recent" ? "open recent" : "open folder"}
       onClose={onClose}
-      width="w-[min(760px,calc(100vw-2rem))]"
+      width="w-[clamp(47.5rem,53vw,64rem)]"
+      resizable="folder-picker-modal"
       bodyClassName="flex min-h-0 flex-1 overflow-hidden"
       panelStyle={{
         height: "min(620px, calc(100vh - 3rem))",

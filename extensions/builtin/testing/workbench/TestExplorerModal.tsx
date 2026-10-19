@@ -13,6 +13,10 @@ import {
   type TestProvider,
 } from "@axon-editor/shared/editor/testing/tests";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import {
+  PanelResizeHandle,
+  useResizablePanel,
+} from "@axon-editor/renderer/shared/hooks/useResizablePanel";
 import TestExplorerDetails from "./TestExplorerDetails";
 import TestExplorerOutput from "./TestExplorerOutput";
 import { createTestingWorkbenchApi } from "./lib/testingWorkbenchApi";
@@ -51,6 +55,8 @@ export default function TestExplorerModal({
   // messages current without turning a notification rerender into a request.
   const onOutputRef = useRef(onOutput);
   onOutputRef.current = onOutput;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const resize = useResizablePanel(panelRef, "test-explorer-modal");
   const [discovery, setDiscovery] = useState<TestDiscoveryResult | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [expandedProviders, setExpandedProviders] = useState<Set<string>>(
@@ -321,12 +327,15 @@ export default function TestExplorerModal({
   return (
     <div className="axon-modal-overlay fixed inset-0 z-[100] flex items-center justify-center px-4 py-6">
       <div
-        className="axon-modal-panel flex flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
-        style={{
-          width: "min(1180px, calc(100vw - 2rem))",
-          height: "min(860px, calc(100vh - 3rem))",
-          minHeight: "min(680px, calc(100vh - 3rem))",
-        }}
+        ref={panelRef}
+        className="axon-modal-panel relative flex flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]"
+        style={
+          resize.style ?? {
+            width: "clamp(73.75rem, 82vw, 100rem)",
+            height: "min(860px, calc(100vh - 3rem))",
+            minHeight: "min(680px, calc(100vh - 3rem))",
+          }
+        }
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -439,6 +448,7 @@ export default function TestExplorerModal({
             </div>
           </section>
         </div>
+        <PanelResizeHandle {...resize.handleProps} />
       </div>
     </div>
   );

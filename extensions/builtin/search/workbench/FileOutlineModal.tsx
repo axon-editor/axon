@@ -83,7 +83,7 @@ export default function FileOutlineModal({
   if (!open) return null;
 
   return (
-    <CommandModal title={getFileName(filePath)} onClose={onClose} width="w-[720px]">
+    <CommandModal title={getFileName(filePath)} onClose={onClose} width="w-[clamp(45rem,50vw,58rem)]">
       <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-3">
         <Search size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
         <input

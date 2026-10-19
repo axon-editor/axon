@@ -55,7 +55,7 @@ export default function TokenInspectorModal({
   return (
     <CommandModal
       title="token inspector"
-      width="w-[min(760px,calc(100vw-2rem))]"
+      width="w-[clamp(47.5rem,53vw,64rem)]"
       bodyClassName="max-h-[min(640px,calc(100vh-7rem))] overflow-auto"
       onClose={onClose}
     >

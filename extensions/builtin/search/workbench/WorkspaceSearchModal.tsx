@@ -297,7 +297,7 @@ export default function WorkspaceSearchModal({
   if (!open) return null;
 
   return (
-    <CommandModal onClose={onClose} width="w-[min(860px,calc(100vw-2rem))]">
+    <CommandModal onClose={onClose} width="w-[clamp(53.75rem,60vw,72rem)]" resizable="workspace-search-modal">
       <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-3">
         <Search size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
         <input

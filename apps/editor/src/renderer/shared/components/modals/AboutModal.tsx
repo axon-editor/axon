@@ -69,7 +69,7 @@ export default function AboutModal({
   };
 
   return (
-    <CommandModal title="about axon" onClose={onClose} width="w-[460px]">
+    <CommandModal title="about axon" onClose={onClose} width="w-[clamp(28.75rem,32vw,40rem)]">
       <div className="p-5">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">

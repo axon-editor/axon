@@ -948,7 +948,7 @@ export default function Sidebar({
 
       {revokeTrustConfirmOpen && (
         <div className="axon-modal-overlay fixed inset-0 z-[110] flex items-center justify-center px-4">
-          <div className="axon-modal-panel w-full max-w-sm rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5 shadow-2xl">
+          <div className="axon-modal-panel w-full max-w-[clamp(24rem,27vw,30rem)] rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5">
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-warning-foreground)]">
                 <ShieldAlert size={17} />

@@ -111,7 +111,7 @@ export default function WorkspaceOverviewModal({
 
   return (
     <div className="axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="axon-modal-panel flex max-h-[78vh] w-full max-w-3xl flex-col rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl">
+      <div className="axon-modal-panel flex max-h-[78vh] w-full max-w-[clamp(48rem,53vw,72rem)] flex-col rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]">
         <div className="flex h-11 items-center justify-between border-b border-[var(--axon-panel-border)] px-4">
           <div className="flex items-center gap-2 text-sm font-medium text-[var(--axon-editor-foreground)]">
             <FolderKanban size={16} />

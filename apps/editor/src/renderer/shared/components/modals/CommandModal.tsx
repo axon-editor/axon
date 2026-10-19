@@ -19,6 +19,10 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import Tooltip from "../primitives/Tooltip";
 import {
+  PanelResizeHandle,
+  useResizablePanel,
+} from "../../hooks/useResizablePanel";
+import {
   markAxonPerformance,
   measureAxonPerformance,
 } from "../../lib/perf/performanceMarks";
@@ -37,20 +41,24 @@ interface Props {
   closeDelayMs?: number;
   overlayClassName?: string;
   panelStyle?: CSSProperties;
+  /** Persisted id that enables the corner drag-to-resize handle. */
+  resizable?: string;
 }
 
 export default function CommandModal({
   title,
   onClose,
   children,
-  width = "w-[560px]",
+  width = "w-[clamp(35rem,39vw,52rem)]",
   bodyClassName = "min-h-0 overflow-auto",
   animate = true,
   closeDelayMs = 170,
   overlayClassName = "",
   panelStyle,
+  resizable,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const resize = useResizablePanel(ref, resizable);
   const closeTimerRef = useRef<number | null>(null);
   const closingRef = useRef(false);
   const onCloseRef = useRef(onClose);
@@ -134,10 +142,10 @@ export default function CommandModal({
     >
       <div
         ref={ref}
-        className={`${animate ? "axon-modal-panel" : ""} ${width} flex max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] shadow-[0_24px_80px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.03] ${
+        className={`${animate ? "axon-modal-panel" : ""} ${width} relative flex max-h-[calc(100vh-3rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] ring-1 ring-white/[0.03] ${
           closing && animate ? "axon-modal-panel--leaving" : ""
         }`}
-        style={panelStyle}
+        style={{ ...panelStyle, ...resize.style }}
       >
         {title && (
           <div className="flex items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4 py-3">
@@ -156,6 +164,7 @@ export default function CommandModal({
           </div>
         )}
         <div className={bodyClassName}>{children}</div>
+        {resizable && <PanelResizeHandle {...resize.handleProps} />}
       </div>
     </div>,
     document.body,

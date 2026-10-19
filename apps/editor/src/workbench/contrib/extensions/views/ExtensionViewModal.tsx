@@ -37,8 +37,8 @@ export default function ExtensionViewModal({
   if (!view) return null;
 
   return (
-    <CommandModal title="extension view" onClose={onClose} width="w-[720px]">
-      <div className="flex h-[min(520px,calc(100vh-96px))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+    <CommandModal title="extension view" onClose={onClose} width="w-[clamp(45rem,50vw,60rem)]">
+      <div className="flex h-[min(520px,calc(100vh-96px))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-4">
           <div className="flex min-w-0 items-center gap-2">
             <Blocks size={15} className="shrink-0 text-[var(--axon-syntax-function)]" />

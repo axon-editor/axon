@@ -34,6 +34,10 @@ import { type EditorSettings } from "@axon-editor/shared/core/settings";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import {
+  PanelResizeHandle,
+  useResizablePanel,
+} from "@axon-editor/renderer/shared/hooks/useResizablePanel";
 import MediaPreview, {
   isMediaFile,
 } from "@axon-builtin-media-preview/MediaPreview";
@@ -164,6 +168,7 @@ export default function SourceControlModal({
     run: () => void;
   } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const resize = useResizablePanel(panelRef, "git-source-control-modal");
   const onOutputRef = useRef(onOutput);
   const onGitStatusChangedRef = useRef(onGitStatusChanged);
   // Status loading is keyed only by the workspace. Output is a notification
@@ -458,12 +463,14 @@ export default function SourceControlModal({
     >
       <div
         ref={panelRef}
-        className="axon-modal-panel axon-git-modal-panel flex flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]"
-        style={{
-          width: "min(1180px, calc(100vw - 2rem))",
-          height: "min(900px, calc(100vh - 3rem))",
-          minHeight: "min(700px, calc(100vh - 3rem))",
-        }}
+        className="axon-modal-panel relative flex flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]"
+        style={
+          resize.style ?? {
+            width: "clamp(73.75rem, 82vw, 100rem)",
+            height: "min(900px, calc(100vh - 3rem))",
+            minHeight: "min(700px, calc(100vh - 3rem))",
+          }
+        }
       >
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4">
           <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-65">
@@ -765,6 +772,7 @@ export default function SourceControlModal({
             }}
           />
         )}
+        <PanelResizeHandle {...resize.handleProps} />
       </div>
     </div>
   );

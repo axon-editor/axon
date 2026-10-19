@@ -141,4 +141,52 @@ describe("CommandModal", () => {
 
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("only renders the resize handle when a resizable id is given", async () => {
+    await act(async () => {
+      root.render(
+        <CommandModal title="extensions" onClose={vi.fn()} resizable="cm-test">
+          <div>body</div>
+        </CommandModal>,
+      );
+    });
+    expect(document.querySelector('[aria-label="Resize modal"]')).not.toBeNull();
+
+    await act(async () => {
+      root.render(
+        <CommandModal title="extensions" onClose={vi.fn()}>
+          <div>body</div>
+        </CommandModal>,
+      );
+    });
+    expect(document.querySelector('[aria-label="Resize modal"]')).toBeNull();
+  });
+
+  it("keeps the modal open when Escape is pressed on the resize handle", async () => {
+    const onClose = vi.fn();
+    await act(async () => {
+      root.render(
+        <CommandModal title="diff" onClose={onClose} resizable="cm-escape-test">
+          <div>body</div>
+        </CommandModal>,
+      );
+    });
+
+    const handle = document.querySelector('[aria-label="Resize modal"]');
+    expect(handle).not.toBeNull();
+
+    await act(async () => {
+      handle?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      vi.advanceTimersByTime(CLOSE_DELAY_MS * 4);
+    });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector(".axon-modal-overlay")).not.toBeNull();
+  });
 });

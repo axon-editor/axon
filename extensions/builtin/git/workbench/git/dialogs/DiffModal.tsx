@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { type EditorSettings } from "@axon-editor/shared/core/settings";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
@@ -11,6 +11,10 @@ import { readFile } from "@axon-editor/renderer/shared/lib/backend/api";
 import { getModel } from "@axon-editor/renderer/features/editor/lib/buffer/loading/monacoModels";
 import { type ResolvedThemeTokens } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import {
+  PanelResizeHandle,
+  useResizablePanel,
+} from "@axon-editor/renderer/shared/hooks/useResizablePanel";
 import { isKnownBinaryFile } from "@axon-editor/shared/editor/documents/binaryFiles";
 import BinaryFilePreview from "@axon-builtin-media-preview/BinaryFilePreview";
 import { isMediaFile } from "@axon-builtin-media-preview/MediaPreview";
@@ -37,6 +41,8 @@ export default function DiffModal({
   const [currentContent, setCurrentContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const resize = useResizablePanel(panelRef, "git-diff-modal");
 
   const fileName = useMemo(
     () => filePath.split("/").pop() ?? filePath,
@@ -117,7 +123,11 @@ export default function DiffModal({
 
   return (
     <div className="axon-modal-overlay fixed inset-0 z-[70] flex items-center justify-center px-6 py-6">
-      <div className="axon-modal-panel axon-git-modal-panel flex h-[calc(100vh-3rem)] max-h-[900px] min-h-[min(660px,calc(100vh-3rem))] w-[min(1180px,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]">
+      <div
+        ref={panelRef}
+        className="axon-modal-panel relative flex h-[calc(100vh-3rem)] max-h-[900px] min-h-[min(660px,calc(100vh-3rem))] w-[clamp(73.75rem,82vw,100rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)]"
+        style={resize.style}
+      >
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] px-3">
           <div className="min-w-0">
             <div className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
@@ -165,6 +175,7 @@ export default function DiffModal({
             themeTokens={themeTokens}
           />
         )}
+        <PanelResizeHandle {...resize.handleProps} />
       </div>
     </div>
   );

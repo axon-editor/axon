@@ -90,7 +90,7 @@ export default function TaskRunnerModal({
   if (!open) return null;
 
   return (
-    <CommandModal title="run task" onClose={onClose} width="w-[720px]">
+    <CommandModal title="run task" onClose={onClose} width="w-[clamp(45rem,50vw,58rem)]">
       <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-3">
         <Hammer size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
         <input
