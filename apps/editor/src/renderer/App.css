@@ -237,12 +237,13 @@
  * stacking. --axon-background already carries the theme color at that alpha
  * in glass mode (glassTheme.ts asserts it stays in the 0.01 range), so every
  * pixel of the window becomes a real surface while the material stays
- * visually untinted. The fallback only applies before the glass variables
- * land, which is the old clear behavior for that one frame. */
+ * visually untinted. The fallback deliberately uses the same tiny alpha
+ * instead of transparent: packaged file:// startup can expose that initial
+ * frame long enough for macOS to retain it as a vibrancy snapshot. */
 html.axon-native-glass,
 html.axon-native-glass body,
 html.axon-native-glass #root {
-  background: var(--axon-background, transparent) !important;
+  background: var(--axon-background, rgba(0, 0, 0, 0.01)) !important;
 }
 
 html.axon-native-glass .axon-modal-panel {

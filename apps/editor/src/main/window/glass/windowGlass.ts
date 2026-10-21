@@ -13,6 +13,13 @@ import { isAppGlassMode, type AppGlassMode } from "../../../shared/core/settings
 const TRANSPARENT_WINDOW_BACKGROUND = "#00000000";
 type NativeGlassAppearance = "light" | "dark";
 
+// Electron exposes setVibrancy(), but macOS does not rebuild the underlying
+// NSVisualEffectView when a window that started opaque becomes vibrant. Keep
+// the last requested mode per native window so that transition can explicitly
+// discard the old backing surface instead of letting Chromium damage against
+// its stale snapshot.
+const appliedGlassModes = new WeakMap<BrowserWindow, AppGlassMode>();
+
 function supportsNativeGlass() {
   return process.platform === "darwin" || process.platform === "win32";
 }
@@ -86,10 +93,24 @@ export function applyWindowGlass(
 
   const mode = isAppGlassMode(requestedMode) ? requestedMode : "off";
   const background = getWindowGlassBackground(mode, opaqueBackground);
+  const previousMode = appliedGlassModes.get(window);
+  const isEnablingMacGlass =
+    process.platform === "darwin" &&
+    previousMode === "off" &&
+    mode !== "off";
   synchronizeNativeGlassAppearance(mode, appearance);
 
   try {
     if (process.platform === "darwin") {
+      if (isEnablingMacGlass) {
+        // A window initially created without vibrancy retains its opaque
+        // AppKit backing layer when Electron enables it later. Clearing the
+        // effect and restoring an opaque color first makes macOS allocate a
+        // new material layer before Chromium receives its transparent Glass
+        // surface. Without this sequence, hover damage can reveal old frames.
+        window.setVibrancy(null);
+        window.setBackgroundColor(safeOpaqueBackground(opaqueBackground));
+      }
       window.setVibrancy(mode === "off" ? null : "under-window");
     } else if (process.platform === "win32") {
       window.setBackgroundMaterial(
@@ -102,6 +123,14 @@ export function applyWindowGlass(
     // translucent renderer surfaces to reveal that material without enabling
     // Electron's more fragile full transparent-window mode.
     window.setBackgroundColor(background);
+    appliedGlassModes.set(window, mode);
+
+    if (isEnablingMacGlass) {
+      // The native layer is new, but Chromium may still hold a partial damage
+      // region from the opaque frame. Invalidate the full WebContents only on
+      // this transition so the first Glass frame is submitted as one surface.
+      window.webContents.invalidate();
+    }
   } catch (error) {
     window.setBackgroundColor(safeOpaqueBackground(opaqueBackground));
     console.warn(
