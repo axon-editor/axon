@@ -734,7 +734,7 @@ export default function Sidebar({
     <>
       <div className="flex h-full">
         <div
-          className="relative flex flex-col overflow-hidden border-r bg-[var(--axon-sidebar-background)] border-[var(--axon-sidebar-border)]"
+          className="axon-region-surface relative flex flex-col overflow-hidden border-r bg-[var(--axon-sidebar-background)] border-[var(--axon-sidebar-border)]"
           style={{ width }}
         >
           <div

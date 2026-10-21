@@ -287,7 +287,7 @@ export default function EditorPane({
       onDragCancel={handleDragCancel}
     >
       <div
-        className={`flex flex-1 overflow-hidden ${isHorizontal ? "flex-row" : "flex-col"}`}
+        className={`axon-region-editor flex flex-1 overflow-hidden ${isHorizontal ? "flex-row" : "flex-col"}`}
       >
         {layout.panes.map((pane, index) => (
           <React.Fragment key={pane.id}>

@@ -441,7 +441,7 @@ export default function AxonAgentSidebar(props: Props) {
 
   return (
     <aside
-      className={`relative flex shrink-0 flex-col overflow-hidden bg-[var(--axon-sidebar-background)] ${
+      className={`axon-region-surface relative flex shrink-0 flex-col overflow-hidden bg-[var(--axon-sidebar-background)] ${
         props.side === "right" ? "border-l" : "border-r"
       }`}
       style={{

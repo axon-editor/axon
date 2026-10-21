@@ -257,6 +257,17 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
   const mainSidebarOrder = mainSidebarSide === "right" ? 3 : 1;
   const editorOrder = 2;
   const agentSidebarOrder = 4;
+  // A region only rounds the edge that faces another region, and the layout is
+  // the only place that knows which region sits on which side of the others.
+  const mainSidebarVisible = chromeMounted || !sidebarCollapsed;
+  const agentSidebarVisible = !!agentSidebarNode;
+  const terminalPanelOpen = terminalOpen || bottomPanelOpen;
+  const mainSidebarFacesStart = mainSidebarSide === "right";
+  const mainSidebarFacesEnd =
+    mainSidebarSide === "left" || agentSidebarVisible;
+  const editorFacesStart = mainSidebarVisible && mainSidebarSide === "left";
+  const editorFacesEnd =
+    (mainSidebarVisible && mainSidebarSide === "right") || agentSidebarVisible;
   const reserveMacTrafficLightSpace =
     platform === "darwin" && !windowFullScreen;
   const zenNativeControlInset = zenActive
@@ -304,10 +315,12 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         } as React.CSSProperties
       }
     >
-      <div className="flex flex-1 overflow-hidden">
+      <div className="axon-layout-regions flex flex-1 overflow-hidden">
         {(chromeMounted || !sidebarCollapsed) && (
           <div
-            className={`${chromeMounted ? "axon-zen-chrome" : ""} flex shrink-0`}
+            className={`${chromeMounted ? "axon-zen-chrome" : ""} flex shrink-0 ${
+              mainSidebarFacesStart ? "axon-layout-sidebar--faces-start" : ""
+            } ${mainSidebarFacesEnd ? "axon-layout-sidebar--faces-end" : ""}`}
             style={{ order: mainSidebarOrder }}
           >
             <Sidebar
@@ -385,7 +398,11 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
           )}
 
         <div
-          className="relative flex flex-col flex-1 overflow-hidden"
+          className={`relative flex flex-col flex-1 overflow-hidden ${
+            editorFacesStart ? "axon-layout-editor--faces-start" : ""
+          } ${editorFacesEnd ? "axon-layout-editor--faces-end" : ""} ${
+            terminalPanelOpen ? "axon-layout-editor--terminal-below" : ""
+          }`}
           style={{ order: editorOrder }}
         >
           {chromeMounted && (
@@ -513,7 +530,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
               nativeControlInset={zenNativeControlInset}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center bg-[var(--axon-editor-background)] text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
+            <div className="axon-region-editor flex flex-1 items-center justify-center bg-[var(--axon-editor-background)] text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
               loading editor...
             </div>
           )}
@@ -554,7 +571,10 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         </div>
 
         {agentSidebarNode ? (
-          <div className="flex shrink-0" style={{ order: agentSidebarOrder }}>
+          <div
+            className="axon-layout-agent--faces-start flex shrink-0"
+            style={{ order: agentSidebarOrder }}
+          >
             {agentSidebarNode}
           </div>
         ) : null}

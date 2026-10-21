@@ -230,7 +230,7 @@ export default function Terminal({
           ? "absolute inset-0 z-0"
           : zoomed
             ? "absolute inset-0 z-30"
-            : "relative z-10 shrink-0 border-t"
+            : "axon-region-terminal--docked relative z-10 shrink-0"
       } flex-col`}
       style={{
         height: windowedMode
@@ -254,10 +254,10 @@ export default function Terminal({
         {!windowedMode && (
           <div
             onPointerDown={handleResizeStart}
-            className={`absolute -top-0.5 left-0 right-0 z-30 h-1 ${
+            className={`absolute z-30 h-1 ${
               zoomed || floating
-                ? "pointer-events-none"
-                : "cursor-row-resize hover:bg-[#80c8e0]/60"
+                ? "pointer-events-none -top-0.5 left-0 right-0"
+                : "top-0 left-0 right-0 cursor-row-resize hover:bg-[#80c8e0]/60"
             }`}
             aria-hidden="true"
           />

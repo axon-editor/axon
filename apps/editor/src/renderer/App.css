@@ -231,6 +231,77 @@
   -webkit-app-region: no-drag;
 }
 
+/* The workbench reads as a set of floating cards: a region that faces another
+ * region rounds off the corners on that edge, and the gap between the regions
+ * shows the native material behind the window. The edges that touch the window
+ * keep their square corners, which is why the radius is applied per edge and
+ * not per region. */
+.axon-app-root {
+  --axon-region-gap: 12px;
+  --axon-region-radius: 16px;
+}
+
+/* The row that holds the main sidebar, the editor column and the agent
+ * sidebar. */
+.axon-layout-regions {
+  gap: var(--axon-region-gap);
+}
+
+/* The main sidebar can sit on either side of the editor column, so it rounds
+ * the edge that faces it. On the right it also meets the agent sidebar. */
+.axon-layout-sidebar--faces-start .axon-region-surface {
+  border-start-start-radius: var(--axon-region-radius);
+  border-end-start-radius: var(--axon-region-radius);
+}
+
+.axon-layout-sidebar--faces-end .axon-region-surface {
+  border-start-end-radius: var(--axon-region-radius);
+  border-end-end-radius: var(--axon-region-radius);
+}
+
+/* The editor column clips the toolbar and the panes, so rounding its top
+ * corners rounds the whole editor surface. Its bottom belongs to the
+ * terminal, which rounds the edge it faces on its own. */
+.axon-layout-editor--faces-start {
+  border-start-start-radius: var(--axon-region-radius);
+}
+
+.axon-layout-editor--faces-end {
+  border-start-end-radius: var(--axon-region-radius);
+}
+
+/* The editor surface meets the terminal below it and the columns beside it,
+ * so its bottom corners round wherever a neighbour sits next to them. */
+.axon-layout-editor--faces-start .axon-region-editor {
+  border-end-start-radius: var(--axon-region-radius);
+}
+
+.axon-layout-editor--faces-end .axon-region-editor {
+  border-end-end-radius: var(--axon-region-radius);
+}
+
+.axon-layout-editor--terminal-below .axon-region-editor {
+  border-end-start-radius: var(--axon-region-radius);
+  border-end-end-radius: var(--axon-region-radius);
+}
+
+/* The agent sidebar hugs the trailing edge of the row, so its leading edge is
+ * the one that meets the editor column. */
+.axon-layout-agent--faces-start .axon-region-surface {
+  border-start-start-radius: var(--axon-region-radius);
+  border-end-start-radius: var(--axon-region-radius);
+}
+
+/* The docked terminal is a card of its own: the gap above it takes over from
+ * the separator line it used to draw, and the top corners round off against
+ * the editor surface above. */
+.axon-region-terminal--docked {
+  margin-top: var(--axon-region-gap);
+  overflow: hidden;
+  border-start-start-radius: var(--axon-region-radius);
+  border-start-end-radius: var(--axon-region-radius);
+}
+
 /* I keep the root levels at the glass surface alpha instead of fully clear.
  * A fully transparent region over the native material is what lets Chromium
  * composite a damaged rect against a stale snapshot, which is the ghost frame
