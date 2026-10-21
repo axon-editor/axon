@@ -31,6 +31,7 @@ import {
 } from "../lib/actions/agentActions";
 import AgentConversationPicker from "./AgentConversationPicker";
 import AgentMessageList from "../chat/messages/AgentMessageList";
+import AgentModelPicker from "./AgentModelPicker";
 import AgentRuntimeStatusPanel from "./AgentRuntimeStatusPanel";
 import ClearConversationConfirmModal from "../modals/ClearConversationConfirmModal";
 import ContextChip from "../chat/composer/ContextChip";
@@ -107,7 +108,6 @@ export default function AxonAgentSidebar(props: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const resumeRequestHandledRef = useRef<string | null>(null);
-  const modelPickerRef = useRef<HTMLDivElement | null>(null);
   const actionPickerRef = useRef<HTMLDivElement | null>(null);
   const activeConversation = activeAgentConversation(conversationState);
   const activeConversationEmpty = activeConversation.messages.length === 0;
@@ -147,9 +147,6 @@ export default function AxonAgentSidebar(props: Props) {
     onWidthChange: props.onWidthChange,
   });
 
-  usePopoverDismiss(modelPickerRef, modelPickerOpen, () =>
-    setModelPickerOpen(false),
-  );
   usePopoverDismiss(actionPickerRef, actionPickerOpen, () =>
     setActionPickerOpen(false),
   );
@@ -631,68 +628,19 @@ export default function AxonAgentSidebar(props: Props) {
             <div className="flex items-center justify-between gap-2 border-t border-[var(--axon-panel-border)] px-2 py-1.5">
               <div className="flex min-w-0 items-center gap-1">
                 {canManageModels && (
-                  <div ref={modelPickerRef} className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setModelPickerOpen((open) => !open);
-                        setActionPickerOpen(false);
-                      }}
-                      className="flex h-7 max-w-[130px] cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-50 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100"
-                      aria-label="Choose Axon model"
-                    >
-                      <span className="truncate">{selectedModelLabel}</span>
-                      <ChevronDown size={10} className="shrink-0 opacity-40" />
-                    </button>
-                    {modelPickerOpen && (
-                      <div className="axon-agent-popup absolute bottom-8 left-0 z-30 w-[300px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-2xl shadow-black/50">
-                        <div className="max-h-[260px] overflow-y-auto p-1.5">
-                          {models.map((model) => (
-                            <button
-                              key={model.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedModel(model.id);
-                                setModelPickerOpen(false);
-                              }}
-                              className={`flex w-full cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-left transition ${
-                                model.id === selectedModel
-                                  ? "bg-[var(--axon-panel-overlay-hover)]"
-                                  : "hover:bg-[var(--axon-panel-overlay-hover)]"
-                              }${
-                                model.compatibility === "unsupported"
-                                  ? " opacity-60"
-                                  : ""
-                              }`}
-                            >
-                              <span
-                                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                                  model.available
-                                    ? "bg-[#5ee6a8]"
-                                    : "bg-[var(--axon-editor-foreground)] opacity-25"
-                                }`}
-                              />
-                              <span className="min-w-0">
-                                <span className="block truncate text-[12px] text-[var(--axon-editor-foreground)]">
-                                  {model.label}
-                                </span>
-                                <span className="mt-0.5 block text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-50">
-                                  {model.available ? "Ready" : "Download required"}
-                                  {model.compatibility === "unsupported"
-                                    ? model.minMemoryGB
-                                      ? ` - needs about ${model.minMemoryGB} GB`
-                                      : " - too much memory for this machine"
-                                    : model.compatibility === "ok"
-                                      ? " - close to this machine's memory limit"
-                                      : ""}
-                                </span>
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <AgentModelPicker
+                    hostMemoryGB={runtimeStatus?.memoryGB}
+                    models={models}
+                    open={modelPickerOpen}
+                    selectedModel={selectedModel}
+                    selectedModelAvailable={selectedModelInstalled}
+                    selectedModelLabel={selectedModelLabel}
+                    onOpenChange={(open) => {
+                      setModelPickerOpen(open);
+                      if (open) setActionPickerOpen(false);
+                    }}
+                    onSelect={setSelectedModel}
+                  />
                 )}
                 <div ref={actionPickerRef} className="relative">
                   <button
@@ -708,7 +656,7 @@ export default function AxonAgentSidebar(props: Props) {
                     <ChevronDown size={10} className="shrink-0 opacity-40" />
                   </button>
                   {actionPickerOpen && (
-                    <div className="axon-agent-popup absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
+                    <div className="axon-popup-surface axon-agent-popup absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
                       {(["agent", ...agentQuickActions] as AiActionId[]).map((item) => (
                         <button
                           key={item}

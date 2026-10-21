@@ -33,7 +33,7 @@ export default function MessageContextMenu({
   return (
     <div
       ref={menuRef}
-      className="axon-agent-popup axon-agent-popup--down fixed z-50 w-[150px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
+      className="axon-popup-surface axon-agent-popup axon-agent-popup--down fixed z-50 w-[150px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
       style={{ left: x, top: y }}
     >
       <button

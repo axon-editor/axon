@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { type AiModelInfo } from "@axon-editor/shared/ai/ai";
 import { usePopoverDismiss } from "../lib/hooks/usePopoverDismiss";
+import AgentModelOption from "./AgentModelOption";
 
 // Surface for the status panel: when the chosen model still needs a download,
 // the user should be able to jump to an already-installed model without hunting
@@ -30,7 +31,9 @@ export default function AgentInstalledModelPicker({
   usePopoverDismiss(pickerRef, open, () => setOpen(false));
 
   const installedModels = models.filter((model) => model.available);
-  const activeModel = installedModels.find((model) => model.id === selectedModel);
+  const activeModel = installedModels.find(
+    (model) => model.id === selectedModel,
+  );
 
   const handleToggle = () => setOpen((current) => !current);
 
@@ -46,45 +49,36 @@ export default function AgentInstalledModelPicker({
         onClick={handleToggle}
         aria-label="Choose an installed model"
         aria-expanded={open}
-        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2.5 py-2 text-left text-[12px] text-[var(--axon-editor-foreground)] transition-colors hover:border-[var(--axon-syntax-function)]/40"
+        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-[var(--axon-panel-border)] bg-transparent px-2.5 py-2 text-left transition-colors hover:border-[var(--axon-syntax-function)]/40"
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-[#5ee6a8]" />
-          <span className="truncate">
+        <span className="min-w-0">
+          <span className="block truncate text-[12px] text-[var(--axon-editor-foreground)]">
             {activeModel ? activeModel.label : "Choose an installed model"}
           </span>
+          {activeModel?.description && (
+            <span className="mt-0.5 block truncate text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-40">
+              {activeModel.description}
+            </span>
+          )}
         </span>
         <ChevronDown size={12} className="shrink-0 opacity-40" />
       </button>
+
       {open && (
-        <div className="axon-agent-popup absolute bottom-full left-0 z-30 mb-1 max-h-56 w-full overflow-y-auto rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1 shadow-xl shadow-black/40">
-          {installedModels.map((model) => {
-            const active = model.id === selectedModel;
-            return (
-              <button
-                key={model.id}
-                type="button"
-                onClick={() => handleSelect(model.id)}
-                className={`flex w-full items-start gap-2 rounded px-2 py-1.5 text-left transition-colors ${
-                  active
-                    ? "bg-[var(--axon-panel-overlay-hover)]"
-                    : "hover:bg-[var(--axon-panel-overlay-hover)]"
-                }`}
-              >
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#5ee6a8]" />
-                <span className="min-w-0">
-                  <span className="block truncate text-[12px] text-[var(--axon-editor-foreground)]">
-                    {model.label}
-                  </span>
-                  {model.description && (
-                    <span className="mt-0.5 block truncate text-[10px] text-[var(--axon-editor-foreground)] opacity-50">
-                      {model.description}
-                    </span>
-                  )}
-                </span>
-              </button>
-            );
-          })}
+        <div className="axon-popup-surface axon-agent-popup absolute bottom-full left-0 z-30 mb-1 w-full overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_18px_48px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.04]">
+          <div className="px-1.5 pb-2 pt-1.5">
+            <div className="max-h-56 overflow-y-auto">
+              {installedModels.map((model) => (
+                <AgentModelOption
+                  key={model.id}
+                  active={model.id === selectedModel}
+                  label={model.label}
+                  note={model.description ?? ""}
+                  onSelect={() => handleSelect(model.id)}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

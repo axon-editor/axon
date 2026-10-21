@@ -45,7 +45,7 @@ export default function SlashCommandMenu({ onSelect, onDismiss }: SlashCommandMe
   return (
     <div
       ref={menuRef}
-      className="axon-agent-popup absolute bottom-full left-0 z-30 mb-1 w-[210px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
+      className="axon-popup-surface axon-agent-popup absolute bottom-full left-0 z-30 mb-1 w-[210px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] shadow-xl shadow-black/40"
     >
       <div className="px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--axon-editor-foreground)] opacity-30">
         Commands
