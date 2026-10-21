@@ -146,6 +146,10 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     zenMode,
     ZEN_CHROME_TRANSITION_MS,
   );
+  // The zoomed terminal paints over the editor column while its own surface
+  // stays translucent in glass mode, so the toolbar underneath has to leave the
+  // top strip to it instead of showing through as a second row of icons.
+  const [terminalZoomed, setTerminalZoomed] = React.useState(false);
   // Zen entry must land on a clean canvas: panels, terminals and the agent
   // sidebar drop away with the rest of the chrome and can be summoned back one
   // keystroke at a time. The sidebar collapses (not unmounts, that would break
@@ -402,12 +406,12 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
             editorFacesStart ? "axon-layout-editor--faces-start" : ""
           } ${editorFacesEnd ? "axon-layout-editor--faces-end" : ""} ${
             terminalPanelOpen ? "axon-layout-editor--terminal-below" : ""
-          }`}
+          } ${terminalZoomed ? "axon-layout-editor--terminal-zoomed" : ""}`}
           style={{ order: editorOrder }}
         >
           {chromeMounted && (
             <div
-              className="axon-zen-chrome flex items-center border-b pr-1"
+              className="axon-editor-chrome axon-zen-chrome flex items-center border-b pr-1"
               style={
                 {
                   background: "var(--axon-toolbar-background)",
@@ -564,6 +568,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
                   setBottomPanelOpen(false);
                 }}
                 onClearOutput={() => runCommand(AXON_COMMANDS.CLEAR_OUTPUT)}
+                onZoomChange={setTerminalZoomed}
                 nativeControlInset={terminalNativeControlInset}
               />
             </React.Suspense>

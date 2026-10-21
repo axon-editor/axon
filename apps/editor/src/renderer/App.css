@@ -285,6 +285,14 @@
   border-end-end-radius: var(--axon-region-radius);
 }
 
+/* A zoomed terminal owns the whole editor column, and in glass mode its header
+ * stays translucent enough to show the toolbar icons underneath. The chrome
+ * keeps its height so nothing reflows behind the panel, it just stops painting
+ * a second row of controls through the terminal header. */
+.axon-layout-editor--terminal-zoomed .axon-editor-chrome {
+  visibility: hidden;
+}
+
 /* The agent sidebar hugs the trailing edge of the row, so its leading edge is
  * the one that meets the editor column. */
 .axon-layout-agent--faces-start .axon-region-surface {

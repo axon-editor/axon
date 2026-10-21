@@ -54,6 +54,10 @@ interface Props {
   onActivePanelTabChange: (tab: "terminal" | BottomPanelTab) => void;
   onClearOutput: () => void;
   onHide: () => void;
+  // A zoomed panel owns the whole editor column while its glass surface stays
+  // translucent, so the layout needs to know when the chrome behind it has to
+  // step aside.
+  onZoomChange?: (zoomed: boolean) => void;
   floatingNotice?: ReactNode;
   nativeControlInset?: {
     start: number;
@@ -86,6 +90,7 @@ export default function Terminal({
   onActivePanelTabChange,
   onClearOutput,
   onHide,
+  onZoomChange,
   floatingNotice,
   nativeControlInset = { start: 0, end: 0 },
   windowed = false,
@@ -139,6 +144,18 @@ export default function Terminal({
   });
 
   useZoomedPanelEscape(zoomed, setZoomed);
+
+  // Reported on every change so the button, the Escape key and a tab switch all
+  // keep the column marker in sync with what the panel actually covers.
+  useEffect(() => {
+    onZoomChange?.(zoomed);
+  }, [onZoomChange, zoomed]);
+
+  // A panel that unmounts while zoomed never reports the exit on its own, and
+  // the editor would stay hidden until the next zoom toggle.
+  useEffect(() => {
+    return () => onZoomChange?.(false);
+  }, [onZoomChange]);
 
   const { height, handleResizeStart } = usePanelHeightResize({
     floating,
