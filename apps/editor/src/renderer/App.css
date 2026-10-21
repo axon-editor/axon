@@ -285,11 +285,12 @@
   border-end-end-radius: var(--axon-region-radius);
 }
 
-/* A zoomed terminal owns the whole editor column, and in glass mode its header
- * stays translucent enough to show the toolbar icons underneath. The chrome
- * keeps its height so nothing reflows behind the panel, it just stops painting
- * a second row of controls through the terminal header. */
-.axon-layout-editor--terminal-zoomed .axon-editor-chrome {
+/* A zoomed terminal owns the whole editor column, and even its frosted surface
+ * still shows a little of what sits underneath. The editor keeps its height so
+ * nothing reflows behind the panel, it just stops painting through the terminal
+ * header and canvas. */
+.axon-layout-editor--terminal-zoomed .axon-editor-chrome,
+.axon-layout-editor--terminal-zoomed .axon-region-editor {
   visibility: hidden;
 }
 

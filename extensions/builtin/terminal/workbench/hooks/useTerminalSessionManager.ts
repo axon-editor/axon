@@ -561,6 +561,11 @@ export function useTerminalSessionManager({
 
       const term = new XTerm({
         ...terminalOptions,
+        // Glass clears the canvas so the panel's frosted tint can show
+        // through, and xterm silently paints any alpha as opaque unless this
+        // is set when the terminal is created. The WebGL renderer blends that
+        // for free; only the DOM fallback pays xterm's transparency penalty.
+        allowTransparency: true,
         cursorBlink: true,
         cursorStyle: "block",
         ignoreBracketedPasteMode: false,

@@ -257,7 +257,7 @@ export default function Terminal({
             : terminalInWindow
               ? "auto"
               : `${height}px`,
-        background: terminalOptions.theme.background,
+        background: terminalOptions.surfaceBackground,
         color: terminalOptions.theme.foreground,
         borderColor: "var(--axon-panel-border)",
       }}

@@ -256,6 +256,7 @@ function TerminalHarness({
       fontSize: 13,
       fontWeight: 400,
       lineHeight: 1.2,
+      surfaceBackground: background,
       theme: {
         background,
         foreground,

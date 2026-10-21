@@ -25,16 +25,18 @@ function createSettings(appGlassMode: EditorSettings["appGlassMode"]) {
 }
 
 describe("terminal glass theme", () => {
-  it("clears the xterm canvas background while Glass is active", () => {
+  it("paints one frosted tint on the panel and keeps xterm's canvas clear", () => {
     const options = getTerminalOptions(createSettings("system"), themeTokens);
 
+    expect(options.surfaceBackground).toBe("rgba(242, 229, 188, 0.3)");
     expect(options.theme.background).toBe("#00000000");
     expect(options.theme.foreground).toBe("#282828ff");
   });
 
-  it("keeps the theme background when Glass is disabled", () => {
+  it("keeps the theme background on both surfaces when Glass is disabled", () => {
     const options = getTerminalOptions(createSettings("off"), themeTokens);
 
+    expect(options.surfaceBackground).toBe("#f2e5bcff");
     expect(options.theme.background).toBe("#f2e5bcff");
   });
 });

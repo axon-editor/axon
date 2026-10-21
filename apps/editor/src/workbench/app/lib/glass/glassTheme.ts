@@ -4,23 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { CSSProperties } from "react";
+import { colorWithAlpha } from "../../../../renderer/shared/lib/theme/colorAlpha";
 import type { ResolvedThemeTokens } from "../../../../renderer/shared/lib/theme/themeTokens";
 import type { ThemeAppearance } from "../../../../renderer/shared/themes/appearance/themeAppearance";
-
-function colorWithAlpha(color: string, alpha: number) {
-  const normalizedColor = color?.trim() ?? "";
-  const match = normalizedColor.match(
-    /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i,
-  );
-  if (!match) return color;
-
-  const [, red, green, blue, existingAlpha] = match;
-  const baseAlpha = existingAlpha
-    ? Number.parseInt(existingAlpha, 16) / 255
-    : 1;
-  const finalAlpha = Math.max(0, Math.min(1, alpha * baseAlpha));
-  return `rgba(${Number.parseInt(red, 16)}, ${Number.parseInt(green, 16)}, ${Number.parseInt(blue, 16)}, ${finalAlpha})`;
-}
 
 // A fully transparent renderer surface leaves Chromium with no stable backdrop
 // to damage against. A hover that dirties one small rectangle then composites

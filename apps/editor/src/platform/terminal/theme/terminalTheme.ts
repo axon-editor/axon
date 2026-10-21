@@ -6,7 +6,15 @@
 import { type ITheme } from "@xterm/xterm";
 import type { BuiltInThemeId, EditorSettings } from "../../../shared/core/settings";
 import { editorFontStack } from "../../../renderer/shared/lib/fonts/fonts";
+import { colorWithAlpha } from "../../../renderer/shared/lib/theme/colorAlpha";
 import type { ResolvedThemeTokens } from "../../../renderer/shared/lib/theme/themeTokens";
+
+// Glass surfaces sit almost clear over the native material. A terminal cannot
+// go that far: dense monospaced text needs a backdrop of its own, so it keeps a
+// smoked tint of its theme background that darkens whatever sits behind it
+// without hiding it. The opacity slider is deliberately not wired in, because
+// it tunes overlay surfaces rather than this one.
+const GLASS_TERMINAL_ALPHA = 0.3;
 
 const terminalThemes: Record<BuiltInThemeId, ITheme> = {
   "axon-dark": {
@@ -434,17 +442,24 @@ export function getTerminalOptions(
     terminalThemes["axon-dark"];
   const contributedTheme = resolveContributedTerminalTheme(terminalColors);
 
+  const surfaceBackground =
+    editorSettings.appGlassMode === "off"
+      ? themeTokens["terminal.background"]
+      : colorWithAlpha(themeTokens["terminal.background"], GLASS_TERMINAL_ALPHA);
+
   return {
+    // The panel wrapper paints this tint, not xterm: the wrapper also colors
+    // the header strip, and stacking the same alpha on both layers compounds
+    // into an almost opaque surface that hides the material behind it.
+    surfaceBackground,
     theme: {
       ...theme,
       ...contributedTheme,
-      // xterm paints its own canvas background instead of inheriting the
-      // terminal wrapper's CSS variable. Clearing that canvas while Glass is
-      // active is what lets the native material remain visible through the
-      // terminal instead of leaving one opaque theme-colored rectangle.
+      // Clearing the canvas lets the wrapper's frosted tint (and with it the
+      // native material) show through the cells instead of one flat rectangle.
       background:
         editorSettings.appGlassMode === "off"
-          ? themeTokens["terminal.background"]
+          ? surfaceBackground
           : "#00000000",
       foreground: themeTokens["terminal.foreground"],
     },
