@@ -261,17 +261,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
   const mainSidebarOrder = mainSidebarSide === "right" ? 3 : 1;
   const editorOrder = 2;
   const agentSidebarOrder = 4;
-  // A region only rounds the edge that faces another region, and the layout is
-  // the only place that knows which region sits on which side of the others.
-  const mainSidebarVisible = chromeMounted || !sidebarCollapsed;
-  const agentSidebarVisible = !!agentSidebarNode;
   const terminalPanelOpen = terminalOpen || bottomPanelOpen;
-  const mainSidebarFacesStart = mainSidebarSide === "right";
-  const mainSidebarFacesEnd =
-    mainSidebarSide === "left" || agentSidebarVisible;
-  const editorFacesStart = mainSidebarVisible && mainSidebarSide === "left";
-  const editorFacesEnd =
-    (mainSidebarVisible && mainSidebarSide === "right") || agentSidebarVisible;
   const reserveMacTrafficLightSpace =
     platform === "darwin" && !windowFullScreen;
   const zenNativeControlInset = zenActive
@@ -322,9 +312,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
       <div className="axon-layout-regions flex flex-1 overflow-hidden">
         {(chromeMounted || !sidebarCollapsed) && (
           <div
-            className={`${chromeMounted ? "axon-zen-chrome" : ""} flex shrink-0 ${
-              mainSidebarFacesStart ? "axon-layout-sidebar--faces-start" : ""
-            } ${mainSidebarFacesEnd ? "axon-layout-sidebar--faces-end" : ""}`}
+            className={`${chromeMounted ? "axon-zen-chrome" : ""} flex shrink-0`}
             style={{ order: mainSidebarOrder }}
           >
             <Sidebar
@@ -402,142 +390,146 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
           )}
 
         <div
-          className={`relative flex flex-col flex-1 overflow-hidden ${
-            editorFacesStart ? "axon-layout-editor--faces-start" : ""
-          } ${editorFacesEnd ? "axon-layout-editor--faces-end" : ""} ${
+          className={`axon-layout-editor relative flex flex-col flex-1 overflow-hidden ${
             terminalPanelOpen ? "axon-layout-editor--terminal-below" : ""
           } ${terminalZoomed ? "axon-layout-editor--terminal-zoomed" : ""}`}
           style={{ order: editorOrder }}
         >
-          {chromeMounted && (
-            <div
-              className="axon-editor-chrome axon-zen-chrome flex items-center border-b pr-1"
-              style={
-                {
-                  background: "var(--axon-toolbar-background)",
-                  borderColor: "var(--axon-panel-border)",
-                  WebkitAppRegion: "drag",
-                } as React.CSSProperties
-              }
-            >
-              {platform !== "darwin" ? (
-                <AppMenuButton
-                  autoSaveEnabled={settings.editor.autoSave}
-                  hasWorkspace={!!folderPath}
-                  onCommand={runCommand}
-                />
-              ) : null}
-              <div className="flex min-w-0 flex-1 overflow-hidden" />
+          <div className="axon-region-editor-card relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            {chromeMounted && (
               <div
-                style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-              >
-                <EditorToolbar
-                  onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
-                  onOpenFile={() =>
-                    runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)
-                  }
-                  onDiff={() => runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW)}
-                  onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
-                  onSplit={handleSplit}
-                  onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
-                  onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
-                  onExtensions={() => runCommand(AXON_COMMANDS.OPEN_EXTENSIONS)}
-                  onAbout={() => setAboutOpen(true)}
-                  updateInfo={updateInfo}
-                  updateInstallState={updateInstallState}
-                  onOpenUpdate={() => setUpdateModalOpen(true)}
-                  isZenMode={zenMode}
-                  hasWorkspace={!!folderPath}
-                  hasActiveFile={!!activePane?.activeFile}
-                />
-              </div>
-              {platform === "win32" ? (
-                <div className="w-[138px] shrink-0" aria-hidden="true" />
-              ) : null}
-            </div>
-          )}
-
-          {settingsHydrated ? (
-            <EditorPane
-              layout={layout}
-              language={language}
-              availableFonts={availableFonts}
-              extensionState={extensionState}
-              settings={settings}
-              folderPath={folderPath}
-              onActivatePane={(id) =>
-                setLayout((prev) => activatePane(prev, id))
-              }
-              onSelectFile={(paneId, f) =>
-                setLayout((prev) => openFileInPane(prev, paneId, f))
-              }
-              onCloseTab={(paneId, f) => void requestCloseTab(paneId, f)}
-              onPinTab={(paneId, f, pinned) =>
-                setLayout((prev) => setPinnedInPane(prev, paneId, f, pinned))
-              }
-              onReorderTabs={(paneId, tabs) =>
-                setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
-              }
-              onDirtyChange={(paneId, f, d) =>
-                setLayout((prev) => setDirtyInPane(prev, paneId, f, d))
-              }
-              onCursorChange={(line, col) => setCursorInfo({ line, col })}
-              onLanguageChange={setLanguage}
-              onMoveTabBetweenPanes={(f, src, tgt) =>
-                setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
-              }
-              onClosePane={(paneId) =>
-                setLayout((prev) => closePane(prev, paneId))
-              }
-              onOpenAgent={() => runCommand(AXON_COMMANDS.ASK_AXON)}
-              onOpenTabInTerminal={handleOpenTabInTerminal}
-              onOpenFile={handleFileSelect}
-              onOpenSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
-              onOpenTerminal={() => {
-                runCommand(AXON_COMMANDS.TOGGLE_TERMINAL);
-              }}
-              onSelectTheme={(themeId: ThemeId) => {
-                void handleSettingsSave(
+                className="axon-editor-chrome axon-zen-chrome flex items-center border-b pr-1"
+                style={
                   {
-                    ...settings,
-                    editor: {
-                      ...settings.editor,
-                      themeId,
+                    background: "var(--axon-toolbar-background)",
+                    borderColor: "var(--axon-panel-border)",
+                    WebkitAppRegion: "drag",
+                  } as React.CSSProperties
+                }
+              >
+                {platform !== "darwin" ? (
+                  <AppMenuButton
+                    autoSaveEnabled={settings.editor.autoSave}
+                    hasWorkspace={!!folderPath}
+                    onCommand={runCommand}
+                  />
+                ) : null}
+                <div className="flex min-w-0 flex-1 overflow-hidden" />
+                <div
+                  style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+                >
+                  <EditorToolbar
+                    onNewFile={() => runCommand(AXON_COMMANDS.NEW_FILE)}
+                    onOpenFile={() =>
+                      runCommand(AXON_COMMANDS.OPEN_COMMAND_PALETTE)
+                    }
+                    onDiff={() => runCommand(AXON_COMMANDS.OPEN_DIFF_VIEW)}
+                    onNewTerminal={() => runCommand(AXON_COMMANDS.NEW_TERMINAL)}
+                    onSplit={handleSplit}
+                    onZenMode={() => runCommand(AXON_COMMANDS.TOGGLE_ZEN_MODE)}
+                    onSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
+                    onExtensions={() =>
+                      runCommand(AXON_COMMANDS.OPEN_EXTENSIONS)
+                    }
+                    onAbout={() => setAboutOpen(true)}
+                    updateInfo={updateInfo}
+                    updateInstallState={updateInstallState}
+                    onOpenUpdate={() => setUpdateModalOpen(true)}
+                    isZenMode={zenMode}
+                    hasWorkspace={!!folderPath}
+                    hasActiveFile={!!activePane?.activeFile}
+                  />
+                </div>
+                {platform === "win32" ? (
+                  <div className="w-[138px] shrink-0" aria-hidden="true" />
+                ) : null}
+              </div>
+            )}
+
+            {settingsHydrated ? (
+              <EditorPane
+                layout={layout}
+                language={language}
+                availableFonts={availableFonts}
+                extensionState={extensionState}
+                settings={settings}
+                folderPath={folderPath}
+                onActivatePane={(id) =>
+                  setLayout((prev) => activatePane(prev, id))
+                }
+                onSelectFile={(paneId, f) =>
+                  setLayout((prev) => openFileInPane(prev, paneId, f))
+                }
+                onCloseTab={(paneId, f) => void requestCloseTab(paneId, f)}
+                onPinTab={(paneId, f, pinned) =>
+                  setLayout((prev) => setPinnedInPane(prev, paneId, f, pinned))
+                }
+                onReorderTabs={(paneId, tabs) =>
+                  setLayout((prev) => reorderTabsInPane(prev, paneId, tabs))
+                }
+                onDirtyChange={(paneId, f, d) =>
+                  setLayout((prev) => setDirtyInPane(prev, paneId, f, d))
+                }
+                onCursorChange={(line, col) => setCursorInfo({ line, col })}
+                onLanguageChange={setLanguage}
+                onMoveTabBetweenPanes={(f, src, tgt) =>
+                  setLayout((prev) => moveTabBetweenPanes(prev, src, tgt, f))
+                }
+                onClosePane={(paneId) =>
+                  setLayout((prev) => closePane(prev, paneId))
+                }
+                onOpenAgent={() => runCommand(AXON_COMMANDS.ASK_AXON)}
+                onOpenTabInTerminal={handleOpenTabInTerminal}
+                onOpenFile={handleFileSelect}
+                onOpenSettings={() => runCommand(AXON_COMMANDS.OPEN_SETTINGS)}
+                onOpenTerminal={() => {
+                  runCommand(AXON_COMMANDS.TOGGLE_TERMINAL);
+                }}
+                onSelectTheme={(themeId: ThemeId) => {
+                  void handleSettingsSave(
+                    {
+                      ...settings,
+                      editor: {
+                        ...settings.editor,
+                        themeId,
+                      },
                     },
-                  },
-                  { announce: false },
-                );
-              }}
-              onPreviewSettings={handleSettingsPreview}
-              onSaveSettings={handleSettingsSave}
-              onOpenLanguageTools={() => setLanguageToolsOpen(true)}
-              onViewLogs={() => {
-                setBottomPanelTab("output");
-                setBottomPanelOpen(true);
-                setTerminalOpen(false);
-              }}
-              onOpenNavigationTarget={handleOpenNavigationTarget}
-              editorSettings={settings.editor}
-              languageServicesEnabled={settings.lsp.enabled && workspaceTrusted}
-              currentThemeId={settings.editor.themeId}
-              themeItems={welcomeThemeItems}
-              themeSyntax={themeSyntax}
-              themeTokens={themeTokens}
-              navigationTarget={navigationTarget}
-              gitChanges={gitStatus?.changes ?? []}
-              isGitRepository={gitStatus?.isRepository ?? false}
-              diagnostics={diagnostics}
-              deletedFiles={deletedFiles}
-              handleOpenFolder={() => setFolderPickerIntent("folder")}
-              handleNewFile={handleNewFile}
-              handleFolderChange={handleFolderChange}
-              nativeControlInset={zenNativeControlInset}
-            />
-          ) : (
-            <div className="axon-region-editor flex flex-1 items-center justify-center bg-[var(--axon-editor-background)] text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
-              loading editor...
-            </div>
-          )}
+                    { announce: false },
+                  );
+                }}
+                onPreviewSettings={handleSettingsPreview}
+                onSaveSettings={handleSettingsSave}
+                onOpenLanguageTools={() => setLanguageToolsOpen(true)}
+                onViewLogs={() => {
+                  setBottomPanelTab("output");
+                  setBottomPanelOpen(true);
+                  setTerminalOpen(false);
+                }}
+                onOpenNavigationTarget={handleOpenNavigationTarget}
+                editorSettings={settings.editor}
+                languageServicesEnabled={
+                  settings.lsp.enabled && workspaceTrusted
+                }
+                currentThemeId={settings.editor.themeId}
+                themeItems={welcomeThemeItems}
+                themeSyntax={themeSyntax}
+                themeTokens={themeTokens}
+                navigationTarget={navigationTarget}
+                gitChanges={gitStatus?.changes ?? []}
+                isGitRepository={gitStatus?.isRepository ?? false}
+                diagnostics={diagnostics}
+                deletedFiles={deletedFiles}
+                handleOpenFolder={() => setFolderPickerIntent("folder")}
+                handleNewFile={handleNewFile}
+                handleFolderChange={handleFolderChange}
+                nativeControlInset={zenNativeControlInset}
+              />
+            ) : (
+              <div className="axon-region-editor flex flex-1 items-center justify-center bg-[var(--axon-editor-background)] text-[12px] text-[var(--axon-editor-foreground)] opacity-55">
+                loading editor...
+              </div>
+            )}
+          </div>
 
           {workspaceTrusted && terminalContribution ? (
             <React.Suspense fallback={null}>
@@ -577,7 +569,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
 
         {agentSidebarNode ? (
           <div
-            className="axon-layout-agent--faces-start flex shrink-0"
+            className="flex shrink-0"
             style={{ order: agentSidebarOrder }}
           >
             {agentSidebarNode}

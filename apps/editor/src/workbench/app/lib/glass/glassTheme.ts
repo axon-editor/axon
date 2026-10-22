@@ -19,6 +19,12 @@ import type { ThemeAppearance } from "../../../../renderer/shared/themes/appeara
 // gives the compositor an actual surface to repaint against.
 const GLASS_SURFACE_ALPHA = 0.01;
 
+// The window material is the shared surface, so a region at the anti-ghosting
+// alpha merges into the margin and its rounded corners disappear. A card tint
+// at the same alpha as the frosted terminal gives every region a visible edge
+// while still letting the material show through.
+const GLASS_REGION_ALPHA = 0.3;
+
 function opaqueColor(color: string) {
   const normalizedColor = color?.trim() ?? "";
   const match = normalizedColor.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
@@ -73,6 +79,10 @@ export function createGlassThemeCssVariables(
     ...themeCssVariables,
     "--axon-glass-surface-blur": `${blur * 2}px`,
     "--axon-glass-surface-saturation": "100%",
+    "--axon-glass-region-background": colorWithAlpha(
+      themeTokens["editor.background"],
+      GLASS_REGION_ALPHA,
+    ),
     "--axon-modal-glass-background": colorWithAlpha(
       themeTokens["editor.background"],
       modalOpacity,

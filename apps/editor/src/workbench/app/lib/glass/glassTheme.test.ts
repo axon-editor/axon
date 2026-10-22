@@ -77,6 +77,23 @@ describe("glass theme surfaces", () => {
     );
   });
 
+  it("gives the workbench regions a card tint that can read against the margin", () => {
+    const variables = createGlassThemeCssVariables(
+      {},
+      parchmentTokens,
+      "dark",
+      0.8,
+      12,
+    ) as Record<string, string>;
+
+    // The persistent surfaces above stay at the anti-ghosting floor, but a
+    // region card at that alpha would be invisible, so it carries the same
+    // weight as the frosted terminal instead.
+    expect(alphaOf(variables["--axon-glass-region-background"])).toBeCloseTo(
+      0.3,
+    );
+  });
+
   it("uses neutral dark interaction layers instead of theme backgrounds", () => {
     const variables = createGlassThemeCssVariables(
       {},

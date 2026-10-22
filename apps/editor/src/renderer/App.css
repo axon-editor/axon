@@ -231,11 +231,12 @@
   -webkit-app-region: no-drag;
 }
 
-/* The workbench reads as a set of floating cards: a region that faces another
- * region rounds off the corners on that edge, and the gap between the regions
- * shows the native material behind the window. The edges that touch the window
- * keep their square corners, which is why the radius is applied per edge and
- * not per region. */
+/* The workbench reads as a set of floating cards: the row is inset from the
+ * window edge, the sidebars, editor column and terminal carry the same radius
+ * on every corner, and the gap between them shows the native material behind
+ * the window. The outer margin matches the inner gap so the cards sit on one
+ * grid, and insetting the row keeps the corners visible instead of letting the
+ * window clip the outer edges. */
 .axon-app-root {
   --axon-region-gap: 12px;
   --axon-region-radius: 16px;
@@ -245,70 +246,54 @@
  * sidebar. */
 .axon-layout-regions {
   gap: var(--axon-region-gap);
+  padding: var(--axon-region-gap);
 }
 
-/* The main sidebar can sit on either side of the editor column, so it rounds
- * the edge that faces it. On the right it also meets the agent sidebar. */
-.axon-layout-sidebar--faces-start .axon-region-surface {
-  border-start-start-radius: var(--axon-region-radius);
-  border-end-start-radius: var(--axon-region-radius);
+/* Each workbench region is a card: the sidebars share one surface class, the
+ * editor wraps its toolbar and panes, and the terminal is a card of its own.
+ * The radius lives on the card rather than on the containers that stack the
+ * cards, so every corner stays rounded when the terminal is docked or zoomed. */
+.axon-region-surface,
+.axon-region-editor-card,
+.axon-layout-editor,
+.axon-region-terminal--docked {
+  border-radius: var(--axon-region-radius);
 }
 
-.axon-layout-sidebar--faces-end .axon-region-surface {
-  border-start-end-radius: var(--axon-region-radius);
-  border-end-end-radius: var(--axon-region-radius);
+/* In glass mode the native material owns the window surface, so a region at
+ * the anti-ghosting alpha blends into the margin and loses its shape. The
+ * cards therefore carry a real tint of the theme editor color, with an inset
+ * ring so the rounded edge stays crisp without changing the card size. */
+html.axon-native-glass .axon-region-surface,
+html.axon-native-glass .axon-region-editor-card {
+  background: var(--axon-glass-region-background);
 }
 
-/* The editor column clips the toolbar and the panes, so rounding its top
- * corners rounds the whole editor surface. Its bottom belongs to the
- * terminal, which rounds the edge it faces on its own. */
-.axon-layout-editor--faces-start {
-  border-start-start-radius: var(--axon-region-radius);
+html.axon-native-glass .axon-region-surface,
+html.axon-native-glass .axon-region-editor-card,
+html.axon-native-glass .axon-region-terminal--docked {
+  box-shadow: inset 0 0 0 1px var(--axon-panel-border);
 }
 
-.axon-layout-editor--faces-end {
-  border-start-end-radius: var(--axon-region-radius);
-}
-
-/* The editor surface meets the terminal below it and the columns beside it,
- * so its bottom corners round wherever a neighbour sits next to them. */
-.axon-layout-editor--faces-start .axon-region-editor {
-  border-end-start-radius: var(--axon-region-radius);
-}
-
-.axon-layout-editor--faces-end .axon-region-editor {
-  border-end-end-radius: var(--axon-region-radius);
-}
-
-.axon-layout-editor--terminal-below .axon-region-editor {
-  border-end-start-radius: var(--axon-region-radius);
-  border-end-end-radius: var(--axon-region-radius);
+/* The ring now draws every edge, so the sidebars drop the single divider they
+ * used to paint against the editor. */
+html.axon-native-glass .axon-region-surface {
+  border-width: 0;
 }
 
 /* A zoomed terminal owns the whole editor column, and even its frosted surface
  * still shows a little of what sits underneath. The editor keeps its height so
  * nothing reflows behind the panel, it just stops painting through the terminal
  * header and canvas. */
-.axon-layout-editor--terminal-zoomed .axon-editor-chrome,
-.axon-layout-editor--terminal-zoomed .axon-region-editor {
+.axon-layout-editor--terminal-zoomed .axon-region-editor-card {
   visibility: hidden;
 }
 
-/* The agent sidebar hugs the trailing edge of the row, so its leading edge is
- * the one that meets the editor column. */
-.axon-layout-agent--faces-start .axon-region-surface {
-  border-start-start-radius: var(--axon-region-radius);
-  border-end-start-radius: var(--axon-region-radius);
-}
-
-/* The docked terminal is a card of its own: the gap above it takes over from
- * the separator line it used to draw, and the top corners round off against
- * the editor surface above. */
+/* The docked terminal is a card of its own; the gap above it takes over from
+ * the separator line it used to draw. */
 .axon-region-terminal--docked {
   margin-top: var(--axon-region-gap);
   overflow: hidden;
-  border-start-start-radius: var(--axon-region-radius);
-  border-start-end-radius: var(--axon-region-radius);
 }
 
 /* I keep the root levels at the glass surface alpha instead of fully clear.
