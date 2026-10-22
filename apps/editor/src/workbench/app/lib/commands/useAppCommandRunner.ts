@@ -6,6 +6,7 @@
 import { useCallback } from "react";
 import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands/commands";
 import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
+import { getFileBackedTabPath } from "../../../../renderer/features/editor/lib/layout/navigation/tabIdentity";
 import { parseExtensionViewCommandId } from "../../../contrib/extensions/lib/extensionViews";
 import {
   getBuiltinCommandAlias,
@@ -383,12 +384,14 @@ export function useAppCommandRunner({
           setTerminalOpen(false);
           clearOutputEntries();
           break;
-        case AXON_COMMANDS.OPEN_DIFF_VIEW:
-          if (activeFilePath) {
-            setDiffFilePath(activeFilePath);
+        case AXON_COMMANDS.OPEN_DIFF_VIEW: {
+          const diffTarget = getFileBackedTabPath(activeFilePath);
+          if (diffTarget) {
+            setDiffFilePath(diffTarget);
             setDiffOpen(true);
           }
           break;
+        }
         case AXON_COMMANDS.OPEN_SOURCE_CONTROL:
           activateExtensionEvent("onCommand:axon.git.openSourceControl");
           activateExtensionEvent("onView:axon.sourceControl");

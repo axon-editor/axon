@@ -104,3 +104,15 @@ export function isVirtualTabPath(tabPath: string) {
     isExtensionWebviewTabPath(tabPath)
   );
 }
+
+// Preview tabs are still backed by a workspace file, but the remaining virtual
+// tabs are generated views. Passing their URI to the file APIs fails the
+// workspace path guard, so commands that need a file have to resolve through
+// here instead of trusting the active tab path.
+export function getFileBackedTabPath(tabPath: string | null) {
+  if (!tabPath) return null;
+  if (isHtmlPreviewTabPath(tabPath) || isMarkdownPreviewTabPath(tabPath)) {
+    return getTabFilePath(tabPath);
+  }
+  return isVirtualTabPath(tabPath) ? null : tabPath;
+}

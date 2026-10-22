@@ -5,7 +5,10 @@
 
 import { AXON_COMMANDS } from "../../../../shared/commands/commands";
 import { isHtmlFile } from "@axon-builtin-html-preview/lib/htmlPreviewTabs";
-import { isVirtualTabPath } from "../../../../renderer/features/editor/lib/layout/navigation/tabIdentity";
+import {
+  getFileBackedTabPath,
+  isVirtualTabPath,
+} from "../../../../renderer/features/editor/lib/layout/navigation/tabIdentity";
 import { type CommandPaletteCommand } from "@axon-builtin-search/lib/types";
 import {
   type ExtensionCommandContribution,
@@ -82,6 +85,9 @@ export function buildAppPaletteCommands({
       disabled: !workspaceTrusted,
     }),
   );
+  // Git graph, commit diff, and settings tabs occupy a pane but have no
+  // workspace file behind them to compare.
+  const diffableFilePath = getFileBackedTabPath(activeFilePath);
 
   return [
     {
@@ -340,11 +346,11 @@ export function buildAppPaletteCommands({
       title: "Compare Active File",
       group: "Git",
       shortcut: "Cmd Shift D",
-      subtitle: activeFilePath
+      subtitle: diffableFilePath
         ? "Open the active file diff view"
         : "Select a file first",
       keywords: ["diff", "changes"],
-      disabled: !activeFilePath,
+      disabled: !diffableFilePath,
     },
     {
       id: AXON_COMMANDS.OPEN_SOURCE_CONTROL,

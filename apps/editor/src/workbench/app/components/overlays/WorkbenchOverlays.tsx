@@ -6,6 +6,7 @@
 import * as React from "react";
 import { AXON_COMMANDS } from "../../../../shared/commands/commands";
 import { AXON_GIT_GRAPH_TAB_PATH } from "@axon-builtin-git/git/lib/gitGraphTab";
+import { getFileBackedTabPath } from "../../../../renderer/features/editor/lib/layout/navigation/tabIdentity";
 import type { AxonWorkbenchLayoutProps } from "../../AxonAppView";
 
 const CommandPalette = React.lazy(
@@ -112,6 +113,10 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     workspaceRoots,
     workspaceSearchOpen,
   } = props;
+
+  const diffTarget = getFileBackedTabPath(
+    diffFilePath ?? activePane?.activeFile ?? null,
+  );
 
   return (
     <>
@@ -246,9 +251,9 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
           />
         )}
 
-        {diffOpen && (diffFilePath || activePane?.activeFile) && (
+        {diffOpen && diffTarget && (
           <DiffModal
-            filePath={diffFilePath ?? activePane?.activeFile ?? ""}
+            filePath={diffTarget}
             folderPath={folderPath}
             editorSettings={settings.editor}
             themeSyntax={themeSyntax}

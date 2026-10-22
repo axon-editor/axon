@@ -21,6 +21,7 @@ import {
   setPinnedInPane,
 } from "../../../../renderer/features/editor/lib/layout/manager/layoutManager";
 import { activatePane } from "../../../../renderer/features/editor/lib/layout/navigation/paneActivation";
+import { getFileBackedTabPath } from "../../../../renderer/features/editor/lib/layout/navigation/tabIdentity";
 import { detectLanguage } from "../../../../renderer/features/editor/lib/buffer/loading/monacoModels";
 import { fontStack } from "../../../../renderer/shared/lib/fonts/fonts";
 import WorkbenchOverlays from "../overlays/WorkbenchOverlays";
@@ -438,6 +439,9 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
                     isZenMode={zenMode}
                     hasWorkspace={!!folderPath}
                     hasActiveFile={!!activePane?.activeFile}
+                    canCompareActiveFile={
+                      !!getFileBackedTabPath(activePane?.activeFile ?? null)
+                    }
                   />
                 </div>
                 {platform === "win32" ? (

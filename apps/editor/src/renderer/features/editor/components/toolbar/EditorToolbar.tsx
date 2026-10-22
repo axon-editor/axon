@@ -50,6 +50,7 @@ interface Props {
   isZenMode: boolean;
   hasWorkspace: boolean;
   hasActiveFile: boolean;
+  canCompareActiveFile: boolean;
 }
 
 type DropdownType = "new" | "split" | "app" | null;
@@ -81,6 +82,7 @@ export default function EditorToolbar({
   isZenMode,
   hasWorkspace,
   hasActiveFile,
+  canCompareActiveFile,
 }: Props) {
   const [dropdown, setDropdown] = useState<DropdownType>(null);
   const [isDev, setIsDev] = useState(false);
@@ -276,7 +278,11 @@ export default function EditorToolbar({
           </div>
 
           <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+        </>
+      )}
 
+      {canCompareActiveFile && (
+        <>
           <Tooltip label="Compare active file (Git diff)" side="bottom">
             <button
               onClick={onDiff}
