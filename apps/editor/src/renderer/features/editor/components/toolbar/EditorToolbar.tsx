@@ -29,6 +29,7 @@ import {
   Bug,
 } from "lucide-react";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import Reveal from "@axon-editor/renderer/shared/components/primitives/Reveal";
 import {
   type UpdateInfo,
   type UpdateInstallState,
@@ -216,86 +217,84 @@ export default function EditorToolbar({
         </>
       )}
 
-      {hasActiveFile && (
-        <>
-          <div ref={splitRef} className="relative">
-            <Tooltip label="Split editor (pane menu)" side="bottom">
-              <button
-                onClick={() => toggle("split")}
-                aria-label="Split editor"
-                className={`${toolbarButtonBase} ${
-                  dropdown === "split" ? toolbarButtonActive : toolbarButtonIdle
-                }`}
-              >
-                <Columns2 size={14} />
-              </button>
-            </Tooltip>
-
-            {dropdown === "split" && (
-              <div className={`${toolbarMenu} w-48`}>
-                <button
-                  onClick={() => {
-                    onSplit("right");
-                    setDropdown(null);
-                  }}
-                  className={toolbarMenuItem}
-                >
-                  <AlignEndVertical size={13} className="shrink-0" />
-                  split right
-                </button>
-                <button
-                  onClick={() => {
-                    onSplit("left");
-                    setDropdown(null);
-                  }}
-                  className={toolbarMenuItem}
-                >
-                  <AlignStartVertical size={13} className="shrink-0" />
-                  split left
-                </button>
-                <button
-                  onClick={() => {
-                    onSplit("up");
-                    setDropdown(null);
-                  }}
-                  className={toolbarMenuItem}
-                >
-                  <AlignStartHorizontal size={13} className="shrink-0" />
-                  split up
-                </button>
-                <button
-                  onClick={() => {
-                    onSplit("down");
-                    setDropdown(null);
-                  }}
-                  className={toolbarMenuItem}
-                >
-                  <AlignEndHorizontal size={13} className="shrink-0" />
-                  split down
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
-        </>
-      )}
-
-      {canCompareActiveFile && (
-        <>
-          <Tooltip label="Compare active file (Git diff)" side="bottom">
+      <div ref={splitRef} className="relative">
+        <Reveal show={hasActiveFile}>
+          <Tooltip label="Split editor (pane menu)" side="bottom">
             <button
-              onClick={onDiff}
-              aria-label="Compare active file"
-              className={`${toolbarButtonBase} ${toolbarButtonIdle}`}
+              onClick={() => toggle("split")}
+              aria-label="Split editor"
+              className={`${toolbarButtonBase} ${
+                dropdown === "split" ? toolbarButtonActive : toolbarButtonIdle
+              }`}
             >
-              <GitCompare size={14} />
+              <Columns2 size={14} />
             </button>
           </Tooltip>
+        </Reveal>
 
-          <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
-        </>
-      )}
+        {hasActiveFile && dropdown === "split" && (
+          <div className={`${toolbarMenu} w-48`}>
+            <button
+              onClick={() => {
+                onSplit("right");
+                setDropdown(null);
+              }}
+              className={toolbarMenuItem}
+            >
+              <AlignEndVertical size={13} className="shrink-0" />
+              split right
+            </button>
+            <button
+              onClick={() => {
+                onSplit("left");
+                setDropdown(null);
+              }}
+              className={toolbarMenuItem}
+            >
+              <AlignStartVertical size={13} className="shrink-0" />
+              split left
+            </button>
+            <button
+              onClick={() => {
+                onSplit("up");
+                setDropdown(null);
+              }}
+              className={toolbarMenuItem}
+            >
+              <AlignStartHorizontal size={13} className="shrink-0" />
+              split up
+            </button>
+            <button
+              onClick={() => {
+                onSplit("down");
+                setDropdown(null);
+              }}
+              className={toolbarMenuItem}
+            >
+              <AlignEndHorizontal size={13} className="shrink-0" />
+              split down
+            </button>
+          </div>
+        )}
+      </div>
+
+      <Reveal show={hasActiveFile}>
+        <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+      </Reveal>
+
+      <Reveal show={canCompareActiveFile}>
+        <Tooltip label="Compare active file (Git diff)" side="bottom">
+          <button
+            onClick={onDiff}
+            aria-label="Compare active file"
+            className={`${toolbarButtonBase} ${toolbarButtonIdle}`}
+          >
+            <GitCompare size={14} />
+          </button>
+        </Tooltip>
+
+        <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
+      </Reveal>
 
       <Tooltip
         label={isZenMode ? "Exit zen mode (Cmd+K Z)" : "Zen mode (Cmd+K Z)"}

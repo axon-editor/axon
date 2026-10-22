@@ -873,6 +873,43 @@ html.axon-native-glass .axon-tooltip {
   }
 }
 
+/* Context controls such as the compare action and status bar view icons mount
+ * and unmount with the active file. The wrapper measures its content width so
+ * the collapse animates instead of snapping the neighbouring icons across the
+ * toolbar. */
+.axon-reveal {
+  display: inline-flex;
+  flex: none;
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(6px);
+  transition:
+    width 180ms cubic-bezier(0.18, 0.9, 0.2, 1),
+    opacity 126ms ease-out,
+    transform 180ms cubic-bezier(0.18, 0.9, 0.2, 1);
+}
+
+.axon-reveal-visible {
+  width: var(--axon-reveal-width, 0px);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.axon-reveal-inner {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .axon-reveal {
+    transition-duration: 1ms;
+  }
+}
+
 .axon-editor-transparent-surface .monaco-editor,
 .axon-editor-transparent-surface .monaco-editor-background,
 .axon-editor-transparent-surface .monaco-editor .margin,

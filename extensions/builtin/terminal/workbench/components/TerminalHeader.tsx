@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { type BottomPanelTab } from "@axon-editor/platform/panel/bottomPanel";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
+import Reveal from "@axon-editor/renderer/shared/components/primitives/Reveal";
 import TerminalTabBar, { type TerminalTabItem } from "./TerminalTabBar";
 import { type TerminalWorkbenchContribution } from "../lib/contribution";
 
@@ -147,7 +148,7 @@ export default function TerminalHeader({
       </div>
 
       <div className="ml-2 flex shrink-0 items-center gap-1" style={noDragStyle}>
-        {activePanelTab === "output" && (
+        <Reveal show={activePanelTab === "output"}>
           <Tooltip label="Clear output" side={controlTooltipSide}>
             <button
               onClick={onClearOutput}
@@ -157,8 +158,8 @@ export default function TerminalHeader({
               <Trash2 size={13} />
             </button>
           </Tooltip>
-        )}
-        {!isWindowed && (
+        </Reveal>
+        <Reveal show={!isWindowed}>
           <Tooltip
             label={zoomed ? "Restore terminal (panel)" : "Zoom terminal (panel)"}
             side={controlTooltipSide}
@@ -172,7 +173,7 @@ export default function TerminalHeader({
               {zoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
           </Tooltip>
-        )}
+        </Reveal>
         <Tooltip
           label={
             floating || isWindowed

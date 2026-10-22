@@ -23,6 +23,7 @@ import {
   Zap,
 } from "lucide-react";
 import Tooltip from "../primitives/Tooltip";
+import Reveal from "../primitives/Reveal";
 import { type BottomPanelTab } from "../../../../platform/panel/bottomPanel";
 import { type ResolvedThemeTokens } from "../../lib/theme/themeTokens";
 
@@ -146,7 +147,7 @@ export default function StatusBar({
           </button>
         </Tooltip>
 
-        {hasWorkspace && (
+        <Reveal show={hasWorkspace}>
           <Tooltip label="Search workspace (Cmd+Shift+F)" side="top">
             <button
               onClick={onOpenWorkspaceSearch}
@@ -156,9 +157,9 @@ export default function StatusBar({
               <Search size={12} />
             </button>
           </Tooltip>
-        )}
+        </Reveal>
 
-        {hasWorkspace && (
+        <Reveal show={hasWorkspace}>
           <Tooltip label="Workspace language tools" side="top">
             <button
               type="button"
@@ -172,7 +173,7 @@ export default function StatusBar({
               <Zap size={12} />
             </button>
           </Tooltip>
-        )}
+        </Reveal>
 
         <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 
@@ -189,7 +190,7 @@ export default function StatusBar({
           </button>
         </Tooltip>
 
-        {gitBranch && (
+        <Reveal show={!!gitBranch}>
           <Tooltip label="Git History (Status bar)" side="top">
             <button
               type="button"
@@ -202,7 +203,7 @@ export default function StatusBar({
               <GitBranch size={13} />
             </button>
           </Tooltip>
-        )}
+        </Reveal>
 
         <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
 
@@ -219,44 +220,45 @@ export default function StatusBar({
           </button>
         </Tooltip>
 
-        {gitBranch ? (
+        <Reveal show={!!gitBranch}>
           <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
-        ) : null}
+        </Reveal>
 
-        {gitBranch && (
-          <>
-            <Tooltip label="Source control (Cmd+Shift+G)" side="top">
-              <button
-                onClick={onOpenSourceControl}
-                aria-label="Source control"
-                className={`flex h-5 cursor-pointer items-center gap-1 rounded px-2 transition-colors ${idleControlClass}`}
-              >
-                <GitBranch size={12} />
-                <span className="max-w-32 truncate">{gitBranch}</span>
-                {gitChangeCount > 0 && (
-                  <span className="text-[var(--axon-syntax-function)]">
-                    {gitChangeCount}
-                  </span>
-                )}
-              </button>
-            </Tooltip>
-            <Tooltip label="Git Graph" side="top">
-              <button
-                type="button"
-                onClick={onOpenGitGraph}
-                aria-label="Open Git Graph"
-                aria-pressed={gitGraphOpen}
-                className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${gitGraphOpen ? activeControlClass : idleControlClass}`}
-              >
-                <GitGraph size={12} />
-              </button>
-            </Tooltip>
-          </>
-        )}
+        <Reveal show={!!gitBranch}>
+          <Tooltip label="Source control (Cmd+Shift+G)" side="top">
+            <button
+              onClick={onOpenSourceControl}
+              aria-label="Source control"
+              className={`flex h-5 cursor-pointer items-center gap-1 rounded px-2 transition-colors ${idleControlClass}`}
+            >
+              <GitBranch size={12} />
+              <span className="max-w-32 truncate">{gitBranch}</span>
+              {gitChangeCount > 0 && (
+                <span className="text-[var(--axon-syntax-function)]">
+                  {gitChangeCount}
+                </span>
+              )}
+            </button>
+          </Tooltip>
+        </Reveal>
+
+        <Reveal show={!!gitBranch}>
+          <Tooltip label="Git Graph" side="top">
+            <button
+              type="button"
+              onClick={onOpenGitGraph}
+              aria-label="Open Git Graph"
+              aria-pressed={gitGraphOpen}
+              className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors ${gitGraphOpen ? activeControlClass : idleControlClass}`}
+            >
+              <GitGraph size={12} />
+            </button>
+          </Tooltip>
+        </Reveal>
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
-        {activeFile && (
+        <Reveal show={!!activeFile} contentClassName="gap-1">
           <>
             {codeSnapshotAvailable ? (
               <>
@@ -287,9 +289,9 @@ export default function StatusBar({
             </span>
             <div className="mx-1 h-4 w-px bg-[var(--axon-panel-border)]" />
           </>
-        )}
+        </Reveal>
 
-        {hasWorkspace && (
+        <Reveal show={hasWorkspace} contentClassName="gap-1">
           <>
             <Tooltip
               label={`Problems (Cmd+Shift+M) - ${errorCount} errors, ${warningCount} warnings`}
@@ -362,24 +364,24 @@ export default function StatusBar({
                 <TerminalSquare size={13} />
               </button>
             </Tooltip>
-
-            {aiEnabled && (
-              <>
-                <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
-                <Tooltip label="Toggle Axon Agent (Status bar)" side="top">
-                  <button
-                    onClick={onToggleAgentSidebar}
-                    aria-label="Toggle Axon Agent"
-                    className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors
-                    ${agentSidebarOpen ? activeControlClass : idleControlClass}`}
-                  >
-                    <Sparkles size={13} />
-                  </button>
-                </Tooltip>
-              </>
-            )}
           </>
-        )}
+        </Reveal>
+
+        <Reveal show={aiEnabled} contentClassName="gap-1">
+          <>
+            <div className="mx-0.5 h-4 w-px bg-[var(--axon-panel-border)]" />
+            <Tooltip label="Toggle Axon Agent (Status bar)" side="top">
+              <button
+                onClick={onToggleAgentSidebar}
+                aria-label="Toggle Axon Agent"
+                className={`flex h-5 w-6 cursor-pointer items-center justify-center rounded transition-colors
+                ${agentSidebarOpen ? activeControlClass : idleControlClass}`}
+              >
+                <Sparkles size={13} />
+              </button>
+            </Tooltip>
+          </>
+        </Reveal>
       </div>
     </div>
   );
