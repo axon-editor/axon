@@ -146,7 +146,6 @@ export type GitTreeTone = "added" | "modified" | "deleted" | "mixed";
 
 export interface GitTreeDecoration {
   tone: GitTreeTone;
-  label: string;
 }
 
 type FileTreeOperationInput =
@@ -174,18 +173,7 @@ function getGitDecorationForChange(change: GitChange): GitTreeDecoration {
     getGitToneFromState(change.indexState) ??
     "modified";
 
-  const label =
-    change.worktreeState === "untracked"
-      ? "U"
-      : change.worktreeState === "deleted" || change.indexState === "deleted"
-        ? "D"
-        : change.indexState === "added"
-          ? "A"
-          : change.indexState === "renamed"
-            ? "R"
-            : "M";
-
-  return { tone, label };
+  return { tone };
 }
 
 function mergeGitDecorations(
@@ -194,7 +182,7 @@ function mergeGitDecorations(
 ): GitTreeDecoration {
   if (!current) return next;
   if (current.tone === next.tone) return current;
-  return { tone: "mixed", label: "*" };
+  return { tone: "mixed" };
 }
 
 function buildGitDecorationMap(gitChanges: GitChange[] = []) {

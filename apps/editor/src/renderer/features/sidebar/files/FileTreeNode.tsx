@@ -607,20 +607,6 @@ export default function FileTreeNode({
               drop here
             </span>
           )}
-          {!dragOver && gitDecoration && (
-            <span className="relative z-10 ml-auto mr-2 flex shrink-0 items-center gap-1">
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: gitColor }}
-              />
-              <span
-                className="text-[9px] font-medium"
-                style={{ color: gitColor }}
-              >
-                {gitDecoration.label}
-              </span>
-            </span>
-          )}
         </div>
 
         {expanded && inlineCreate?.parentPath === node.path && (
@@ -702,17 +688,6 @@ export default function FileTreeNode({
       <span className="relative z-10" style={{ color: entryColor }}>
         {node.name}
       </span>
-      {gitDecoration && (
-        <span className="relative z-10 ml-auto mr-2 flex shrink-0 items-center gap-1">
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: gitColor }}
-          />
-          <span className="text-[9px] font-medium" style={{ color: gitColor }}>
-            {gitDecoration.label}
-          </span>
-        </span>
-      )}
     </div>
   );
 }
