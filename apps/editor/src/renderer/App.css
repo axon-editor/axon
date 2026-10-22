@@ -898,10 +898,15 @@ html.axon-native-glass .axon-tooltip {
   transform: translateX(0);
 }
 
+/* The wrapper owns the animated width, so the content must keep its natural
+ * size instead of wrapping while the wrapper is still collapsed. */
 .axon-reveal-inner {
   display: inline-flex;
+  flex: none;
   align-items: center;
   width: max-content;
+  min-width: max-content;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
