@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { FileNode } from "../../../shared/lib/backend/api";
-import ZenEntryIcon from "./ZenEntryIcon";
-import { TREE_BASE_INDENT, TREE_DEPTH_WIDTH } from "./zenTreeConstants";
-import { GIT_TONE_COLORS, IGNORED_ENTRY_COLOR } from "./zenTreeGit";
-import type { GitTone } from "./types";
+import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
+import ZenEntryIcon from "../../entry/ZenEntryIcon";
+import { TREE_BASE_INDENT, TREE_DEPTH_WIDTH } from "../../shared/zenTreeConstants";
+import { GIT_TONE_COLORS, IGNORED_ENTRY_COLOR } from "../../shared/zenTreeGit";
+import type { GitTone } from "../../shared/types";
 
 interface Props {
   node: FileNode;

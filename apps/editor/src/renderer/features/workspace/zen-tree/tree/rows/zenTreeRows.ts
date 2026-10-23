@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { FileNode } from "../../../shared/lib/backend/api";
+import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
 
 export interface TreeRow {
   node: FileNode;

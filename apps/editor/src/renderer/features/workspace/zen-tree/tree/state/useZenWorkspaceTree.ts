@@ -14,11 +14,11 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { getTree, type FileNode } from "../../../shared/lib/backend/api";
-import type { GitChange } from "../../../../shared/workspace/git";
-import { buildGitDecorationMap, buildIgnoredPathSet } from "./zenTreeGit";
-import { getAncestorPaths, normalizeTreePath } from "./zenTreePath";
-import { flattenRows, sortChildren } from "./zenTreeRows";
+import { getTree, type FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
+import type { GitChange } from "@axon-editor/shared/workspace/git";
+import { buildGitDecorationMap, buildIgnoredPathSet } from "../../shared/zenTreeGit";
+import { getAncestorPaths, normalizeTreePath } from "../../shared/zenTreePath";
+import { flattenRows, sortChildren } from "../rows/zenTreeRows";
 
 interface Options {
   tree: FileNode | null;

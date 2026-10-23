@@ -15,9 +15,9 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { searchFiles } from "../../../shared/lib/search/fileSearch";
-import { SEARCH_RESULT_LIMIT } from "./zenTreeConstants";
-import type { ZenProjectFile, ZenSearchResult } from "./types";
+import { searchFiles } from "@axon-editor/renderer/shared/lib/search/fileSearch";
+import { SEARCH_RESULT_LIMIT } from "../../shared/zenTreeConstants";
+import type { ZenProjectFile, ZenSearchResult } from "../../shared/types";
 
 interface Options {
   folderPath: string | null;

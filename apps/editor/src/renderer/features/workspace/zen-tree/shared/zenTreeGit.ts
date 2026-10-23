@@ -6,7 +6,7 @@
 import type {
   GitChange,
   GitFileState,
-} from "../../../../shared/workspace/git";
+} from "@axon-editor/shared/workspace/git";
 import type { GitTone } from "./types";
 import { normalizeTreePath } from "./zenTreePath";
 

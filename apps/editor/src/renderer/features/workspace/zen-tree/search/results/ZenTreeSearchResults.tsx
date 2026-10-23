@@ -5,10 +5,10 @@
 
 import type { RefObject } from "react";
 import { Search } from "lucide-react";
-import ModalEmptyState from "../../../shared/components/modals/empty/ModalEmptyState";
+import ModalEmptyState from "@axon-editor/renderer/shared/components/modals/empty/ModalEmptyState";
+import { normalizeTreePath } from "../../shared/zenTreePath";
+import type { GitTone, ZenSearchResult } from "../../shared/types";
 import ZenSearchResultRow from "./ZenSearchResultRow";
-import { normalizeTreePath } from "./zenTreePath";
-import type { GitTone, ZenSearchResult } from "./types";
 
 interface Props {
   results: ZenSearchResult[];

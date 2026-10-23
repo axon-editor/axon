@@ -5,12 +5,12 @@
 
 import type { KeyboardEvent, RefObject } from "react";
 import { FolderOpen } from "lucide-react";
-import type { FileNode } from "../../../shared/lib/backend/api";
-import ModalEmptyState from "../../../shared/components/modals/empty/ModalEmptyState";
-import ZenTreeRow from "./ZenTreeRow";
-import { normalizeTreePath } from "./zenTreePath";
-import type { TreeRow } from "./zenTreeRows";
-import type { GitTone } from "./types";
+import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
+import ModalEmptyState from "@axon-editor/renderer/shared/components/modals/empty/ModalEmptyState";
+import { normalizeTreePath } from "../../shared/zenTreePath";
+import type { GitTone } from "../../shared/types";
+import ZenTreeRow from "../rows/ZenTreeRow";
+import type { TreeRow } from "../rows/zenTreeRows";
 
 interface Props {
   rows: TreeRow[];

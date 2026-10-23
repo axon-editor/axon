@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import ZenEntryIcon from "./ZenEntryIcon";
-import { GIT_TONE_COLORS, IGNORED_ENTRY_COLOR } from "./zenTreeGit";
-import { normalizeTreePath } from "./zenTreePath";
-import type { GitTone, ZenSearchResult } from "./types";
+import ZenEntryIcon from "../../entry/ZenEntryIcon";
+import { GIT_TONE_COLORS, IGNORED_ENTRY_COLOR } from "../../shared/zenTreeGit";
+import { normalizeTreePath } from "../../shared/zenTreePath";
+import type { GitTone, ZenSearchResult } from "../../shared/types";
 
 interface Props {
   result: ZenSearchResult;

@@ -6,7 +6,7 @@
 import {
   getFileIcon,
   getFolderIcon,
-} from "../../sidebar/files/lib/icons/fileIcons";
+} from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileIcons";
 
 interface Props {
   name: string;

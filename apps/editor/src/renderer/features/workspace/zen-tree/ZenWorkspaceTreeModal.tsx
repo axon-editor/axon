@@ -4,17 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { KeyboardEvent } from "react";
-import CommandModal from "../../../shared/components/modals/CommandModal";
-import ModalFooterHints from "../../../shared/components/modals/ModalFooterHints";
-import ModalSearchInput from "../../../shared/components/modals/search/ModalSearchInput";
-import type { FileNode } from "../../../shared/lib/backend/api";
-import type { GitChange } from "../../../../shared/workspace/git";
-import ZenTreeList from "./ZenTreeList";
-import ZenTreePathBar from "./ZenTreePathBar";
-import ZenTreeSearchResults from "./ZenTreeSearchResults";
-import { useZenFileSearch } from "./useZenFileSearch";
-import { useZenWorkspaceTree } from "./useZenWorkspaceTree";
-import { ZEN_TREE_MODAL_WIDTH } from "./zenTreeConstants";
+import CommandModal from "@axon-editor/renderer/shared/components/modals/CommandModal";
+import ModalFooterHints from "@axon-editor/renderer/shared/components/modals/ModalFooterHints";
+import ModalSearchInput from "@axon-editor/renderer/shared/components/modals/search/ModalSearchInput";
+import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
+import type { GitChange } from "@axon-editor/shared/workspace/git";
+import ZenTreeSearchResults from "./search/results/ZenTreeSearchResults";
+import { useZenFileSearch } from "./search/state/useZenFileSearch";
+import { ZEN_TREE_MODAL_WIDTH } from "./shared/zenTreeConstants";
+import ZenTreeList from "./tree/list/ZenTreeList";
+import ZenTreePathBar from "./tree/path-bar/ZenTreePathBar";
+import { useZenWorkspaceTree } from "./tree/state/useZenWorkspaceTree";
 
 interface Props {
   tree: FileNode | null;
