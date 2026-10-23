@@ -142,6 +142,63 @@ describe("CommandModal", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("moves the panel when the title bar is dragged", async () => {
+    const onClose = vi.fn();
+    await act(async () => {
+      root.render(
+        <CommandModal title="drag me" onClose={onClose}>
+          <div>body</div>
+        </CommandModal>,
+      );
+    });
+
+    const panel = document.querySelector<HTMLElement>(".axon-modal-panel");
+    const handle = document.querySelector<HTMLElement>(
+      "[data-modal-drag-handle]",
+    );
+    expect(panel).not.toBeNull();
+    expect(handle).not.toBeNull();
+    if (!panel || !handle) return;
+
+    panel.getBoundingClientRect = () =>
+      ({
+        x: 100,
+        y: 100,
+        left: 100,
+        top: 100,
+        width: 400,
+        height: 300,
+        right: 500,
+        bottom: 400,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    await act(async () => {
+      handle.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          clientX: 150,
+          clientY: 120,
+        }),
+      );
+      window.dispatchEvent(
+        new MouseEvent("pointermove", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 200,
+          clientY: 170,
+        }),
+      );
+      window.dispatchEvent(
+        new MouseEvent("pointerup", { bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(panel.style.transform).toBe("translate3d(50px, 50px, 0)");
+  });
+
   it("only renders the resize handle when a resizable id is given", async () => {
     await act(async () => {
       root.render(

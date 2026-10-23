@@ -41,7 +41,9 @@ const WorkspaceOverviewModal = React.lazy(
 );
 const ZenWorkspaceTreeModal = React.lazy(
   () =>
-    import("../../../../renderer/features/workspace/ZenWorkspaceTreeModal"),
+    import(
+      "../../../../renderer/features/workspace/zen-tree/ZenWorkspaceTreeModal"
+    ),
 );
 const UpdateModal = React.lazy(
   () => import("../../../../renderer/features/updates/UpdateModal"),

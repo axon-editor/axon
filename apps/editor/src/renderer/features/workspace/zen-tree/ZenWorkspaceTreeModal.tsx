@@ -1,0 +1,148 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import type { KeyboardEvent } from "react";
+import CommandModal from "../../../shared/components/modals/CommandModal";
+import ModalFooterHints from "../../../shared/components/modals/ModalFooterHints";
+import ModalSearchInput from "../../../shared/components/modals/search/ModalSearchInput";
+import type { FileNode } from "../../../shared/lib/backend/api";
+import type { GitChange } from "../../../../shared/workspace/git";
+import ZenTreeList from "./ZenTreeList";
+import ZenTreePathBar from "./ZenTreePathBar";
+import ZenTreeSearchResults from "./ZenTreeSearchResults";
+import { useZenFileSearch } from "./useZenFileSearch";
+import { useZenWorkspaceTree } from "./useZenWorkspaceTree";
+import { ZEN_TREE_MODAL_WIDTH } from "./zenTreeConstants";
+
+interface Props {
+  tree: FileNode | null;
+  folderPath: string | null;
+  activeFile: string | null;
+  gitChanges: GitChange[];
+  ignoredPaths: string[];
+  loading: boolean;
+  onClose: () => void;
+  onFileSelect: (path: string) => void;
+}
+
+export default function ZenWorkspaceTreeModal({
+  tree,
+  folderPath,
+  activeFile,
+  gitChanges,
+  ignoredPaths,
+  loading,
+  onClose,
+  onFileSelect,
+}: Props) {
+  const workspaceTree = useZenWorkspaceTree({
+    tree,
+    folderPath,
+    activeFile,
+    gitChanges,
+    ignoredPaths,
+    onFileSelect,
+    onClose,
+  });
+  const search = useZenFileSearch({ folderPath, onFileSelect, onClose });
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (search.searching) {
+      search.handleKeyDown(event);
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      workspaceTree.focusList();
+      workspaceTree.setSelectedIndex(
+        event.key === "ArrowDown"
+          ? 0
+          : Math.max(0, workspaceTree.rows.length - 1),
+      );
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      workspaceTree.openSelected();
+    }
+  };
+
+  const hints = search.searching
+    ? ["↑↓ navigate", "↵ open", "esc clear"]
+    : [
+        "type to search",
+        "↑↓ navigate",
+        "→ expand",
+        "← collapse",
+        "↵ open",
+        "esc close",
+      ];
+
+  return (
+    <CommandModal
+      title="Workspace tree"
+      width={ZEN_TREE_MODAL_WIDTH}
+      bodyClassName="min-h-0 overflow-hidden"
+      onClose={onClose}
+    >
+      <ZenTreePathBar rootPath={workspaceTree.rootPath} />
+      <ModalSearchInput
+        value={search.query}
+        onChange={search.setQuery}
+        onKeyDown={handleSearchKeyDown}
+        placeholder="Search files by name or path..."
+        autoFocus
+        ariaLabel="Search workspace files"
+        ariaControls={
+          search.searching ? "zen-tree-search-results" : undefined
+        }
+        ariaActiveDescendant={
+          search.searching && search.results.length > 0
+            ? `zen-search-row-${search.activeIndex}`
+            : undefined
+        }
+        trailing={
+          search.loading && (
+            <span className="shrink-0 rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
+              indexing
+            </span>
+          )
+        }
+      />
+
+      {search.searching ? (
+        <ZenTreeSearchResults
+          results={search.results}
+          activeIndex={search.activeIndex}
+          query={search.query}
+          loading={search.loading}
+          error={search.error}
+          gitDecorations={workspaceTree.gitDecorations}
+          ignoredPathSet={workspaceTree.ignoredPathSet}
+          listRef={search.listRef}
+          onSelect={search.selectResult}
+        />
+      ) : (
+        <ZenTreeList
+          rows={workspaceTree.rows}
+          activeIndex={workspaceTree.activeIndex}
+          expandedPaths={workspaceTree.expandedPaths}
+          loadingPaths={workspaceTree.loadingPaths}
+          gitDecorations={workspaceTree.gitDecorations}
+          ignoredPathSet={workspaceTree.ignoredPathSet}
+          loading={loading}
+          hasTree={Boolean(tree)}
+          listRef={workspaceTree.listRef}
+          onKeyDown={workspaceTree.handleKeyDown}
+          onRowSelect={workspaceTree.handleRowClick}
+        />
+      )}
+
+      <ModalFooterHints hints={hints} />
+    </CommandModal>
+  );
+}

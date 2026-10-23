@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Reusable modal shell used by command, search, picker, and outline surfaces.
-// The shell owns the overlay and animation, while colors come from the active
-// Axon theme variables so every empty, error, and search message inside these
-// modals follows the selected theme instead of inheriting a hard-coded dark UI.
-// Closes on outside click or Escape key.
+// The shell owns the overlay, animation, optional drag, and optional resize,
+// while colors come from the active Axon theme variables so every empty, error,
+// and search message inside these modals follows the selected theme instead of
+// inheriting a hard-coded dark UI. Closes on outside click or Escape key.
 import {
   useCallback,
   useEffect,
@@ -16,8 +16,6 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
-import Tooltip from "../primitives/Tooltip";
 import {
   PanelResizeHandle,
   useResizablePanel,
@@ -26,6 +24,8 @@ import {
   markAxonPerformance,
   measureAxonPerformance,
 } from "../../lib/perf/performanceMarks";
+import ModalShellHeader from "./header/ModalShellHeader";
+import { useDraggableModal } from "./drag/useDraggableModal";
 
 function getModalPerformanceName(title: string | undefined) {
   return (title ?? "untitled").toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -33,6 +33,8 @@ function getModalPerformanceName(title: string | undefined) {
 
 interface Props {
   title?: string;
+  /** Replaces the title bar, for modals whose own header should drag. */
+  header?: React.ReactNode;
   onClose: () => void;
   children: React.ReactNode;
   width?: string;
@@ -43,10 +45,13 @@ interface Props {
   panelStyle?: CSSProperties;
   /** Persisted id that enables the corner drag-to-resize handle. */
   resizable?: string;
+  /** Lets the title bar or custom header move the panel. */
+  draggable?: boolean;
 }
 
 export default function CommandModal({
   title,
+  header,
   onClose,
   children,
   width = "w-[clamp(35rem,39vw,52rem)]",
@@ -56,9 +61,14 @@ export default function CommandModal({
   overlayClassName = "",
   panelStyle,
   resizable,
+  draggable = true,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const resize = useResizablePanel(ref, resizable);
+  const drag = useDraggableModal(
+    ref,
+    draggable && Boolean(title || header),
+  );
   const closeTimerRef = useRef<number | null>(null);
   const closingRef = useRef(false);
   const onCloseRef = useRef(onClose);
@@ -145,24 +155,15 @@ export default function CommandModal({
         className={`${animate ? "axon-modal-panel" : ""} ${width} relative flex max-h-[calc(100vh-3rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] text-[var(--axon-editor-foreground)] ring-1 ring-white/[0.03] ${
           closing && animate ? "axon-modal-panel--leaving" : ""
         }`}
-        style={{ ...panelStyle, ...resize.style }}
+        style={{ ...panelStyle, ...resize.style, ...drag.style }}
       >
-        {title && (
-          <div className="flex items-center justify-between border-b border-[var(--axon-panel-border)] bg-[var(--axon-toolbar-background)] px-4 py-3">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-55">
-              {title}
-            </span>
-            <Tooltip label="Close" side="left">
-              <button
-                onClick={requestClose}
-                aria-label="Close"
-                className="cursor-pointer text-[var(--axon-editor-foreground)] opacity-45 transition-colors hover:opacity-100"
-              >
-                <X size={13} />
-              </button>
-            </Tooltip>
-          </div>
-        )}
+        <ModalShellHeader
+          title={title}
+          header={header}
+          onClose={requestClose}
+          draggable={draggable}
+          dragHandleProps={drag.handleProps}
+        />
         <div className={bodyClassName}>{children}</div>
         {resizable && <PanelResizeHandle {...resize.handleProps} />}
       </div>

@@ -9,6 +9,11 @@
 // splitting navigation into several competing modals.
 import { useState, useEffect, useRef, useMemo } from "react";
 import { type FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
+import { flattenTree } from "@axon-editor/renderer/shared/lib/files/flattenTree";
+import {
+  matchScore,
+  searchFiles,
+} from "@axon-editor/renderer/shared/lib/search/fileSearch";
 import {
   CircleSlash,
   FileCode,
@@ -19,8 +24,17 @@ import {
 } from "lucide-react";
 import { getFileIcon } from "@axon-editor/renderer/features/sidebar/files/lib/icons/fileIcons";
 import CommandModal from "@axon-editor/renderer/shared/components/modals/CommandModal";
+import ModalSearchInput from "@axon-editor/renderer/shared/components/modals/search/ModalSearchInput";
 import { type AxonCommand } from "@axon-editor/shared/commands/commands";
 import { type CommandPaletteCommand } from "./lib/types";
+
+const DISABLED_COMMAND_PENALTY = 12;
+const COMMAND_ONLY_RESULT_LIMIT = 30;
+const FILE_RESULT_LIMIT = 50;
+const EMPTY_FILE_RESULT_LIMIT = 20;
+const COMMAND_RESULT_LIMIT = 8;
+const PALETTE_RESULT_LIMIT = 32;
+const PAGE_NAVIGATION_STEP = 6;
 
 interface Props {
   tree: FileNode | null;
@@ -53,46 +67,8 @@ type PaletteItem =
       score: number;
     };
 
-// flattenTree recursively walks the FileNode tree and returns
-// a flat list of all file paths. Directories are skipped since
-// the palette only opens files.
-function flattenTree(node: FileNode): FileNode[] {
-  if (!node.is_dir) return [node];
-  return (node.children ?? []).flatMap(flattenTree);
-}
-
-// fuzzyMatch returns true if all characters in query appear
-// in order within the target string. Case insensitive.
-// Simple but effective for file path searching.
-function fuzzyMatch(target: string, query: string): boolean {
-  const t = target.toLowerCase();
-  const q = query.toLowerCase();
-  let ti = 0;
-  for (let qi = 0; qi < q.length; qi++) {
-    while (ti < t.length && t[ti] !== q[qi]) ti++;
-    if (ti >= t.length) return false;
-    ti++;
-  }
-  return true;
-}
-
-function matchScore(target: string, query: string): number | null {
-  const normalizedTarget = target.toLowerCase();
-  const normalizedQuery = query.toLowerCase();
-
-  // Prefer exact and prefix matches, then fall back to substring and fuzzy
-  // matching. This keeps "save" near Save Active File while still allowing
-  // loose editor-style searches such as "scm" for source control.
-  if (!normalizedQuery) return 0;
-  if (normalizedTarget === normalizedQuery) return 100;
-  if (normalizedTarget.startsWith(normalizedQuery)) return 90;
-  if (normalizedTarget.includes(` ${normalizedQuery}`)) return 82;
-  if (normalizedTarget.includes(normalizedQuery)) return 70;
-  if (fuzzyMatch(normalizedTarget, normalizedQuery)) return 45;
-
-  return null;
-}
-
+// commandScore ranks commands by the same matcher used for file paths, so the
+// palette keeps one definition of what a strong query match means.
 function commandScore(
   command: CommandPaletteCommand,
   query: string,
@@ -109,34 +85,7 @@ function commandScore(
 
   if (scores.length === 0) return null;
   const bestScore = Math.max(...scores);
-  return bestScore - (command.disabled ? 12 : 0);
-}
-
-function normalizeSearchText(value: string) {
-  return value.toLowerCase().replace(/[-_.\\/]+/g, " ");
-}
-
-function fileScore(file: FileNode, query: string): number | null {
-  const title = file.path.split("/").pop() ?? file.path;
-  const normalizedQuery = normalizeSearchText(query);
-  const titleScore = matchScore(title, query);
-  const normalizedTitleScore = matchScore(
-    normalizeSearchText(title),
-    normalizedQuery,
-  );
-  const pathScore = matchScore(file.path, query);
-  const normalizedPathScore = matchScore(
-    normalizeSearchText(file.path),
-    normalizedQuery,
-  );
-  const bestScore = Math.max(
-    titleScore ?? -1,
-    normalizedTitleScore ?? -1,
-    pathScore !== null ? pathScore - 8 : -1,
-    normalizedPathScore !== null ? normalizedPathScore - 8 : -1,
-  );
-
-  return bestScore < 0 ? null : bestScore;
+  return bestScore - (command.disabled ? DISABLED_COMMAND_PENALTY : 0);
 }
 
 function commandIcon(commandId: AxonCommand): LucideIcon {
@@ -159,7 +108,6 @@ export default function CommandPalette({
   const [projectFiles, setProjectFiles] = useState<FileNode[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const treeFiles = useMemo(() => (tree ? flattenTree(tree) : []), [tree]);
@@ -221,41 +169,37 @@ export default function CommandPalette({
         score: command.score,
       }));
 
-    if (commandOnly) return commandItems.slice(0, 30);
+    if (commandOnly) return commandItems.slice(0, COMMAND_ONLY_RESULT_LIMIT);
 
-    const fileItems = allFiles
-      .map((file) => ({ file, score: fileScore(file, normalizedQuery) }))
-      .filter(
-        (entry): entry is { file: FileNode; score: number } =>
-          entry.score !== null,
-      )
-      .sort(
-        (a, b) => b.score - a.score || a.file.path.localeCompare(b.file.path),
-      )
-      .slice(0, 20)
-      .map<PaletteItem>((file) => {
-        const parts = file.file.path.split("/");
-        const title = parts.pop() ?? file.file.path;
-        return {
-          type: "file",
-          id: `file:${file.file.path}`,
-          title,
-          subtitle: parts.join("/"),
-          file: file.file,
-          score: file.score,
-        };
-      });
+    const fileLimit =
+      normalizedQuery.length > 0 ? FILE_RESULT_LIMIT : EMPTY_FILE_RESULT_LIMIT;
+    const fileItems = searchFiles(allFiles, normalizedQuery, fileLimit).map<
+      PaletteItem
+    >(({ file, score }) => {
+      const parts = file.path.split("/");
+      const title = parts.pop() ?? file.path;
+      return {
+        type: "file",
+        id: `file:${file.path}`,
+        title,
+        subtitle: parts.join("/"),
+        file,
+        score,
+      };
+    });
 
-    if (normalizedQuery.length > 0) return fileItems.slice(0, 50);
-    return [...fileItems.slice(0, 20), ...commandItems.slice(0, 8)].slice(0, 32);
+    if (normalizedQuery.length > 0) return fileItems;
+    return [
+      ...fileItems,
+      ...commandItems.slice(0, COMMAND_RESULT_LIMIT),
+    ].slice(0, PALETTE_RESULT_LIMIT);
   }, [allFiles, commands, query]);
 
-  // reset state every time palette opens and focus the input
+  // reset state every time palette opens; the shared search input focuses itself
   useEffect(() => {
     if (open) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
 
@@ -289,11 +233,14 @@ export default function CommandPalette({
     } else if (e.key === "PageDown") {
       e.preventDefault();
       setSelectedIndex((i) =>
-        Math.min(i + 6, Math.max(0, filteredItems.length - 1)),
+        Math.min(
+          i + PAGE_NAVIGATION_STEP,
+          Math.max(0, filteredItems.length - 1),
+        ),
       );
     } else if (e.key === "PageUp") {
       e.preventDefault();
-      setSelectedIndex((i) => Math.max(i - 6, 0));
+      setSelectedIndex((i) => Math.max(i - PAGE_NAVIGATION_STEP, 0));
     } else if (e.key === "Home") {
       e.preventDefault();
       setSelectedIndex(0);
@@ -317,29 +264,34 @@ export default function CommandPalette({
   if (!open) return null;
 
   return (
-    <CommandModal onClose={onClose}>
-      <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-4 py-3">
-        <Search size={14} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-45" />
-        <input
-          ref={inputRef}
+    <CommandModal
+      onClose={onClose}
+      header={
+        <ModalSearchInput
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={setQuery}
           onKeyDown={handleKeyDown}
           placeholder="Search files by name or path..."
-          className="flex-1 bg-transparent text-[13px] text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-35"
+          autoFocus
+          ariaLabel="Search files and commands"
+          trailing={
+            <>
+              <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
+                &gt; commands
+              </span>
+              {loadingFiles && (
+                <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
+                  indexing files
+                </span>
+              )}
+              <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
+                esc
+              </span>
+            </>
+          }
         />
-        <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
-          &gt; commands
-        </span>
-        {loadingFiles ? (
-          <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
-            indexing files
-          </span>
-        ) : null}
-        <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
-          esc
-        </span>
-      </div>
+      }
+    >
       <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
         {filteredItems.length === 0 && (
           <div className="px-4 py-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-35">
@@ -381,11 +333,11 @@ export default function CommandPalette({
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1.5">
-                  {item.shortcut ? (
+                  {item.shortcut && (
                     <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                       {item.shortcut}
                     </span>
-                  ) : null}
+                  )}
                   <span className="rounded border border-[var(--axon-panel-border)] px-1.5 py-0.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-45">
                     {item.group}
                   </span>
