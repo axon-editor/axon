@@ -161,6 +161,8 @@ contextBridge.exposeInMainWorld("axon", {
   platform: process.platform,
   isWindowFullScreen: (): Promise<boolean> =>
     ipcRenderer.invoke("window:isFullScreen"),
+  setWindowButtonVisibility: (visible: boolean): Promise<void> =>
+    ipcRenderer.invoke("window:setWindowButtonVisibility", visible),
   onWindowFullScreenChanged: (callback: (isFullScreen: boolean) => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,

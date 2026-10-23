@@ -5,6 +5,7 @@
 
 import * as React from "react";
 import { AXON_COMMANDS } from "../../../../shared/commands/commands";
+import { AXON_ZEN_WORKSPACE_TREE_EVENT } from "../../../../shared/commands/zenWorkspaceTree";
 import { AXON_GIT_GRAPH_TAB_PATH } from "@axon-builtin-git/git/lib/gitGraphTab";
 import { getFileBackedTabPath } from "../../../../renderer/features/editor/lib/layout/navigation/tabIdentity";
 import type { AxonWorkbenchLayoutProps } from "../../AxonAppView";
@@ -37,6 +38,10 @@ const AboutModal = React.lazy(
 );
 const WorkspaceOverviewModal = React.lazy(
   () => import("../../../../renderer/features/workspace/WorkspaceOverviewModal"),
+);
+const ZenWorkspaceTreeModal = React.lazy(
+  () =>
+    import("../../../../renderer/features/workspace/ZenWorkspaceTreeModal"),
 );
 const UpdateModal = React.lazy(
   () => import("../../../../renderer/features/updates/UpdateModal"),
@@ -74,6 +79,7 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     language,
     languageToolsContribution,
     languageToolsOpen,
+    loading,
     paletteCommands,
     paletteOpen,
     refreshGitStatus,
@@ -112,7 +118,34 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     workspaceOverviewOpen,
     workspaceRoots,
     workspaceSearchOpen,
+    zenMode,
   } = props;
+
+  const [zenTreeOpen, setZenTreeOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const toggle = () => {
+      if (!zenMode) return;
+
+      // Cmd+B should close this tree when it is already open, but it should not
+      // stack the tree on top of a command palette or another modal.
+      if (!zenTreeOpen && document.querySelector(".axon-modal-overlay")) return;
+
+      setZenTreeOpen((open) => !open);
+    };
+
+    window.addEventListener(AXON_ZEN_WORKSPACE_TREE_EVENT, toggle);
+    return () =>
+      window.removeEventListener(AXON_ZEN_WORKSPACE_TREE_EVENT, toggle);
+  }, [zenMode, zenTreeOpen]);
+
+  React.useEffect(() => {
+    if (!zenMode) setZenTreeOpen(false);
+  }, [zenMode]);
+
+  React.useEffect(() => {
+    if (paletteOpen) setZenTreeOpen(false);
+  }, [paletteOpen]);
 
   const diffTarget = getFileBackedTabPath(
     diffFilePath ?? activePane?.activeFile ?? null,
@@ -130,6 +163,19 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
             onClose={() => setPaletteOpen(false)}
             onFileSelect={handleFileSelect}
             onCommandSelect={runCommand}
+          />
+        )}
+
+        {zenTreeOpen && (
+          <ZenWorkspaceTreeModal
+            tree={tree}
+            folderPath={folderPath}
+            activeFile={activePane?.activeFile ?? null}
+            gitChanges={gitStatus?.changes ?? []}
+            ignoredPaths={gitStatus?.ignoredPaths ?? []}
+            loading={loading}
+            onClose={() => setZenTreeOpen(false)}
+            onFileSelect={handleFileSelect}
           />
         )}
 

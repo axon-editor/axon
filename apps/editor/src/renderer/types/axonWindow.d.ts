@@ -148,6 +148,7 @@ declare global {
       surface?: "settings" | "terminal";
       platform: string;
       isWindowFullScreen: () => Promise<boolean>;
+      setWindowButtonVisibility: (visible: boolean) => Promise<void>;
       onWindowFullScreenChanged: (
         callback: (isFullScreen: boolean) => void,
       ) => () => void;

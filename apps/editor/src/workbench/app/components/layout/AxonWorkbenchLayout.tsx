@@ -147,6 +147,23 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     zenMode,
     ZEN_CHROME_TRANSITION_MS,
   );
+  // The traffic lights sit over the tab rail in zen, so they leave with the
+  // rest of the chrome and return once the workbench has expanded again.
+  // zenActive, not zenMode, keeps them hidden through the exit timing so they
+  // never sit over the full-bleed rail.
+  React.useEffect(() => {
+    if (platform !== "darwin") return;
+    void window.axon.setWindowButtonVisibility(!zenActive);
+  }, [platform, zenActive]);
+
+  // A renderer reload or window teardown should not leave the next session
+  // without its native window controls.
+  React.useEffect(() => {
+    if (platform !== "darwin") return;
+    return () => {
+      void window.axon.setWindowButtonVisibility(true);
+    };
+  }, [platform]);
   // The zoomed terminal paints over the editor column while its own surface
   // stays translucent in glass mode, so the toolbar underneath has to leave the
   // top strip to it instead of showing through as a second row of icons.
@@ -267,8 +284,8 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     platform === "darwin" && !windowFullScreen;
   const zenNativeControlInset = zenActive
     ? {
-        start: reserveMacTrafficLightSpace ? 92 : 0,
-        end: platform === "win32" ? 150 : 0,
+        start: 0,
+        end: platform === "win32" ? WINDOWS_CAPTION_INSET_PX : 0,
       }
     : undefined;
   // A zoomed terminal stretches to the window's top strip, so its header only
@@ -298,7 +315,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
 
   return (
     <div
-      className={`axon-app-root relative flex h-full w-full flex-col overflow-hidden${zenActive ? " axon-zen-mode" : ""}`}
+      className={`axon-app-root relative flex h-full w-full flex-col overflow-hidden${zenActive ? " axon-zen-mode" : ""}${zenMode ? " axon-zen-layout" : ""}`}
       style={
         {
           ...appThemeCssVariables,
@@ -311,60 +328,61 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
       }
     >
       <div className="axon-layout-regions flex flex-1 overflow-hidden">
-        {(chromeMounted || !sidebarCollapsed) && (
-          <div
-            className={`${chromeMounted ? "axon-zen-chrome" : ""} flex shrink-0`}
-            style={{ order: mainSidebarOrder }}
-          >
-            <Sidebar
-              tree={tree}
-              folderPath={folderPath}
-              workspaceRoots={workspaceRoots}
-              activeRootId={activeRootId}
-              activeFile={activePane?.activeFile ?? null}
-              onFileSelect={handleFileSelect}
-              onOpenFolder={handleOpenFolder}
-              onFolderChange={handleFolderChange}
-              onSwitchWorkspaceRoot={handleSwitchWorkspaceRoot}
-              onRefresh={handleRefresh}
-              loading={loading}
-              collapsed={sidebarCollapsed}
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
-              view={sidebarView}
-              rememberExpandedFolders={settings.editor.rememberExpandedFolders}
-              onOpenGitHistoryFile={(commit, file, diff) => {
-                openGitCommitDiff({ commit, file, diff });
-              }}
-              onSplitFile={(filePath) => handleSplit("right", filePath)}
-              onOpenInTerminal={handleOpenPathInTerminal}
-              onOpenHtmlPreview={handleOpenHtmlPreview}
-              onEntryDeleted={(path) =>
-                setLayout((prev) => removePathFromLayout(prev, path))
-              }
-              onEntryMoved={(oldPath, newPath) =>
-                setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
-              }
-              onEntryRenamed={(oldPath, newPath) =>
-                setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
-              }
-              gitChanges={gitStatus?.changes ?? []}
-              ignoredPaths={gitStatus?.ignoredPaths ?? []}
-              folderPickerIntent={folderPickerIntent}
-              onOpenFolderPicker={() => setFolderPickerIntent("folder")}
-              onCloseFolderPicker={() => setFolderPickerIntent(null)}
-              reserveMacTrafficLightSpace={reserveMacTrafficLightSpace}
-              enableSpotify={canShowSpotify}
-              spotifyState={spotifyState}
-              spotifyActions={spotifyActions}
-              playerOpen={spotifyPlayerOpen}
-              onTogglePlayer={() => setSpotifyPlayerOpen((p: boolean) => !p)}
-              onWorkspaceTrustChanged={() =>
-                setWorkspaceTrustNonce((nonce: number) => nonce + 1)
-              }
-            />
-          </div>
-        )}
+        <div
+          className={`${chromeMounted && sidebarCollapsed ? "axon-zen-chrome" : ""} axon-sidebar-region flex shrink-0 overflow-hidden`}
+          style={{
+            order: mainSidebarOrder,
+            width: sidebarCollapsed ? 0 : sidebarWidth,
+          }}
+        >
+          <Sidebar
+            tree={tree}
+            folderPath={folderPath}
+            workspaceRoots={workspaceRoots}
+            activeRootId={activeRootId}
+            activeFile={activePane?.activeFile ?? null}
+            onFileSelect={handleFileSelect}
+            onOpenFolder={handleOpenFolder}
+            onFolderChange={handleFolderChange}
+            onSwitchWorkspaceRoot={handleSwitchWorkspaceRoot}
+            onRefresh={handleRefresh}
+            loading={loading}
+            collapsed={sidebarCollapsed}
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            view={sidebarView}
+            rememberExpandedFolders={settings.editor.rememberExpandedFolders}
+            onOpenGitHistoryFile={(commit, file, diff) => {
+              openGitCommitDiff({ commit, file, diff });
+            }}
+            onSplitFile={(filePath) => handleSplit("right", filePath)}
+            onOpenInTerminal={handleOpenPathInTerminal}
+            onOpenHtmlPreview={handleOpenHtmlPreview}
+            onEntryDeleted={(path) =>
+              setLayout((prev) => removePathFromLayout(prev, path))
+            }
+            onEntryMoved={(oldPath, newPath) =>
+              setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
+            }
+            onEntryRenamed={(oldPath, newPath) =>
+              setLayout((prev) => replacePathInLayout(prev, oldPath, newPath))
+            }
+            gitChanges={gitStatus?.changes ?? []}
+            ignoredPaths={gitStatus?.ignoredPaths ?? []}
+            folderPickerIntent={folderPickerIntent}
+            onOpenFolderPicker={() => setFolderPickerIntent("folder")}
+            onCloseFolderPicker={() => setFolderPickerIntent(null)}
+            reserveMacTrafficLightSpace={reserveMacTrafficLightSpace}
+            enableSpotify={canShowSpotify}
+            spotifyState={spotifyState}
+            spotifyActions={spotifyActions}
+            playerOpen={spotifyPlayerOpen}
+            onTogglePlayer={() => setSpotifyPlayerOpen((p: boolean) => !p)}
+            onWorkspaceTrustChanged={() =>
+              setWorkspaceTrustNonce((nonce: number) => nonce + 1)
+            }
+          />
+        </div>
 
         {spotifyPlayerOpen &&
           canShowSpotify &&
@@ -582,7 +600,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
       </div>
 
       {chromeMounted && (
-        <div className="axon-zen-chrome">
+        <div className="axon-status-rail axon-zen-chrome">
           <WorkbenchStatusBar visible={chromeMounted} {...props} />
         </div>
       )}

@@ -218,6 +218,18 @@ export function registerAppHandlers({
     return window?.isFullScreen() ?? false;
   });
 
+  ipcMain.handle(
+    "window:setWindowButtonVisibility",
+    (event, visible: boolean) => {
+      // The traffic lights are macOS window chrome, so Windows and Linux
+      // keep their native caption buttons regardless of zen mode.
+      if (process.platform !== "darwin") return;
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (!window || window.isDestroyed()) return;
+      window.setWindowButtonVisibility(visible);
+    },
+  );
+
   ipcMain.handle("shell:openExternal", async (_event, href: string) => {
     if (!isExternalHandlerUrl(href)) {
       throw new Error(

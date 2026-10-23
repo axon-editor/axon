@@ -8,6 +8,7 @@ import { AXON_COMMANDS, type AxonCommand } from "../../../../shared/commands/com
 import { type AxonSettings } from "../../../../shared/core/settings";
 import { settingsFromEditorFontZoomShortcut } from "./fontZoom";
 import { announceZenCommand } from "../../../../shared/commands/zenCommandLine";
+import { AXON_ZEN_WORKSPACE_TREE_EVENT } from "../../../../shared/commands/zenWorkspaceTree";
 
 function isZenShortcut(event: KeyboardEvent) {
   return (event.metaKey || event.ctrlKey) && !event.altKey;
@@ -169,8 +170,19 @@ export function useGlobalEditorShortcuts({
         event.key.toLowerCase() === "b"
       ) {
         event.preventDefault();
+
+        // Zen hides the real sidebar, so Cmd+B opens a read-only tree overlay
+        // instead. Toggling the sidebar command here would push the layout back
+        // open and undo the full-bleed canvas.
+        if (zenMode) {
+          window.dispatchEvent(
+            new CustomEvent(AXON_ZEN_WORKSPACE_TREE_EVENT),
+          );
+          announceZenCommand("files");
+          return;
+        }
+
         runCommand(AXON_COMMANDS.TOGGLE_SIDEBAR);
-        if (zenMode) announceZenCommand("sidebar");
         return;
       }
       if (isZenShortcut(event) && event.shiftKey && event.key === "A") {
@@ -243,6 +255,11 @@ export function useGlobalEditorShortcuts({
         return;
       }
       if (event.key === "Escape" && zenMode) {
+        // Modals close on Escape through their own document listener. Let that
+        // happen first so one Escape dismisses the overlay without also
+        // dropping the user out of zen.
+        if (document.querySelector(".axon-modal-overlay")) return;
+
         onSetZenMode(false);
       }
     };

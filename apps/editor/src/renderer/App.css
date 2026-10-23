@@ -240,6 +240,15 @@
 .axon-app-root {
   --axon-region-gap: 12px;
   --axon-region-radius: 16px;
+  --axon-editor-chrome-max-height: 32px;
+  --axon-status-rail-height: 32px;
+  --axon-zen-tab-height: 24px;
+  --axon-zen-tab-min-width: 72px;
+  --axon-zen-tab-padding-start: 8px;
+  --axon-zen-tab-padding-end: 6px;
+  --axon-zen-tab-font-size: 11px;
+  --axon-zen-duration: 200ms;
+  --axon-zen-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* The row that holds the main sidebar, the editor column and the agent
@@ -247,6 +256,11 @@
 .axon-layout-regions {
   gap: var(--axon-region-gap);
   padding: var(--axon-region-gap);
+  /* Zen changes both values while the native material is already fading, so
+   * the workbench breathes in and out instead of snapping to the window edge. */
+  transition:
+    padding var(--axon-zen-duration) var(--axon-zen-ease),
+    gap var(--axon-zen-duration) var(--axon-zen-ease);
 }
 
 /* Each workbench region is a card: the sidebars share one surface class, the
@@ -258,6 +272,19 @@
 .axon-layout-editor,
 .axon-region-terminal--docked {
   border-radius: var(--axon-region-radius);
+}
+
+/* The editor card is the only region that loses its radius in zen; the
+ * transition keeps the corners from popping as the card grows to the window
+ * edge. */
+.axon-layout-editor {
+  transition: border-radius var(--axon-zen-duration) var(--axon-zen-ease);
+}
+
+.axon-region-editor-card {
+  transition:
+    border-radius var(--axon-zen-duration) var(--axon-zen-ease),
+    box-shadow var(--axon-zen-duration) var(--axon-zen-ease);
 }
 
 /* In glass mode the native material owns the window surface, so a region at
@@ -966,26 +993,119 @@ html.axon-native-glass .axon-tooltip {
   transform: translateY(-6px);
 }
 
+/* Zen layout runs on zenMode, not the cross-fade state, so the workbench starts
+ * expanding the moment zen turns off while the chrome is still fading back in.
+ * Padding, gaps and the sidebar width all ride the same 200ms curve. */
+.axon-app-root.axon-zen-layout .axon-layout-regions {
+  gap: 0;
+  padding: 0;
+}
+
+.axon-app-root.axon-zen-layout .axon-region-editor-card,
+.axon-app-root.axon-zen-layout .axon-layout-editor {
+  border-radius: 0;
+}
+
+.axon-app-root.axon-zen-layout .axon-region-editor-card {
+  box-shadow: none;
+}
+
+/* The sidebar wrapper stays mounted at zero width in zen so the exit can
+ * animate it back open instead of mounting it at its final size. */
+.axon-app-root.axon-zen-mode .axon-sidebar-region,
+.axon-app-root.axon-zen-layout .axon-sidebar-region {
+  transition:
+    width var(--axon-zen-duration) var(--axon-zen-ease),
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The toolbar collapses to zero height before it unmounts, otherwise the tab
+ * rail and editor jump up by the toolbar's height at the end of the fade. The
+ * overflow only appears while the toolbar is not interactive, so its dropdowns
+ * stay unclipped in normal mode. */
+.axon-editor-chrome {
+  max-height: var(--axon-editor-chrome-max-height);
+  transition:
+    max-height var(--axon-zen-duration) var(--axon-zen-ease),
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.axon-app-root.axon-zen-mode .axon-editor-chrome {
+  max-height: 0;
+  overflow: hidden;
+}
+
+/* The status bar leaves from the bottom edge, so collapsing its height lets
+ * the editor claim that space while the bar fades instead of after it unmounts. */
+.axon-status-rail {
+  max-height: var(--axon-status-rail-height);
+  overflow: hidden;
+  transition:
+    max-height var(--axon-zen-duration) var(--axon-zen-ease),
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.axon-app-root.axon-zen-mode .axon-status-rail {
+  max-height: 0;
+}
+
+/* Tab sizing animates in both directions because the zen class disappears the
+ * moment the exit starts. Keep the existing hover color transition in the
+ * property list; the component's transition-colors utility is narrower. */
+.axon-app-root .axon-tab-strip {
+  transition: height var(--axon-zen-duration) var(--axon-zen-ease);
+}
+
+.axon-app-root .axon-tab {
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    height var(--axon-zen-duration) var(--axon-zen-ease),
+    min-width var(--axon-zen-duration) var(--axon-zen-ease),
+    padding var(--axon-zen-duration) var(--axon-zen-ease),
+    font-size var(--axon-zen-duration) var(--axon-zen-ease);
+}
+
 /* Zen tabs stay clickable but drop the per-tab furniture: closer returns to
  * Cmd+W and the context menu, pins to the context menu. Height comes down so
  * the strip reads as a quiet underline rather than a browser bar. */
-.axon-app-root.axon-zen-mode .axon-tab-strip {
-  height: 30px;
+.axon-app-root.axon-zen-layout .axon-tab-strip {
+  height: var(--axon-zen-tab-height);
   -webkit-app-region: drag;
 }
 
-.axon-app-root.axon-zen-mode .axon-tab {
-  height: 30px;
-  min-width: 76px;
+.axon-app-root.axon-zen-layout .axon-tab {
+  height: var(--axon-zen-tab-height);
+  min-width: var(--axon-zen-tab-min-width);
+  padding-left: var(--axon-zen-tab-padding-start);
+  padding-right: var(--axon-zen-tab-padding-end);
+  font-size: var(--axon-zen-tab-font-size);
 }
 
-.axon-app-root.axon-zen-mode .axon-tab-pin,
-.axon-app-root.axon-zen-mode .axon-tab-close {
+.axon-app-root.axon-zen-layout .axon-tab-pin,
+.axon-app-root.axon-zen-layout .axon-tab-close {
   display: none;
 }
 
-.axon-app-root.axon-zen-mode .axon-tab:not(.axon-tab--active) {
+.axon-app-root.axon-zen-layout .axon-tab:not(.axon-tab--active) {
   opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .axon-layout-regions,
+  .axon-region-editor-card,
+  .axon-layout-editor,
+  .axon-sidebar-region,
+  .axon-editor-chrome,
+  .axon-status-rail,
+  .axon-tab-strip,
+  .axon-tab {
+    transition-duration: 1ms;
+  }
 }
 
 /* Vim-style command readout. Shows the label of the chrome shortcut that last
