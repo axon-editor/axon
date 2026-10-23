@@ -20,10 +20,11 @@ import type { ThemeAppearance } from "../../../../renderer/shared/themes/appeara
 const GLASS_SURFACE_ALPHA = 0.01;
 
 // The window material is the shared surface, so a region at the anti-ghosting
-// alpha merges into the margin and its rounded corners disappear. A card tint
-// at the same alpha as the frosted terminal gives every region a visible edge
-// while still letting the material show through.
-const GLASS_REGION_ALPHA = 0.3;
+// alpha merges into the margin and its rounded corners disappear. The tint has
+// to stay visible enough to draw that edge and keep cards readable, but 0.3
+// buried too much of the native material. 0.2 keeps the rounded shape without
+// turning the workbench into a solid panel.
+const GLASS_REGION_ALPHA = 0.2
 
 function opaqueColor(color: string) {
   const normalizedColor = color?.trim() ?? "";

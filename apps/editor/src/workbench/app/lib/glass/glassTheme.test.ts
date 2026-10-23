@@ -87,10 +87,10 @@ describe("glass theme surfaces", () => {
     ) as Record<string, string>;
 
     // The persistent surfaces above stay at the anti-ghosting floor, but a
-    // region card at that alpha would be invisible, so it carries the same
-    // weight as the frosted terminal instead.
+    // region card at that alpha would be invisible. 0.2 keeps the edge
+    // readable without burying the native material.
     expect(alphaOf(variables["--axon-glass-region-background"])).toBeCloseTo(
-      0.3,
+      0.2,
     );
   });
 
