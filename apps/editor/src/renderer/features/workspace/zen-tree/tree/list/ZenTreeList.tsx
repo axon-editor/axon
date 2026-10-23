@@ -9,8 +9,8 @@ import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
 import ModalEmptyState from "@axon-editor/renderer/shared/components/modals/empty/ModalEmptyState";
 import { normalizeTreePath } from "../../shared/zenTreePath";
 import type { GitTone } from "../../shared/types";
-import ZenTreeRow from "../rows/ZenTreeRow";
-import type { TreeRow } from "../rows/zenTreeRows";
+import ZenTreeRow from "../rows/components/ZenTreeRow";
+import type { TreeRow } from "../rows/model/zenTreeRows";
 
 interface Props {
   rows: TreeRow[];

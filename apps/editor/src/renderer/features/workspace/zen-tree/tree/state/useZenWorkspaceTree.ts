@@ -18,7 +18,7 @@ import { getTree, type FileNode } from "@axon-editor/renderer/shared/lib/backend
 import type { GitChange } from "@axon-editor/shared/workspace/git";
 import { buildGitDecorationMap, buildIgnoredPathSet } from "../../shared/zenTreeGit";
 import { getAncestorPaths, normalizeTreePath } from "../../shared/zenTreePath";
-import { flattenRows, sortChildren } from "../rows/zenTreeRows";
+import { flattenRows, sortChildren } from "../rows/model/zenTreeRows";
 
 interface Options {
   tree: FileNode | null;
