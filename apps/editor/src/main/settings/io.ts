@@ -52,6 +52,7 @@ function applyAppAwareSettings(
       ...settings.editor,
       themeId: appSettings.editor.themeId,
       sidebarSide: appSettings.editor.sidebarSide,
+      zenWorkspaceTreeSurface: appSettings.editor.zenWorkspaceTreeSurface,
     },
     theme_overrides: appSettings.theme_overrides,
   };

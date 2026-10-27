@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
 import ZenEntryIcon from "../../../entry/ZenEntryIcon";
 import { TREE_BASE_INDENT, TREE_DEPTH_WIDTH } from "../../../shared/zenTreeConstants";
@@ -49,18 +49,18 @@ export default function ZenTreeRow({
       data-zen-tree-index={index}
       onClick={() => onSelect(index, node)}
       onMouseDown={(event) => event.preventDefault()}
-      className={`relative flex min-w-full cursor-pointer select-none items-center gap-1.5 whitespace-nowrap py-1 pr-3 text-[12px] transition-colors ${
+      className={`group relative flex min-w-full cursor-pointer select-none items-center gap-1.5 whitespace-nowrap border-l-2 py-1 pr-3 text-[12px] transition-colors ${
         active
-          ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
+          ? "border-[var(--axon-accent)] bg-[var(--axon-accent-muted)] text-[var(--axon-editor-foreground)]"
           : ignored
-            ? "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-80"
-            : "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
+            ? "border-transparent text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-80"
+            : "border-transparent text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
       }`}
       style={{
         paddingLeft: `${TREE_BASE_INDENT + depth * TREE_DEPTH_WIDTH}px`,
       }}
     >
-      <span className="flex h-4 w-3 shrink-0 items-center justify-center opacity-30">
+      <span className="flex h-4 w-3 shrink-0 items-center justify-center opacity-30 transition-opacity group-hover:opacity-60">
         {node.is_dir &&
           (expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />)}
       </span>
@@ -70,14 +70,27 @@ export default function ZenTreeRow({
         expanded={expanded}
         color={entryColor}
       />
-      <span className="min-w-0 truncate" style={{ color: entryColor }}>
+      <span
+        className={`min-w-0 truncate ${node.is_dir ? "font-medium" : ""}`}
+        style={{ color: entryColor }}
+      >
         {node.name}
       </span>
-      {loading && (
-        <span className="ml-auto pl-3 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
-          loading
-        </span>
-      )}
+      <span className="ml-auto flex shrink-0 items-center gap-2 pl-3">
+        {loading && (
+          <span className="flex items-center gap-1 text-[10px] text-[var(--axon-editor-foreground)] opacity-35">
+            <Loader2 size={10} className="animate-spin" />
+            loading
+          </span>
+        )}
+        {tone && (
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: entryColor }}
+          />
+        )}
+      </span>
     </div>
   );
 }

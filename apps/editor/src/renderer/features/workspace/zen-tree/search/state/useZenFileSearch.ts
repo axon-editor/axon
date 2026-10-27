@@ -137,6 +137,7 @@ export function useZenFileSearch({
     setQuery,
     searching,
     results,
+    projectFileCount: projectFiles.length,
     loading,
     error,
     activeIndex,

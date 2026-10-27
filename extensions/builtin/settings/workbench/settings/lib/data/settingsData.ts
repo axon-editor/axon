@@ -15,6 +15,7 @@ import {
   FONT_PRESET_IDS,
   TERMINAL_GPU_ACCELERATION_VALUES,
   UI_FONT_FAMILIES,
+  ZEN_WORKSPACE_TREE_SURFACES,
   type AiProviderId,
   type AppGlassMode,
   type EditorSettingsSurface,
@@ -28,6 +29,7 @@ import {
   type FontPresetId,
   type TerminalGpuAcceleration,
   type UiFontFamily,
+  type ZenWorkspaceTreeSurface,
 } from "@axon-editor/shared/core/settings";
 import { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect";
 
@@ -76,7 +78,17 @@ export const SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     group: "appearance",
     label: "Appearance",
     description: "Theme and UI font",
-    keywords: ["theme", "ui font", "sidebar side", "layout"],
+    keywords: [
+      "theme",
+      "ui font",
+      "sidebar side",
+      "layout",
+      "zen",
+      "workspace tree",
+      "file tree",
+      "modal",
+      "overlay",
+    ],
   },
   {
     id: "background",
@@ -340,6 +352,26 @@ export const EDITOR_SETTINGS_SURFACE_ITEMS: SearchSelectItem<EditorSettingsSurfa
       "Open settings in a dedicated window that every editor window reuses.",
   },
 ];
+
+const ZEN_WORKSPACE_TREE_SURFACE_LABELS: Record<
+  ZenWorkspaceTreeSurface,
+  Pick<SearchSelectItem<ZenWorkspaceTreeSurface>, "label" | "description">
+> = {
+  modal: {
+    label: "Floating overlay (default)",
+    description: "Open the tree as a focused overlay above the Zen canvas.",
+  },
+  sidebar: {
+    label: "Full sidebar",
+    description: "Open the complete Files sidebar without leaving Zen mode.",
+  },
+};
+
+export const ZEN_WORKSPACE_TREE_SURFACE_ITEMS: SearchSelectItem<ZenWorkspaceTreeSurface>[] =
+  ZEN_WORKSPACE_TREE_SURFACES.map((surface) => ({
+    value: surface,
+    ...ZEN_WORKSPACE_TREE_SURFACE_LABELS[surface],
+  }));
 
 const TERMINAL_GPU_ACCELERATION_LABELS: Record<
   TerminalGpuAcceleration,

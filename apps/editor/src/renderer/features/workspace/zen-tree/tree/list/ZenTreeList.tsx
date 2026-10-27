@@ -7,6 +7,7 @@ import type { KeyboardEvent, RefObject } from "react";
 import { FolderOpen } from "lucide-react";
 import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
 import ModalEmptyState from "@axon-editor/renderer/shared/components/modals/empty/ModalEmptyState";
+import ZenTreeSectionHeader from "../../overlay/section/ZenTreeSectionHeader";
 import { normalizeTreePath } from "../../shared/zenTreePath";
 import type { GitTone } from "../../shared/types";
 import ZenTreeRow from "../rows/components/ZenTreeRow";
@@ -39,6 +40,11 @@ export default function ZenTreeList({
   onKeyDown,
   onRowSelect,
 }: Props) {
+  const itemCountLabel =
+    loading && rows.length === 0
+      ? "loading"
+      : `${rows.length} ${rows.length === 1 ? "item" : "items"}`;
+
   return (
     <div
       ref={listRef}
@@ -49,8 +55,9 @@ export default function ZenTreeList({
         rows.length > 0 ? `zen-tree-row-${activeIndex}` : undefined
       }
       onKeyDown={onKeyDown}
-      className="max-h-[60vh] min-h-[8rem] overflow-auto py-1 outline-none"
+      className="max-h-[58vh] min-h-[10rem] overflow-auto outline-none"
     >
+      <ZenTreeSectionHeader label="Explorer" meta={itemCountLabel} />
       {rows.length === 0 ? (
         <ModalEmptyState
           icon={FolderOpen}

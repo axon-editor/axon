@@ -5,7 +5,11 @@
 
 import { type AxonSettings } from "@axon-editor/shared/core/settings";
 import SearchSelect, { type SearchSelectItem } from "@axon-editor/base/components/SearchSelect";
-import { EDITOR_SETTINGS_SURFACE_ITEMS, EDITOR_SIDEBAR_SIDE_ITEMS } from "../../lib/data/settingsData";
+import {
+  EDITOR_SETTINGS_SURFACE_ITEMS,
+  EDITOR_SIDEBAR_SIDE_ITEMS,
+  ZEN_WORKSPACE_TREE_SURFACE_ITEMS,
+} from "../../lib/data/settingsData";
 import SettingsField from "../../controls/layout/SettingsField";
 import SettingsSection from "../../controls/layout/SettingsSection";
 
@@ -78,6 +82,22 @@ export default function AppearanceSettingsSection({
           onChange={(side) => onUpdateEditor("sidebarSide", side)}
           ariaLabel="Main sidebar side"
           placeholder="Search sides..."
+        />
+      </SettingsField>
+
+      <SettingsField
+        rowKey="zen-workspace-tree-surface"
+        label="Zen workspace tree"
+        description="Choose whether Cmd/Ctrl+B opens the focused tree overlay or the full sidebar while Zen mode is active."
+      >
+        <SearchSelect
+          value={draft.editor.zenWorkspaceTreeSurface}
+          items={ZEN_WORKSPACE_TREE_SURFACE_ITEMS}
+          onChange={(surface) =>
+            onUpdateEditor("zenWorkspaceTreeSurface", surface)
+          }
+          ariaLabel="Zen workspace tree surface"
+          placeholder="Search surfaces..."
         />
       </SettingsField>
     </SettingsSection>

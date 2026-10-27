@@ -43,19 +43,21 @@ export default function ZenSearchResultRow({
       data-zen-search-index={index}
       onClick={() => onSelect(index)}
       onMouseDown={(event) => event.preventDefault()}
-      className={`flex cursor-pointer select-none items-center gap-2 px-3 py-1.5 transition-colors ${
+      className={`group flex cursor-pointer select-none items-center gap-2.5 border-l-2 px-4 py-2 transition-colors ${
         active
-          ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
+          ? "border-[var(--axon-accent)] bg-[var(--axon-accent-muted)] text-[var(--axon-editor-foreground)]"
           : ignored
-            ? "text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-80"
-            : "text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
+            ? "border-transparent text-[var(--axon-editor-foreground)] opacity-55 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-80"
+            : "border-transparent text-[var(--axon-editor-foreground)] opacity-72 hover:bg-[var(--axon-sidebar-hover-background)] hover:opacity-100"
       }`}
     >
-      <ZenEntryIcon
-        name={result.file.name}
-        isDir={false}
-        color={entryColor}
-      />
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--axon-panel-overlay-hover)]">
+        <ZenEntryIcon
+          name={result.file.name}
+          isDir={false}
+          color={entryColor}
+        />
+      </span>
       <span className="min-w-0 flex-1">
         <span
           className="block truncate text-[12px]"
@@ -64,7 +66,7 @@ export default function ZenSearchResultRow({
           {result.file.name}
         </span>
         {parentPath && (
-          <span className="block truncate text-[10px] opacity-40">
+          <span className="block truncate font-mono text-[10px] opacity-35">
             {parentPath}
           </span>
         )}

@@ -196,6 +196,27 @@ describe("remember expanded folders settings", () => {
   });
 });
 
+describe("zen workspace tree settings", () => {
+  it("preserves an explicit sidebar surface", () => {
+    expect(
+      normalizeSettings({
+        editor: { zenWorkspaceTreeSurface: "sidebar" },
+      }).editor.zenWorkspaceTreeSurface,
+    ).toBe("sidebar");
+  });
+
+  it("uses the overlay modal for older or invalid settings", () => {
+    expect(
+      normalizeSettings({ editor: {} }).editor.zenWorkspaceTreeSurface,
+    ).toBe("modal");
+    expect(
+      normalizeSettings({
+        editor: { zenWorkspaceTreeSurface: "window" },
+      }).editor.zenWorkspaceTreeSurface,
+    ).toBe("modal");
+  });
+});
+
 describe("editor hover settings", () => {
   it("preserves an explicit bottom placement", () => {
     expect(

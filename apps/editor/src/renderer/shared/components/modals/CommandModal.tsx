@@ -34,7 +34,7 @@ function getModalPerformanceName(title: string | undefined) {
 interface Props {
   title?: string;
   /** Replaces the title bar, for modals whose own header should drag. */
-  header?: React.ReactNode;
+  header?: React.ReactNode | ((requestClose: () => void) => React.ReactNode);
   onClose: () => void;
   children: React.ReactNode;
   width?: string;
@@ -144,6 +144,9 @@ export default function CommandModal({
     };
   }, [modalName, modalPerformanceName, requestClose]);
 
+  const renderedHeader =
+    typeof header === "function" ? header(requestClose) : header;
+
   return createPortal(
     <div
       className={`axon-modal-overlay fixed inset-0 z-50 flex items-center justify-center px-4 py-6 ${overlayClassName} ${
@@ -159,7 +162,7 @@ export default function CommandModal({
       >
         <ModalShellHeader
           title={title}
-          header={header}
+          header={renderedHeader}
           onClose={requestClose}
           draggable={draggable}
           dragHandleProps={drag.handleProps}

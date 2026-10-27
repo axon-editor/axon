@@ -398,6 +398,13 @@ html.axon-native-glass .axon-tooltip {
   animation: axonModalPanelOut 150ms ease-in both;
 }
 
+/* Glass themes keep the panel token almost transparent so native material can
+ * show through. The tree rows need a solid surface of their own, otherwise
+ * editor text reads through the list and the hierarchy becomes hard to scan. */
+.axon-zen-tree-surface {
+  background: var(--axon-solid-popup-background, var(--axon-panel-background));
+}
+
 /* Popovers open below the toolbar into the tab strip's window-drag band. An
  * element that is neutral for -webkit-app-region does not cut a hole in that
  * band, so the drag region swallows the clicks on the popover's top rows. */

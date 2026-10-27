@@ -128,6 +128,7 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
   React.useEffect(() => {
     const toggle = () => {
       if (!zenMode) return;
+      if (settings.editor.zenWorkspaceTreeSurface !== "modal") return;
 
       // Cmd+B should close this tree when it is already open, but it should not
       // stack the tree on top of a command palette or another modal.
@@ -139,11 +140,17 @@ export default function WorkbenchOverlays(props: AxonWorkbenchLayoutProps) {
     window.addEventListener(AXON_ZEN_WORKSPACE_TREE_EVENT, toggle);
     return () =>
       window.removeEventListener(AXON_ZEN_WORKSPACE_TREE_EVENT, toggle);
-  }, [zenMode, zenTreeOpen]);
+  }, [settings.editor.zenWorkspaceTreeSurface, zenMode, zenTreeOpen]);
 
   React.useEffect(() => {
     if (!zenMode) setZenTreeOpen(false);
   }, [zenMode]);
+
+  React.useEffect(() => {
+    if (settings.editor.zenWorkspaceTreeSurface !== "modal") {
+      setZenTreeOpen(false);
+    }
+  }, [settings.editor.zenWorkspaceTreeSurface]);
 
   React.useEffect(() => {
     if (paletteOpen) setZenTreeOpen(false);

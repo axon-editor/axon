@@ -7,6 +7,19 @@ export function normalizeTreePath(path: string) {
   return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
+export function getPathBasename(path: string | null) {
+  if (!path) return "";
+  const normalized = normalizeTreePath(path);
+  return normalized.split("/").filter(Boolean).pop() ?? normalized;
+}
+
+export function getPathParent(path: string | null) {
+  if (!path) return "";
+  const normalized = normalizeTreePath(path);
+  const parent = normalized.split("/").slice(0, -1).join("/");
+  return parent || "/";
+}
+
 // The core returns one directory level at a time, so revealing the active file
 // means expanding and fetching every directory between the workspace root and
 // the file. The built paths keep the root's separator so they match the raw

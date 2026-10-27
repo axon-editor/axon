@@ -5,15 +5,18 @@
 
 import type { KeyboardEvent } from "react";
 import CommandModal from "@axon-editor/renderer/shared/components/modals/CommandModal";
-import ModalFooterHints from "@axon-editor/renderer/shared/components/modals/ModalFooterHints";
 import ModalSearchInput from "@axon-editor/renderer/shared/components/modals/search/ModalSearchInput";
 import type { FileNode } from "@axon-editor/renderer/shared/lib/backend/api";
 import type { GitChange } from "@axon-editor/shared/workspace/git";
+import ZenTreeFooter from "./overlay/footer/ZenTreeFooter";
+import ZenTreeHeader from "./overlay/header/ZenTreeHeader";
 import ZenTreeSearchResults from "./search/results/ZenTreeSearchResults";
 import { useZenFileSearch } from "./search/state/useZenFileSearch";
-import { ZEN_TREE_MODAL_WIDTH } from "./shared/zenTreeConstants";
+import {
+  ZEN_TREE_MODAL_WIDTH,
+  ZEN_TREE_PANEL_SHADOW,
+} from "./shared/zenTreeConstants";
 import ZenTreeList from "./tree/list/ZenTreeList";
-import ZenTreePathBar from "./tree/path-bar/ZenTreePathBar";
 import { useZenWorkspaceTree } from "./tree/state/useZenWorkspaceTree";
 
 interface Props {
@@ -71,25 +74,32 @@ export default function ZenWorkspaceTreeModal({
     }
   };
 
-  const hints = search.searching
-    ? ["↑↓ navigate", "↵ open", "esc clear"]
-    : [
-        "type to search",
-        "↑↓ navigate",
-        "→ expand",
-        "← collapse",
-        "↵ open",
-        "esc close",
-      ];
+  const status = !workspaceTree.rootPath
+    ? "Open a folder to browse files"
+    : search.searching
+      ? search.loading
+        ? "Indexing project files..."
+        : `Search across ${search.projectFileCount.toLocaleString()} indexed files`
+      : "Read-only workspace tree";
 
   return (
     <CommandModal
       title="Workspace tree"
       width={ZEN_TREE_MODAL_WIDTH}
-      bodyClassName="min-h-0 overflow-hidden"
+      bodyClassName="axon-zen-tree-surface flex min-h-0 flex-1 flex-col overflow-hidden"
+      overlayClassName="backdrop-blur-[2px] backdrop-brightness-75"
+      panelStyle={{ boxShadow: ZEN_TREE_PANEL_SHADOW }}
+      resizable="zen-workspace-tree"
+      header={(close) => (
+        <ZenTreeHeader
+          rootPath={workspaceTree.rootPath}
+          fileCount={search.projectFileCount}
+          gitChangeCount={gitChanges.length}
+          onClose={close}
+        />
+      )}
       onClose={onClose}
     >
-      <ZenTreePathBar rootPath={workspaceTree.rootPath} />
       <ModalSearchInput
         value={search.query}
         onChange={search.setQuery}
@@ -142,7 +152,7 @@ export default function ZenWorkspaceTreeModal({
         />
       )}
 
-      <ModalFooterHints hints={hints} />
+      <ZenTreeFooter searching={search.searching} status={status} />
     </CommandModal>
   );
 }

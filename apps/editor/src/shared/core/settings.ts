@@ -188,11 +188,17 @@ export interface CustomFont {
 
 export type EditorSettingsSurface = "tab" | "window";
 
+export const ZEN_WORKSPACE_TREE_SURFACES = ["modal", "sidebar"] as const;
+
+export type ZenWorkspaceTreeSurface =
+  (typeof ZEN_WORKSPACE_TREE_SURFACES)[number];
+
 export interface EditorSettings {
   fontPreset: FontPresetId;
   uiFontFamily: string;
   sidebarSide: EditorSidebarSide;
   openSettingsIn: EditorSettingsSurface;
+  zenWorkspaceTreeSurface: ZenWorkspaceTreeSurface;
   themeId: ThemeId;
   fontFamily: string;
   fontSize: number;
@@ -277,6 +283,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     uiFontFamily: ".AxonSans",
     sidebarSide: "left",
     openSettingsIn: "tab",
+    zenWorkspaceTreeSurface: "modal",
     themeId: DEFAULT_THEME_ID,
     fontFamily: ".AxonMono",
     fontSize: 14,
@@ -483,6 +490,12 @@ function isEditorSettingsSurface(value: unknown): value is EditorSettingsSurface
   return value === "tab" || value === "window";
 }
 
+function isZenWorkspaceTreeSurface(
+  value: unknown,
+): value is ZenWorkspaceTreeSurface {
+  return ZEN_WORKSPACE_TREE_SURFACES.some((surface) => surface === value);
+}
+
 export function isAppGlassMode(value: unknown): value is AppGlassMode {
   return APP_GLASS_MODES.some((mode) => mode === value);
 }
@@ -554,6 +567,11 @@ export function normalizeSettings(value: unknown): AxonSettings {
       openSettingsIn: isEditorSettingsSurface(editor.openSettingsIn)
         ? editor.openSettingsIn
         : DEFAULT_SETTINGS.editor.openSettingsIn,
+      zenWorkspaceTreeSurface: isZenWorkspaceTreeSurface(
+        editor.zenWorkspaceTreeSurface,
+      )
+        ? editor.zenWorkspaceTreeSurface
+        : DEFAULT_SETTINGS.editor.zenWorkspaceTreeSurface,
       themeId: isThemeId(editor.themeId)
         ? editor.themeId
         : DEFAULT_SETTINGS.editor.themeId,

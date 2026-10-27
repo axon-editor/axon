@@ -6,6 +6,7 @@
 import type { RefObject } from "react";
 import { Search } from "lucide-react";
 import ModalEmptyState from "@axon-editor/renderer/shared/components/modals/empty/ModalEmptyState";
+import ZenTreeSectionHeader from "../../overlay/section/ZenTreeSectionHeader";
 import { normalizeTreePath } from "../../shared/zenTreePath";
 import type { GitTone, ZenSearchResult } from "../../shared/types";
 import ZenSearchResultRow from "./ZenSearchResultRow";
@@ -63,14 +64,19 @@ export default function ZenTreeSearchResults({
     );
   }
 
+  const resultCountLabel = loading
+    ? "indexing"
+    : `${results.length} ${results.length === 1 ? "match" : "matches"}`;
+
   return (
     <div
       ref={listRef}
       id="zen-tree-search-results"
       role="listbox"
       aria-label="Workspace file search results"
-      className="max-h-[60vh] min-h-[8rem] overflow-auto py-1"
+      className="max-h-[58vh] min-h-[10rem] overflow-auto"
     >
+      <ZenTreeSectionHeader label="Results" meta={resultCountLabel} />
       {results.map((result, index) => {
         const normalizedPath = normalizeTreePath(result.file.path);
 

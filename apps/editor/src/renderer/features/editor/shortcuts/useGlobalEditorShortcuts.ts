@@ -171,13 +171,18 @@ export function useGlobalEditorShortcuts({
       ) {
         event.preventDefault();
 
-        // Zen hides the real sidebar, so Cmd+B opens a read-only tree overlay
-        // instead. Toggling the sidebar command here would push the layout back
-        // open and undo the full-bleed canvas.
         if (zenMode) {
-          window.dispatchEvent(
-            new CustomEvent(AXON_ZEN_WORKSPACE_TREE_EVENT),
-          );
+          // Zen normally hides the full sidebar, so Cmd+B either opens the
+          // focused overlay or brings the complete sidebar back into the
+          // canvas. The setting owns that choice; the sidebar toggle already
+          // remembers its pre-Zen state and restores it on exit.
+          if (settings.editor.zenWorkspaceTreeSurface === "sidebar") {
+            runCommand(AXON_COMMANDS.TOGGLE_SIDEBAR);
+          } else {
+            window.dispatchEvent(
+              new CustomEvent(AXON_ZEN_WORKSPACE_TREE_EVENT),
+            );
+          }
           announceZenCommand("files");
           return;
         }
