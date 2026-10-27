@@ -15,6 +15,10 @@ export interface TerminalSurfaceTab {
   id: string;
   title: string;
   workingDirectory: string | null;
+  // The PTY survives the handoff, so the new owner has to know whether Axon
+  // already sent the one-time workspace cd/clear. Replaying it into a running
+  // agent would submit the command as a prompt instead of a shell command.
+  cwdSynced: boolean;
 }
 
 export interface TerminalWindowHandoff {

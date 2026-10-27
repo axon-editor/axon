@@ -66,6 +66,7 @@ interface UseTerminalSessionManagerOptions {
 // stop the two paths from drifting apart.
 function createTerminalSessionShell(
   workingDirectory: string | null,
+  cwdSynced = false,
 ): TerminalSession {
   return {
     container: null,
@@ -81,7 +82,7 @@ function createTerminalSessionShell(
     dataDisposable: null,
     multilineDisposable: null,
     workingDirectory,
-    cwdSynced: false,
+    cwdSynced,
     receivedBytes: 0,
     lastAckedBytes: 0,
     ackTimer: null,
@@ -125,7 +126,10 @@ export function useTerminalSessionManager({
     // when their tab container renders below.
     const seeded: Record<string, TerminalSession> = {};
     for (const tab of adoptHandoff.tabs) {
-      seeded[tab.id] = createTerminalSessionShell(tab.workingDirectory);
+      seeded[tab.id] = createTerminalSessionShell(
+        tab.workingDirectory,
+        tab.cwdSynced,
+      );
     }
     return seeded;
   });
@@ -285,12 +289,15 @@ export function useTerminalSessionManager({
     (): TerminalWindowHandoff | null => {
       const { tabs: snapshotTabs, activeTabId: snapshotActiveTabId } =
         surfaceStateRef.current;
-      const sessionTabs: TerminalSurfaceTab[] = snapshotTabs.map((tab) => ({
-        id: tab.id,
-        title: tab.title,
-        workingDirectory:
-          sessionsRef.current[tab.id]?.workingDirectory ?? workingDirectory,
-      }));
+      const sessionTabs: TerminalSurfaceTab[] = snapshotTabs.map((tab) => {
+        const session = sessionsRef.current[tab.id];
+        return {
+          id: tab.id,
+          title: tab.title,
+          workingDirectory: session?.workingDirectory ?? workingDirectory,
+          cwdSynced: session?.cwdSynced ?? false,
+        };
+      });
       return {
         workspaceRoot: workingDirectory,
         tabs: sessionTabs,
@@ -516,10 +523,15 @@ export function useTerminalSessionManager({
             existing.parked = false;
             existing.workingDirectory =
               adoptedTab.workingDirectory ?? existing.workingDirectory;
+            // The window may have sent the one-time workspace setup while the
+            // editor was parked. Adopt its flag before reconnecting so the
+            // editor does not replay cd/clear into a foreground agent.
+            existing.cwdSynced = adoptedTab.cwdSynced;
             nextTabs.push({ id: adoptedTab.id, title: adoptedTab.title });
           } else {
             sessionsRef.current[adoptedTab.id] = createTerminalSessionShell(
               adoptedTab.workingDirectory,
+              adoptedTab.cwdSynced,
             );
             nextTabs.push({ id: adoptedTab.id, title: adoptedTab.title });
           }

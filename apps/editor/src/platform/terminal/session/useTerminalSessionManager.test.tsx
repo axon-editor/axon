@@ -17,6 +17,7 @@ import {
 } from "vitest";
 import { resetCommandHistoryForTests } from "../../../../../../extensions/builtin/terminal/workbench/lib/commandHistoryStore";
 import { useTerminalSessionManager } from "../../../../../../extensions/builtin/terminal/workbench/hooks/useTerminalSessionManager";
+import { type TerminalWindowHandoff } from "../../../shared/terminal/terminalWindow";
 
 const terminalBridgeMock = vi.hoisted(() => ({
   createTerminalTicket: vi.fn(),
@@ -227,22 +228,26 @@ const reactTestEnvironment = globalThis as typeof globalThis & {
 };
 
 interface TerminalHarnessProps {
+  adoptHandoff?: TerminalWindowHandoff | null;
   background?: string;
   commandSuggestions?: boolean;
   foreground?: string;
   open?: boolean;
   red?: string;
+  windowed?: boolean;
 }
 
 // The panel tests need the manager itself, not only the mounted xterm nodes.
 let latestManager: ReturnType<typeof useTerminalSessionManager> | null = null;
 
 function TerminalHarness({
+  adoptHandoff = null,
   background = "#000000",
   commandSuggestions = true,
   foreground = "#ffffff",
   open = true,
   red = "#cd3131",
+  windowed = false,
 }: TerminalHarnessProps) {
   const manager = useTerminalSessionManager({
     activePanelTab: "terminal",
@@ -264,6 +269,8 @@ function TerminalHarness({
       },
     },
     terminalVisible: open,
+    windowed,
+    adoptHandoff,
     workingDirectory: "/workspace",
     onHide: vi.fn(),
   });
@@ -313,6 +320,37 @@ function getSuggestionElement() {
   return xtermMock.instances[0]?.element?.querySelector(
     ".axon-terminal-suggestion",
   );
+}
+
+function createWindowHandoff(cwdSynced: boolean): TerminalWindowHandoff {
+  return {
+    workspaceRoot: "/workspace",
+    tabs: [
+      {
+        id: "terminal-adopted",
+        title: "workspace",
+        workingDirectory: "/workspace",
+        cwdSynced,
+      },
+    ],
+    activeTabId: "terminal-adopted",
+    createNonce: 1,
+    dockMode: "show",
+  };
+}
+
+async function openFirstTerminalSocket() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  const socket = FakeWebSocket.instances[0];
+  if (!socket) throw new Error("terminal socket was not created");
+  await act(async () => {
+    socket.onopen?.();
+  });
+  return socket;
 }
 
 describe("useTerminalSessionManager", () => {
@@ -748,5 +786,43 @@ describe("useTerminalSessionManager", () => {
     // list nor the session map may change.
     expect(latestManager?.floating).toBe(true);
     expect(latestManager?.tabs.map((tab) => tab.id)).toEqual(tabsBefore);
+  });
+
+  it("does not replay workspace setup into a synced floating session", async () => {
+    await act(async () => {
+      root.render(
+        <TerminalHarness windowed adoptHandoff={createWindowHandoff(true)} />,
+      );
+    });
+
+    const socket = await openFirstTerminalSocket();
+
+    // The PTY already received Axon's setup before the handoff. Replaying it
+    // would submit the command to whatever TUI owns the terminal, including a
+    // running agent, instead of running it in a shell prompt.
+    expect(socket.sent).not.toContain(" cd -- '/workspace';  clear\r");
+  });
+
+  it("replays workspace setup for an unsynced floating session", async () => {
+    await act(async () => {
+      root.render(
+        <TerminalHarness windowed adoptHandoff={createWindowHandoff(false)} />,
+      );
+    });
+
+    const socket = await openFirstTerminalSocket();
+
+    expect(socket.sent).toContain(" cd -- '/workspace';  clear\r");
+  });
+
+  it("carries the workspace setup state into the floating handoff", async () => {
+    await act(async () => {
+      root.render(<TerminalHarness />);
+    });
+    await openFirstTerminalSocket();
+
+    const snapshot = latestManager?.serializeWindowSnapshot();
+
+    expect(snapshot?.tabs[0]?.cwdSynced).toBe(true);
   });
 });
