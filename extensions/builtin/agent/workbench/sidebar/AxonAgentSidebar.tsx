@@ -41,7 +41,6 @@ import {
   type AgentToolCallState,
   activeAgentConversation,
   clearAgentConversation,
-  conversationContext,
   isGreetingPrompt,
   loadAgentConversationState,
   saveActiveAgentConversation,
@@ -50,6 +49,7 @@ import {
   togglePinConversation,
 } from "../lib/conversation/agentConversation";
 import { type AgentToolRunResult } from "../lib/actions/agentToolActions";
+import { conversationContext } from "../lib/conversation/context";
 import { updateAgentTool } from "../lib/conversation/timeline";
 import { resolveProposalPath } from "../lib/conversation/agentProposalPaths";
 import {

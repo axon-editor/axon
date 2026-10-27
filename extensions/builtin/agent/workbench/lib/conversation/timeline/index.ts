@@ -10,4 +10,5 @@ export { appendAgentThought } from "./appendAgentThought";
 export { appendAgentTool } from "./appendAgentTool";
 export { finalizeAgentTimeline } from "./finalizeAgentTimeline";
 export { updateAgentTool } from "./updateAgentTool";
+export { timelineTools } from "./timelineTools";
 export { type AgentToolUpdate } from "./agentToolUpdate";

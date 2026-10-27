@@ -6,7 +6,6 @@
 import {
   type AiActionId,
   type AiChatResult,
-  type AiConversationMessage,
   type AiToolKind,
 } from "@axon-editor/shared/ai/ai";
 
@@ -318,20 +317,6 @@ export function togglePinConversation(
   };
   saveAgentConversationState(folderPath, nextState);
   return nextState;
-}
-
-export function conversationContext(messages: AgentMessage[]): AiConversationMessage[] {
-  return messages
-    .filter(
-      (message): message is AgentMessage & { role: "user" | "assistant" } =>
-        message.role === "user" || message.role === "assistant",
-    )
-    .filter((message) => message.content.trim())
-    .slice(-12)
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
 }
 
 export function isGreetingPrompt(prompt: string) {
