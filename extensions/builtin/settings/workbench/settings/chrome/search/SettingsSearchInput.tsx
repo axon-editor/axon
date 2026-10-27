@@ -20,6 +20,11 @@ import { type SettingsSectionId } from "../../lib/data/settingsData";
 import { type SettingsRowMatch } from "../../search/settingsRowIndex";
 import SettingsSearchResults from "./SettingsSearchResults";
 
+// The search field lives in the 216px sidebar, but row breadcrumbs need more
+// room than that. The popup is deliberately wider than its anchor and clamped
+// to the viewport so labels stay readable instead of truncating in the rail.
+const RESULTS_POPUP_WIDTH = "w-[min(24rem,calc(100vw-2rem))]";
+
 export default function SettingsSearchInput({
   value,
   onChange,
@@ -126,7 +131,9 @@ export default function SettingsSearchInput({
       </div>
 
       {resultsOpen && (
-        <div className="absolute left-4 right-4 top-full z-50 mt-1">
+        <div
+          className={`absolute left-4 top-full z-50 mt-1 ${RESULTS_POPUP_WIDTH}`}
+        >
           <SettingsSearchResults
             sectionIds={sectionIds}
             rows={rows}

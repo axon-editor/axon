@@ -16,6 +16,10 @@ import {
 import { SETTINGS_SECTION_ICONS } from "../../lib/ui/sectionIcons";
 import { type SettingsRowMatch } from "../../search/settingsRowIndex";
 
+// Cap the result list so a broad query cannot push the popup past the window;
+// the list scrolls instead.
+const RESULTS_PANEL_MAX_HEIGHT = "max-h-[min(28rem,calc(100vh-8rem))]";
+
 export default function SettingsSearchResults({
   sectionIds,
   rows,
@@ -39,14 +43,18 @@ export default function SettingsSearchResults({
 
   if (!hasSections && !hasRows) {
     return (
-      <div className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] px-3 py-6 text-center text-[12px] text-[var(--axon-editor-foreground)] opacity-45 shadow-2xl">
-        No settings match that search.
+      <div className="rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-solid-popup-background,var(--axon-panel-background))] px-3 py-6 text-center text-[12px] shadow-2xl">
+        <span className="text-[var(--axon-editor-foreground)] opacity-45">
+          No settings match that search.
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] py-1 shadow-2xl">
+    <div
+      className={`${RESULTS_PANEL_MAX_HEIGHT} overflow-y-auto rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-solid-popup-background,var(--axon-panel-background))] py-1 shadow-2xl`}
+    >
       {hasSections && (
         <div>
           <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--axon-editor-foreground)] opacity-40">
