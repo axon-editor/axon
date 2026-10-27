@@ -163,6 +163,17 @@ func TestChatPayloadSetsAWorkingContextWindow(t *testing.T) {
 	}
 }
 
+func TestChatPayloadDisablesModelThinking(t *testing.T) {
+	payload := chatPayload(ChatRequest{Action: "ask"}, nil, false)
+
+	if payload["think"] != modelThink {
+		t.Fatalf("think = %#v, want %t", payload["think"], modelThink)
+	}
+	if modelThink {
+		t.Fatal("local chat should request content-only responses")
+	}
+}
+
 func TestAgentActionTellsTheModelToUseWorkbenchTools(t *testing.T) {
 	messages := BuildMessages(ChatRequest{Action: "agent", Prompt: "open the problems pane"})
 	prompt := messages[0].Content + "\n" + messages[len(messages)-1].Content

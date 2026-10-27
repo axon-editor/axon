@@ -708,6 +708,14 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []Mod
 // completions.
 const modelKeepAlive = "30m"
 
+// modelThink stays off for every local request. Ollama enables thinking by
+// default for models such as qwen3, and the runtime holds the visible answer
+// until the hidden reasoning finishes. The agent makes several planning and
+// answer calls per prompt, so that scratchpad turned a sub-second chat into a
+// multi-minute wait. Ollama's own chat UI feels immediate because it does not
+// pay that cost; Axon asks for the content-only response too.
+const modelThink = false
+
 // modelContextTokens gives the runtime a real working window. Ollama defaults to
 // 4096 tokens, which is too small once the agent's tool schemas and the
 // conversation history are in play: the context shifts and the model degrades
@@ -720,6 +728,7 @@ func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[
 		"model":      ModelName(request),
 		"messages":   messages,
 		"stream":     stream,
+		"think":      modelThink,
 		"keep_alive": modelKeepAlive,
 		"options": map[string]any{
 			"num_ctx":     modelContextTokens,

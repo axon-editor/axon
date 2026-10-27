@@ -135,6 +135,7 @@ async function runLoop(input: {
 
     let messages = request.messages ? [...request.messages] : [];
     let reachedToolLimit = true;
+    let finalContent = "";
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
       send({
@@ -153,6 +154,7 @@ async function runLoop(input: {
       const toolCalls = turn.message.tool_calls ?? [];
       if (toolCalls.length === 0) {
         reachedToolLimit = false;
+        finalContent = turn.message.content ?? "";
         break;
       }
 
@@ -177,6 +179,15 @@ async function runLoop(input: {
           }),
         });
       }
+    }
+
+    // The planning turn already produced the final answer. Re-running the same
+    // conversation through /ai/chat/stream made every prompt wait for the model
+    // twice, and the second wait was the one users saw before the first token.
+    if (finalContent.trim()) {
+      send({ requestId, type: "delta", delta: finalContent });
+      send({ requestId, type: "done", done: true });
+      return;
     }
 
     if (reachedToolLimit) {

@@ -136,6 +136,7 @@ func callInlineCompletionModel(ctx context.Context, request InlineCompletionRequ
 			},
 		},
 		"stream":     false,
+		"think":      modelThink,
 		"keep_alive": modelKeepAlive,
 		"options": map[string]any{
 			"temperature": 0.08,

@@ -4,6 +4,10 @@
 package ai
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -67,5 +71,37 @@ func TestCleanInlineCompletionCapsOversizedOutput(t *testing.T) {
 
 	if strings.Count(got, "\n") != maxInlineCompletionLines-1 {
 		t.Fatalf("expected completion to be capped to %d lines, got %q", maxInlineCompletionLines, got)
+	}
+}
+
+func TestInlineCompletionPayloadDisablesThinking(t *testing.T) {
+	var captured map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/chat" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewDecoder(r.Body).Decode(&captured)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":{"content":" done()"}}`))
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("AXON_MODELS_URL", server.URL)
+
+	response, err := callInlineCompletionModel(context.Background(), InlineCompletionRequest{
+		FilePath:   "main.go",
+		LanguageID: "go",
+		Prefix:     "func main() {",
+		Line:       1,
+		Column:     1,
+	})
+	if err != nil {
+		t.Fatalf("callInlineCompletionModel returned error: %v", err)
+	}
+	if response.Message.Content != " done()" {
+		t.Fatalf("content = %q, want %q", response.Message.Content, " done()")
+	}
+	if captured["think"] != modelThink {
+		t.Fatalf("think = %#v, want %t", captured["think"], modelThink)
 	}
 }
