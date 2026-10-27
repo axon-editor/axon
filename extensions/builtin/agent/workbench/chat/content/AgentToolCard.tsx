@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { useState } from "react";
 import { Check, Loader2, Play, SkipForward, X } from "lucide-react";
 import { type AgentToolCallState } from "../../lib/conversation";
 
@@ -48,7 +49,12 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
   const detail = toolDetail(tool);
   const content = writeContent(tool);
   const contentLines = content ? content.split("\n").length : 0;
+  const resultLines = tool.result ? tool.result.split("\n").length : 0;
   const pending = tool.status === "pending";
+  // list_files is the one tool where the result is the answer to the user's
+  // question. Opening it by default shows every entry the model actually saw
+  // instead of hiding the evidence behind a collapsed row.
+  const [resultOpen, setResultOpen] = useState(tool.name === "list_files");
 
   return (
     <div className="my-2 overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
@@ -82,9 +88,13 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
       )}
 
       {tool.result && (
-        <details className="border-t border-[var(--axon-panel-border)]">
+        <details
+          open={resultOpen}
+          onToggle={(event) => setResultOpen(event.currentTarget.open)}
+          className="border-t border-[var(--axon-panel-border)]"
+        >
           <summary className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-50">
-            Result
+            Result · {resultLines} {resultLines === 1 ? "line" : "lines"}
           </summary>
           <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
             {tool.result}

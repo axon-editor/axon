@@ -51,7 +51,7 @@ func ProjectToolDefinitions() []ProjectToolDefinition {
 			Type: "function",
 			Function: ProjectToolFunction{
 				Name:        "list_files",
-				Description: "List project files under a relative folder path. Use this before reading files when you need to understand structure.",
+				Description: "List the immediate children of a relative folder path first, then nested files up to a limit. Report every entry the result contains for the requested path. Call it again on a subfolder to go deeper.",
 				Parameters: objectSchema(map[string]any{
 					"path": map[string]any{
 						"type":        "string",
@@ -212,40 +212,62 @@ func runListFilesTool(ctx context.Context, root string, args listFilesArgs) stri
 		return "list_files failed: path is not a folder."
 	}
 
+	// Breadth-first instead of filepath.WalkDir because a depth-first walk of a
+	// large app folder used the whole entry budget before it reached the rest of
+	// the requested level. The model then answered from a partial root and filled
+	// in the gaps with guesses. Listing the requested level first makes every
+	// sibling visible even when a nested folder is huge.
 	lines := []string{"list_files results:"}
-	err = filepath.WalkDir(start, func(path string, entry fs.DirEntry, walkErr error) error {
+	directories := []string{start}
+	truncated := false
+
+	for len(directories) > 0 && !truncated {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return "list_files failed: " + ctx.Err().Error()
 		}
-		if walkErr != nil {
-			return nil
-		}
-		if path == start {
-			return nil
-		}
-		relPath, err := filepath.Rel(root, path)
+
+		directory := directories[0]
+		directories = directories[1:]
+		entries, err := os.ReadDir(directory)
 		if err != nil {
-			return nil
+			continue
 		}
-		relPath = filepath.ToSlash(relPath)
-		if entry.IsDir() {
-			if shouldSkipProjectContextDir(entry.Name()) || shouldSkipProjectContextSegment(relPath) {
-				return filepath.SkipDir
+
+		for _, entry := range entries {
+			path := filepath.Join(directory, entry.Name())
+			relPath, err := filepath.Rel(root, path)
+			if err != nil {
+				continue
 			}
-			lines = append(lines, relPath+"/")
-		} else if !shouldSkipProjectContextFile(entry.Name(), relPath) {
-			lines = append(lines, relPath)
+			relPath = filepath.ToSlash(relPath)
+
+			if entry.IsDir() {
+				if shouldSkipProjectContextDir(entry.Name()) || shouldSkipProjectContextSegment(relPath) {
+					continue
+				}
+				lines = append(lines, relPath+"/")
+				directories = append(directories, path)
+			} else if !shouldSkipProjectContextFile(entry.Name(), relPath) {
+				lines = append(lines, relPath)
+			}
+
+			if len(lines) >= maxToolListEntries {
+				truncated = true
+				break
+			}
 		}
-		if len(lines) >= maxToolListEntries {
-			return filepath.SkipAll
-		}
-		return nil
-	})
-	if err != nil && err != filepath.SkipAll {
-		return "list_files failed: " + err.Error()
 	}
+
 	if len(lines) == 1 {
 		return "list_files found no files."
+	}
+	if truncated {
+		lines[0] = fmt.Sprintf(
+			"list_files results (generated, dependency, and binary entries are omitted; truncated at %d entries, call list_files on a subfolder for more):",
+			maxToolListEntries,
+		)
+	} else {
+		lines[0] = "list_files results (generated, dependency, and binary entries are omitted):"
 	}
 	return strings.Join(lines, "\n")
 }

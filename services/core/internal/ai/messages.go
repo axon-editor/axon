@@ -147,7 +147,7 @@ func editProposalInstruction(action string) string {
 func actionInstruction(action string) string {
 	switch action {
 	case "agent":
-		return "Act as an autonomous coding agent. Gather any context you need with the available tools (list_problems, read_file, search_project, list_files) and then decide what to do on your own. When the user asks to open, close, or toggle a panel, tab, or view, call the matching workbench tool instead of explaining how to do it by hand. When the user asks to create a file or replace a file's full contents, call write_file with the complete content instead of saying you will do it. For a targeted change to an existing file, return an edit proposal."
+		return "Act as an autonomous coding agent. Gather any context you need with the available tools (list_problems, read_file, search_project, list_files) and then decide what to do on your own. When the user asks to list files or folders, report every entry that list_files returns for the requested path. Do not invent entries that were not returned. If the result says it was truncated, say so and name the subfolders the user can explore next. When the user asks to open, close, or toggle a panel, tab, or view, call the matching workbench tool instead of explaining how to do it by hand. When the user asks to create a file or replace a file's full contents, call write_file with the complete content instead of saying you will do it. For a targeted change to an existing file, return an edit proposal."
 	case "explain-selection":
 		return "Explain the active code clearly. Focus on behavior, data flow, edge cases, and why the code exists."
 	case "fix-problem":
