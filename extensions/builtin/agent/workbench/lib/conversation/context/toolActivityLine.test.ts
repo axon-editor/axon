@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
-import { type AgentToolCallState } from "../agentConversation";
+import { type AgentToolCallState } from "../types/agentConversation";
 import { toolActivityLine } from "./toolActivityLine";
 
 function tool(

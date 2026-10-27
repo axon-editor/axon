@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type AgentToolCallState } from "../agentConversation";
+import { type AgentToolCallState } from "../types/agentConversation";
 
 export type AgentToolUpdate = Partial<
   Pick<AgentToolCallState, "status" | "message" | "result">

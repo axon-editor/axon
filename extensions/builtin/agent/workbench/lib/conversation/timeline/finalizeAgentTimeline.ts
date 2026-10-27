@@ -7,7 +7,7 @@ import { stripEditProposalJson } from "../../helpers/agentWorkbenchHelpers";
 import {
   type AgentMessage,
   type AgentTimelineEntry,
-} from "../agentConversation";
+} from "../types/agentConversation";
 import { agentTimeline } from "./agentTimeline";
 import { nextTimelineEntryId } from "./entryId";
 

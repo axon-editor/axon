@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AgentMessage,
   type AgentToolCallState,
-} from "../agentConversation";
+} from "../types/agentConversation";
 import {
   agentTimeline,
   appendAgentStatus,

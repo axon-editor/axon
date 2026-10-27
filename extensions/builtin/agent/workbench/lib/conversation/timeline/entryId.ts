@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type AgentTimelineEntry } from "../agentConversation";
+import { type AgentTimelineEntry } from "../types/agentConversation";
 
 // Timeline keys only need to be stable for one message. Deriving them from the
 // current length avoids a random UUID call for every status line while still

@@ -8,7 +8,7 @@ import { type AiChatResult } from "@axon-editor/shared/ai/ai";
 import {
   type AgentMessage,
   type AgentToolCallState,
-} from "../agentConversation";
+} from "../types/agentConversation";
 import { conversationContext } from "./conversationContext";
 import { messageToolActivity } from "./messageToolActivity";
 

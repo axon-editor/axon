@@ -6,7 +6,7 @@
 import { useRef, useState } from "react";
 import { ChevronDown, Pin, Search, Trash2 } from "lucide-react";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
-import { type AgentConversationState } from "../lib/conversation/agentConversation";
+import { type AgentConversationState } from "../lib/conversation";
 import { usePopoverDismiss } from "../lib/hooks/usePopoverDismiss";
 
 interface Props {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Check, Loader2, Play, SkipForward, X } from "lucide-react";
-import { type AgentToolCallState } from "../../lib/conversation/agentConversation";
+import { type AgentToolCallState } from "../../lib/conversation";
 
 interface Props {
   tool: AgentToolCallState;

@@ -8,7 +8,7 @@ import { type AiEditFileProposal } from "@axon-editor/shared/ai/ai";
 import {
   type AgentMessage,
   type AgentToolCallState,
-} from "../../lib/conversation/agentConversation";
+} from "../../lib/conversation";
 import AssistantMessage from "./AssistantMessage";
 import MessageContextMenu from "./MessageContextMenu";
 import UserMessage from "./UserMessage";

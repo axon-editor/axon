@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type AgentToolCallState } from "../agentConversation";
+import { type AgentToolCallState } from "../types/agentConversation";
 
 const MAX_ARGUMENT_LENGTH = 120;
 const MAX_RESULT_LENGTH = 240;

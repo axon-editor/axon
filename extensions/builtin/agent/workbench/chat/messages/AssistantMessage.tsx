@@ -13,7 +13,7 @@ import StreamingIndicator from "../indicators/StreamingIndicator";
 import {
   type AgentTimelineEntry,
   type AgentToolCallState,
-} from "../../lib/conversation/agentConversation";
+} from "../../lib/conversation";
 
 interface AssistantMessageProps {
   content: string | null;

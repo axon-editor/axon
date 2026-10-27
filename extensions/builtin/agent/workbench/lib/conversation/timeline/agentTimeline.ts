@@ -6,7 +6,7 @@
 import {
   type AgentMessage,
   type AgentTimelineEntry,
-} from "../agentConversation";
+} from "../types/agentConversation";
 import { nextTimelineEntryId } from "./entryId";
 
 // Threads saved before the timeline existed only kept aggregate content and a

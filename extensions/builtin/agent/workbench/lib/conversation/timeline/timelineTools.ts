@@ -6,7 +6,7 @@
 import {
   type AgentTimelineEntry,
   type AgentToolCallState,
-} from "../agentConversation";
+} from "../types/agentConversation";
 
 // Older messages can have a timeline without the aggregate toolCalls list, so
 // every tool update has to recover the list from the ordered entries first.

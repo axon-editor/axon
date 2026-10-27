@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type AgentTimelineEntry } from "../agentConversation";
+import { type AgentTimelineEntry } from "../types/agentConversation";
 
 // "Thinking..." is only a placeholder for the wait before the model produces
 // text or a thought. Keeping it after that content arrives leaves a generic

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type AgentMessage } from "../agentConversation";
+import { type AgentMessage } from "../types/agentConversation";
 import { agentTimeline } from "./agentTimeline";
 import { nextTimelineEntryId } from "./entryId";
 import { withoutThinkingPlaceholder } from "./withoutThinkingPlaceholder";

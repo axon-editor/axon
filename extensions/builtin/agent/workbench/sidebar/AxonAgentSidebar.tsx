@@ -41,13 +41,15 @@ import {
   type AgentToolCallState,
   activeAgentConversation,
   clearAgentConversation,
+  conversationAction,
   isGreetingPrompt,
   loadAgentConversationState,
   saveActiveAgentConversation,
   selectAgentConversation,
+  selectConversationAction,
   startAgentConversation,
   togglePinConversation,
-} from "../lib/conversation/agentConversation";
+} from "../lib/conversation";
 import { type AgentToolRunResult } from "../lib/actions/agentToolActions";
 import { conversationContext } from "../lib/conversation/context";
 import { updateAgentTool } from "../lib/conversation/timeline";
@@ -185,14 +187,17 @@ export default function AxonAgentSidebar(props: Props) {
       return;
     }
 
-    setConversationState((current) =>
-      selectAgentConversation(props.folderPath, current, resumeConversationId),
-    );
-    setMessages(
-      conversationState.conversations.find(
-        (conversation) => conversation.id === resumeConversationId,
-      )?.messages ?? [],
-    );
+    setConversationState((current) => {
+      const nextState = selectAgentConversation(
+        props.folderPath,
+        current,
+        resumeConversationId,
+      );
+      const active = activeAgentConversation(nextState);
+      setMessages(active.messages);
+      setAction(conversationAction(active));
+      return nextState;
+    });
     setConversationPickerOpen(false);
   }, [
     conversationState.activeId,
@@ -204,8 +209,10 @@ export default function AxonAgentSidebar(props: Props) {
 
   useEffect(() => {
     const nextState = loadAgentConversationState(props.folderPath);
+    const active = activeAgentConversation(nextState);
     setConversationState(nextState);
-    setMessages(activeAgentConversation(nextState).messages);
+    setMessages(active.messages);
+    setAction(conversationAction(active));
   }, [props.folderPath]);
 
   useEffect(() => {
@@ -224,6 +231,11 @@ export default function AxonAgentSidebar(props: Props) {
   const runAgent = async (nextAction = action, nextPrompt = prompt) => {
     const finalPrompt = nextPrompt.trim() || defaultPromptForAction(nextAction);
     if (!finalPrompt || busy || !canChat) return;
+
+    setAction(nextAction);
+    setConversationState((current) =>
+      selectConversationAction(props.folderPath, current, nextAction),
+    );
 
     const userMessage: AgentMessage = {
       id: Date.now(),
@@ -308,10 +320,13 @@ export default function AxonAgentSidebar(props: Props) {
       await cancelActiveStream();
     }
     clearStream();
-    setConversationState((current) =>
-      startAgentConversation(props.folderPath, current),
-    );
-    setMessages([]);
+    setConversationState((current) => {
+      const nextState = startAgentConversation(props.folderPath, current);
+      const active = activeAgentConversation(nextState);
+      setMessages(active.messages);
+      setAction(conversationAction(active));
+      return nextState;
+    });
     setCopiedId(null);
     setConversationPickerOpen(false);
     setContextEnabled({ activeFile: true, diagnostics: true, gitChanges: true });
@@ -327,7 +342,9 @@ export default function AxonAgentSidebar(props: Props) {
         current,
         conversationId,
       );
-      setMessages(activeAgentConversation(nextState).messages);
+      const active = activeAgentConversation(nextState);
+      setMessages(active.messages);
+      setAction(conversationAction(active));
       return nextState;
     });
     clearStream();
@@ -345,7 +362,9 @@ export default function AxonAgentSidebar(props: Props) {
         current,
         clearConversationId,
       );
-      setMessages(activeAgentConversation(nextState).messages);
+      const active = activeAgentConversation(nextState);
+      setMessages(active.messages);
+      setAction(conversationAction(active));
       return nextState;
     });
     clearStream();
@@ -613,6 +632,13 @@ export default function AxonAgentSidebar(props: Props) {
                 onDismiss={() => setSlashCommandOpen(false)}
                 onSelect={(selectedAction) => {
                   setAction(selectedAction);
+                  setConversationState((current) =>
+                    selectConversationAction(
+                      props.folderPath,
+                      current,
+                      selectedAction,
+                    ),
+                  );
                   setPrompt("");
                   setSlashCommandOpen(false);
                   if (textareaRef.current) {
@@ -660,6 +686,13 @@ export default function AxonAgentSidebar(props: Props) {
                           type="button"
                           onClick={() => {
                             setAction(item);
+                            setConversationState((current) =>
+                              selectConversationAction(
+                                props.folderPath,
+                                current,
+                                item,
+                              ),
+                            );
                             setActionPickerOpen(false);
                           }}
                           className={`flex h-7 w-full cursor-pointer items-center rounded-md px-2 text-left text-[11px] transition ${

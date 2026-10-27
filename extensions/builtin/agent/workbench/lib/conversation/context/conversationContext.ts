@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { type AiConversationMessage } from "@axon-editor/shared/ai/ai";
-import { type AgentMessage } from "../agentConversation";
+import { type AgentMessage } from "../types/agentConversation";
 import { messageToolActivity } from "./messageToolActivity";
 
 const MAX_CONTEXT_MESSAGES = 12;

@@ -14,7 +14,7 @@ import {
 import {
   type AgentMessage,
   type AgentToolStatus,
-} from "../conversation/agentConversation";
+} from "../conversation";
 import {
   appendAgentStatus,
   appendAgentText,
