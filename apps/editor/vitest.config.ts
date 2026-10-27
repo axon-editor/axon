@@ -146,7 +146,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "../../extensions/builtin/agent/workbench/**/*.test.{ts,tsx}",
+    ],
     restoreMocks: true,
   },
 });

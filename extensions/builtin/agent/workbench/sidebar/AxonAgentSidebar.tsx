@@ -50,6 +50,7 @@ import {
   togglePinConversation,
 } from "../lib/conversation/agentConversation";
 import { type AgentToolRunResult } from "../lib/actions/agentToolActions";
+import { updateAgentTool } from "../lib/conversation/timeline";
 import { resolveProposalPath } from "../lib/conversation/agentProposalPaths";
 import {
   buildContextFile,
@@ -79,7 +80,7 @@ interface Props {
   onRunAgentAction: (
     name: string,
     args: Record<string, unknown>,
-  ) => AgentToolRunResult;
+  ) => AgentToolRunResult | Promise<AgentToolRunResult>;
   onWidthChange: (width: number) => void;
 }
 
@@ -403,14 +404,10 @@ export default function AxonAgentSidebar(props: Props) {
     setMessages((current) =>
       current.map((item) =>
         item.id === messageId
-          ? {
-              ...item,
-              toolCalls: (item.toolCalls ?? []).map((tool) =>
-                tool.id === toolId
-                  ? { ...tool, status, message: message ?? tool.message }
-                  : tool,
-              ),
-            }
+          ? updateAgentTool(item, toolId, {
+              status,
+              ...(message !== undefined ? { message } : {}),
+            })
           : item,
       ),
     );
@@ -418,7 +415,7 @@ export default function AxonAgentSidebar(props: Props) {
 
   const runTool = async (messageId: number, tool: AgentToolCallState) => {
     setToolStatus(messageId, tool.id, "running");
-    const result = props.onRunAgentAction(tool.name, tool.arguments);
+    const result = await props.onRunAgentAction(tool.name, tool.arguments);
     await window.axon.reportAiUiToolResult({
       callId: tool.id,
       ok: result.ok,

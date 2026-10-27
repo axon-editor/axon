@@ -246,6 +246,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         runCommand,
         openFile: handleFileSelect,
         closeFile: closeAgentFileTab,
+        writeFile: handleApplyAgentEdit,
       },
       name,
       args,

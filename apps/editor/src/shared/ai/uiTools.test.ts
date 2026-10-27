@@ -23,6 +23,15 @@ describe("aiUiToolSpec", () => {
     expect(spec?.required).toEqual(["path"]);
     expect(spec?.parameters?.path.type).toBe("string");
   });
+
+  it("defines write_file with path and content", () => {
+    const spec = aiUiToolSpec("write_file");
+
+    expect(spec).toBeDefined();
+    expect(spec?.command).toBeUndefined();
+    expect(spec?.required).toEqual(["path", "content"]);
+    expect(spec?.parameters?.content.type).toBe("string");
+  });
 });
 
 describe("aiUiToolDefinition", () => {

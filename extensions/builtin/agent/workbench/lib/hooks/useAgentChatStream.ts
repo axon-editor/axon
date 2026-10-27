@@ -16,6 +16,14 @@ import {
   type AgentToolStatus,
 } from "../conversation/agentConversation";
 import {
+  appendAgentStatus,
+  appendAgentText,
+  appendAgentThought,
+  appendAgentTool,
+  finalizeAgentTimeline,
+  updateAgentTool,
+} from "../conversation/timeline";
+import {
   actionCanApplyEdits,
   parseEditProposal,
   stripEditProposalJson,
@@ -41,15 +49,24 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
       const stream = streamRef.current;
       if (!stream || event.requestId !== stream.requestId) return;
 
-      if (event.type === "delta" && event.delta) {
+      const thought = event.thought;
+      if (event.type === "thought" && thought) {
         setMessages((current) =>
           current.map((message) =>
             message.id === stream.messageId
-              ? {
-                  ...message,
-                  content: message.content + event.delta,
-                  activity: undefined,
-                }
+              ? appendAgentThought(message, thought)
+              : message,
+          ),
+        );
+        return;
+      }
+
+      const delta = event.delta;
+      if (event.type === "delta" && delta) {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === stream.messageId
+              ? appendAgentText(message, delta)
               : message,
           ),
         );
@@ -57,13 +74,15 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
       }
 
       if (event.type === "status") {
-        // The loop emits a human-readable status before each planning pass and
-        // tool round. Storing it on the message lets the streaming indicator say
-        // what is happening while there is no text to show yet.
+        const status = event.status?.trim();
+        if (!status) return;
+        // Status lines live in the timeline so "Thinking..." and "Running
+        // read_file..." stay next to the tool cards they describe instead of
+        // being replaced by whatever happened last.
         setMessages((current) =>
           current.map((message) =>
             message.id === stream.messageId
-              ? { ...message, activity: event.status }
+              ? appendAgentStatus(message, status)
               : message,
           ),
         );
@@ -79,19 +98,11 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
         setMessages((current) =>
           current.map((item) =>
             item.id === stream.messageId
-              ? {
-                  ...item,
-                  toolCalls: (item.toolCalls ?? []).map((tool) =>
-                    tool.id === toolId
-                      ? {
-                          ...tool,
-                          status,
-                          message: message ?? tool.message,
-                          result: result ?? tool.result,
-                        }
-                      : tool,
-                  ),
-                }
+              ? updateAgentTool(item, toolId, {
+                  status,
+                  ...(message !== undefined ? { message } : {}),
+                  ...(result !== undefined ? { result } : {}),
+                })
               : item,
           ),
         );
@@ -102,13 +113,7 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
         setMessages((current) =>
           current.map((item) =>
             item.id === stream.messageId
-              ? {
-                  ...item,
-                  toolCalls: [
-                    ...(item.toolCalls ?? []),
-                    { ...tool, status: "pending" },
-                  ],
-                }
+              ? appendAgentTool(item, { ...tool, status: "pending" })
               : item,
           ),
         );
@@ -135,14 +140,12 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
         setMessages((current) =>
           current.map((message) =>
             message.id === stream.messageId
-              ? {
-                  ...message,
-                  content:
-                    message.content ||
+              ? finalizeAgentTimeline(
+                  message,
+                  message.content ||
                     event.error ||
                     "Axon Agent stream failed.",
-                  activity: undefined,
-                }
+                )
               : message,
           ),
         );
@@ -156,13 +159,11 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
         setMessages((current) =>
           current.map((message) =>
             message.id === stream.messageId
-              ? {
-                  ...message,
-                  content:
-                    message.content.trim() ||
+              ? finalizeAgentTimeline(
+                  message,
+                  message.content.trim() ||
                     "Request cancelled before Axon returned content.",
-                  activity: undefined,
-                }
+                )
               : message,
           ),
         );
@@ -180,14 +181,12 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
             const editProposal = parseEditProposal(message.content);
             const canApplyEdits = actionCanApplyEdits(message.action);
             const strippedContent = stripEditProposalJson(message.content);
-            return {
-              ...message,
-              activity: undefined,
-              content: canApplyEdits
-                ? strippedContent || message.content
-                : strippedContent ||
-                  "I should not propose file edits for this action. Ask a project question or choose an edit action when you want code changes.",
-              result: editProposal && canApplyEdits
+            const content = canApplyEdits
+              ? strippedContent || message.content
+              : strippedContent ||
+                "I should not propose file edits for this action. Ask a project question or choose an edit action when you want code changes.";
+            const result =
+              editProposal && canApplyEdits
                 ? {
                     success: true,
                     message: message.content,
@@ -195,8 +194,11 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
                     providerLabel: "Axon models",
                     editProposal,
                   }
-                : message.result,
-            };
+                : message.result;
+            return finalizeAgentTimeline(
+              { ...message, result },
+              content,
+            );
           }),
         );
         streamRef.current = null;

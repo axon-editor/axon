@@ -86,6 +86,22 @@ function uiResultText(
   return `Running ${name} failed: ${result.message ?? "unknown error"}`;
 }
 
+// The renderer orders status lines, tool cards, and text by the sequence they
+// arrive in, so a tool's start and finish need their own status events. Waiting
+// until the next planning round made the UI look like the tool ran before the
+// agent had even started it.
+function toolStartStatus(title: string, waitsForUser: boolean) {
+  return waitsForUser ? `Waiting for you to run ${title}...` : `Running ${title}...`;
+}
+
+function toolFinishStatus(
+  title: string,
+  result: { ok: boolean; rejected?: boolean },
+) {
+  if (result.rejected) return `Skipped ${title}.`;
+  return result.ok ? `Finished ${title}.` : `${title} failed.`;
+}
+
 export function runAgentLoop(input: {
   axonCorePort: string;
   axonCoreToken: string;
@@ -138,11 +154,9 @@ async function runLoop(input: {
     let finalContent = "";
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-      send({
-        requestId,
-        type: "status",
-        status: round === 0 ? "Thinking..." : "Reviewing tool results...",
-      });
+      if (round === 0) {
+        send({ requestId, type: "status", status: "Thinking..." });
+      }
 
       const turn = await planTurn(
         core,
@@ -158,9 +172,18 @@ async function runLoop(input: {
         break;
       }
 
+      // The planning turn often explains what it is about to do before asking
+      // for a tool. Sending it as a thought keeps that explanation in a
+      // collapsible block above the tool card instead of mixing it into the
+      // final answer text.
+      const planningContent = turn.message.content ?? "";
+      if (planningContent.trim()) {
+        send({ requestId, type: "thought", thought: planningContent });
+      }
+
       messages.push({
         role: "assistant",
-        content: turn.message.content ?? "",
+        content: planningContent,
         tool_calls: toolCalls,
       });
 
@@ -179,6 +202,12 @@ async function runLoop(input: {
           }),
         });
       }
+
+      send({
+        requestId,
+        type: "status",
+        status: "Reviewing tool results...",
+      });
     }
 
     // The planning turn already produced the final answer. Re-running the same
@@ -245,12 +274,22 @@ async function executeToolCall(input: {
       title: spec.title,
       arguments: args,
     };
+    send({
+      requestId,
+      type: "status",
+      status: toolStartStatus(spec.title, true),
+    });
     const result = await proposeUiTool(requestId, tool, send);
     send({
       requestId,
       type: "tool-result",
       tool,
       toolResult: result,
+    });
+    send({
+      requestId,
+      type: "status",
+      status: toolFinishStatus(spec.title, result),
     });
     return uiResultText(result, name);
   }
@@ -264,6 +303,11 @@ async function executeToolCall(input: {
       title: editorSpec.title,
       arguments: args,
     };
+    send({
+      requestId,
+      type: "status",
+      status: toolStartStatus(editorSpec.title, false),
+    });
     send({ requestId, type: "tool-started", tool });
     const result = runEditorTool(name, args, diagnostics);
     send({
@@ -272,10 +316,20 @@ async function executeToolCall(input: {
       tool,
       toolResult: { callId: id, ok: true, result: toolPreview(result) },
     });
+    send({
+      requestId,
+      type: "status",
+      status: toolFinishStatus(editorSpec.title, { ok: true }),
+    });
     return result;
   }
 
   if (!workspaceTools.has(name) || !folderPath) {
+    send({
+      requestId,
+      type: "status",
+      status: `Skipped ${name}: tool is not available.`,
+    });
     return `Tool ${name} is not available.`;
   }
 
@@ -286,6 +340,11 @@ async function executeToolCall(input: {
     title: name,
     arguments: args,
   };
+  send({
+    requestId,
+    type: "status",
+    status: toolStartStatus(name, false),
+  });
   send({ requestId, type: "tool-started", tool });
   try {
     const result = await runTool(
@@ -299,6 +358,11 @@ async function executeToolCall(input: {
       tool,
       toolResult: { callId: id, ok: true, result: toolPreview(result) },
     });
+    send({
+      requestId,
+      type: "status",
+      status: toolFinishStatus(name, { ok: true }),
+    });
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
@@ -307,6 +371,11 @@ async function executeToolCall(input: {
       type: "tool-result",
       tool,
       toolResult: { callId: id, ok: false, message },
+    });
+    send({
+      requestId,
+      type: "status",
+      status: toolFinishStatus(name, { ok: false }),
     });
     return `Running ${name} failed: ${message}`;
   }

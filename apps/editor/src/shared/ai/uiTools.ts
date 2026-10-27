@@ -135,6 +135,23 @@ export const AI_UI_TOOL_SPECS: AiUiToolSpec[] = [
     required: ["path"],
   },
   {
+    name: "write_file",
+    title: "Write file",
+    description:
+      "Create a file or replace its full contents. Use this when the user explicitly asks to create a file or rewrite a file. For a targeted change to an existing file, return an edit proposal instead.",
+    parameters: {
+      path: {
+        type: "string",
+        description: "Absolute path or path relative to the workspace root.",
+      },
+      content: {
+        type: "string",
+        description: "Full file content to write.",
+      },
+    },
+    required: ["path", "content"],
+  },
+  {
     name: "close_file",
     title: "Close tab",
     description:

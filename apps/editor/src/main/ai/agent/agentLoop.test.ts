@@ -9,7 +9,7 @@ import {
   type AiChatStreamEvent,
 } from "../../../shared/ai/ai";
 import { runAgentLoop } from "./agentLoop";
-import { getToolDefinitions, planTurn } from "./coreClient";
+import { getToolDefinitions, planTurn, runTool } from "./coreClient";
 import { startCoreAiStream } from "../streaming/coreStream";
 
 vi.mock("./coreClient", () => ({
@@ -88,6 +88,68 @@ describe("runAgentLoop", () => {
       done: true,
     });
     expect(startCoreAiStream).not.toHaveBeenCalled();
+  });
+
+  it("orders planning text, tool statuses, and the final answer by event time", async () => {
+    vi.mocked(getToolDefinitions).mockResolvedValue([
+      {
+        type: "function",
+        function: {
+          name: "read_file",
+          description: "Read a file",
+          parameters: {},
+        },
+      },
+    ]);
+    vi.mocked(planTurn)
+      .mockResolvedValueOnce({
+        messages: baseMessages,
+        message: {
+          role: "assistant",
+          content: "I'll open the README first.",
+          tool_calls: [
+            {
+              function: {
+                name: "read_file",
+                arguments: { path: "README.md" },
+              },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        messages: baseMessages,
+        message: { role: "assistant", content: "The README is short." },
+      });
+    vi.mocked(runTool).mockResolvedValue("# Axon");
+
+    const { events, finished } = collectRun();
+    await finished;
+
+    const ordered = events.map((event) => {
+      if (event.type === "thought") return `thought:${event.thought}`;
+      if (event.type === "delta") return `delta:${event.delta}`;
+      if (event.type === "status") return `status:${event.status}`;
+      if (event.type === "tool-started") {
+        return `tool-started:${event.tool?.name}`;
+      }
+      if (event.type === "tool-result") {
+        return `tool-result:${event.tool?.name}`;
+      }
+      return event.type;
+    });
+
+    expect(ordered).toEqual([
+      "status:Thinking...",
+      "thought:I'll open the README first.",
+      "status:Running read_file...",
+      "tool-started:read_file",
+      "tool-result:read_file",
+      "status:Finished read_file.",
+      "status:Reviewing tool results...",
+      "delta:The README is short.",
+      "done",
+    ]);
   });
 
   it("streams when the planning turn returns no content", async () => {

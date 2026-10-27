@@ -25,15 +25,29 @@ function formatArgumentValue(value: unknown) {
 // tools looking empty because their inputs are a query or filters, not a path.
 // Showing every argument keeps the card honest about what the agent asked for.
 function toolDetail(tool: AgentToolCallState) {
-  const entries = Object.entries(tool.arguments);
+  const entries = Object.entries(tool.arguments).filter(
+    ([key]) => !(tool.name === "write_file" && key === "content"),
+  );
   if (entries.length === 0) return null;
   return entries
     .map(([key, value]) => `${key}: ${formatArgumentValue(value)}`)
     .join("  ·  ");
 }
 
+// write_file content is often multi-line, so it gets its own collapsible
+// preview instead of being squeezed into the one-line argument summary. The
+// user needs to see what will be written before approving the action.
+function writeContent(tool: AgentToolCallState) {
+  return tool.name === "write_file" &&
+    typeof tool.arguments.content === "string"
+    ? tool.arguments.content
+    : null;
+}
+
 export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
   const detail = toolDetail(tool);
+  const content = writeContent(tool);
+  const contentLines = content ? content.split("\n").length : 0;
   const pending = tool.status === "pending";
 
   return (
@@ -54,6 +68,17 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
         <div className="truncate px-3 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-60">
           {detail}
         </div>
+      )}
+
+      {content !== null && (
+        <details className="border-t border-[var(--axon-panel-border)]">
+          <summary className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-50">
+            Content · {contentLines} {contentLines === 1 ? "line" : "lines"}
+          </summary>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+            {content}
+          </pre>
+        </details>
       )}
 
       {tool.result && (

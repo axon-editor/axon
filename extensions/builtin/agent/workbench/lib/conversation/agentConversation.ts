@@ -28,6 +28,12 @@ export interface AgentToolCallState {
   result?: string;
 }
 
+export type AgentTimelineEntry =
+  | { id: string; kind: "status"; label: string }
+  | { id: string; kind: "text"; content: string }
+  | { id: string; kind: "thought"; content: string }
+  | { id: string; kind: "tool"; tool: AgentToolCallState };
+
 export interface AgentMessage {
   id: number;
   role: "user" | "assistant" | "system";
@@ -38,6 +44,10 @@ export interface AgentMessage {
   // Latest status line from the loop ("Thinking...", "Running read_file...") so
   // the indicator can say what the agent is doing while it has no text yet.
   activity?: string;
+  // Text, tool cards, and status lines are kept in one ordered list because the
+  // old content-then-tools rendering moved every tool card below the final
+  // answer even when the tool ran first.
+  timeline?: AgentTimelineEntry[];
 }
 
 export interface AgentConversation {

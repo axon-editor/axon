@@ -170,6 +170,7 @@ export interface AiChatStreamStarted {
 
 export type AiChatStreamEventType =
   | "delta"
+  | "thought"
   | "status"
   | "done"
   | "error"
@@ -182,6 +183,7 @@ export interface AiChatStreamEvent {
   requestId: string;
   type: AiChatStreamEventType;
   delta?: string;
+  thought?: string;
   status?: string;
   error?: string;
   done?: boolean;

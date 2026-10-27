@@ -16,6 +16,7 @@ export interface AgentUiToolDeps {
   openFile: (path: string) => void;
   closeFile: (path: string) => boolean;
   runCommand: (command: AxonCommand) => void;
+  writeFile: (path: string, content: string) => Promise<void>;
 }
 
 // Absolute filesystem paths and URI-style tab paths (for example
@@ -33,11 +34,11 @@ function resolvePath(path: string, folderPath: string | null) {
 // approved action is executed here against the same command runner the command
 // palette uses. The result string is sent back to the agent loop as the tool
 // result so the model can describe what happened.
-export function runAgentUiTool(
+export async function runAgentUiTool(
   deps: AgentUiToolDeps,
   name: string,
   args: Record<string, unknown>,
-): AgentToolRunResult {
+): Promise<AgentToolRunResult> {
   const spec = aiUiToolSpec(name);
   if (!spec) {
     return { ok: false, message: `Unknown action ${name}.` };
@@ -56,6 +57,25 @@ export function runAgentUiTool(
     const resolvedPath = resolvePath(rawPath, deps.folderPath);
     deps.openFile(resolvedPath);
     return { ok: true, message: resolvedPath };
+  }
+
+  if (spec.name === "write_file") {
+    const rawPath = typeof args.path === "string" ? args.path.trim() : "";
+    const content = typeof args.content === "string" ? args.content : "";
+    if (!rawPath) {
+      return { ok: false, message: "No file path was provided." };
+    }
+    const resolvedPath = resolvePath(rawPath, deps.folderPath);
+    try {
+      await deps.writeFile(resolvedPath, content);
+      return { ok: true, message: resolvedPath };
+    } catch (err) {
+      return {
+        ok: false,
+        message:
+          err instanceof Error ? err.message : `Could not write ${resolvedPath}.`,
+      };
+    }
   }
 
   if (spec.name === "close_file") {
