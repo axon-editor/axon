@@ -86,11 +86,17 @@ type ChatRequest struct {
 }
 
 type StreamEvent struct {
-	Type   string `json:"type"`
-	Delta  string `json:"delta,omitempty"`
-	Status string `json:"status,omitempty"`
-	Error  string `json:"error,omitempty"`
-	Done   bool   `json:"done,omitempty"`
+	Type      string          `json:"type"`
+	Delta     string          `json:"delta,omitempty"`
+	Thought   string          `json:"thought,omitempty"`
+	Status    string          `json:"status,omitempty"`
+	Error     string          `json:"error,omitempty"`
+	Done      bool            `json:"done,omitempty"`
+	ToolCalls []ModelToolCall `json:"tool_calls,omitempty"`
+	// Messages is only sent when core built the prompt itself. The editor owns
+	// the tool loop and needs those built messages for the next planning round,
+	// but it already has them when it supplied Messages on the request.
+	Messages []ModelMessage `json:"messages,omitempty"`
 }
 
 type ErrorDetail struct {
@@ -224,6 +230,7 @@ var modelCatalog = []catalogModel{
 type ModelMessage struct {
 	Role      string          `json:"role"`
 	Content   string          `json:"content"`
+	Thinking  string          `json:"thinking,omitempty"`
 	ToolCalls []ModelToolCall `json:"tool_calls,omitempty"`
 }
 
@@ -245,6 +252,7 @@ type localModelListResponse struct {
 type modelStreamResponse struct {
 	Message *struct {
 		Content   string          `json:"content"`
+		Thinking  string          `json:"thinking"`
 		ToolCalls []ModelToolCall `json:"tool_calls"`
 	} `json:"message"`
 	Response string `json:"response"`
@@ -415,18 +423,22 @@ func StreamChat(ctx context.Context, request ChatRequest, emit func(StreamEvent)
 		return err
 	}
 
-	// A caller that sends Messages already owns the conversation and the agent
-	// tool loop, so core just streams the final reply. The CLI sends no messages,
-	// which keeps the original behavior where core builds the prompt and runs the
-	// project tool loop itself.
+	// A caller that sends Messages or Tools already owns the conversation and the
+	// agent tool loop, so core only builds the prompt and streams the turn. The
+	// CLI sends neither, which keeps the original behavior where core builds the
+	// prompt and runs its own project tool loop.
 	messages := request.Messages
 	if len(messages) == 0 {
 		trimProjectContextToTokenBudget(request.ProjectContext, maxProjectContextTokens)
-		builtMessages, err := buildToolAwareMessages(ctx, request, emit)
-		if err != nil {
-			return err
+		if len(request.Tools) > 0 {
+			messages = BuildMessages(request)
+		} else {
+			builtMessages, err := buildToolAwareMessages(ctx, request, emit)
+			if err != nil {
+				return err
+			}
+			messages = builtMessages
 		}
-		messages = builtMessages
 	}
 	if err := emit(StreamEvent{Type: "status", Status: "Streaming response..."}); err != nil {
 		return err
@@ -667,6 +679,7 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []Mod
 
 	scanner := bufio.NewScanner(response.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	var toolCalls []ModelToolCall
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -683,7 +696,13 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []Mod
 
 		delta := chunk.Response
 		if chunk.Message != nil {
+			if chunk.Message.Thinking != "" {
+				if err := emit(StreamEvent{Type: "thought", Thought: chunk.Message.Thinking}); err != nil {
+					return err
+				}
+			}
 			delta = chunk.Message.Content
+			toolCalls = append(toolCalls, chunk.Message.ToolCalls...)
 		}
 		if delta != "" {
 			if err := emit(StreamEvent{Type: "delta", Delta: delta}); err != nil {
@@ -691,14 +710,25 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []Mod
 			}
 		}
 		if chunk.Done {
-			return emit(StreamEvent{Type: "done", Done: true})
+			return emit(streamDoneEvent(request, messages, toolCalls))
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-	return emit(StreamEvent{Type: "done", Done: true})
+	return emit(streamDoneEvent(request, messages, toolCalls))
+}
+
+// streamDoneEvent carries the tool calls and the prompt core built for a
+// caller-owned planning turn. Without the built messages the editor would have
+// to duplicate core's system prompt and project context on every round.
+func streamDoneEvent(request ChatRequest, messages []ModelMessage, toolCalls []ModelToolCall) StreamEvent {
+	event := StreamEvent{Type: "done", Done: true, ToolCalls: toolCalls}
+	if len(request.Messages) == 0 {
+		event.Messages = messages
+	}
+	return event
 }
 
 // modelKeepAlive keeps the local model resident between requests. Without it the
@@ -708,13 +738,19 @@ func streamChatMessages(ctx context.Context, request ChatRequest, messages []Mod
 // completions.
 const modelKeepAlive = "30m"
 
-// modelThink stays off for every local request. Ollama enables thinking by
-// default for models such as qwen3, and the runtime holds the visible answer
-// until the hidden reasoning finishes. The agent makes several planning and
-// answer calls per prompt, so that scratchpad turned a sub-second chat into a
-// multi-minute wait. Ollama's own chat UI feels immediate because it does not
-// pay that cost; Axon asks for the content-only response too.
+// modelThink stays off for quick chat and inline completions. Ollama enables
+// thinking by default for models such as qwen3, and the runtime holds the
+// visible answer until the hidden reasoning finishes. The agent is the
+// exception: its reasoning is shown in a collapsible block, so the extra wait
+// buys transparency instead of an opaque pause.
 const modelThink = false
+
+// modelThinkForAction turns on visible reasoning only for the agent. Other
+// actions have nowhere to show the scratchpad, so asking for it would only add
+// latency to a response the user expects immediately.
+func modelThinkForAction(action string) bool {
+	return action == "agent"
+}
 
 // modelContextTokens gives the runtime a real working window. Ollama defaults to
 // 4096 tokens, which is too small once the agent's tool schemas and the
@@ -728,7 +764,7 @@ func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[
 		"model":      ModelName(request),
 		"messages":   messages,
 		"stream":     stream,
-		"think":      modelThink,
+		"think":      modelThinkForAction(request.Action),
 		"keep_alive": modelKeepAlive,
 		"options": map[string]any{
 			"num_ctx":     modelContextTokens,

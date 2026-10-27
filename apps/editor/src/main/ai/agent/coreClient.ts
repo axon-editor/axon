@@ -6,8 +6,10 @@
 import {
   type AiChatRequest,
   type AiModelMessage,
+  type AiModelToolCall,
   type AiToolDefinition,
 } from "../../../shared/ai/ai";
+import { readCoreStreamEvents } from "../streaming/coreStreamProtocol";
 
 interface CoreEnvelope<T> {
   status: "success" | "error";
@@ -34,13 +36,18 @@ function coreError(envelope: unknown, status: number) {
 // for one planning turn at a time and for the individual project tools. These
 // helpers keep that HTTP surface in a single place; the streaming final answer
 // still goes through startCoreAiStream.
-export async function planTurn(
+//
+// The planning turn streams thinking as it arrives instead of waiting for the
+// whole turn. Content is buffered until the turn ends because only then does the
+// caller know whether it was the final answer or an explanation for a tool call.
+export async function streamPlanTurn(
   core: { axonCorePort: string; axonCoreToken: string },
   request: AiChatRequest,
   signal: AbortSignal,
+  onThought: (thought: string) => void,
 ): Promise<CoreTurnPayload> {
   const response = await fetch(
-    `http://127.0.0.1:${core.axonCorePort}/ai/chat/turn`,
+    `http://127.0.0.1:${core.axonCorePort}/ai/chat/stream`,
     {
       method: "POST",
       headers: {
@@ -51,13 +58,47 @@ export async function planTurn(
       signal,
     },
   );
-  const envelope = (await response
-    .json()
-    .catch(() => null)) as CoreEnvelope<CoreTurnPayload> | null;
-  if (!response.ok || envelope?.status !== "success" || !envelope.data) {
-    throw coreError(envelope, response.status);
+
+  if (!response.ok || !response.body) {
+    throw new Error(`axon-core returned ${response.status}`);
   }
-  return envelope.data;
+
+  let content = "";
+  let toolCalls: AiModelToolCall[] = [];
+  let builtMessages: AiModelMessage[] | undefined;
+  let streamError: string | undefined;
+
+  await readCoreStreamEvents(response.body, (event) => {
+    if (event.type === "thought" && event.thought) {
+      onThought(event.thought);
+      return;
+    }
+    if (event.type === "delta" && event.delta) {
+      content += event.delta;
+      return;
+    }
+    if (event.type === "done") {
+      toolCalls = event.tool_calls ?? [];
+      builtMessages = event.messages;
+      return;
+    }
+    if (event.type === "error") {
+      streamError = event.error ?? "Axon Agent stream failed.";
+    }
+  });
+
+  if (streamError) {
+    throw new Error(streamError);
+  }
+
+  return {
+    messages: builtMessages ?? request.messages ?? [],
+    message: {
+      role: "assistant",
+      content,
+      tool_calls: toolCalls,
+    },
+  };
 }
 
 export async function getToolDefinitions(

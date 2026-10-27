@@ -25,6 +25,7 @@ export function appendAgentText(
       ...message,
       content,
       activity: undefined,
+      reveal: true,
       timeline: [
         ...timeline.slice(0, -1),
         { ...last, content: last.content + delta },
@@ -36,6 +37,7 @@ export function appendAgentText(
     ...message,
     content,
     activity: undefined,
+    reveal: true,
     timeline: [
       ...timeline,
       {

@@ -11,71 +11,22 @@ import {
   type AiPullEvent,
   type AiPullStarted,
 } from "../../../shared/ai/ai";
+import {
+  type CoreStreamEvent,
+  readCoreStreamEvents,
+} from "./coreStreamProtocol";
 
 const pullControllers = new Map<string, AbortController>();
 const chatControllers = new Map<string, AbortController>();
-
-interface CoreStreamEvent {
-  type: string;
-  delta?: string;
-  status?: string;
-  model?: string;
-  completed?: number;
-  total?: number;
-  error?: string;
-  done?: boolean;
-}
-
-interface CoreStreamEnvelope {
-  status: "success" | "error";
-  http_status: number;
-  message: string;
-  data?: CoreStreamEvent;
-  errors?: Record<string, string[]> | null;
-  code?: string | null;
-  request_id: string;
-  meta?: unknown;
-}
-
-function parseCoreStreamLine(line: string): CoreStreamEvent {
-  const envelope = JSON.parse(line) as CoreStreamEnvelope;
-  if (envelope.status === "error") {
-    return {
-      type: "error",
-      error: envelope.message || "Axon Agent stream failed.",
-    };
-  }
-  if (!envelope.data) {
-    return {
-      type: "error",
-      error: "axon-core returned an empty AI stream event.",
-    };
-  }
-  return envelope.data;
-}
-
-function parseCoreStreamLineSafely(line: string): CoreStreamEvent | null {
-  try {
-    return parseCoreStreamLine(line);
-  } catch (err) {
-    // A malformed NDJSON line should not kill a long-running chat stream after
-    // useful tokens have already arrived. Proper error envelopes still flow
-    // through parseCoreStreamLine; this catch only skips data that is not valid
-    // stream JSON at all and leaves a bounded log sample for debugging.
-    console.warn(
-      "skipped malformed AI stream line:",
-      line.slice(0, 500),
-      err,
-    );
-    return null;
-  }
-}
 
 function toChatStreamEvent(
   event: CoreStreamEvent,
 ): Omit<AiChatStreamEvent, "requestId"> {
   if (event.type === "delta") {
     return { type: "delta", delta: event.delta };
+  }
+  if (event.type === "thought") {
+    return { type: "thought", thought: event.thought };
   }
   if (event.type === "status") {
     return { type: "status", status: event.status };
@@ -122,32 +73,9 @@ export function startCoreAiStream(input: {
         throw new Error(`axon-core returned ${response.status}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let pending = "";
-
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        pending += decoder.decode(chunk.value, { stream: true });
-
-        const lines = pending.split(/\r?\n/);
-        pending = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          const event = parseCoreStreamLineSafely(trimmed);
-          if (!event) continue;
-          input.send({ requestId, ...toChatStreamEvent(event) });
-        }
-      }
-
-      if (pending.trim()) {
-        const event = parseCoreStreamLineSafely(pending.trim());
-        if (event) {
-          input.send({ requestId, ...toChatStreamEvent(event) });
-        }
-      }
+      await readCoreStreamEvents(response.body, (event) => {
+        input.send({ requestId, ...toChatStreamEvent(event) });
+      });
       input.send({ requestId, type: "done", done: true });
     } catch (err) {
       const cancelled = err instanceof Error && err.name === "AbortError";
@@ -205,35 +133,18 @@ export function startCoreModelPullStream(input: {
         throw new Error(`axon-core returned ${response.status}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let pending = "";
-
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        pending += decoder.decode(chunk.value, { stream: true });
-
-        const lines = pending.split(/\r?\n/);
-        pending = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          const event = parseCoreStreamLineSafely(trimmed);
-          if (!event) continue;
-          input.send({
-            requestId,
-            type: event.type as AiPullEvent["type"],
-            status: event.status,
-            model: event.model ?? input.model,
-            completed: event.completed,
-            total: event.total,
-            error: event.error,
-            done: event.done,
-          });
-        }
-      }
-
+      await readCoreStreamEvents(response.body, (event) => {
+        input.send({
+          requestId,
+          type: event.type as AiPullEvent["type"],
+          status: event.status,
+          model: event.model ?? input.model,
+          completed: event.completed,
+          total: event.total,
+          error: event.error,
+          done: event.done,
+        });
+      });
       input.send({ requestId, type: "done", model: input.model, done: true });
     } catch (err) {
       const cancelled = err instanceof Error && err.name === "AbortError";

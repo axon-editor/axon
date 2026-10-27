@@ -21,7 +21,7 @@ import {
   runEditorTool,
 } from "../../../shared/ai/editorTools";
 import { type EditorDiagnostic } from "../../../shared/editor/language/diagnostics";
-import { getToolDefinitions, planTurn, runTool } from "./coreClient";
+import { getToolDefinitions, runTool, streamPlanTurn } from "./coreClient";
 import { cancelCoreAiStream, startCoreAiStream } from "../streaming/coreStream";
 import { proposeUiTool, rejectUiToolsForRequest } from "./uiToolBridge";
 
@@ -158,32 +158,35 @@ async function runLoop(input: {
         send({ requestId, type: "status", status: "Thinking..." });
       }
 
-      const turn = await planTurn(
+      const turn = await streamPlanTurn(
         core,
         { ...request, messages, tools },
         signal,
+        (thought) => {
+          send({ requestId, type: "thought", thought });
+        },
       );
       messages = turn.messages;
 
       const toolCalls = turn.message.tool_calls ?? [];
+      const content = turn.message.content ?? "";
+
       if (toolCalls.length === 0) {
         reachedToolLimit = false;
-        finalContent = turn.message.content ?? "";
+        finalContent = content;
         break;
       }
 
-      // The planning turn often explains what it is about to do before asking
-      // for a tool. Sending it as a thought keeps that explanation in a
-      // collapsible block above the tool card instead of mixing it into the
-      // final answer text.
-      const planningContent = turn.message.content ?? "";
-      if (planningContent.trim()) {
-        send({ requestId, type: "thought", thought: planningContent });
+      // The streamed thinking already opened the collapsible block. The visible
+      // plan is sent after the turn so it lands in the same block above the tool
+      // card instead of becoming a second block about the same decision.
+      if (content.trim()) {
+        send({ requestId, type: "thought", thought: content });
       }
 
       messages.push({
         role: "assistant",
-        content: planningContent,
+        content,
         tool_calls: toolCalls,
       });
 

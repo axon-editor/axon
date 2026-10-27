@@ -7,15 +7,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type AiChatRequest,
   type AiChatStreamEvent,
+  type AiModelMessage,
+  type AiModelToolCall,
 } from "../../../shared/ai/ai";
 import { runAgentLoop } from "./agentLoop";
-import { getToolDefinitions, planTurn, runTool } from "./coreClient";
+import { getToolDefinitions, runTool, streamPlanTurn } from "./coreClient";
 import { startCoreAiStream } from "../streaming/coreStream";
 
 vi.mock("./coreClient", () => ({
   getToolDefinitions: vi.fn(),
-  planTurn: vi.fn(),
   runTool: vi.fn(),
+  streamPlanTurn: vi.fn(),
 }));
 
 vi.mock("../streaming/coreStream", () => ({
@@ -62,17 +64,38 @@ function collectRun() {
   return { events, finished, requestId };
 }
 
+function queuePlanTurn(turn: {
+  content: string;
+  thinking?: string;
+  toolCalls?: AiModelToolCall[];
+  messages?: AiModelMessage[];
+}) {
+  vi.mocked(streamPlanTurn).mockImplementationOnce(
+    async (_core, _request, _signal, onThought) => {
+      if (turn.thinking) onThought(turn.thinking);
+      return {
+        messages: _request.messages?.length
+          ? _request.messages
+          : (turn.messages ?? baseMessages),
+        message: {
+          role: "assistant",
+          content: turn.content,
+          tool_calls: turn.toolCalls,
+        },
+      };
+    },
+  );
+}
+
 describe("runAgentLoop", () => {
   beforeEach(() => {
     vi.mocked(getToolDefinitions).mockResolvedValue([]);
+    vi.mocked(streamPlanTurn).mockReset();
     vi.mocked(startCoreAiStream).mockReset();
   });
 
   it("uses the planning answer instead of generating it a second time", async () => {
-    vi.mocked(planTurn).mockResolvedValue({
-      messages: baseMessages,
-      message: { role: "assistant", content: "Hi there" },
-    });
+    queuePlanTurn({ content: "Hi there" });
 
     const { events, finished, requestId } = collectRun();
     await finished;
@@ -90,6 +113,27 @@ describe("runAgentLoop", () => {
     expect(startCoreAiStream).not.toHaveBeenCalled();
   });
 
+  it("streams the final planning reasoning before the answer", async () => {
+    queuePlanTurn({
+      content: "Hi there",
+      thinking: "The user greeted me, so I should greet them back.",
+    });
+
+    const { events, finished } = collectRun();
+    await finished;
+
+    const thoughtIndex = events.findIndex(
+      (event) =>
+        event.type === "thought" &&
+        event.thought === "The user greeted me, so I should greet them back.",
+    );
+    const deltaIndex = events.findIndex(
+      (event) => event.type === "delta" && event.delta === "Hi there",
+    );
+    expect(thoughtIndex).toBeGreaterThan(-1);
+    expect(deltaIndex).toBeGreaterThan(thoughtIndex);
+  });
+
   it("orders planning text, tool statuses, and the final answer by event time", async () => {
     vi.mocked(getToolDefinitions).mockResolvedValue([
       {
@@ -101,26 +145,19 @@ describe("runAgentLoop", () => {
         },
       },
     ]);
-    vi.mocked(planTurn)
-      .mockResolvedValueOnce({
-        messages: baseMessages,
-        message: {
-          role: "assistant",
-          content: "I'll open the README first.",
-          tool_calls: [
-            {
-              function: {
-                name: "read_file",
-                arguments: { path: "README.md" },
-              },
-            },
-          ],
+    queuePlanTurn({
+      content: "I'll open the README first.",
+      thinking: "The README probably documents the project.",
+      toolCalls: [
+        {
+          function: {
+            name: "read_file",
+            arguments: { path: "README.md" },
+          },
         },
-      })
-      .mockResolvedValueOnce({
-        messages: baseMessages,
-        message: { role: "assistant", content: "The README is short." },
-      });
+      ],
+    });
+    queuePlanTurn({ content: "The README is short." });
     vi.mocked(runTool).mockResolvedValue("# Axon");
 
     const { events, finished } = collectRun();
@@ -141,6 +178,7 @@ describe("runAgentLoop", () => {
 
     expect(ordered).toEqual([
       "status:Thinking...",
+      "thought:The README probably documents the project.",
       "thought:I'll open the README first.",
       "status:Running read_file...",
       "tool-started:read_file",
@@ -153,10 +191,7 @@ describe("runAgentLoop", () => {
   });
 
   it("streams when the planning turn returns no content", async () => {
-    vi.mocked(planTurn).mockResolvedValue({
-      messages: baseMessages,
-      message: { role: "assistant", content: "   " },
-    });
+    queuePlanTurn({ content: "   " });
     vi.mocked(startCoreAiStream).mockImplementation((input) => {
       input.send({ requestId: input.requestId ?? "stream", type: "done", done: true });
       return { success: true, requestId: input.requestId ?? "stream" };

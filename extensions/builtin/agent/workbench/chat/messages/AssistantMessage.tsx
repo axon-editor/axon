@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { type AiEditFileProposal } from "@axon-editor/shared/ai/ai";
-import AssistantMarkdown from "../content/AssistantMarkdown";
 import AgentThoughtBlock from "../content/AgentThoughtBlock";
 import AgentToolCard from "../content/AgentToolCard";
 import EditProposalCard from "../content/EditProposalCard";
+import SmoothText from "../content/SmoothText";
 import MessageHeader from "./MessageHeader";
 import StreamingIndicator from "../indicators/StreamingIndicator";
 import {
@@ -23,6 +23,7 @@ interface AssistantMessageProps {
   toolCalls?: AgentToolCallState[];
   activity?: string;
   timeline?: AgentTimelineEntry[];
+  reveal?: boolean;
   onApplyEdit: (file: AiEditFileProposal) => void;
   onCopied: (messageId: number) => void;
   onCopyContent: (content: string) => void;
@@ -38,6 +39,7 @@ export default function AssistantMessage({
   toolCalls,
   activity,
   timeline,
+  reveal,
   onApplyEdit,
   onCopied,
   onCopyContent,
@@ -85,7 +87,13 @@ export default function AssistantMessage({
       <div className="w-full">
         {entries.map((entry) => {
           if (entry.kind === "text") {
-            return <AssistantMarkdown key={entry.id} content={entry.content} />;
+            return (
+              <SmoothText
+                key={entry.id}
+                content={entry.content}
+                animateOnMount={Boolean(reveal)}
+              />
+            );
           }
           if (entry.kind === "thought") {
             return <AgentThoughtBlock key={entry.id} content={entry.content} />;

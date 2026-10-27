@@ -65,6 +65,97 @@ func TestPlanTurnReturnsRequestedToolCall(t *testing.T) {
 	}
 }
 
+func TestPlanTurnReturnsModelThinking(t *testing.T) {
+	var captured map[string]any
+	newModelRuntimeServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"message":{"content":"Hi","thinking":"The user greeted me."}}`))
+	}, &captured)
+
+	result, err := PlanTurn(context.Background(), ChatRequest{
+		Action: "agent",
+		Prompt: "hello",
+	})
+	if err != nil {
+		t.Fatalf("PlanTurn returned error: %v", err)
+	}
+	if result.Message.Thinking != "The user greeted me." {
+		t.Fatalf("thinking = %q, want %q", result.Message.Thinking, "The user greeted me.")
+	}
+	if captured["think"] != true {
+		t.Fatalf("agent think = %#v, want true", captured["think"])
+	}
+}
+
+func TestStreamChatEmitsThoughtChunks(t *testing.T) {
+	newModelRuntimeServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(
+			"{\"message\":{\"thinking\":\"The user \",\"content\":\"\"},\"done\":false}\n" +
+				"{\"message\":{\"thinking\":\"greeted me.\",\"content\":\"\"},\"done\":false}\n" +
+				"{\"message\":{\"content\":\"Hi\"},\"done\":false}\n" +
+				"{\"done\":true}\n",
+		))
+	}, nil)
+
+	var thoughts []string
+	var deltas []string
+	err := StreamChat(context.Background(), ChatRequest{
+		Action: "agent",
+		Messages: []ModelMessage{
+			{Role: "user", Content: "hello"},
+		},
+	}, func(event StreamEvent) error {
+		switch event.Type {
+		case "thought":
+			thoughts = append(thoughts, event.Thought)
+		case "delta":
+			deltas = append(deltas, event.Delta)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("StreamChat returned error: %v", err)
+	}
+	if strings.Join(thoughts, "") != "The user greeted me." {
+		t.Fatalf("thoughts = %q, want %q", strings.Join(thoughts, ""), "The user greeted me.")
+	}
+	if strings.Join(deltas, "") != "Hi" {
+		t.Fatalf("deltas = %q, want %q", strings.Join(deltas, ""), "Hi")
+	}
+}
+
+func TestStreamChatDoneCarriesToolCallsAndBuiltMessages(t *testing.T) {
+	newModelRuntimeServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(
+			"{\"message\":{\"content\":\"\",\"tool_calls\":[{\"function\":{\"name\":\"list_files\",\"arguments\":{\"path\":\"\"}}}]},\"done\":false}\n" +
+				"{\"done\":true}\n",
+		))
+	}, nil)
+
+	var done StreamEvent
+	err := StreamChat(context.Background(), ChatRequest{
+		Action: "agent",
+		Prompt: "list the workspace root",
+		Tools:  ProjectToolDefinitions(),
+	}, func(event StreamEvent) error {
+		if event.Type == "done" {
+			done = event
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("StreamChat returned error: %v", err)
+	}
+	if len(done.ToolCalls) != 1 {
+		t.Fatalf("expected one streamed tool call, got %d", len(done.ToolCalls))
+	}
+	if name := done.ToolCalls[0].Function.Name; name != "list_files" {
+		t.Fatalf("expected list_files tool call, got %q", name)
+	}
+	if len(done.Messages) == 0 || done.Messages[0].Role != "system" {
+		t.Fatalf("done event should carry the built conversation, got %#v", done.Messages)
+	}
+}
+
 func TestPlanTurnKeepsCallerMessagesAndTools(t *testing.T) {
 	var captured map[string]any
 	newModelRuntimeServer(t, func(w http.ResponseWriter, _ *http.Request) {

@@ -75,6 +75,7 @@ export default function AgentMessageList(props: Props) {
             toolCalls={message.toolCalls}
             activity={message.activity}
             timeline={message.timeline}
+            reveal={message.reveal}
             onApplyEdit={props.onApplyEdit}
             onCopied={props.onCopied}
             onCopyContent={handleCopyContent}

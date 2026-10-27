@@ -81,6 +81,7 @@ export interface AiModelToolCall {
 export interface AiModelMessage {
   role: "system" | "user" | "assistant" | "tool";
   content?: string;
+  thinking?: string;
   tool_calls?: AiModelToolCall[];
 }
 

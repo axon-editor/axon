@@ -66,6 +66,17 @@ describe("agent timeline", () => {
     expect(message.activity).toBeUndefined();
   });
 
+  it("merges consecutive streaming thought chunks into one block", () => {
+    let message = appendAgentThought(baseMessage(), "I need to ");
+    message = appendAgentThought(message, "read the README.");
+
+    expect(message.timeline?.map((entry) => entry.kind)).toEqual(["thought"]);
+    const thought = message.timeline?.[0];
+    expect(thought?.kind === "thought" ? thought.content : "").toBe(
+      "I need to read the README.",
+    );
+  });
+
   it("merges consecutive deltas into the open text block", () => {
     let message = appendAgentStatus(baseMessage(), "Thinking...");
     message = appendAgentText(message, "Hello");
@@ -75,6 +86,7 @@ describe("agent timeline", () => {
       message.timeline?.filter((entry) => entry.kind === "text"),
     ).toHaveLength(1);
     expect(message.content).toBe("Hello there");
+    expect(message.reveal).toBe(true);
   });
 
   it("keeps legacy content before tools when no timeline exists", () => {

@@ -163,14 +163,22 @@ func TestChatPayloadSetsAWorkingContextWindow(t *testing.T) {
 	}
 }
 
-func TestChatPayloadDisablesModelThinking(t *testing.T) {
+func TestChatPayloadDisablesThinkingForNonAgentActions(t *testing.T) {
 	payload := chatPayload(ChatRequest{Action: "ask"}, nil, false)
 
 	if payload["think"] != modelThink {
 		t.Fatalf("think = %#v, want %t", payload["think"], modelThink)
 	}
 	if modelThink {
-		t.Fatal("local chat should request content-only responses")
+		t.Fatal("non-agent chat should request content-only responses")
+	}
+}
+
+func TestChatPayloadEnablesThinkingForTheAgent(t *testing.T) {
+	payload := chatPayload(ChatRequest{Action: "agent"}, nil, false)
+
+	if payload["think"] != true {
+		t.Fatalf("think = %#v, want true", payload["think"])
 	}
 }
 
