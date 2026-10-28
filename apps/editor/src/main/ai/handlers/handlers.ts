@@ -29,6 +29,7 @@ import {
 } from "../streaming/coreStream";
 import { requestCoreInlineCompletion } from "../completion/inlineCompletion";
 import { type WorkspaceCapabilityRegistry } from "../../security/workspaceCapabilities";
+import { writeWorkspaceTextFile } from "../../security/writeWorkspaceTextFile";
 
 interface CoreResponse<T> {
   status: "success" | "error";
@@ -207,6 +208,7 @@ export function registerAiHandlers(deps: {
         };
       }
 
+      const rendererId = event.sender.id;
       const { requestId } = runAgentLoop({
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
@@ -219,6 +221,13 @@ export function registerAiHandlers(deps: {
             event.sender.send("ai:chatStreamEvent", payload);
           }
         },
+        writeTextFile: (filePath, content) =>
+          writeWorkspaceTextFile(
+            deps.workspaceCapabilities,
+            rendererId,
+            filePath,
+            content,
+          ),
       });
 
       return { success: true, requestId };

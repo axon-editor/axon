@@ -12,12 +12,11 @@ function deps() {
     openFile: vi.fn(),
     closeFile: vi.fn(() => true),
     runCommand: vi.fn(),
-    writeFile: vi.fn(async () => undefined),
   };
 }
 
 describe("runAgentUiTool", () => {
-  it("writes a workspace-relative file when write_file is approved", async () => {
+  it("approves a workspace-relative write without touching the filesystem", async () => {
     const tools = deps();
 
     const result = await runAgentUiTool(tools, "write_file", {
@@ -25,10 +24,6 @@ describe("runAgentUiTool", () => {
       content: "this is gorden",
     });
 
-    expect(tools.writeFile).toHaveBeenCalledWith(
-      "/workspace/me.txt",
-      "this is gorden",
-    );
     expect(result).toEqual({ ok: true, message: "/workspace/me.txt" });
   });
 
@@ -39,19 +34,19 @@ describe("runAgentUiTool", () => {
       content: "this is gorden",
     });
 
-    expect(tools.writeFile).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
   });
 
-  it("reports a failed write instead of claiming success", async () => {
+  it("rejects write_file without content", async () => {
     const tools = deps();
-    tools.writeFile.mockRejectedValue(new Error("disk is full"));
 
     const result = await runAgentUiTool(tools, "write_file", {
       path: "me.txt",
-      content: "this is gorden",
     });
 
-    expect(result).toEqual({ ok: false, message: "disk is full" });
+    expect(result).toEqual({
+      ok: false,
+      message: "No file content was provided.",
+    });
   });
 });

@@ -13,6 +13,7 @@ import {
 import { runAgentLoop } from "./agentLoop";
 import { getToolDefinitions, runTool, streamPlanTurn } from "./coreClient";
 import { startCoreAiStream } from "../streaming/coreStream";
+import { proposeUiTool } from "./uiToolBridge";
 
 vi.mock("./coreClient", () => ({
   getToolDefinitions: vi.fn(),
@@ -46,7 +47,9 @@ const baseMessages = [
   { role: "user" as const, content: "hello" },
 ];
 
-function collectRun() {
+function collectRun(
+  writeTextFile?: (filePath: string, content: string) => Promise<string>,
+) {
   const events: AiChatStreamEvent[] = [];
   let finish: () => void = () => {};
   const finished = new Promise<void>((resolve) => {
@@ -56,6 +59,7 @@ function collectRun() {
     axonCorePort: "17777",
     axonCoreToken: "test-token",
     request,
+    writeTextFile,
     send: (event) => {
       events.push(event);
       if (event.type === "done") finish();
@@ -92,6 +96,7 @@ describe("runAgentLoop", () => {
     vi.mocked(getToolDefinitions).mockResolvedValue([]);
     vi.mocked(streamPlanTurn).mockReset();
     vi.mocked(startCoreAiStream).mockReset();
+    vi.mocked(proposeUiTool).mockReset();
   });
 
   it("uses the planning answer instead of generating it a second time", async () => {
@@ -188,6 +193,121 @@ describe("runAgentLoop", () => {
       "delta:The README is short.",
       "done",
     ]);
+  });
+
+  it("executes an approved write_file in the main process", async () => {
+    vi.mocked(proposeUiTool).mockResolvedValue({
+      callId: "approval",
+      ok: true,
+    });
+    const writeTextFile = vi.fn(async (filePath: string) => filePath);
+    queuePlanTurn({
+      content: "I'll create the file.",
+      toolCalls: [
+        {
+          function: {
+            name: "write_file",
+            arguments: {
+              path: "src/new.ts",
+              content: "export {};\n",
+            },
+          },
+        },
+      ],
+    });
+    queuePlanTurn({ content: "Created the file." });
+
+    const { events, finished } = collectRun(writeTextFile);
+    await finished;
+
+    expect(writeTextFile).toHaveBeenCalledWith(
+      "/workspace/src/new.ts",
+      "export {};\n",
+    );
+    const resultEvent = events.find(
+      (event) =>
+        event.type === "tool-result" && event.tool?.name === "write_file",
+    );
+    expect(resultEvent?.toolResult).toEqual({
+      callId: expect.any(String),
+      ok: true,
+      message: "/workspace/src/new.ts",
+      result: "/workspace/src/new.ts",
+    });
+    expect(vi.mocked(streamPlanTurn).mock.calls[1][1].messages).toContainEqual({
+      role: "tool",
+      content: "Executed write_file. /workspace/src/new.ts",
+    });
+  });
+
+  it("does not write when the user skips the write_file card", async () => {
+    vi.mocked(proposeUiTool).mockResolvedValue({
+      callId: "approval",
+      ok: false,
+      rejected: true,
+    });
+    const writeTextFile = vi.fn(async (filePath: string) => filePath);
+    queuePlanTurn({
+      content: "I'll replace the file.",
+      toolCalls: [
+        {
+          function: {
+            name: "write_file",
+            arguments: { path: "src/new.ts", content: "export {};\n" },
+          },
+        },
+      ],
+    });
+    queuePlanTurn({ content: "No change was made." });
+
+    const { events, finished } = collectRun(writeTextFile);
+    await finished;
+
+    expect(writeTextFile).not.toHaveBeenCalled();
+    const resultEvent = events.find(
+      (event) =>
+        event.type === "tool-result" && event.tool?.name === "write_file",
+    );
+    expect(resultEvent?.toolResult?.rejected).toBe(true);
+  });
+
+  it("reports a main-process write failure to the model", async () => {
+    vi.mocked(proposeUiTool).mockResolvedValue({
+      callId: "approval",
+      ok: true,
+    });
+    const writeTextFile = vi.fn(async () => {
+      throw new Error("permission denied");
+    });
+    queuePlanTurn({
+      content: "I'll create the file.",
+      toolCalls: [
+        {
+          function: {
+            name: "write_file",
+            arguments: { path: "src/new.ts", content: "export {};\n" },
+          },
+        },
+      ],
+    });
+    queuePlanTurn({ content: "The write failed." });
+
+    const { events, finished } = collectRun(writeTextFile);
+    await finished;
+
+    const resultEvent = events.find(
+      (event) =>
+        event.type === "tool-result" && event.tool?.name === "write_file",
+    );
+    expect(resultEvent?.toolResult).toEqual({
+      callId: expect.any(String),
+      ok: false,
+      message: "permission denied",
+    });
+    expect(vi.mocked(streamPlanTurn).mock.calls[1][1].messages).toContainEqual({
+      role: "tool",
+      content: "Running write_file failed: permission denied",
+    });
   });
 
   it("streams when the planning turn returns no content", async () => {

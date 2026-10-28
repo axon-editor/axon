@@ -31,18 +31,30 @@ import {
 
 interface UseAgentChatStreamOptions {
   setMessages: Dispatch<SetStateAction<AgentMessage[]>>;
+  onFileWritten?: (path: string) => void;
 }
 
 // Streaming is intentionally isolated from the sidebar render tree because it
 // is request-id driven state. A stale delta from a cancelled or superseded
 // request must never write into the current conversation, so every event is
 // matched against the active stream before it can mutate messages.
-export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
+export function useAgentChatStream({
+  setMessages,
+  onFileWritten,
+}: UseAgentChatStreamOptions) {
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const streamRef = useRef<{ requestId: string; messageId: number } | null>(
     null,
   );
+  const onFileWrittenRef = useRef(onFileWritten);
+
+  // The layout passes a refresh callback that changes identity with workspace
+  // state. Keeping it in a ref avoids tearing down and resubscribing the IPC
+  // listener on every render just to call the latest callback.
+  useEffect(() => {
+    onFileWrittenRef.current = onFileWritten;
+  }, [onFileWritten]);
 
   useEffect(() => {
     return window.axon.onAiChatStreamEvent((event) => {
@@ -133,6 +145,14 @@ export function useAgentChatStream({ setMessages }: UseAgentChatStreamOptions) {
           result?.message,
           result?.result,
         );
+        if (
+          event.tool.name === "write_file" &&
+          result?.ok &&
+          !result.rejected &&
+          result.result
+        ) {
+          onFileWrittenRef.current?.(result.result);
+        }
         return;
       }
 

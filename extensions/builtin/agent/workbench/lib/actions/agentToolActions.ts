@@ -16,7 +16,6 @@ export interface AgentUiToolDeps {
   openFile: (path: string) => void;
   closeFile: (path: string) => boolean;
   runCommand: (command: AxonCommand) => void;
-  writeFile: (path: string, content: string) => Promise<void>;
 }
 
 // Absolute filesystem paths and URI-style tab paths (for example
@@ -30,10 +29,9 @@ function resolvePath(path: string, folderPath: string | null) {
   return `${folderPath.replace(/[\\/]$/, "")}/${path}`;
 }
 
-// The renderer is the only place that can actually change UI state, so the
-// approved action is executed here against the same command runner the command
-// palette uses. The result string is sent back to the agent loop as the tool
-// result so the model can describe what happened.
+// UI-only actions still run here because the renderer owns that state. File
+// writes return approval only; the main process persists them after the click,
+// so the tool loop never treats a renderer-local write as the source of truth.
 export async function runAgentUiTool(
   deps: AgentUiToolDeps,
   name: string,
@@ -61,21 +59,19 @@ export async function runAgentUiTool(
 
   if (spec.name === "write_file") {
     const rawPath = typeof args.path === "string" ? args.path.trim() : "";
-    const content = typeof args.content === "string" ? args.content : "";
+    const content = args.content;
     if (!rawPath) {
       return { ok: false, message: "No file path was provided." };
     }
-    const resolvedPath = resolvePath(rawPath, deps.folderPath);
-    try {
-      await deps.writeFile(resolvedPath, content);
-      return { ok: true, message: resolvedPath };
-    } catch (err) {
-      return {
-        ok: false,
-        message:
-          err instanceof Error ? err.message : `Could not write ${resolvedPath}.`,
-      };
+    if (typeof content !== "string") {
+      return { ok: false, message: "No file content was provided." };
     }
+    // Approval is the renderer's job; the main process performs the actual
+    // write after the renderer reports the decision, so the tool loop never
+    // depends on renderer filesystem access. Returning the resolved path keeps
+    // the card and the next model turn pointed at the same file the main
+    // process is about to replace.
+    return { ok: true, message: resolvePath(rawPath, deps.folderPath) };
   }
 
   if (spec.name === "close_file") {

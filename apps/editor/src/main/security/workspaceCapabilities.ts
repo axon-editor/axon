@@ -11,6 +11,7 @@ import {
   pathInsideWorkspaceRoot,
 } from "./workspacePathPolicy";
 import { textFileCache } from "../files/textFileCache";
+import { writeWorkspaceTextFile } from "./writeWorkspaceTextFile";
 
 interface StoredCapabilities {
   roots: string[];
@@ -356,25 +357,12 @@ export function registerWorkspaceCapabilityHandlers(
   ipcMain.handle(
     "workspace:writeTextFile",
     async (event, filePath: string, content: string, _rootPath: string) => {
-      if (typeof content !== "string")
-        throw new Error("File content must be text.");
-      if (Buffer.byteLength(content, "utf8") > 32 * 1024 * 1024) {
-        throw new Error("File is too large to save through the text editor.");
-      }
-      const authorizedPath = registry.assertWritablePath(
+      await writeWorkspaceTextFile(
+        registry,
         event.sender.id,
         filePath,
+        content,
       );
-      await fs.promises.writeFile(authorizedPath, content, "utf8");
-      try {
-        await textFileCache.recordWrite(authorizedPath, content);
-      } catch {
-        // The disk write has already succeeded. A formatter can replace or
-        // remove the path before the follow-up stat completes, so cache upkeep
-        // must fall back to invalidation instead of reporting a false save
-        // failure to the renderer.
-        textFileCache.invalidate(authorizedPath);
-      }
     },
   );
 }

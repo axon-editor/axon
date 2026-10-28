@@ -80,6 +80,7 @@ interface Props {
   side: "left" | "right";
   width: number;
   uiState: AiUiState;
+  onAgentFileWritten: (path: string) => void;
   onApplyEdit: (path: string, content: string) => Promise<void>;
   onClose: () => void;
   onRunAgentAction: (
@@ -133,7 +134,10 @@ export default function AxonAgentSidebar(props: Props) {
     cancelActiveStream,
     clearStream,
     setBusy,
-  } = useAgentChatStream({ setMessages });
+  } = useAgentChatStream({
+    setMessages,
+    onFileWritten: props.onAgentFileWritten,
+  });
   const {
     canChat,
     canManageModels,

@@ -331,6 +331,12 @@ describe("FileWatcherManager", () => {
         workspacePath,
       ),
     ).toBe(true);
+    expect(
+      shouldIgnoreWorkspaceWatchPath(
+        path.join(workspacePath, "src", ".axon-write-123.tmp"),
+        workspacePath,
+      ),
+    ).toBe(true);
   });
 
   it("skips arbitrarily named Python environments by their marker", async () => {

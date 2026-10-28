@@ -239,6 +239,13 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     void requestCloseTab(pane.id, path);
     return true;
   };
+  const handleAgentFileWritten = React.useCallback(
+    (filePath: string) => {
+      handleFileSelect(filePath);
+      void handleRefresh();
+    },
+    [handleFileSelect, handleRefresh],
+  );
   const runAgentAction = (name: string, args: Record<string, unknown>) =>
     runAgentUiTool(
       {
@@ -246,7 +253,6 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         runCommand,
         openFile: handleFileSelect,
         closeFile: closeAgentFileTab,
-        writeFile: handleApplyAgentEdit,
       },
       name,
       args,
@@ -270,6 +276,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         side="right"
         width={agentSidebarWidth}
         uiState={agentUiState}
+        onAgentFileWritten={handleAgentFileWritten}
         onApplyEdit={handleApplyAgentEdit}
         onClose={() => setAgentSidebarOpen(false)}
         onRunAgentAction={runAgentAction}

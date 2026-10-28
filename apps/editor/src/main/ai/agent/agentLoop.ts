@@ -9,6 +9,7 @@ import {
   type AiChatStreamEvent,
   type AiModelToolCall,
   type AiToolCall,
+  type AiUiToolResult,
 } from "../../../shared/ai/ai";
 import {
   AI_UI_TOOL_SPECS,
@@ -24,6 +25,7 @@ import { type EditorDiagnostic } from "../../../shared/editor/language/diagnosti
 import { getToolDefinitions, runTool, streamPlanTurn } from "./coreClient";
 import { cancelCoreAiStream, startCoreAiStream } from "../streaming/coreStream";
 import { proposeUiTool, rejectUiToolsForRequest } from "./uiToolBridge";
+import { resolveAgentWritePath } from "./agentToolPaths";
 
 // Local models often need several search and read rounds before they can answer
 // a project question. Four rounds stopped the agent mid-investigation and made
@@ -35,6 +37,8 @@ const MAX_TOOL_ROUNDS = 12;
 // the definitions, but a conversation persisted before the rename may still
 // contain a tool call for it, so the executor keeps accepting the old name.
 const LEGACY_WORKSPACE_TOOLS = ["search_project"];
+
+const WRITE_FILE_TOOL = "write_file";
 
 // The tool card shows a preview of what the agent saw, but the model still gets
 // the full output. Truncating here keeps large file reads and problem lists from
@@ -50,6 +54,8 @@ interface CoreEndpoint {
   axonCorePort: string;
   axonCoreToken: string;
 }
+
+type AgentTextWriter = (filePath: string, content: string) => Promise<string>;
 
 // The loop is fire-and-forget from the IPC handler's point of view, so the run
 // map keeps the abort controller reachable by request id for cancellation.
@@ -116,6 +122,7 @@ export function runAgentLoop(input: {
   axonCoreToken: string;
   request: AiChatRequest;
   send: (event: AiChatStreamEvent) => void;
+  writeTextFile?: AgentTextWriter;
 }): { requestId: string } {
   const requestId = randomUUID();
   const controller = new AbortController();
@@ -130,6 +137,7 @@ export function runAgentLoop(input: {
     request: input.request,
     send: input.send,
     signal: controller.signal,
+    writeTextFile: input.writeTextFile,
   }).finally(() => {
     runs.delete(requestId);
   });
@@ -143,8 +151,9 @@ async function runLoop(input: {
   request: AiChatRequest;
   send: (event: AiChatStreamEvent) => void;
   signal: AbortSignal;
+  writeTextFile?: AgentTextWriter;
 }) {
-  const { requestId, core, request, send, signal } = input;
+  const { requestId, core, request, send, signal, writeTextFile } = input;
   try {
     const coreDefinitions = await getToolDefinitions(core, signal).catch(
       () => [],
@@ -212,6 +221,7 @@ async function runLoop(input: {
             send,
             signal,
             workspaceTools,
+            writeTextFile,
           }),
         });
       }
@@ -262,6 +272,61 @@ async function runLoop(input: {
   }
 }
 
+async function runApprovedWrite(input: {
+  callId: string;
+  args: Record<string, unknown>;
+  folderPath: string | null;
+  writeTextFile?: AgentTextWriter;
+}): Promise<AiUiToolResult> {
+  const rawPath = typeof input.args.path === "string" ? input.args.path : "";
+  const content = input.args.content;
+  if (!rawPath.trim()) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: "No file path was provided.",
+    };
+  }
+  if (typeof content !== "string") {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: "No file content was provided.",
+    };
+  }
+  if (!input.folderPath) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: "No workspace is open, so this file cannot be written.",
+    };
+  }
+  if (!input.writeTextFile) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: "File writes are not available in this window.",
+    };
+  }
+
+  try {
+    const filePath = resolveAgentWritePath(input.folderPath, rawPath);
+    const writtenPath = await input.writeTextFile(filePath, content);
+    return {
+      callId: input.callId,
+      ok: true,
+      message: writtenPath,
+      result: writtenPath,
+    };
+  } catch (error) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: error instanceof Error ? error.message : "unknown error",
+    };
+  }
+}
+
 async function executeToolCall(input: {
   call: AiModelToolCall;
   core: CoreEndpoint;
@@ -271,9 +336,19 @@ async function executeToolCall(input: {
   send: (event: AiChatStreamEvent) => void;
   signal: AbortSignal;
   workspaceTools: Set<string>;
+  writeTextFile?: AgentTextWriter;
 }): Promise<string> {
-  const { call, core, folderPath, diagnostics, requestId, send, signal, workspaceTools } =
-    input;
+  const {
+    call,
+    core,
+    folderPath,
+    diagnostics,
+    requestId,
+    send,
+    signal,
+    workspaceTools,
+    writeTextFile,
+  } = input;
   const name = call.function.name;
   const args = parseArguments(call.function.arguments);
   const id = randomUUID();
@@ -293,18 +368,27 @@ async function executeToolCall(input: {
       status: toolStartStatus(spec.title, true),
     });
     const result = await proposeUiTool(requestId, tool, send);
+    const finalResult =
+      name === WRITE_FILE_TOOL && result.ok && !result.rejected
+        ? await runApprovedWrite({
+            callId: id,
+            args,
+            folderPath,
+            writeTextFile,
+          })
+        : result;
     send({
       requestId,
       type: "tool-result",
       tool,
-      toolResult: result,
+      toolResult: finalResult,
     });
     send({
       requestId,
       type: "status",
-      status: toolFinishStatus(spec.title, result),
+      status: toolFinishStatus(spec.title, finalResult),
     });
-    return uiResultText(result, name);
+    return uiResultText(finalResult, name);
   }
 
   const editorSpec = aiEditorToolSpec(name);

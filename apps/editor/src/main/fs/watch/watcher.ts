@@ -114,6 +114,9 @@ export function shouldIgnoreWorkspaceWatchPath(
     if (normalizedSegment === ".git" || normalizedSegment === ".ds_store") {
       return true;
     }
+    // Atomic saves create a short-lived same-directory file. It must not flash
+    // in the tree or reach language servers as a real project file.
+    if (normalizedSegment.startsWith(".axon-write-")) return true;
     if (GENERATED_WORKSPACE_DIRECTORIES.has(normalizedSegment)) return true;
     return (
       normalizedSegment.startsWith(".cache") ||
