@@ -64,6 +64,7 @@ import { useAgentChatStream } from "../lib/hooks/useAgentChatStream";
 import { useAgentModelRuntime } from "../lib/hooks/useAgentModelRuntime";
 import { useAgentSidebarResize } from "../lib/hooks/useAgentSidebarResize";
 import { usePopoverDismiss } from "../lib/hooks/usePopoverDismiss";
+import { useStickyScroll } from "../lib/hooks/useStickyScroll";
 import "../styles/agentPopups.css";
 
 interface Props {
@@ -119,7 +120,7 @@ export default function AxonAgentSidebar(props: Props) {
     gitChanges: true,
   });
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
+  const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const resumeRequestHandledRef = useRef<string | null>(null);
   const conversationStateRef = useRef(conversationState);
   const actionPickerRef = useRef<HTMLDivElement | null>(null);
@@ -159,6 +160,11 @@ export default function AxonAgentSidebar(props: Props) {
     side: props.side,
     width: props.width,
     onWidthChange: props.onWidthChange,
+  });
+  const { pinToBottom } = useStickyScroll({
+    scrollRef: messageScrollRef,
+    contentVersion: messages,
+    resetKey: conversationState.activeId,
   });
 
   usePopoverDismiss(actionPickerRef, actionPickerOpen, () =>
@@ -285,13 +291,6 @@ export default function AxonAgentSidebar(props: Props) {
     };
   }, []);
 
-  useEffect(() => {
-    scrollAnchorRef.current?.scrollIntoView({
-      block: "end",
-      behavior: busy ? "smooth" : "auto",
-    });
-  }, [busy, messages]);
-
   const runAgent = async (nextAction = action, nextPrompt = prompt) => {
     const finalPrompt = nextPrompt.trim() || defaultPromptForAction(nextAction);
     if (!finalPrompt || busy || !canChat || !conversationReady) return;
@@ -309,6 +308,9 @@ export default function AxonAgentSidebar(props: Props) {
     setMessages((current) => [...current, userMessage]);
     setPrompt("");
     setBusy(true);
+    // Sending is an explicit request for the latest message, even if the user
+    // had scrolled up to re-read something before composing.
+    pinToBottom();
 
     if (
       messages.length === 0 &&
@@ -592,7 +594,10 @@ export default function AxonAgentSidebar(props: Props) {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <div
+        ref={messageScrollRef}
+        className="min-h-0 flex-1 overflow-y-auto px-3 py-3"
+      >
         {!canChat && (
           <AgentRuntimeStatusPanel
             diagnosticsCount={props.diagnostics.length}
@@ -638,7 +643,6 @@ export default function AxonAgentSidebar(props: Props) {
               setCopiedId(messageId);
               window.setTimeout(() => setCopiedId(null), 1200);
             }}
-            scrollAnchorRef={scrollAnchorRef}
           />
         )}
       </div>

@@ -22,7 +22,6 @@ interface Props {
   onEdit?: (messageId: number, content: string) => void;
   onRunTool?: (messageId: number, tool: AgentToolCallState) => void;
   onSkipTool?: (messageId: number, tool: AgentToolCallState) => void;
-  scrollAnchorRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function AgentMessageList(props: Props) {
@@ -84,7 +83,6 @@ export default function AgentMessageList(props: Props) {
           />
         ),
       )}
-      <div ref={props.scrollAnchorRef} />
 
       {contextMenu && (
         <MessageContextMenu
