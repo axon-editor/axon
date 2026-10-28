@@ -48,7 +48,7 @@ func TestAIToolDefinitionsReturnsProjectTools(t *testing.T) {
 	for _, tool := range envelope.Data {
 		names[tool.Function.Name] = true
 	}
-	for _, expected := range []string{"list_files", "read_file", "search_project"} {
+	for _, expected := range []string{"list_files", "glob", "grep", "read_file"} {
 		if !names[expected] {
 			t.Fatalf("tool definitions missing %q, got %v", expected, names)
 		}

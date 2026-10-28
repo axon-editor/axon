@@ -25,7 +25,16 @@ import { getToolDefinitions, runTool, streamPlanTurn } from "./coreClient";
 import { cancelCoreAiStream, startCoreAiStream } from "../streaming/coreStream";
 import { proposeUiTool, rejectUiToolsForRequest } from "./uiToolBridge";
 
-const MAX_TOOL_ROUNDS = 4;
+// Local models often need several search and read rounds before they can answer
+// a project question. Four rounds stopped the agent mid-investigation and made
+// it ask the user to explore folders, so the ceiling now fits a full chain while
+// still bounding a runaway tool loop.
+const MAX_TOOL_ROUNDS = 12;
+
+// search_project is the previous name for grep. It is no longer advertised in
+// the definitions, but a conversation persisted before the rename may still
+// contain a tool call for it, so the executor keeps accepting the old name.
+const LEGACY_WORKSPACE_TOOLS = ["search_project"];
 
 // The tool card shows a preview of what the agent saw, but the model still gets
 // the full output. Truncating here keeps large file reads and problem lists from
@@ -140,9 +149,10 @@ async function runLoop(input: {
     const coreDefinitions = await getToolDefinitions(core, signal).catch(
       () => [],
     );
-    const workspaceTools = new Set(
-      coreDefinitions.map((definition) => definition.function.name),
-    );
+    const workspaceTools = new Set([
+      ...coreDefinitions.map((definition) => definition.function.name),
+      ...LEGACY_WORKSPACE_TOOLS,
+    ]);
     const tools = [
       ...coreDefinitions,
       ...AI_UI_TOOL_SPECS.map(aiUiToolDefinition),

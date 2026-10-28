@@ -139,7 +139,7 @@ func printToolsHelp() {
 	fmt.Println("Axon CLI project tools")
 	fmt.Println("  list_files       attaches workspace structure for project/codebase questions")
 	fmt.Println("  read_file        attaches mentioned source files by path")
-	fmt.Println("  search_project   searches symbols/text for where/find/search prompts")
+	fmt.Println("  grep             searches symbols/text for where/find/search prompts")
 	fmt.Println("  problems         attaches current Axon Problems for this workspace")
 	fmt.Println("  git_diff         attaches Git diff summaries for change/review prompts")
 }

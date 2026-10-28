@@ -54,7 +54,7 @@ func buildCliToolContext(ctx context.Context, input StreamRequestInput) string {
 	baseSectionCount := len(sections)
 
 	if shouldAttachFileList(prompt) {
-		sections = append(sections, ai.RunProjectTool(ctx, request, "list_files", mustToolArgs(map[string]string{"path": ""})))
+		sections = append(sections, ai.RunProjectTool(ctx, request, "list_files", mustToolArgs(map[string]any{"path": "", "depth": 2})))
 	}
 
 	if diagnosticContext := cliDiagnosticsContext(root, input.Diagnostics); diagnosticContext != "" {
@@ -66,11 +66,11 @@ func buildCliToolContext(ctx context.Context, input StreamRequestInput) string {
 	}
 
 	for _, path := range promptFileReferences(prompt) {
-		sections = append(sections, ai.RunProjectTool(ctx, request, "read_file", mustToolArgs(map[string]string{"path": path})))
+		sections = append(sections, ai.RunProjectTool(ctx, request, "read_file", mustToolArgs(map[string]any{"path": path})))
 	}
 
 	for _, query := range promptSearchQueriesForCli(prompt) {
-		sections = append(sections, ai.RunProjectTool(ctx, request, "search_project", mustToolArgs(map[string]string{"query": query})))
+		sections = append(sections, ai.RunProjectTool(ctx, request, "grep", mustToolArgs(map[string]any{"pattern": query, "fixed_strings": true})))
 	}
 
 	if len(sections) == baseSectionCount {
@@ -95,7 +95,7 @@ func promptWithRecentUserTurns(input StreamRequestInput) string {
 	return strings.Join(parts, "\n")
 }
 
-func mustToolArgs(values map[string]string) json.RawMessage {
+func mustToolArgs(values map[string]any) json.RawMessage {
 	raw, _ := json.Marshal(values)
 	return raw
 }

@@ -45,16 +45,20 @@ function writeContent(tool: AgentToolCallState) {
     : null;
 }
 
+// These are the read-only discovery tools where the result can be the answer to
+// the user's question. Opening them by default shows every entry, match, or file
+// the model actually saw instead of hiding the evidence behind a collapsed row.
+const RESULT_VISIBLE_TOOLS = new Set(["list_files", "glob", "grep"]);
+
 export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
   const detail = toolDetail(tool);
   const content = writeContent(tool);
   const contentLines = content ? content.split("\n").length : 0;
   const resultLines = tool.result ? tool.result.split("\n").length : 0;
   const pending = tool.status === "pending";
-  // list_files is the one tool where the result is the answer to the user's
-  // question. Opening it by default shows every entry the model actually saw
-  // instead of hiding the evidence behind a collapsed row.
-  const [resultOpen, setResultOpen] = useState(tool.name === "list_files");
+  const [resultOpen, setResultOpen] = useState(
+    RESULT_VISIBLE_TOOLS.has(tool.name),
+  );
 
   return (
     <div className="my-2 overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">

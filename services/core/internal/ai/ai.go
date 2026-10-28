@@ -23,6 +23,12 @@ import (
 	"time"
 )
 
+// maxProjectToolRounds matches the desktop agent loop's ceiling. The core's
+// chat stream also runs a planning loop for CLI and fallback requests, and a
+// four-round cap there caused the same "please explore the folder" ending that
+// the desktop loop fixed.
+const maxProjectToolRounds = 12
+
 type Diagnostic struct {
 	Path     string `json:"path"`
 	Message  string `json:"message"`
@@ -518,8 +524,8 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 		return messages, nil
 	}
 
-	for round := 0; round < 4; round++ {
-		if err := emit(StreamEvent{Type: "status", Status: fmt.Sprintf("Reading project context (step %d of 4)...", round+1)}); err != nil {
+	for round := 0; round < maxProjectToolRounds; round++ {
+		if err := emit(StreamEvent{Type: "status", Status: fmt.Sprintf("Reading project context (step %d of %d)...", round+1, maxProjectToolRounds)}); err != nil {
 			return nil, err
 		}
 
