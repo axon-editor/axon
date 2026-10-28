@@ -12,6 +12,7 @@ import { AI_PROVIDER_ITEMS } from "../../lib/data/settingsData";
 import SettingsField from "../../controls/layout/SettingsField";
 import SettingsSection from "../../controls/layout/SettingsSection";
 import SettingsToggle from "../../controls/inputs/SettingsToggle";
+import { COMMAND_PERMISSION_ITEMS } from "./data/commandPermissionItems";
 
 // modelCompatibilityNote explains, in one sentence, whether the host has enough
 // memory for the model so the picker can steer people away from downloads that
@@ -196,6 +197,20 @@ export default function AxonAgentSettingsSection({
             onUpdateAi("inlineCompletionsEnabled", checked)
           }
           label={draft.ai.inlineCompletionsEnabled ? "Enabled" : "Disabled"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        rowKey="command-permission"
+        label="Command approval"
+        description="Controls when Axon Agent can run shell commands. Commands are always limited to the active workspace and never receive Axon service credentials."
+      >
+        <SearchSelect
+          value={draft.ai.commandPermissionMode}
+          items={COMMAND_PERMISSION_ITEMS}
+          onChange={(mode) => onUpdateAi("commandPermissionMode", mode)}
+          ariaLabel="Command approval mode"
+          placeholder="Choose a command approval mode..."
         />
       </SettingsField>
 

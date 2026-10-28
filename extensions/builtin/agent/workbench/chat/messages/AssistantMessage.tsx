@@ -28,6 +28,7 @@ interface AssistantMessageProps {
   onCopied: (messageId: number) => void;
   onCopyContent: (content: string) => void;
   onRunTool?: (messageId: number, tool: AgentToolCallState) => void;
+  onAllowTool?: (messageId: number, tool: AgentToolCallState) => void;
   onSkipTool?: (messageId: number, tool: AgentToolCallState) => void;
 }
 
@@ -44,6 +45,7 @@ export default function AssistantMessage({
   onCopied,
   onCopyContent,
   onRunTool,
+  onAllowTool,
   onSkipTool,
 }: AssistantMessageProps) {
   const entries: AgentTimelineEntry[] =
@@ -104,6 +106,7 @@ export default function AssistantMessage({
                 key={entry.id}
                 tool={entry.tool}
                 onRun={(next) => onRunTool?.(messageId, next)}
+                onAllow={(next) => onAllowTool?.(messageId, next)}
                 onSkip={(next) => onSkipTool?.(messageId, next)}
               />
             );

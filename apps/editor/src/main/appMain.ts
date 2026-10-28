@@ -70,6 +70,7 @@ import {
   registerWorkspaceCapabilityHandlers,
   WorkspaceCapabilityRegistry,
 } from "./security/workspaceCapabilities";
+import { commandSessionAllowlist } from "./security/commandSessionAllowlist";
 import { AXON_SPOTIFY_CLIENT_ID } from "./generated/buildConfig";
 import {
   handleSpotifyProtocolRequest,
@@ -623,6 +624,7 @@ function createManagedWindow(
     pendingCliOpenFolders.delete(createdWebContentsId);
     cliReadyRenderers.delete(createdWebContentsId);
     workspaceCapabilities.releaseRenderer(createdWebContentsId);
+    commandSessionAllowlist.releaseRenderer(createdWebContentsId);
     terminalWindowController.ownerClosed(createdWebContentsId);
     localAssetTickets.releaseRenderer(createdWebContentsId);
     extensionAssetTickets.releaseRenderer(createdWebContentsId);

@@ -31,6 +31,7 @@ import {
 
 interface UseAgentChatStreamOptions {
   setMessages: Dispatch<SetStateAction<AgentMessage[]>>;
+  onDirectoryCreated?: (path: string) => void;
   onFileWritten?: (path: string) => void;
 }
 
@@ -40,6 +41,7 @@ interface UseAgentChatStreamOptions {
 // matched against the active stream before it can mutate messages.
 export function useAgentChatStream({
   setMessages,
+  onDirectoryCreated,
   onFileWritten,
 }: UseAgentChatStreamOptions) {
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
@@ -47,11 +49,16 @@ export function useAgentChatStream({
   const streamRef = useRef<{ requestId: string; messageId: number } | null>(
     null,
   );
+  const onDirectoryCreatedRef = useRef(onDirectoryCreated);
   const onFileWrittenRef = useRef(onFileWritten);
 
-  // The layout passes a refresh callback that changes identity with workspace
-  // state. Keeping it in a ref avoids tearing down and resubscribing the IPC
+  // The layout passes refresh callbacks that change identity with workspace
+  // state. Keeping them in refs avoids tearing down and resubscribing the IPC
   // listener on every render just to call the latest callback.
+  useEffect(() => {
+    onDirectoryCreatedRef.current = onDirectoryCreated;
+  }, [onDirectoryCreated]);
+
   useEffect(() => {
     onFileWrittenRef.current = onFileWritten;
   }, [onFileWritten]);
@@ -152,6 +159,14 @@ export function useAgentChatStream({
           result.result
         ) {
           onFileWrittenRef.current?.(result.result);
+        }
+        if (
+          event.tool.name === "create_directory" &&
+          result?.ok &&
+          !result.rejected &&
+          result.result
+        ) {
+          onDirectoryCreatedRef.current?.(result.result);
         }
         return;
       }

@@ -80,6 +80,7 @@ interface Props {
   side: "left" | "right";
   width: number;
   uiState: AiUiState;
+  onAgentDirectoryCreated: (path: string) => void;
   onAgentFileWritten: (path: string) => void;
   onApplyEdit: (path: string, content: string) => Promise<void>;
   onClose: () => void;
@@ -136,6 +137,7 @@ export default function AxonAgentSidebar(props: Props) {
     setBusy,
   } = useAgentChatStream({
     setMessages,
+    onDirectoryCreated: props.onAgentDirectoryCreated,
     onFileWritten: props.onAgentFileWritten,
   });
   const {
@@ -512,15 +514,23 @@ export default function AxonAgentSidebar(props: Props) {
     );
   };
 
-  const runTool = async (messageId: number, tool: AgentToolCallState) => {
+  const runTool = async (
+    messageId: number,
+    tool: AgentToolCallState,
+    allowForSession = false,
+  ) => {
     setToolStatus(messageId, tool.id, "running");
     const result = await props.onRunAgentAction(tool.name, tool.arguments);
     await window.axon.reportAiUiToolResult({
       callId: tool.id,
       ok: result.ok,
       message: result.message,
+      ...(allowForSession ? { allowForSession: true } : {}),
     });
   };
+
+  const allowTool = (messageId: number, tool: AgentToolCallState) =>
+    runTool(messageId, tool, true);
 
   const skipTool = async (messageId: number, tool: AgentToolCallState) => {
     setToolStatus(messageId, tool.id, "rejected");
@@ -642,6 +652,7 @@ export default function AxonAgentSidebar(props: Props) {
             messages={messages}
             onApplyEdit={(file) => void applyEdit(file)}
             onRunTool={(messageId, tool) => void runTool(messageId, tool)}
+            onAllowTool={(messageId, tool) => void allowTool(messageId, tool)}
             onSkipTool={(messageId, tool) => void skipTool(messageId, tool)}
             onCopied={(messageId) => {
               setCopiedId(messageId);

@@ -21,6 +21,7 @@ interface Props {
   onRetry?: (messageId: number) => void;
   onEdit?: (messageId: number, content: string) => void;
   onRunTool?: (messageId: number, tool: AgentToolCallState) => void;
+  onAllowTool?: (messageId: number, tool: AgentToolCallState) => void;
   onSkipTool?: (messageId: number, tool: AgentToolCallState) => void;
 }
 
@@ -79,6 +80,7 @@ export default function AgentMessageList(props: Props) {
             onCopied={props.onCopied}
             onCopyContent={handleCopyContent}
             onRunTool={props.onRunTool}
+            onAllowTool={props.onAllowTool}
             onSkipTool={props.onSkipTool}
           />
         ),

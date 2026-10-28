@@ -135,6 +135,19 @@ export const AI_UI_TOOL_SPECS: AiUiToolSpec[] = [
     required: ["path"],
   },
   {
+    name: "create_directory",
+    title: "Create folder",
+    description:
+      "Create a folder, including any missing parent folders. Use this before write_file when the destination folder does not exist.",
+    parameters: {
+      path: {
+        type: "string",
+        description: "Absolute path or path relative to the workspace root.",
+      },
+    },
+    required: ["path"],
+  },
+  {
     name: "write_file",
     title: "Write file",
     description:
@@ -150,6 +163,29 @@ export const AI_UI_TOOL_SPECS: AiUiToolSpec[] = [
       },
     },
     required: ["path", "content"],
+  },
+  {
+    name: "run_command",
+    title: "Run command",
+    description:
+      "Run a shell command inside the workspace. Use this for package managers, tests, builds, and Git inspection. The command starts in the workspace root unless cwd is provided, and it needs approval unless the user allowed the exact command for this session.",
+    parameters: {
+      command: {
+        type: "string",
+        description: "Shell command to run.",
+      },
+      description: {
+        type: "string",
+        description:
+          "Short reason this command is needed. The approval card shows it to the user.",
+      },
+      cwd: {
+        type: "string",
+        description:
+          "Optional absolute path or path relative to the workspace root. It must stay inside the workspace.",
+      },
+    },
+    required: ["command", "description"],
   },
   {
     name: "close_file",

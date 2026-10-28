@@ -266,6 +266,15 @@ export interface LspSettings {
   pythonInterpreterPath: string;
 }
 
+export const AI_COMMAND_PERMISSION_MODES = [
+  "ask",
+  "allowlist",
+  "auto",
+] as const;
+
+export type AiCommandPermissionMode =
+  (typeof AI_COMMAND_PERMISSION_MODES)[number];
+
 export interface AiSettings {
   enabled: boolean;
   provider: AiProviderId;
@@ -273,6 +282,7 @@ export interface AiSettings {
   apiKeyEnv: string;
   includeWorkspaceContext: boolean;
   inlineCompletionsEnabled: boolean;
+  commandPermissionMode: AiCommandPermissionMode;
 }
 
 export type EditorSidebarSide = "left" | "right";
@@ -338,6 +348,7 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     apiKeyEnv: "",
     includeWorkspaceContext: true,
     inlineCompletionsEnabled: true,
+    commandPermissionMode: "allowlist",
   },
   lsp: {
     enabled: true,
@@ -362,6 +373,15 @@ function isThemeId(value: unknown): value is ThemeId {
 function isAiProviderId(value: unknown): value is AiProviderId {
   return (
     typeof value === "string" && AI_PROVIDER_IDS.includes(value as AiProviderId)
+  );
+}
+
+function isAiCommandPermissionMode(
+  value: unknown,
+): value is AiCommandPermissionMode {
+  return (
+    typeof value === "string" &&
+    AI_COMMAND_PERMISSION_MODES.includes(value as AiCommandPermissionMode)
   );
 }
 
@@ -780,6 +800,11 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof ai.inlineCompletionsEnabled === "boolean"
           ? ai.inlineCompletionsEnabled
           : DEFAULT_SETTINGS.ai.inlineCompletionsEnabled,
+      commandPermissionMode: isAiCommandPermissionMode(
+        ai.commandPermissionMode,
+      )
+        ? ai.commandPermissionMode
+        : DEFAULT_SETTINGS.ai.commandPermissionMode,
     },
     lsp: {
       enabled:

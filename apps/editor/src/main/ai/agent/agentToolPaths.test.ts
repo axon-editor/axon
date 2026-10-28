@@ -5,7 +5,10 @@
 
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { resolveAgentWritePath } from "./agentToolPaths";
+import {
+  resolveAgentDirectoryPath,
+  resolveAgentWritePath,
+} from "./agentToolPaths";
 
 describe("resolveAgentWritePath", () => {
   it("resolves a workspace-relative path against the folder", () => {
@@ -27,5 +30,20 @@ describe("resolveAgentWritePath", () => {
     expect(() => resolveAgentWritePath("/workspace", "   ")).toThrow(
       "No file path",
     );
+  });
+
+  it("resolves a folder path against the workspace", () => {
+    expect(resolveAgentDirectoryPath("/workspace", "src/components")).toBe(
+      path.resolve("/workspace/src/components"),
+    );
+  });
+
+  it("rejects an empty folder path and a tab URI", () => {
+    expect(() => resolveAgentDirectoryPath("/workspace", "   ")).toThrow(
+      "No folder path",
+    );
+    expect(() =>
+      resolveAgentDirectoryPath("/workspace", "axon://problems"),
+    ).toThrow("filesystem path");
   });
 });

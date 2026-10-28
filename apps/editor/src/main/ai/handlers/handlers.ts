@@ -29,7 +29,9 @@ import {
 } from "../streaming/coreStream";
 import { requestCoreInlineCompletion } from "../completion/inlineCompletion";
 import { type WorkspaceCapabilityRegistry } from "../../security/workspaceCapabilities";
+import { createWorkspaceDirectory } from "../../security/createWorkspaceDirectory";
 import { writeWorkspaceTextFile } from "../../security/writeWorkspaceTextFile";
+import { createAgentCommandController } from "../agent/agentCommandController";
 
 interface CoreResponse<T> {
   status: "success" | "error";
@@ -209,6 +211,14 @@ export function registerAiHandlers(deps: {
       }
 
       const rendererId = event.sender.id;
+      const commandController = authorizedRequest.folderPath
+        ? createAgentCommandController({
+            registry: deps.workspaceCapabilities,
+            rendererId,
+            workspaceRoot: authorizedRequest.folderPath,
+            mode: settings.ai.commandPermissionMode,
+          })
+        : undefined;
       const { requestId } = runAgentLoop({
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
@@ -228,6 +238,13 @@ export function registerAiHandlers(deps: {
             filePath,
             content,
           ),
+        createDirectory: (directoryPath) =>
+          createWorkspaceDirectory(
+            deps.workspaceCapabilities,
+            rendererId,
+            directoryPath,
+          ),
+        commandController,
       });
 
       return { success: true, requestId };

@@ -113,6 +113,10 @@ export interface AiUiToolResult {
   // the renderer only so the tool card can show what the agent actually saw; it
   // is not part of the model's message history.
   result?: string;
+  // The renderer sets this when the user trusts one exact command and working
+  // directory for the rest of the window session. The main process ignores it
+  // for every tool except run_command.
+  allowForSession?: boolean;
 }
 
 export interface AiChatRequest {

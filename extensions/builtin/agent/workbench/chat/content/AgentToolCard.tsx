@@ -4,12 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useState } from "react";
-import { Check, Loader2, Play, SkipForward, X } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  Play,
+  ShieldCheck,
+  SkipForward,
+  X,
+} from "lucide-react";
 import { type AgentToolCallState } from "../../lib/conversation";
 
 interface Props {
   tool: AgentToolCallState;
   onRun: (tool: AgentToolCallState) => void;
+  onAllow?: (tool: AgentToolCallState) => void;
   onSkip: (tool: AgentToolCallState) => void;
 }
 
@@ -24,10 +32,14 @@ function formatArgumentValue(value: unknown) {
 
 // The card used to show only arguments.path, which left search and problem
 // tools looking empty because their inputs are a query or filters, not a path.
-// Showing every argument keeps the card honest about what the agent asked for.
+// Showing every argument without a dedicated preview keeps the card honest
+// about what the agent asked for.
 function toolDetail(tool: AgentToolCallState) {
   const entries = Object.entries(tool.arguments).filter(
-    ([key]) => !(tool.name === "write_file" && key === "content"),
+    ([key]) =>
+      !(tool.name === "write_file" && key === "content") &&
+      !(tool.name === "run_command" && key === "command") &&
+      !(tool.name === "run_command" && key === "description"),
   );
   if (entries.length === 0) return null;
   return entries
@@ -45,14 +57,45 @@ function writeContent(tool: AgentToolCallState) {
     : null;
 }
 
-// These are the read-only discovery tools where the result can be the answer to
-// the user's question. Opening them by default shows every entry, match, or file
-// the model actually saw instead of hiding the evidence behind a collapsed row.
-const RESULT_VISIBLE_TOOLS = new Set(["list_files", "glob", "grep"]);
+// A shell command can be long enough that a truncated argument row hides the
+// part that matters. The approval card shows the full command in its own block
+// so the user can read exactly what will run.
+function commandContent(tool: AgentToolCallState) {
+  return tool.name === "run_command" &&
+    typeof tool.arguments.command === "string"
+    ? tool.arguments.command
+    : null;
+}
 
-export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
+// The model explains why it needs the command, and that reason sits above the
+// command so the user has context before approving the action.
+function commandReason(tool: AgentToolCallState) {
+  return tool.name === "run_command" &&
+    typeof tool.arguments.description === "string"
+    ? tool.arguments.description
+    : null;
+}
+
+// These tools produce output the user needs to see immediately, such as the
+// files, matches, or build errors the model is acting on. Opening them by
+// default keeps the evidence out of a collapsed row.
+const RESULT_VISIBLE_TOOLS = new Set([
+  "list_files",
+  "glob",
+  "grep",
+  "run_command",
+]);
+
+export default function AgentToolCard({
+  tool,
+  onRun,
+  onAllow,
+  onSkip,
+}: Props) {
   const detail = toolDetail(tool);
   const content = writeContent(tool);
+  const command = commandContent(tool);
+  const reason = commandReason(tool);
   const contentLines = content ? content.split("\n").length : 0;
   const resultLines = tool.result ? tool.result.split("\n").length : 0;
   const pending = tool.status === "pending";
@@ -77,6 +120,21 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
       {detail && (
         <div className="truncate px-3 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-60">
           {detail}
+        </div>
+      )}
+
+      {(reason !== null || command !== null) && (
+        <div className="max-h-60 overflow-auto border-t border-[var(--axon-panel-border)] px-3 py-2">
+          {reason !== null && (
+            <div className="mb-2 whitespace-pre-wrap break-words text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+              {reason}
+            </div>
+          )}
+          {command !== null && (
+            <pre className="whitespace-pre-wrap break-words text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+              {command}
+            </pre>
+          )}
         </div>
       )}
 
@@ -106,10 +164,10 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
         </details>
       )}
 
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
         {pending ? (
           <>
-            <span className="text-[11px] text-[var(--axon-editor-foreground)] opacity-50">
+            <span className="min-w-0 text-[11px] text-[var(--axon-editor-foreground)] opacity-50">
               Axon wants to run this action.
             </span>
             <span className="flex shrink-0 items-center gap-1">
@@ -121,6 +179,17 @@ export default function AgentToolCard({ tool, onRun, onSkip }: Props) {
                 <SkipForward size={10} />
                 Skip
               </button>
+              {tool.name === "run_command" && onAllow && (
+                <button
+                  type="button"
+                  onClick={() => onAllow(tool)}
+                  title="Allow this exact command and working directory for this session"
+                  className="flex h-6 cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-60 transition-colors hover:opacity-100"
+                >
+                  <ShieldCheck size={10} />
+                  Allow
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onRun(tool)}

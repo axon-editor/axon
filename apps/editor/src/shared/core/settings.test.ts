@@ -162,6 +162,26 @@ describe("AI settings", () => {
       true,
     );
   });
+
+  it("preserves an explicit command permission mode", () => {
+    expect(
+      normalizeSettings({ ai: { commandPermissionMode: "auto" } }).ai
+        .commandPermissionMode,
+    ).toBe("auto");
+  });
+
+  it("falls back to the allowlist command mode for older AI settings", () => {
+    expect(normalizeSettings({ ai: {} }).ai.commandPermissionMode).toBe(
+      "allowlist",
+    );
+  });
+
+  it("rejects an unknown command permission mode", () => {
+    expect(
+      normalizeSettings({ ai: { commandPermissionMode: "always" } }).ai
+        .commandPermissionMode,
+    ).toBe("allowlist");
+  });
 });
 
 describe("line trace settings", () => {

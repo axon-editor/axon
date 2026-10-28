@@ -25,7 +25,14 @@ import { type EditorDiagnostic } from "../../../shared/editor/language/diagnosti
 import { getToolDefinitions, runTool, streamPlanTurn } from "./coreClient";
 import { cancelCoreAiStream, startCoreAiStream } from "../streaming/coreStream";
 import { proposeUiTool, rejectUiToolsForRequest } from "./uiToolBridge";
-import { resolveAgentWritePath } from "./agentToolPaths";
+import {
+  resolveAgentDirectoryPath,
+  resolveAgentWritePath,
+} from "./agentToolPaths";
+import {
+  type AgentCommandController,
+  type PreparedAgentCommand,
+} from "./agentCommandController";
 
 // Local models often need several search and read rounds before they can answer
 // a project question. Four rounds stopped the agent mid-investigation and made
@@ -39,6 +46,8 @@ const MAX_TOOL_ROUNDS = 12;
 const LEGACY_WORKSPACE_TOOLS = ["search_project"];
 
 const WRITE_FILE_TOOL = "write_file";
+const CREATE_DIRECTORY_TOOL = "create_directory";
+const RUN_COMMAND_TOOL = "run_command";
 
 // The tool card shows a preview of what the agent saw, but the model still gets
 // the full output. Truncating here keeps large file reads and problem lists from
@@ -50,12 +59,21 @@ function toolPreview(result: string) {
   return `${result.slice(0, TOOL_PREVIEW_LIMIT)}\n\n[truncated ${result.length - TOOL_PREVIEW_LIMIT} chars]`;
 }
 
+// Build output usually ends with the failing test or compiler error, so the
+// command card keeps the tail while the model still receives the full capped
+// output. This is also what gets persisted with the conversation.
+function toolTailPreview(result: string) {
+  if (result.length <= TOOL_PREVIEW_LIMIT) return result;
+  return `[truncated ${result.length - TOOL_PREVIEW_LIMIT} chars]\n${result.slice(-TOOL_PREVIEW_LIMIT)}`;
+}
+
 interface CoreEndpoint {
   axonCorePort: string;
   axonCoreToken: string;
 }
 
 type AgentTextWriter = (filePath: string, content: string) => Promise<string>;
+type AgentDirectoryCreator = (directoryPath: string) => Promise<string>;
 
 // The loop is fire-and-forget from the IPC handler's point of view, so the run
 // map keeps the abort controller reachable by request id for cancellation.
@@ -89,9 +107,18 @@ function parseArguments(
 }
 
 function uiResultText(
-  result: { ok: boolean; rejected?: boolean; message?: string },
+  result: {
+    ok: boolean;
+    rejected?: boolean;
+    message?: string;
+    result?: string;
+  },
   name: string,
 ) {
+  if (name === RUN_COMMAND_TOOL) {
+    if (result.rejected) return "The user declined to run the command.";
+    return result.result ?? result.message ?? "Command finished.";
+  }
   if (result.ok) {
     return `Executed ${name}.${result.message ? ` ${result.message}` : ""}`;
   }
@@ -117,12 +144,19 @@ function toolFinishStatus(
   return result.ok ? `Finished ${title}.` : `${title} failed.`;
 }
 
+function commandFinishStatus(result: { ok: boolean; rejected?: boolean }) {
+  if (result.rejected) return "Skipped command.";
+  return result.ok ? "Command finished." : "Command failed.";
+}
+
 export function runAgentLoop(input: {
   axonCorePort: string;
   axonCoreToken: string;
   request: AiChatRequest;
   send: (event: AiChatStreamEvent) => void;
   writeTextFile?: AgentTextWriter;
+  createDirectory?: AgentDirectoryCreator;
+  commandController?: AgentCommandController;
 }): { requestId: string } {
   const requestId = randomUUID();
   const controller = new AbortController();
@@ -138,6 +172,8 @@ export function runAgentLoop(input: {
     send: input.send,
     signal: controller.signal,
     writeTextFile: input.writeTextFile,
+    createDirectory: input.createDirectory,
+    commandController: input.commandController,
   }).finally(() => {
     runs.delete(requestId);
   });
@@ -152,8 +188,19 @@ async function runLoop(input: {
   send: (event: AiChatStreamEvent) => void;
   signal: AbortSignal;
   writeTextFile?: AgentTextWriter;
+  createDirectory?: AgentDirectoryCreator;
+  commandController?: AgentCommandController;
 }) {
-  const { requestId, core, request, send, signal, writeTextFile } = input;
+  const {
+    requestId,
+    core,
+    request,
+    send,
+    signal,
+    writeTextFile,
+    createDirectory,
+    commandController,
+  } = input;
   try {
     const coreDefinitions = await getToolDefinitions(core, signal).catch(
       () => [],
@@ -222,6 +269,8 @@ async function runLoop(input: {
             signal,
             workspaceTools,
             writeTextFile,
+            createDirectory,
+            commandController,
           }),
         });
       }
@@ -327,6 +376,146 @@ async function runApprovedWrite(input: {
   }
 }
 
+async function runApprovedCreateDirectory(input: {
+  callId: string;
+  args: Record<string, unknown>;
+  folderPath: string | null;
+  createDirectory?: AgentDirectoryCreator;
+}): Promise<AiUiToolResult> {
+  const rawPath = typeof input.args.path === "string" ? input.args.path : "";
+  if (!rawPath.trim()) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: "No folder path was provided.",
+    };
+  }
+  if (!input.folderPath) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: "No workspace is open, so this folder cannot be created.",
+    };
+  }
+  if (!input.createDirectory) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: "Folder creation is not available in this window.",
+    };
+  }
+
+  try {
+    const directoryPath = resolveAgentDirectoryPath(
+      input.folderPath,
+      rawPath,
+    );
+    const createdPath = await input.createDirectory(directoryPath);
+    return {
+      callId: input.callId,
+      ok: true,
+      message: createdPath,
+      result: createdPath,
+    };
+  } catch (error) {
+    return {
+      callId: input.callId,
+      ok: false,
+      message: error instanceof Error ? error.message : "unknown error",
+    };
+  }
+}
+
+async function runCommandTool(input: {
+  callId: string;
+  args: Record<string, unknown>;
+  folderPath: string | null;
+  requestId: string;
+  tool: AiToolCall;
+  send: (event: AiChatStreamEvent) => void;
+  signal: AbortSignal;
+  commandController?: AgentCommandController;
+}): Promise<AiUiToolResult> {
+  const {
+    callId,
+    args,
+    folderPath,
+    requestId,
+    tool,
+    send,
+    signal,
+    commandController,
+  } = input;
+  if (!folderPath) {
+    return {
+      callId,
+      ok: false,
+      message: "No workspace is open, so this command cannot run.",
+    };
+  }
+  if (!commandController) {
+    return {
+      callId,
+      ok: false,
+      message: "Shell commands are not available in this window.",
+    };
+  }
+
+  const command = typeof args.command === "string" ? args.command : "";
+  const description =
+    typeof args.description === "string" ? args.description.trim() : "";
+  if (!description) {
+    return {
+      callId,
+      ok: false,
+      message: "No command description was provided.",
+    };
+  }
+
+  const cwd = typeof args.cwd === "string" ? args.cwd : undefined;
+  let prepared: PreparedAgentCommand;
+  try {
+    prepared = await commandController.prepare({ command, cwd });
+  } catch (error) {
+    return {
+      callId,
+      ok: false,
+      message: error instanceof Error ? error.message : "unknown error",
+    };
+  }
+
+  const needsApproval =
+    commandController.mode === "ask" ||
+    (commandController.mode === "allowlist" &&
+      !commandController.isAllowed(prepared));
+
+  if (needsApproval) {
+    send({
+      requestId,
+      type: "status",
+      status: "Waiting for command approval...",
+    });
+    const approval = await proposeUiTool(requestId, tool, send);
+    if (!approval.ok || approval.rejected) return approval;
+    if (approval.allowForSession) commandController.allow(prepared);
+  } else {
+    // Auto and allowlist runs skip the prompt but still need the card. Sending
+    // the proposal first keeps the renderer's append path as the only place
+    // that creates a tool card, then the started event moves it to running.
+    send({ requestId, type: "tool-proposed", tool });
+    send({ requestId, type: "tool-started", tool });
+    send({ requestId, type: "status", status: "Running command..." });
+  }
+
+  const result = await commandController.run(prepared, signal);
+  return {
+    callId,
+    ok: result.ok,
+    message: result.message,
+    result: result.result,
+  };
+}
+
 async function executeToolCall(input: {
   call: AiModelToolCall;
   core: CoreEndpoint;
@@ -337,6 +526,8 @@ async function executeToolCall(input: {
   signal: AbortSignal;
   workspaceTools: Set<string>;
   writeTextFile?: AgentTextWriter;
+  createDirectory?: AgentDirectoryCreator;
+  commandController?: AgentCommandController;
 }): Promise<string> {
   const {
     call,
@@ -348,6 +539,8 @@ async function executeToolCall(input: {
     signal,
     workspaceTools,
     writeTextFile,
+    createDirectory,
+    commandController,
   } = input;
   const name = call.function.name;
   const args = parseArguments(call.function.arguments);
@@ -362,21 +555,58 @@ async function executeToolCall(input: {
       title: spec.title,
       arguments: args,
     };
+
+    if (name === RUN_COMMAND_TOOL) {
+      const finalResult = await runCommandTool({
+        callId: id,
+        args,
+        folderPath,
+        requestId,
+        tool,
+        send,
+        signal,
+        commandController,
+      });
+      send({
+        requestId,
+        type: "tool-result",
+        tool,
+        toolResult: finalResult.result
+          ? { ...finalResult, result: toolTailPreview(finalResult.result) }
+          : finalResult,
+      });
+      send({
+        requestId,
+        type: "status",
+        status: commandFinishStatus(finalResult),
+      });
+      return uiResultText(finalResult, name);
+    }
+
     send({
       requestId,
       type: "status",
       status: toolStartStatus(spec.title, true),
     });
     const result = await proposeUiTool(requestId, tool, send);
-    const finalResult =
-      name === WRITE_FILE_TOOL && result.ok && !result.rejected
-        ? await runApprovedWrite({
-            callId: id,
-            args,
-            folderPath,
-            writeTextFile,
-          })
-        : result;
+    let finalResult = result;
+    if (result.ok && !result.rejected) {
+      if (name === WRITE_FILE_TOOL) {
+        finalResult = await runApprovedWrite({
+          callId: id,
+          args,
+          folderPath,
+          writeTextFile,
+        });
+      } else if (name === CREATE_DIRECTORY_TOOL) {
+        finalResult = await runApprovedCreateDirectory({
+          callId: id,
+          args,
+          folderPath,
+          createDirectory,
+        });
+      }
+    }
     send({
       requestId,
       type: "tool-result",

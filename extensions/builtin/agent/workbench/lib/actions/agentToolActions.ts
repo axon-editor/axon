@@ -57,6 +57,16 @@ export async function runAgentUiTool(
     return { ok: true, message: resolvedPath };
   }
 
+  if (spec.name === "create_directory") {
+    const rawPath = typeof args.path === "string" ? args.path.trim() : "";
+    if (!rawPath) {
+      return { ok: false, message: "No folder path was provided." };
+    }
+    // Folder creation follows the write_file approval shape: the renderer only
+    // reports the user's decision, and the main process performs the mkdir.
+    return { ok: true, message: resolvePath(rawPath, deps.folderPath) };
+  }
+
   if (spec.name === "write_file") {
     const rawPath = typeof args.path === "string" ? args.path.trim() : "";
     const content = args.content;
@@ -72,6 +82,25 @@ export async function runAgentUiTool(
     // the card and the next model turn pointed at the same file the main
     // process is about to replace.
     return { ok: true, message: resolvePath(rawPath, deps.folderPath) };
+  }
+
+  if (spec.name === "run_command") {
+    const command = typeof args.command === "string" ? args.command.trim() : "";
+    if (!command) {
+      return { ok: false, message: "No command was provided." };
+    }
+    const description =
+      typeof args.description === "string" ? args.description.trim() : "";
+    if (!description) {
+      return {
+        ok: false,
+        message: "No command description was provided.",
+      };
+    }
+    // The renderer never executes shell commands. Approving here only reports
+    // the decision; the main process validates the workspace and runs the
+    // command after this result arrives.
+    return { ok: true, message: command };
   }
 
   if (spec.name === "close_file") {

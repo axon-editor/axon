@@ -246,6 +246,9 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
     },
     [handleFileSelect, handleRefresh],
   );
+  const handleAgentDirectoryCreated = React.useCallback(() => {
+    void handleRefresh();
+  }, [handleRefresh]);
   const runAgentAction = (name: string, args: Record<string, unknown>) =>
     runAgentUiTool(
       {
@@ -276,6 +279,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         side="right"
         width={agentSidebarWidth}
         uiState={agentUiState}
+        onAgentDirectoryCreated={handleAgentDirectoryCreated}
         onAgentFileWritten={handleAgentFileWritten}
         onApplyEdit={handleApplyAgentEdit}
         onClose={() => setAgentSidebarOpen(false)}
