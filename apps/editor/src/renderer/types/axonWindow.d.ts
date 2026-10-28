@@ -135,6 +135,10 @@ import type {
   AiRuntimeStatus,
   AiUiToolResult,
 } from "../../shared/ai/ai";
+import type {
+  AgentConversationRecord,
+  AgentConversationSnapshot,
+} from "../../shared/ai/agentConversations";
 
 declare global {
   interface Window {
@@ -216,6 +220,18 @@ declare global {
       onAgentResumeRequest: (
         callback: (request: AgentResumeRequest) => void,
       ) => () => void;
+      loadAgentConversations: (
+        folderPath: string | null,
+      ) => Promise<AgentConversationSnapshot | null>;
+      saveAgentConversations: (
+        folderPath: string | null,
+        state: AgentConversationSnapshot,
+      ) => Promise<void>;
+      saveAgentConversation: (
+        folderPath: string | null,
+        conversation: AgentConversationRecord,
+        activeId: string,
+      ) => Promise<void>;
       onCliOpenFolder: (callback: (folderPath: string) => void) => () => void;
       getFinderSyncEnabled: () => Promise<boolean>;
       setFinderSyncEnabled: (enabled: boolean) => Promise<boolean>;

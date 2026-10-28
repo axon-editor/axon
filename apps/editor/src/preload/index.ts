@@ -41,6 +41,10 @@ import {
   type AiRuntimeStatus,
   type AiUiToolResult,
 } from "../shared/ai/ai";
+import {
+  type AgentConversationRecord,
+  type AgentConversationSnapshot,
+} from "../shared/ai/agentConversations";
 import { type EditorDiagnostic } from "../shared/editor/language/diagnostics";
 import { type FolderChangeEvent } from "../shared/workspace/fs";
 import {
@@ -279,6 +283,26 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.on("agent:resumeRequest", listener);
     return () => ipcRenderer.removeListener("agent:resumeRequest", listener);
   },
+  loadAgentConversations: (
+    folderPath: string | null,
+  ): Promise<AgentConversationSnapshot | null> =>
+    ipcRenderer.invoke("agentConversations:load", folderPath),
+  saveAgentConversations: (
+    folderPath: string | null,
+    state: AgentConversationSnapshot,
+  ): Promise<void> =>
+    ipcRenderer.invoke("agentConversations:save", folderPath, state),
+  saveAgentConversation: (
+    folderPath: string | null,
+    conversation: AgentConversationRecord,
+    activeId: string,
+  ): Promise<void> =>
+    ipcRenderer.invoke(
+      "agentConversations:saveConversation",
+      folderPath,
+      conversation,
+      activeId,
+    ),
   onCliOpenFolder: (callback: (folderPath: string) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, folderPath: string) =>
       callback(folderPath);

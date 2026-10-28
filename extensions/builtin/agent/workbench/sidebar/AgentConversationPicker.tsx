@@ -12,6 +12,7 @@ import { usePopoverDismiss } from "../lib/hooks/usePopoverDismiss";
 interface Props {
   activeTitle: string;
   conversationState: AgentConversationState;
+  disabled?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRequestClear: (conversationId: string) => void;
@@ -44,14 +45,15 @@ export default function AgentConversationPicker(props: Props) {
         <button
           type="button"
           onClick={() => props.onOpenChange(!props.open)}
+          disabled={props.disabled}
           aria-label="Switch Ask Axon conversation"
-          className="flex h-8 max-w-[150px] cursor-pointer items-center gap-1 rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+          className="flex h-8 max-w-[150px] cursor-pointer items-center gap-1 rounded px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:opacity-25"
         >
           <span className="truncate">{props.activeTitle}</span>
           <ChevronDown size={12} />
         </button>
       </Tooltip>
-      {props.open && (
+      {props.open && !props.disabled && (
         <div className="axon-popup-surface axon-agent-popup axon-agent-popup--down absolute right-0 top-9 z-50 w-72 overflow-hidden rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-xl shadow-black/40">
           <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-2 py-1.5">
             <Search size={12} className="shrink-0 text-[var(--axon-editor-foreground)] opacity-40" />

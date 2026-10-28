@@ -8,7 +8,7 @@ import {
   type AgentConversationState,
   type AgentMessage,
 } from "../types/agentConversation";
-import { saveAgentConversationState } from "./saveAgentConversationState";
+import { saveAgentConversation } from "./saveAgentConversation";
 
 export function saveActiveAgentConversation(
   folderPath: string | null,
@@ -52,6 +52,11 @@ export function saveActiveAgentConversation(
         : conversation,
     ),
   };
-  saveAgentConversationState(folderPath, nextState);
+  const active = nextState.conversations.find(
+    (conversation) => conversation.id === nextState.activeId,
+  );
+  if (active) {
+    saveAgentConversation(folderPath, active, nextState.activeId);
+  }
   return nextState;
 }

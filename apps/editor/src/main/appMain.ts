@@ -94,6 +94,10 @@ import {
   registerWindowSessionHandlers,
   WindowSessionStore,
 } from "./app/sessions/windowSessionStore";
+import {
+  AgentConversationStore,
+  registerAgentConversationHandlers,
+} from "./ai/conversations";
 import { registerTerminalHandlers } from "./terminal/handlers";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -187,6 +191,10 @@ const extensionAssetTickets = new ExtensionAssetTicketRegistry();
 configureExtensionAssetTickets(extensionAssetTickets);
 const windowSessionStore = new WindowSessionStore();
 registerWindowSessionHandlers(windowSessionStore);
+const agentConversationStore = new AgentConversationStore(
+  path.join(app.getPath("home"), ".axon", "sessions"),
+);
+registerAgentConversationHandlers(agentConversationStore);
 const openWorkspaceRegistry = new OpenWorkspaceRegistry();
 openWorkspaceRegistry.registerHandlers();
 const { broadcastToRenderers, sendToRenderer, sendMenuCommand } =

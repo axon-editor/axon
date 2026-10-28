@@ -42,6 +42,8 @@ import {
   activeAgentConversation,
   clearAgentConversation,
   conversationAction,
+  emptyAgentConversationState,
+  flushAllAgentConversations,
   isGreetingPrompt,
   loadAgentConversationState,
   saveActiveAgentConversation,
@@ -87,12 +89,20 @@ interface Props {
 }
 
 export default function AxonAgentSidebar(props: Props) {
-  const [conversationState, setConversationState] = useState(() =>
-    loadAgentConversationState(props.folderPath),
+  const [conversationState, setConversationState] = useState(
+    emptyAgentConversationState,
   );
-  const [messages, setMessages] = useState<AgentMessage[]>(() =>
-    activeAgentConversation(loadAgentConversationState(props.folderPath)).messages,
+  const [messages, setMessages] = useState<AgentMessage[]>(
+    () => activeAgentConversation(conversationState).messages,
   );
+  const [loadedFolderPath, setLoadedFolderPath] = useState<
+    string | null | undefined
+  >(undefined);
+  // A folder prop can change a render before the load effect runs. Comparing
+  // the loaded folder keeps the previous workspace's state from being saved or
+  // cleared into the new workspace during that gap.
+  const conversationReady =
+    loadedFolderPath !== undefined && loadedFolderPath === props.folderPath;
   const [prompt, setPrompt] = useState("");
   const [action, setAction] = useState<AiActionId>("agent");
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -111,6 +121,7 @@ export default function AxonAgentSidebar(props: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const resumeRequestHandledRef = useRef<string | null>(null);
+  const conversationStateRef = useRef(conversationState);
   const actionPickerRef = useRef<HTMLDivElement | null>(null);
   const activeConversation = activeAgentConversation(conversationState);
   const activeConversationEmpty = activeConversation.messages.length === 0;
@@ -155,6 +166,7 @@ export default function AxonAgentSidebar(props: Props) {
   );
 
   useEffect(() => {
+    if (!conversationReady) return;
     const resumeConversationId = props.resumeConversationId;
     const resumeToken = props.resumeRequested
       ? resumeConversationId || "__list__"
@@ -200,6 +212,7 @@ export default function AxonAgentSidebar(props: Props) {
     });
     setConversationPickerOpen(false);
   }, [
+    conversationReady,
     conversationState.activeId,
     conversationState.conversations,
     props.folderPath,
@@ -208,18 +221,69 @@ export default function AxonAgentSidebar(props: Props) {
   ]);
 
   useEffect(() => {
-    const nextState = loadAgentConversationState(props.folderPath);
-    const active = activeAgentConversation(nextState);
-    setConversationState(nextState);
-    setMessages(active.messages);
-    setAction(conversationAction(active));
+    let cancelled = false;
+    setLoadedFolderPath(undefined);
+    resumeRequestHandledRef.current = null;
+    setConversationPickerOpen(false);
+    setActionPickerOpen(false);
+    setSlashCommandOpen(false);
+    setClearConversationId(null);
+
+    const pending = emptyAgentConversationState();
+    const pendingActive = activeAgentConversation(pending);
+    setConversationState(pending);
+    setMessages(pendingActive.messages);
+    setAction(conversationAction(pendingActive));
+
+    void loadAgentConversationState(props.folderPath)
+      .then((nextState) => {
+        if (cancelled) return;
+        const active = activeAgentConversation(nextState);
+        setConversationState(nextState);
+        setMessages(active.messages);
+        setAction(conversationAction(active));
+        setLoadedFolderPath(props.folderPath);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("failed to load agent conversations:", error);
+        const fallback = emptyAgentConversationState();
+        const active = activeAgentConversation(fallback);
+        setConversationState(fallback);
+        setMessages(active.messages);
+        setAction(conversationAction(active));
+        setLoadedFolderPath(props.folderPath);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [props.folderPath]);
 
   useEffect(() => {
-    setConversationState((current) =>
+    conversationStateRef.current = conversationState;
+  }, [conversationState]);
+
+  useEffect(() => {
+    if (!conversationReady) return;
+    const current = conversationStateRef.current;
+    const active = activeAgentConversation(current);
+    if (active.messages === messages) return;
+    setConversationState(
       saveActiveAgentConversation(props.folderPath, current, messages),
     );
-  }, [messages, props.folderPath]);
+  }, [messages, props.folderPath, conversationReady]);
+
+  useEffect(() => {
+    const flush = () => flushAllAgentConversations();
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      // Streaming updates are debounced, so closing the panel has to push the
+      // last pending conversation instead of waiting for the next token.
+      flush();
+    };
+  }, []);
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({
@@ -230,7 +294,7 @@ export default function AxonAgentSidebar(props: Props) {
 
   const runAgent = async (nextAction = action, nextPrompt = prompt) => {
     const finalPrompt = nextPrompt.trim() || defaultPromptForAction(nextAction);
-    if (!finalPrompt || busy || !canChat) return;
+    if (!finalPrompt || busy || !canChat || !conversationReady) return;
 
     setAction(nextAction);
     setConversationState((current) =>
@@ -314,8 +378,16 @@ export default function AxonAgentSidebar(props: Props) {
     beginStream(started.requestId, assistantMessageId);
   };
 
+  const selectAction = (nextAction: AiActionId) => {
+    if (!conversationReady) return;
+    setAction(nextAction);
+    setConversationState((current) =>
+      selectConversationAction(props.folderPath, current, nextAction),
+    );
+  };
+
   const startNewConversation = async () => {
-    if (activeConversationEmpty) return;
+    if (!conversationReady || activeConversationEmpty) return;
     if (activeStreamId) {
       await cancelActiveStream();
     }
@@ -333,6 +405,7 @@ export default function AxonAgentSidebar(props: Props) {
   };
 
   const switchConversation = async (conversationId: string) => {
+    if (!conversationReady) return;
     if (activeStreamId) {
       await cancelActiveStream();
     }
@@ -352,7 +425,7 @@ export default function AxonAgentSidebar(props: Props) {
   };
 
   const confirmClearConversation = async () => {
-    if (!clearConversationId) return;
+    if (!conversationReady || !clearConversationId) return;
     if (activeStreamId) {
       await cancelActiveStream();
     }
@@ -373,20 +446,21 @@ export default function AxonAgentSidebar(props: Props) {
   };
 
   const togglePin = (conversationId: string) => {
+    if (!conversationReady) return;
     setConversationState((current) =>
       togglePinConversation(props.folderPath, current, conversationId),
     );
   };
 
   useEffect(() => {
-    if (!props.initialAction) return;
+    if (!conversationReady || !props.initialAction) return;
     const nextAction = props.initialAction.action;
     setAction(nextAction);
     void runAgent(nextAction, defaultPromptForAction(nextAction));
     // initialAction.nonce is the trigger; the rest of the dependencies are read
     // from current props/state when the command opens the panel.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.initialAction?.nonce]);
+  }, [conversationReady, props.initialAction?.nonce]);
 
   const applyEdit = async (file: AiEditFileProposal) => {
     const resolvedPath = props.folderPath
@@ -487,6 +561,7 @@ export default function AxonAgentSidebar(props: Props) {
           <AgentConversationPicker
             activeTitle={activeConversation.title}
             conversationState={conversationState}
+            disabled={!conversationReady}
             open={conversationPickerOpen}
             onOpenChange={setConversationPickerOpen}
             onRequestClear={setClearConversationId}
@@ -497,7 +572,7 @@ export default function AxonAgentSidebar(props: Props) {
             <button
               type="button"
               onClick={() => void startNewConversation()}
-              disabled={activeConversationEmpty}
+              disabled={!conversationReady || activeConversationEmpty}
               aria-label="Start new Ask Axon conversation"
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
             >
@@ -538,7 +613,7 @@ export default function AxonAgentSidebar(props: Props) {
             onSelectModel={setSelectedModel}
           />
         )}
-        {messages.length === 0 && canChat && (
+        {conversationReady && messages.length === 0 && canChat && (
           <div className="flex flex-col items-center py-16 text-center">
             <div className="mb-4">
               <AxonIcon size={44} />
@@ -552,18 +627,20 @@ export default function AxonAgentSidebar(props: Props) {
             </div>
           </div>
         )}
-        <AgentMessageList
-          copiedId={copiedId}
-          messages={messages}
-          onApplyEdit={(file) => void applyEdit(file)}
-          onRunTool={(messageId, tool) => void runTool(messageId, tool)}
-          onSkipTool={(messageId, tool) => void skipTool(messageId, tool)}
-          onCopied={(messageId) => {
-            setCopiedId(messageId);
-            window.setTimeout(() => setCopiedId(null), 1200);
-          }}
-          scrollAnchorRef={scrollAnchorRef}
-        />
+        {conversationReady && (
+          <AgentMessageList
+            copiedId={copiedId}
+            messages={messages}
+            onApplyEdit={(file) => void applyEdit(file)}
+            onRunTool={(messageId, tool) => void runTool(messageId, tool)}
+            onSkipTool={(messageId, tool) => void skipTool(messageId, tool)}
+            onCopied={(messageId) => {
+              setCopiedId(messageId);
+              window.setTimeout(() => setCopiedId(null), 1200);
+            }}
+            scrollAnchorRef={scrollAnchorRef}
+          />
+        )}
       </div>
 
       {clearConversationId && (
@@ -604,6 +681,7 @@ export default function AxonAgentSidebar(props: Props) {
             <textarea
               ref={textareaRef}
               value={prompt}
+              disabled={!conversationReady}
               onChange={(event) => {
                 const value = event.target.value;
                 setPrompt(value);
@@ -622,23 +700,22 @@ export default function AxonAgentSidebar(props: Props) {
                   setSlashCommandOpen(false);
                 }
               }}
-              placeholder={slashCommandOpen ? "Choose a command..." : "Ask Axon anything..."}
-              className="min-h-[40px] w-full resize-none bg-transparent px-3 py-2.5 text-[13px] leading-5 text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30"
+              placeholder={
+                !conversationReady
+                  ? "Loading conversation..."
+                  : slashCommandOpen
+                    ? "Choose a command..."
+                    : "Ask Axon anything..."
+              }
+              className="min-h-[40px] w-full resize-none bg-transparent px-3 py-2.5 text-[13px] leading-5 text-[var(--axon-editor-foreground)] outline-none placeholder:text-[var(--axon-editor-foreground)] placeholder:opacity-30 disabled:cursor-default disabled:opacity-40"
               rows={1}
             />
 
-            {slashCommandOpen && (
+            {slashCommandOpen && conversationReady && (
               <SlashCommandMenu
                 onDismiss={() => setSlashCommandOpen(false)}
                 onSelect={(selectedAction) => {
-                  setAction(selectedAction);
-                  setConversationState((current) =>
-                    selectConversationAction(
-                      props.folderPath,
-                      current,
-                      selectedAction,
-                    ),
-                  );
+                  selectAction(selectedAction);
                   setPrompt("");
                   setSlashCommandOpen(false);
                   if (textareaRef.current) {
@@ -672,27 +749,21 @@ export default function AxonAgentSidebar(props: Props) {
                       setActionPickerOpen((open) => !open);
                       setModelPickerOpen(false);
                     }}
-                    className="flex h-7 max-w-[120px] cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-50 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100"
+                    disabled={!conversationReady}
+                    className="flex h-7 max-w-[120px] cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-50 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100 disabled:cursor-default disabled:opacity-20 disabled:hover:border-[var(--axon-panel-border)] disabled:hover:opacity-20"
                     aria-label="Choose AI action"
                   >
                     <span className="truncate">{agentActionLabels[action]}</span>
                     <ChevronDown size={10} className="shrink-0 opacity-40" />
                   </button>
-                  {actionPickerOpen && (
+                  {actionPickerOpen && conversationReady && (
                     <div className="axon-popup-surface axon-agent-popup absolute bottom-8 left-0 z-30 w-[190px] overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-1.5 shadow-2xl shadow-black/50">
                       {(["agent", ...agentQuickActions] as AiActionId[]).map((item) => (
                         <button
                           key={item}
                           type="button"
                           onClick={() => {
-                            setAction(item);
-                            setConversationState((current) =>
-                              selectConversationAction(
-                                props.folderPath,
-                                current,
-                                item,
-                              ),
-                            );
+                            selectAction(item);
                             setActionPickerOpen(false);
                           }}
                           className={`flex h-7 w-full cursor-pointer items-center rounded-md px-2 text-left text-[11px] transition ${
@@ -721,7 +792,7 @@ export default function AxonAgentSidebar(props: Props) {
                 <button
                   type="button"
                   onClick={() => void runAgent()}
-                  disabled={!prompt.trim()}
+                  disabled={!conversationReady || !prompt.trim()}
                   className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--axon-syntax-function)] px-2.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-25"
                 >
                   <Send size={12} />
