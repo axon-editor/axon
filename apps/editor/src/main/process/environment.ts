@@ -70,7 +70,7 @@ function getLoginShellEnvironment(): Promise<NodeJS.ProcessEnv> {
 
 export async function getDeveloperToolSpawnEnvironment(
   env: NodeJS.ProcessEnv | undefined = process.env,
-) {
+): Promise<NodeJS.ProcessEnv> {
   const loginShellEnvironment = await getLoginShellEnvironment();
   const homePath = env?.HOME ?? loginShellEnvironment.HOME ?? os.homedir();
   const fallbackPath =
