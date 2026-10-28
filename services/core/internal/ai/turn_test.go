@@ -124,12 +124,13 @@ func TestStreamChatEmitsThoughtChunks(t *testing.T) {
 }
 
 func TestStreamChatDoneCarriesToolCallsAndBuiltMessages(t *testing.T) {
+	var captured map[string]any
 	newModelRuntimeServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(
 			"{\"message\":{\"content\":\"\",\"tool_calls\":[{\"function\":{\"name\":\"list_files\",\"arguments\":{\"path\":\"\"}}}]},\"done\":false}\n" +
 				"{\"done\":true}\n",
 		))
-	}, nil)
+	}, &captured)
 
 	var done StreamEvent
 	err := StreamChat(context.Background(), ChatRequest{
@@ -153,6 +154,9 @@ func TestStreamChatDoneCarriesToolCallsAndBuiltMessages(t *testing.T) {
 	}
 	if len(done.Messages) == 0 || done.Messages[0].Role != "system" {
 		t.Fatalf("done event should carry the built conversation, got %#v", done.Messages)
+	}
+	if _, hasTools := captured["tools"]; !hasTools {
+		t.Fatal("StreamChat should forward caller-supplied tools to the model")
 	}
 }
 

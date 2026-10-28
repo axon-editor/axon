@@ -650,7 +650,16 @@ func callChatOnce(ctx context.Context, request ChatRequest, messages []ModelMess
 }
 
 func streamChatMessages(ctx context.Context, request ChatRequest, messages []ModelMessage, emit func(StreamEvent) error) error {
-	rawPayload, err := json.Marshal(chatPayload(request, messages, true))
+	payload := chatPayload(request, messages, true)
+	// The editor owns the agent loop and passes its full tool catalog on each
+	// planning turn. Streaming is used there because the user wants to watch the
+	// model think, so the same schemas the non-streaming planning path sends must
+	// ride along. Without them the model sees the workbench state but has no tool
+	// to call, and it invents a text action such as workbenchAction instead.
+	if len(request.Tools) > 0 {
+		payload["tools"] = request.Tools
+	}
+	rawPayload, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
