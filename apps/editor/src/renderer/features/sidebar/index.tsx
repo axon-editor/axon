@@ -765,32 +765,38 @@ export default function Sidebar({
             ) : null}
           </div>
 
-          {tree && (
+          {tree && effectiveView === "files" && (
             <div
               onContextMenu={openRootContextMenu}
               onDragEnter={handleRootDragOver}
               onDragOver={handleRootDragOver}
               onDragLeave={() => setRootDragOver(false)}
               onDrop={handleRootDrop}
-              className={`flex h-8 shrink-0 items-center justify-between border-b border-[var(--axon-sidebar-border)] px-2 text-[11px] transition-colors ${
+              className={`flex h-8 shrink-0 items-center justify-between border-b border-[var(--axon-sidebar-border)] px-2 transition-colors ${
                 rootDragOver
-                  ? "bg-[var(--axon-sidebar-hover-background)] text-[var(--axon-editor-foreground)]"
-                  : "bg-[var(--axon-sidebar-background)] text-[var(--axon-editor-foreground)] opacity-55"
+                  ? "bg-[var(--axon-sidebar-hover-background)]"
+                  : ""
               }`}
             >
               <button
                 type="button"
                 onClick={openRootContextMenu}
-                className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:text-[var(--axon-editor-foreground)]"
+                title={tree.path}
+                className="group flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 text-left text-[11px] font-medium text-[var(--axon-editor-foreground)] transition-colors hover:bg-[var(--axon-sidebar-hover-background)]"
               >
-                <FolderTree size={12} className="shrink-0" />
-                <span className="truncate">workspace root</span>
+                <FolderTree
+                  size={12}
+                  className="shrink-0 opacity-45 transition-opacity group-hover:opacity-70"
+                />
+                <span className="truncate opacity-55 transition-opacity group-hover:opacity-80">
+                  workspace root
+                </span>
               </button>
               <button
                 type="button"
                 onClick={openRootContextMenu}
-                aria-label="New root item"
-                className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:text-[var(--axon-syntax-function)] hover:opacity-100"
+                aria-label="New file or folder"
+                className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-sidebar-hover-background)] hover:text-[var(--axon-syntax-function)] hover:opacity-100"
               >
                 <Plus size={12} />
               </button>
@@ -803,7 +809,9 @@ export default function Sidebar({
                 ? "overflow-hidden flex flex-col"
                 : "overflow-auto py-1"
             }`}
-            onContextMenu={handleRootContextMenu}
+            onContextMenu={
+              effectiveView === "files" ? handleRootContextMenu : undefined
+            }
             onDragEnter={effectiveView === "files" ? handleRootDragOver : undefined}
             onDragOver={effectiveView === "files" ? handleRootDragOver : undefined}
             onDragLeave={
