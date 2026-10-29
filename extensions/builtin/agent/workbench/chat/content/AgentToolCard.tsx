@@ -86,6 +86,25 @@ const RESULT_VISIBLE_TOOLS = new Set([
   "run_command",
 ]);
 
+function ToolStatusIcon({ status }: { status: AgentToolCallState["status"] }) {
+  if (status === "running") {
+    return <Loader2 size={11} className="animate-spin" />;
+  }
+  if (status === "done") return <Check size={11} />;
+  if (status === "rejected" || status === "error") return <X size={11} />;
+  return <Play size={10} />;
+}
+
+function statusTone(status: AgentToolCallState["status"]) {
+  if (status === "done") {
+    return "bg-[var(--axon-git-added)]/12 text-[var(--axon-git-added)]";
+  }
+  if (status === "rejected" || status === "error") {
+    return "bg-[var(--axon-danger-foreground)]/12 text-[var(--axon-danger-foreground)]";
+  }
+  return "bg-[var(--axon-syntax-function)]/15 text-[var(--axon-syntax-function)]";
+}
+
 export default function AgentToolCard({
   tool,
   onRun,
@@ -104,34 +123,42 @@ export default function AgentToolCard({
   );
 
   return (
-    <div className="my-2 overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)]">
+    <div
+      className={`my-2 overflow-hidden rounded-lg border bg-[var(--axon-panel-background)] ${
+        pending
+          ? "border-[var(--axon-syntax-function)]/35 ring-1 ring-[var(--axon-syntax-function)]/10"
+          : "border-[var(--axon-panel-border)]"
+      }`}
+    >
       <div className="flex items-center gap-2 border-b border-[var(--axon-panel-border)] px-3 py-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[var(--axon-syntax-function)]/15 text-[var(--axon-syntax-function)]">
-          <Play size={10} />
+        <span
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${statusTone(tool.status)}`}
+        >
+          <ToolStatusIcon status={tool.status} />
         </span>
         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
           {tool.title}
         </span>
-        <span className="shrink-0 rounded bg-[var(--axon-panel-overlay-hover)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-50">
+        <span className="shrink-0 rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)]/50 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-45">
           {tool.kind}
         </span>
       </div>
 
       {detail && (
-        <div className="truncate px-3 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-60">
+        <div className="truncate px-3 py-2 font-mono text-[10.5px] leading-4 text-[var(--axon-editor-foreground)] opacity-60">
           {detail}
         </div>
       )}
 
       {(reason !== null || command !== null) && (
-        <div className="max-h-60 overflow-auto border-t border-[var(--axon-panel-border)] px-3 py-2">
+        <div className="max-h-60 overflow-auto border-t border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)]/25 px-3 py-2">
           {reason !== null && (
-            <div className="mb-2 whitespace-pre-wrap break-words text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+            <div className="mb-2 whitespace-pre-wrap break-words text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-70">
               {reason}
             </div>
           )}
           {command !== null && (
-            <pre className="whitespace-pre-wrap break-words text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+            <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-75">
               {command}
             </pre>
           )}
@@ -140,10 +167,10 @@ export default function AgentToolCard({
 
       {content !== null && (
         <details className="border-t border-[var(--axon-panel-border)]">
-          <summary className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-50">
+          <summary className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-50">
             Content · {contentLines} {contentLines === 1 ? "line" : "lines"}
           </summary>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 font-mono text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-70">
             {content}
           </pre>
         </details>
@@ -155,10 +182,10 @@ export default function AgentToolCard({
           onToggle={(event) => setResultOpen(event.currentTarget.open)}
           className="border-t border-[var(--axon-panel-border)]"
         >
-          <summary className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-wide text-[var(--axon-editor-foreground)] opacity-50">
+          <summary className="cursor-pointer px-3 py-1.5 text-[10px] uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-50">
             Result · {resultLines} {resultLines === 1 ? "line" : "lines"}
           </summary>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 text-[11px] text-[var(--axon-editor-foreground)] opacity-70">
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-2 pt-1 font-mono text-[11px] leading-4 text-[var(--axon-editor-foreground)] opacity-70">
             {tool.result}
           </pre>
         </details>
@@ -202,12 +229,14 @@ export default function AgentToolCard({
           </>
         ) : (
           <span className="flex items-center gap-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-60">
-            {tool.status === "running" && <Loader2 size={11} className="animate-spin" />}
+            {tool.status === "running" && (
+              <Loader2 size={11} className="animate-spin" />
+            )}
             {tool.status === "done" && (
-              <Check size={11} className="text-[#5ee6a8]" />
+              <Check size={11} className="text-[var(--axon-git-added)]" />
             )}
             {(tool.status === "rejected" || tool.status === "error") && (
-              <X size={11} className="text-[#ff9ca8]" />
+              <X size={11} className="text-[var(--axon-danger-foreground)]" />
             )}
             <span className="truncate">
               {tool.status === "running"

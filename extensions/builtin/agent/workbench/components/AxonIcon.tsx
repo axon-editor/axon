@@ -8,10 +8,9 @@ import { publicAsset } from "@axon-editor/renderer/shared/lib/assets/assets";
 // The sidebar used to brand every Axon surface with a bare "A" initial, which
 // read as a placeholder next to the real product mark. This renders the shipped
 // Axon icon (axon.png, the same artwork behind the app icon and README) so the
-// header, empty state, and assistant messages all carry the actual brand. The
-// artwork has a transparent background and a non-square aspect, so it is sized
-// by its longest edge and letterboxed with object-contain to stop it stretching
-// inside the square avatar slots.
+// header and empty state carry the actual brand. The artwork has a transparent
+// background and a non-square aspect, so it is sized by its longest edge and
+// letterboxed with object-contain to stop it stretching inside square slots.
 interface Props {
   size?: number;
   className?: string;

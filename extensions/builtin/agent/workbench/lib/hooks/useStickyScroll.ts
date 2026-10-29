@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 // The stream grows by a few pixels per token. Calling scrollIntoView with smooth
 // behavior on every token restarts the animation, makes the panel judder, and
@@ -24,7 +24,14 @@ export function useStickyScroll({
   resetKey,
 }: Options) {
   const pinnedRef = useRef(true);
+  const [pinned, setPinned] = useState(true);
   const frameRef = useRef<number | null>(null);
+
+  const updatePinned = useCallback((next: boolean) => {
+    if (pinnedRef.current === next) return;
+    pinnedRef.current = next;
+    setPinned(next);
+  }, []);
 
   const cancelPendingScroll = useCallback(() => {
     if (frameRef.current === null) return;
@@ -48,17 +55,17 @@ export function useStickyScroll({
   }, [cancelPendingScroll, scrollRef]);
 
   const pinToBottom = useCallback(() => {
-    pinnedRef.current = true;
+    updatePinned(true);
     scheduleScrollToBottom();
-  }, [scheduleScrollToBottom]);
+  }, [scheduleScrollToBottom, updatePinned]);
 
   // A conversation switch replaces the whole list, so the old thread's scroll
   // position says nothing about the new one. Re-pin here so the new thread opens
   // at its latest message instead of wherever the previous thread was.
   useEffect(() => {
-    pinnedRef.current = true;
+    updatePinned(true);
     scheduleScrollToBottom();
-  }, [resetKey, scheduleScrollToBottom]);
+  }, [resetKey, scheduleScrollToBottom, updatePinned]);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -70,12 +77,12 @@ export function useStickyScroll({
       // Programmatic scrolls also fire this event and land within the
       // threshold, which keeps the stream pinned. Only a real upward scroll
       // pushes the distance past it and unpins.
-      pinnedRef.current = distance <= BOTTOM_THRESHOLD_PX;
+      updatePinned(distance <= BOTTOM_THRESHOLD_PX);
     };
 
     element.addEventListener("scroll", handleScroll, { passive: true });
     return () => element.removeEventListener("scroll", handleScroll);
-  }, [resetKey, scrollRef]);
+  }, [resetKey, scrollRef, updatePinned]);
 
   useEffect(() => {
     if (!pinnedRef.current) return;
@@ -84,5 +91,5 @@ export function useStickyScroll({
 
   useEffect(() => cancelPendingScroll, [cancelPendingScroll]);
 
-  return { pinToBottom };
+  return { pinToBottom, pinned };
 }

@@ -283,6 +283,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         onAgentFileWritten={handleAgentFileWritten}
         onApplyEdit={handleApplyAgentEdit}
         onClose={() => setAgentSidebarOpen(false)}
+        onOpenFile={handleFileSelect}
         onRunAgentAction={runAgentAction}
         onWidthChange={setAgentSidebarWidth}
       />

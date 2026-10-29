@@ -12,6 +12,7 @@ const REVEAL_CATCH_UP_FRAMES = 120;
 interface Props {
   content: string;
   animateOnMount?: boolean;
+  onOpenLink?: (href: string) => void;
 }
 
 // A large final answer arrives as one delta when the agent reuses its planning
@@ -25,7 +26,11 @@ function revealStep(remaining: number) {
   );
 }
 
-export default function SmoothText({ content, animateOnMount = false }: Props) {
+export default function SmoothText({
+  content,
+  animateOnMount = false,
+  onOpenLink,
+}: Props) {
   const [visible, setVisible] = useState(() =>
     animateOnMount ? "" : content,
   );
@@ -79,5 +84,5 @@ export default function SmoothText({ content, animateOnMount = false }: Props) {
     };
   }, []);
 
-  return <AssistantMarkdown content={visible} />;
+  return <AssistantMarkdown content={visible} onOpenLink={onOpenLink} />;
 }

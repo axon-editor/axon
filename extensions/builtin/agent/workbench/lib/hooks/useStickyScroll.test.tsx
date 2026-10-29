@@ -29,7 +29,7 @@ function Harness({
   resetKey: string;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const { pinToBottom } = useStickyScroll({
+  const { pinToBottom, pinned } = useStickyScroll({
     scrollRef,
     contentVersion: content,
     resetKey,
@@ -40,7 +40,7 @@ function Harness({
       <div ref={scrollRef} data-testid="scroll">
         <div>{content}</div>
       </div>
-      <button type="button" onClick={pinToBottom}>
+      <button type="button" data-pinned={pinned} onClick={pinToBottom}>
         pin
       </button>
     </div>
@@ -169,6 +169,7 @@ describe("useStickyScroll", () => {
     runFrames(1);
 
     expect(scroll.scrollTop).toBe(10);
+    expect(container.querySelector("button")?.dataset.pinned).toBe("false");
   });
 
   it("re-pins when the conversation changes", () => {
@@ -203,5 +204,6 @@ describe("useStickyScroll", () => {
     runFrames(1);
 
     expect(scroll.scrollTop).toBe(200);
+    expect(container.querySelector("button")?.dataset.pinned).toBe("true");
   });
 });

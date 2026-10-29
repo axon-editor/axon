@@ -15,6 +15,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { parse, type Token, type InlineToken, type FootnoteDefinitionToken } from "../lib/parser";
 import { resolveMarkdownPath } from "../lib/renderer/context";
+import {
+  isDevServerUrl,
+  workspacePathFromDevServerUrl,
+} from "@axon-editor/shared/workspace/devServerPath";
 import { preloadHighlighter } from "../lib/renderer/highlight";
 import { morphdom, captureImageDimensions, applyImageDimensions } from "../lib/sync/morphdom";
 import {
@@ -319,6 +323,24 @@ export default function MarkdownPreview({
 
         if (citationId) {
           e.preventDefault();
+          return;
+        }
+
+        // The dev server serves workspace files, so a README link written with
+        // the Vite origin belongs in the editor instead of the browser. The
+        // pathname is workspace-root-relative, which is how a leading slash is
+        // already resolved below.
+        if (href && isDevServerUrl(href)) {
+          e.preventDefault();
+          const devServerPath = workspacePathFromDevServerUrl(href);
+          if (devServerPath && devServerPath !== "/") {
+            const targetPath = resolveMarkdownPath(
+              devServerPath,
+              filePath,
+              folderPath,
+            );
+            if (targetPath) onOpenFile?.(targetPath);
+          }
           return;
         }
 

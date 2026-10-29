@@ -19,6 +19,7 @@ export default function MessageHeader({
   onCopied,
 }: MessageHeaderProps) {
   const isAssistant = role === "assistant";
+  const copied = copiedId === messageId;
 
   const handleCopy = () => {
     onCopied(messageId);
@@ -47,13 +48,10 @@ export default function MessageHeader({
             type="button"
             onClick={handleCopy}
             className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition-opacity hover:bg-[var(--axon-panel-overlay-hover)] group-hover/assistant:opacity-40 hover:!opacity-100"
-            aria-label="Copy response"
+            aria-label={copied ? "Copied response" : "Copy response"}
+            title={copied ? "Copied" : "Copy response"}
           >
-            {copiedId === messageId ? (
-              <Check size={11} />
-            ) : (
-              <Copy size={11} />
-            )}
+            {copied ? <Check size={11} /> : <Copy size={11} />}
           </button>
         )}
       </div>

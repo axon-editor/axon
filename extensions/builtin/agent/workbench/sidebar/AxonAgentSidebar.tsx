@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import {
+  ArrowDown,
   ChevronDown,
   MessageSquarePlus,
   Send,
@@ -56,6 +57,7 @@ import { type AgentToolRunResult } from "../lib/actions/agentToolActions";
 import { conversationContext } from "../lib/conversation/context";
 import { updateAgentTool } from "../lib/conversation/timeline";
 import { resolveProposalPath } from "../lib/conversation/agentProposalPaths";
+import { resolveAgentMessageLink } from "../lib/links/agentMessageLinks";
 import {
   buildContextFile,
   collectGitDiffForAgent,
@@ -84,6 +86,7 @@ interface Props {
   onAgentFileWritten: (path: string) => void;
   onApplyEdit: (path: string, content: string) => Promise<void>;
   onClose: () => void;
+  onOpenFile: (path: string) => void;
   onRunAgentAction: (
     name: string,
     args: Record<string, unknown>,
@@ -167,7 +170,7 @@ export default function AxonAgentSidebar(props: Props) {
     width: props.width,
     onWidthChange: props.onWidthChange,
   });
-  const { pinToBottom } = useStickyScroll({
+  const { pinToBottom, pinned } = useStickyScroll({
     scrollRef: messageScrollRef,
     contentVersion: messages,
     resetKey: conversationState.activeId,
@@ -176,6 +179,13 @@ export default function AxonAgentSidebar(props: Props) {
   usePopoverDismiss(actionPickerRef, actionPickerOpen, () =>
     setActionPickerOpen(false),
   );
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+  }, [prompt]);
 
   useEffect(() => {
     if (!conversationReady) return;
@@ -496,6 +506,18 @@ export default function AxonAgentSidebar(props: Props) {
     ]);
   };
 
+  const openMessageLink = (href: string) => {
+    const target = resolveAgentMessageLink(href, props.folderPath);
+    if (!target) return;
+    if (target.kind === "external") {
+      void window.axon?.openExternalLink(target.href);
+      return;
+    }
+    if (target.kind === "file") {
+      props.onOpenFile(target.path);
+    }
+  };
+
   const setToolStatus = (
     messageId: number,
     toolId: string,
@@ -542,6 +564,17 @@ export default function AxonAgentSidebar(props: Props) {
     });
   };
 
+  const insertNewline = (textarea: HTMLTextAreaElement) => {
+    textarea.setRangeText(
+      "\n",
+      textarea.selectionStart,
+      textarea.selectionEnd,
+      "end",
+    );
+    setPrompt(textarea.value);
+    setSlashCommandOpen(false);
+  };
+
   return (
     <aside
       className={`axon-region-surface relative flex shrink-0 flex-col overflow-hidden bg-[var(--axon-sidebar-background)] ${
@@ -564,13 +597,11 @@ export default function AxonAgentSidebar(props: Props) {
           props.side === "right" ? "left-0" : "right-0"
         }`}
       />
-      <div
-        className="flex min-h-[48px] shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-transparent px-3 py-2"
-      >
+      <div className="flex min-h-[48px] shrink-0 items-center justify-between border-b border-[var(--axon-panel-border)] bg-transparent px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <AxonIcon size={18} className="shrink-0" />
           <span className="truncate text-[12px] font-medium text-[var(--axon-editor-foreground)]">
-            Axon
+            Axon Agent
           </span>
         </div>
         <div className="relative flex shrink-0 items-center gap-0.5">
@@ -590,7 +621,7 @@ export default function AxonAgentSidebar(props: Props) {
               onClick={() => void startNewConversation()}
               disabled={!conversationReady || activeConversationEmpty}
               aria-label="Start new Ask Axon conversation"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
             >
               <MessageSquarePlus size={13} />
             </button>
@@ -600,7 +631,7 @@ export default function AxonAgentSidebar(props: Props) {
               type="button"
               onClick={props.onClose}
               aria-label="Close Ask Axon"
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-[var(--axon-editor-foreground)] opacity-40 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
             >
               <X size={13} />
             </button>
@@ -608,57 +639,73 @@ export default function AxonAgentSidebar(props: Props) {
         </div>
       </div>
 
-      <div
-        ref={messageScrollRef}
-        className="min-h-0 flex-1 overflow-y-auto px-3 py-3"
-      >
-        {!canChat && (
-          <AgentRuntimeStatusPanel
-            diagnosticsCount={props.diagnostics.length}
-            gitChangeCount={props.gitChanges.length}
-            models={models}
-            modelStatus={modelStatus}
-            pulling={pulling}
-            pullEvent={pullEvent}
-            pullPercent={pullPercent}
-            runtimeLoading={runtimeLoading}
-            runtimeStatus={runtimeStatus}
-            selectedModel={selectedModel}
-            selectedModelInfo={selectedModelInfo}
-            selectedModelInstalled={selectedModelInstalled}
-            selectedModelLabel={selectedModelLabel}
-            onCancelPull={() => void cancelPull()}
-            onPullSelectedModel={() => void pullSelectedModel()}
-            onSelectModel={setSelectedModel}
-          />
-        )}
-        {conversationReady && messages.length === 0 && canChat && (
-          <div className="flex flex-col items-center py-16 text-center">
-            <div className="mb-4">
-              <AxonIcon size={44} />
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={messageScrollRef}
+          className="h-full overflow-y-auto px-3.5 py-4"
+        >
+          {!canChat && (
+            <AgentRuntimeStatusPanel
+              diagnosticsCount={props.diagnostics.length}
+              gitChangeCount={props.gitChanges.length}
+              models={models}
+              modelStatus={modelStatus}
+              pulling={pulling}
+              pullEvent={pullEvent}
+              pullPercent={pullPercent}
+              runtimeLoading={runtimeLoading}
+              runtimeStatus={runtimeStatus}
+              selectedModel={selectedModel}
+              selectedModelInfo={selectedModelInfo}
+              selectedModelInstalled={selectedModelInstalled}
+              selectedModelLabel={selectedModelLabel}
+              onCancelPull={() => void cancelPull()}
+              onPullSelectedModel={() => void pullSelectedModel()}
+              onSelectModel={setSelectedModel}
+            />
+          )}
+          {conversationReady && messages.length === 0 && canChat && (
+            <div className="flex flex-col items-center py-16 text-center">
+              <div className="mb-4">
+                <AxonIcon size={44} />
+              </div>
+              <div className="text-[14px] font-medium text-[var(--axon-editor-foreground)]">
+                What can I help with?
+              </div>
+              <div className="mt-2 max-w-[220px] text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-40">
+                Ask about your code, refactor functions, review changes, or
+                explain how things work.
+              </div>
             </div>
-            <div className="text-[14px] font-medium text-[var(--axon-editor-foreground)]">
-              What can I help with?
-            </div>
-            <div className="mt-2 max-w-[220px] text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-40">
-              Ask about your code, refactor functions, review changes, or explain
-              how things work.
-            </div>
-          </div>
-        )}
-        {conversationReady && (
-          <AgentMessageList
-            copiedId={copiedId}
-            messages={messages}
-            onApplyEdit={(file) => void applyEdit(file)}
-            onRunTool={(messageId, tool) => void runTool(messageId, tool)}
-            onAllowTool={(messageId, tool) => void allowTool(messageId, tool)}
-            onSkipTool={(messageId, tool) => void skipTool(messageId, tool)}
-            onCopied={(messageId) => {
-              setCopiedId(messageId);
-              window.setTimeout(() => setCopiedId(null), 1200);
-            }}
-          />
+          )}
+          {conversationReady && (
+            <AgentMessageList
+              copiedId={copiedId}
+              messages={messages}
+              onApplyEdit={(file) => void applyEdit(file)}
+              onOpenLink={openMessageLink}
+              onRunTool={(messageId, tool) => void runTool(messageId, tool)}
+              onAllowTool={(messageId, tool) => void allowTool(messageId, tool)}
+              onSkipTool={(messageId, tool) => void skipTool(messageId, tool)}
+              onCopied={(messageId) => {
+                setCopiedId(messageId);
+                window.setTimeout(() => setCopiedId(null), 1200);
+              }}
+              streaming={busy}
+            />
+          )}
+        </div>
+
+        {!pinned && messages.length > 0 && (
+          <button
+            type="button"
+            onClick={pinToBottom}
+            aria-label="Scroll to latest message"
+            className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] px-2.5 py-1 text-[10px] font-medium text-[var(--axon-editor-foreground)] shadow-lg shadow-black/20 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:text-[var(--axon-syntax-function)]"
+          >
+            <ArrowDown size={10} />
+            Latest
+          </button>
         )}
       </div>
 
@@ -671,7 +718,7 @@ export default function AxonAgentSidebar(props: Props) {
 
       {canChat && (
         <div className="shrink-0 border-t border-[var(--axon-panel-border)] bg-transparent p-3">
-          <div className="relative rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/10">
+          <div className="relative rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-sm shadow-black/10 transition-colors focus-within:border-[var(--axon-syntax-function)]/45">
             {((contextEnabled.activeFile && props.activeFilePath) ||
               (contextEnabled.diagnostics && props.diagnostics.length > 0) ||
               (contextEnabled.gitChanges && props.gitChanges.length > 0)) && (
@@ -705,13 +752,18 @@ export default function AxonAgentSidebar(props: Props) {
                 const value = event.target.value;
                 setPrompt(value);
                 setSlashCommandOpen(value === "/");
-                if (textareaRef.current) {
-                  textareaRef.current.style.height = "auto";
-                  textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
-                }
               }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey && !slashCommandOpen) {
+                // Shift+Enter and Option+Enter insert a newline; plain Enter sends.
+                if (
+                  event.key === "Enter" &&
+                  (event.shiftKey || event.altKey)
+                ) {
+                  event.preventDefault();
+                  insertNewline(event.currentTarget);
+                  return;
+                }
+                if (event.key === "Enter" && !slashCommandOpen) {
                   event.preventDefault();
                   void runAgent();
                 }
@@ -737,9 +789,6 @@ export default function AxonAgentSidebar(props: Props) {
                   selectAction(selectedAction);
                   setPrompt("");
                   setSlashCommandOpen(false);
-                  if (textareaRef.current) {
-                    textareaRef.current.style.height = "auto";
-                  }
                 }}
               />
             )}
@@ -802,23 +851,34 @@ export default function AxonAgentSidebar(props: Props) {
                 <button
                   type="button"
                   onClick={() => void cancelActiveStream()}
-                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#3a2630] bg-[#1a0f14] px-2.5 text-[11px] font-medium text-[#ff9ca8] transition-colors hover:bg-[#24151b]"
+                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--axon-danger-foreground)_35%,transparent)] bg-[color-mix(in_srgb,var(--axon-danger-foreground)_10%,transparent)] px-2.5 text-[11px] font-medium text-[var(--axon-danger-foreground)] transition-colors hover:bg-[color-mix(in_srgb,var(--axon-danger-foreground)_18%,transparent)]"
                 >
                   <StopCircle size={12} />
                   Stop
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => void runAgent()}
-                  disabled={!conversationReady || !prompt.trim()}
-                  className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--axon-syntax-function)] px-2.5 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-25"
-                >
-                  <Send size={12} />
-                </button>
+                <Tooltip label="Send message" side="top">
+                  <button
+                    type="button"
+                    onClick={() => void runAgent()}
+                    disabled={!conversationReady || !prompt.trim()}
+                    aria-label="Send message"
+                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-[var(--axon-syntax-function)] text-white transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-25"
+                  >
+                    <Send size={12} />
+                  </button>
+                </Tooltip>
               )}
             </div>
           </div>
+          {props.folderPath && (
+            <div
+              className="mt-2 truncate px-1 text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-40"
+              title={props.folderPath}
+            >
+              {props.folderPath}
+            </div>
+          )}
         </div>
       )}
     </aside>

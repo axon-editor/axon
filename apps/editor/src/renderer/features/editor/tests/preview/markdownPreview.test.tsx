@@ -750,6 +750,33 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
     );
   });
 
+  it("opens dev server links as workspace files", async () => {
+    const onOpenFile = vi.fn();
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            "Read the [API docs](http://127.0.0.1:5173/packages/extension-api/README.md)."
+          }
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+          onOpenFile={onOpenFile}
+        />,
+      );
+    });
+    await flushPreview();
+
+    const link = container.querySelector<HTMLAnchorElement>("a[href]");
+    await act(async () => {
+      link?.click();
+    });
+
+    expect(onOpenFile).toHaveBeenCalledWith(
+      "/workspace/packages/extension-api/README.md",
+    );
+    expect(bridgeMock.openExternalLink).not.toHaveBeenCalled();
+  });
+
   it("updates the exact source task and attaches source-line markers", async () => {
     const onContentChange = vi.fn();
     const content = "# Tasks\n\n- [ ] first\n- [x] second";

@@ -24,9 +24,11 @@ interface AssistantMessageProps {
   activity?: string;
   timeline?: AgentTimelineEntry[];
   reveal?: boolean;
+  streaming?: boolean;
   onApplyEdit: (file: AiEditFileProposal) => void;
   onCopied: (messageId: number) => void;
   onCopyContent: (content: string) => void;
+  onOpenLink?: (href: string) => void;
   onRunTool?: (messageId: number, tool: AgentToolCallState) => void;
   onAllowTool?: (messageId: number, tool: AgentToolCallState) => void;
   onSkipTool?: (messageId: number, tool: AgentToolCallState) => void;
@@ -41,9 +43,11 @@ export default function AssistantMessage({
   activity,
   timeline,
   reveal,
+  streaming,
   onApplyEdit,
   onCopied,
   onCopyContent,
+  onOpenLink,
   onRunTool,
   onAllowTool,
   onSkipTool,
@@ -71,6 +75,7 @@ export default function AssistantMessage({
     (last, entry) => (entry.kind === "status" ? entry.id : last),
     null,
   );
+  const lastEntryId = entries[entries.length - 1]?.id ?? null;
 
   return (
     <div className="group/assistant flex flex-col" data-message-id={messageId}>
@@ -94,11 +99,19 @@ export default function AssistantMessage({
                 key={entry.id}
                 content={entry.content}
                 animateOnMount={Boolean(reveal)}
+                onOpenLink={onOpenLink}
               />
             );
           }
           if (entry.kind === "thought") {
-            return <AgentThoughtBlock key={entry.id} content={entry.content} />;
+            return (
+              <AgentThoughtBlock
+                key={entry.id}
+                content={entry.content}
+                active={Boolean(streaming) && entry.id === lastEntryId}
+                onOpenLink={onOpenLink}
+              />
+            );
           }
           if (entry.kind === "tool") {
             return (

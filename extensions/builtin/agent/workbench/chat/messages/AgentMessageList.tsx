@@ -18,11 +18,13 @@ interface Props {
   messages: AgentMessage[];
   onApplyEdit: (file: AiEditFileProposal) => void;
   onCopied: (messageId: number) => void;
+  onOpenLink?: (href: string) => void;
   onRetry?: (messageId: number) => void;
   onEdit?: (messageId: number, content: string) => void;
   onRunTool?: (messageId: number, tool: AgentToolCallState) => void;
   onAllowTool?: (messageId: number, tool: AgentToolCallState) => void;
   onSkipTool?: (messageId: number, tool: AgentToolCallState) => void;
+  streaming?: boolean;
 }
 
 export default function AgentMessageList(props: Props) {
@@ -36,6 +38,10 @@ export default function AgentMessageList(props: Props) {
     void window.axon.copyText(content);
   };
 
+  const lastMessage = props.messages[props.messages.length - 1];
+  const streamingMessageId =
+    props.streaming && lastMessage?.role === "assistant" ? lastMessage.id : null;
+
   const handleContextMenu = (event: React.MouseEvent, message: AgentMessage) => {
     event.preventDefault();
     setContextMenu({ x: event.clientX, y: event.clientY, message });
@@ -43,7 +49,7 @@ export default function AgentMessageList(props: Props) {
 
   return (
     <div
-      className="space-y-4"
+      className="space-y-5"
       onContextMenu={(event) => {
         const target = event.target as HTMLElement;
         const messageEl = target.closest("[data-message-id]");
@@ -76,9 +82,11 @@ export default function AgentMessageList(props: Props) {
             activity={message.activity}
             timeline={message.timeline}
             reveal={message.reveal}
+            streaming={message.id === streamingMessageId}
             onApplyEdit={props.onApplyEdit}
             onCopied={props.onCopied}
             onCopyContent={handleCopyContent}
+            onOpenLink={props.onOpenLink}
             onRunTool={props.onRunTool}
             onAllowTool={props.onAllowTool}
             onSkipTool={props.onSkipTool}
