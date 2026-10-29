@@ -104,7 +104,7 @@ export default function FolderPickerLocal({
         <button
           type="button"
           onClick={onBrowse}
-          className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md bg-[var(--axon-syntax-function)] px-3 text-[11px] font-medium text-[var(--axon-editor-background)] transition-opacity hover:opacity-85"
+          className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md bg-[var(--axon-accent)] px-3 text-[11px] font-medium text-[var(--axon-accent-foreground)] transition-opacity hover:opacity-85"
         >
           <FolderOpen size={13} />
           Browse...

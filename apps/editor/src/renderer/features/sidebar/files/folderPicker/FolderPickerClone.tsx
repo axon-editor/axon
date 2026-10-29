@@ -116,7 +116,7 @@ export default function FolderPickerClone({
             <button
               type="submit"
               disabled={cloning || !repositoryUrl.trim()}
-              className="flex h-9 min-w-32 cursor-pointer items-center justify-center gap-2 rounded-md bg-[var(--axon-syntax-function)] px-4 text-[11px] font-medium text-[var(--axon-editor-background)] transition-opacity hover:opacity-85 disabled:cursor-default disabled:opacity-30"
+              className="flex h-9 min-w-32 cursor-pointer items-center justify-center gap-2 rounded-md bg-[var(--axon-accent)] px-4 text-[11px] font-medium text-[var(--axon-accent-foreground)] transition-opacity hover:opacity-85 disabled:cursor-default disabled:opacity-30"
             >
               {cloning ? (
                 <LoaderCircle size={13} className="animate-spin" />
