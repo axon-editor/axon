@@ -82,14 +82,8 @@ export default function SpotifyPanel({
     );
   }
 
-  if (!state.status?.configured || !state.status?.connected) {
-    return (
-      <SpotifyAuth
-        configured={state.status?.configured ?? false}
-        onConnect={actions.connect}
-        error={state.error}
-      />
-    );
+  if (!state.status?.connected) {
+    return <SpotifyAuth onConnect={actions.connect} error={state.error} />;
   }
 
   const track = state.playback?.item ?? null;

@@ -97,7 +97,6 @@ export async function startAuthFlow(clientId: string): Promise<void> {
   });
 
   const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
-  console.log("[spotify] opening auth URL, verifier stored on global");
   await shell.openExternal(authUrl);
 }
 
@@ -106,11 +105,6 @@ export async function exchangeCodeForTokens(
   code: string,
 ): Promise<SpotifyTokens | null> {
   const verifier = getVerifier();
-
-  console.log(
-    "[spotify] exchangeCodeForTokens — verifier present:",
-    verifier !== null,
-  );
 
   if (!verifier) {
     // The verifier is missing — either no auth flow was started in this
@@ -156,7 +150,6 @@ export async function exchangeCodeForTokens(
   };
 
   saveTokens(tokens);
-  console.log("[spotify] tokens saved successfully");
   return tokens;
 }
 

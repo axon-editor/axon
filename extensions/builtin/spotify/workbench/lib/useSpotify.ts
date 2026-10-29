@@ -212,7 +212,6 @@ export function useSpotify(visible: boolean): [SpotifyState, SpotifyActions] {
   }, []);
 
   const refreshStatus = useCallback(async () => {
-    console.log("[spotify] refreshStatus called");
     setStatusLoading(true);
     try {
       const s = await window.axon.spotify.getStatus();

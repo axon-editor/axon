@@ -67,11 +67,6 @@ export function registerSpotifyHandlers(): void {
       if (clientId) setClientId(clientId);
     }
 
-    console.log(
-      "[spotify] starting auth with clientId:",
-      JSON.stringify(clientId),
-    );
-
     try {
       if (!clientId) {
         return { ok: false, message: "Spotify client ID is not configured." };
