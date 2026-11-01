@@ -101,6 +101,7 @@ describe("TerminalWindowApp native control inset", () => {
         onSettingsChanged: () => () => {},
         onTerminalDockRequest: () => () => {},
         setWindowGlass: () => Promise.resolve(),
+        refreshWindowGlass: () => Promise.resolve(),
       },
     });
   });

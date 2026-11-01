@@ -16,6 +16,7 @@ import { resolveActiveTheme } from "../../../../renderer/shared/themes";
 import type { FileSymbol } from "../../../../renderer/features/sidebar/files/lib/icons/fileSymbols";
 import { getEnabledExtensionThemes } from "../../../../shared/extensions/extensions";
 import { createGlassThemeCssVariables } from "../glass/glassTheme";
+import { useNativeGlassSurface } from "../../../../renderer/shared/lib/glass/useNativeGlassSurface";
 import { type EditorDiagnostic } from "../../../../shared/editor/language/diagnostics";
 import { type ExtensionState } from "../../../../shared/extensions/extensions";
 import { type GitStatusResult } from "../../../../shared/workspace/git";
@@ -91,28 +92,11 @@ export function useAppDerivedState({
     themeTokens,
   ]);
 
-  useEffect(() => {
-    const glassActive = settings.editor.appGlassMode !== "off";
-    document.documentElement.classList.toggle("axon-native-glass", glassActive);
-
-    void window.axon
-      .setWindowGlass(
-        settings.editor.appGlassMode,
-        themeTokens.background,
-        themeAppearance,
-      )
-      .catch((error) => {
-        console.warn("failed to synchronize native window glass:", error);
-      });
-
-    return () => {
-      document.documentElement.classList.remove("axon-native-glass");
-    };
-  }, [
+  useNativeGlassSurface(
     settings.editor.appGlassMode,
-    themeAppearance,
     themeTokens.background,
-  ]);
+    themeAppearance,
+  );
 
   useEffect(() => {
     const roots = [document.documentElement, document.body].filter(Boolean);

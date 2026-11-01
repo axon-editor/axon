@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld("axon", {
     appearance: "light" | "dark",
   ): Promise<void> =>
     ipcRenderer.invoke("window:setGlass", mode, opaqueBackground, appearance),
+  refreshWindowGlass: (): Promise<void> =>
+    ipcRenderer.invoke("window:refreshGlass"),
   openExternalLink: (href: string): Promise<void> =>
     ipcRenderer.invoke("shell:openExternal", href),
   onSettingsPreview: (callback: (settings: AxonSettings) => void) => {

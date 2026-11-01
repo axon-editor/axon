@@ -129,7 +129,7 @@ export function applyWindowGlass(
       // The native layer is new, but Chromium may still hold a partial damage
       // region from the opaque frame. Invalidate the full WebContents only on
       // this transition so the first Glass frame is submitted as one surface.
-      window.webContents.invalidate();
+      refreshWindowGlass(window);
     }
   } catch (error) {
     window.setBackgroundColor(safeOpaqueBackground(opaqueBackground));
@@ -138,4 +138,10 @@ export function applyWindowGlass(
       error,
     );
   }
+}
+
+export function refreshWindowGlass(window: BrowserWindow | null) {
+  if (!window || window.isDestroyed()) return;
+
+  window.webContents.invalidate();
 }

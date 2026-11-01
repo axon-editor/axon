@@ -72,6 +72,8 @@ contextBridge.exposeInMainWorld("axon", {
     appearance: "light" | "dark",
   ): Promise<void> =>
     ipcRenderer.invoke("window:setGlass", mode, opaqueBackground, appearance),
+  refreshWindowGlass: (): Promise<void> =>
+    ipcRenderer.invoke("window:refreshGlass"),
   // Listing extension metadata (never activating them) is enough to feed
   // getEnabledExtensionThemes so the theme picker and window chrome resolve the
   // same built-in registry as the editor without running every extension's

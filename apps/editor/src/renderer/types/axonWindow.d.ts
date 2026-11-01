@@ -256,6 +256,7 @@ declare global {
         opaqueBackground: string,
         appearance: "light" | "dark",
       ) => Promise<void>;
+      refreshWindowGlass: () => Promise<void>;
       ensureSettingsFile: (
         folderPath?: string | null,
         settings?: AxonSettings,

@@ -22,6 +22,7 @@ import {
 } from "@axon-editor/renderer/shared/lib/theme/themeTokens";
 import { resolveActiveTheme } from "@axon-editor/renderer/shared/themes/syntax/tokenThemes";
 import SettingsTab from "@axon-builtin-settings/settings/SettingsTab";
+import { useNativeGlassSurface } from "@axon-editor/renderer/shared/lib/glass/useNativeGlassSurface";
 import { createGlassThemeCssVariables } from "../../workbench/app/lib/glass/glassTheme";
 
 export default function SettingsSurfaceRoot() {
@@ -78,23 +79,26 @@ export default function SettingsSurfaceRoot() {
     );
   }, [extensionThemes, settings]);
 
-  useEffect(() => {
-    if (!settings || !appThemeCssVariables) return;
+  const glassCssVariables = appThemeCssVariables as
+    | (CSSProperties & {
+        [customProperty: `--${string}`]: string | number | undefined;
+      })
+    | null;
+  const glassOpaqueBackground = (
+    glassCssVariables?.["--axon-background"] ?? ""
+  ) as string;
+  const glassAppearance =
+    (appThemeCssVariables?.colorScheme as "light" | "dark" | undefined) ??
+    "dark";
 
-    const glassActive = settings.editor.appGlassMode !== "off";
-    document.documentElement.classList.toggle("axon-native-glass", glassActive);
-    const variableMap = appThemeCssVariables as CSSProperties & {
-      [customProperty: `--${string}`]: string | number | undefined;
-    };
-    void window.axon
-      .setWindowGlass(
-        settings.editor.appGlassMode,
-        (variableMap["--axon-background"] ?? "") as string,
-        appThemeCssVariables.colorScheme as "dark" | "light",
-      )
-      .catch((error) => {
-        console.warn("failed to synchronize native window glass:", error);
-      });
+  useNativeGlassSurface(
+    settings?.editor.appGlassMode ?? null,
+    glassOpaqueBackground,
+    glassAppearance,
+  );
+
+  useEffect(() => {
+    if (!appThemeCssVariables) return;
 
     const roots = [document.documentElement, document.body];
     const variableEntries = Object.entries(appThemeCssVariables).filter(
@@ -114,7 +118,7 @@ export default function SettingsSurfaceRoot() {
         });
       });
     };
-  }, [appThemeCssVariables, settings]);
+  }, [appThemeCssVariables]);
 
   // These two identities must stay stable for SettingsTab's effects to behave:
   // the preview and auto-save debounce timers depend on them, and a new arrow

@@ -26,6 +26,7 @@ import {
   type TerminalSurfaceDockMode,
   type TerminalWindowHandoff,
 } from "@axon-editor/shared/terminal/terminalWindow";
+import { useNativeGlassSurface } from "@axon-editor/renderer/shared/lib/glass/useNativeGlassSurface";
 import { createGlassThemeCssVariables } from "../../workbench/app/lib/glass/glassTheme";
 import { useWindowFullScreen } from "../../workbench/app/lib/ui/useWindowFullScreen";
 
@@ -147,23 +148,14 @@ export default function TerminalWindowApp() {
     );
   }, [activeTheme, settings, themeTokens]);
 
+  useNativeGlassSurface(
+    settings?.editor.appGlassMode ?? null,
+    themeTokens?.background ?? "",
+    activeTheme?.appearance ?? "dark",
+  );
+
   useEffect(() => {
-    if (!settings || !activeTheme || !themeTokens || !appThemeCssVariables) {
-      return;
-    }
-
-    const glassActive = settings.editor.appGlassMode !== "off";
-    document.documentElement.classList.toggle("axon-native-glass", glassActive);
-
-    void window.axon
-      .setWindowGlass(
-        settings.editor.appGlassMode,
-        themeTokens.background,
-        activeTheme.appearance,
-      )
-      .catch((error) => {
-        console.warn("failed to synchronize native window glass:", error);
-      });
+    if (!appThemeCssVariables) return;
 
     const roots = [document.documentElement, document.body];
     const variableEntries = Object.entries(appThemeCssVariables).filter(
@@ -183,7 +175,7 @@ export default function TerminalWindowApp() {
         });
       });
     };
-  }, [activeTheme, appThemeCssVariables, settings, themeTokens]);
+  }, [appThemeCssVariables]);
 
   const dockWindow = useCallback((dockMode: TerminalSurfaceDockMode) => {
     // The snapshot is sourced from the mounted Terminal surface so the session

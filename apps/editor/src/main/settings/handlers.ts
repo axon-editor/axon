@@ -16,7 +16,10 @@ import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
 import { AXON_AUTO_SAVE_MENU_ITEM_ID } from "../window/menu/menu";
 import { extensionHostService } from "../extensions/host/service";
 import { writeBootAppearance } from "./bootAppearance";
-import { applyWindowGlass } from "../window/glass/windowGlass";
+import {
+  applyWindowGlass,
+  refreshWindowGlass,
+} from "../window/glass/windowGlass";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
@@ -119,6 +122,14 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       );
     },
   );
+
+  // The renderer asks for this after the first Glass frame paints. The initial
+  // setGlass invalidation can arrive before the new Glass CSS is committed, so
+  // the transition needs one more full repaint once the renderer has content
+  // that matches the native material.
+  ipcMain.handle("window:refreshGlass", (event) => {
+    refreshWindowGlass(BrowserWindow.fromWebContents(event.sender));
+  });
 
   ipcMain.handle("menu:setAutoSaveChecked", (_event, checked: boolean) => {
     const menuItem = Menu.getApplicationMenu()?.getMenuItemById(
