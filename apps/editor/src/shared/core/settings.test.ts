@@ -8,6 +8,7 @@ import {
   DEFAULT_SETTINGS,
   EDITOR_FONT_FAMILIES,
   UI_FONT_FAMILIES,
+  getAvailableAppGlassModes,
   normalizeSettings,
 } from "./settings";
 
@@ -92,6 +93,16 @@ describe("editor formatting settings", () => {
 });
 
 describe("application glass settings", () => {
+  it("offers Live Glass only on Windows", () => {
+    expect(getAvailableAppGlassModes("darwin")).toEqual(["off", "system"]);
+    expect(getAvailableAppGlassModes("linux")).toEqual(["off", "system"]);
+    expect(getAvailableAppGlassModes("win32")).toEqual([
+      "off",
+      "system",
+      "live",
+    ]);
+  });
+
   it("preserves explicit native glass modes", () => {
     expect(
       normalizeSettings({ editor: { appGlassMode: "live" } }).editor

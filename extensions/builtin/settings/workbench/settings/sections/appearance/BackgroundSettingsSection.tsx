@@ -12,7 +12,7 @@ import SettingsNumberSlider from "../../controls/inputs/SettingsNumberSlider";
 import SettingsSection from "../../controls/layout/SettingsSection";
 import SettingsTextInput from "../../controls/inputs/SettingsTextInput";
 import {
-  APP_GLASS_MODE_ITEMS,
+  getAppGlassModeItems,
   EDITOR_BACKGROUND_IMAGE_FIT_ITEMS,
 } from "../../lib/data/settingsData";
 
@@ -32,16 +32,27 @@ export default function BackgroundSettingsSection({
   onSelectEditorBackgroundImage: () => void;
   onUpdateEditor: UpdateEditor;
 }) {
+  const isWindows = window.axon.platform === "win32";
+  const glassModeItems = getAppGlassModeItems(window.axon.platform);
+  const selectedGlassMode =
+    draft.editor.appGlassMode === "live" && !isWindows
+      ? "system"
+      : draft.editor.appGlassMode;
+
   return (
     <SettingsSection>
       <SettingsField
         rowKey="app-glass"
         label="App glass"
-        description="System Glass favors efficiency. Live Glass requests a continuously blurred native material where the operating system supports one."
+        description={
+          isWindows
+            ? "System Glass uses Mica for efficiency. Live Glass uses Acrylic for live blur."
+            : "Use the operating system's native glass material behind the application surface."
+        }
       >
         <SearchSelect
-          value={draft.editor.appGlassMode}
-          items={APP_GLASS_MODE_ITEMS}
+          value={selectedGlassMode}
+          items={glassModeItems}
           onChange={(mode) => onUpdateEditor("appGlassMode", mode)}
           ariaLabel="Application glass mode"
           placeholder="Search glass modes..."

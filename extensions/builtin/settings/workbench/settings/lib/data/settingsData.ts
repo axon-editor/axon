@@ -5,7 +5,7 @@
 
 import {
   AI_PROVIDER_IDS,
-  APP_GLASS_MODES,
+  getAvailableAppGlassModes,
   EDITOR_FONT_FAMILIES,
   EDITOR_CURSOR_BLINKING,
   EDITOR_CURSOR_STYLES,
@@ -296,11 +296,14 @@ const APP_GLASS_MODE_PRESENTATION: Record<
   },
 };
 
-export const APP_GLASS_MODE_ITEMS: SearchSelectItem<AppGlassMode>[] =
-  APP_GLASS_MODES.map((mode) => ({
+export function getAppGlassModeItems(
+  platform: string,
+): SearchSelectItem<AppGlassMode>[] {
+  return getAvailableAppGlassModes(platform).map((mode) => ({
     value: mode,
     ...APP_GLASS_MODE_PRESENTATION[mode],
   }));
+}
 
 const MULTI_CURSOR_MODIFIER_LABELS: Record<EditorMultiCursorModifier, string> = {
   alt: "Alt / Option",

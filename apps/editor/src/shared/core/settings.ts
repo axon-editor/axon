@@ -88,6 +88,15 @@ export type EditorBackgroundImageFit =
 export const APP_GLASS_MODES = ["off", "system", "live"] as const;
 export type AppGlassMode = (typeof APP_GLASS_MODES)[number];
 
+// Live Glass maps to Windows Acrylic while System Glass maps to Mica. Other
+// platforms only have one native material, so exposing Live there would offer
+// two settings that do the same thing.
+export function getAvailableAppGlassModes(platform: string): AppGlassMode[] {
+  return APP_GLASS_MODES.filter(
+    (mode) => mode !== "live" || platform === "win32",
+  );
+}
+
 export const EDITOR_MULTI_CURSOR_MODIFIERS = ["alt", "ctrlCmd"] as const;
 export type EditorMultiCursorModifier =
   (typeof EDITOR_MULTI_CURSOR_MODIFIERS)[number];
