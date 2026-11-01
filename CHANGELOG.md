@@ -7,6 +7,38 @@
 
 ## Next
 
+## v4.2.0
+
+- Added a full-bleed Zen canvas and a draggable, searchable workspace tree
+  modal, with an Appearance setting for opening the tree as a modal or the full
+  sidebar.
+- Rebuilt the glass workbench surfaces: floating rounded cards, a glass
+  terminal, runtime macOS vibrancy refresh, solid settings and folder-picker
+  popups, and fixed Spotify branding.
+- Preserved terminal workspace setup across a floating handoff and hid the
+  editor chrome behind a zoomed glass terminal.
+- Expanded the agent tools with glob, grep, paged reads, breadth-first
+  `list_files`, `write_file`, `create_directory`, and `run_command` with ask,
+  allowlist, and auto command policies.
+- Moved agent file writes to atomic main-process writes and added contained
+  command execution with a controlled environment, timeout, output cap, and
+  process-tree termination.
+- Persisted the full agent timeline, thoughts, tool cards, and edit proposals
+  as readable JSON under `~/.axon/sessions`, with a one-time migration from
+  localStorage.
+- Streamed agent thinking while planning, kept tool results in context,
+  forwarded tool schemas on streaming turns, and cut latency by reusing the
+  planning response.
+- Rebuilt the agent model pickers on one shared surface with installed and
+  needs-download groups, memory-fit notes, workspace link opening, and
+  user-controlled chat scrolling.
+- Polished the Zen tree, contextual workbench icons, status bar text, workspace
+  root header, Git compare modal, and file-tree status cues.
+- Rewrote the README with current Solid Look and Glass Look screenshots,
+  badges, download guidance, and development documentation.
+- See the [v4.2.0 Release Notes](docs/releases/v4.2.0.md) for every included
+  commit.
+
 ## v4.1.0
 
 - Turned Axon Agent into a tool-driven assistant: it plans workbench actions

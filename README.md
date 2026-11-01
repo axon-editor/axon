@@ -114,7 +114,7 @@ release is tested on its target platform before it is treated as stable.
 
 ### Releases
 
-The latest release is [v4.1.0](docs/releases/v4.1.0.md). See the
+The latest release is [v4.2.0](docs/releases/v4.2.0.md). See the
 [Changelog](CHANGELOG.md) for the full history.
 
 ## Development
