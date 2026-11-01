@@ -3,272 +3,72 @@
   Licensed under the MIT License. See LICENSE in the project root for license information.
 -->
 
-# Axon
-
 <p align="center">
-  <img src="apps/editor/src/renderer/public/axon.png" width="80" height="80" alt="Axon" />
+  <img src="apps/editor/src/renderer/public/axon.png" width="88" height="88" alt="Axon" />
 </p>
 
-Axon is a personal AI-powered code editor built with Electron, React, TypeScript,
-Monaco, and a Go backend. It is built for day-to-day coding first: files,
-panes, terminal, Git, search, settings, previews, and language-server support.
+<h1 align="center">Axon</h1>
+
+<p align="center">
+  A personal-first code editor with a local Go core and a tool-driven agent.
+</p>
+
+<p align="center">
+  <a href="https://github.com/axon-editor/axon/actions/workflows/ci.yml"><img src="https://github.com/axon-editor/axon/actions/workflows/ci.yml/badge.svg" alt="CI" height="20" /></a> <a href="https://github.com/axon-editor/axon/releases/latest"><img src="https://img.shields.io/github/v/release/axon-editor/axon?label=release" alt="Latest release" height="20" /></a> <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" height="20" /></a> <a href="#download"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platforms" height="20" /></a>
+</p>
+
+Axon is a desktop code editor built for everyday work. It combines an Electron
+and Monaco workbench with a Go core, language-server intelligence, a built-in
+terminal, source control, and an agent that can plan and run workbench actions
+after you approve them.
+
+> **Status:** Axon is under active development. macOS builds are unsigned; see
+> [Opening an unsigned build on macOS](#opening-an-unsigned-build-on-macos).
 
 ## Preview
 
-**Quick look**
+The same workbench in two window styles.
+
+### Solid Look
 
 <p align="center">
-  <video src="docs/media/axon-demo-preview.mp4" autoplay muted loop playsinline width="760">
-    Axon workspace preview.
-  </video>
+  <img src="docs/media/axon-screenshot-21.png" alt="Axon editor in Solid Look" width="1200" />
 </p>
 
-**Full demo**
+### Glass Look
 
 <p align="center">
-  <video src="docs/media/axon-demo-full.mp4" controls width="760">
-    Axon demo recording.
-  </video>
+  <img src="docs/media/axon-screenshot-22.png" alt="Axon editor in Glass Look" width="1200" />
 </p>
 
-**Screenshots**
+## Highlights
 
-<table>
-  <tr>
-    <td colspan="3" align="center"><strong>Workspace Workflows</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-01.png" alt="Axon editor with file tree and tabs" width="260" /><br />
-      <sub>Editor, file tree, and tabs</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-02.png" alt="Axon workspace picker" width="260" /><br />
-      <sub>Workspace picker</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-03.png" alt="Axon clone repository workflow" width="260" /><br />
-      <sub>Clone repository</sub>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="3" align="center"><strong>Editing and Intelligence</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-04.png" alt="Axon language hover documentation" width="260" /><br />
-      <sub>Language hover</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-05.png" alt="Axon code completion suggestions" width="260" /><br />
-      <sub>Code completion</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-06.png" alt="Axon Problems view" width="260" /><br />
-      <sub>Problems view</sub>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="3" align="center"><strong>Git and Project Feedback</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-07.png" alt="Axon source control panel" width="260" /><br />
-      <sub>Source control</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-08.png" alt="Axon inline source control diff" width="260" /><br />
-      <sub>Inline diff</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-09.png" alt="Axon project output panel" width="260" /><br />
-      <sub>Project output</sub>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="3" align="center"><strong>Commands and Workspace Safety</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-10.png" alt="Axon quick actions menu" width="260" /><br />
-      <sub>Quick actions</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-11.png" alt="Axon file tree actions" width="260" /><br />
-      <sub>File tree actions</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-12.png" alt="Axon workspace trust confirmation" width="260" /><br />
-      <sub>Workspace trust</sub>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="3" align="center"><strong>Language Intelligence Details</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-13.png" alt="Axon inline completion details" width="260" /><br />
-      <sub>Inline completion details</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-14.png" alt="Axon filtered completion suggestions" width="260" /><br />
-      <sub>Filtered suggestions</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-15.png" alt="Axon function signature information" width="260" /><br />
-      <sub>Function signatures</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-16.png" alt="Axon package documentation hover" width="260" /><br />
-      <sub>Package documentation</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-17.png" alt="Axon empty editor workspace" width="260" /><br />
-      <sub>Empty editor</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-18.png" alt="Axon focused editor workspace" width="260" /><br />
-      <sub>Focused workspace</sub>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="3" align="center"><strong>Application Menus</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-19.png" alt="Axon application menu" width="260" /><br />
-      <sub>Application menu</sub>
-    </td>
-    <td align="center">
-      <img src="docs/media/axon-screenshot-20.png" alt="Axon create menu" width="260" /><br />
-      <sub>Create menu</sub>
-    </td>
-    <td></td>
-  </tr>
-</table>
+| Area | What Axon does |
+| --- | --- |
+| **Workbench** | Multi-window workspaces, split panes, draggable tabs, shared Monaco models, command palette, workspace search, settings, and live Markdown and HTML previews. |
+| **Agent** | A local, tool-driven assistant that reads files and diagnostics, proposes workbench actions, and runs edits only after approval. |
+| **Agent CLI** | Interactive `axon` terminal sessions with workspace context, saved conversations, `axon resume`, slash commands, and streaming responses. |
+| **Language intelligence** | LSP completion, hover, diagnostics, navigation, rename, and formatting, with bundled servers and on-demand native language tools. |
+| **Source control** | Source control view, side-by-side diffs, live Git line paint, branch and stash workflows, worktrees, and a Git graph. |
+| **Terminal** | Tabs, isolated PTY ownership, bounded replay, 200,000-line scrollback, and session health diagnostics. |
+| **Testing** | A test explorer with project-aware provider discovery, target runs, and inline output. |
+| **Appearance** | Built-in and custom themes, imported fonts, layered syntax coloring, Code Snapshot export, and a native glass window mode. |
+| **Extensibility** | Declarative themes, icons, language metadata, and contributions, with a typed runtime API for trusted built-ins. |
 
-## Stack
+See [Current Features](docs/CURRENT_FEATURES.md) for the complete list.
 
-**Editor**
+## Download
 
-- Electron desktop shell
-- React, TypeScript, Tailwind CSS
-- Monaco Editor
-- xterm.js terminal
+Download the latest build from
+[GitHub Releases](https://github.com/axon-editor/axon/releases/latest).
 
-**Core**
-
-- Authenticated `axon-core` service for file system, search, Git, and local AI
-  runtime routes
-- Isolated `axon-pty-host` process for shell ownership, replay, and terminal
-  streaming
-- Private Unix socket or Windows named-pipe control plane for packaged terminal
-  sessions, with a separate authenticated loopback WebSocket data stream
-
-## Project Structure
-
-See the [Architecture Guide](architecture.md) for the full repository
-architecture, ownership boundaries, and migration direction.
-
-```text
-axon/
-├── package.json                  # npm workspace root for editor and shared packages
-├── build/                        # repo-level build orchestration
-├── tools/                        # repo maintenance and guardrail scripts
-├── services/
-│   └── core/                     # Go backend
-│       ├── cmd/axon/             # backend entry point
-│       ├── cmd/axon-pty-host/    # isolated PTY process entry point
-│       ├── cmd/axon-agent/       # terminal agent command installed as axon
-│       └── internal/
-│           ├── fs/               # file tree, text reads, writes, search
-│           ├── server/           # HTTP routes
-│           ├── ptyhost/          # private control and terminal stream routers
-│           ├── terminal/         # PTY sessions, replay, and acknowledgements
-│           └── ai/               # model discovery, project context, and streaming chat
-├── packages/
-│   ├── extension-api/            # manifest, registry, and runtime extension contracts
-│   ├── protocol/                 # shared wire protocol contracts
-│   ├── ipc/                      # shared IPC channel contracts
-│   └── config/                   # shared repository and extension path conventions
-├── extensions/                   # built-in and marketplace extension packages
-│   ├── builtin/
-│   └── marketplace/
-├── examples/                     # extension manifests, themes, and runtime API usage
-├── apps/
-│   └── editor/                   # Electron + React app
-│       └── src/
-│           ├── main/             # Electron main process, IPC, updater, LSP
-│           ├── platform/         # reusable renderer/client services
-│           ├── preload/          # safe contextBridge API
-│           ├── workbench/        # editor shell and built-in UI contributions
-│           └── renderer/         # editor, sidebar, onboarding, and shared UI features
-└── docs/                         # release, update, and language-tool notes
-```
-
-## Run Locally
-
-Prerequisites: Node.js 22, npm 10 or newer, Go 1.25.1 or newer, and Git.
-
-```bash
-npm install
-npm --workspace axon run build:language-servers
-npm run dev
-```
-
-`build:language-servers` downloads Axon's managed native language servers
-(e.g. gopls) once per machine; `npm run dev` refuses to start until they are
-present. To skip managed LSPs, set `AXON_SKIP_LANGUAGE_SERVER_CHECK=1`.
-
-In development, `npm run dev` starts the Go core, Vite renderer, and Electron
-shell together. Packaged builds include the Go core binary and start it
-automatically.
-
-## Build
-
-```bash
-npm run build
-npm --workspace axon run pack
-```
-
-Platform packages:
-
-```bash
-npm --workspace axon run dist:mac
-npm --workspace axon run dist:win
-npm --workspace axon run dist:linux
-```
-
-Build output goes to `apps/editor/release/`.
-
-## Extension Examples
-
-Start with the [Extension Examples](examples/README.md). The repository
-includes:
-
-- a theme extension that can be loaded from `.axon/extensions/` today;
-- a language metadata, configuration, and snippet manifest example;
-- a type-checked `activate(context, api)` example covering commands, terminal
-  profiles, debug configuration, workspace indexing, and disposal.
-
-The public contract lives in the
-[Extension API](packages/extension-api/README.md). Declarative user
-and workspace extensions are supported. Executable third-party modules remain
-disabled until Axon can run them in an isolated extension-host process; trusted
-built-ins currently exercise that runtime contract. `window.axon` is an
-internal preload bridge and is not a public extension API.
-
-## Downloads
-
-Use the file that matches your platform and CPU:
-
-- macOS Apple Silicon: `Axon-<version>-arm64.dmg`
-- macOS Intel: `Axon-<version>.dmg`
-- Windows: `Axon.Setup.<version>.exe`
-- Linux AppImage: `Axon-<version>.AppImage`
-- Linux Debian/Ubuntu: `axon_<version>_amd64.deb`
+| Platform | Artifact |
+| --- | --- |
+| macOS (Apple Silicon) | `Axon-<version>-arm64.dmg` |
+| macOS (Intel) | `Axon-<version>.dmg` |
+| Windows (x64) | `Axon.Setup.<version>.exe` |
+| Linux (AppImage) | `Axon-<version>.AppImage` |
+| Linux (Debian/Ubuntu) | `axon_<version>_amd64.deb` |
 
 If macOS says the app is not supported, the downloaded build probably does not
 match your CPU architecture.
@@ -301,69 +101,154 @@ xattr -cr /Applications/Axon.app
 
 You only do this once per install. Later launches are unaffected.
 
-## Updates
+### Updates
 
-Axon checks GitHub releases for newer versions. On unsigned personal macOS
-builds, fully automatic in-app replacement is not guaranteed because macOS
-Gatekeeper and Electron updater flows expect signed/notarized apps for the
-smoothest install-and-relaunch path. For that reason, the safest update path is:
+Axon checks GitHub Releases for newer versions. On unsigned macOS builds,
+fully automatic replacement and relaunch are best-effort because Gatekeeper
+expects a signed and notarized app. The reliable path is to download the correct
+release artifact and replace the old app manually. See the
+[Update Guide](docs/UPDATES.md).
 
-1. Open the update notice in Axon.
-2. Download the correct release artifact for your platform.
-3. Replace the old app manually if the in-app updater cannot relaunch.
+Windows and Linux builds are not affected by Apple notarization, but each
+release is tested on its target platform before it is treated as stable.
 
-Windows and Linux builds do not require Apple notarization, but releases still
-need to be tested on their target platform before being treated as stable.
+### Releases
 
-More detail: [Update Guide](docs/UPDATES.md).
+The latest release is [v4.1.0](docs/releases/v4.1.0.md). See the
+[Changelog](CHANGELOG.md) for the full history.
 
-## Current Features
+## Development
 
-See [Current Features](docs/CURRENT_FEATURES.md) for the complete feature list.
+### Prerequisites
+
+Node.js 22, npm 10 or newer, Go 1.25.1 or newer, and Git.
+
+### Run Locally
+
+```bash
+git clone https://github.com/axon-editor/axon.git
+cd axon
+npm install
+npm --workspace axon run build:language-servers
+npm run dev
+```
+
+`build:language-servers` downloads Axon's managed native language servers once
+per machine. `npm run dev` refuses to start until they are present. Set
+`AXON_SKIP_LANGUAGE_SERVER_CHECK=1` to skip that check.
+
+In development, `npm run dev` starts the Go core, the PTY host, Vite, and
+Electron together. Packaged builds include the Go core binary and start it
+automatically.
+
+### Build
+
+```bash
+npm run build
+npm --workspace axon run pack
+```
+
+Platform packages:
+
+```bash
+npm --workspace axon run dist:mac
+npm --workspace axon run dist:win
+npm --workspace axon run dist:linux
+```
+
+Build output goes to `apps/editor/release/`. Use `dist:mac:x64` or
+`dist:mac:arm64` to target a specific macOS architecture.
+
+### Validation
+
+Run the checks that cover your change before opening a pull request:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run ci:local
+```
+
+`npm run ci:local` runs the local CI path: package builds, extension example
+checks, type checking, the editor main build, lint, file-size checks, editor
+tests, filesystem tests, and Go tests. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for the full validation matrix.
+
+## Architecture
+
+**Stack:** Electron, React, TypeScript, Tailwind CSS, Monaco, xterm.js, and Go.
+
+```text
+apps/editor       Electron main process, preload bridge, workbench, and renderer
+services/core     Go core for filesystem, search, Git, PTY, and AI runtime routes
+packages/*        Shared contracts: extension API, protocol, IPC, and config
+extensions/*      Built-in and marketplace extension packages
+examples/*        Extension manifests, themes, and runtime API examples
+build/            Repository-level build orchestration
+tools/            Maintenance and guardrail scripts
+docs/*            Architecture, language servers, updates, and release notes
+```
+
+The renderer talks to `axon-core` over an authenticated local service. Terminal
+sessions are owned by an isolated `axon-pty-host` process with a private control
+plane and an authenticated loopback data stream. Built-in workbench features
+mount through extension contribution records, which keeps first-party surfaces
+on the same path as future installable extensions.
+
+See the [Architecture Guide](architecture.md) for ownership boundaries, terminal
+reliability, and the migration direction.
+
+## Extensions
+
+Axon's extension model is declarative first. Themes, icons, language metadata,
+and contribution records load from the user extension folder and from
+`.axon/extensions/` in the open workspace. Executable modules are currently
+restricted to trusted built-ins while the isolated extension-host process is
+still under development.
+
+- [Extension API](packages/extension-api/README.md)
+- [Extension examples](examples/README.md)
+- [Extension guide](docs/EXTENSIONS.md)
+
+`window.axon` is Axon's internal preload bridge, not a public extension API.
+Extensions should target `@axon/extension-api`.
 
 ## Language Servers
 
-Axon does not reimplement language intelligence itself. Like Zed and VS Code, it
-acts as an LSP client and talks to language servers.
+Axon is an LSP client. The editor owns completion, hover, diagnostics,
+navigation, rename, and formatting UI; language servers own project analysis.
+Release builds bundle the npm-backed language servers and `gopls`; other native
+servers such as `rust-analyzer`, `clangd`, and `jdtls` are installed on demand
+from Language Tools. Language tool downloads are version-pinned and
+integrity-checked.
 
-Currently targeted:
+Use the [Language Server Guide](docs/LANGUAGE_SERVERS.md) for the full support
+matrix and installation details.
 
-- TypeScript/JavaScript: bundled `typescript-language-server`
-- Go: bundled managed `gopls`
-- Python: bundled `pyright-langserver`
-- PHP: bundled `intelephense`
-- HTML, CSS, JSON, YAML, Docker, Bash, and web frameworks: bundled npm servers
-- C/C++, Rust, Java, C#, Kotlin, Lua, XML, Protocol Buffers, Dart, SQL,
-  TOML, Zig, Terraform, LaTeX, Clojure, Haskell, Erlang, and Assembly:
-  installed on demand from Language Tools
-- Swift, Ruby, Scala, R, PowerShell, and Makefile: detected automatically and
-  installed or connected through their supported runtime toolchains
+## Contributing
 
-Release builds package npm-backed servers and Go. Other native servers, SDKs,
-and private runtimes are downloaded only when the user installs their language
-from Axon's Language Tools. Downloads are version-pinned, integrity-checked,
-staged outside the active installation, and cleaned up when cancelled or failed.
-This keeps the desktop installer smaller without removing syntax highlighting
-or workspace language detection.
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for
+local setup, validation, architecture rules, and commit conventions.
 
-More detail: [Language Server Guide](docs/LANGUAGE_SERVERS.md).
+Small fixes such as typos, obvious bugs, focused UI polish, and narrow refactors
+can go straight to a pull request. Larger work such as new features, architecture
+changes, release or build changes, new dependencies, or new extension APIs
+should start with an [issue](https://github.com/axon-editor/axon/issues) or
+[discussion](https://github.com/axon-editor/axon/discussions) first.
 
-## Release Notes
+## Roadmap
 
-See the [Changelog](CHANGELOG.md) for the full history and the
-[v4.1.0 Release Notes](docs/releases/v4.1.0.md) for the latest release
-notes.
+- Reviewed AI patch preview and apply workflow
+- Complete multi-root behavior across Git, LSP, terminals, tests, and agent
+  context
+- Additional hosted and local AI providers with secure credential storage
+- Complete extension contribution activation and replace the temporary asset
+  mirror
+- Test coverage, test debugging, advanced Git review, and deeper LSP features
 
 ## License
 
 Axon is available under the [MIT License](LICENSE).
 
 Copyright (c) 2026 GordenArcher and Axon Editor Group.
-
-## Roadmap
-
-- Reviewed AI patch preview/apply workflow
-- Complete multi-root behavior across Git, LSP, terminals, tests, and agent context
-- Additional hosted/local AI providers with secure credential storage
-- Complete extension contribution activation and replace the temporary asset mirror
-- Test coverage, test debugging, advanced Git review, and deeper LSP features
