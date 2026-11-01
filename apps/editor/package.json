@@ -889,7 +889,7 @@
     "katex": "^0.16.47",
     "lucide-react": "^1.16.0",
     "mermaid": "^11.17.2",
-    "minimatch": "10.2.5",
+    "minimatch": "11.0.1",
     "monaco-editor": "^0.56.0",
     "protobufjs": "8.7.0",
     "pyright": "^1.1.410",
