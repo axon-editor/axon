@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Inline images in Markdown prose.
+ *
+ * Tailwind preflight makes every img display: block. That default is correct
+ * for workbench chrome but wrong inside a document: a README badge row is
+ * authored as images separated by spaces inside <p align="center">, and raw
+ * HTML images carry no utility classes to fight preflight, so they stack one
+ * per line. Markdown images already opt into inline-block, so this keeps raw
+ * HTML images on the same inline baseline instead of giving the same document
+ * two different image layout models.
+ */
+.axon-markdown-preview img {
+  display: inline-block;
+  vertical-align: middle;
+}

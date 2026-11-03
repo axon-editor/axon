@@ -28,6 +28,7 @@ import {
   findVisibleSourceLine,
 } from "../lib/sync/scrollSync";
 import MarkdownPreviewToolbar from "./MarkdownPreviewToolbar";
+import "../styles/markdownImages.css";
 import "../styles/markdownVideo.css";
 
 // The preview reads prose in the editor's own monospace face so the
