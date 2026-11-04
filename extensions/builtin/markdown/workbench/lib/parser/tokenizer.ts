@@ -467,19 +467,22 @@ function parseList(
 
     // Check if this line is a list item.
     if (!isListItem(line, ordered)) {
-      // Lazy continuation: a non-list line can continue a list item
-      // if we have items and the previous line was part of an item.
-      if (items.length > 0) {
-        // Append to the last item's content.
-        const lastItem = items[items.length - 1];
-        lastItem.children = tokenizeBlocks(
-          getListItemText(lastItem) + "\n" + line,
-          options,
-        );
-        i++;
-        continue;
-      }
-      break;
+      // A block-level construct always ends the list. Without this guard a
+      // heading, quote, or fence written directly under an item would be
+      // folded into the item paragraph as literal text.
+      if (items.length === 0 || isBlockStart(line)) break;
+
+      // Lazy continuation: an unindented line with no blank line above it
+      // can continue the paragraph inside the last item. Extend the existing
+      // paragraph instead of rebuilding it from plain text, which would drop
+      // inline code, links, and emphasis from the item.
+      const lastItem = items[items.length - 1];
+      const lastBlock = lastItem.children[lastItem.children.length - 1];
+      if (lastBlock?.type !== "paragraph") break;
+
+      lastBlock.children.push({ type: "softBreak" }, ...parseInline(line));
+      i++;
+      continue;
     }
 
     // Parse the list item.
@@ -505,20 +508,6 @@ function isListItem(line: string, ordered: boolean): boolean {
     return /^\s*\d+\.\s/.test(line);
   }
   return /^\s*[-*+]\s/.test(line);
-}
-
-// Extracts the raw text content of a list item for lazy continuation.
-function getListItemText(item: ListItemToken): string {
-  return item.children
-    .map((child) => {
-      if (child.type === "paragraph") {
-        return child.children
-          .map((c) => (c.type === "text" ? c.content : ""))
-          .join("");
-      }
-      return "";
-    })
-    .join("\n");
 }
 
 // Parses a single list item starting at the given line.
@@ -556,9 +545,24 @@ function parseListItem(
     const nextLine = lines[i];
 
     if (nextLine.trim() === "") {
-      if (i + 1 < lines.length && isListItem(lines[i + 1], ordered)) {
+      const followingLine = lines[i + 1];
+      if (!followingLine) break;
+
+      // A blank line only belongs to the item when the next line is indented
+      // to the item's content column. Another list item is left to the outer
+      // list loop so it can consume the blank and keep the list going. An
+      // unindented line means the list has ended, and the outer loop must see
+      // the blank so it does not fold that line into the last item as a lazy
+      // continuation.
+      const followingIndent =
+        followingLine.length - followingLine.trimStart().length;
+      if (
+        isListItem(followingLine, ordered) ||
+        followingIndent < contentStart
+      ) {
         break;
       }
+
       // Blank line within the item content.
       collected.push("");
       i++;

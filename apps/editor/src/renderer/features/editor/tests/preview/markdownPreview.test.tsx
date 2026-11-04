@@ -718,6 +718,59 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
     expect(container.textContent).toContain(" and ");
   });
 
+  it("keeps commit group labels outside the list that precedes them", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            "Group one:\n\n" +
+            "- `aaaaaaa` first commit.\n" +
+            "- `bbbbbbb` last commit.\n\n" +
+            "Group two:\n\n" +
+            "- `ccccccc` second group commit.\n"
+          }
+          filePath="/workspace/docs/releases/v4.2.0.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+
+    const preview = container.querySelector(".axon-markdown-preview");
+    expect(preview).not.toBeNull();
+
+    const paragraphs = Array.from(preview!.querySelectorAll("p")).map(
+      (paragraph) => paragraph.textContent,
+    );
+    expect(paragraphs).toContain("Group one:");
+    expect(paragraphs).toContain("Group two:");
+
+    const lists = preview!.querySelectorAll("ul");
+    expect(lists).toHaveLength(2);
+    expect(lists[0].querySelectorAll("li")).toHaveLength(2);
+    expect(lists[1].querySelectorAll("li")).toHaveLength(1);
+    expect(lists[1].textContent).toContain("ccccccc");
+  });
+
+  it("preserves inline formatting when a paragraph continues a list item", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            "- `aaaaaaa` starts the commit\nand the message continues."
+          }
+          filePath="/workspace/docs/releases/v4.2.0.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+
+    const item = container.querySelector("li");
+    expect(item?.querySelector("code")?.textContent).toBe("aaaaaaa");
+    expect(item?.textContent).toContain("and the message continues.");
+  });
+
   it("opens local markdown links in the editor instead of the web", async () => {
     const onOpenFile = vi.fn();
     await act(async () => {
