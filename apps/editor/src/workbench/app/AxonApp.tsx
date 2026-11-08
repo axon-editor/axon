@@ -522,6 +522,7 @@ export function useAxonAppViewModel({ initialExtensionState }: AppProps) {
     );
   }, []);
   const { handleOpenSettingsTab } = useSettingsWindowSync({
+    folderPath,
     settings,
     settingsContribution,
     handleSettingsPreview,

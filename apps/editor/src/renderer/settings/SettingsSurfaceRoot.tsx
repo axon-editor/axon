@@ -11,7 +11,7 @@
 // editor windows through the main process, while save delegates the disk write
 // (and the settings:changed convergence broadcast) to main.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { normalizeSettings, type AxonSettings } from "@axon-editor/shared/core/settings";
 import { getEnabledExtensionThemes } from "@axon-editor/shared/extensions/extensions";
@@ -26,6 +26,8 @@ import { useNativeGlassSurface } from "@axon-editor/renderer/shared/lib/glass/us
 import { createGlassThemeCssVariables } from "../../workbench/app/lib/glass/glassTheme";
 
 export default function SettingsSurfaceRoot() {
+  const [folderPath, setFolderPath] = useState<string | null>(null);
+  const [workspaceResolved, setWorkspaceResolved] = useState(false);
   const [settings, setSettings] = useState<AxonSettings | null>(null);
   const [extensionState, setExtensionState] = useState<ExtensionState | null>(
     null,
@@ -33,13 +35,50 @@ export default function SettingsSurfaceRoot() {
   const [availableFonts, setAvailableFonts] = useState<
     AxonSettings["customFonts"]
   >([]);
+  const folderPathRef = useRef<string | null>(null);
+
+  // The dedicated window is shared by every editor window, so main owns the
+  // current scope. A change arrives as settings:workspace instead of a reload,
+  // which keeps the window (and its theme) alive while it rebinds.
+  const applyWorkspace = useCallback((nextFolderPath: string | null) => {
+    if (folderPathRef.current === nextFolderPath) return;
+    folderPathRef.current = nextFolderPath;
+    setFolderPath(nextFolderPath);
+    setSettings(null);
+    setExtensionState(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+    window.axon
+      .getSettingsWorkspace!()
+      .then((workspace) => {
+        if (cancelled) return;
+        applyWorkspace(workspace);
+        setWorkspaceResolved(true);
+      })
+      .catch((error) => {
+        console.error("failed to resolve settings workspace:", error);
+        if (!cancelled) setWorkspaceResolved(true);
+      });
+
+    const unsubscribe = window.axon.onSettingsWorkspaceChanged!(
+      (workspace) => applyWorkspace(workspace),
+    );
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [applyWorkspace]);
+
+  useEffect(() => {
+    if (!workspaceResolved) return;
+
+    let cancelled = false;
     Promise.all([
-      window.axon.getSettings(null),
+      window.axon.getSettings(folderPath),
       window.axon.listAvailableFonts(),
-      window.axon.listExtensions(null),
+      window.axon.listExtensions(folderPath),
     ])
       .then(([loadedSettings, fonts, listedExtensions]) => {
         if (cancelled) return;
@@ -53,7 +92,7 @@ export default function SettingsSurfaceRoot() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [folderPath, workspaceResolved]);
 
   const extensionThemes = useMemo(
     () => getEnabledExtensionThemes(extensionState),
@@ -124,8 +163,8 @@ export default function SettingsSurfaceRoot() {
   // the preview and auto-save debounce timers depend on them, and a new arrow
   // on every render makes each setSettings re-render cancel and re-arm the
   // debounce (and re-fire the preview timer), so the window would keep painting
-  // "Saving settings..." while the save never happens. setSettings is the only
-  // mutable dependency and its identity is stable.
+  // "Saving settings..." while the save never happens. setSettings is stable,
+  // and folderPath only changes when the scope switch remounts the tab.
   const onPreview = useCallback(
     (nextSettings: AxonSettings) => {
       setSettings(normalizeSettings(nextSettings));
@@ -135,15 +174,17 @@ export default function SettingsSurfaceRoot() {
   );
   const onSave = useCallback(
     (nextSettings: AxonSettings) => {
-      return window.axon.updateSettings(nextSettings, null).then((saved) => {
-        // Main is the disk authority and broadcasts settings:changed to the
-        // editor windows; this window converges to the returned value so
-        // the "saved" state reflects exactly what was written.
-        setSettings(normalizeSettings(saved));
-        return true;
-      });
+      return window.axon
+        .updateSettings(nextSettings, folderPath)
+        .then((saved) => {
+          // Main is the disk authority and broadcasts settings:changed to the
+          // editor windows; this window converges to the returned value so
+          // the "saved" state reflects exactly what was written.
+          setSettings(normalizeSettings(saved));
+          return true;
+        });
     },
-    [setSettings],
+    [folderPath, setSettings],
   );
 
   if (!settings || !extensionState) {
@@ -176,22 +217,26 @@ export default function SettingsSurfaceRoot() {
       />
       <div className="min-h-0 flex-1">
         <SettingsTab
-        folderPath={null}
-        language="plaintext"
-        availableFonts={availableFonts}
-        extensionState={extensionState}
-        settings={settings}
-        onCloseTab={() => {
-          void window.axon.closeSettingsWindow!();
-        }}
-        onPreview={onPreview}
-        onSave={onSave}
-        onOpenLanguageTools={() => {
-          void window.axon.sendSettingsAction!("openLanguageTools");
-        }}
-        onViewLogs={() => {
-          void window.axon.sendSettingsAction!("viewLogs");
-        }}
+          // A scope switch must remount the tab so its draft, search, and
+          // auto-save timers start from the newly loaded settings instead of
+          // carrying the previous workspace's edits across.
+          key={folderPath ?? "user"}
+          folderPath={folderPath}
+          language="plaintext"
+          availableFonts={availableFonts}
+          extensionState={extensionState}
+          settings={settings}
+          onCloseTab={() => {
+            void window.axon.closeSettingsWindow!();
+          }}
+          onPreview={onPreview}
+          onSave={onSave}
+          onOpenLanguageTools={() => {
+            void window.axon.sendSettingsAction!("openLanguageTools");
+          }}
+          onViewLogs={() => {
+            void window.axon.sendSettingsAction!("viewLogs");
+          }}
         />
       </div>
     </div>

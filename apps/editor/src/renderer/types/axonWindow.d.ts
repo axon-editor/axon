@@ -261,8 +261,12 @@ declare global {
         folderPath?: string | null,
         settings?: AxonSettings,
       ) => Promise<string>;
-      openSettingsWindow: () => Promise<void>;
+      openSettingsWindow: (folderPath?: string | null) => Promise<void>;
       closeSettingsWindow: () => Promise<void>;
+      getSettingsWorkspace?: () => Promise<string | null>;
+      onSettingsWorkspaceChanged?: (
+        callback: (folderPath: string | null) => void,
+      ) => () => void;
       onSettingsPreview: (
         callback: (settings: AxonSettings) => void,
       ) => () => void;

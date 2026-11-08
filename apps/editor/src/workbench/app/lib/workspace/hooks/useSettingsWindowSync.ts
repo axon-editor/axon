@@ -19,6 +19,7 @@ import { type SettingsWorkbenchContribution } from "@axon-builtin-settings/lib/c
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 interface SettingsWindowSyncOptions {
+  folderPath: string | null;
   settings: AxonSettings;
   settingsContribution: SettingsWorkbenchContribution | null;
   handleSettingsPreview: (nextSettings: AxonSettings) => void;
@@ -30,6 +31,7 @@ interface SettingsWindowSyncOptions {
 }
 
 export function useSettingsWindowSync({
+  folderPath,
   settings,
   settingsContribution,
   handleSettingsPreview,
@@ -47,13 +49,20 @@ export function useSettingsWindowSync({
     // into the pane or opening a window whose extension surface is absent.
     if (!settingsContribution) return;
     if (settings.editor.openSettingsIn === "window") {
-      void window.axon.openSettingsWindow();
+      // The dedicated window edits the active workspace's settings, not the
+      // global ones, so the folder travels with the open request.
+      void window.axon.openSettingsWindow(folderPath);
       return;
     }
     setLayout((prev) =>
       openFileInPane(prev, prev.activePaneId, AXON_SETTINGS_TAB_PATH),
     );
-  }, [settings.editor.openSettingsIn, settingsContribution, setLayout]);
+  }, [
+    folderPath,
+    settings.editor.openSettingsIn,
+    settingsContribution,
+    setLayout,
+  ]);
   useEffect(() => {
     // The dedicated settings window previews drafts without saving and relays
     // them here, so every editor window mirrors the live theme while the user

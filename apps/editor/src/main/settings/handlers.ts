@@ -96,8 +96,9 @@ interface SettingsHandlersDependencies {
   }>;
   notifyPythonConfigurationForFolder: (folderPath: string) => void;
   startPythonLanguageServerForFolder: (folderPath: string) => Promise<void>;
-  openSettingsWindow: () => void;
+  openSettingsWindow: (folderPath?: string | null) => void;
   closeSettingsWindow: () => void;
+  getSettingsWorkspace: () => string | null;
   broadcastSettingsToEditorWindows: (
     channel: string,
     payload?: unknown,
@@ -432,9 +433,17 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
     },
   );
 
-  ipcMain.handle("settings:openWindow", () => {
-    deps.openSettingsWindow();
+  ipcMain.handle("settings:openWindow", (event, folderPath?: string | null) => {
+    // The editor that opens Settings may only hand over a workspace it already
+    // holds a capability for. The settings renderer receives its own grant from
+    // the window controller before the surface loads.
+    if (folderPath) {
+      deps.assertWorkspaceRoot(event.sender.id, folderPath);
+    }
+    deps.openSettingsWindow(folderPath ?? null);
   });
+
+  ipcMain.handle("settings:getWorkspace", () => deps.getSettingsWorkspace());
 
   ipcMain.handle("settings:closeWindow", () => {
     deps.closeSettingsWindow();

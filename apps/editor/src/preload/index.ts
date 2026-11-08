@@ -345,8 +345,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("window:refreshGlass"),
   ensureSettingsFile: (folderPath?: string | null, settings?: AxonSettings) =>
     ipcRenderer.invoke("settings:ensureFile", folderPath, settings),
-  openSettingsWindow: (): Promise<void> =>
-    ipcRenderer.invoke("settings:openWindow"),
+  openSettingsWindow: (folderPath?: string | null): Promise<void> =>
+    ipcRenderer.invoke("settings:openWindow", folderPath),
   closeSettingsWindow: (): Promise<void> =>
     ipcRenderer.invoke("settings:closeWindow"),
   onSettingsPreview: (callback: (settings: AxonSettings) => void) => {

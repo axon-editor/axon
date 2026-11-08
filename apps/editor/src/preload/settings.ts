@@ -39,6 +39,18 @@ contextBridge.exposeInMainWorld("axon", {
   ): Promise<void> => ipcRenderer.invoke("settings:action", action),
   closeSettingsWindow: (): Promise<void> =>
     ipcRenderer.invoke("settings:closeWindow"),
+  // The window is shared across editor windows, so its workspace scope comes
+  // from main rather than from whichever editor last opened it.
+  getSettingsWorkspace: (): Promise<string | null> =>
+    ipcRenderer.invoke("settings:getWorkspace"),
+  onSettingsWorkspaceChanged: (
+    callback: (folderPath: string | null) => void,
+  ) => {
+    const handler = (_: unknown, folderPath: string | null) =>
+      callback(folderPath);
+    ipcRenderer.on("settings:workspace", handler);
+    return () => ipcRenderer.removeListener("settings:workspace", handler);
+  },
   importFont: (): Promise<CustomFont | null> =>
     ipcRenderer.invoke("dialog:importFont"),
   listAvailableFonts: (): Promise<CustomFont[]> =>

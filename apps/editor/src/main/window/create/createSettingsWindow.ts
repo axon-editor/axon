@@ -14,6 +14,7 @@
 import { BrowserWindow, shell } from "electron";
 import path from "path";
 import { readBootAppearance } from "../../settings/bootAppearance";
+import { type WorkspaceCapabilityRegistry } from "../../security/workspaceCapabilities";
 import {
   applyWindowGlass,
   getWindowGlassBackground,
@@ -26,6 +27,7 @@ interface SettingsWindowDependencies {
   isMac: boolean;
   isWindows: boolean;
   getAxonIconPath: () => string;
+  workspaceCapabilities: WorkspaceCapabilityRegistry;
 }
 
 function isExternalHandlerUrl(href: string) {
@@ -57,6 +59,11 @@ const SETTINGS_WINDOW_SURFACE = "settings";
 
 export function createSettingsWindow(deps: SettingsWindowDependencies) {
   let settingsWindow: BrowserWindow | null = null;
+  // The workspace this window is currently scoped to. A single shared window
+  // means the scope can change when OPEN_SETTINGS arrives from another editor
+  // window, so the renderer is told through settings:workspace instead of
+  // being recreated.
+  let settingsFolderPath: string | null = null;
 
   // The module-level surface marker is how every broadcast helper tells the
   // dedicated settings surface apart from editor windows, so preview/save
@@ -66,8 +73,25 @@ export function createSettingsWindow(deps: SettingsWindowDependencies) {
       SETTINGS_WINDOW_SURFACE;
   }
 
-  function openSettingsWindow() {
+  function openSettingsWindow(folderPath?: string | null) {
+    const nextFolderPath = folderPath ?? null;
+
     if (settingsWindow && !settingsWindow.isDestroyed()) {
+      // The window is shared by every editor window, so reopening it from a
+      // different workspace has to move its scope rather than leave it bound to
+      // whichever folder happened to open it first.
+      if (nextFolderPath !== settingsFolderPath) {
+        if (nextFolderPath) {
+          deps.workspaceCapabilities.authorize(
+            settingsWindow.webContents.id,
+            nextFolderPath,
+          );
+        }
+        settingsFolderPath = nextFolderPath;
+        if (!settingsWindow.webContents.isDestroyed()) {
+          settingsWindow.webContents.send("settings:workspace", nextFolderPath);
+        }
+      }
       if (settingsWindow.isMinimized()) settingsWindow.restore();
       settingsWindow.focus();
       return settingsWindow;
@@ -114,6 +138,18 @@ export function createSettingsWindow(deps: SettingsWindowDependencies) {
       },
     });
     markSettingsSurface(settingsWindow);
+    settingsFolderPath = nextFolderPath;
+
+    // Granted before any URL loads, exactly like the terminal window: the
+    // settings renderer calls settings:get, settings:update, extensions:list,
+    // and ai:listModels with this folder, and every one of those asserts that
+    // the sender holds a capability for it.
+    if (nextFolderPath) {
+      deps.workspaceCapabilities.authorize(
+        settingsWindow.webContents.id,
+        nextFolderPath,
+      );
+    }
 
     applyWindowGlass(
       settingsWindow,
@@ -148,8 +184,11 @@ export function createSettingsWindow(deps: SettingsWindowDependencies) {
 
     settingsWindow.on("closed", () => {
       // Keeping the module reference null after close lets a later OPEN_SETTINGS
-      // create a fresh window instead of focusing a destroyed shell.
+      // create a fresh window instead of focusing a destroyed shell. Clearing
+      // the scope alongside it keeps the next window from inheriting a stale
+      // workspace binding.
       settingsWindow = null;
+      settingsFolderPath = null;
     });
 
     return settingsWindow;
@@ -159,6 +198,13 @@ export function createSettingsWindow(deps: SettingsWindowDependencies) {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       settingsWindow.close();
     }
+  }
+
+  // Read by the settings preload on mount. Returning the binding from main
+  // keeps the renderer from guessing its scope from a URL query or from the
+  // last settings file it happened to read.
+  function getSettingsWorkspace() {
+    return settingsFolderPath;
   }
 
   function isSettingsWindow(window: BrowserWindow) {
@@ -196,6 +242,7 @@ export function createSettingsWindow(deps: SettingsWindowDependencies) {
   return {
     openSettingsWindow,
     closeSettingsWindow,
+    getSettingsWorkspace,
     isSettingsWindow,
     broadcastSettingsToEditorWindows,
   };

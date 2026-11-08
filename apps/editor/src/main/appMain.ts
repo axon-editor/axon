@@ -208,6 +208,7 @@ const settingsWindowController = createSettingsWindow({
   isMac,
   isWindows,
   getAxonIconPath: () => getAxonIconPath(isDev),
+  workspaceCapabilities,
 });
 const terminalWindowController = createTerminalWindowController({
   axonDevServerUrl,
@@ -496,6 +497,7 @@ registerSettingsHandlers({
   },
   openSettingsWindow: settingsWindowController.openSettingsWindow,
   closeSettingsWindow: settingsWindowController.closeSettingsWindow,
+  getSettingsWorkspace: settingsWindowController.getSettingsWorkspace,
   broadcastSettingsToEditorWindows:
     settingsWindowController.broadcastSettingsToEditorWindows,
 });
