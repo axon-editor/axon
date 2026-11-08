@@ -771,6 +771,50 @@ Read [[Architecture Guide|the guide]] and [@axon2026].`;
     expect(item?.textContent).toContain("and the message continues.");
   });
 
+  it("keeps bold content in the final list item when the list ends at a heading", async () => {
+    await act(async () => {
+      root.render(
+        <MarkdownPreview
+          content={
+            "## Datasets\n\n" +
+            "- **[CelebA-Spoof](https://github.com/ZhangYuanhan-AI/CelebA-Spoof)**,\n" +
+            "  larger, covers print, replay, and mask attacks.\n\n" +
+            "## Tech stack\n\n" +
+            "- **Python**: detection and embedding\n" +
+            "- **gRPC + mTLS**: service boundary\n"
+          }
+          filePath="/workspace/README.md"
+          folderPath="/workspace"
+        />,
+      );
+    });
+    await flushPreview();
+
+    const preview = container.querySelector(".axon-markdown-preview");
+    expect(preview).not.toBeNull();
+
+    // The old list parser rebuilt a continued item from plain text when the
+    // list ended at an unindented heading. That erased the final item's bold
+    // link and folded the heading into the item, so the link text and the
+    // heading must both survive as siblings here.
+    const datasetsLink = Array.from(
+      preview!.querySelectorAll("strong > a"),
+    ).find((link) => link.textContent === "CelebA-Spoof");
+    expect(datasetsLink?.getAttribute("href")).toBe(
+      "https://github.com/ZhangYuanhan-AI/CelebA-Spoof",
+    );
+
+    const lists = preview!.querySelectorAll("ul");
+    expect(lists).toHaveLength(2);
+    expect(lists[1].textContent).toContain("gRPC + mTLS");
+    expect(lists[1].textContent).not.toContain("Out of scope");
+
+    const headings = Array.from(preview!.querySelectorAll("h2")).map(
+      (heading) => heading.textContent,
+    );
+    expect(headings).toEqual(["Datasets", "Tech stack"]);
+  });
+
   it("opens local markdown links in the editor instead of the web", async () => {
     const onOpenFile = vi.fn();
     await act(async () => {
