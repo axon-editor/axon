@@ -40,7 +40,7 @@ const ZEN_CHROME_TRANSITION_MS = 200;
 
 const Terminal = React.lazy(() => import("@axon-builtin-terminal/Terminal"));
 const AxonAgentSidebar = React.lazy(
-  () => import("@axon-builtin-agent/sidebar/AxonAgentSidebar"),
+  () => import("@axon-builtin-agent/sidebar/root/components/AxonAgentSidebar"),
 );
 const SpotifyFloatingPlayer = React.lazy(
   () => import("@axon-builtin-spotify/player/SpotifyFloatingPlayer"),

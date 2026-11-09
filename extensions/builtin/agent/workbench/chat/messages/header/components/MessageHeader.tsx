@@ -1,0 +1,63 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { memo, useCallback } from "react";
+import { Check, Copy } from "lucide-react";
+
+interface MessageHeaderProps {
+  role: "user" | "assistant";
+  copiedId: number | null;
+  messageId: number;
+  onCopied: (messageId: number) => void;
+}
+
+function MessageHeader({
+  role,
+  copiedId,
+  messageId,
+  onCopied,
+}: MessageHeaderProps) {
+  const isAssistant = role === "assistant";
+  const copied = copiedId === messageId;
+
+  const handleCopy = useCallback(() => {
+    onCopied(messageId);
+  }, [messageId, onCopied]);
+
+  return (
+    <div
+      className={`mb-1 flex items-center gap-1.5 ${
+        isAssistant ? "justify-between" : "justify-end"
+      }`}
+    >
+      {isAssistant && (
+        <span className="text-[11px] font-medium text-[var(--axon-editor-foreground)] opacity-50">
+          Axon
+        </span>
+      )}
+
+      <div className="flex items-center gap-0.5">
+        {!isAssistant && (
+          <span className="text-[11px] font-medium text-[var(--axon-editor-foreground)] opacity-40">
+            You
+          </span>
+        )}
+        {isAssistant && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-0 transition-opacity hover:bg-[var(--axon-panel-overlay-hover)] group-hover/assistant:opacity-40 hover:!opacity-100"
+            aria-label={copied ? "Copied response" : "Copy response"}
+            title={copied ? "Copied" : "Copy response"}
+          >
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default memo(MessageHeader);

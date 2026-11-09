@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { memo } from "react";
 import BrailleSpinner from "./BrailleSpinner";
 
 interface Props {
@@ -10,10 +11,7 @@ interface Props {
   active?: boolean;
 }
 
-export default function StreamingIndicator({
-  label = "Thinking",
-  active = true,
-}: Props) {
+function StreamingIndicator({ label = "Thinking", active = true }: Props) {
   return (
     <div className="flex items-center gap-2 py-1.5 text-[11px] text-[var(--axon-editor-foreground)] opacity-45">
       {active ? (
@@ -25,3 +23,5 @@ export default function StreamingIndicator({
     </div>
   );
 }
+
+export default memo(StreamingIndicator);

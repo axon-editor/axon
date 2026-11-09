@@ -123,21 +123,6 @@ export function useAgentModelRuntime(
     void refreshRuntimeStatus();
   }, [refreshRuntimeStatus]);
 
-  useEffect(() => {
-    if (!runtimeStatus?.models.length) return;
-    setRuntimeStatus((current) =>
-      current
-        ? {
-            ...current,
-            selectedModel,
-            selectedModelInstalled: current.models.some(
-              (model) => model.id === selectedModel && model.available,
-            ),
-          }
-        : current,
-    );
-  }, [runtimeStatus?.models, selectedModel]);
-
   const pullSelectedModel = useCallback(async () => {
     if (!selectedModel || pulling) return;
 
