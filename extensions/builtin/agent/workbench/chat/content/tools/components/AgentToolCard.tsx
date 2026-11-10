@@ -144,7 +144,9 @@ export default function AgentToolCard({
         {pending ? (
           <>
             <span className="min-w-0 text-[11px] text-[var(--axon-editor-foreground)] opacity-50">
-              Axon wants to run this action.
+              {tool.permissionOnly
+                ? "OpenCode wants to run this action."
+                : "Axon wants to run this action."}
             </span>
             <span className="flex shrink-0 items-center gap-1">
               <button
@@ -155,24 +157,29 @@ export default function AgentToolCard({
                 <SkipForward size={10} />
                 Skip
               </button>
-              {tool.name === "run_command" && onAllow && (
-                <button
-                  type="button"
-                  onClick={() => onAllow(tool)}
-                  title="Allow this exact command and working directory for this session"
-                  className="flex h-6 cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-60 transition-colors hover:opacity-100"
-                >
-                  <ShieldCheck size={10} />
-                  Allow
-                </button>
-              )}
+              {(tool.name === "run_command" || tool.permissionOnly) &&
+                onAllow && (
+                  <button
+                    type="button"
+                    onClick={() => onAllow(tool)}
+                    title={
+                      tool.permissionOnly
+                        ? "Allow this action for this session"
+                        : "Allow this exact command and working directory for this session"
+                    }
+                    className="flex h-6 cursor-pointer items-center gap-1 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-60 transition-colors hover:opacity-100"
+                  >
+                    <ShieldCheck size={10} />
+                    Allow
+                  </button>
+                )}
               <button
                 type="button"
                 onClick={() => onRun(tool)}
                 className="flex h-6 cursor-pointer items-center gap-1 rounded-md bg-[var(--axon-syntax-function)] px-2 text-[11px] font-medium text-white transition-opacity hover:opacity-90"
               >
                 <Play size={10} />
-                Run
+                {tool.permissionOnly ? "Allow once" : "Run"}
               </button>
             </span>
           </>

@@ -11,18 +11,14 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import {
-  type AgentMessage,
-  type AgentToolStatus,
-} from "../conversation";
+import { type AgentMessage } from "../conversation";
 import {
   appendAgentStatus,
   appendAgentText,
   appendAgentThought,
-  appendAgentTool,
   finalizeAgentTimeline,
-  updateAgentTool,
 } from "../conversation/timeline";
+import { upsertAgentTool } from "../conversation/timeline/upsert/upsertAgentTool";
 import {
   actionCanApplyEdits,
   parseEditProposal,
@@ -108,31 +104,12 @@ export function useAgentChatStream({
         return;
       }
 
-      const updateToolStatus = (
-        toolId: string,
-        status: AgentToolStatus,
-        message?: string,
-        result?: string,
-      ) => {
-        setMessages((current) =>
-          current.map((item) =>
-            item.id === stream.messageId
-              ? updateAgentTool(item, toolId, {
-                  status,
-                  ...(message !== undefined ? { message } : {}),
-                  ...(result !== undefined ? { result } : {}),
-                })
-              : item,
-          ),
-        );
-      };
-
       if (event.type === "tool-proposed" && event.tool) {
         const tool = event.tool;
         setMessages((current) =>
           current.map((item) =>
             item.id === stream.messageId
-              ? appendAgentTool(item, { ...tool, status: "pending" })
+              ? upsertAgentTool(item, { ...tool, status: "pending" })
               : item,
           ),
         );
@@ -140,17 +117,39 @@ export function useAgentChatStream({
       }
 
       if (event.type === "tool-started" && event.tool) {
-        updateToolStatus(event.tool.id, "running");
+        const tool = event.tool;
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === stream.messageId
+              ? upsertAgentTool(item, { ...tool, status: "running" })
+              : item,
+          ),
+        );
         return;
       }
 
       if (event.type === "tool-result" && event.tool) {
         const result = event.toolResult;
-        updateToolStatus(
-          event.tool.id,
-          result?.rejected ? "rejected" : result?.ok ? "done" : "error",
-          result?.message,
-          result?.result,
+        const tool = event.tool;
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === stream.messageId
+              ? upsertAgentTool(item, {
+                  ...tool,
+                  status: result?.rejected
+                    ? "rejected"
+                    : result?.ok
+                      ? "done"
+                      : "error",
+                  ...(result?.message !== undefined
+                    ? { message: result.message }
+                    : {}),
+                  ...(result?.result !== undefined
+                    ? { result: result.result }
+                    : {}),
+                })
+              : item,
+          ),
         );
         if (
           event.tool.name === "write_file" &&
@@ -167,6 +166,24 @@ export function useAgentChatStream({
           result.result
         ) {
           onDirectoryCreatedRef.current?.(result.result);
+        }
+        const argumentPath = [
+          tool.arguments.path,
+          tool.arguments.filePath,
+          tool.arguments.file,
+        ].find(
+          (value): value is string =>
+            typeof value === "string" && value.length > 0,
+        );
+        if (
+          argumentPath &&
+          result?.ok &&
+          !result.rejected &&
+          (event.tool.name === "write" ||
+            event.tool.name === "edit" ||
+            event.tool.name === "patch")
+        ) {
+          onFileWrittenRef.current?.(argumentPath);
         }
         return;
       }

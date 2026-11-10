@@ -62,6 +62,7 @@ import {
 } from "./core/proxy/proxy";
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { registerAiHandlers } from "./ai/handlers/handlers";
+import { stopOpenCodeServer } from "./ai/providers/opencode/server/lifecycle";
 import { registerManagedLanguageToolHandlers } from "./languageTools/manager/handlers";
 import { ManagedLanguageToolManager } from "./languageTools/manager/manager";
 import { warmUpAiRuntime } from "./ai/streaming/runtimeWarmup";
@@ -837,6 +838,7 @@ app.on("before-quit", (event) => {
   shutdownPromise = (async () => {
     const serviceResults = await Promise.allSettled([
       stopAllLanguageServers(),
+      stopOpenCodeServer(),
       bundledCore.stop(),
       bundledPtyHost.stop(),
     ]);

@@ -49,11 +49,15 @@ export default function AxonAgentSettingsSection({
   ) => void;
 }) {
   const [showAllModels, setShowAllModels] = useState(false);
-  const selectedModel = models.find((model) => model.id === draft.ai.model);
-  const hiddenModelCount = models.filter(
+  // The settings model drives the local axon-core runtime and inline
+  // completions. OpenCode models are selected from the agent sidebar instead
+  // because they use a different backend and session store.
+  const localModels = models.filter((model) => model.backend !== "opencode");
+  const selectedModel = localModels.find((model) => model.id === draft.ai.model);
+  const hiddenModelCount = localModels.filter(
     (model) => model.compatibility === "unsupported" && model.id !== draft.ai.model,
   ).length;
-  const visibleModels = models.filter(
+  const visibleModels = localModels.filter(
     (model) =>
       showAllModels || model.compatibility !== "unsupported" || model.id === draft.ai.model,
   );

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { randomUUID } from "node:crypto";
 import { ipcMain } from "electron";
 import {
   type AiChatRequest,
@@ -16,6 +17,15 @@ import {
   type AiRuntimeStatus,
   type AiUiToolResult,
 } from "../../../shared/ai/ai";
+import {
+  loadOpenCodeRuntime,
+  mergeRuntimeStatus,
+} from "../providers/opencode/models/runtime";
+import {
+  cancelOpenCodeRun,
+  resolveOpenCodePermission,
+  startOpenCodeRun,
+} from "../providers/opencode/run/session";
 import { readSettingsForFolder } from "../../settings/io";
 import {
   cancelAgentRun,
@@ -102,6 +112,27 @@ async function getCoreAiProjectContext(input: {
   return json.data;
 }
 
+async function getMergedAiRuntimeStatus(input: {
+  axonCorePort: string;
+  axonCoreToken: string;
+  folderPath: string | null;
+  model: string;
+}): Promise<AiRuntimeStatus> {
+  // Local and OpenCode status are independent. A missing local runtime must not
+  // hide OpenCode models, and a missing OpenCode CLI must not make the local
+  // panel look broken. Each side fails independently and the merge decides what
+  // the renderer can offer.
+  const [core, opencode] = await Promise.all([
+    getCoreAiRuntimeStatus({
+      axonCorePort: input.axonCorePort,
+      axonCoreToken: input.axonCoreToken,
+      model: input.model,
+    }).catch(() => null),
+    loadOpenCodeRuntime(input.folderPath),
+  ]);
+  return mergeRuntimeStatus(core, opencode, input.model);
+}
+
 export function registerAiHandlers(deps: {
   axonCorePort: string;
   axonCoreToken: string;
@@ -145,9 +176,10 @@ export function registerAiHandlers(deps: {
     async (event, folderPath?: string | null): Promise<AiRuntimeStatus> => {
       const authorizedFolder = authorizeFolder(event.sender.id, folderPath);
       const settings = await readSettingsForFolder(authorizedFolder);
-      return getCoreAiRuntimeStatus({
+      return getMergedAiRuntimeStatus({
         axonCorePort: deps.axonCorePort,
         axonCoreToken: deps.axonCoreToken,
+        folderPath: authorizedFolder ?? null,
         model: settings.ai.model,
       });
     },
@@ -158,11 +190,15 @@ export function registerAiHandlers(deps: {
     async (event, folderPath?: string | null): Promise<AiModelInfo[]> => {
       const authorizedFolder = authorizeFolder(event.sender.id, folderPath);
       const settings = await readSettingsForFolder(authorizedFolder);
-      return listCoreAiModels({
-        axonCorePort: deps.axonCorePort,
-        axonCoreToken: deps.axonCoreToken,
-        model: settings.ai.model,
-      });
+      const [coreModels, opencode] = await Promise.all([
+        listCoreAiModels({
+          axonCorePort: deps.axonCorePort,
+          axonCoreToken: deps.axonCoreToken,
+          model: settings.ai.model,
+        }).catch(() => [] as AiModelInfo[]),
+        loadOpenCodeRuntime(authorizedFolder ?? null),
+      ]);
+      return [...coreModels, ...opencode.models];
     },
   );
 
@@ -210,6 +246,33 @@ export function registerAiHandlers(deps: {
         };
       }
 
+      const selectedModel =
+        authorizedRequest.model?.trim() || settings.ai.model;
+      const backend =
+        authorizedRequest.backend ??
+        (authorizedRequest.providerID ? "opencode" : "axon");
+      if (backend === "opencode") {
+        if (!authorizedRequest.folderPath) {
+          return {
+            success: false,
+            requestId: "",
+            message: "Open a folder before using OpenCode.",
+          };
+        }
+
+        const requestId = randomUUID();
+        void startOpenCodeRun({
+          requestId,
+          request: { ...authorizedRequest, model: selectedModel },
+          send: (payload) => {
+            if (!event.sender.isDestroyed()) {
+              event.sender.send("ai:chatStreamEvent", payload);
+            }
+          },
+        });
+        return { success: true, requestId };
+      }
+
       const rendererId = event.sender.id;
       const commandController = authorizedRequest.folderPath
         ? createAgentCommandController({
@@ -224,7 +287,7 @@ export function registerAiHandlers(deps: {
         axonCoreToken: deps.axonCoreToken,
         request: {
           ...authorizedRequest,
-          model: authorizedRequest.model?.trim() || settings.ai.model,
+          model: selectedModel,
         },
         send: (payload) => {
           if (!event.sender.isDestroyed()) {
@@ -253,7 +316,13 @@ export function registerAiHandlers(deps: {
 
   ipcMain.handle(
     "ai:uiToolResult",
-    (_event, result: AiUiToolResult): boolean => resolveUiTool(result),
+    (_event, result: AiUiToolResult): boolean => {
+      // OpenCode permissions are parked in the OpenCode run registry. Only fall
+      // back to the local agent bridge when the call id does not belong to one
+      // of those pending requests.
+      if (resolveOpenCodePermission(result)) return true;
+      return resolveUiTool(result);
+    },
   );
 
   ipcMain.handle(
@@ -293,6 +362,7 @@ export function registerAiHandlers(deps: {
   ipcMain.handle(
     "ai:cancelChatStream",
     (_event, requestId: string): boolean => {
+      if (cancelOpenCodeRun(requestId)) return true;
       return cancelAgentRun(requestId);
     },
   );
@@ -305,6 +375,17 @@ export function registerAiHandlers(deps: {
           success: false,
           requestId: "",
           message: "Model is required.",
+        };
+      }
+
+      // OpenCode models are authenticated and managed by the OpenCode server.
+      // There is no Ollama-style download for them, so the pull button must not
+      // hand them to axon-core's pull stream.
+      if (model.includes("/")) {
+        return {
+          success: false,
+          requestId: "",
+          message: "OpenCode models are managed by OpenCode.",
         };
       }
 

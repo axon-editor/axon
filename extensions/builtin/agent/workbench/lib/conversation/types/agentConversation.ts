@@ -25,6 +25,9 @@ export interface AgentToolCallState {
   status: AgentToolStatus;
   message?: string;
   result?: string;
+  // OpenCode already owns the tool loop. The renderer only answers the
+  // permission request, so the card must not execute the tool a second time.
+  permissionOnly?: boolean;
 }
 
 export type AgentTimelineEntry =

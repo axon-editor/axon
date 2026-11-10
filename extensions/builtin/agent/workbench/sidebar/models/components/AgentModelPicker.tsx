@@ -42,7 +42,7 @@ export default function AgentModelPicker(props: Props) {
 
   const groups = [
     {
-      label: "Installed",
+      label: "Available",
       models: props.models.filter((model) => model.available),
     },
     {
@@ -53,11 +53,11 @@ export default function AgentModelPicker(props: Props) {
 
   return (
     <div ref={pickerRef} className="relative">
-      <Tooltip label="Choose Axon model" side="left">
+      <Tooltip label="Choose model" side="left">
         <button
           type="button"
           onClick={() => props.onOpenChange(!props.open)}
-          aria-label="Choose Axon model"
+          aria-label="Choose model"
           aria-expanded={props.open}
           className="flex h-7 max-w-[150px] cursor-pointer items-center gap-1.5 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-50 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100"
         >

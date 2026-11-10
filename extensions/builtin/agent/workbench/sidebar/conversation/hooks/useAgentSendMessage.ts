@@ -4,7 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { type Dispatch, type SetStateAction } from "react";
-import { type AiActionId, type AiUiState } from "@axon-editor/shared/ai/ai";
+import {
+  type AiActionId,
+  type AiModelInfo,
+  type AiUiState,
+} from "@axon-editor/shared/ai/ai";
 import { defaultPromptForAction } from "../../../lib/actions/agentActions";
 import {
   type AgentMessage,
@@ -22,11 +26,13 @@ interface Params {
   busy: boolean;
   canChat: boolean;
   context: AgentWorkbenchContextInput;
+  conversationId: string;
   conversationReady: boolean;
   folderPath: string | null;
   messages: AgentMessage[];
   prompt: string;
   selectedModel: string;
+  selectedModelInfo?: AiModelInfo;
   uiState: AiUiState;
   beginStream: (requestId: string, messageId: number) => void;
   pinToBottom: () => void;
@@ -44,11 +50,13 @@ export function useAgentSendMessage({
   busy,
   canChat,
   context,
+  conversationId,
   conversationReady,
   folderPath,
   messages,
   prompt,
   selectedModel,
+  selectedModelInfo,
   uiState,
   beginStream,
   pinToBottom,
@@ -120,8 +128,16 @@ export function useAgentSendMessage({
       diagnostics: context.diagnostics,
       gitChanges: context.gitChanges,
       conversation: conversationContext(messages),
+      conversationId,
       gitDiff,
       model: selectedModel,
+      ...(selectedModelInfo?.backend === "opencode"
+        ? {
+            backend: "opencode" as const,
+            providerID: selectedModelInfo.providerID,
+            modelID: selectedModelInfo.modelID,
+          }
+        : {}),
       uiState,
     });
 

@@ -125,6 +125,17 @@ export function useAgentToolActions({
       allowForSession = false,
     ) => {
       setToolStatus(messageId, tool.id, "running");
+      // OpenCode executed the tool itself and is waiting for a permission
+      // decision. Running it again through Axon's local action bridge would
+      // duplicate the command or write.
+      if (tool.permissionOnly) {
+        void window.axon.reportAiUiToolResult({
+          callId: tool.id,
+          ok: true,
+          ...(allowForSession ? { allowForSession: true } : {}),
+        });
+        return;
+      }
       void Promise.resolve(onRunAgentAction(tool.name, tool.arguments)).then(
         (result) =>
           window.axon.reportAiUiToolResult({

@@ -47,13 +47,13 @@ export default function AgentInstalledModelPicker({
       <button
         type="button"
         onClick={handleToggle}
-        aria-label="Choose an installed model"
+        aria-label="Choose a model"
         aria-expanded={open}
         className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-[var(--axon-panel-border)] bg-transparent px-2.5 py-2 text-left transition-colors hover:border-[var(--axon-syntax-function)]/40"
       >
         <span className="min-w-0">
           <span className="block truncate text-[12px] text-[var(--axon-editor-foreground)]">
-            {activeModel ? activeModel.label : "Choose an installed model"}
+            {activeModel ? activeModel.label : "Choose a model"}
           </span>
           {activeModel?.description && (
             <span className="mt-0.5 block truncate text-[10px] leading-4 text-[var(--axon-editor-foreground)] opacity-40">

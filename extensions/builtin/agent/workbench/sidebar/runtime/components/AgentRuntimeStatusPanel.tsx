@@ -148,7 +148,11 @@ export default function AgentRuntimeStatusPanel({
           {runtimeStatus.installHint}
         </div>
       )}
-      {runtimeStatus?.installed && runtimeStatus.running && !selectedModelInstalled && (
+      {runtimeStatus?.installed &&
+        runtimeStatus.running &&
+        !selectedModelInstalled &&
+        !selectedModel.includes("/") &&
+        selectedModelInfo?.backend !== "opencode" && (
         <div className="border-t border-[var(--axon-panel-border)] p-4">
           <div className="mb-3 rounded border border-[var(--axon-panel-border)] bg-[var(--axon-editor-background)] p-3">
             <div className="text-[12px] font-semibold text-[var(--axon-editor-foreground)]">
@@ -211,7 +215,7 @@ export default function AgentRuntimeStatusPanel({
       {runtimeStatus?.installed && runtimeStatus.running && installedModels.length > 0 && (
         <div className="border-t border-[var(--axon-panel-border)] px-4 py-3">
           <div className="mb-2 text-[10px] uppercase tracking-[0.08em] text-[var(--axon-editor-foreground)] opacity-45">
-            Or use an installed model
+            Or use another model
           </div>
           <AgentInstalledModelPicker
             models={models}

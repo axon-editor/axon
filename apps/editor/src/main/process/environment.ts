@@ -82,6 +82,7 @@ export async function getDeveloperToolSpawnEnvironment(
           "/usr/local/bin",
           "/usr/local/sbin",
           path.join(homePath, ".local", "bin"),
+          path.join(homePath, ".opencode", "bin"),
           path.join(homePath, ".cargo", "bin"),
           path.join(homePath, "go", "bin"),
           "/usr/bin",

@@ -96,12 +96,18 @@ export interface AiToolDefinition {
 
 export type AiToolKind = "workspace" | "ui" | "editor";
 
+export type AiModelBackend = "axon" | "opencode";
+
 export interface AiToolCall {
   id: string;
   name: string;
   kind: AiToolKind;
   title: string;
   arguments: Record<string, unknown>;
+  // OpenCode executes its own tools. A permission-only call asks the renderer
+  // for a decision but must never run the tool locally, otherwise the command
+  // would execute twice.
+  permissionOnly?: boolean;
 }
 
 export interface AiUiToolResult {
@@ -131,6 +137,15 @@ export interface AiChatRequest {
   projectContext?: AiProjectContext;
   gitDiff?: string;
   model?: string;
+  // The renderer-selected backend. OpenCode owns its own agent loop and
+  // session history, so main routes the request instead of reusing the local
+  // axon-core loop when this is "opencode".
+  backend?: AiModelBackend;
+  providerID?: string;
+  modelID?: string;
+  // Axon's conversation id maps to a long-lived OpenCode session so follow-up
+  // turns keep their server-side history.
+  conversationId?: string;
   // The main process owns the agent tool loop and re-sends the full
   // conversation it has accumulated so axon-core can plan the next turn. The
   // renderer leaves these empty.
@@ -207,6 +222,9 @@ export interface AiModelInfo {
   minMemoryGB?: number;
   recommendedMemoryGB?: number;
   compatibility?: AiModelCompatibility;
+  backend?: AiModelBackend;
+  providerID?: string;
+  modelID?: string;
 }
 
 export interface AiRuntimeStatus {
