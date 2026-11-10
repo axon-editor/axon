@@ -9,6 +9,7 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
@@ -29,7 +30,7 @@ type Model struct {
 	sessionCreated    time.Time
 	sessions          *store.Store
 	persisted         map[string]bool
-	sessionPicker     components.SessionPicker
+	sessionPicker     pickers.SessionPicker
 	sessionPickerOpen bool
 	width             int
 	height            int
@@ -38,13 +39,17 @@ type Model struct {
 	spinner           spinner.Model
 	renderer          *transcript.Renderer
 	messages          []components.Message
-	picker            components.ModelPicker
+	picker            pickers.ModelPicker
 	pickerOpen        bool
 	streaming         bool
 	pulse             int
 	status            string
 	events            chan client.Event
 	cancel            context.CancelFunc
+	decisions         chan client.Decision
+	approvalOpen      bool
+	approval          components.Approval
+	approvalID        string
 }
 
 type streamEventMsg struct {
@@ -117,7 +122,7 @@ func NewModel(
 	if sessions != nil && resume {
 		summaries, err := sessions.List(workspace)
 		if err == nil && len(summaries) > 0 {
-			model.sessionPicker = components.NewSessionPicker(
+			model.sessionPicker = pickers.NewSessionPicker(
 				sessionOptions(summaries, model.sessionID),
 				model.sessionID,
 			)

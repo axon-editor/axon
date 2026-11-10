@@ -126,7 +126,7 @@ func renderTool(tool *components.Tool, width int) string {
 		lines = append(lines, theme.ToolMeta.Render(meta))
 	}
 
-	preview, hidden := toolPreview(tool.Result)
+	preview, hidden := toolPreview(tool)
 	for _, line := range preview {
 		lines = append(lines, theme.ToolResult.Render(line))
 	}
@@ -139,12 +139,15 @@ func renderTool(tool *components.Tool, width int) string {
 
 func toolHeader(tool *components.Tool) string {
 	icon := theme.ToolActive.Render("▸")
-	if !tool.Running {
-		if tool.OK {
-			icon = theme.ToolOK.Render("✓")
-		} else {
-			icon = theme.ToolError.Render("✗")
-		}
+	switch {
+	case tool.Waiting:
+		icon = theme.ToolActive.Render("?")
+	case tool.Running:
+		icon = theme.ToolActive.Render("▸")
+	case tool.OK:
+		icon = theme.ToolOK.Render("✓")
+	default:
+		icon = theme.ToolError.Render("✗")
 	}
 
 	name := strings.TrimSpace(surface.Sanitize(tool.Name))
@@ -159,11 +162,14 @@ func toolHeader(tool *components.Tool) string {
 }
 
 func toolMeta(tool *components.Tool) string {
+	if tool.Waiting {
+		return "waiting for approval"
+	}
 	if tool.Running {
 		return "running"
 	}
 
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 4)
 	if tool.DurationMS > 0 {
 		parts = append(parts, fmt.Sprintf("%dms", tool.DurationMS))
 	}
@@ -174,7 +180,15 @@ func toolMeta(tool *components.Tool) string {
 		}
 		parts = append(parts, fmt.Sprintf("%d %s", lines, label))
 	}
-	if !tool.OK {
+	switch tool.Approval {
+	case "once":
+		parts = append(parts, "approved once")
+	case "turn":
+		parts = append(parts, "allowed for run")
+	case "denied":
+		parts = append(parts, "denied")
+	}
+	if !tool.OK && tool.Approval != "denied" {
 		parts = append(parts, "failed")
 	}
 	return strings.Join(parts, " · ")
@@ -190,6 +204,7 @@ func toolSummary(name, rawArguments string) string {
 		Path    string `json:"path"`
 		Pattern string `json:"pattern"`
 		Query   string `json:"query"`
+		Command string `json:"command"`
 		Offset  int    `json:"offset"`
 		Limit   int    `json:"limit"`
 		Depth   int    `json:"depth"`
@@ -221,6 +236,10 @@ func toolSummary(name, rawArguments string) string {
 		return surface.Sanitize(firstNonEmpty(args.Pattern, args.Path))
 	case "grep":
 		return surface.Sanitize(args.Query)
+	case "run_command":
+		return surface.Sanitize(args.Command)
+	case "write_file", "create_directory":
+		return surface.Sanitize(args.Path)
 	default:
 		var compact bytes.Buffer
 		if err := json.Compact(&compact, []byte(rawArguments)); err != nil {
@@ -230,8 +249,8 @@ func toolSummary(name, rawArguments string) string {
 	}
 }
 
-func toolPreview(result string) ([]string, int) {
-	result = strings.TrimRight(surface.Sanitize(result), "\n")
+func toolPreview(tool *components.Tool) ([]string, int) {
+	result := strings.TrimRight(surface.Sanitize(tool.Result), "\n")
 	if strings.TrimSpace(result) == "" {
 		return nil, 0
 	}
@@ -240,7 +259,13 @@ func toolPreview(result string) ([]string, int) {
 	if len(lines) <= toolPreviewLines {
 		return lines, 0
 	}
-	return lines[:toolPreviewLines], len(lines) - toolPreviewLines
+	hidden := len(lines) - toolPreviewLines
+	// Build and test output puts the actionable error at the end, so command
+	// cards keep the tail while file reads keep the beginning.
+	if tool.Name == "run_command" {
+		return lines[hidden:], hidden
+	}
+	return lines[:toolPreviewLines], hidden
 }
 
 func resultLineCount(result string) int {
@@ -272,11 +297,13 @@ func cacheKey(message components.Message, active bool) string {
 	toolKey := ""
 	if message.Tool != nil {
 		toolKey = fmt.Sprintf(
-			"%s|%s|%t|%t|%d|%d|%d",
+			"%s|%s|%t|%t|%t|%s|%d|%d|%d",
 			message.Tool.CallID,
 			message.Tool.Name,
 			message.Tool.Running,
+			message.Tool.Waiting,
 			message.Tool.OK,
+			message.Tool.Approval,
 			len(message.Tool.Arguments),
 			len(message.Tool.Result),
 			message.Tool.DurationMS,

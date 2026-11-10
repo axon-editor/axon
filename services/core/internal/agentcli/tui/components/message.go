@@ -24,5 +24,7 @@ type Tool struct {
 	Result     string `json:"result,omitempty"`
 	OK         bool   `json:"ok,omitempty"`
 	Running    bool   `json:"running,omitempty"`
+	Waiting    bool   `json:"waiting,omitempty"`
+	Approval   string `json:"approval,omitempty"`
 	DurationMS int64  `json:"durationMs,omitempty"`
 }

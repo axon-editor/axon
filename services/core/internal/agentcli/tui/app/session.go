@@ -4,7 +4,7 @@
 package app
 
 import (
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 )
 
@@ -81,10 +81,10 @@ func (m *Model) saveSession() {
 func sessionOptions(
 	sessions []store.Summary,
 	currentID string,
-) []components.SessionOption {
-	options := make([]components.SessionOption, 0, len(sessions))
+) []pickers.SessionOption {
+	options := make([]pickers.SessionOption, 0, len(sessions))
 	for _, session := range sessions {
-		options = append(options, components.SessionOption{
+		options = append(options, pickers.SessionOption{
 			ID:      session.ID,
 			Title:   session.Title,
 			Model:   session.Model,

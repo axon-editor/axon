@@ -1,7 +1,7 @@
 // Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-package client
+package tests
 
 import (
 	"context"
@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 )
 
 func TestStreamParsesToolLifecycle(t *testing.T) {
@@ -58,25 +60,25 @@ func TestStreamParsesToolLifecycle(t *testing.T) {
 		t.Fatalf("write core token: %v", err)
 	}
 
-	events := make(chan Event, 16)
-	Stream(context.Background(), Request{
+	events := make(chan client.Event, 16)
+	client.Stream(context.Background(), client.Request{
 		Prompt:     "read main.go",
 		FolderPath: home,
 		Model:      "axon-code",
 	}, events)
 
-	var start, result Event
+	var start, result client.Event
 	var delta string
 	sawDone := false
 	for event := range events {
 		switch event.Kind {
-		case ToolStart:
+		case client.ToolStart:
 			start = event
-		case ToolResult:
+		case client.ToolResult:
 			result = event
-		case Delta:
+		case client.Delta:
 			delta += event.Text
-		case Done:
+		case client.Done:
 			sawDone = true
 		}
 	}

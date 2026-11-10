@@ -11,6 +11,7 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/app"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/ai"
@@ -97,7 +98,7 @@ func TestThinkingCollapses(t *testing.T) {
 }
 
 func TestModelPickerMovesAndRenders(t *testing.T) {
-	picker := components.NewModelPicker([]ai.ModelInfo{
+	picker := pickers.NewModelPicker([]ai.ModelInfo{
 		{ID: "one", Label: "One", Available: true},
 		{ID: "two", Label: "Two", Available: false},
 	}, "one")
@@ -177,6 +178,63 @@ func TestToolCardShowsFailure(t *testing.T) {
 	}
 }
 
+func TestWaitingToolCard(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
+		{
+			ID:   "tool-4",
+			Role: "tool",
+			Tool: &components.Tool{
+				CallID:    "call-4",
+				Name:      "run_command",
+				Arguments: `{"command":"go test ./..."}`,
+				Waiting:   true,
+			},
+		},
+	}, 80))
+	if !strings.Contains(rendered, "?") || !strings.Contains(rendered, "waiting for approval") {
+		t.Fatalf("waiting tool card is missing its state:\n%s", rendered)
+	}
+}
+
+func TestDeniedToolCard(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
+		{
+			ID:   "tool-5",
+			Role: "tool",
+			Tool: &components.Tool{
+				CallID:   "call-5",
+				Name:     "run_command",
+				Result:   "The user declined to run run_command.",
+				Approval: "denied",
+			},
+		},
+	}, 80))
+	if !strings.Contains(rendered, "✗") || !strings.Contains(rendered, "denied") {
+		t.Fatalf("denied tool card is missing its state:\n%s", rendered)
+	}
+}
+
+func TestApprovalViewShowsCommand(t *testing.T) {
+	rendered := ansi.Strip(components.Approval{
+		ToolName:  "run_command",
+		Summary:   "go test ./...",
+		Details:   "Run the test suite\n\n$ go test ./...",
+		AllowTurn: true,
+	}.View(80, 20))
+
+	for _, expected := range []string{
+		"Approval required",
+		"run_command",
+		"go test ./...",
+		"Run the test suite",
+		"allow for this run",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("approval view is missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestRunningToolCard(t *testing.T) {
 	rendered := ansi.Strip(renderTranscript([]components.Message{
 		{
@@ -195,7 +253,7 @@ func TestRunningToolCard(t *testing.T) {
 }
 
 func TestSessionPickerMovesAndRenders(t *testing.T) {
-	picker := components.NewSessionPicker([]components.SessionOption{
+	picker := pickers.NewSessionPicker([]pickers.SessionOption{
 		{ID: "a", Title: "Alpha"},
 		{ID: "b", Title: "Beta"},
 	}, "a")

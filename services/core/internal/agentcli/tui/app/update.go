@@ -25,6 +25,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, tea.Quit
 		}
+		if m.approvalOpen {
+			return m.updateApproval(msg)
+		}
 		if m.sessionPickerOpen {
 			return m.updateSessionPicker(msg)
 		}

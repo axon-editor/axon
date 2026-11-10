@@ -6,6 +6,7 @@ package app
 import (
 	"strings"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -25,15 +26,26 @@ func (m *Model) layout() {
 	m.viewport.Width = max(20, m.width)
 	m.viewport.Height = viewportHeight
 	m.textarea.SetWidth(max(20, m.width-4))
+	m.ensureRenderer()
 	m.renderer.SetWidth(m.viewport.Width)
 	m.updateTranscript()
 }
 
 func (m *Model) updateTranscript() {
+	m.ensureRenderer()
 	wasAtBottom := m.viewport.AtBottom()
 	m.viewport.SetContent(m.renderer.Render(m.messages, m.activeMessage()))
 	if wasAtBottom {
 		m.viewport.GotoBottom()
+	}
+}
+
+// ensureRenderer keeps tests and any future lightweight model construction from
+// panicking before NewModel has run. The renderer has no state worth delaying.
+func (m *Model) ensureRenderer() {
+	if m.renderer == nil {
+		m.renderer = transcript.New()
+		m.renderer.SetWidth(m.viewport.Width)
 	}
 }
 
@@ -58,7 +70,9 @@ func (m Model) View() string {
 	header := theme.Header.Render("AXON")
 
 	transcript := m.viewport.View()
-	if m.sessionPickerOpen {
+	if m.approvalOpen {
+		transcript = m.approval.View(m.viewport.Width, m.viewport.Height)
+	} else if m.sessionPickerOpen {
 		transcript = m.sessionPicker.View(m.viewport.Width, m.viewport.Height)
 	} else if m.pickerOpen {
 		transcript = m.picker.View(m.viewport.Width, m.viewport.Height)
@@ -96,6 +110,9 @@ func (m Model) renderStatusLine() string {
 		statusStyle = theme.StatusActive
 	} else if m.status == "Error" {
 		statusStyle = theme.Error
+	}
+	if m.approvalOpen {
+		statusStyle = theme.ToolActive
 	}
 
 	return markStyle.Render("Λ▴") + " " + statusStyle.Render(m.status)

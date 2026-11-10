@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client/agent"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -38,19 +40,25 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	m.status = "Thinking..."
 
 	events := make(chan client.Event, 64)
+	decisions := make(chan client.Decision, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	m.events = events
+	m.decisions = decisions
 	m.cancel = cancel
+	m.approvalOpen = false
+	m.approval = components.Approval{}
+	m.approvalID = ""
 	m.updateTranscript()
 	// Persist the question before the model answers. If the process dies
 	// mid-stream the user can still resume and see what was asked.
 	m.saveSession()
 
-	go client.Stream(ctx, client.Request{
+	go agent.Run(ctx, client.Request{
 		Prompt:       prompt,
 		FolderPath:   m.workspace,
 		Model:        m.modelID,
 		Conversation: history,
+		Decisions:    decisions,
 	}, events)
 
 	return m, tea.Batch(waitForEvent(events), m.spinner.Tick)
@@ -70,6 +78,10 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 		m.sessionTitle = store.DefaultTitle
 		m.sessionCreated = time.Now()
 		m.persisted = make(map[string]bool)
+		m.approvalOpen = false
+		m.approval = components.Approval{}
+		m.approvalID = ""
+		m.decisions = nil
 		m.status = "Ready"
 	case "/model":
 		if len(m.models) == 0 {
@@ -78,7 +90,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				Content: "No models reported by the runtime.",
 			})
 		} else {
-			m.picker = components.NewModelPicker(m.models, m.modelID)
+			m.picker = pickers.NewModelPicker(m.models, m.modelID)
 			m.pickerOpen = true
 			m.status = "Select a model"
 		}
@@ -97,7 +109,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				Content: "No saved conversations for this workspace.",
 			})
 		} else {
-			m.sessionPicker = components.NewSessionPicker(
+			m.sessionPicker = pickers.NewSessionPicker(
 				sessionOptions(summaries, m.sessionID),
 				m.sessionID,
 			)

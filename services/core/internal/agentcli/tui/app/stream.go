@@ -21,6 +21,9 @@ func (m Model) handleStreamEvent(event client.Event) (tea.Model, tea.Cmd) {
 		m.collapseThinking()
 		m.appendAssistantDelta(event.Text)
 		m.updateTranscript()
+	case client.ApprovalRequest:
+		m.openApproval(event)
+		m.updateTranscript()
 	case client.ToolStart:
 		m.appendTool(event)
 		m.status = "Running " + event.ToolName + "..."
@@ -60,6 +63,10 @@ func (m *Model) finishStream(status string) {
 	m.status = status
 	m.cancel = nil
 	m.events = nil
+	m.decisions = nil
+	m.approvalOpen = false
+	m.approval = components.Approval{}
+	m.approvalID = ""
 	m.saveSession()
 }
 
@@ -71,6 +78,7 @@ func (m *Model) appendThought(text string) {
 	if last < 0 || !m.messages[last].Thinking || m.messages[last].Collapsed {
 		m.messages = append(m.messages, components.Message{
 			ID:       store.NewID(),
+			Role:     "assistant",
 			Thinking: true,
 			Content:  text,
 		})
@@ -98,6 +106,27 @@ func (m *Model) toggleThinking() {
 }
 
 func (m *Model) appendTool(event client.Event) {
+	// A mutating tool already has a waiting card from the approval request.
+	// Move that card to running instead of adding a duplicate.
+	for index := len(m.messages) - 1; index >= 0; index-- {
+		tool := m.messages[index].Tool
+		if tool == nil || tool.CallID != event.ToolCallID {
+			continue
+		}
+		tool.Running = true
+		tool.Waiting = false
+		if event.Approval != "" {
+			tool.Approval = event.Approval
+		}
+		if tool.Name == "" {
+			tool.Name = event.ToolName
+		}
+		if tool.Arguments == "" {
+			tool.Arguments = event.Arguments
+		}
+		return
+	}
+
 	m.messages = append(m.messages, components.Message{
 		ID:   store.NewID(),
 		Role: "tool",
@@ -106,6 +135,7 @@ func (m *Model) appendTool(event client.Event) {
 			Name:      event.ToolName,
 			Arguments: event.Arguments,
 			Running:   true,
+			Approval:  event.Approval,
 		},
 	})
 }
@@ -119,7 +149,11 @@ func (m *Model) finishTool(event client.Event) {
 		tool.Result = event.Result
 		tool.OK = event.OK
 		tool.Running = false
+		tool.Waiting = false
 		tool.DurationMS = event.DurationMS
+		if event.Approval != "" {
+			tool.Approval = event.Approval
+		}
 		if tool.Name == "" {
 			tool.Name = event.ToolName
 		}
@@ -137,6 +171,7 @@ func (m *Model) finishTool(event client.Event) {
 			Name:       event.ToolName,
 			Result:     event.Result,
 			OK:         event.OK,
+			Approval:   event.Approval,
 			DurationMS: event.DurationMS,
 		},
 	})
