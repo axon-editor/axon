@@ -27,6 +27,7 @@ import {
 
 interface UseAgentChatStreamOptions {
   setMessages: Dispatch<SetStateAction<AgentMessage[]>>;
+  onBackendSessionId?: (sessionId: string) => void;
   onDirectoryCreated?: (path: string) => void;
   onFileWritten?: (path: string) => void;
 }
@@ -37,6 +38,7 @@ interface UseAgentChatStreamOptions {
 // matched against the active stream before it can mutate messages.
 export function useAgentChatStream({
   setMessages,
+  onBackendSessionId,
   onDirectoryCreated,
   onFileWritten,
 }: UseAgentChatStreamOptions) {
@@ -45,12 +47,17 @@ export function useAgentChatStream({
   const streamRef = useRef<{ requestId: string; messageId: number } | null>(
     null,
   );
+  const onBackendSessionIdRef = useRef(onBackendSessionId);
   const onDirectoryCreatedRef = useRef(onDirectoryCreated);
   const onFileWrittenRef = useRef(onFileWritten);
 
   // The layout passes refresh callbacks that change identity with workspace
   // state. Keeping them in refs avoids tearing down and resubscribing the IPC
   // listener on every render just to call the latest callback.
+  useEffect(() => {
+    onBackendSessionIdRef.current = onBackendSessionId;
+  }, [onBackendSessionId]);
+
   useEffect(() => {
     onDirectoryCreatedRef.current = onDirectoryCreated;
   }, [onDirectoryCreated]);
@@ -63,6 +70,11 @@ export function useAgentChatStream({
     return window.axon.onAiChatStreamEvent((event) => {
       const stream = streamRef.current;
       if (!stream || event.requestId !== stream.requestId) return;
+
+      if (event.type === "session" && event.sessionId) {
+        onBackendSessionIdRef.current?.(event.sessionId);
+        return;
+      }
 
       const thought = event.thought;
       if (event.type === "thought" && thought) {

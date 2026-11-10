@@ -6,13 +6,13 @@
 import {
   type AgentConversation,
   type AgentConversationState,
-} from "../types/agentConversation";
+} from "../../types/agentConversation";
 import {
   actionFromMessages,
   isAiActionId,
-} from "./conversationAction";
-import { conversationTitle } from "./conversationTitle";
-import { validMessages } from "./validMessages";
+} from "../conversationAction";
+import { conversationTitle } from "../conversationTitle";
+import { validMessages } from "../validMessages";
 
 export function normalizeState(value: unknown): AgentConversationState | null {
   if (typeof value !== "object" || value === null) return null;
@@ -42,6 +42,10 @@ export function normalizeState(value: unknown): AgentConversationState | null {
           ? conversation.action
           : actionFromMessages(messages),
         messages,
+        ...(typeof conversation.backendSessionId === "string" &&
+        conversation.backendSessionId
+          ? { backendSessionId: conversation.backendSessionId }
+          : {}),
       };
     })
     .slice(-30);

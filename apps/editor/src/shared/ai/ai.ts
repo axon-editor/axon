@@ -146,6 +146,9 @@ export interface AiChatRequest {
   // Axon's conversation id maps to a long-lived OpenCode session so follow-up
   // turns keep their server-side history.
   conversationId?: string;
+  // Persisted OpenCode session id. Sending it back after a restart lets the
+  // conversation resume instead of replaying the Axon transcript.
+  backendSessionId?: string;
   // The main process owns the agent tool loop and re-sends the full
   // conversation it has accumulated so axon-core can plan the next turn. The
   // renderer leaves these empty.
@@ -192,6 +195,7 @@ export type AiChatStreamEventType =
   | "delta"
   | "thought"
   | "status"
+  | "session"
   | "done"
   | "error"
   | "cancelled"
@@ -207,6 +211,7 @@ export interface AiChatStreamEvent {
   status?: string;
   error?: string;
   done?: boolean;
+  sessionId?: string;
   tool?: AiToolCall;
   toolResult?: AiUiToolResult;
 }

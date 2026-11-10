@@ -17,6 +17,9 @@ export interface AgentConversationRecord {
   pinned: boolean;
   action: AiActionId;
   messages: unknown[];
+  // OpenCode owns the server-side transcript. Persisting its session id lets a
+  // conversation resume after an app restart without replaying every message.
+  backendSessionId?: string;
 }
 
 export interface AgentConversationSnapshot {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { newConversation } from "../model/newConversation";
-import { normalizeState } from "../model/normalizeState";
+import { normalizeState } from "../model/normalize/normalizeState";
 import { pruneEmptyConversations } from "../model/pruneEmptyConversations";
 import { validMessages } from "../model/validMessages";
 import { type AgentConversationState } from "../types/agentConversation";

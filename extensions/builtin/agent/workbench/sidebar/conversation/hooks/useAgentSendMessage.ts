@@ -23,6 +23,7 @@ import {
 
 interface Params {
   action: AiActionId;
+  backendSessionId?: string;
   busy: boolean;
   canChat: boolean;
   context: AgentWorkbenchContextInput;
@@ -47,6 +48,7 @@ interface Params {
 // surface only wires state to UI instead of also implementing the send flow.
 export function useAgentSendMessage({
   action,
+  backendSessionId,
   busy,
   canChat,
   context,
@@ -129,6 +131,7 @@ export function useAgentSendMessage({
       gitChanges: context.gitChanges,
       conversation: conversationContext(messages),
       conversationId,
+      backendSessionId,
       gitDiff,
       model: selectedModel,
       ...(selectedModelInfo?.backend === "opencode"

@@ -112,6 +112,19 @@ async function resolveSession(
   if (!client) throw new Error("OpenCode client is not ready.");
 
   const key = conversationKey(request.folderPath, request.conversationId);
+  const persistedSessionID = request.backendSessionId?.trim();
+  if (persistedSessionID) {
+    try {
+      await client.setModel(persistedSessionID, model);
+      if (key) conversationSessions.set(key, persistedSessionID);
+      return { sessionID: persistedSessionID, isNew: false };
+    } catch {
+      // The persisted id can outlive the OpenCode session if the user cleared
+      // OpenCode's data. Fall through so the next attempt creates a new one.
+      if (key) conversationSessions.delete(key);
+    }
+  }
+
   const existingSessionID = key ? conversationSessions.get(key) : undefined;
   if (existingSessionID) {
     try {
@@ -273,8 +286,10 @@ export async function startOpenCodeRun(input: {
     if (run.done) return;
 
     // The renderer only starts accepting events after the invoke response
-    // returns the request id. Sending this status after the server and session
-    // are ready keeps it from being dropped by that handshake.
+    // returns the request id. Sending these after the server, session, and
+    // event subscription are ready keeps them from being dropped by that
+    // handshake.
+    send({ requestId, type: "session", sessionId: sessionID });
     send({ requestId, type: "status", status: "Thinking..." });
     await run.client.prompt(
       sessionID,

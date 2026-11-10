@@ -64,6 +64,9 @@ export interface AgentConversation {
   pinned: boolean;
   action: AiActionId;
   messages: AgentMessage[];
+  // OpenCode session id persisted with the conversation so a restart can
+  // resume the server-side history instead of replaying the transcript.
+  backendSessionId?: string;
 }
 
 export interface AgentConversationState {

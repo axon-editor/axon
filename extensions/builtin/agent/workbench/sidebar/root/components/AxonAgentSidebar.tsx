@@ -54,6 +54,14 @@ export default function AxonAgentSidebar(props: Props) {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [composerResetNonce, setComposerResetNonce] = useState(0);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  // The session hook depends on the stream hook, so the stream's callback is
+  // routed through a ref that is wired after the session hook exists.
+  const backendSessionSetterRef = useRef<(sessionId: string) => void>(
+    () => {},
+  );
+  const handleBackendSessionId = useCallback((sessionId: string) => {
+    backendSessionSetterRef.current(sessionId);
+  }, []);
 
   const {
     activeStreamId,
@@ -64,6 +72,7 @@ export default function AxonAgentSidebar(props: Props) {
     setBusy,
   } = useAgentChatStream({
     setMessages,
+    onBackendSessionId: handleBackendSessionId,
     onDirectoryCreated: props.onAgentDirectoryCreated,
     onFileWritten: props.onAgentFileWritten,
   });
@@ -84,6 +93,10 @@ export default function AxonAgentSidebar(props: Props) {
     clearStream,
     onConversationReset: handleConversationReset,
   });
+
+  useEffect(() => {
+    backendSessionSetterRef.current = session.setBackendSessionId;
+  }, [session.setBackendSessionId]);
 
   const modelRuntime = useAgentModelRuntime(props.folderPath);
   const { resize, startResize, stopResize } = useAgentSidebarResize({
@@ -107,6 +120,7 @@ export default function AxonAgentSidebar(props: Props) {
 
   const runAgent = useAgentSendMessage({
     action: session.action,
+    backendSessionId: session.activeConversation.backendSessionId,
     busy,
     canChat: modelRuntime.canChat,
     context: props,

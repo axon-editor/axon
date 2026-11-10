@@ -28,6 +28,7 @@ import {
   startAgentConversation,
   togglePinConversation,
 } from "../../../lib/conversation";
+import { saveAgentConversation } from "../../../lib/conversation/storage/saveAgentConversation";
 
 interface Params {
   folderPath: string | null;
@@ -51,6 +52,7 @@ export interface AgentConversationSession {
   conversationState: AgentConversationState;
   confirmClearConversation: () => Promise<void>;
   selectAction: (action: AiActionId) => void;
+  setBackendSessionId: (sessionId: string) => void;
   startNewConversation: () => Promise<void>;
   switchConversation: (conversationId: string) => Promise<void>;
   togglePin: (conversationId: string) => void;
@@ -86,6 +88,7 @@ export function useAgentConversationSession({
   );
   const resumeRequestHandledRef = useRef<string | null>(null);
   const conversationStateRef = useRef(conversationState);
+  const savedBackendSessionRef = useRef<string | null>(null);
 
   // A folder prop can change a render before the load effect runs. Comparing
   // the loaded folder keeps the previous workspace's state from being saved or
@@ -201,6 +204,19 @@ export function useAgentConversationSession({
       saveActiveAgentConversation(folderPath, current, messages),
     );
   }, [messages, folderPath, conversationReady]);
+
+  // The backend session id arrives as a stream event, not a message delta, so
+  // the messages save effect may not see it until the next token. Persist it
+  // once per active conversation so an immediate cancel cannot lose it.
+  useEffect(() => {
+    if (!conversationReady) return;
+    const active = activeAgentConversation(conversationState);
+    if (!active.backendSessionId) return;
+    const key = `${conversationState.activeId}:${active.backendSessionId}`;
+    if (savedBackendSessionRef.current === key) return;
+    savedBackendSessionRef.current = key;
+    saveAgentConversation(folderPath, active, conversationState.activeId);
+  }, [conversationState, conversationReady, folderPath]);
 
   useEffect(() => {
     const flush = () => flushAllAgentConversations();
@@ -319,6 +335,21 @@ export function useAgentConversationSession({
     [conversationReady, folderPath],
   );
 
+  const setBackendSessionId = useCallback((sessionId: string) => {
+    setConversationState((current) => {
+      const nextState = {
+        ...current,
+        conversations: current.conversations.map((conversation) =>
+          conversation.id === current.activeId
+            ? { ...conversation, backendSessionId: sessionId }
+            : conversation,
+        ),
+      };
+      conversationStateRef.current = nextState;
+      return nextState;
+    });
+  }, []);
+
   return {
     action,
     activeConversation,
@@ -329,6 +360,7 @@ export function useAgentConversationSession({
     conversationState,
     confirmClearConversation,
     selectAction,
+    setBackendSessionId,
     startNewConversation,
     switchConversation,
     togglePin,
