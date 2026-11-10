@@ -340,7 +340,8 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
         } as React.CSSProperties
       }
     >
-      <div className="axon-layout-regions flex flex-1 overflow-hidden">
+      <div className="axon-layout-regions relative flex flex-1 overflow-hidden">
+        <div className="axon-window-drag-layer" aria-hidden="true" />
         <div
           className={`${chromeMounted && sidebarCollapsed ? "axon-zen-chrome" : ""} axon-sidebar-region flex shrink-0 overflow-hidden`}
           style={{

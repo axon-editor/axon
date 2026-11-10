@@ -263,6 +263,27 @@
     gap var(--axon-zen-duration) var(--axon-zen-ease);
 }
 
+/* The outer margin and the gaps between the floating cards are native material,
+ * not editor content. A full-size layer behind the cards keeps that space
+ * draggable so the frameless window can be moved from anywhere around the
+ * editor, not only from the toolbar. */
+.axon-window-drag-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  -webkit-app-region: drag;
+}
+
+.axon-layout-regions > :not(.axon-window-drag-layer) {
+  position: relative;
+  z-index: 1;
+  /* The full-size layer behind the cards makes the margin and gaps draggable.
+   * Each card punches itself back out so clicks and editor input still work.
+   * Explicit drag strips inside a card, such as the editor toolbar, are painted
+   * later and add their own drag region on top. */
+  -webkit-app-region: no-drag;
+}
+
 /* Each workbench region is a card: the sidebars share one surface class, the
  * editor wraps its toolbar and panes, and the terminal is a card of its own.
  * The radius lives on the card rather than on the containers that stack the
