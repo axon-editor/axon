@@ -9,6 +9,7 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/GordenArcher/axon-core/internal/ai"
@@ -35,6 +36,7 @@ type Model struct {
 	viewport          viewport.Model
 	textarea          textarea.Model
 	spinner           spinner.Model
+	renderer          *transcript.Renderer
 	messages          []components.Message
 	picker            components.ModelPicker
 	pickerOpen        bool
@@ -105,6 +107,7 @@ func NewModel(
 		viewport:       viewportModel,
 		textarea:       input,
 		spinner:        spinnerModel,
+		renderer:       transcript.New(),
 		messages: []components.Message{
 			{Role: "assistant", Content: "What are we working on in Axon today?"},
 		},

@@ -6,7 +6,6 @@ package app
 import (
 	"strings"
 
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -26,15 +25,29 @@ func (m *Model) layout() {
 	m.viewport.Width = max(20, m.width)
 	m.viewport.Height = viewportHeight
 	m.textarea.SetWidth(max(20, m.width-4))
+	m.renderer.SetWidth(m.viewport.Width)
 	m.updateTranscript()
 }
 
 func (m *Model) updateTranscript() {
 	wasAtBottom := m.viewport.AtBottom()
-	m.viewport.SetContent(components.Render(m.messages, m.viewport.Width))
+	m.viewport.SetContent(m.renderer.Render(m.messages, m.activeMessage()))
 	if wasAtBottom {
 		m.viewport.GotoBottom()
 	}
+}
+
+// activeMessage returns the assistant block that should show the live cursor.
+// Thinking and tool rows never carry it, even while the turn is streaming.
+func (m Model) activeMessage() int {
+	if !m.streaming || len(m.messages) == 0 {
+		return -1
+	}
+	last := len(m.messages) - 1
+	if m.messages[last].Thinking || m.messages[last].Role != "assistant" {
+		return -1
+	}
+	return last
 }
 
 func (m Model) View() string {

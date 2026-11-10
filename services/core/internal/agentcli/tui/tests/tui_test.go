@@ -11,35 +11,83 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/app"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/ai"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 )
 
-func TestTranscriptRendersRoles(t *testing.T) {
-	rendered := components.Render([]components.Message{
+func renderTranscript(messages []components.Message, width int) string {
+	renderer := transcript.New()
+	renderer.SetWidth(width)
+	return renderer.Render(messages, -1)
+}
+
+func TestTranscriptRendersMessagesWithoutLabels(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", Content: "hi there"},
-	}, 80)
+	}, 80))
 
-	for _, expected := range []string{"You", "hello", "Axon", "hi there"} {
+	for _, expected := range []string{"hello", "hi there"} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("transcript is missing %q:\n%s", expected, rendered)
 		}
 	}
+	for _, label := range []string{"You", "Axon"} {
+		if strings.Contains(rendered, label) {
+			t.Fatalf("transcript still renders the %q label:\n%s", label, rendered)
+		}
+	}
+}
+
+func TestTranscriptRendersMarkdownCode(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
+		{
+			Role:    "assistant",
+			Content: "Here is the call:\n\n```go\nfmt.Println(\"hi\")\n```\n",
+		},
+	}, 80))
+
+	if !strings.Contains(rendered, "fmt.Println") {
+		t.Fatalf("code block is missing its content:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "Here is the call") {
+		t.Fatalf("markdown text is missing:\n%s", rendered)
+	}
+}
+
+func TestStreamingCursorOnlyOnActiveMessage(t *testing.T) {
+	renderer := transcript.New()
+	renderer.SetWidth(80)
+
+	streaming := renderer.Render([]components.Message{
+		{Role: "assistant", Content: "partial answer"},
+	}, 0)
+	if !strings.Contains(streaming, "▍") {
+		t.Fatalf("active message is missing the cursor:\n%s", streaming)
+	}
+
+	idle := renderer.Render([]components.Message{
+		{Role: "assistant", Content: "partial answer"},
+	}, -1)
+	if strings.Contains(idle, "▍") {
+		t.Fatalf("idle message still shows the cursor:\n%s", idle)
+	}
 }
 
 func TestThinkingCollapses(t *testing.T) {
-	expanded := components.Render([]components.Message{
+	expanded := ansi.Strip(renderTranscript([]components.Message{
 		{Thinking: true, Content: "plan the change"},
-	}, 80)
+	}, 80))
 	if !strings.Contains(expanded, "plan the change") {
 		t.Fatalf("expanded thought is missing content:\n%s", expanded)
 	}
 
-	collapsed := components.Render([]components.Message{
+	collapsed := ansi.Strip(renderTranscript([]components.Message{
 		{Thinking: true, Content: "plan the change", Collapsed: true},
-	}, 80)
+	}, 80))
 	if strings.Contains(collapsed, "plan the change") {
 		t.Fatalf("collapsed thought still shows content:\n%s", collapsed)
 	}
