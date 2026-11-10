@@ -10,7 +10,9 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 // drags the user back down when they try to read an earlier message. A sticky
 // bottom follows only while the user is already there, and it writes scrollTop
 // once per frame so the panel lands exactly where the new content ends.
-const BOTTOM_THRESHOLD_PX = 24;
+const BOTTOM_THRESHOLD_PX = 80;
+const SCROLL_TOLERANCE_PX = 2;
+const USER_INTENT_WINDOW_MS = 200;
 
 interface Options {
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -26,6 +28,11 @@ export function useStickyScroll({
   const pinnedRef = useRef(true);
   const [pinned, setPinned] = useState(true);
   const frameRef = useRef<number | null>(null);
+  // The value our own scrollTop write produced. The scroll event that follows
+  // is ignored only when it lands on this exact value; a real user scroll that
+  // happens immediately afterwards still counts as user intent.
+  const expectedScrollTopRef = useRef<number | null>(null);
+  const lastUserIntentAtRef = useRef(0);
 
   const updatePinned = useCallback((next: boolean) => {
     if (pinnedRef.current === next) return;
@@ -51,6 +58,7 @@ export function useStickyScroll({
       // scroll back for a single frame.
       if (!pinnedRef.current) return;
       element.scrollTop = element.scrollHeight;
+      expectedScrollTopRef.current = element.scrollTop;
     });
   }, [cancelPendingScroll, scrollRef]);
 
@@ -71,25 +79,85 @@ export function useStickyScroll({
     const element = scrollRef.current;
     if (!element) return;
 
+    let lastTouchY: number | null = null;
+
     const handleScroll = () => {
+      // A programmatic scroll can be delivered after a wheel-up that already
+      // unpinned the stream. Ignoring the scroll events in that short window
+      // keeps the echo from re-pinning under the user's gesture.
+      if (Date.now() - lastUserIntentAtRef.current < USER_INTENT_WINDOW_MS) {
+        return;
+      }
+
+      const expected = expectedScrollTopRef.current;
+      if (
+        expected !== null &&
+        Math.abs(element.scrollTop - expected) <= SCROLL_TOLERANCE_PX
+      ) {
+        // This is the echo of our own scrollTop write. Do not let it change the
+        // pin state.
+        expectedScrollTopRef.current = null;
+        return;
+      }
+      expectedScrollTopRef.current = null;
+
       const distance =
         element.scrollHeight - element.scrollTop - element.clientHeight;
-      // Programmatic scrolls also fire this event and land within the
-      // threshold, which keeps the stream pinned. Only a real upward scroll
-      // pushes the distance past it and unpins.
       updatePinned(distance <= BOTTOM_THRESHOLD_PX);
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY >= 0) return;
+      // A real upward gesture wins immediately, even if the content grew in the
+      // same frame and the distance still looks close to the bottom.
+      lastUserIntentAtRef.current = Date.now();
+      expectedScrollTopRef.current = null;
+      updatePinned(false);
+      cancelPendingScroll();
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      lastTouchY = event.touches[0]?.clientY ?? null;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const nextY = event.touches[0]?.clientY;
+      if (lastTouchY !== null && nextY !== undefined && nextY > lastTouchY) {
+        lastUserIntentAtRef.current = Date.now();
+        expectedScrollTopRef.current = null;
+        updatePinned(false);
+        cancelPendingScroll();
+      }
+      lastTouchY = nextY ?? null;
+    };
+
     element.addEventListener("scroll", handleScroll, { passive: true });
-    return () => element.removeEventListener("scroll", handleScroll);
-  }, [resetKey, scrollRef, updatePinned]);
+    element.addEventListener("wheel", handleWheel, { passive: true });
+    element.addEventListener("touchstart", handleTouchStart, { passive: true });
+    element.addEventListener("touchmove", handleTouchMove, { passive: true });
+    return () => {
+      element.removeEventListener("scroll", handleScroll);
+      element.removeEventListener("wheel", handleWheel);
+      element.removeEventListener("touchstart", handleTouchStart);
+      element.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [
+    cancelPendingScroll,
+    resetKey,
+    scrollRef,
+    updatePinned,
+  ]);
 
   useEffect(() => {
     if (!pinnedRef.current) return;
     scheduleScrollToBottom();
   }, [contentVersion, scheduleScrollToBottom]);
 
-  useEffect(() => cancelPendingScroll, [cancelPendingScroll]);
+  useEffect(() => {
+    return () => {
+      cancelPendingScroll();
+    };
+  }, [cancelPendingScroll]);
 
   return { pinToBottom, pinned };
 }

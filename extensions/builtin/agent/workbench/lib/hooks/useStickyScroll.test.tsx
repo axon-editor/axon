@@ -99,6 +99,11 @@ describe("useStickyScroll", () => {
         scrollTop = value;
         element.dispatchEvent(new Event("scroll"));
       },
+      wheel(deltaY: number) {
+        element.dispatchEvent(
+          new WheelEvent("wheel", { deltaY, bubbles: true }),
+        );
+      },
       get scrollTop() {
         return scrollTop;
       },
@@ -169,6 +174,20 @@ describe("useStickyScroll", () => {
     runFrames(1);
 
     expect(scroll.scrollTop).toBe(10);
+    expect(container.querySelector("button")?.dataset.pinned).toBe("false");
+  });
+
+  it("unpins immediately on an upward wheel gesture", () => {
+    act(() => {
+      root.render(<Harness content="one" resetKey="a" />);
+    });
+    const scroll = prepareScrollElement();
+    runFrames(1);
+
+    act(() => {
+      scroll.wheel(-100);
+    });
+
     expect(container.querySelector("button")?.dataset.pinned).toBe("false");
   });
 
