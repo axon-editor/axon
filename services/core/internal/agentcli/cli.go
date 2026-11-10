@@ -6,114 +6,94 @@ package agentcli
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
-	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
-
 	"github.com/GordenArcher/axon-core/internal/agentcli/colors"
-	"github.com/GordenArcher/axon-core/internal/agentcli/composer"
 	"github.com/GordenArcher/axon-core/internal/agentcli/session"
+	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/start"
 	"github.com/GordenArcher/axon-core/internal/agentcli/workspacepath"
 )
 
-// Run is the small command router for the shipped `axon` binary.
-// This stays intentionally lightweight instead of pulling in a CLI framework:
-// startup stays fast, and the binary remains safe to ship beside axon-core
-// without adding another dependency surface.
+// Run is the command router for the shipped `axon` binary. The product
+// experience is the full-screen TUI: a bare invocation starts it in the current
+// directory, and a path starts it in that project. `gui` is the explicit handoff
+// back to the desktop editor.
 func Run(args []string) int {
 	if len(args) == 0 {
-		return runSession(nil)
+		return runTUI("")
 	}
 
 	switch args[0] {
 	case "help", "--help", "-h":
-		printCommandBanner(args)
 		printHelp()
 		return 0
-	case "ask":
-		if len(args) > 1 {
-			printCommandBanner(args)
-		}
-		return runAsk(args[1:])
+	case "version", "--version", "-v":
+		printVersion()
+		return 0
+	case "gui":
+		return runGUI(args[1:])
 	case "resume":
 		printCommandBanner(args)
 		return session.RunResume(args[1:])
-	case "commit":
-		printCommandBanner(args)
-		return runCommit(args[1:])
-	case "fix":
-		printCommandBanner(args)
-		return runFix(args[1:])
 	default:
-		// Any unknown first argument is treated as a path, matching the expected
-		// `axon .` and `axon /path/to/project` workflow. This makes opening a
-		// folder the shortest path through the command instead of hiding it
-		// behind a subcommand users have to remember.
-		//
-		// I intentionally keep this path quiet on success. `axon .` is closer to
-		// `code .` than an agent conversation: the terminal command is only a
-		// handoff into the desktop app, so printing the animated agent banner and
-		// workspace path makes normal project opening feel noisy without adding
-		// useful information. Errors still print below, where the user can act on
-		// them.
-		if err := openInEditor(args[0]); err != nil {
-			fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
+		if strings.HasPrefix(args[0], "-") {
+			fmt.Fprintln(os.Stderr, colors.Red("Unknown option: "+args[0]))
+			printHelp()
 			return 1
 		}
-		return 0
+		return runTUI(args[0])
 	}
 }
 
-func runSession(args []string) int {
-	workspace, err := os.Getwd()
+func runTUI(path string) int {
+	workspace, err := workspaceFor(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
+	return start.Run(workspace)
+}
 
-	workspace, err = workspacepath.NormalizeWorkspacePath(workspace)
-	if err != nil {
+func runGUI(args []string) int {
+	path := "."
+	if len(args) > 0 {
+		path = args[0]
+	}
+	if err := openInEditor(path); err != nil {
 		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
 		return 1
 	}
+	return 0
+}
 
-	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
-		sessionID := strings.TrimSpace(strings.TrimPrefix(args[0], ":"))
-		record, err := session.FindWorkspaceSession(workspace, sessionID)
+func workspaceFor(path string) (string, error) {
+	target := strings.TrimSpace(path)
+	if target == "" {
+		workingDirectory, err := os.Getwd()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
-			return 1
+			return "", err
 		}
-		if record != nil {
-			return session.RunWorkspaceSession(workspace, record)
-		}
-		fmt.Fprintln(os.Stderr, colors.Red("No session found with that id in this workspace."))
-		return session.PrintSessionList(workspace)
+		target = workingDirectory
 	}
+	return workspacepath.NormalizeWorkspacePath(target)
+}
 
-	return session.RunTerminalSession(workspace, nil)
+func printVersion() {
+	version := "dev"
+	if info, ok := debug.ReadBuildInfo(); ok &&
+		info.Main.Version != "" &&
+		info.Main.Version != "(devel)" {
+		version = info.Main.Version
+	}
+	fmt.Printf("axon %s\n", version)
 }
 
 func printCommandBanner(args []string) {
-	mode := "Local agent ready"
-	if len(args) > 0 {
-		switch args[0] {
-		case "help", "--help", "-h":
-			mode = "Command reference"
-		case "ask":
-			mode = "One-shot agent request"
-			if len(args) == 1 {
-				mode = "Local agent ready"
-			}
-		case "resume":
-			mode = "Resume an agent session"
-		case "commit":
-			mode = "Draft a commit from the staged diff"
-		case "fix":
-			mode = "Fix current Axon Problems"
-		default:
-			mode = "Opening workspace in Axon"
-		}
+	mode := "Axon agent"
+	if len(args) > 0 && args[0] == "resume" {
+		mode = "Resume an agent session"
 	}
 
 	workspace, err := os.Getwd()
@@ -127,53 +107,22 @@ func printCommandBanner(args []string) {
 	})
 }
 
-// runAsk joins the remaining arguments into one prompt so users can type the
-// natural terminal form: `axon ask why is this slow`. A finite command timeout
-// protects the shell from a stuck local model request while still giving slower
-// machines enough time to load and answer.
-func runAsk(args []string) int {
-	prompt := strings.TrimSpace(strings.Join(args, " "))
-	if prompt == "" {
-		return runSession(nil)
-	}
-
-	// Slash-prefixed prompts are local terminal commands, not model requests.
-	// This mirrors the Codex/Claude Code style the user asked for: the CLI can
-	// expose fast commands like `/models` without paying the cost of a stream
-	// round-trip or polluting the conversation with tool output.
-	if handled, exitCode := composer.RunSlashCommand(prompt); handled {
-		return exitCode
-	}
-
-	workspace, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
-		return 1
-	}
-	workspace, err = workspacepath.NormalizeWorkspacePath(workspace)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
-		return 1
-	}
-
-	return session.RunOneShotSession(workspace, prompt)
-}
-
-// printHelp uses the installed command name, not the source directory name.
-// That distinction matters because the code lives under cmd/axon-agent for
-// separation, but the product experience must be the clean `axon` command.
 func printHelp() {
 	fmt.Println(`Axon Agent
 
 Usage:
-  axon                         start a new terminal conversation
-  axon .                       open the current directory in Axon
-  axon /path/to/project         open a project in Axon
-  axon ask "why is X slow"      ask a one-shot question
-  axon ask                     start a terminal conversation
-  axon ask /models              list local Axon models without calling the agent
-  axon resume                  list saved conversations for the current workspace
-  axon resume :conversation     reopen a saved terminal conversation
-  axon fix                      fix current Problems from the open editor
-  axon commit                   draft a commit message from staged diff`)
+  axon                         start the agent TUI in the current directory
+  axon /path/to/project        start the agent TUI in a project
+  axon gui                     open the current directory in the Axon editor
+  axon gui /path/to/project    open a project in the Axon editor
+  axon resume                  resume a saved terminal conversation
+  axon help                    show this help
+  axon version                 print the CLI version
+
+Keys inside the TUI:
+  Enter          send
+  Shift+Enter    newline
+  Esc            cancel the current response
+  Ctrl+C         quit
+  PgUp/PgDn      scroll the transcript`)
 }

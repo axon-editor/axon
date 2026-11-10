@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/prompt"
-	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
 	"github.com/GordenArcher/axon-core/internal/ai"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/colors"
@@ -414,30 +413,4 @@ func appendPromptHistory(history []string, prompt string) []string {
 	return append(history, trimmed)
 }
 
-func RunOneShotSession(workspace, prompt string) int {
-	session := newAgentTerminalSession(workspace, nil, "")
-	history := append([]ai.ConversationMessage(nil), session.conversation...)
-	session.appendUserTurn(prompt)
-	terminalui.PrintChatRole(os.Stdout, "You")
-	fmt.Println(prompt)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	response, err := stream.StreamAgentRequest(ctx, stream.StreamRequestInput{
-		Action:       "ask",
-		Prompt:       prompt,
-		FolderPath:   workspace,
-		Conversation: history,
-	})
-	if err != nil {
-		if errors.Is(err, stream.ErrStreamInterrupted) {
-			fmt.Fprintln(os.Stderr, colors.Red("Axon stream interrupted."))
-			return 1
-		}
-		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
-		return 1
-	}
-	session.appendAssistantTurn(response)
-	return 0
-}
