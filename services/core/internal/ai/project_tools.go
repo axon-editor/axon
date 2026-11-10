@@ -205,6 +205,23 @@ func objectSchema(properties map[string]any, required []string) map[string]any {
 }
 
 func RunProjectTool(ctx context.Context, request ChatRequest, name string, rawArgs json.RawMessage) string {
+	return runProjectTool(ctx, request, name, rawArgs)
+}
+
+// ExecuteProjectTool is the tool-loop variant. It keeps the same text result
+// for the model but also reports whether the call succeeded so streaming
+// clients can render a success or failure card.
+func ExecuteProjectTool(
+	ctx context.Context,
+	request ChatRequest,
+	name string,
+	rawArgs json.RawMessage,
+) (string, bool) {
+	result := runProjectTool(ctx, request, name, rawArgs)
+	return result, toolResultOK(result)
+}
+
+func runProjectTool(ctx context.Context, request ChatRequest, name string, rawArgs json.RawMessage) string {
 	if request.FolderPath == nil || strings.TrimSpace(*request.FolderPath) == "" {
 		return "No workspace is open, so project tools are unavailable."
 	}
@@ -249,6 +266,25 @@ func RunProjectTool(ctx context.Context, request ChatRequest, name string, rawAr
 		return runSearchProjectTool(ctx, root, args)
 	default:
 		return "Unknown project tool: " + name
+	}
+}
+
+// toolResultOK covers the tool functions that report failure as text. A
+// dedicated error return would be cleaner, but keeping the string contract
+// avoids changing the editor's tool response shape.
+func toolResultOK(result string) bool {
+	normalized := strings.ToLower(result)
+	switch {
+	case strings.HasPrefix(normalized, "unknown project tool"):
+		return false
+	case strings.HasPrefix(normalized, "no workspace"):
+		return false
+	case strings.HasPrefix(normalized, "workspace is not available"):
+		return false
+	case strings.Contains(normalized, " failed:"):
+		return false
+	default:
+		return true
 	}
 }
 

@@ -21,6 +21,17 @@ func (m Model) handleStreamEvent(event client.Event) (tea.Model, tea.Cmd) {
 		m.collapseThinking()
 		m.appendAssistantDelta(event.Text)
 		m.updateTranscript()
+	case client.ToolStart:
+		m.appendTool(event)
+		m.status = "Running " + event.ToolName + "..."
+		m.updateTranscript()
+	case client.ToolResult:
+		m.finishTool(event)
+		m.status = "Thinking..."
+		m.updateTranscript()
+		// Persist each completed tool card immediately. A long tool loop can
+		// span many seconds, and a crash should not erase the work already done.
+		m.saveSession()
 	case client.Done:
 		m.finishStream("Ready")
 		return m, nil
@@ -84,6 +95,51 @@ func (m *Model) toggleThinking() {
 			return
 		}
 	}
+}
+
+func (m *Model) appendTool(event client.Event) {
+	m.messages = append(m.messages, components.Message{
+		ID:   store.NewID(),
+		Role: "tool",
+		Tool: &components.Tool{
+			CallID:    event.ToolCallID,
+			Name:      event.ToolName,
+			Arguments: event.Arguments,
+			Running:   true,
+		},
+	})
+}
+
+func (m *Model) finishTool(event client.Event) {
+	for index := len(m.messages) - 1; index >= 0; index-- {
+		tool := m.messages[index].Tool
+		if tool == nil || tool.CallID != event.ToolCallID {
+			continue
+		}
+		tool.Result = event.Result
+		tool.OK = event.OK
+		tool.Running = false
+		tool.DurationMS = event.DurationMS
+		if tool.Name == "" {
+			tool.Name = event.ToolName
+		}
+		return
+	}
+
+	// A result without a start can happen when a stream attaches mid-turn or an
+	// older core only sent the completion. Showing the card is still better than
+	// dropping evidence that the agent touched the workspace.
+	m.messages = append(m.messages, components.Message{
+		ID:   store.NewID(),
+		Role: "tool",
+		Tool: &components.Tool{
+			CallID:     event.ToolCallID,
+			Name:       event.ToolName,
+			Result:     event.Result,
+			OK:         event.OK,
+			DurationMS: event.DurationMS,
+		},
+	})
 }
 
 func (m *Model) appendAssistantDelta(delta string) {

@@ -84,8 +84,9 @@ func (s *Store) Append(sessionID string, messages []Message) error {
 
 	statement, err := tx.Prepare(
 		`INSERT OR REPLACE INTO messages (
-			id, session_id, sequence, role, content, thinking, collapsed, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, session_id, sequence, role, content, thinking, collapsed,
+			kind, data, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	)
 	if err != nil {
 		return err
@@ -106,6 +107,10 @@ func (s *Store) Append(sessionID string, messages []Message) error {
 		if message.Collapsed {
 			collapsed = 1
 		}
+		kind := message.Kind
+		if kind == "" {
+			kind = "text"
+		}
 		if _, err := statement.Exec(
 			message.ID,
 			sessionID,
@@ -114,6 +119,8 @@ func (s *Store) Append(sessionID string, messages []Message) error {
 			message.Content,
 			thinking,
 			collapsed,
+			kind,
+			message.Data,
 			now,
 		); err != nil {
 			return err

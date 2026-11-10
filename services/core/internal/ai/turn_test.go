@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -157,6 +159,59 @@ func TestStreamChatDoneCarriesToolCallsAndBuiltMessages(t *testing.T) {
 	}
 	if _, hasTools := captured["tools"]; !hasTools {
 		t.Fatal("StreamChat should forward caller-supplied tools to the model")
+	}
+}
+
+func TestStreamChatEmitsToolLifecycle(t *testing.T) {
+	folder := t.TempDir()
+	if err := os.WriteFile(filepath.Join(folder, "main.go"), []byte("package main"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	calls := 0
+	newModelRuntimeServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		if calls == 1 {
+			_, _ = w.Write([]byte(`{"message":{"content":"","tool_calls":[{"function":{"name":"list_files","arguments":{"path":""}}}]}}`))
+			return
+		}
+		_, _ = w.Write([]byte("{\"message\":{\"content\":\"Listed.\"},\"done\":false}\n{\"done\":true}\n"))
+	}, nil)
+
+	var start, result StreamEvent
+	var deltas []string
+	err := StreamChat(context.Background(), ChatRequest{
+		Action:     "agent",
+		Prompt:     "list the workspace root",
+		FolderPath: &folder,
+	}, func(event StreamEvent) error {
+		switch event.Type {
+		case "tool_start":
+			start = event
+		case "tool_result":
+			result = event
+		case "delta":
+			deltas = append(deltas, event.Delta)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("StreamChat returned error: %v", err)
+	}
+	if start.ToolCallID == "" || start.ToolName != "list_files" {
+		t.Fatalf("unexpected tool_start: %#v", start)
+	}
+	if result.ToolCallID != start.ToolCallID {
+		t.Fatalf("tool result id %q does not match start id %q", result.ToolCallID, start.ToolCallID)
+	}
+	if !result.OK {
+		t.Fatalf("expected successful tool result, got %#v", result)
+	}
+	if !strings.Contains(result.Result, "main.go") {
+		t.Fatalf("tool result is missing the fixture file: %q", result.Result)
+	}
+	if strings.Join(deltas, "") != "Listed." {
+		t.Fatalf("deltas = %q, want %q", strings.Join(deltas, ""), "Listed.")
 	}
 }
 

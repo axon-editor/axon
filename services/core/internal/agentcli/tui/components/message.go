@@ -12,4 +12,17 @@ type Message struct {
 	Content   string
 	Thinking  bool
 	Collapsed bool
+	Tool      *Tool
+}
+
+// Tool is the transcript card for one tool call. CallID pairs the start and
+// result events; the message ID is separate because a card is a transcript row.
+type Tool struct {
+	CallID     string `json:"callId"`
+	Name       string `json:"name"`
+	Arguments  string `json:"arguments,omitempty"`
+	Result     string `json:"result,omitempty"`
+	OK         bool   `json:"ok,omitempty"`
+	Running    bool   `json:"running,omitempty"`
+	DurationMS int64  `json:"durationMs,omitempty"`
 }

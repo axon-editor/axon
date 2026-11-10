@@ -125,6 +125,75 @@ func TestModelPickerMovesAndRenders(t *testing.T) {
 	}
 }
 
+func TestToolCardRendersNameArgumentsAndPreview(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
+		{
+			ID:   "tool-1",
+			Role: "tool",
+			Tool: &components.Tool{
+				CallID:     "call-1",
+				Name:       "read_file",
+				Arguments:  `{"path":"internal/ai/ai.go","offset":40,"limit":20}`,
+				Result:     "package ai\n\nfunc StreamChat()",
+				OK:         true,
+				DurationMS: 12,
+			},
+		},
+	}, 80))
+
+	for _, expected := range []string{
+		"read_file",
+		"internal/ai/ai.go",
+		"from 40",
+		"20 lines",
+		"12ms",
+		"package ai",
+		"func StreamChat",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("tool card is missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "You") || strings.Contains(rendered, "Axon") {
+		t.Fatalf("tool card rendered a role label:\n%s", rendered)
+	}
+}
+
+func TestToolCardShowsFailure(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
+		{
+			ID:   "tool-2",
+			Role: "tool",
+			Tool: &components.Tool{
+				CallID: "call-2",
+				Name:   "grep",
+				Result: "grep failed: invalid arguments.",
+				OK:     false,
+			},
+		},
+	}, 80))
+	if !strings.Contains(rendered, "✗") || !strings.Contains(rendered, "failed") {
+		t.Fatalf("failed tool card is missing its state:\n%s", rendered)
+	}
+}
+
+func TestRunningToolCard(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
+		{
+			ID:   "tool-3",
+			Role: "tool",
+			Tool: &components.Tool{
+				CallID:  "call-3",
+				Name:    "list_files",
+				Running: true,
+			},
+		},
+	}, 80))
+	if !strings.Contains(rendered, "▸") || !strings.Contains(rendered, "running") {
+		t.Fatalf("running tool card is missing its state:\n%s", rendered)
+	}
+}
+
 func TestSessionPickerMovesAndRenders(t *testing.T) {
 	picker := components.NewSessionPicker([]components.SessionOption{
 		{ID: "a", Title: "Alpha"},
@@ -167,9 +236,11 @@ func TestStoreRoundTrip(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("append messages: %v", err)
 	}
-	// A second turn must land after the first, not replace it.
+	// A second turn must land after the first, not replace it. The tool row
+	// shares the same ordered transcript as text rows.
 	if err := sessions.AppendMessages("s1", []store.Message{
 		{ID: "m3", Role: "user", Content: "again"},
+		{ID: "m4", Role: "tool", Kind: "tool", Data: `{"callId":"c1","name":"read_file"}`},
 	}); err != nil {
 		t.Fatalf("append second turn: %v", err)
 	}
@@ -189,14 +260,18 @@ func TestStoreRoundTrip(t *testing.T) {
 	if loaded.Title != "Test conversation" {
 		t.Fatalf("unexpected title: %q", loaded.Title)
 	}
-	if len(loaded.Messages) != 3 {
-		t.Fatalf("expected 3 messages, got %#v", loaded.Messages)
+	if len(loaded.Messages) != 4 {
+		t.Fatalf("expected 4 messages, got %#v", loaded.Messages)
 	}
 	wantOrder := []string{"hello", "hi", "again"}
 	for index, want := range wantOrder {
 		if loaded.Messages[index].Content != want {
 			t.Fatalf("message %d is %q, want %q", index, loaded.Messages[index].Content, want)
 		}
+	}
+	toolRow := loaded.Messages[3]
+	if toolRow.Kind != "tool" || !strings.Contains(toolRow.Data, "read_file") {
+		t.Fatalf("tool row did not round-trip: %#v", toolRow)
 	}
 }
 

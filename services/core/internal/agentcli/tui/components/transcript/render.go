@@ -4,6 +4,8 @@
 package transcript
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -12,6 +14,8 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript/surface"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 )
+
+const toolPreviewLines = 6
 
 type Renderer struct {
 	width    int
@@ -69,6 +73,10 @@ func (r *Renderer) Render(messages []components.Message, active int) string {
 func (r *Renderer) render(message components.Message, width int, active bool) string {
 	inner := width - surface.PaddingX*2
 
+	if message.Tool != nil {
+		return renderTool(message.Tool, width)
+	}
+
 	if message.Thinking {
 		lines := []string{theme.ThinkingHead.Render(thoughtHeader(message.Collapsed))}
 		if !message.Collapsed && message.Content != "" {
@@ -112,16 +120,178 @@ func thoughtHeader(collapsed bool) string {
 	return "▾ Thinking"
 }
 
+func renderTool(tool *components.Tool, width int) string {
+	lines := []string{toolHeader(tool)}
+	if meta := toolMeta(tool); meta != "" {
+		lines = append(lines, theme.ToolMeta.Render(meta))
+	}
+
+	preview, hidden := toolPreview(tool.Result)
+	for _, line := range preview {
+		lines = append(lines, theme.ToolResult.Render(line))
+	}
+	if hidden > 0 {
+		lines = append(lines, theme.ToolMeta.Render(fmt.Sprintf("… %d more lines", hidden)))
+	}
+
+	return strings.Join(surface.Block(lines, width, theme.ToolSurface), "\n")
+}
+
+func toolHeader(tool *components.Tool) string {
+	icon := theme.ToolActive.Render("▸")
+	if !tool.Running {
+		if tool.OK {
+			icon = theme.ToolOK.Render("✓")
+		} else {
+			icon = theme.ToolError.Render("✗")
+		}
+	}
+
+	name := strings.TrimSpace(surface.Sanitize(tool.Name))
+	if name == "" {
+		name = "tool"
+	}
+	header := icon + " " + theme.ToolName.Render(name)
+	if summary := toolSummary(tool.Name, tool.Arguments); summary != "" {
+		header += "  " + theme.ToolMeta.Render(summary)
+	}
+	return header
+}
+
+func toolMeta(tool *components.Tool) string {
+	if tool.Running {
+		return "running"
+	}
+
+	parts := make([]string, 0, 3)
+	if tool.DurationMS > 0 {
+		parts = append(parts, fmt.Sprintf("%dms", tool.DurationMS))
+	}
+	if lines := resultLineCount(tool.Result); lines > 0 {
+		label := "lines"
+		if lines == 1 {
+			label = "line"
+		}
+		parts = append(parts, fmt.Sprintf("%d %s", lines, label))
+	}
+	if !tool.OK {
+		parts = append(parts, "failed")
+	}
+	return strings.Join(parts, " · ")
+}
+
+func toolSummary(name, rawArguments string) string {
+	rawArguments = strings.TrimSpace(rawArguments)
+	if rawArguments == "" || rawArguments == "{}" {
+		return ""
+	}
+
+	var args struct {
+		Path    string `json:"path"`
+		Pattern string `json:"pattern"`
+		Query   string `json:"query"`
+		Offset  int    `json:"offset"`
+		Limit   int    `json:"limit"`
+		Depth   int    `json:"depth"`
+	}
+	if err := json.Unmarshal([]byte(rawArguments), &args); err != nil {
+		return truncateValue(surface.Sanitize(rawArguments), 80)
+	}
+
+	switch name {
+	case "read_file":
+		summary := args.Path
+		if args.Offset > 0 {
+			summary += fmt.Sprintf(" · from %d", args.Offset)
+		}
+		if args.Limit > 0 {
+			summary += fmt.Sprintf(" · %d lines", args.Limit)
+		}
+		return surface.Sanitize(summary)
+	case "list_files":
+		summary := args.Path
+		if summary == "" {
+			summary = "workspace"
+		}
+		if args.Depth > 0 {
+			summary += fmt.Sprintf(" · depth %d", args.Depth)
+		}
+		return surface.Sanitize(summary)
+	case "glob":
+		return surface.Sanitize(firstNonEmpty(args.Pattern, args.Path))
+	case "grep":
+		return surface.Sanitize(args.Query)
+	default:
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, []byte(rawArguments)); err != nil {
+			return truncateValue(surface.Sanitize(rawArguments), 80)
+		}
+		return truncateValue(surface.Sanitize(compact.String()), 80)
+	}
+}
+
+func toolPreview(result string) ([]string, int) {
+	result = strings.TrimRight(surface.Sanitize(result), "\n")
+	if strings.TrimSpace(result) == "" {
+		return nil, 0
+	}
+
+	lines := strings.Split(result, "\n")
+	if len(lines) <= toolPreviewLines {
+		return lines, 0
+	}
+	return lines[:toolPreviewLines], len(lines) - toolPreviewLines
+}
+
+func resultLineCount(result string) int {
+	result = strings.TrimSpace(result)
+	if result == "" {
+		return 0
+	}
+	return len(strings.Split(result, "\n"))
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func truncateValue(value string, width int) string {
+	runes := []rune(value)
+	if len(runes) <= width {
+		return value
+	}
+	return string(runes[:width-1]) + "…"
+}
+
 func cacheKey(message components.Message, active bool) string {
+	toolKey := ""
+	if message.Tool != nil {
+		toolKey = fmt.Sprintf(
+			"%s|%s|%t|%t|%d|%d|%d",
+			message.Tool.CallID,
+			message.Tool.Name,
+			message.Tool.Running,
+			message.Tool.OK,
+			len(message.Tool.Arguments),
+			len(message.Tool.Result),
+			message.Tool.DurationMS,
+		)
+	}
 	// Content only grows during a turn, so length plus state is enough to
 	// invalidate the block without hashing the full answer on every delta.
 	return fmt.Sprintf(
-		"%s|%s|%d|%t|%t|%t",
+		"%s|%s|%d|%t|%t|%t|%s",
 		message.ID,
 		message.Role,
 		len(message.Content),
 		message.Thinking,
 		message.Collapsed,
 		active,
+		toolKey,
 	)
 }

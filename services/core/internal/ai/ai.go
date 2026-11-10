@@ -99,6 +99,15 @@ type StreamEvent struct {
 	Error     string          `json:"error,omitempty"`
 	Done      bool            `json:"done,omitempty"`
 	ToolCalls []ModelToolCall `json:"tool_calls,omitempty"`
+	// Tool lifecycle events let a caller render the agent's work while it runs.
+	// The CLI owns no tool loop of its own, so without these fields a terminal
+	// can only show a generic status line while core reads the workspace.
+	ToolCallID string          `json:"tool_call_id,omitempty"`
+	ToolName   string          `json:"tool_name,omitempty"`
+	Arguments  json.RawMessage `json:"arguments,omitempty"`
+	Result     string          `json:"result,omitempty"`
+	OK         bool            `json:"ok,omitempty"`
+	DurationMS int64           `json:"duration_ms,omitempty"`
 	// Messages is only sent when core built the prompt itself. The editor owns
 	// the tool loop and needs those built messages for the next planning round,
 	// but it already has them when it supplied Messages on the request.
@@ -560,8 +569,30 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 			return messages, nil
 		}
 		messages = append(messages, response.Message)
-		for _, toolCall := range response.Message.ToolCalls {
-			result := RunProjectTool(ctx, request, toolCall.Function.Name, toolCall.Function.Arguments)
+		for index, toolCall := range response.Message.ToolCalls {
+			callID := toolCallID(round, index)
+			if err := emit(StreamEvent{
+				Type:       "tool_start",
+				ToolCallID: callID,
+				ToolName:   toolCall.Function.Name,
+				Arguments:  toolCall.Function.Arguments,
+			}); err != nil {
+				return nil, err
+			}
+
+			started := time.Now()
+			result, ok := ExecuteProjectTool(ctx, request, toolCall.Function.Name, toolCall.Function.Arguments)
+			if err := emit(StreamEvent{
+				Type:       "tool_result",
+				ToolCallID: callID,
+				ToolName:   toolCall.Function.Name,
+				Result:     result,
+				OK:         ok,
+				DurationMS: time.Since(started).Milliseconds(),
+			}); err != nil {
+				return nil, err
+			}
+
 			messages = append(messages, ModelMessage{
 				Role:    "tool",
 				Content: result,
@@ -573,6 +604,13 @@ func buildToolAwareMessages(ctx context.Context, request ChatRequest, emit func(
 		Content: "Tool limit reached. Answer with the project information already gathered.",
 	})
 	return messages, nil
+}
+
+// toolCallID keeps the start and result events paired. The model does not
+// provide ids, and round/index alone would repeat across turns in the same
+// session, so the millisecond prefix makes persisted cards unique.
+func toolCallID(round, index int) string {
+	return fmt.Sprintf("tool-%d-%d-%d", time.Now().UnixMilli(), round, index)
 }
 
 func shouldUseProjectTools(request ChatRequest) bool {

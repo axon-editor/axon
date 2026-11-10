@@ -6,11 +6,11 @@ package markdown
 import (
 	"strings"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript/surface"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/glamour/styles"
-	xansi "github.com/charmbracelet/x/ansi"
 )
 
 // Renderer owns one glamour instance per width. Rebuilding it on every delta
@@ -35,7 +35,7 @@ func New(width int) *Renderer {
 }
 
 func (r *Renderer) Render(content string) string {
-	content = strings.TrimSpace(sanitize(content))
+	content = strings.TrimSpace(surface.Sanitize(content))
 	if content == "" {
 		return ""
 	}
@@ -94,24 +94,6 @@ func style() ansi.StyleConfig {
 	}
 
 	return config
-}
-
-// sanitize keeps model and pasted user text from writing terminal control
-// sequences. An agent can echo file contents, so this is a safety boundary, not
-// just a cosmetic cleanup.
-func sanitize(content string) string {
-	content = strings.ReplaceAll(content, "\r\n", "\n")
-	content = strings.ReplaceAll(content, "\r", "\n")
-	content = xansi.Strip(content)
-
-	var builder strings.Builder
-	builder.Grow(len(content))
-	for _, value := range content {
-		if value == '\n' || value == '\t' || (value >= 0x20 && value != 0x7f) {
-			builder.WriteRune(value)
-		}
-	}
-	return builder.String()
 }
 
 func stringPtr(value string) *string {

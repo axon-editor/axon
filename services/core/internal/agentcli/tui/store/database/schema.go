@@ -5,10 +5,18 @@ package database
 
 import "fmt"
 
-// schemaVersion is bumped whenever schemaV1 changes shape. PRAGMA user_version
-// records what has run, so an existing database skips the DDL instead of paying
-// for a full CREATE IF NOT EXISTS pass on every launch.
-const schemaVersion = 1
+// migrations is the source of truth for schema changes. PRAGMA user_version
+// records what has run, so an existing database applies only the new steps
+// instead of replaying every DDL statement on each launch.
+type migration struct {
+	version    int
+	statements []string
+}
+
+var migrations = []migration{
+	{version: 1, statements: schemaV1},
+	{version: 2, statements: schemaV2},
+}
 
 var schemaV1 = []string{
 	`CREATE TABLE IF NOT EXISTS sessions (
@@ -39,8 +47,8 @@ var schemaV1 = []string{
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_messages_session_sequence
 		ON messages(session_id, sequence)`,
-	// events is reserved for tool calls, approvals, and usage. Keeping it in the
-	// first schema means those capabilities can ship without another migration.
+	// events is reserved for approvals and usage. Tool cards live in messages
+	// because they are transcript items and must keep their exact position.
 	`CREATE TABLE IF NOT EXISTS events (
 		id TEXT PRIMARY KEY,
 		session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -54,34 +62,48 @@ var schemaV1 = []string{
 		ON events(session_id, sequence)`,
 }
 
+// schemaV2 gives messages a kind and a payload. A tool card is a transcript
+// part, not a side channel: keeping it in the same table means resume preserves
+// the interleaving of user text, tool calls, and the final answer for free.
+var schemaV2 = []string{
+	`ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'`,
+	`ALTER TABLE messages ADD COLUMN data TEXT NOT NULL DEFAULT ''`,
+}
+
 func (d *Database) Migrate() error {
 	var version int
 	if err := d.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
 		return err
 	}
-	if version >= schemaVersion {
-		return nil
-	}
 
-	// DDL plus the version stamp must land together. A half-applied schema would
-	// make the next launch believe the tables exist when they do not.
-	tx, err := d.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	for _, statement := range schemaV1 {
-		if _, err := tx.Exec(statement); err != nil {
+	for _, step := range migrations {
+		if step.version <= version {
+			continue
+		}
+		// Each migration and its version stamp must land together. A
+		// half-applied ALTER would make the next launch believe the columns
+		// already exist when they do not.
+		tx, err := d.db.Begin()
+		if err != nil {
 			return err
 		}
+		for _, statement := range step.statements {
+			if _, err := tx.Exec(statement); err != nil {
+				_ = tx.Rollback()
+				return err
+			}
+		}
+		// PRAGMA does not accept placeholders, and the value comes from a
+		// package constant, not user input.
+		if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, step.version)); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		version = step.version
 	}
-	// PRAGMA does not accept placeholders, and the value is a package constant,
-	// not user input.
-	if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, schemaVersion)); err != nil {
-		return err
-	}
-	return tx.Commit()
+
+	return nil
 }

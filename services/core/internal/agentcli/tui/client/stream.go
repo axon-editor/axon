@@ -24,6 +24,8 @@ const (
 	Status EventKind = iota
 	Thought
 	Delta
+	ToolStart
+	ToolResult
 	Done
 	Cancelled
 	Error
@@ -32,6 +34,16 @@ const (
 type Event struct {
 	Kind EventKind
 	Text string
+
+	// Tool lifecycle fields are only set for ToolStart and ToolResult. CallID
+	// pairs the two so the transcript can turn a running card into its result
+	// without relying on message order.
+	ToolCallID string
+	ToolName   string
+	Arguments  string
+	Result     string
+	OK         bool
+	DurationMS int64
 }
 
 type Request struct {
@@ -145,6 +157,22 @@ func Stream(ctx context.Context, request Request, events chan<- Event) {
 		case "delta":
 			if event.Delta != "" {
 				events <- Event{Kind: Delta, Text: event.Delta}
+			}
+		case "tool_start":
+			events <- Event{
+				Kind:       ToolStart,
+				ToolCallID: event.ToolCallID,
+				ToolName:   event.ToolName,
+				Arguments:  string(event.Arguments),
+			}
+		case "tool_result":
+			events <- Event{
+				Kind:       ToolResult,
+				ToolCallID: event.ToolCallID,
+				ToolName:   event.ToolName,
+				Result:     event.Result,
+				OK:         event.OK,
+				DurationMS: event.DurationMS,
 			}
 		}
 

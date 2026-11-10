@@ -37,12 +37,16 @@ type Summary struct {
 
 // Message is the storage-side transcript unit. It deliberately mirrors the TUI
 // message shape without importing the UI package; the app owns the conversion.
+// Kind and Data carry non-text parts such as tool cards while keeping one
+// ordered transcript.
 type Message struct {
 	ID        string
 	Role      string
 	Content   string
 	Thinking  bool
 	Collapsed bool
+	Kind      string
+	Data      string
 }
 
 // Store is the session row/transcript repository.

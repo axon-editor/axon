@@ -35,7 +35,7 @@ func (s *Store) Load(id string) (Session, error) {
 	record.Pinned = pinned != 0
 
 	rows, err := s.db.Query(
-		`SELECT id, role, content, thinking, collapsed
+		`SELECT id, role, content, thinking, collapsed, kind, data
 		FROM messages WHERE session_id = ? ORDER BY sequence ASC`,
 		id,
 	)
@@ -54,6 +54,8 @@ func (s *Store) Load(id string) (Session, error) {
 			&message.Content,
 			&thinking,
 			&collapsed,
+			&message.Kind,
+			&message.Data,
 		); err != nil {
 			return Session{}, err
 		}

@@ -4,6 +4,7 @@
 package app
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
@@ -37,13 +38,28 @@ func conversationHistory(messages []components.Message) []ai.ConversationMessage
 // written, while every real turn gets one when it is created so a resumed
 // transcript can round-trip without a second key.
 func persistedMessages(messages []components.Message) []store.Message {
-	started := false
 	rows := make([]store.Message, 0, len(messages))
 	for _, message := range messages {
-		if message.Role == "user" {
-			started = true
+		// The welcome line is the only message without an ID. Every real turn
+		// and tool card gets one when it is created, so the ID check is enough
+		// and does not couple persistence to a user-message position.
+		if message.ID == "" {
+			continue
 		}
-		if !started || message.Content == "" || message.ID == "" {
+		if message.Tool != nil {
+			data, err := json.Marshal(message.Tool)
+			if err != nil {
+				continue
+			}
+			rows = append(rows, store.Message{
+				ID:   message.ID,
+				Role: "tool",
+				Kind: "tool",
+				Data: string(data),
+			})
+			continue
+		}
+		if message.Content == "" {
 			continue
 		}
 		rows = append(rows, store.Message{
@@ -62,6 +78,24 @@ func persistedMessages(messages []components.Message) []store.Message {
 func transcriptMessages(messages []store.Message) []components.Message {
 	rows := make([]components.Message, 0, len(messages))
 	for _, message := range messages {
+		if message.Kind == "tool" {
+			var tool components.Tool
+			if err := json.Unmarshal([]byte(message.Data), &tool); err != nil {
+				// A corrupt card must not hide the rest of the transcript.
+				rows = append(rows, components.Message{
+					ID:      message.ID,
+					Role:    "tool",
+					Content: message.Data,
+				})
+				continue
+			}
+			rows = append(rows, components.Message{
+				ID:   message.ID,
+				Role: "tool",
+				Tool: &tool,
+			})
+			continue
+		}
 		rows = append(rows, components.Message{
 			ID:        message.ID,
 			Role:      message.Role,
