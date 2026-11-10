@@ -293,6 +293,7 @@ declare global {
       getAiRuntimeStatus: (
         folderPath?: string | null,
       ) => Promise<AiRuntimeStatus>;
+      reconnectOpenCode: (folderPath?: string | null) => Promise<boolean>;
       runAiChat: (request: AiChatRequest) => Promise<AiChatResult>;
       runAiChatStream: (request: AiChatRequest) => Promise<AiChatStreamStarted>;
       getInlineAiCompletion: (
@@ -576,6 +577,7 @@ declare global {
         callback: (event: AiChatStreamEvent) => void,
       ) => () => void;
       onAiPullEvent: (callback: (event: AiPullEvent) => void) => () => void;
+      onAiRuntimeChanged: (callback: () => void) => () => void;
       onTaskOutput: (callback: (event: TaskOutputEvent) => void) => () => void;
       onTaskFinished: (
         callback: (event: TaskFinishedEvent) => void,

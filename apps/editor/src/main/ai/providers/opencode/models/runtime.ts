@@ -14,6 +14,7 @@ import {
   type OpenCodeProvider,
 } from "../client/types";
 import { ensureOpenCodeServer } from "../server/lifecycle";
+import { watchOpenCodeProviders } from "../server/providerWatcher";
 
 export interface OpenCodeRuntime {
   installed: boolean;
@@ -38,10 +39,12 @@ function mapOpenCodeModels(
       const modelID = model.modelID ?? model.id;
       const providerLabel =
         providerNames.get(model.providerID) ?? model.providerID;
+      const requiresAccount =
+        model.providerID === "opencode-go" && !modelID.includes("free");
       return {
         id: `${model.providerID}/${modelID}`,
         label: model.name ?? model.id,
-        description: `${providerLabel} · ${model.capabilities?.tools ? "tools" : "text"}`,
+        description: `${providerLabel} · ${model.capabilities?.tools ? "tools" : "text"}${requiresAccount ? " · account" : ""}`,
         providerLabel,
         available: true,
         compatibility: "great" as const,
@@ -90,6 +93,7 @@ export async function loadOpenCodeRuntime(
 
   try {
     const server = await ensureOpenCodeServer(folderPath);
+    watchOpenCodeProviders(server);
     const client = createOpenCodeClient(server);
     const [modelResponse, providerResponse] = await Promise.all([
       client.models(),
@@ -150,5 +154,7 @@ export function mergeRuntimeStatus(
     memoryGB: coreStatus.memoryGB,
     detail: detailParts.join(" · ") || "No AI runtime available.",
     installHint: coreStatus.installHint || opencode?.installHint || "",
+    openCodeInstalled: Boolean(opencode?.installed),
+    openCodeRunning: Boolean(opencode?.running),
   };
 }

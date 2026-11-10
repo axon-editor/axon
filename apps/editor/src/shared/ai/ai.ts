@@ -243,6 +243,8 @@ export interface AiRuntimeStatus {
   memoryGB?: number;
   detail: string;
   installHint: string;
+  openCodeInstalled?: boolean;
+  openCodeRunning?: boolean;
 }
 
 export interface AiPullStarted {

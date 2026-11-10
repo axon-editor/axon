@@ -58,6 +58,8 @@ describe("mergeRuntimeStatus", () => {
     expect(merged.selectedModelInstalled).toBe(true);
     expect(merged.providerLabel).toBe("OpenCode");
     expect(merged.detail).toContain("OpenCode 2.2.5");
+    expect(merged.openCodeInstalled).toBe(true);
+    expect(merged.openCodeRunning).toBe(true);
   });
 
   it("keeps local status when OpenCode is absent", () => {
@@ -66,5 +68,6 @@ describe("mergeRuntimeStatus", () => {
     expect(merged.providerLabel).toBe("Axon models");
     expect(merged.models).toHaveLength(1);
     expect(merged.detail).toBe("Axon models ready");
+    expect(merged.openCodeInstalled).toBe(false);
   });
 });

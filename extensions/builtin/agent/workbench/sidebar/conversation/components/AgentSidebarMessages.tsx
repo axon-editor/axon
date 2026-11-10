@@ -34,8 +34,10 @@ interface Props {
   onOpenFile: (path: string) => void;
   onOpenLink: (href: string) => void;
   onPinToBottom: () => void;
+  onReconnectOpenCode: () => void;
   onRunTool: (messageId: number, tool: AgentToolCallState) => void;
   onSkipTool: (messageId: number, tool: AgentToolCallState) => void;
+  reconnectDisabled: boolean;
 }
 
 export default function AgentSidebarMessages({
@@ -55,8 +57,10 @@ export default function AgentSidebarMessages({
   onOpenFile,
   onOpenLink,
   onPinToBottom,
+  onReconnectOpenCode,
   onRunTool,
   onSkipTool,
+  reconnectDisabled,
 }: Props) {
   return (
     <div className="relative min-h-0 flex-1">
@@ -78,7 +82,9 @@ export default function AgentSidebarMessages({
             selectedModelLabel={modelRuntime.selectedModelLabel}
             onCancelPull={() => void modelRuntime.cancelPull()}
             onPullSelectedModel={() => void modelRuntime.pullSelectedModel()}
+            onReconnectOpenCode={onReconnectOpenCode}
             onSelectModel={modelRuntime.setSelectedModel}
+            reconnectDisabled={reconnectDisabled}
           />
         )}
         {conversationReady && messages.length === 0 && canChat && (

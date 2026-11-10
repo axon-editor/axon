@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Download, LoaderCircle, Square } from "lucide-react";
+import { Download, LoaderCircle, RotateCcw, Square } from "lucide-react";
 import {
   type AiModelInfo,
   type AiPullEvent,
@@ -27,7 +27,9 @@ interface Props {
   selectedModelLabel: string;
   onCancelPull: () => void;
   onPullSelectedModel: () => void;
+  onReconnectOpenCode?: () => void;
   onSelectModel: (model: string) => void;
+  reconnectDisabled?: boolean;
 }
 
 function statusTone(ready: boolean, loading: boolean) {
@@ -69,7 +71,9 @@ export default function AgentRuntimeStatusPanel({
   selectedModelLabel,
   onCancelPull,
   onPullSelectedModel,
+  onReconnectOpenCode,
   onSelectModel,
+  reconnectDisabled,
 }: Props) {
   const memoryNote = memoryNoteFor(selectedModelInfo, runtimeStatus?.memoryGB);
   const memoryNoteTone =
@@ -222,6 +226,20 @@ export default function AgentRuntimeStatusPanel({
             selectedModel={selectedModel}
             onSelectModel={onSelectModel}
           />
+        </div>
+      )}
+      {runtimeStatus?.openCodeInstalled && onReconnectOpenCode && (
+        <div className="border-t border-[var(--axon-panel-border)] px-4 py-3">
+          <button
+            type="button"
+            onClick={onReconnectOpenCode}
+            disabled={reconnectDisabled}
+            title="Restart the managed OpenCode server to reload installation and account changes"
+            className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2.5 py-2 text-[11px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100 disabled:cursor-default disabled:opacity-25"
+          >
+            <RotateCcw size={11} />
+            Reconnect OpenCode
+          </button>
         </div>
       )}
     </div>

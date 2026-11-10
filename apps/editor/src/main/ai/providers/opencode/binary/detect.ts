@@ -56,7 +56,10 @@ function binaryCandidates(homePath: string) {
 }
 
 export async function detectOpenCodeBinary(): Promise<OpenCodeBinary | null> {
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (cached?.value && cached.expiresAt > Date.now()) {
+    if (await isExecutable(cached.value.path)) return cached.value;
+    cached = undefined;
+  }
 
   const env = await getDeveloperToolSpawnEnvironment();
   const homePath = env.HOME ?? os.homedir();
@@ -86,6 +89,8 @@ export async function detectOpenCodeBinary(): Promise<OpenCodeBinary | null> {
     }
   }
 
-  cached = { value: null, expiresAt: Date.now() + DETECT_CACHE_MS };
+  // Negative results are deliberately not cached. A user can install OpenCode
+  // from Axon's terminal while the app is running, and the next runtime refresh
+  // must see it without waiting for a cache expiry or restarting Axon.
   return null;
 }

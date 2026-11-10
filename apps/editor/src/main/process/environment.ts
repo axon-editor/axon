@@ -7,6 +7,12 @@ import { execFile } from "child_process";
 import os from "os";
 import path from "path";
 
+const LOGIN_SHELL_ENVIRONMENT_TTL_MS = 30_000;
+
+let loginShellEnvironment: {
+  value: NodeJS.ProcessEnv;
+  expiresAt: number;
+} | null = null;
 let loginShellEnvironmentPromise: Promise<NodeJS.ProcessEnv> | null = null;
 
 function parseEnvironmentOutput(output: string) {
@@ -42,6 +48,13 @@ function getLoginShellEnvironment(): Promise<NodeJS.ProcessEnv> {
     return Promise.resolve({} satisfies NodeJS.ProcessEnv);
   }
 
+  if (
+    loginShellEnvironment &&
+    loginShellEnvironment.expiresAt > Date.now()
+  ) {
+    return Promise.resolve(loginShellEnvironment.value);
+  }
+
   if (loginShellEnvironmentPromise) return loginShellEnvironmentPromise;
 
   loginShellEnvironmentPromise = new Promise((resolve) => {
@@ -60,7 +73,13 @@ function getLoginShellEnvironment(): Promise<NodeJS.ProcessEnv> {
         timeout: 3_000,
       },
       (err, stdout) => {
-        resolve(err ? {} : parseEnvironmentOutput(stdout));
+        const value = err ? {} : parseEnvironmentOutput(stdout);
+        loginShellEnvironment = {
+          value,
+          expiresAt: Date.now() + LOGIN_SHELL_ENVIRONMENT_TTL_MS,
+        };
+        loginShellEnvironmentPromise = null;
+        resolve(value);
       },
     );
   });

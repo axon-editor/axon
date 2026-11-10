@@ -32,7 +32,12 @@ export interface AgentModelRuntimeState {
   selectedModelLabel: string;
   cancelPull: () => Promise<void>;
   pullSelectedModel: () => Promise<void>;
-  refreshRuntimeStatus: (nextSelectedModel?: string) => Promise<void>;
+  reconnectOpenCode: () => Promise<void>;
+  refreshModels: () => Promise<void>;
+  refreshRuntimeStatus: (
+    nextSelectedModel?: string,
+    options?: { silent?: boolean },
+  ) => Promise<void>;
   setSelectedModel: (model: string) => void;
 }
 
@@ -62,19 +67,39 @@ export function useAgentModelRuntime(
   // to the first installed model. That is what made the "needs download" panel
   // flash and then vanish the moment the user picked an uninstalled model.
   const selectedModelRef = useRef(selectedModel);
+  const userSelectedModelRef = useRef(false);
   useEffect(() => {
     selectedModelRef.current = selectedModel;
   }, [selectedModel]);
 
+  const selectModel = useCallback((model: string) => {
+    // A periodic refresh must not snap an explicitly chosen model to the first
+    // available one. That would make a "needs download" selection jump away
+    // every time the catalog is polled.
+    userSelectedModelRef.current = true;
+    selectedModelRef.current = model;
+    setSelectedModel(model);
+  }, []);
+
   const refreshRuntimeStatus = useCallback(
-    async (nextSelectedModel?: string) => {
+    async (
+      nextSelectedModel?: string,
+      options?: { silent?: boolean },
+    ) => {
+      const silent = options?.silent === true;
       const targetModel = nextSelectedModel ?? selectedModelRef.current;
-      setRuntimeLoading(true);
+      if (!silent) setRuntimeLoading(true);
       try {
         const status = await window.axon.getAiRuntimeStatus(folderPath);
         setRuntimeStatus(status);
         setModels(status.models);
-        const nextModel = chooseModel(status.models, targetModel);
+        const requested = status.models.find(
+          (model) => model.id === targetModel,
+        );
+        const nextModel =
+          requested && userSelectedModelRef.current
+            ? requested.id
+            : chooseModel(status.models, targetModel);
         setSelectedModel(nextModel);
         setModelStatus(status.detail);
       } catch (err) {
@@ -95,11 +120,29 @@ export function useAgentModelRuntime(
         setModels([]);
         setModelStatus("Axon models not reachable");
       } finally {
-        setRuntimeLoading(false);
+        if (!silent) setRuntimeLoading(false);
       }
     },
     [folderPath],
   );
+
+  const refreshModels = useCallback(
+    () => refreshRuntimeStatus(undefined, { silent: true }),
+    [refreshRuntimeStatus],
+  );
+
+  const reconnectOpenCode = useCallback(async () => {
+    const restarted = await window.axon.reconnectOpenCode(folderPath);
+    if (restarted) {
+      await refreshRuntimeStatus(undefined, { silent: true });
+    }
+  }, [folderPath, refreshRuntimeStatus]);
+
+  useEffect(() => {
+    return window.axon.onAiRuntimeChanged(() => {
+      void refreshModels();
+    });
+  }, [refreshModels]);
 
   useEffect(() => {
     return window.axon.onAiPullEvent((event) => {
@@ -122,6 +165,26 @@ export function useAgentModelRuntime(
   useEffect(() => {
     void refreshRuntimeStatus();
   }, [refreshRuntimeStatus]);
+
+  // OpenCode can be installed, authenticated, or upgraded from Axon's terminal
+  // while the sidebar stays mounted. A periodic silent refresh plus a focus
+  // refresh makes those changes visible without a restart. Silent keeps the
+  // runtime panel from flashing every poll.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      void refreshModels();
+    };
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [refreshModels]);
 
   const pullSelectedModel = useCallback(async () => {
     if (!selectedModel || pulling) return;
@@ -207,7 +270,9 @@ export function useAgentModelRuntime(
     selectedModelLabel,
     cancelPull,
     pullSelectedModel,
+    reconnectOpenCode,
+    refreshModels,
     refreshRuntimeStatus,
-    setSelectedModel,
+    setSelectedModel: selectModel,
   };
 }

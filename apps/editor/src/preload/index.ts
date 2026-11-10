@@ -383,6 +383,8 @@ contextBridge.exposeInMainWorld("axon", {
     ipcRenderer.invoke("ai:getProjectContext", folderPath),
   getAiRuntimeStatus: (folderPath?: string | null): Promise<AiRuntimeStatus> =>
     ipcRenderer.invoke("ai:getRuntimeStatus", folderPath),
+  reconnectOpenCode: (folderPath?: string | null): Promise<boolean> =>
+    ipcRenderer.invoke("ai:reconnectOpenCode", folderPath),
   runAiChat: (request: AiChatRequest): Promise<AiChatResult> =>
     ipcRenderer.invoke("ai:chat", request),
   runAiChatStream: (request: AiChatRequest): Promise<AiChatStreamStarted> =>
@@ -830,6 +832,11 @@ contextBridge.exposeInMainWorld("axon", {
     const handler = (_: unknown, event: AiPullEvent) => callback(event);
     ipcRenderer.on("ai:pullEvent", handler);
     return () => ipcRenderer.removeListener("ai:pullEvent", handler);
+  },
+  onAiRuntimeChanged: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on("ai:runtimeChanged", handler);
+    return () => ipcRenderer.removeListener("ai:runtimeChanged", handler);
   },
   onManagedLanguageToolProgress: (
     callback: (event: ManagedLanguageToolProgress) => void,

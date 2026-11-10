@@ -206,8 +206,10 @@ export default function AxonAgentSidebar(props: Props) {
         onOpenFile={props.onOpenFile}
         onOpenLink={toolActions.openMessageLink}
         onPinToBottom={pinToBottom}
+        onReconnectOpenCode={() => void modelRuntime.reconnectOpenCode()}
         onRunTool={toolActions.runTool}
         onSkipTool={toolActions.skipTool}
+        reconnectDisabled={busy}
       />
 
       {session.clearConversationId && (
@@ -233,8 +235,11 @@ export default function AxonAgentSidebar(props: Props) {
           resetNonce={composerResetNonce}
           onCancelStream={() => void cancelActiveStream()}
           onPromptChange={setPrompt}
+          onReconnectOpenCode={() => void modelRuntime.reconnectOpenCode()}
+          onRefreshModels={() => void modelRuntime.refreshModels()}
           onRunAgent={() => void runAgent()}
           onSelectAction={session.selectAction}
+          reconnectDisabled={busy}
         />
       )}
     </aside>

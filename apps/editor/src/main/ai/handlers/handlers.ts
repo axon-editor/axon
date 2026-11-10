@@ -23,9 +23,11 @@ import {
 } from "../providers/opencode/models/runtime";
 import {
   cancelOpenCodeRun,
+  hasActiveOpenCodeRun,
   resolveOpenCodePermission,
   startOpenCodeRun,
 } from "../providers/opencode/run/session";
+import { stopOpenCodeServer } from "../providers/opencode/server/lifecycle";
 import { readSettingsForFolder } from "../../settings/io";
 import {
   cancelAgentRun,
@@ -182,6 +184,20 @@ export function registerAiHandlers(deps: {
         folderPath: authorizedFolder ?? null,
         model: settings.ai.model,
       });
+    },
+  );
+
+  ipcMain.handle(
+    "ai:reconnectOpenCode",
+    async (event, folderPath?: string | null): Promise<boolean> => {
+      const authorizedFolder = authorizeFolder(event.sender.id, folderPath);
+      if (!authorizedFolder) return false;
+      // Restarting under an active run would orphan the permission bridge and
+      // the event stream. The renderer disables the action while busy, but the
+      // main process enforces it too.
+      if (hasActiveOpenCodeRun()) return false;
+      await stopOpenCodeServer();
+      return true;
     },
   );
 

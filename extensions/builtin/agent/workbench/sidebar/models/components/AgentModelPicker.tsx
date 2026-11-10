@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useRef } from "react";
-import { ArrowDownToLine, ChevronDown } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ChevronDown,
+  RefreshCw,
+  RotateCcw,
+} from "lucide-react";
 import { type AiModelInfo } from "@axon-editor/shared/ai/ai";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import { usePopoverDismiss } from "../../../lib/hooks/usePopoverDismiss";
@@ -22,7 +27,10 @@ interface Props {
   selectedModelAvailable: boolean;
   selectedModelLabel: string;
   onOpenChange: (open: boolean) => void;
+  onReconnectOpenCode?: () => void;
+  onRefresh?: () => void;
   onSelect: (modelId: string) => void;
+  reconnectDisabled?: boolean;
 }
 
 function fitNote(model: AiModelInfo): string {
@@ -75,11 +83,24 @@ export default function AgentModelPicker(props: Props) {
             <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--axon-editor-foreground)] opacity-45">
               Model
             </span>
-            {typeof props.hostMemoryGB === "number" && (
-              <span className="text-[10px] tabular-nums text-[var(--axon-editor-foreground)] opacity-30">
-                {props.hostMemoryGB} GB memory
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {typeof props.hostMemoryGB === "number" && (
+                <span className="text-[10px] tabular-nums text-[var(--axon-editor-foreground)] opacity-30">
+                  {props.hostMemoryGB} GB memory
+                </span>
+              )}
+              {props.onRefresh && (
+                <button
+                  type="button"
+                  onClick={props.onRefresh}
+                  aria-label="Refresh models"
+                  title="Refresh models"
+                  className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-[var(--axon-editor-foreground)] opacity-35 hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                >
+                  <RefreshCw size={11} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* The bottom gap lives outside the scroll box so it stays visible
@@ -115,6 +136,21 @@ export default function AgentModelPicker(props: Props) {
               ))}
             </div>
           </div>
+
+          {props.onReconnectOpenCode && (
+            <div className="border-t border-[var(--axon-panel-border)] px-3 py-2">
+              <button
+                type="button"
+                onClick={props.onReconnectOpenCode}
+                disabled={props.reconnectDisabled}
+                title="Restart the managed OpenCode server to reload installation and account changes"
+                className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-[var(--axon-panel-border)] bg-transparent px-2 py-1.5 text-[10px] text-[var(--axon-editor-foreground)] opacity-55 transition-colors hover:border-[var(--axon-syntax-function)]/40 hover:opacity-100 disabled:cursor-default disabled:opacity-25"
+              >
+                <RotateCcw size={10} />
+                Reconnect OpenCode
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

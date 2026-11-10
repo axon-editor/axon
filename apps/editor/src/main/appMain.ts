@@ -63,6 +63,7 @@ import {
 import { registerSpotifyHandlers } from "./spotify/handlers";
 import { registerAiHandlers } from "./ai/handlers/handlers";
 import { stopOpenCodeServer } from "./ai/providers/opencode/server/lifecycle";
+import { setOpenCodeProvidersChangedListener } from "./ai/providers/opencode/server/providerWatcher";
 import { registerManagedLanguageToolHandlers } from "./languageTools/manager/handlers";
 import { ManagedLanguageToolManager } from "./languageTools/manager/manager";
 import { warmUpAiRuntime } from "./ai/streaming/runtimeWarmup";
@@ -464,6 +465,9 @@ registerGitHandlers({
     ),
   authorizeReadOnlyFile: (rendererId, filePath) =>
     workspaceCapabilities.authorizeReadOnlyFile(rendererId, filePath),
+});
+setOpenCodeProvidersChangedListener(() => {
+  broadcastToRenderers("ai:runtimeChanged");
 });
 registerAiHandlers({
   axonCorePort,

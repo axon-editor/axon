@@ -310,6 +310,10 @@ export async function startOpenCodeRun(input: {
   }
 }
 
+export function hasActiveOpenCodeRun(): boolean {
+  return runs.size > 0;
+}
+
 export function cancelOpenCodeRun(requestId: string): boolean {
   const run = runs.get(requestId);
   if (!run) return false;

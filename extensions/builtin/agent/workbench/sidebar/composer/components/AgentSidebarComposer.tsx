@@ -34,8 +34,11 @@ interface Props {
   resetNonce: number;
   onCancelStream: () => void;
   onPromptChange: (prompt: string) => void;
+  onReconnectOpenCode: () => void;
+  onRefreshModels: () => void;
   onRunAgent: () => void;
   onSelectAction: (action: AiActionId) => void;
+  reconnectDisabled: boolean;
 }
 
 export default function AgentSidebarComposer({
@@ -53,8 +56,11 @@ export default function AgentSidebarComposer({
   resetNonce,
   onCancelStream,
   onPromptChange,
+  onReconnectOpenCode,
+  onRefreshModels,
   onRunAgent,
   onSelectAction,
+  reconnectDisabled,
 }: Props) {
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [actionPickerOpen, setActionPickerOpen] = useState(false);
@@ -114,7 +120,13 @@ export default function AgentSidebarComposer({
 
   const handleModelPickerOpenChange = (open: boolean) => {
     setModelPickerOpen(open);
-    if (open) setActionPickerOpen(false);
+    if (open) {
+      setActionPickerOpen(false);
+      // Opening the picker is an explicit request to see the current catalog.
+      // This is the fastest way to notice an OpenCode install or account change
+      // even when the periodic refresh has not fired yet.
+      onRefreshModels();
+    }
   };
 
   const handleSelectAction = (selectedAction: AiActionId) => {
@@ -176,7 +188,14 @@ export default function AgentSidebarComposer({
                 selectedModelAvailable={modelRuntime.selectedModelInstalled}
                 selectedModelLabel={modelRuntime.selectedModelLabel}
                 onOpenChange={handleModelPickerOpenChange}
+                onReconnectOpenCode={
+                  modelRuntime.runtimeStatus?.openCodeInstalled
+                    ? onReconnectOpenCode
+                    : undefined
+                }
+                onRefresh={onRefreshModels}
                 onSelect={modelRuntime.setSelectedModel}
+                reconnectDisabled={reconnectDisabled}
               />
             )}
             <AgentComposerActionPicker
