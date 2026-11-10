@@ -9,6 +9,7 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
+	"github.com/GordenArcher/axon-core/internal/ai"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -17,25 +18,28 @@ import (
 )
 
 type Model struct {
-	workspace string
-	modelID   string
-	width     int
-	height    int
-	viewport  viewport.Model
-	textarea  textarea.Model
-	spinner   spinner.Model
-	messages  []components.Message
-	streaming bool
-	status    string
-	events    chan client.Event
-	cancel    context.CancelFunc
+	workspace  string
+	modelID    string
+	models     []ai.ModelInfo
+	width      int
+	height     int
+	viewport   viewport.Model
+	textarea   textarea.Model
+	spinner    spinner.Model
+	messages   []components.Message
+	picker     components.ModelPicker
+	pickerOpen bool
+	streaming  bool
+	status     string
+	events     chan client.Event
+	cancel     context.CancelFunc
 }
 
 type streamEventMsg struct {
 	event client.Event
 }
 
-func NewModel(workspace, modelID string) Model {
+func NewModel(workspace, modelID string, models []ai.ModelInfo) Model {
 	input := textarea.New()
 	input.Placeholder = "Ask Axon to inspect, change, or explain something..."
 	input.Prompt = "› "
@@ -62,6 +66,7 @@ func NewModel(workspace, modelID string) Model {
 	return Model{
 		workspace: workspace,
 		modelID:   modelID,
+		models:    models,
 		viewport:  viewportModel,
 		textarea:  input,
 		spinner:   spinnerModel,

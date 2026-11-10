@@ -14,8 +14,10 @@ import (
 // keeping the role and text separate lets the renderer grow without changing
 // the streaming client.
 type Message struct {
-	Role    string
-	Content string
+	Role      string
+	Content   string
+	Thinking  bool
+	Collapsed bool
 }
 
 // Render builds the transcript for the viewport. Lip Gloss owns wrapping so a
@@ -31,6 +33,24 @@ func Render(messages []Message, width int) string {
 	for index, message := range messages {
 		if index > 0 {
 			builder.WriteString("\n")
+		}
+
+		if message.Thinking {
+			header := "▸ Thought"
+			if !message.Collapsed {
+				header = "▾ Thinking"
+			}
+			builder.WriteString(theme.ThinkingHead.Render(header))
+			builder.WriteString("\n")
+			if !message.Collapsed && message.Content != "" {
+				builder.WriteString(
+					theme.Thinking.
+						Width(contentWidth).
+						Render(message.Content),
+				)
+				builder.WriteString("\n")
+			}
+			continue
 		}
 
 		label := theme.UserLabel.Render("You")

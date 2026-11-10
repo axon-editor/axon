@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/configstore"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/ai"
@@ -23,12 +24,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
+		if msg.String() == "ctrl+c" {
 			if m.cancel != nil {
 				m.cancel()
 			}
 			return m, tea.Quit
+		}
+		if m.pickerOpen {
+			return m.updatePicker(msg)
+		}
+
+		switch msg.String() {
 		case "esc":
 			if m.streaming && m.cancel != nil {
 				m.cancel()
@@ -47,6 +53,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "pgdown":
 			m.viewport.ViewDown()
+			return m, nil
+		case "ctrl+t":
+			m.toggleThinking()
+			m.updateTranscript()
 			return m, nil
 		}
 
@@ -75,32 +85,65 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.pickerOpen = false
+		m.status = "Ready"
+	case "up", "k":
+		m.picker.Move(-1)
+	case "down", "j":
+		m.picker.Move(1)
+	case "enter":
+		if id := m.picker.SelectedID(); id != "" {
+			if !m.picker.SelectedAvailable() {
+				m.status = "Model is not installed"
+				return m, nil
+			}
+			m.modelID = id
+			_ = configstore.Save(configstore.Config{SelectedModel: id})
+		}
+		m.status = "Ready"
+		m.pickerOpen = false
+	}
+	return m, nil
+}
+
 func (m Model) handleStreamEvent(event client.Event) (tea.Model, tea.Cmd) {
 	switch event.Kind {
 	case client.Status:
 		m.status = event.Text
+	case client.Thought:
+		m.appendThought(event.Text)
+		m.updateTranscript()
 	case client.Delta:
+		m.collapseThinking()
 		m.appendAssistantDelta(event.Text)
 		m.updateTranscript()
 	case client.Done:
+		m.collapseThinking()
+		m.updateTranscript()
 		m.streaming = false
 		m.status = "Ready"
 		m.cancel = nil
 		m.events = nil
 		return m, nil
 	case client.Cancelled:
+		m.collapseThinking()
+		m.updateTranscript()
 		m.streaming = false
 		m.status = "Cancelled"
 		m.cancel = nil
 		m.events = nil
 		return m, nil
 	case client.Error:
+		m.collapseThinking()
+		m.appendAssistantError(event.Text)
+		m.updateTranscript()
 		m.streaming = false
 		m.status = "Error"
-		m.appendAssistantError(event.Text)
 		m.cancel = nil
 		m.events = nil
-		m.updateTranscript()
 		return m, nil
 	}
 
@@ -110,26 +153,62 @@ func (m Model) handleStreamEvent(event client.Event) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) appendAssistantDelta(delta string) {
-	if len(m.messages) == 0 ||
-		m.messages[len(m.messages)-1].Role != "assistant" {
-		m.messages = append(m.messages, components.Message{Role: "assistant"})
+func (m *Model) appendThought(text string) {
+	if text == "" {
+		return
 	}
 	last := len(m.messages) - 1
+	if last < 0 || !m.messages[last].Thinking || m.messages[last].Collapsed {
+		m.messages = append(m.messages, components.Message{
+			Thinking: true,
+			Content:  text,
+		})
+		return
+	}
+	m.messages[last].Content += text
+}
+
+func (m *Model) collapseThinking() {
+	for index := len(m.messages) - 1; index >= 0; index-- {
+		if m.messages[index].Thinking {
+			m.messages[index].Collapsed = true
+			return
+		}
+	}
+}
+
+func (m *Model) toggleThinking() {
+	for index := len(m.messages) - 1; index >= 0; index-- {
+		if m.messages[index].Thinking {
+			m.messages[index].Collapsed = !m.messages[index].Collapsed
+			return
+		}
+	}
+}
+
+func (m *Model) appendAssistantDelta(delta string) {
+	last := len(m.messages) - 1
+	if last < 0 ||
+		m.messages[last].Thinking ||
+		m.messages[last].Role != "assistant" {
+		m.messages = append(m.messages, components.Message{Role: "assistant"})
+		last = len(m.messages) - 1
+	}
 	m.messages[last].Content += delta
 }
 
 func (m *Model) appendAssistantError(message string) {
-	if len(m.messages) == 0 ||
-		m.messages[len(m.messages)-1].Role != "assistant" ||
-		m.messages[len(m.messages)-1].Content == "" {
+	last := len(m.messages) - 1
+	if last < 0 ||
+		m.messages[last].Thinking ||
+		m.messages[last].Role != "assistant" ||
+		m.messages[last].Content == "" {
 		m.messages = append(m.messages, components.Message{
 			Role:    "assistant",
 			Content: "Error: " + message,
 		})
 		return
 	}
-	last := len(m.messages) - 1
 	m.messages[last].Content += "\n\nError: " + message
 }
 
@@ -147,7 +226,6 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 		Role:    "user",
 		Content: prompt,
 	})
-	m.messages = append(m.messages, components.Message{Role: "assistant"})
 	m.textarea.Reset()
 	m.streaming = true
 	m.status = "Thinking..."
@@ -156,7 +234,6 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.events = events
 	m.cancel = cancel
-	m.layout()
 	m.updateTranscript()
 
 	go client.Stream(ctx, client.Request{
@@ -178,21 +255,27 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 		m.messages = nil
 		m.status = "Ready"
 	case "/model":
-		m.messages = append(m.messages, components.Message{
-			Role:    "assistant",
-			Content: "Model: " + m.modelID,
-		})
+		if len(m.models) == 0 {
+			m.messages = append(m.messages, components.Message{
+				Role:    "assistant",
+				Content: "No models reported by the runtime.",
+			})
+		} else {
+			m.picker = components.NewModelPicker(m.models, m.modelID)
+			m.pickerOpen = true
+			m.status = "Select a model"
+		}
 	case "/help":
 		m.messages = append(m.messages, components.Message{
 			Role: "assistant",
 			Content: strings.Join([]string{
 				"Commands:",
 				"/clear   clear the transcript",
-				"/model   show the selected model",
+				"/model   choose a model",
 				"/help    show this list",
 				"/quit    exit Axon",
 				"",
-				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+C quit.",
+				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+T thought, Ctrl+C quit.",
 			}, "\n"),
 		})
 	default:
@@ -212,7 +295,7 @@ func conversationHistory(messages []components.Message) []ai.ConversationMessage
 		if message.Role == "user" {
 			started = true
 		}
-		if !started || message.Content == "" {
+		if !started || message.Content == "" || message.Thinking {
 			continue
 		}
 		history = append(history, ai.ConversationMessage{

@@ -22,6 +22,7 @@ type EventKind int
 
 const (
 	Status EventKind = iota
+	Thought
 	Delta
 	Done
 	Cancelled
@@ -136,6 +137,10 @@ func Stream(ctx context.Context, request Request, events chan<- Event) {
 		case "status":
 			if event.Status != "" {
 				events <- Event{Kind: Status, Text: event.Status}
+			}
+		case "thought":
+			if event.Thought != "" {
+				events <- Event{Kind: Thought, Text: event.Thought}
 			}
 		case "delta":
 			if event.Delta != "" {

@@ -52,8 +52,8 @@ func (m Model) View() string {
 	if m.streaming {
 		statusText = m.spinner.View() + " " + theme.StatusActive.Render(m.status)
 	}
-	hints := "enter send · shift+enter newline · ctrl+c quit"
-	if m.width < 90 {
+	hints := "enter send · shift+enter newline · ctrl+t thought · ctrl+c quit"
+	if m.width < 100 {
 		hints = "enter send · ctrl+c quit"
 	}
 	status := lipgloss.JoinHorizontal(
@@ -66,10 +66,15 @@ func (m Model) View() string {
 		Width(max(20, m.width-4)).
 		Render(m.textarea.View())
 
+	transcript := m.viewport.View()
+	if m.pickerOpen {
+		transcript = m.picker.View(m.viewport.Width, m.viewport.Height)
+	}
+
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
-		m.viewport.View(),
+		transcript,
 		composer,
 		status,
 	)

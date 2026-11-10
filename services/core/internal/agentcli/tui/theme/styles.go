@@ -17,4 +17,9 @@ var (
 	Composer     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("238")).Padding(0, 1)
 	Status       = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	StatusActive = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+	Thinking     = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
+	ThinkingHead = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Italic(true)
+	PickerSelected = lipgloss.NewStyle().
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("255"))
 )

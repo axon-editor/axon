@@ -21,8 +21,9 @@ import (
 )
 
 func Run(workspace string) int {
+	modelID, models := resolveRuntime()
 	program := tea.NewProgram(
-		app.NewModel(workspace, resolveModel()),
+		app.NewModel(workspace, modelID, models),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)
@@ -33,11 +34,12 @@ func Run(workspace string) int {
 	return 0
 }
 
-// resolveModel asks the local runtime which model is actually installed. The
+// resolveRuntime asks the local runtime which model is actually installed. The
 // editor normally starts the runtime, but a terminal-only launch has to do it
 // itself; otherwise the first prompt fails with "model is not installed" even
-// though another catalog model is ready.
-func resolveModel() string {
+// though another catalog model is ready. Returning the full list lets the TUI
+// open a real model picker instead of only reporting the current id.
+func resolveRuntime() (string, []ai.ModelInfo) {
 	requested := requestedModel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -45,22 +47,22 @@ func resolveModel() string {
 
 	port := coreproc.ResolveCorePort()
 	if err := coreproc.EnsureCore(ctx, port); err != nil {
-		return requested
+		return requested, nil
 	}
 
 	status, err := fetchRuntimeStatus(ctx, port, requested)
 	if err != nil {
-		return requested
+		return requested, nil
 	}
 	if status.SelectedModelInstalled {
-		return requested
+		return requested, status.Models
 	}
 	for _, model := range status.Models {
 		if model.Available && model.Compatibility != ai.ModelCompatibilityUnsupported {
-			return model.ID
+			return model.ID, status.Models
 		}
 	}
-	return requested
+	return requested, status.Models
 }
 
 func requestedModel() string {
