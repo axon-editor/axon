@@ -9,9 +9,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/GordenArcher/axon-core/internal/agentcli/colors"
-	"github.com/GordenArcher/axon-core/internal/agentcli/session"
-	"github.com/GordenArcher/axon-core/internal/agentcli/terminalui"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/start"
 	"github.com/GordenArcher/axon-core/internal/agentcli/workspacepath"
 )
@@ -34,12 +31,9 @@ func Run(args []string) int {
 		return 0
 	case "gui":
 		return runGUI(args[1:])
-	case "resume":
-		printCommandBanner(args)
-		return session.RunResume(args[1:])
 	default:
 		if strings.HasPrefix(args[0], "-") {
-			fmt.Fprintln(os.Stderr, colors.Red("Unknown option: "+args[0]))
+			fmt.Fprintln(os.Stderr, "Unknown option:", args[0])
 			printHelp()
 			return 1
 		}
@@ -50,7 +44,7 @@ func Run(args []string) int {
 func runTUI(path string) int {
 	workspace, err := workspaceFor(path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
+		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	return start.Run(workspace)
@@ -62,7 +56,7 @@ func runGUI(args []string) int {
 		path = args[0]
 	}
 	if err := openInEditor(path); err != nil {
-		fmt.Fprintln(os.Stderr, colors.Red(err.Error()))
+		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	return 0
@@ -90,23 +84,6 @@ func printVersion() {
 	fmt.Printf("axon %s\n", version)
 }
 
-func printCommandBanner(args []string) {
-	mode := "Axon agent"
-	if len(args) > 0 && args[0] == "resume" {
-		mode = "Resume an agent session"
-	}
-
-	workspace, err := os.Getwd()
-	if err != nil {
-		terminalui.PrintStartupBanner(os.Stdout, terminalui.BannerOptions{Mode: mode})
-		return
-	}
-	terminalui.PrintStartupBanner(os.Stdout, terminalui.BannerOptions{
-		Mode:      mode,
-		Workspace: workspace,
-	})
-}
-
 func printHelp() {
 	fmt.Println(`Axon Agent
 
@@ -115,7 +92,6 @@ Usage:
   axon /path/to/project        start the agent TUI in a project
   axon gui                     open the current directory in the Axon editor
   axon gui /path/to/project    open a project in the Axon editor
-  axon resume                  resume a saved terminal conversation
   axon help                    show this help
   axon version                 print the CLI version
 
