@@ -16,14 +16,28 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/configstore"
 	"github.com/GordenArcher/axon-core/internal/agentcli/coreproc"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/app"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/ai"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func Run(workspace string) int {
+func Run(workspace string, resume bool) int {
 	modelID, models := resolveRuntime()
+
+	// Session persistence is part of the product, not a best-effort extra.
+	// Failing here with the database path is better than launching a TUI that
+	// silently drops every conversation the user expects to resume.
+	sessions, err := store.Open()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	defer func() {
+		_ = sessions.Close()
+	}()
+
 	program := tea.NewProgram(
-		app.NewModel(workspace, modelID, models),
+		app.NewModel(workspace, modelID, models, resume, sessions),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

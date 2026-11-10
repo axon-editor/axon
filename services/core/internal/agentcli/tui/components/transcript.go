@@ -14,6 +14,7 @@ import (
 // keeping the role and text separate lets the renderer grow without changing
 // the streaming client.
 type Message struct {
+	ID        string
 	Role      string
 	Content   string
 	Thinking  bool

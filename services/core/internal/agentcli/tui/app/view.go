@@ -45,7 +45,9 @@ func (m Model) View() string {
 	header := theme.Header.Render("AXON")
 
 	transcript := m.viewport.View()
-	if m.pickerOpen {
+	if m.sessionPickerOpen {
+		transcript = m.sessionPicker.View(m.viewport.Width, m.viewport.Height)
+	} else if m.pickerOpen {
 		transcript = m.picker.View(m.viewport.Width, m.viewport.Height)
 	}
 

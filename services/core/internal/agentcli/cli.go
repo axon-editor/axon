@@ -19,7 +19,7 @@ import (
 // back to the desktop editor.
 func Run(args []string) int {
 	if len(args) == 0 {
-		return runTUI("")
+		return runTUI("", false)
 	}
 
 	switch args[0] {
@@ -31,23 +31,29 @@ func Run(args []string) int {
 		return 0
 	case "gui":
 		return runGUI(args[1:])
+	case "resume":
+		path := ""
+		if len(args) > 1 {
+			path = args[1]
+		}
+		return runTUI(path, true)
 	default:
 		if strings.HasPrefix(args[0], "-") {
 			fmt.Fprintln(os.Stderr, "Unknown option:", args[0])
 			printHelp()
 			return 1
 		}
-		return runTUI(args[0])
+		return runTUI(args[0], false)
 	}
 }
 
-func runTUI(path string) int {
+func runTUI(path string, resume bool) int {
 	workspace, err := workspaceFor(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	return start.Run(workspace)
+	return start.Run(workspace, resume)
 }
 
 func runGUI(args []string) int {
@@ -92,6 +98,8 @@ Usage:
   axon /path/to/project        start the agent TUI in a project
   axon gui                     open the current directory in the Axon editor
   axon gui /path/to/project    open a project in the Axon editor
+  axon resume                  resume a saved terminal conversation
+  axon resume /path/to/project resume a conversation in a project
   axon help                    show this help
   axon version                 print the CLI version
 

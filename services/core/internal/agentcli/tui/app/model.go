@@ -9,6 +9,7 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/GordenArcher/axon-core/internal/ai"
 	"github.com/charmbracelet/bubbles/key"
@@ -19,29 +20,41 @@ import (
 )
 
 type Model struct {
-	workspace  string
-	modelID    string
-	models     []ai.ModelInfo
-	width      int
-	height     int
-	viewport   viewport.Model
-	textarea   textarea.Model
-	spinner    spinner.Model
-	messages   []components.Message
-	picker     components.ModelPicker
-	pickerOpen bool
-	streaming  bool
-	pulse      int
-	status     string
-	events     chan client.Event
-	cancel     context.CancelFunc
+	workspace         string
+	modelID           string
+	models            []ai.ModelInfo
+	sessionID         string
+	sessionTitle      string
+	sessionCreated    time.Time
+	sessions          *store.Store
+	persisted         map[string]bool
+	sessionPicker     components.SessionPicker
+	sessionPickerOpen bool
+	width             int
+	height            int
+	viewport          viewport.Model
+	textarea          textarea.Model
+	spinner           spinner.Model
+	messages          []components.Message
+	picker            components.ModelPicker
+	pickerOpen        bool
+	streaming         bool
+	pulse             int
+	status            string
+	events            chan client.Event
+	cancel            context.CancelFunc
 }
 
 type streamEventMsg struct {
 	event client.Event
 }
 
-func NewModel(workspace, modelID string, models []ai.ModelInfo) Model {
+func NewModel(
+	workspace, modelID string,
+	models []ai.ModelInfo,
+	resume bool,
+	sessions *store.Store,
+) Model {
 	input := textarea.New()
 	input.Placeholder = "Ask Axon to inspect, change, or explain something..."
 	// The Axon mark is the prompt, not a generic chevron. The first input line
@@ -80,18 +93,39 @@ func NewModel(workspace, modelID string, models []ai.ModelInfo) Model {
 	spinnerModel.Spinner.FPS = time.Second / 6
 	spinnerModel.Style = theme.StatusActive
 
-	return Model{
-		workspace: workspace,
-		modelID:   modelID,
-		models:    models,
-		viewport:  viewportModel,
-		textarea:  input,
-		spinner:   spinnerModel,
+	model := Model{
+		workspace:      workspace,
+		modelID:        modelID,
+		models:         models,
+		sessionID:      store.NewID(),
+		sessionTitle:   store.DefaultTitle,
+		sessionCreated: time.Now(),
+		sessions:       sessions,
+		persisted:      make(map[string]bool),
+		viewport:       viewportModel,
+		textarea:       input,
+		spinner:        spinnerModel,
 		messages: []components.Message{
 			{Role: "assistant", Content: "What are we working on in Axon today?"},
 		},
 		status: "Ready",
 	}
+
+	if sessions != nil && resume {
+		summaries, err := sessions.List(workspace)
+		if err == nil && len(summaries) > 0 {
+			model.sessionPicker = components.NewSessionPicker(
+				sessionOptions(summaries, model.sessionID),
+				model.sessionID,
+			)
+			model.sessionPickerOpen = true
+			model.status = "Select a conversation"
+		} else {
+			model.status = "No saved conversations"
+		}
+	}
+
+	return model
 }
 
 func (m Model) Init() tea.Cmd {
