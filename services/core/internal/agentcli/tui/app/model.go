@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
@@ -30,6 +31,7 @@ type Model struct {
 	picker     components.ModelPicker
 	pickerOpen bool
 	streaming  bool
+	pulse      int
 	status     string
 	events     chan client.Event
 	cancel     context.CancelFunc
@@ -42,7 +44,19 @@ type streamEventMsg struct {
 func NewModel(workspace, modelID string, models []ai.ModelInfo) Model {
 	input := textarea.New()
 	input.Placeholder = "Ask Axon to inspect, change, or explain something..."
-	input.Prompt = "› "
+	// The Axon mark is the prompt, not a generic chevron. The first input line
+	// carries the mark; continuation lines align under the text.
+	input.Prompt = "Λ▴ "
+	input.SetPromptFunc(3, func(line int) string {
+		if line == 0 {
+			return "Λ▴ "
+		}
+		return "   "
+	})
+	input.FocusedStyle.Prompt = theme.Prompt
+	input.BlurredStyle.Prompt = theme.Prompt
+	input.FocusedStyle.Placeholder = theme.Subtle
+	input.FocusedStyle.Text = theme.Foreground
 	input.CharLimit = 0
 	input.ShowLineNumbers = false
 	input.SetHeight(3)
@@ -59,8 +73,11 @@ func NewModel(workspace, modelID string, models []ai.ModelInfo) Model {
 	viewportModel.MouseWheelEnabled = true
 	viewportModel.MouseWheelDelta = 3
 
+	// The spinner only drives the Axon mark pulse below the input frame. The
+	// mark itself is rendered from the model so its three lines stay aligned.
 	spinnerModel := spinner.New()
 	spinnerModel.Spinner = spinner.Dot
+	spinnerModel.Spinner.FPS = time.Second / 6
 	spinnerModel.Style = theme.StatusActive
 
 	return Model{

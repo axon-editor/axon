@@ -77,6 +77,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleStreamEvent(msg.event)
 
 	case spinner.TickMsg:
+		if m.streaming {
+			m.pulse++
+		}
 		var command tea.Cmd
 		m.spinner, command = m.spinner.Update(msg)
 		return m, command
@@ -228,6 +231,7 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	})
 	m.textarea.Reset()
 	m.streaming = true
+	m.pulse = 0
 	m.status = "Thinking..."
 
 	events := make(chan client.Event, 64)

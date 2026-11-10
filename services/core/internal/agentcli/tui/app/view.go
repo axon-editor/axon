@@ -4,7 +4,7 @@
 package app
 
 import (
-	"path/filepath"
+	"strings"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
@@ -17,14 +17,15 @@ func (m *Model) layout() {
 	}
 
 	composerHeight := m.textarea.Height() + 2
-	viewportHeight := m.height - 1 - 1 - composerHeight - 2
+	// Header, status line, composer, workspace path, and one line of slack.
+	viewportHeight := m.height - 1 - 1 - composerHeight - 1 - 1
 	if viewportHeight < 3 {
 		viewportHeight = 3
 	}
 
 	m.viewport.Width = max(20, m.width)
 	m.viewport.Height = viewportHeight
-	m.textarea.SetWidth(max(20, m.width-6))
+	m.textarea.SetWidth(max(20, m.width-4))
 	m.updateTranscript()
 }
 
@@ -41,41 +42,134 @@ func (m Model) View() string {
 		return theme.Subtle.Render("Loading Axon...")
 	}
 
-	header := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		theme.Header.Render("Axon"),
-		theme.Subtle.Render("  "+filepath.Base(m.workspace)),
-		theme.Subtle.Render("  "+m.modelID),
-	)
-
-	statusText := theme.Status.Render("● " + m.status)
-	if m.streaming {
-		statusText = m.spinner.View() + " " + theme.StatusActive.Render(m.status)
-	}
-	hints := "enter send · shift+enter newline · ctrl+t thought · ctrl+c quit"
-	if m.width < 100 {
-		hints = "enter send · ctrl+c quit"
-	}
-	status := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		statusText,
-		theme.Subtle.Render("  "+hints),
-	)
-
-	composer := theme.Composer.
-		Width(max(20, m.width-4)).
-		Render(m.textarea.View())
+	header := theme.Header.Render("AXON")
 
 	transcript := m.viewport.View()
 	if m.pickerOpen {
 		transcript = m.picker.View(m.viewport.Width, m.viewport.Height)
 	}
 
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
+	parts := []string{
 		header,
 		transcript,
-		composer,
-		status,
-	)
+		m.renderStatusLine(),
+		m.renderComposer(),
+		theme.Subtle.Render(truncatePath(m.workspace, max(8, m.width))),
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+func (m Model) renderStatusLine() string {
+	markStyle := theme.Status
+	if m.streaming {
+		switch m.pulse % 3 {
+		case 0:
+			markStyle = theme.AxonCyan
+		case 1:
+			markStyle = theme.AxonTeal
+		case 2:
+			markStyle = theme.AxonGreen
+		}
+	}
+	if m.status == "Error" {
+		markStyle = theme.Error
+	}
+
+	statusStyle := theme.Status
+	if m.streaming {
+		statusStyle = theme.StatusActive
+	} else if m.status == "Error" {
+		statusStyle = theme.Error
+	}
+
+	return markStyle.Render("Λ▴") + " " + statusStyle.Render(m.status)
+}
+
+func (m Model) renderComposer() string {
+	width := max(20, m.width)
+	innerWidth := max(16, width-4)
+	modelLabel := truncateLabel(m.modelID, max(8, width-16))
+
+	topLeft := theme.CircuitBorder.Render("⌜ ") +
+		theme.CircuitMeta.Render("agent") +
+		theme.CircuitBorder.Render(" ")
+	topRight := theme.CircuitBorder.Render(" ") +
+		theme.CircuitMeta.Render(modelLabel) +
+		theme.CircuitBorder.Render(" ⌝")
+	topFill := width - lipgloss.Width(topLeft) - lipgloss.Width(topRight)
+	if topFill < 1 {
+		topRight = theme.CircuitBorder.Render(" ⌝")
+		topFill = width - lipgloss.Width(topLeft) - lipgloss.Width(topRight)
+	}
+	top := topLeft + theme.CircuitBorder.Render(strings.Repeat("─", max(1, topFill))) + topRight
+
+	lines := strings.Split(m.textarea.View(), "\n")
+	height := m.textarea.Height()
+	rows := make([]string, 0, height)
+	for index := 0; index < height; index++ {
+		line := ""
+		if index < len(lines) {
+			line = lines[index]
+		}
+		padding := innerWidth - lipgloss.Width(line)
+		if padding < 0 {
+			padding = 0
+		}
+
+		railStyle := theme.AxonTeal
+		if m.streaming && height > 0 && index == m.pulse%height {
+			railStyle = theme.AxonCyan
+		}
+		row := railStyle.Render("┃") +
+			" " + line + strings.Repeat(" ", padding) + " " +
+			theme.CircuitBorder.Render("│")
+		rows = append(rows, row)
+	}
+
+	hints := "enter send · ⇧↵ newline · ⌃T thought · ⌃C quit"
+	if width < 86 {
+		hints = "enter send · ⌃C quit"
+	}
+	bottomLeft := theme.CircuitBorder.Render("⌞ ") +
+		theme.CircuitMeta.Render(hints) +
+		theme.CircuitBorder.Render(" ")
+	bottomRight := theme.CircuitBorder.Render("⌟")
+	bottomFill := width - lipgloss.Width(bottomLeft) - lipgloss.Width(bottomRight)
+	if bottomFill < 1 {
+		bottomFill = 1
+	}
+	bottom := bottomLeft + theme.CircuitBorder.Render(strings.Repeat("─", bottomFill)) + bottomRight
+
+	return strings.Join(append(append([]string{top}, rows...), bottom), "\n")
+}
+
+func truncateLabel(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) <= width {
+		return value
+	}
+	if width <= 1 {
+		return string(runes[:width])
+	}
+	return string(runes[:width-1]) + "…"
+}
+
+// truncatePath keeps the tail of a path because the last folder is the useful
+// part when the terminal is narrower than the workspace path.
+func truncatePath(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) <= width {
+		return value
+	}
+	if width <= 1 {
+		return "…"
+	}
+	return "…" + string(runes[len(runes)-(width-1):])
 }

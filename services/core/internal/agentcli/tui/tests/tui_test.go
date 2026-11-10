@@ -79,7 +79,7 @@ func TestModelViewRendersHeader(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	view := updated.(app.Model).View()
 
-	for _, expected := range []string{"Axon", "axon", "axon-code"} {
+	for _, expected := range []string{"AXON", "axon", "axon-code", "Λ▴", "⌜", "⌞"} {
 		if !strings.Contains(view, expected) {
 			t.Fatalf("view is missing %q:\n%s", expected, view)
 		}
