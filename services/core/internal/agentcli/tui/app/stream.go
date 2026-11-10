@@ -105,6 +105,19 @@ func (m *Model) toggleThinking() {
 	}
 }
 
+// toggleToolOutput expands or collapses the most recent tool card. It uses the
+// card order rather than a per-card key so the shortcut works without moving
+// focus into the transcript.
+func (m *Model) toggleToolOutput() {
+	for index := len(m.messages) - 1; index >= 0; index-- {
+		tool := m.messages[index].Tool
+		if tool != nil {
+			tool.Expanded = !tool.Expanded
+			return
+		}
+	}
+}
+
 func (m *Model) appendTool(event client.Event) {
 	// A mutating tool already has a waiting card from the approval request.
 	// Move that card to running instead of adding a duplicate.

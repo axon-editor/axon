@@ -43,12 +43,12 @@ func TestApprovalCanDeny(t *testing.T) {
 	decisions := make(chan client.Decision, 1)
 	model := Model{decisions: decisions}
 	model.openApproval(client.Event{
-		ToolCallID: "call-2",
-		ToolName:   "run_command",
-		Arguments:  `{"command":"rm -rf build"}`,
-		Summary:    "rm -rf build",
-		Details:    "Remove the build folder",
-		AllowTurn:  true,
+		ToolCallID:   "call-2",
+		ToolName:     "run_command",
+		Arguments:    `{"command":"rm -rf build"}`,
+		Summary:      "rm -rf build",
+		Details:      "Remove the build folder",
+		AllowSession: true,
 	})
 
 	updated, _ := model.updateApproval(keyMsg("n"))
@@ -66,14 +66,14 @@ func TestApprovalCanDeny(t *testing.T) {
 	}
 }
 
-func TestApprovalAllowTurnRequiresPermission(t *testing.T) {
+func TestApprovalAllowSessionRequiresPermission(t *testing.T) {
 	decisions := make(chan client.Decision, 1)
 	model := Model{decisions: decisions}
 	model.openApproval(client.Event{
-		ToolCallID: "call-3",
-		ToolName:   "write_file",
-		Summary:    "main.go",
-		AllowTurn:  false,
+		ToolCallID:   "call-3",
+		ToolName:     "write_file",
+		Summary:      "main.go",
+		AllowSession: false,
 	})
 
 	updated, _ := model.updateApproval(keyMsg("a"))

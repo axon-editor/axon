@@ -6,6 +6,7 @@ package app
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
@@ -25,7 +26,7 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 		return m.handleSlash(prompt)
 	}
 
-	history := conversationHistory(m.messages)
+	history := modelHistory(m.messages)
 	m.messages = append(m.messages, components.Message{
 		ID:      store.NewID(),
 		Role:    "user",
@@ -42,6 +43,11 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	events := make(chan client.Event, 64)
 	decisions := make(chan client.Decision, 1)
 	ctx, cancel := context.WithCancel(context.Background())
+	allowlist := m.commandAllowlist
+	if allowlist == nil {
+		allowlist = &sync.Map{}
+		m.commandAllowlist = allowlist
+	}
 	m.events = events
 	m.decisions = decisions
 	m.cancel = cancel
@@ -54,11 +60,18 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	m.saveSession()
 
 	go agent.Run(ctx, client.Request{
-		Prompt:       prompt,
-		FolderPath:   m.workspace,
-		Model:        m.modelID,
-		Conversation: history,
-		Decisions:    decisions,
+		Prompt:     prompt,
+		FolderPath: m.workspace,
+		Model:      m.modelID,
+		History:    history,
+		Decisions:  decisions,
+		CommandAllowed: func(command string) bool {
+			_, ok := allowlist.Load(command)
+			return ok
+		},
+		AllowCommand: func(command string) {
+			allowlist.Store(command, true)
+		},
 	}, events)
 
 	return m, tea.Batch(waitForEvent(events), m.spinner.Tick)
@@ -127,7 +140,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				"/help     show this list",
 				"/quit     exit Axon",
 				"",
-				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+T thought, Ctrl+C quit.",
+				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+T thought, Ctrl+O tool output, Ctrl+C quit.",
 			}, "\n"),
 		})
 	default:

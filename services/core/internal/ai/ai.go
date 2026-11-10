@@ -89,6 +89,11 @@ type ChatRequest struct {
 	// the prompt itself so the CLI and simpler callers keep their behavior.
 	Messages []ModelMessage          `json:"messages,omitempty"`
 	Tools    []ProjectToolDefinition `json:"tools,omitempty"`
+	// History is prior tool-aware turns for callers that still want core to
+	// build the system prompt and project context. Messages is used once the
+	// caller owns the full conversation; History is only consumed when Messages
+	// is empty.
+	History []ModelMessage `json:"history,omitempty"`
 }
 
 type StreamEvent struct {

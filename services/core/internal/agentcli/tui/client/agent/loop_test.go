@@ -15,11 +15,36 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 )
+
+func TestCommandAllowlistCallbacksPersist(t *testing.T) {
+	allowed := &sync.Map{}
+	loop := &loop{request: client.Request{
+		CommandAllowed: func(command string) bool {
+			_, ok := allowed.Load(command)
+			return ok
+		},
+		AllowCommand: func(command string) {
+			allowed.Store(command, true)
+		},
+	}}
+
+	if loop.commandAllowed("go test ./...") {
+		t.Fatal("command started out allowed")
+	}
+	loop.allowCommand("go test ./...")
+	if !loop.commandAllowed("go test ./...") {
+		t.Fatal("allowlist did not persist the exact command")
+	}
+	if loop.commandAllowed("go test ./internal/...") {
+		t.Fatal("allowlist should not match a different command")
+	}
+}
 
 func TestRunApprovesAndExecutesWrite(t *testing.T) {
 	const token = "agent-test-token"

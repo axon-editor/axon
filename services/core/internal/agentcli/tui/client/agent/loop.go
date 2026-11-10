@@ -19,10 +19,9 @@ import (
 const maxToolRounds = 12
 
 type loop struct {
-	request         client.Request
-	events          chan<- client.Event
-	messages        []ai.ModelMessage
-	allowedCommands map[string]bool
+	request  client.Request
+	events   chan<- client.Event
+	messages []ai.ModelMessage
 }
 
 // Run owns the agent loop from the CLI side. Core plans one turn at a time and
@@ -46,10 +45,9 @@ func Run(ctx context.Context, request client.Request, events chan<- client.Event
 	request.FolderPath = folder
 
 	agent := &loop{
-		request:         request,
-		events:          events,
-		messages:        nil,
-		allowedCommands: make(map[string]bool),
+		request:  request,
+		events:   events,
+		messages: nil,
 	}
 	if err := agent.run(ctx, port); err != nil {
 		fail(ctx, emit, err)
@@ -66,6 +64,7 @@ func (l *loop) run(ctx context.Context, port string) error {
 			FolderPath:   l.request.FolderPath,
 			Model:        l.request.Model,
 			Conversation: l.request.Conversation,
+			History:      l.request.History,
 			Messages:     l.messages,
 			Tools:        definitions,
 		}, func(event client.Event) error {
@@ -149,18 +148,18 @@ func (l *loop) execute(
 
 	approval := ""
 	if tools.NeedsApproval(name) {
-		summary, details, allowTurn := tools.ApprovalDetails(name, arguments)
-		if name == tools.RunCommandTool && l.allowedCommands[summary] {
-			approval = "turn"
+		summary, details, allowSession := tools.ApprovalDetails(name, arguments)
+		if name == tools.RunCommandTool && l.commandAllowed(summary) {
+			approval = "session"
 		} else {
 			if err := emitEvent(ctx, l.events, client.Event{
-				Kind:       client.ApprovalRequest,
-				ToolCallID: callID,
-				ToolName:   name,
-				Arguments:  string(arguments),
-				Summary:    summary,
-				Details:    details,
-				AllowTurn:  allowTurn,
+				Kind:         client.ApprovalRequest,
+				ToolCallID:   callID,
+				ToolName:     name,
+				Arguments:    string(arguments),
+				Summary:      summary,
+				Details:      details,
+				AllowSession: allowSession,
 			}); err != nil {
 				return tools.Result{}, err
 			}
@@ -176,9 +175,9 @@ func (l *loop) execute(
 				return l.denyTool(ctx, callID, name)
 			}
 			approval = "once"
-			if decision.AllowTurn && allowTurn {
-				approval = "turn"
-				l.allowedCommands[summary] = true
+			if decision.AllowSession && allowSession {
+				approval = "session"
+				l.allowCommand(summary)
 			}
 		}
 	}
@@ -210,6 +209,19 @@ func (l *loop) execute(
 		return tools.Result{}, err
 	}
 	return result, nil
+}
+
+func (l *loop) commandAllowed(command string) bool {
+	if l.request.CommandAllowed == nil {
+		return false
+	}
+	return l.request.CommandAllowed(command)
+}
+
+func (l *loop) allowCommand(command string) {
+	if l.request.AllowCommand != nil {
+		l.request.AllowCommand(command)
+	}
 }
 
 func (l *loop) denyTool(

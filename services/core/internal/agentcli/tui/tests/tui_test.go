@@ -4,6 +4,7 @@
 package tests
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -137,6 +138,7 @@ func TestToolCardRendersNameArgumentsAndPreview(t *testing.T) {
 				Arguments:  `{"path":"internal/ai/ai.go","offset":40,"limit":20}`,
 				Result:     "package ai\n\nfunc StreamChat()",
 				OK:         true,
+				Approval:   "session",
 				DurationMS: 12,
 			},
 		},
@@ -148,6 +150,7 @@ func TestToolCardRendersNameArgumentsAndPreview(t *testing.T) {
 		"from 40",
 		"20 lines",
 		"12ms",
+		"allowed for session",
 		"package ai",
 		"func StreamChat",
 	} {
@@ -216,10 +219,10 @@ func TestDeniedToolCard(t *testing.T) {
 
 func TestApprovalViewShowsCommand(t *testing.T) {
 	rendered := ansi.Strip(components.Approval{
-		ToolName:  "run_command",
-		Summary:   "go test ./...",
-		Details:   "Run the test suite\n\n$ go test ./...",
-		AllowTurn: true,
+		ToolName:     "run_command",
+		Summary:      "go test ./...",
+		Details:      "Run the test suite\n\n$ go test ./...",
+		AllowSession: true,
 	}.View(80, 20))
 
 	for _, expected := range []string{
@@ -227,11 +230,43 @@ func TestApprovalViewShowsCommand(t *testing.T) {
 		"run_command",
 		"go test ./...",
 		"Run the test suite",
-		"allow for this run",
+		"allow for this session",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("approval view is missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestToolOutputExpands(t *testing.T) {
+	lines := make([]string, 0, 8)
+	for index := 1; index <= 8; index++ {
+		lines = append(lines, fmt.Sprintf("line-%02d", index))
+	}
+	result := strings.Join(lines, "\n")
+
+	collapsed := ansi.Strip(renderTranscript([]components.Message{
+		{ID: "tool-6", Role: "tool", Tool: &components.Tool{Name: "read_file", Result: result}},
+	}, 80))
+	if !strings.Contains(collapsed, "line-01") {
+		t.Fatalf("collapsed card is missing the preview:\n%s", collapsed)
+	}
+	if strings.Contains(collapsed, "line-08") {
+		t.Fatalf("collapsed card leaked the full output:\n%s", collapsed)
+	}
+	if !strings.Contains(collapsed, "ctrl+o") {
+		t.Fatalf("collapsed card is missing the expand hint:\n%s", collapsed)
+	}
+
+	expanded := ansi.Strip(renderTranscript([]components.Message{
+		{
+			ID:   "tool-6",
+			Role: "tool",
+			Tool: &components.Tool{Name: "read_file", Result: result, Expanded: true},
+		},
+	}, 80))
+	if !strings.Contains(expanded, "line-08") {
+		t.Fatalf("expanded card is missing the tail:\n%s", expanded)
 	}
 }
 

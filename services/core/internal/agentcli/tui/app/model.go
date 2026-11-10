@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
@@ -50,6 +51,7 @@ type Model struct {
 	approvalOpen      bool
 	approval          components.Approval
 	approvalID        string
+	commandAllowlist  *sync.Map
 }
 
 type streamEventMsg struct {
@@ -101,18 +103,19 @@ func NewModel(
 	spinnerModel.Style = theme.StatusActive
 
 	model := Model{
-		workspace:      workspace,
-		modelID:        modelID,
-		models:         models,
-		sessionID:      store.NewID(),
-		sessionTitle:   store.DefaultTitle,
-		sessionCreated: time.Now(),
-		sessions:       sessions,
-		persisted:      make(map[string]bool),
-		viewport:       viewportModel,
-		textarea:       input,
-		spinner:        spinnerModel,
-		renderer:       transcript.New(),
+		workspace:        workspace,
+		modelID:          modelID,
+		models:           models,
+		sessionID:        store.NewID(),
+		sessionTitle:     store.DefaultTitle,
+		sessionCreated:   time.Now(),
+		sessions:         sessions,
+		persisted:        make(map[string]bool),
+		commandAllowlist: &sync.Map{},
+		viewport:         viewportModel,
+		textarea:         input,
+		spinner:          spinnerModel,
+		renderer:         transcript.New(),
 		messages: []components.Message{
 			{Role: "assistant", Content: "What are we working on in Axon today?"},
 		},

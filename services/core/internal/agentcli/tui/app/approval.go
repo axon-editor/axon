@@ -16,11 +16,11 @@ func (m Model) updateApproval(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y", "enter":
 		decision.Approved = true
 	case "a":
-		if !m.approval.AllowTurn {
+		if !m.approval.AllowSession {
 			return m, nil
 		}
 		decision.Approved = true
-		decision.AllowTurn = true
+		decision.AllowSession = true
 	case "n", "esc":
 		decision.Approved = false
 	default:
@@ -41,10 +41,10 @@ func (m Model) updateApproval(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) openApproval(event client.Event) {
 	m.approval = components.Approval{
-		ToolName:  event.ToolName,
-		Summary:   event.Summary,
-		Details:   event.Details,
-		AllowTurn: event.AllowTurn,
+		ToolName:     event.ToolName,
+		Summary:      event.Summary,
+		Details:      event.Details,
+		AllowSession: event.AllowSession,
 	}
 	m.approvalID = event.ToolCallID
 	m.approvalOpen = true
@@ -84,8 +84,8 @@ func (m *Model) markApproval(decision client.Decision) {
 	if decision.Approved {
 		tool.Running = true
 		tool.Approval = "once"
-		if decision.AllowTurn {
-			tool.Approval = "turn"
+		if decision.AllowSession {
+			tool.Approval = "session"
 		}
 		return
 	}

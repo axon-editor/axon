@@ -59,6 +59,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toggleThinking()
 			m.updateTranscript()
 			return m, nil
+		case "ctrl+o":
+			m.toggleToolOutput()
+			m.updateTranscript()
+			return m, nil
 		}
 
 		var command tea.Cmd

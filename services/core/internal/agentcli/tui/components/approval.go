@@ -13,10 +13,10 @@ import (
 // Approval is the modal shown when a mutating tool needs a decision. It owns
 // presentation only; the app sends the actual decision back to the agent.
 type Approval struct {
-	ToolName  string
-	Summary   string
-	Details   string
-	AllowTurn bool
+	ToolName     string
+	Summary      string
+	Details      string
+	AllowSession bool
 }
 
 func (a Approval) View(width, height int) string {
@@ -53,8 +53,8 @@ func (a Approval) View(width, height int) string {
 
 func (a Approval) hints() string {
 	hints := "enter/y allow once · n/esc deny"
-	if a.AllowTurn {
-		hints = "enter/y allow once · a allow for this run · n/esc deny"
+	if a.AllowSession {
+		hints = "enter/y allow once · a allow for this session · n/esc deny"
 	}
 	return hints
 }

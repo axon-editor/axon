@@ -30,24 +30,24 @@ type Event struct {
 	// Tool lifecycle fields are only set for ToolStart, ToolResult, and
 	// ApprovalRequest. CallID pairs them so the transcript can turn a waiting
 	// card into a running card and then into its result.
-	ToolCallID string
-	ToolName   string
-	Arguments  string
-	Result     string
-	OK         bool
-	DurationMS int64
-	Summary    string
-	Details    string
-	Approval   string
-	AllowTurn  bool
+	ToolCallID   string
+	ToolName     string
+	Arguments    string
+	Result       string
+	OK           bool
+	DurationMS   int64
+	Summary      string
+	Details      string
+	Approval     string
+	AllowSession bool
 }
 
 // Decision is the user's answer to an ApprovalRequest. It travels back to the
 // agent goroutine through Request.Decisions.
 type Decision struct {
-	ID        string
-	Approved  bool
-	AllowTurn bool
+	ID           string
+	Approved     bool
+	AllowSession bool
 }
 
 type Request struct {
@@ -60,10 +60,20 @@ type Request struct {
 	// StreamChat sends them to core so core does not start its own tool loop.
 	Messages []ai.ModelMessage
 	Tools    []ai.ProjectToolDefinition
+	// History carries prior tool-aware turns on the first planning round. Core
+	// uses it only while Messages is empty, so it can still build the system
+	// prompt and project context.
+	History []ai.ModelMessage
 
 	// Decisions is shared with the TUI. The agent blocks on it while a mutating
 	// tool is waiting for approval.
 	Decisions <-chan Decision
+
+	// CommandAllowed and AllowCommand keep the exact-command allowlist in the
+	// TUI model so it survives across turns. The agent only calls them for
+	// run_command.
+	CommandAllowed func(command string) bool
+	AllowCommand   func(command string)
 }
 
 // Stream is the legacy one-call entry point. The TUI uses agent.Run now, but

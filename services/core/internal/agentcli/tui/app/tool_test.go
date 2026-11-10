@@ -14,6 +14,63 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 )
 
+func TestModelHistoryIncludesToolCalls(t *testing.T) {
+	history := modelHistory([]components.Message{
+		{Role: "assistant", Content: "welcome"},
+		{ID: "u1", Role: "user", Content: "read main.go"},
+		{ID: "t1", Role: "assistant", Thinking: true, Content: "planning"},
+		{
+			ID:   "c1",
+			Role: "tool",
+			Tool: &components.Tool{
+				Name:      "read_file",
+				Arguments: `{"path":"main.go"}`,
+				Result:    "package main",
+			},
+		},
+		{ID: "a1", Role: "assistant", Content: "It has a main package."},
+	})
+
+	if len(history) != 4 {
+		t.Fatalf("expected user, tool call, tool result, and answer: %#v", history)
+	}
+	if history[0].Role != "user" || history[0].Content != "read main.go" {
+		t.Fatalf("unexpected user turn: %#v", history[0])
+	}
+	if history[1].Role != "assistant" || len(history[1].ToolCalls) != 1 {
+		t.Fatalf("unexpected tool call turn: %#v", history[1])
+	}
+	if history[1].ToolCalls[0].Function.Name != "read_file" {
+		t.Fatalf("tool name = %q", history[1].ToolCalls[0].Function.Name)
+	}
+	if history[2].Role != "tool" || history[2].Content != "package main" {
+		t.Fatalf("unexpected tool result: %#v", history[2])
+	}
+	if history[3].Role != "assistant" {
+		t.Fatalf("unexpected final turn: %#v", history[3])
+	}
+}
+
+func TestToggleToolOutputTogglesMostRecentTool(t *testing.T) {
+	model := Model{messages: []components.Message{
+		{Tool: &components.Tool{Name: "first"}},
+		{Tool: &components.Tool{Name: "second"}},
+	}}
+
+	model.toggleToolOutput()
+	if model.messages[0].Tool.Expanded {
+		t.Fatal("older tool card was toggled")
+	}
+	if !model.messages[1].Tool.Expanded {
+		t.Fatal("most recent tool card did not expand")
+	}
+
+	model.toggleToolOutput()
+	if model.messages[1].Tool.Expanded {
+		t.Fatal("tool card did not collapse")
+	}
+}
+
 func TestToolCardPersistenceRoundTrip(t *testing.T) {
 	sessions, err := store.OpenAt(filepath.Join(t.TempDir(), "sessions.db"))
 	if err != nil {

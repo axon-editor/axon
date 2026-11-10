@@ -36,6 +36,7 @@ func Plan(
 	}
 	if len(request.Messages) == 0 {
 		envelope.Conversation = request.Conversation
+		envelope.History = request.History
 	}
 
 	response, err := postStream(ctx, port, "/ai/chat/stream", envelope)

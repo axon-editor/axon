@@ -159,7 +159,7 @@ func (m Model) renderComposer() string {
 		rows = append(rows, row)
 	}
 
-	hints := "enter send · ⇧↵ newline · ⌃T thought · ⌃C quit"
+	hints := "enter send · ⇧↵ newline · ⌃T thought · ⌃O output · ⌃C quit"
 	if width < 86 {
 		hints = "enter send · ⌃C quit"
 	}

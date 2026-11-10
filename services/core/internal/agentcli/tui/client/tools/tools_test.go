@@ -34,14 +34,14 @@ func TestLocalDefinitionsExposeMutatingTools(t *testing.T) {
 }
 
 func TestApprovalDetailsForCommand(t *testing.T) {
-	summary, details, allowTurn := ApprovalDetails(
+	summary, details, allowSession := ApprovalDetails(
 		RunCommandTool,
 		json.RawMessage(`{"command":"go test ./...","description":"run tests"}`),
 	)
 	if summary != "go test ./..." {
 		t.Fatalf("summary = %q", summary)
 	}
-	if !allowTurn {
+	if !allowSession {
 		t.Fatal("commands should offer allow-for-run")
 	}
 	if !strings.Contains(details, "run tests") || !strings.Contains(details, "go test ./...") {

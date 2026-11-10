@@ -15,7 +15,10 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 )
 
-const toolPreviewLines = 6
+const (
+	toolPreviewLines  = 6
+	expandedToolLines = 200
+)
 
 type Renderer struct {
 	width    int
@@ -131,7 +134,11 @@ func renderTool(tool *components.Tool, width int) string {
 		lines = append(lines, theme.ToolResult.Render(line))
 	}
 	if hidden > 0 {
-		lines = append(lines, theme.ToolMeta.Render(fmt.Sprintf("… %d more lines", hidden)))
+		hint := fmt.Sprintf("… %d more lines · ctrl+o", hidden)
+		if tool.Expanded {
+			hint = fmt.Sprintf("… %d more lines remaining", hidden)
+		}
+		lines = append(lines, theme.ToolMeta.Render(hint))
 	}
 
 	return strings.Join(surface.Block(lines, width, theme.ToolSurface), "\n")
@@ -183,8 +190,8 @@ func toolMeta(tool *components.Tool) string {
 	switch tool.Approval {
 	case "once":
 		parts = append(parts, "approved once")
-	case "turn":
-		parts = append(parts, "allowed for run")
+	case "turn", "session":
+		parts = append(parts, "allowed for session")
 	case "denied":
 		parts = append(parts, "denied")
 	}
@@ -256,16 +263,20 @@ func toolPreview(tool *components.Tool) ([]string, int) {
 	}
 
 	lines := strings.Split(result, "\n")
-	if len(lines) <= toolPreviewLines {
+	limit := toolPreviewLines
+	if tool.Expanded {
+		limit = expandedToolLines
+	}
+	if len(lines) <= limit {
 		return lines, 0
 	}
-	hidden := len(lines) - toolPreviewLines
+	hidden := len(lines) - limit
 	// Build and test output puts the actionable error at the end, so command
 	// cards keep the tail while file reads keep the beginning.
 	if tool.Name == "run_command" {
 		return lines[hidden:], hidden
 	}
-	return lines[:toolPreviewLines], hidden
+	return lines[:limit], hidden
 }
 
 func resultLineCount(result string) int {
@@ -297,13 +308,14 @@ func cacheKey(message components.Message, active bool) string {
 	toolKey := ""
 	if message.Tool != nil {
 		toolKey = fmt.Sprintf(
-			"%s|%s|%t|%t|%t|%s|%d|%d|%d",
+			"%s|%s|%t|%t|%t|%s|%t|%d|%d|%d",
 			message.Tool.CallID,
 			message.Tool.Name,
 			message.Tool.Running,
 			message.Tool.Waiting,
 			message.Tool.OK,
 			message.Tool.Approval,
+			message.Tool.Expanded,
 			len(message.Tool.Arguments),
 			len(message.Tool.Result),
 			message.Tool.DurationMS,

@@ -42,6 +42,7 @@ func BuildMessages(request ChatRequest) []ModelMessage {
 	}
 
 	messages = append(messages, priorConversationMessages(request.Conversation)...)
+	messages = append(messages, trimHistory(request.History)...)
 	messages = append(messages, ModelMessage{
 		Role: "user",
 		Content: strings.Join([]string{
@@ -93,6 +94,42 @@ func priorConversationMessages(conversation []ConversationMessage) []ModelMessag
 		turns[left], turns[right] = turns[right], turns[left]
 	}
 	return turns
+}
+
+// trimHistory keeps the recent tool-aware turns while preserving the
+// assistant tool_calls message that each tool result belongs to. Cutting at an
+// arbitrary byte budget can orphan a tool result, so leading tool rows are
+// dropped after the suffix is selected.
+func trimHistory(history []ModelMessage) []ModelMessage {
+	if len(history) == 0 {
+		return nil
+	}
+
+	start := len(history)
+	budget := maxConversationChars
+	for start > 0 && len(history)-start < maxConversationTurns*2 {
+		message := history[start-1]
+		content := trimForPrompt(strings.TrimSpace(message.Content), maxConversationMessageChars)
+		cost := len(content) + len(message.ToolCalls)*64 + 32
+		if cost > budget && start < len(history) {
+			break
+		}
+		budget -= cost
+		start--
+	}
+
+	trimmed := make([]ModelMessage, 0, len(history)-start)
+	for _, message := range history[start:] {
+		message.Content = trimForPrompt(
+			strings.TrimSpace(message.Content),
+			maxConversationMessageChars,
+		)
+		trimmed = append(trimmed, message)
+	}
+	for len(trimmed) > 0 && trimmed[0].Role == "tool" {
+		trimmed = trimmed[1:]
+	}
+	return trimmed
 }
 
 func normalizedConversationRole(role string) string {

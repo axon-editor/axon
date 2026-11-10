@@ -4,6 +4,7 @@
 package ai
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -74,6 +75,46 @@ func TestBuildMessagesSendsConversationAsModelTurns(t *testing.T) {
 	}
 	if messages[3].Role != "user" || !strings.Contains(messages[3].Content, "What about the second file?") {
 		t.Fatalf("current prompt should remain the final user turn: %#v", messages[3])
+	}
+}
+
+func TestBuildMessagesIncludesToolHistory(t *testing.T) {
+	messages := BuildMessages(ChatRequest{
+		Action: "agent",
+		Prompt: "what else is there?",
+		History: []ModelMessage{
+			{
+				Role: "assistant",
+				ToolCalls: []ModelToolCall{{
+					Function: ModelToolFunction{
+						Name:      "read_file",
+						Arguments: json.RawMessage(`{"path":"main.go"}`),
+					},
+				}},
+			},
+			{Role: "tool", Content: "package main"},
+			{Role: "assistant", Content: "It has a main function."},
+		},
+	})
+
+	foundCall := false
+	foundResult := false
+	for index, message := range messages {
+		if message.Role == "assistant" && len(message.ToolCalls) == 1 {
+			if message.ToolCalls[0].Function.Name != "read_file" {
+				t.Fatalf("unexpected tool call: %#v", message.ToolCalls[0])
+			}
+			if index+1 >= len(messages) || messages[index+1].Role != "tool" {
+				t.Fatalf("tool call is not followed by its result: %#v", messages)
+			}
+			foundCall = true
+		}
+		if message.Role == "tool" && message.Content == "package main" {
+			foundResult = true
+		}
+	}
+	if !foundCall || !foundResult {
+		t.Fatalf("tool history was not preserved: %#v", messages)
 	}
 }
 
