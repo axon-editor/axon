@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/sessions/database"
+	"github.com/GordenArcher/axon-core/internal/sessions/editorimport"
 	"github.com/GordenArcher/axon-core/internal/sessions/identity"
 	"github.com/GordenArcher/axon-core/internal/sessions/session"
 )
@@ -62,6 +63,11 @@ func Open() (*Store, error) {
 			writeImportMarker(marker)
 		}
 	}
+
+	// The editor writes per-workspace JSON files. Import them once so a new
+	// Core or CLI can see existing sidebar conversations before the editor has
+	// been rebuilt with the shared-store handler.
+	_ = editorimport.Run(filepath.Dir(path), store)
 	return store, nil
 }
 
