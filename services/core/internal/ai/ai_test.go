@@ -78,6 +78,42 @@ func TestBuildMessagesSendsConversationAsModelTurns(t *testing.T) {
 	}
 }
 
+func TestBuildMessagesMentionsWorkbenchToolsWhenProvided(t *testing.T) {
+	messages := BuildMessages(ChatRequest{
+		Action: "agent",
+		Prompt: "open the README",
+		Tools: []ProjectToolDefinition{
+			{Type: "function", Function: ProjectToolFunction{Name: "open_file"}},
+			{Type: "function", Function: ProjectToolFunction{Name: "close_file"}},
+			{Type: "function", Function: ProjectToolFunction{Name: "open_problems"}},
+		},
+	})
+	system := messages[0].Content
+	for _, expected := range []string{
+		"open_file",
+		"close_file",
+		"open_problems",
+		"Reading a file with read_file does not open it",
+	} {
+		if !strings.Contains(system, expected) {
+			t.Fatalf("workbench prompt is missing %q:\n%s", expected, system)
+		}
+	}
+}
+
+func TestBuildMessagesOmitsWorkbenchToolsWithoutThem(t *testing.T) {
+	messages := BuildMessages(ChatRequest{
+		Action: "agent",
+		Prompt: "read the README",
+	})
+	system := messages[0].Content
+	for _, unexpected := range []string{"open_file", "Workbench tools"} {
+		if strings.Contains(system, unexpected) {
+			t.Fatalf("terminal prompt unexpectedly mentions %q:\n%s", unexpected, system)
+		}
+	}
+}
+
 func TestBuildMessagesIncludesToolHistory(t *testing.T) {
 	messages := BuildMessages(ChatRequest{
 		Action: "agent",
@@ -224,13 +260,20 @@ func TestChatPayloadEnablesThinkingForTheAgent(t *testing.T) {
 }
 
 func TestAgentActionTellsTheModelToUseWorkbenchTools(t *testing.T) {
-	messages := BuildMessages(ChatRequest{Action: "agent", Prompt: "open the problems pane"})
+	messages := BuildMessages(ChatRequest{
+		Action: "agent",
+		Prompt: "open the problems pane",
+		Tools: []ProjectToolDefinition{
+			{Type: "function", Function: ProjectToolFunction{Name: "open_file"}},
+		},
+	})
 	prompt := messages[0].Content + "\n" + messages[len(messages)-1].Content
 
 	expectedFragments := []string{
-		"open panels, tabs, and views",
-		"open, close, or toggle a panel",
+		"open_file",
+		"open, close, or toggle a file, tab, panel, or view",
 		"call the matching workbench tool instead of explaining how to do it by hand",
+		"Reading a file with read_file does not open it",
 	}
 	for _, fragment := range expectedFragments {
 		if !strings.Contains(prompt, fragment) {

@@ -813,9 +813,10 @@ func modelThinkForAction(action string) bool {
 // modelContextTokens gives the runtime a real working window. Ollama defaults to
 // 4096 tokens, which is too small once the agent's tool schemas and the
 // conversation history are in play: the context shifts and the model degrades
-// into a non-answer instead of emitting tool calls. Every catalog model supports
-// far more than this.
-const modelContextTokens = 16384
+// into a non-answer instead of emitting tool calls. A long agent thread plus
+// the full workbench tool catalog can exceed 16k, which silently drops tools
+// from the model's view. Every catalog model supports far more than this.
+const modelContextTokens = 32768
 
 func chatPayload(request ChatRequest, messages []ModelMessage, stream bool) map[string]any {
 	return map[string]any{
