@@ -15,7 +15,7 @@ import (
 
 func TestAIChatTurnRejectsGet(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(http.MethodGet, "/ai/chat/turn", nil),
 	)
@@ -26,7 +26,7 @@ func TestAIChatTurnRejectsGet(t *testing.T) {
 
 func TestAIToolDefinitionsReturnsProjectTools(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(http.MethodGet, "/ai/tool-definitions", nil),
 	)
@@ -57,7 +57,7 @@ func TestAIToolDefinitionsReturnsProjectTools(t *testing.T) {
 
 func TestAIRunToolRequiresName(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(http.MethodPost, "/ai/run-tool", []byte(`{"arguments":{}}`)),
 	)
@@ -82,7 +82,7 @@ func TestAIRunToolExecutesProjectTool(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(http.MethodPost, "/ai/run-tool", body),
 	)
@@ -124,7 +124,7 @@ func TestAIRunToolKeepsSearchInsideWorkspace(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(http.MethodPost, "/ai/run-tool", body),
 	)

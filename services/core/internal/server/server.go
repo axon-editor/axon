@@ -24,18 +24,21 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/ai"
 	"github.com/GordenArcher/axon-core/internal/fs"
+	"github.com/GordenArcher/axon-core/internal/sessions"
 )
 
 // Server is the core HTTP server struct.
 // Will hold shared dependencies (config, ai clients, etc) as we expand.
 type Server struct {
-	authToken string
+	authToken    string
+	sessionStore *sessions.Store
 }
 
 // New creates and returns a new Server instance.
-func New(authToken string) *Server {
+func New(authToken string, sessionStore *sessions.Store) *Server {
 	return &Server{
-		authToken: strings.TrimSpace(authToken),
+		authToken:    strings.TrimSpace(authToken),
+		sessionStore: sessionStore,
 	}
 }
 
@@ -206,6 +209,8 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/ai/tool-definitions", s.handleAIToolDefinitions)
 	mux.HandleFunc("/ai/run-tool", s.handleAIRunTool)
 	mux.HandleFunc("/ai/inline-completion", s.handleAIInlineCompletion)
+	mux.HandleFunc("/sessions/workspace", s.handleSessionsWorkspace)
+	mux.HandleFunc("/sessions/conversation", s.handleSessionsConversation)
 
 	// wrap with CORS, Electron renderer runs on localhost:5173 in dev
 	// and as a file:// origin in production, both need to be allowed

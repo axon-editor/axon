@@ -28,7 +28,7 @@ func authenticatedRequest(method string, target string, body []byte) *http.Reque
 
 func TestRouterRejectsRequestsWithoutCoreToken(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		httptest.NewRequest(http.MethodGet, "/health", nil),
 	)
@@ -41,7 +41,7 @@ func TestHealthProvesCoreOwnsTheSharedToken(t *testing.T) {
 	request := authenticatedRequest(http.MethodGet, "/health", nil)
 	request.Header.Set("X-Axon-Challenge", "ownership-check")
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(recorder, request)
+	New(testCoreToken, nil).Router().ServeHTTP(recorder, request)
 
 	mac := hmac.New(sha256.New, []byte(testCoreToken))
 	_, _ = mac.Write([]byte("ownership-check"))
@@ -58,7 +58,7 @@ func TestRouterRejectsUntrustedBrowserOrigin(t *testing.T) {
 	request := authenticatedRequest(http.MethodGet, "/health", nil)
 	request.Header.Set("Origin", "https://attacker.example")
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(recorder, request)
+	New(testCoreToken, nil).Router().ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("expected hostile browser origin to be rejected, got %d", recorder.Code)
 	}
@@ -66,7 +66,7 @@ func TestRouterRejectsUntrustedBrowserOrigin(t *testing.T) {
 
 func TestAIInlineCompletionRequiresPost(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(http.MethodGet, "/ai/inline-completion", nil),
 	)
@@ -80,7 +80,7 @@ func TestCreateRouteCannotEscapeWorkspace(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "outside.txt")
 	body := []byte(`{"root":` + strconv.Quote(root) + `,"path":` + strconv.Quote(target) + `,"is_dir":false}`)
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(http.MethodPost, "/fs/create", body),
 	)
@@ -95,7 +95,7 @@ func TestCreateRouteCannotEscapeWorkspace(t *testing.T) {
 func TestDeleteRouteRefusesWorkspaceRoot(t *testing.T) {
 	root := t.TempDir()
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(
 			http.MethodDelete,
@@ -114,7 +114,7 @@ func TestDeleteRouteRefusesWorkspaceRoot(t *testing.T) {
 func TestTreeRouteAllowsReadingRegisteredRoot(t *testing.T) {
 	root := t.TempDir()
 	recorder := httptest.NewRecorder()
-	New(testCoreToken).Router().ServeHTTP(
+	New(testCoreToken, nil).Router().ServeHTTP(
 		recorder,
 		authenticatedRequest(
 			http.MethodGet,

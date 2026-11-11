@@ -6,7 +6,7 @@ package app
 import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
+	store "github.com/GordenArcher/axon-core/internal/sessions"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

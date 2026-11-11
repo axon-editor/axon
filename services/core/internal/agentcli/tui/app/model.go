@@ -12,9 +12,9 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/GordenArcher/axon-core/internal/ai"
+	store "github.com/GordenArcher/axon-core/internal/sessions"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -28,6 +28,7 @@ type Model struct {
 	models            []ai.ModelInfo
 	sessionID         string
 	sessionTitle      string
+	sessionSource     string
 	sessionCreated    time.Time
 	sessions          *store.Store
 	persisted         map[string]bool
@@ -108,6 +109,7 @@ func NewModel(
 		models:           models,
 		sessionID:        store.NewID(),
 		sessionTitle:     store.DefaultTitle,
+		sessionSource:    "cli",
 		sessionCreated:   time.Now(),
 		sessions:         sessions,
 		persisted:        make(map[string]bool),

@@ -14,6 +14,7 @@ type SessionOption struct {
 	ID      string
 	Title   string
 	Model   string
+	Source  string
 	Updated string
 	Current bool
 }
@@ -83,6 +84,9 @@ func (m SessionPicker) View(width, height int) string {
 		meta := option.Updated
 		if option.Model != "" {
 			meta += " · " + option.Model
+		}
+		if option.Source == "editor" {
+			meta += " · editor"
 		}
 		if option.Current {
 			meta += " · current"

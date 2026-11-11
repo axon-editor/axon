@@ -8,26 +8,42 @@ import (
 )
 
 func (s *Store) Upsert(record Session) error {
+	record.Workspace = normalizedWorkspace(record.Workspace)
 	now := time.Now().UnixMilli()
 	created := record.CreatedAt.UnixMilli()
 	if record.CreatedAt.IsZero() {
 		created = now
 	}
+	updated := record.UpdatedAt.UnixMilli()
+	if record.UpdatedAt.IsZero() {
+		updated = now
+	}
 	pinned := 0
 	if record.Pinned {
 		pinned = 1
+	}
+	action := record.Action
+	if action == "" {
+		action = "agent"
+	}
+	source := record.Source
+	if source == "" {
+		source = "cli"
 	}
 
 	_, err := s.db.Exec(
 		`INSERT INTO sessions (
 			id, workspace, title, model, provider, backend_session_id,
-			created_at, updated_at, pinned
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			action, source, payload, created_at, updated_at, pinned
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			title = excluded.title,
 			model = excluded.model,
 			provider = excluded.provider,
 			backend_session_id = excluded.backend_session_id,
+			action = excluded.action,
+			source = excluded.source,
+			payload = excluded.payload,
 			updated_at = excluded.updated_at,
 			pinned = excluded.pinned`,
 		record.ID,
@@ -36,22 +52,28 @@ func (s *Store) Upsert(record Session) error {
 		record.Model,
 		record.Provider,
 		record.BackendSessionID,
+		action,
+		source,
+		record.Payload,
 		created,
-		now,
+		updated,
 		pinned,
 	)
 	if err != nil {
 		return err
 	}
 
-	// Trim in the same call as the upsert so a long-lived CLI cannot grow the
-	// database forever. The limit is per database, not per workspace, matching
-	// the picker contract.
+	// Trim per workspace so one busy project cannot evict another project's
+	// conversations. The editor and CLI share this limit.
 	_, err = s.db.Exec(
 		`DELETE FROM sessions
-		WHERE id NOT IN (
-			SELECT id FROM sessions ORDER BY updated_at DESC LIMIT ?
+		WHERE id IN (
+			SELECT id FROM sessions
+			WHERE workspace = ?
+			ORDER BY updated_at DESC
+			LIMIT -1 OFFSET ?
 		)`,
+		record.Workspace,
 		maxSessions,
 	)
 	return err
@@ -136,6 +158,21 @@ func (s *Store) Append(sessionID string, messages []Message) error {
 	}
 
 	return tx.Commit()
+}
+
+func (s *Store) SetActive(workspace, conversationID string) error {
+	workspace = normalizedWorkspace(workspace)
+	_, err := s.db.Exec(
+		`INSERT INTO workspaces (path, active_conversation_id, updated_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			active_conversation_id = excluded.active_conversation_id,
+			updated_at = excluded.updated_at`,
+		workspace,
+		conversationID,
+		time.Now().UnixMilli(),
+	)
+	return err
 }
 
 func (s *Store) Delete(id string) error {

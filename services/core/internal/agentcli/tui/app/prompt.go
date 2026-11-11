@@ -13,7 +13,7 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client/agent"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
+	store "github.com/GordenArcher/axon-core/internal/sessions"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -89,6 +89,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 		m.messages = nil
 		m.sessionID = store.NewID()
 		m.sessionTitle = store.DefaultTitle
+		m.sessionSource = "cli"
 		m.sessionCreated = time.Now()
 		m.persisted = make(map[string]bool)
 		m.approvalOpen = false

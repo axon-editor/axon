@@ -16,8 +16,8 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/configstore"
 	"github.com/GordenArcher/axon-core/internal/agentcli/coreproc"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/app"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/ai"
+	store "github.com/GordenArcher/axon-core/internal/sessions"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

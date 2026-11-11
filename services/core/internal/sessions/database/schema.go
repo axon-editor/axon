@@ -16,6 +16,7 @@ type migration struct {
 var migrations = []migration{
 	{version: 1, statements: schemaV1},
 	{version: 2, statements: schemaV2},
+	{version: 3, statements: schemaV3},
 }
 
 var schemaV1 = []string{
@@ -68,6 +69,20 @@ var schemaV1 = []string{
 var schemaV2 = []string{
 	`ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'`,
 	`ALTER TABLE messages ADD COLUMN data TEXT NOT NULL DEFAULT ''`,
+}
+
+// schemaV3 turns the CLI database into the shared editor/CLI store. Editor
+// conversations keep their own JSON message shape in payload while the session
+// columns stay queryable for both surfaces.
+var schemaV3 = []string{
+	`ALTER TABLE sessions ADD COLUMN action TEXT NOT NULL DEFAULT 'agent'`,
+	`ALTER TABLE sessions ADD COLUMN source TEXT NOT NULL DEFAULT 'cli'`,
+	`ALTER TABLE sessions ADD COLUMN payload TEXT NOT NULL DEFAULT ''`,
+	`CREATE TABLE IF NOT EXISTS workspaces (
+		path TEXT PRIMARY KEY,
+		active_conversation_id TEXT NOT NULL DEFAULT '',
+		updated_at INTEGER NOT NULL
+	)`,
 }
 
 func (d *Database) Migrate() error {

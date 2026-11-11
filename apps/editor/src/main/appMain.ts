@@ -197,7 +197,10 @@ registerWindowSessionHandlers(windowSessionStore);
 const agentConversationStore = new AgentConversationStore(
   path.join(app.getPath("home"), ".axon", "sessions"),
 );
-registerAgentConversationHandlers(agentConversationStore);
+registerAgentConversationHandlers(agentConversationStore, {
+  axonCorePort,
+  axonCoreToken,
+});
 const openWorkspaceRegistry = new OpenWorkspaceRegistry();
 openWorkspaceRegistry.registerHandlers();
 const { broadcastToRenderers, sendToRenderer, sendMenuCommand } =

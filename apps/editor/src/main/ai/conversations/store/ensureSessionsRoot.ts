@@ -8,14 +8,18 @@ import path from "path";
 
 const README = `# Axon agent conversations
 
-Axon stores each workspace in a folder named \`<workspace-slug>-<hash>\`.
+The shared conversation database is \`sessions.db\` in this folder. The Axon
+editor and the \`axon\` terminal client both use it. Each workspace still keeps a
+folder named \`<workspace-slug>-<hash>\` as a migration source and fallback.
 
 - \`workspace.json\` records the absolute workspace path.
 - \`index.json\` caches the conversation list and the active conversation.
 - \`conversation-<id>.json\` contains one conversation and its full timeline.
+- \`sqlite-migrated\` marks a workspace that has been imported into the database.
 
-The conversation files hold the message content, and the index can be rebuilt
-from them. The files are plain JSON so another agent can read them without Axon.
+The JSON files hold the same message content and can rebuild the index if the
+database is unavailable. They are plain JSON so another agent can read them
+without Axon.
 `;
 
 export function ensureSessionsRoot(sessionsRoot: string) {

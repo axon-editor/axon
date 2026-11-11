@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/server"
+	"github.com/GordenArcher/axon-core/internal/sessions"
 	"github.com/GordenArcher/godenv"
 )
 
@@ -43,7 +44,12 @@ func main() {
 		authToken = hex.EncodeToString(rawToken[:])
 	}
 
-	s := server.New(authToken)
+	sessionStore, err := sessions.Open()
+	if err != nil {
+		log.Fatalf("failed to open Axon session store: %v", err)
+	}
+
+	s := server.New(authToken, sessionStore)
 	listener, err := net.Listen("tcp", "127.0.0.1:"+port)
 	if err != nil {
 		log.Fatalf("failed to bind axon-core to loopback: %v", err)

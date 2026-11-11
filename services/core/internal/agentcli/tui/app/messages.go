@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/store"
 	"github.com/GordenArcher/axon-core/internal/ai"
+	store "github.com/GordenArcher/axon-core/internal/sessions"
 )
 
 // Keep enough prior turns for continuity without letting old tool output crowd

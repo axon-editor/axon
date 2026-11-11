@@ -6,7 +6,13 @@ package session
 import (
 	"database/sql"
 	"time"
+
+	"github.com/GordenArcher/axon-core/internal/sessions/workspace"
 )
+
+func normalizedWorkspace(path string) string {
+	return workspace.Normalize(path)
+}
 
 // maxSessions bounds the list shown by the picker. The editor's conversation
 // store uses the same ceiling so the two surfaces do not drift apart.
@@ -20,6 +26,9 @@ type Session struct {
 	Model            string
 	Provider         string
 	BackendSessionID string
+	Action           string
+	Source           string
+	Payload          string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Pinned           bool
@@ -32,6 +41,7 @@ type Summary struct {
 	ID        string
 	Title     string
 	Model     string
+	Source    string
 	UpdatedAt time.Time
 }
 
