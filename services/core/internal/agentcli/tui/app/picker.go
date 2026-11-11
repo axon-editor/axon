@@ -11,21 +11,34 @@ import (
 func (m Model) updateSessionPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
+		if m.sessionPicker.Query() != "" {
+			m.sessionPicker.ClearQuery()
+			return m, nil
+		}
 		m.sessionPickerOpen = false
 		m.status = "Ready"
-	case "up", "k":
+	case "up":
 		m.sessionPicker.Move(-1)
-	case "down", "j":
+	case "down":
 		m.sessionPicker.Move(1)
 	case "enter":
-		m.sessionPickerOpen = false
 		if id := m.sessionPicker.SelectedID(); id != "" {
+			m.sessionPickerOpen = false
 			// loadSession owns the success and failure status. Overwriting it
 			// here would hide a database read error behind "Ready".
 			m.loadSession(id)
 			return m, nil
 		}
-		m.status = "Ready"
+	case "backspace", "ctrl+h":
+		m.sessionPicker.Backspace()
+	case "ctrl+u":
+		m.sessionPicker.ClearQuery()
+	case " ":
+		m.sessionPicker.AppendQuery(" ")
+	default:
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+			m.sessionPicker.AppendQuery(string(msg.Runes))
+		}
 	}
 	return m, nil
 }

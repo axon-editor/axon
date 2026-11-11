@@ -32,20 +32,54 @@ func (m Model) updateThoughtPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.thoughtPicker.Move(-1)
 	case "down", "j":
 		m.thoughtPicker.Move(1)
-	case "enter", " ":
+	case "enter":
 		option := m.thoughtPicker.Selected()
-		if option.Index >= 0 && option.Index < len(m.messages) &&
-			m.messages[option.Index].Thinking {
-			m.messages[option.Index].Collapsed = !m.messages[option.Index].Collapsed
-			m.rebuildThoughtPicker(m.thoughtPicker.SelectedPosition())
-			m.updateTranscript()
-		}
-	case "a":
-		m.toggleThinking()
+		m.toggleSelectedThought()
+		// Closing on Enter is deliberate: the picker only has room for previews,
+		// so the expanded reasoning is visible only after returning to the
+		// transcript.
+		m.thoughtOpen = false
+		m.status = "Ready"
+		m.updateTranscript()
+		m.scrollToMessage(option.Index)
+	case " ":
+		m.toggleSelectedThought()
 		m.rebuildThoughtPicker(m.thoughtPicker.SelectedPosition())
 		m.updateTranscript()
+	case "a":
+		option := m.thoughtPicker.Selected()
+		m.toggleThinking()
+		m.thoughtOpen = false
+		m.status = "Ready"
+		m.updateTranscript()
+		m.scrollToMessage(option.Index)
 	}
 	return m, nil
+}
+
+// scrollToMessage puts an expanded thought back on screen after the picker
+// closes. Without it a long transcript stays pinned to the bottom and the
+// reasoning the user just opened is still invisible.
+func (m *Model) scrollToMessage(index int) {
+	if index < 0 || index >= len(m.messages) || m.renderer == nil {
+		return
+	}
+	id := m.messages[index].ID
+	if id == "" {
+		return
+	}
+	if offset, ok := m.renderer.OffsetFor(id); ok {
+		m.viewport.SetYOffset(max(0, offset-1))
+	}
+}
+
+func (m *Model) toggleSelectedThought() {
+	option := m.thoughtPicker.Selected()
+	if option.Index < 0 || option.Index >= len(m.messages) ||
+		!m.messages[option.Index].Thinking {
+		return
+	}
+	m.messages[option.Index].Collapsed = !m.messages[option.Index].Collapsed
 }
 
 func (m *Model) rebuildThoughtPicker(position int) {

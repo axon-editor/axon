@@ -31,20 +31,18 @@ func TestThoughtPickerTogglesOneBlock(t *testing.T) {
 	if model.messages[1].Collapsed {
 		t.Fatal("selected thought did not expand")
 	}
-	if !model.thoughtOpen {
-		t.Fatal("picker closed after toggling one thought")
+	if model.thoughtOpen {
+		t.Fatal("picker stayed open after Enter; the full thought must be visible")
 	}
 
+	model.openThoughtPicker()
 	updated, _ = model.updateThoughtPicker(keyMsg("a"))
 	model = updated.(Model)
 	if !model.messages[0].Collapsed || !model.messages[1].Collapsed {
 		t.Fatalf("toggle-all did not collapse both: %#v", model.messages)
 	}
-
-	updated, _ = model.updateThoughtPicker(keyMsg("esc"))
-	model = updated.(Model)
 	if model.thoughtOpen {
-		t.Fatal("picker stayed open after escape")
+		t.Fatal("picker stayed open after toggle-all")
 	}
 }
 

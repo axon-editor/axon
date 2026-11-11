@@ -14,6 +14,8 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript/markdown"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript/surface"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -26,10 +28,20 @@ type Renderer struct {
 	workspace string
 	markdown  *markdown.Renderer
 	cache     map[string]string
+	positions map[string]int
 }
 
 func New() *Renderer {
-	return &Renderer{cache: make(map[string]string)}
+	return &Renderer{
+		cache:     make(map[string]string),
+		positions: make(map[string]int),
+	}
+}
+
+// OffsetFor returns the start line of a message in the last rendered layout.
+func (r *Renderer) OffsetFor(id string) (int, bool) {
+	offset, ok := r.positions[id]
+	return offset, ok
 }
 
 // SetWorkspace lets tool cards shorten absolute paths back to the project.
@@ -49,7 +61,7 @@ func (r *Renderer) SetWidth(width int) {
 		return
 	}
 	r.width = width
-	r.markdown = markdown.New(width - surface.PaddingX*2)
+	r.markdown = markdown.New(width)
 	clear(r.cache)
 }
 
@@ -64,16 +76,21 @@ func (r *Renderer) Render(messages []components.Message, active int) string {
 
 	blocks := make([]string, 0, len(messages))
 	seen := make(map[string]struct{}, len(messages))
+	r.positions = make(map[string]int, len(messages))
+	line := 0
 	for index, message := range messages {
 		key := cacheKey(message, index == active)
 		seen[key] = struct{}{}
-		if cached, ok := r.cache[key]; ok {
-			blocks = append(blocks, cached)
-			continue
+		rendered, ok := r.cache[key]
+		if !ok {
+			rendered = r.render(message, width, index == active)
+			r.cache[key] = rendered
 		}
-		rendered := r.render(message, width, index == active)
-		r.cache[key] = rendered
+		if message.ID != "" {
+			r.positions[message.ID] = line
+		}
 		blocks = append(blocks, rendered)
+		line += strings.Count(rendered, "\n") + 2
 	}
 	for key := range r.cache {
 		if _, ok := seen[key]; !ok {
@@ -85,38 +102,45 @@ func (r *Renderer) Render(messages []components.Message, active int) string {
 }
 
 func (r *Renderer) render(message components.Message, width int, active bool) string {
-	inner := width - surface.PaddingX*2
-
 	if message.Tool != nil {
 		return renderTool(message.Tool, width, r.workspace)
 	}
-
 	if message.Thinking {
-		header := theme.ThinkingHead.Render(thoughtHeader(message.Collapsed))
-		if message.Collapsed && message.Content != "" {
-			// A collapsed block with no text looks like an empty artifact. Keep a
-			// one-line preview and the shortcut visible so the reasoning is
-			// discoverable without expanding every thought by default.
-			header += theme.ToolMeta.Render(
-				"  " + thoughtPreview(message.Content) + "  · ctrl+t",
-			)
-		}
-		lines := []string{header}
-		if !message.Collapsed && message.Content != "" {
-			body := theme.Thinking.Width(inner).Render(message.Content)
-			lines = append(lines, strings.Split(body, "\n")...)
-		}
-		return strings.Join(
-			surface.BlockAccent(lines, width, theme.ThoughtSurface, theme.ThoughtAccent),
-			"\n",
-		)
+		return renderThought(message, width)
 	}
+	if message.Role == "user" {
+		return renderUser(message.Content, width)
+	}
+	return renderAssistant(message.Content, width, active, r.markdown)
+}
 
-	lines := splitContent(r.markdown.Render(message.Content))
+func renderUser(content string, width int) string {
+	// User turns are the one place with a surface. Keeping the background only
+	// here distinguishes the speaker without turning every answer into a panel.
+	body := lipgloss.NewStyle().Width(max(20, width-4)).Render(content)
+	lines := strings.Split(body, "\n")
+	for index := range lines {
+		lines[index] = surface.TrimTrailing(lines[index])
+		if index == 0 {
+			lines[index] = theme.Prompt.Render("Λ") + " " + lines[index]
+		} else {
+			lines[index] = "  " + lines[index]
+		}
+	}
+	return strings.Join(surface.Block(lines, width, theme.UserSurface), "\n")
+}
+
+func renderAssistant(
+	content string,
+	width int,
+	active bool,
+	renderer *markdown.Renderer,
+) string {
+	lines := splitContent(renderer.Render(content))
 	for index := range lines {
 		lines[index] = surface.TrimTrailing(lines[index])
 	}
-	if active && message.Role == "assistant" {
+	if active {
 		cursor := theme.Cursor.Render("▍")
 		if len(lines) == 0 {
 			lines = []string{cursor}
@@ -124,14 +148,27 @@ func (r *Renderer) render(message components.Message, width int, active bool) st
 			lines[len(lines)-1] += cursor
 		}
 	}
+	return strings.Join(lines, "\n")
+}
 
-	background := theme.ModelSurface
-	accent := theme.ModelAccent
-	if message.Role == "user" {
-		background = theme.UserSurface
-		accent = theme.UserAccent
+func renderThought(message components.Message, width int) string {
+	header := theme.ThinkingHead.Render(thoughtHeader(message.Collapsed))
+	if message.Collapsed && message.Content != "" {
+		// A collapsed block with no text looks like an empty artifact. Keep a
+		// one-line preview and the shortcut visible so the reasoning is
+		// discoverable without expanding every thought by default.
+		header += theme.ToolMeta.Render(
+			"  " + thoughtPreview(message.Content) + "  · ctrl+t",
+		)
 	}
-	return strings.Join(surface.BlockAccent(lines, width, background, accent), "\n")
+	lines := []string{header}
+	if !message.Collapsed && message.Content != "" {
+		body := theme.Thinking.Width(max(20, width-2)).Render(message.Content)
+		for _, line := range strings.Split(body, "\n") {
+			lines = append(lines, "  "+surface.TrimTrailing(line))
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func splitContent(content string) []string {
@@ -162,35 +199,24 @@ func thoughtPreview(content string) string {
 }
 
 func renderTool(tool *components.Tool, width int, workspace string) string {
-	lines := []string{toolHeader(tool, workspace)}
+	lines := []string{ansi.Truncate(toolHeader(tool, workspace), width, "…")}
 	if meta := toolMeta(tool); meta != "" {
-		lines = append(lines, theme.ToolMeta.Render(meta))
+		lines = append(lines, "  "+theme.ToolMeta.Render(meta))
 	}
 
 	preview, hidden := toolPreview(tool)
 	for _, line := range preview {
-		lines = append(lines, theme.ToolResult.Render(line))
+		line = ansi.Truncate(line, max(20, width-2), "…")
+		lines = append(lines, "  "+theme.ToolResult.Render(line))
 	}
 	if hidden > 0 {
 		hint := fmt.Sprintf("… %d more lines · ctrl+o", hidden)
 		if tool.Expanded {
 			hint = fmt.Sprintf("… %d more lines remaining", hidden)
 		}
-		lines = append(lines, theme.ToolMeta.Render(hint))
+		lines = append(lines, "  "+theme.ToolMeta.Render(hint))
 	}
-
-	accent := theme.ToolAccent
-	if !tool.Waiting && !tool.Running {
-		if tool.OK {
-			accent = theme.ToolOKAccent
-		} else {
-			accent = theme.ToolErrAccent
-		}
-	}
-	return strings.Join(
-		surface.BlockAccent(lines, width, theme.ToolSurface, accent),
-		"\n",
-	)
+	return strings.Join(lines, "\n")
 }
 
 func toolHeader(tool *components.Tool, workspace string) string {

@@ -20,6 +20,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Model struct {
@@ -68,16 +69,20 @@ func NewModel(
 	sessions *store.Store,
 ) Model {
 	input := textarea.New()
-	input.Placeholder = "Ask Axon to inspect, change, or explain something..."
-	// The Axon mark is the prompt, not a generic chevron. The first input line
-	// carries the mark; continuation lines align under the text.
-	input.Prompt = "Λ▴ "
-	input.SetPromptFunc(3, func(line int) string {
+	input.Placeholder = "Ask Axon..."
+	// The Axon mark is the prompt, not a generic shell chevron. It also keeps
+	// user turns and the composer visually tied to the product.
+	input.Prompt = "Λ "
+	input.SetPromptFunc(2, func(line int) string {
 		if line == 0 {
-			return "Λ▴ "
+			return "Λ "
 		}
-		return "   "
+		return "  "
 	})
+	// The textarea's default cursor line paints a background behind the line
+	// being typed. The composer should stay transparent.
+	input.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	input.BlurredStyle.CursorLine = lipgloss.NewStyle()
 	input.FocusedStyle.Prompt = theme.Prompt
 	input.BlurredStyle.Prompt = theme.Prompt
 	input.FocusedStyle.Placeholder = theme.Subtle

@@ -8,19 +8,17 @@ import "github.com/charmbracelet/lipgloss"
 // Shared palette values. Keep the hex strings here so glamour, which needs raw
 // colour strings, and lipgloss use the same tokens as the rest of the TUI.
 const (
-	HexCyan           = "#75d1ff"
-	HexTeal           = "#4fd1c5"
-	HexGreen          = "#a6e3a1"
-	HexMuted          = "#586478"
-	HexText           = "#c8d0e0"
-	HexBright         = "#e6edf8"
-	HexError          = "#ff7f9f"
-	HexUserSurface    = "#1c2940"
-	HexModelSurface   = "#0f151d"
-	HexThoughtSurface = "#0b1017"
-	HexCodeSurface    = "#080c12"
-	HexInlineSurface  = "#1b2432"
-	HexToolSurface    = "#0b1118"
+	HexCyan          = "#75d1ff"
+	HexTeal          = "#4fd1c5"
+	HexGreen         = "#a6e3a1"
+	HexMuted         = "#586478"
+	HexText          = "#c8d0e0"
+	HexBright        = "#e6edf8"
+	HexError         = "#ff7f9f"
+	HexUserSurface   = "#111a28"
+	HexCodeSurface   = "#080c12"
+	HexInlineSurface = "#1b2432"
+	HexToolSurface   = "#0b1118"
 )
 
 // Axon Dark palette. Keeping the CLI tied to the editor tokens means the
@@ -32,7 +30,6 @@ var (
 	Error          = lipgloss.NewStyle().Foreground(lipgloss.Color(HexError))
 	Prompt         = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(HexCyan))
 	CircuitBorder  = lipgloss.NewStyle().Foreground(lipgloss.Color("#222838"))
-	CircuitMeta    = lipgloss.NewStyle().Foreground(lipgloss.Color(HexMuted))
 	Status         = lipgloss.NewStyle().Foreground(lipgloss.Color(HexMuted))
 	StatusActive   = lipgloss.NewStyle().Foreground(lipgloss.Color(HexTeal))
 	Thinking       = lipgloss.NewStyle().Foreground(lipgloss.Color(HexMuted)).Italic(true)
@@ -52,18 +49,10 @@ var (
 	ToolResult = lipgloss.NewStyle().Foreground(lipgloss.Color(HexText))
 )
 
-// Message surfaces are colours, not styles, because the block renderer paints
-// them after markdown so inner resets cannot punch holes in the background.
+// The approval panel is the only remaining surface. The transcript itself is
+// plain text so it reads like a terminal agent, not a web chat panel.
 var (
-	UserSurface    = lipgloss.Color(HexUserSurface)
-	ModelSurface   = lipgloss.Color(HexModelSurface)
-	ThoughtSurface = lipgloss.Color(HexThoughtSurface)
-	ToolSurface    = lipgloss.Color(HexToolSurface)
-
-	UserAccent    = lipgloss.Color(HexCyan)
-	ModelAccent   = lipgloss.Color(HexTeal)
-	ThoughtAccent = lipgloss.Color(HexTeal)
-	ToolAccent    = lipgloss.Color(HexCyan)
-	ToolOKAccent  = lipgloss.Color(HexGreen)
-	ToolErrAccent = lipgloss.Color(HexError)
+	UserSurface = lipgloss.Color(HexUserSurface)
+	ToolSurface = lipgloss.Color(HexToolSurface)
+	ToolAccent  = lipgloss.Color(HexCyan)
 )

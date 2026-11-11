@@ -66,29 +66,47 @@ func (m Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return theme.Subtle.Render("Loading Axon...")
 	}
-
-	header := theme.Header.Render("AXON")
-
-	transcript := m.viewport.View()
-	if m.approvalOpen {
-		transcript = m.approval.View(m.viewport.Width, m.viewport.Height)
-	} else if m.thoughtOpen {
-		transcript = m.thoughtPicker.View(m.viewport.Width, m.viewport.Height)
-	} else if m.sessionPickerOpen {
-		transcript = m.sessionPicker.View(m.viewport.Width, m.viewport.Height)
-	} else if m.pickerOpen {
-		transcript = m.picker.View(m.viewport.Width, m.viewport.Height)
+	if overlay, ok := m.overlayView(); ok {
+		return overlay
 	}
 
 	parts := []string{
-		header,
-		transcript,
+		m.renderHeader(),
+		m.viewport.View(),
 		m.renderStatusLine(),
 		m.renderComposer(),
+		m.renderComposerHints(),
 		theme.Subtle.Render(truncatePath(m.workspace, max(8, m.width))),
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+// overlayView owns the whole screen. A session picker or approval prompt must
+// never leave the composer visible behind it.
+func (m Model) overlayView() (string, bool) {
+	switch {
+	case m.approvalOpen:
+		return m.approval.View(m.width, m.height), true
+	case m.thoughtOpen:
+		return m.thoughtPicker.View(m.width, m.height), true
+	case m.sessionPickerOpen:
+		return m.sessionPicker.View(m.width, m.height), true
+	case m.pickerOpen:
+		return m.picker.View(m.width, m.height), true
+	default:
+		return "", false
+	}
+}
+
+func (m Model) renderHeader() string {
+	left := theme.Header.Render("axon")
+	right := theme.Subtle.Render(truncateLabel(m.modelID, max(8, m.width/3)))
+	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 1 {
+		return left
+	}
+	return left + strings.Repeat(" ", gap) + right
 }
 
 func (m Model) renderStatusLine() string {
@@ -123,21 +141,11 @@ func (m Model) renderStatusLine() string {
 func (m Model) renderComposer() string {
 	width := max(20, m.width)
 	innerWidth := max(16, width-4)
-	modelLabel := truncateLabel(m.modelID, max(8, width-16))
+	border := theme.CircuitBorder
 
-	topLeft := theme.CircuitBorder.Render("⌜ ") +
-		theme.CircuitMeta.Render("agent") +
-		theme.CircuitBorder.Render(" ")
-	topRight := theme.CircuitBorder.Render(" ") +
-		theme.CircuitMeta.Render(modelLabel) +
-		theme.CircuitBorder.Render(" ⌝")
-	topFill := width - lipgloss.Width(topLeft) - lipgloss.Width(topRight)
-	if topFill < 1 {
-		topRight = theme.CircuitBorder.Render(" ⌝")
-		topFill = width - lipgloss.Width(topLeft) - lipgloss.Width(topRight)
-	}
-	top := topLeft + theme.CircuitBorder.Render(strings.Repeat("─", max(1, topFill))) + topRight
-
+	top := border.Render(
+		"╭" + strings.Repeat("─", max(1, width-2)) + "╮",
+	)
 	lines := strings.Split(m.textarea.View(), "\n")
 	height := m.textarea.Height()
 	rows := make([]string, 0, height)
@@ -150,32 +158,25 @@ func (m Model) renderComposer() string {
 		if padding < 0 {
 			padding = 0
 		}
-
-		railStyle := theme.AxonTeal
-		if m.streaming && height > 0 && index == m.pulse%height {
-			railStyle = theme.AxonCyan
-		}
-		row := railStyle.Render("┃") +
-			" " + line + strings.Repeat(" ", padding) + " " +
-			theme.CircuitBorder.Render("│")
-		rows = append(rows, row)
+		rows = append(rows, border.Render("│")+
+			" "+line+strings.Repeat(" ", padding)+" "+
+			border.Render("│"))
 	}
+	bottom := border.Render(
+		"╰" + strings.Repeat("─", max(1, width-2)) + "╯",
+	)
+	return strings.Join(
+		append(append([]string{top}, rows...), bottom),
+		"\n",
+	)
+}
 
-	hints := "enter send · ⇧↵ newline · ⌃T thoughts · ⌃O output · ⌃C quit"
-	if width < 86 {
-		hints = "enter send · ⌃C quit"
+func (m Model) renderComposerHints() string {
+	hints := "enter send · ⇧↵ newline · esc cancel · ⌃T thoughts · ⌃O output"
+	if m.width < 96 {
+		hints = "enter send · esc cancel · ⌃C quit"
 	}
-	bottomLeft := theme.CircuitBorder.Render("⌞ ") +
-		theme.CircuitMeta.Render(hints) +
-		theme.CircuitBorder.Render(" ")
-	bottomRight := theme.CircuitBorder.Render("⌟")
-	bottomFill := width - lipgloss.Width(bottomLeft) - lipgloss.Width(bottomRight)
-	if bottomFill < 1 {
-		bottomFill = 1
-	}
-	bottom := bottomLeft + theme.CircuitBorder.Render(strings.Repeat("─", bottomFill)) + bottomRight
-
-	return strings.Join(append(append([]string{top}, rows...), bottom), "\n")
+	return theme.Subtle.Render(hints)
 }
 
 func truncateLabel(value string, width int) string {

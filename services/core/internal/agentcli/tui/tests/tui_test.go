@@ -347,6 +347,38 @@ func TestSessionPickerMovesAndRenders(t *testing.T) {
 	}
 }
 
+func TestSessionPickerFiltersByTitle(t *testing.T) {
+	picker := pickers.NewSessionPicker([]pickers.SessionOption{
+		{ID: "a", Title: "Alpha"},
+		{ID: "b", Title: "Beta"},
+		{ID: "c", Title: "Gamma"},
+	}, "")
+
+	picker.AppendQuery("bet")
+	if picker.SelectedID() != "b" {
+		t.Fatalf("filtered selection = %q", picker.SelectedID())
+	}
+	view := picker.View(80, 10)
+	if !strings.Contains(view, "› Beta") {
+		t.Fatalf("filtered picker is missing the selected row:\n%s", view)
+	}
+	if strings.Contains(view, "Gamma") {
+		t.Fatalf("filtered picker still shows Gamma:\n%s", view)
+	}
+	if !strings.Contains(view, "Search") {
+		t.Fatalf("picker is missing the search row:\n%s", view)
+	}
+
+	picker.Backspace()
+	if picker.SelectedID() != "b" {
+		t.Fatalf("after backspace selection = %q", picker.SelectedID())
+	}
+	picker.ClearQuery()
+	if picker.SelectedID() != "a" {
+		t.Fatalf("after clear selection = %q", picker.SelectedID())
+	}
+}
+
 func TestStoreRoundTrip(t *testing.T) {
 	sessions, err := store.OpenAt(filepath.Join(t.TempDir(), "sessions.db"))
 	if err != nil {
@@ -418,7 +450,7 @@ func TestModelViewRendersHeader(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	view := updated.(app.Model).View()
 
-	for _, expected := range []string{"AXON", "axon", "axon-code", "Λ▴", "⌜", "⌞"} {
+	for _, expected := range []string{"axon", "axon-code", "Λ▴", "╭", "╰", "Ask Axon..."} {
 		if !strings.Contains(view, expected) {
 			t.Fatalf("view is missing %q:\n%s", expected, view)
 		}

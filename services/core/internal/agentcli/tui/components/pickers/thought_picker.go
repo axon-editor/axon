@@ -90,7 +90,7 @@ func (m ThoughtPicker) View(width, height int) string {
 		}
 		rows = append(rows, line)
 	}
-	rows = append(rows, theme.Subtle.Render("↑/↓ move · enter toggle · a all · esc close"))
+	rows = append(rows, theme.Subtle.Render("↑/↓ move · enter toggle · space toggle · a all · esc close"))
 
 	return lipgloss.NewStyle().Width(width).Render(strings.Join(rows, "\n"))
 }
