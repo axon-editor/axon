@@ -103,6 +103,9 @@ func NewModel(
 	spinnerModel.Spinner.FPS = time.Second / 6
 	spinnerModel.Style = theme.StatusActive
 
+	renderer := transcript.New()
+	renderer.SetWorkspace(workspace)
+
 	model := Model{
 		workspace:        workspace,
 		modelID:          modelID,
@@ -117,7 +120,7 @@ func NewModel(
 		viewport:         viewportModel,
 		textarea:         input,
 		spinner:          spinnerModel,
-		renderer:         transcript.New(),
+		renderer:         renderer,
 		messages: []components.Message{
 			{Role: "assistant", Content: "What are we working on in Axon today?"},
 		},

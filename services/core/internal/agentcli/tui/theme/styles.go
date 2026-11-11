@@ -59,4 +59,11 @@ var (
 	ModelSurface   = lipgloss.Color(HexModelSurface)
 	ThoughtSurface = lipgloss.Color(HexThoughtSurface)
 	ToolSurface    = lipgloss.Color(HexToolSurface)
+
+	UserAccent    = lipgloss.Color(HexCyan)
+	ModelAccent   = lipgloss.Color(HexTeal)
+	ThoughtAccent = lipgloss.Color(HexTeal)
+	ToolAccent    = lipgloss.Color(HexCyan)
+	ToolOKAccent  = lipgloss.Color(HexGreen)
+	ToolErrAccent = lipgloss.Color(HexError)
 )

@@ -44,7 +44,7 @@ func (a Approval) View(width, height int) string {
 	lines = append(lines, "")
 	lines = append(lines, theme.ToolMeta.Render(a.hints()))
 
-	rows := surface.Block(lines, width, theme.ToolSurface)
+	rows := surface.BlockAccent(lines, width, theme.ToolSurface, theme.ToolAccent)
 	if len(rows) > height {
 		rows = rows[:height]
 	}

@@ -62,9 +62,6 @@ func style() ansi.StyleConfig {
 	config.BlockQuote.Color = stringPtr(theme.HexTeal)
 
 	config.Heading.Color = stringPtr(theme.HexCyan)
-	config.H1.Prefix = ""
-	config.H1.Suffix = ""
-	config.H1.BackgroundColor = nil
 	config.H1.Color = stringPtr(theme.HexCyan)
 	config.H2.Color = stringPtr(theme.HexTeal)
 	config.H3.Color = stringPtr(theme.HexTeal)
@@ -72,7 +69,25 @@ func style() ansi.StyleConfig {
 	config.H5.Color = stringPtr(theme.HexMuted)
 	config.H6.Color = stringPtr(theme.HexMuted)
 
+	// Glamour's default H2-H6 prefixes are literal "## " / "### ". The terminal
+	// should never show markdown syntax when it has already parsed the heading.
+	for index, heading := range []*ansi.StyleBlock{
+		&config.H1,
+		&config.H2,
+		&config.H3,
+		&config.H4,
+		&config.H5,
+		&config.H6,
+	} {
+		heading.Prefix = ""
+		heading.Suffix = " "
+		heading.BackgroundColor = nil
+		heading.Bold = boolPtr(index < 3)
+	}
+	config.H1.Underline = boolPtr(true)
+
 	config.Strong.Color = stringPtr(theme.HexBright)
+	config.Strong.Bold = boolPtr(true)
 	config.Emph.Italic = boolPtr(true)
 	config.Link.Color = stringPtr(theme.HexCyan)
 	config.LinkText.Color = stringPtr(theme.HexTeal)

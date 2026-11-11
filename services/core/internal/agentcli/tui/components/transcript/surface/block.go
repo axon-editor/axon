@@ -30,15 +30,26 @@ var backgroundCache sync.Map
 // after markdown rendering because inner styles reset the terminal background;
 // paint re-applies it after every reset so the message reads as one surface.
 func Block(lines []string, width int, background lipgloss.Color) []string {
+	return BlockAccent(lines, width, background, "")
+}
+
+// BlockAccent adds a one-column role rail inside the left padding. The rail is
+// applied before the background so every row of the card shares one surface.
+func BlockAccent(
+	lines []string,
+	width int,
+	background lipgloss.Color,
+	accent lipgloss.Color,
+) []string {
 	width = max(width, PaddingX*2+1)
 	inner := width - PaddingX*2
 
 	rows := make([]string, 0, len(lines)+2)
-	rows = append(rows, fill("", inner, background))
+	rows = append(rows, fill("", inner, background, accent))
 	for _, line := range lines {
-		rows = append(rows, fill(line, inner, background))
+		rows = append(rows, fill(line, inner, background, accent))
 	}
-	rows = append(rows, fill("", inner, background))
+	rows = append(rows, fill("", inner, background, accent))
 	return rows
 }
 
@@ -116,14 +127,25 @@ func copyEscape(line string, index int, builder *strings.Builder) int {
 	return index
 }
 
-func fill(line string, inner int, background lipgloss.Color) string {
+func fill(
+	line string,
+	inner int,
+	background lipgloss.Color,
+	accent lipgloss.Color,
+) string {
 	line = ansi.Truncate(TrimTrailing(line), inner, "…")
 	padding := inner - lipgloss.Width(line)
 	if padding < 0 {
 		padding = 0
 	}
+
+	prefix := strings.Repeat(" ", PaddingX)
+	if accent != "" {
+		prefix = lipgloss.NewStyle().Foreground(accent).Render("┃") +
+			strings.Repeat(" ", PaddingX-1)
+	}
 	return paint(
-		strings.Repeat(" ", PaddingX)+
+		prefix+
 			line+
 			strings.Repeat(" ", padding)+
 			strings.Repeat(" ", PaddingX),

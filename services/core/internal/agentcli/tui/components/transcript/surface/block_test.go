@@ -35,6 +35,23 @@ func TestTrimTrailingKeepsHyperlinkCloser(t *testing.T) {
 	}
 }
 
+func TestBlockAccentKeepsRailOnEveryRow(t *testing.T) {
+	rows := BlockAccent(
+		[]string{"hello", "world"},
+		20,
+		lipgloss.Color("#1c2940"),
+		lipgloss.Color("#75d1ff"),
+	)
+	for index, row := range rows {
+		if width := lipgloss.Width(row); width != 20 {
+			t.Fatalf("row %d is %d columns, want 20", index, width)
+		}
+		if plain := ansi.Strip(row); !strings.HasPrefix(plain, "┃") {
+			t.Fatalf("row %d is missing the accent rail: %q", index, plain)
+		}
+	}
+}
+
 func TestBlockRowsAreFullWidth(t *testing.T) {
 	rows := Block([]string{"hello"}, 20, lipgloss.Color("#1c2940"))
 	if len(rows) != 3 {

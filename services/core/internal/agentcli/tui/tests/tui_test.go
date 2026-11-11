@@ -163,6 +163,43 @@ func TestToolCardRendersNameArgumentsAndPreview(t *testing.T) {
 	}
 }
 
+func TestEditorToolCardsUseReadableSummaries(t *testing.T) {
+	rendered := ansi.Strip(renderTranscript([]components.Message{
+		{
+			ID:   "tool-write",
+			Role: "tool",
+			Tool: &components.Tool{
+				CallID:    "call-write",
+				Name:      "write",
+				Arguments: `{"path":"txt.md","content":"# long file content"}`,
+				Result:    "Created file successfully: txt.md",
+				OK:        true,
+			},
+		},
+		{
+			ID:   "tool-shell",
+			Role: "tool",
+			Tool: &components.Tool{
+				CallID:    "call-shell",
+				Name:      "shell",
+				Arguments: `{"command":"rm -f txt.md","workdir":"/Users/mac/project"}`,
+				Result:    "(no output)",
+				OK:        true,
+			},
+		},
+	}, 100))
+
+	if !strings.Contains(rendered, "write  txt.md") {
+		t.Fatalf("write card is missing its path:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "shell  rm -f txt.md") {
+		t.Fatalf("shell card is missing its command:\n%s", rendered)
+	}
+	if strings.Contains(rendered, `{"path"`) || strings.Contains(rendered, `{"command"`) {
+		t.Fatalf("tool card leaked raw argument JSON:\n%s", rendered)
+	}
+}
+
 func TestToolCardShowsFailure(t *testing.T) {
 	rendered := ansi.Strip(renderTranscript([]components.Message{
 		{

@@ -22,6 +22,22 @@ func TestRenderStripsTerminalControls(t *testing.T) {
 	}
 }
 
+func TestRenderRemovesMarkdownSyntax(t *testing.T) {
+	rendered := ansi.Strip(New(80).Render(
+		"## Heading\n\n**bold text**\n\n- first\n- second\n\n`inline`\n",
+	))
+	for _, syntax := range []string{"##", "**", "`"} {
+		if strings.Contains(rendered, syntax) {
+			t.Fatalf("rendered markdown still contains %q:\n%s", syntax, rendered)
+		}
+	}
+	for _, expected := range []string{"Heading", "bold text", "first", "second", "inline"} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered markdown is missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestRenderHandlesPartialFence(t *testing.T) {
 	rendered := ansi.Strip(New(80).Render("```go\nfmt.Pr"))
 	if !strings.Contains(rendered, "fmt.Pr") {

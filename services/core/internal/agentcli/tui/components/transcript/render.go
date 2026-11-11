@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
@@ -21,13 +22,23 @@ const (
 )
 
 type Renderer struct {
-	width    int
-	markdown *markdown.Renderer
-	cache    map[string]string
+	width     int
+	workspace string
+	markdown  *markdown.Renderer
+	cache     map[string]string
 }
 
 func New() *Renderer {
 	return &Renderer{cache: make(map[string]string)}
+}
+
+// SetWorkspace lets tool cards shorten absolute paths back to the project.
+func (r *Renderer) SetWorkspace(workspace string) {
+	if workspace == r.workspace {
+		return
+	}
+	r.workspace = workspace
+	clear(r.cache)
 }
 
 // SetWidth rebuilds the markdown wrap width. Every cached block is discarded
@@ -77,7 +88,7 @@ func (r *Renderer) render(message components.Message, width int, active bool) st
 	inner := width - surface.PaddingX*2
 
 	if message.Tool != nil {
-		return renderTool(message.Tool, width)
+		return renderTool(message.Tool, width, r.workspace)
 	}
 
 	if message.Thinking {
@@ -86,7 +97,10 @@ func (r *Renderer) render(message components.Message, width int, active bool) st
 			body := theme.Thinking.Width(inner).Render(message.Content)
 			lines = append(lines, strings.Split(body, "\n")...)
 		}
-		return strings.Join(surface.Block(lines, width, theme.ThoughtSurface), "\n")
+		return strings.Join(
+			surface.BlockAccent(lines, width, theme.ThoughtSurface, theme.ThoughtAccent),
+			"\n",
+		)
 	}
 
 	lines := splitContent(r.markdown.Render(message.Content))
@@ -103,10 +117,12 @@ func (r *Renderer) render(message components.Message, width int, active bool) st
 	}
 
 	background := theme.ModelSurface
+	accent := theme.ModelAccent
 	if message.Role == "user" {
 		background = theme.UserSurface
+		accent = theme.UserAccent
 	}
-	return strings.Join(surface.Block(lines, width, background), "\n")
+	return strings.Join(surface.BlockAccent(lines, width, background, accent), "\n")
 }
 
 func splitContent(content string) []string {
@@ -123,8 +139,8 @@ func thoughtHeader(collapsed bool) string {
 	return "▾ Thinking"
 }
 
-func renderTool(tool *components.Tool, width int) string {
-	lines := []string{toolHeader(tool)}
+func renderTool(tool *components.Tool, width int, workspace string) string {
+	lines := []string{toolHeader(tool, workspace)}
 	if meta := toolMeta(tool); meta != "" {
 		lines = append(lines, theme.ToolMeta.Render(meta))
 	}
@@ -141,10 +157,21 @@ func renderTool(tool *components.Tool, width int) string {
 		lines = append(lines, theme.ToolMeta.Render(hint))
 	}
 
-	return strings.Join(surface.Block(lines, width, theme.ToolSurface), "\n")
+	accent := theme.ToolAccent
+	if !tool.Waiting && !tool.Running {
+		if tool.OK {
+			accent = theme.ToolOKAccent
+		} else {
+			accent = theme.ToolErrAccent
+		}
+	}
+	return strings.Join(
+		surface.BlockAccent(lines, width, theme.ToolSurface, accent),
+		"\n",
+	)
 }
 
-func toolHeader(tool *components.Tool) string {
+func toolHeader(tool *components.Tool, workspace string) string {
 	icon := theme.ToolActive.Render("▸")
 	switch {
 	case tool.Waiting:
@@ -162,7 +189,7 @@ func toolHeader(tool *components.Tool) string {
 		name = "tool"
 	}
 	header := icon + " " + theme.ToolName.Render(name)
-	if summary := toolSummary(tool.Name, tool.Arguments); summary != "" {
+	if summary := toolSummary(tool.Name, tool.Arguments, workspace); summary != "" {
 		header += "  " + theme.ToolMeta.Render(summary)
 	}
 	return header
@@ -201,7 +228,7 @@ func toolMeta(tool *components.Tool) string {
 	return strings.Join(parts, " · ")
 }
 
-func toolSummary(name, rawArguments string) string {
+func toolSummary(name, rawArguments, workspace string) string {
 	rawArguments = strings.TrimSpace(rawArguments)
 	if rawArguments == "" || rawArguments == "{}" {
 		return ""
@@ -212,6 +239,9 @@ func toolSummary(name, rawArguments string) string {
 		Pattern string `json:"pattern"`
 		Query   string `json:"query"`
 		Command string `json:"command"`
+		Workdir string `json:"workdir"`
+		From    string `json:"from"`
+		To      string `json:"to"`
 		Offset  int    `json:"offset"`
 		Limit   int    `json:"limit"`
 		Depth   int    `json:"depth"`
@@ -219,10 +249,9 @@ func toolSummary(name, rawArguments string) string {
 	if err := json.Unmarshal([]byte(rawArguments), &args); err != nil {
 		return truncateValue(surface.Sanitize(rawArguments), 80)
 	}
-
 	switch name {
-	case "read_file":
-		summary := args.Path
+	case "read", "read_file":
+		summary := displayPath(workspace, args.Path)
 		if args.Offset > 0 {
 			summary += fmt.Sprintf(" · from %d", args.Offset)
 		}
@@ -230,8 +259,8 @@ func toolSummary(name, rawArguments string) string {
 			summary += fmt.Sprintf(" · %d lines", args.Limit)
 		}
 		return surface.Sanitize(summary)
-	case "list_files":
-		summary := args.Path
+	case "list", "list_files":
+		summary := displayPath(workspace, args.Path)
 		if summary == "" {
 			summary = "workspace"
 		}
@@ -240,13 +269,23 @@ func toolSummary(name, rawArguments string) string {
 		}
 		return surface.Sanitize(summary)
 	case "glob":
-		return surface.Sanitize(firstNonEmpty(args.Pattern, args.Path))
-	case "grep":
-		return surface.Sanitize(args.Query)
-	case "run_command":
-		return surface.Sanitize(args.Command)
-	case "write_file", "create_directory":
-		return surface.Sanitize(args.Path)
+		return surface.Sanitize(displayPath(workspace, firstNonEmpty(args.Pattern, args.Path)))
+	case "grep", "search_project":
+		return surface.Sanitize(firstNonEmpty(args.Query, args.Pattern))
+	case "shell", "run_command":
+		summary := args.Command
+		if workdir := displayPath(workspace, args.Workdir); workdir != "" && workdir != "." {
+			summary += " · " + workdir
+		}
+		return surface.Sanitize(summary)
+	case "write", "write_file", "create_directory", "delete", "remove":
+		return surface.Sanitize(displayPath(workspace, args.Path))
+	case "move", "rename":
+		summary := displayPath(workspace, args.From)
+		if to := displayPath(workspace, args.To); to != "" {
+			summary += " → " + to
+		}
+		return surface.Sanitize(summary)
 	default:
 		var compact bytes.Buffer
 		if err := json.Compact(&compact, []byte(rawArguments)); err != nil {
@@ -273,10 +312,28 @@ func toolPreview(tool *components.Tool) ([]string, int) {
 	hidden := len(lines) - limit
 	// Build and test output puts the actionable error at the end, so command
 	// cards keep the tail while file reads keep the beginning.
-	if tool.Name == "run_command" {
+	if tool.Name == "run_command" || tool.Name == "shell" {
 		return lines[hidden:], hidden
 	}
 	return lines[:limit], hidden
+}
+
+func displayPath(workspace, value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || workspace == "" {
+		return value
+	}
+	root := filepath.Clean(workspace)
+	target := filepath.Clean(value)
+	if target == root {
+		return "."
+	}
+	relative, err := filepath.Rel(root, target)
+	if err != nil || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return value
+	}
+	return relative
 }
 
 func resultLineCount(result string) int {
