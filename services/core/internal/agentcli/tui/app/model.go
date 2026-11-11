@@ -45,7 +45,7 @@ type Model struct {
 	picker            pickers.ModelPicker
 	pickerOpen        bool
 	streaming         bool
-	pulse             int
+	responding        bool
 	status            string
 	events            chan client.Event
 	cancel            context.CancelFunc
@@ -103,11 +103,13 @@ func NewModel(
 	viewportModel.MouseWheelEnabled = true
 	viewportModel.MouseWheelDelta = 3
 
-	// The spinner only drives the Axon mark pulse below the input frame. The
-	// mark itself is rendered from the model so its three lines stay aligned.
+	// A Braille dot sequence keeps the loader readable in any monospace font
+	// and animates smoothly at ten frames per second.
 	spinnerModel := spinner.New()
-	spinnerModel.Spinner = spinner.Dot
-	spinnerModel.Spinner.FPS = time.Second / 6
+	spinnerModel.Spinner = spinner.Spinner{
+		Frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		FPS:    time.Second / 10,
+	}
 	spinnerModel.Style = theme.StatusActive
 
 	renderer := transcript.New()

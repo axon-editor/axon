@@ -17,8 +17,8 @@ func (m *Model) layout() {
 	}
 
 	composerHeight := m.textarea.Height() + 2
-	// Header, status line, composer, workspace path, and one line of slack.
-	viewportHeight := m.height - 1 - 1 - composerHeight - 1 - 1
+	// Header, a blank line, status, a blank line, composer, hints, and path.
+	viewportHeight := m.height - 1 - 3 - composerHeight - 1 - 1
 	if viewportHeight < 3 {
 		viewportHeight = 3
 	}
@@ -33,6 +33,18 @@ func (m *Model) layout() {
 
 func (m *Model) updateTranscript() {
 	m.ensureRenderer()
+	thoughtID, toolID := "", ""
+	if m.streaming && len(m.messages) > 0 {
+		last := m.messages[len(m.messages)-1]
+		if last.Thinking && !last.Collapsed {
+			thoughtID = last.ID
+		}
+		if last.Tool != nil && last.Tool.Running {
+			toolID = last.Tool.CallID
+		}
+	}
+	m.renderer.SetActivity(m.spinner.View(), thoughtID, toolID)
+
 	wasAtBottom := m.viewport.AtBottom()
 	m.viewport.SetContent(m.renderer.Render(m.messages, m.activeMessage()))
 	if wasAtBottom {
@@ -73,7 +85,9 @@ func (m Model) View() string {
 	parts := []string{
 		m.renderHeader(),
 		m.viewport.View(),
+		"",
 		m.renderStatusLine(),
+		"",
 		m.renderComposer(),
 		m.renderComposerHints(),
 		theme.Subtle.Render(truncatePath(m.workspace, max(8, m.width))),
@@ -110,32 +124,39 @@ func (m Model) renderHeader() string {
 }
 
 func (m Model) renderStatusLine() string {
-	markStyle := theme.Status
-	if m.streaming {
-		switch m.pulse % 3 {
-		case 0:
-			markStyle = theme.AxonCyan
-		case 1:
-			markStyle = theme.AxonTeal
-		case 2:
-			markStyle = theme.AxonGreen
-		}
+	// Once answer text is streaming, the answer itself is the activity. Keeping
+	// a second "Working" line below it makes the screen noisy, so drop it.
+	if m.streaming && (m.responding || m.hasContextualActivity()) {
+		return ""
 	}
-	if m.status == "Error" {
-		markStyle = theme.Error
+	if m.streaming {
+		return m.spinner.View() + " " + theme.StatusActive.Render("Working...")
 	}
 
-	statusStyle := theme.Status
-	if m.streaming {
-		statusStyle = theme.StatusActive
-	} else if m.status == "Error" {
-		statusStyle = theme.Error
+	status := m.status
+	if status == "" {
+		status = "Ready"
 	}
-	if m.approvalOpen {
-		statusStyle = theme.ToolActive
+	status = truncateLabel(status, max(8, m.width-2))
+	style := theme.Status
+	if status == "Error" {
+		style = theme.Error
 	}
+	return style.Render("·") + " " + style.Render(status)
+}
 
-	return markStyle.Render("Λ▴") + " " + statusStyle.Render(m.status)
+// hasContextualActivity reports whether the active thought or tool already owns
+// the loader. The bottom Working line is only for the gap before the first
+// content arrives; after that the loader belongs to the thought or tool card.
+func (m Model) hasContextualActivity() bool {
+	if len(m.messages) == 0 {
+		return false
+	}
+	last := m.messages[len(m.messages)-1]
+	if last.Thinking && last.Content != "" {
+		return true
+	}
+	return last.Tool != nil && (last.Tool.Running || last.Tool.Waiting)
 }
 
 func (m Model) renderComposer() string {

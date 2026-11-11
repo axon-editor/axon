@@ -29,6 +29,9 @@ type Renderer struct {
 	markdown  *markdown.Renderer
 	cache     map[string]string
 	positions map[string]int
+	spinner   string
+	thoughtID string
+	toolID    string
 }
 
 func New() *Renderer {
@@ -42,6 +45,14 @@ func New() *Renderer {
 func (r *Renderer) OffsetFor(id string) (int, bool) {
 	offset, ok := r.positions[id]
 	return offset, ok
+}
+
+// SetActivity tells the transcript which thought or tool is currently running.
+// Only that block animates, so the rest of the conversation stays cached.
+func (r *Renderer) SetActivity(spinner, thoughtID, toolID string) {
+	r.spinner = spinner
+	r.thoughtID = thoughtID
+	r.toolID = toolID
 }
 
 // SetWorkspace lets tool cards shorten absolute paths back to the project.
@@ -79,7 +90,7 @@ func (r *Renderer) Render(messages []components.Message, active int) string {
 	r.positions = make(map[string]int, len(messages))
 	line := 0
 	for index, message := range messages {
-		key := cacheKey(message, index == active)
+		key := cacheKey(message, index == active, r.spinner, r.thoughtID, r.toolID)
 		seen[key] = struct{}{}
 		rendered, ok := r.cache[key]
 		if !ok {
@@ -103,10 +114,10 @@ func (r *Renderer) Render(messages []components.Message, active int) string {
 
 func (r *Renderer) render(message components.Message, width int, active bool) string {
 	if message.Tool != nil {
-		return renderTool(message.Tool, width, r.workspace)
+		return r.renderTool(message.Tool, width)
 	}
 	if message.Thinking {
-		return renderThought(message, width)
+		return r.renderThought(message, width)
 	}
 	if message.Role == "user" {
 		return renderUser(message.Content, width)
@@ -151,15 +162,22 @@ func renderAssistant(
 	return strings.Join(lines, "\n")
 }
 
-func renderThought(message components.Message, width int) string {
-	header := theme.ThinkingHead.Render(thoughtHeader(message.Collapsed))
-	if message.Collapsed && message.Content != "" {
-		// A collapsed block with no text looks like an empty artifact. Keep a
-		// one-line preview and the shortcut visible so the reasoning is
-		// discoverable without expanding every thought by default.
-		header += theme.ToolMeta.Render(
-			"  " + thoughtPreview(message.Content) + "  · ctrl+t",
-		)
+func (r *Renderer) renderThought(message components.Message, width int) string {
+	active := message.ID != "" && message.ID == r.thoughtID
+
+	var header string
+	if active {
+		header = r.spinner + " " + theme.ThinkingHead.Render("Thinking")
+	} else {
+		header = theme.ThinkingHead.Render(thoughtHeader(message.Collapsed))
+		if message.Collapsed && message.Content != "" {
+			// A collapsed block with no text looks like an empty artifact. Keep a
+			// one-line preview and the shortcut visible so the reasoning is
+			// discoverable without expanding every thought by default.
+			header += theme.ToolMeta.Render(
+				"  " + thoughtPreview(message.Content) + "  · ctrl+t",
+			)
+		}
 	}
 	lines := []string{header}
 	if !message.Collapsed && message.Content != "" {
@@ -198,8 +216,13 @@ func thoughtPreview(content string) string {
 	return truncateValue(line, 64)
 }
 
-func renderTool(tool *components.Tool, width int, workspace string) string {
-	lines := []string{ansi.Truncate(toolHeader(tool, workspace), width, "…")}
+func (r *Renderer) renderTool(tool *components.Tool, width int) string {
+	active := tool.CallID != "" && tool.CallID == r.toolID && tool.Running
+	lines := []string{ansi.Truncate(
+		toolHeader(tool, r.workspace, active, r.spinner),
+		width,
+		"…",
+	)}
 	if meta := toolMeta(tool); meta != "" {
 		lines = append(lines, "  "+theme.ToolMeta.Render(meta))
 	}
@@ -219,24 +242,34 @@ func renderTool(tool *components.Tool, width int, workspace string) string {
 	return strings.Join(lines, "\n")
 }
 
-func toolHeader(tool *components.Tool, workspace string) string {
-	icon := theme.ToolActive.Render("▸")
-	switch {
-	case tool.Waiting:
-		icon = theme.ToolActive.Render("?")
-	case tool.Running:
-		icon = theme.ToolActive.Render("▸")
-	case tool.OK:
-		icon = theme.ToolOK.Render("✓")
-	default:
-		icon = theme.ToolError.Render("✗")
-	}
-
+func toolHeader(
+	tool *components.Tool,
+	workspace string,
+	active bool,
+	spinner string,
+) string {
 	name := strings.TrimSpace(surface.Sanitize(tool.Name))
 	if name == "" {
 		name = "tool"
 	}
-	header := icon + " " + theme.ToolName.Render(name)
+
+	header := ""
+	if active {
+		header = spinner + " " + theme.ToolName.Render(name)
+	} else {
+		icon := theme.ToolActive.Render("▸")
+		switch {
+		case tool.Waiting:
+			icon = theme.ToolActive.Render("?")
+		case tool.Running:
+			icon = theme.ToolActive.Render("▸")
+		case tool.OK:
+			icon = theme.ToolOK.Render("✓")
+		default:
+			icon = theme.ToolError.Render("✗")
+		}
+		header = icon + " " + theme.ToolName.Render(name)
+	}
 	if summary := toolSummary(tool.Name, tool.Arguments, workspace); summary != "" {
 		header += "  " + theme.ToolMeta.Render(summary)
 	}
@@ -409,8 +442,15 @@ func truncateValue(value string, width int) string {
 	return string(runes[:width-1]) + "…"
 }
 
-func cacheKey(message components.Message, active bool) string {
+func cacheKey(
+	message components.Message,
+	active bool,
+	spinner string,
+	thoughtID string,
+	toolID string,
+) string {
 	toolKey := ""
+	activity := ""
 	if message.Tool != nil {
 		toolKey = fmt.Sprintf(
 			"%s|%s|%t|%t|%t|%s|%t|%d|%d|%d",
@@ -425,11 +465,17 @@ func cacheKey(message components.Message, active bool) string {
 			len(message.Tool.Result),
 			message.Tool.DurationMS,
 		)
+		if message.Tool.CallID != "" && message.Tool.CallID == toolID {
+			activity = spinner
+		}
+	}
+	if message.Thinking && message.ID != "" && message.ID == thoughtID {
+		activity = spinner
 	}
 	// Content only grows during a turn, so length plus state is enough to
 	// invalidate the block without hashing the full answer on every delta.
 	return fmt.Sprintf(
-		"%s|%s|%d|%t|%t|%t|%s",
+		"%s|%s|%d|%t|%t|%t|%s|%s",
 		message.ID,
 		message.Role,
 		len(message.Content),
@@ -437,5 +483,6 @@ func cacheKey(message components.Message, active bool) string {
 		message.Collapsed,
 		active,
 		toolKey,
+		activity,
 	)
 }

@@ -84,12 +84,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleStreamEvent(msg.event)
 
 	case spinner.TickMsg:
-		if m.streaming {
-			m.pulse++
-		}
 		var command tea.Cmd
 		m.spinner, command = m.spinner.Update(msg)
-		return m, command
+		// Keep ticking only while a turn is active; the next prompt restarts it.
+		if m.streaming {
+			// The spinner is also the active thought/tool marker, so the
+			// transcript has to repaint on each frame.
+			m.updateTranscript()
+			return m, command
+		}
+		return m, nil
 	}
 
 	return m, nil

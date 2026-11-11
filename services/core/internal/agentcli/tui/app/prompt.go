@@ -37,8 +37,8 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	}
 	m.textarea.Reset()
 	m.streaming = true
-	m.pulse = 0
-	m.status = "Thinking..."
+	m.responding = false
+	m.status = "Working"
 
 	events := make(chan client.Event, 64)
 	decisions := make(chan client.Decision, 1)

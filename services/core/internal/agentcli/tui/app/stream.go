@@ -15,16 +15,23 @@ func (m Model) handleStreamEvent(event client.Event) (tea.Model, tea.Cmd) {
 	case client.Status:
 		m.status = event.Text
 	case client.Thought:
+		m.responding = false
 		m.appendThought(event.Text)
 		m.updateTranscript()
 	case client.Delta:
+		m.responding = true
 		m.collapseThinking()
 		m.appendAssistantDelta(event.Text)
 		m.updateTranscript()
 	case client.ApprovalRequest:
+		m.responding = false
 		m.openApproval(event)
 		m.updateTranscript()
 	case client.ToolStart:
+		m.responding = false
+		// Thinking is complete once a tool starts; collapse it so the loader
+		// moves from the thought header to the running tool card.
+		m.collapseThinking()
 		m.appendTool(event)
 		m.status = "Running " + event.ToolName + "..."
 		m.updateTranscript()
@@ -60,6 +67,7 @@ func (m *Model) finishStream(status string) {
 	m.collapseThinking()
 	m.updateTranscript()
 	m.streaming = false
+	m.responding = false
 	m.status = status
 	m.cancel = nil
 	m.events = nil
