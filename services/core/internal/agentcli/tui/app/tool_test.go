@@ -51,6 +51,27 @@ func TestModelHistoryIncludesToolCalls(t *testing.T) {
 	}
 }
 
+func TestToggleThinkingTogglesEveryBlock(t *testing.T) {
+	model := Model{messages: []components.Message{
+		{Thinking: true, Collapsed: true},
+		{Thinking: true, Collapsed: true},
+		{Content: "answer"},
+	}}
+
+	model.toggleThinking()
+	for index := 0; index < 2; index++ {
+		if model.messages[index].Collapsed {
+			t.Fatalf("thought %d did not expand", index)
+		}
+	}
+	model.toggleThinking()
+	for index := 0; index < 2; index++ {
+		if !model.messages[index].Collapsed {
+			t.Fatalf("thought %d did not collapse", index)
+		}
+	}
+}
+
 func TestToggleToolOutputTogglesMostRecentTool(t *testing.T) {
 	model := Model{messages: []components.Message{
 		{Tool: &components.Tool{Name: "first"}},

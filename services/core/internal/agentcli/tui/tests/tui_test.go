@@ -80,21 +80,29 @@ func TestStreamingCursorOnlyOnActiveMessage(t *testing.T) {
 }
 
 func TestThinkingCollapses(t *testing.T) {
+	content := "first thought line\nsecond thought line"
 	expanded := ansi.Strip(renderTranscript([]components.Message{
-		{Thinking: true, Content: "plan the change"},
+		{Thinking: true, Content: content},
 	}, 80))
-	if !strings.Contains(expanded, "plan the change") {
-		t.Fatalf("expanded thought is missing content:\n%s", expanded)
+	for _, expected := range []string{"Thinking", "first thought line", "second thought line"} {
+		if !strings.Contains(expanded, expected) {
+			t.Fatalf("expanded thought is missing %q:\n%s", expected, expanded)
+		}
 	}
 
 	collapsed := ansi.Strip(renderTranscript([]components.Message{
-		{Thinking: true, Content: "plan the change", Collapsed: true},
+		{Thinking: true, Content: content, Collapsed: true},
 	}, 80))
-	if strings.Contains(collapsed, "plan the change") {
-		t.Fatalf("collapsed thought still shows content:\n%s", collapsed)
+	if !strings.Contains(collapsed, "first thought line") {
+		t.Fatalf("collapsed thought is missing its preview:\n%s", collapsed)
 	}
-	if !strings.Contains(collapsed, "Thought") {
-		t.Fatalf("collapsed thought is missing its label:\n%s", collapsed)
+	if strings.Contains(collapsed, "second thought line") {
+		t.Fatalf("collapsed thought still shows full content:\n%s", collapsed)
+	}
+	for _, expected := range []string{"Thought", "ctrl+t"} {
+		if !strings.Contains(collapsed, expected) {
+			t.Fatalf("collapsed thought is missing %q:\n%s", expected, collapsed)
+		}
 	}
 }
 

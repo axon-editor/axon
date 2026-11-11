@@ -72,6 +72,8 @@ func (m Model) View() string {
 	transcript := m.viewport.View()
 	if m.approvalOpen {
 		transcript = m.approval.View(m.viewport.Width, m.viewport.Height)
+	} else if m.thoughtOpen {
+		transcript = m.thoughtPicker.View(m.viewport.Width, m.viewport.Height)
 	} else if m.sessionPickerOpen {
 		transcript = m.sessionPicker.View(m.viewport.Width, m.viewport.Height)
 	} else if m.pickerOpen {
@@ -159,7 +161,7 @@ func (m Model) renderComposer() string {
 		rows = append(rows, row)
 	}
 
-	hints := "enter send · ⇧↵ newline · ⌃T thought · ⌃O output · ⌃C quit"
+	hints := "enter send · ⇧↵ newline · ⌃T thoughts · ⌃O output · ⌃C quit"
 	if width < 86 {
 		hints = "enter send · ⌃C quit"
 	}

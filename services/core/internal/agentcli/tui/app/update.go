@@ -28,6 +28,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.approvalOpen {
 			return m.updateApproval(msg)
 		}
+		if m.thoughtOpen {
+			return m.updateThoughtPicker(msg)
+		}
 		if m.sessionPickerOpen {
 			return m.updateSessionPicker(msg)
 		}
@@ -56,8 +59,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.ViewDown()
 			return m, nil
 		case "ctrl+t":
-			m.toggleThinking()
-			m.updateTranscript()
+			m.openThoughtPicker()
 			return m, nil
 		case "ctrl+o":
 			m.toggleToolOutput()

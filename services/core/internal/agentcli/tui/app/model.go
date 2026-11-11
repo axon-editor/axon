@@ -52,6 +52,8 @@ type Model struct {
 	approvalOpen      bool
 	approval          components.Approval
 	approvalID        string
+	thoughtPicker     pickers.ThoughtPicker
+	thoughtOpen       bool
 	commandAllowlist  *sync.Map
 }
 

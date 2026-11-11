@@ -92,7 +92,16 @@ func (r *Renderer) render(message components.Message, width int, active bool) st
 	}
 
 	if message.Thinking {
-		lines := []string{theme.ThinkingHead.Render(thoughtHeader(message.Collapsed))}
+		header := theme.ThinkingHead.Render(thoughtHeader(message.Collapsed))
+		if message.Collapsed && message.Content != "" {
+			// A collapsed block with no text looks like an empty artifact. Keep a
+			// one-line preview and the shortcut visible so the reasoning is
+			// discoverable without expanding every thought by default.
+			header += theme.ToolMeta.Render(
+				"  " + thoughtPreview(message.Content) + "  · ctrl+t",
+			)
+		}
+		lines := []string{header}
 		if !message.Collapsed && message.Content != "" {
 			body := theme.Thinking.Width(inner).Render(message.Content)
 			lines = append(lines, strings.Split(body, "\n")...)
@@ -137,6 +146,19 @@ func thoughtHeader(collapsed bool) string {
 		return "▸ Thought"
 	}
 	return "▾ Thinking"
+}
+
+func thoughtPreview(content string) string {
+	content = strings.TrimSpace(surface.Sanitize(content))
+	if content == "" {
+		return ""
+	}
+	line := content
+	if index := strings.IndexByte(line, '\n'); index >= 0 {
+		line = line[:index]
+	}
+	line = strings.Join(strings.Fields(line), " ")
+	return truncateValue(line, 64)
 }
 
 func renderTool(tool *components.Tool, width int, workspace string) string {

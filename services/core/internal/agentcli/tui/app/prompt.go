@@ -95,6 +95,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 		m.approvalOpen = false
 		m.approval = components.Approval{}
 		m.approvalID = ""
+		m.thoughtOpen = false
 		m.decisions = nil
 		m.status = "Ready"
 	case "/model":
@@ -141,7 +142,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				"/help     show this list",
 				"/quit     exit Axon",
 				"",
-				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+T thought, Ctrl+O tool output, Ctrl+C quit.",
+				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+T thoughts, Ctrl+O tool output, Ctrl+C quit.",
 			}, "\n"),
 		})
 	default:

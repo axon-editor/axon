@@ -67,6 +67,7 @@ func (m *Model) finishStream(status string) {
 	m.approvalOpen = false
 	m.approval = components.Approval{}
 	m.approvalID = ""
+	m.thoughtOpen = false
 	m.saveSession()
 }
 
@@ -88,19 +89,28 @@ func (m *Model) appendThought(text string) {
 }
 
 func (m *Model) collapseThinking() {
-	for index := len(m.messages) - 1; index >= 0; index-- {
+	for index := range m.messages {
 		if m.messages[index].Thinking {
 			m.messages[index].Collapsed = true
-			return
 		}
 	}
 }
 
+// toggleThinking expands or collapses every thought block together. Toggling
+// only the newest block left older reasoning permanently collapsed with no way
+// to inspect it.
 func (m *Model) toggleThinking() {
+	collapsed := false
 	for index := len(m.messages) - 1; index >= 0; index-- {
 		if m.messages[index].Thinking {
-			m.messages[index].Collapsed = !m.messages[index].Collapsed
-			return
+			collapsed = m.messages[index].Collapsed
+			break
+		}
+	}
+	next := !collapsed
+	for index := range m.messages {
+		if m.messages[index].Thinking {
+			m.messages[index].Collapsed = next
 		}
 	}
 }
