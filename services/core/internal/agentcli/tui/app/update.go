@@ -65,6 +65,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toggleToolOutput()
 			m.updateTranscript()
 			return m, nil
+		case "ctrl+y":
+			// Enter a terminal-native selection mode so the user can drag and
+			// copy. Restoring cell-motion capture brings wheel scrolling back.
+			m.selectMode = !m.selectMode
+			if m.selectMode {
+				m.status = "Selection mode · drag to copy · Ctrl+Y to return"
+				return m, tea.DisableMouse
+			}
+			m.status = "Ready"
+			return m, tea.EnableMouseCellMotion
 		}
 
 		var command tea.Cmd

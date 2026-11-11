@@ -46,6 +46,7 @@ type Model struct {
 	pickerOpen        bool
 	streaming         bool
 	responding        bool
+	selectMode        bool
 	status            string
 	events            chan client.Event
 	cancel            context.CancelFunc

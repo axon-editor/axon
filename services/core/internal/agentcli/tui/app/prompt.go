@@ -143,6 +143,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				"/quit     exit Axon",
 				"",
 				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+T thoughts, Ctrl+O tool output, Ctrl+C quit.",
+				"Scroll with the mouse wheel or PgUp/PgDn. Ctrl+Y enters selection mode for native copy; press it again to return.",
 			}, "\n"),
 		})
 	default:

@@ -39,6 +39,8 @@ func Run(workspace string, resume bool) int {
 	program := tea.NewProgram(
 		app.NewModel(workspace, modelID, models, resume, sessions),
 		tea.WithAltScreen(),
+		// Wheel scrolling is the primary way to move through a transcript.
+		// Ctrl+Y temporarily disables mouse capture for native selection/copy.
 		tea.WithMouseCellMotion(),
 	)
 	if _, err := program.Run(); err != nil {

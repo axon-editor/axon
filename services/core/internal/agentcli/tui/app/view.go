@@ -124,6 +124,11 @@ func (m Model) renderHeader() string {
 }
 
 func (m Model) renderStatusLine() string {
+	if m.selectMode {
+		return theme.ToolActive.Render(
+			"· Selection mode · drag to copy · Ctrl+Y to return",
+		)
+	}
 	// Once answer text is streaming, the answer itself is the activity. Keeping
 	// a second "Working" line below it makes the screen noisy, so drop it.
 	if m.streaming && (m.responding || m.hasContextualActivity()) {
@@ -193,9 +198,13 @@ func (m Model) renderComposer() string {
 }
 
 func (m Model) renderComposerHints() string {
-	hints := "enter send · ⇧↵ newline · esc cancel · ⌃T thoughts · ⌃O output"
-	if m.width < 96 {
+	hints := "enter send · ⇧↵ newline · esc cancel · ⌃T thoughts · ⌃O output · ⌃Y select"
+	if m.width < 110 {
 		hints = "enter send · esc cancel · ⌃C quit"
+	}
+	hints = truncateLabel(hints, max(8, m.width))
+	if padding := m.width - lipgloss.Width(hints); padding > 0 {
+		hints = strings.Repeat(" ", padding) + hints
 	}
 	return theme.Subtle.Render(hints)
 }

@@ -9,7 +9,23 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	"github.com/charmbracelet/x/ansi"
 )
+
+func TestComposerHintsAreRightAligned(t *testing.T) {
+	model := NewModel("/tmp/axon", "axon-code", nil, false, nil)
+	model.width = 100
+	model.height = 30
+	model.layout()
+
+	line := ansi.Strip(model.renderComposerHints())
+	if !strings.HasPrefix(line, " ") {
+		t.Fatalf("hints are not right-aligned: %q", line)
+	}
+	if strings.TrimRight(line, " ") != line {
+		t.Fatalf("hints have trailing whitespace: %q", line)
+	}
+}
 
 func TestStreamingStatusSitsBelowTranscript(t *testing.T) {
 	model := NewModel("/tmp/axon", "axon-code", nil, false, nil)
