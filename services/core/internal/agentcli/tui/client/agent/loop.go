@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	opencoderun "github.com/GordenArcher/axon-core/internal/agentcli/opencode/run"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client/tools"
 	"github.com/GordenArcher/axon-core/internal/ai"
@@ -29,6 +30,14 @@ type loop struct {
 // block on a real approval instead of disappearing behind a status string.
 func Run(ctx context.Context, request client.Request, events chan<- client.Event) {
 	defer close(events)
+
+	// OpenCode owns its own tool loop and workspace calls. Routing it before
+	// core means the terminal does not start a second agent that would compete
+	// for the same turn or duplicate every tool event.
+	if request.Backend == "opencode" {
+		opencoderun.Run(ctx, request, events)
+		return
+	}
 
 	emit := func(event client.Event) error {
 		return emitEvent(ctx, events, event)

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-package pickers
+package thought
 
 import (
 	"strings"
@@ -10,8 +10,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func TestThoughtPickerMovesAndRenders(t *testing.T) {
-	picker := NewThoughtPicker([]ThoughtOption{
+func TestPickerMovesAndRenders(t *testing.T) {
+	picker := New([]Option{
 		{Index: 0, Preview: "first thought", Collapsed: true},
 		{Index: 1, Preview: "second thought", Collapsed: false},
 	}, 1)
@@ -38,8 +38,8 @@ func TestThoughtPickerMovesAndRenders(t *testing.T) {
 	}
 }
 
-func TestThoughtPickerEmptyState(t *testing.T) {
-	view := ansi.Strip(NewThoughtPicker(nil, 0).View(80, 10))
+func TestPickerEmptyState(t *testing.T) {
+	view := ansi.Strip(New(nil, 0).View(80, 10))
 	if !strings.Contains(view, "No thinking blocks") {
 		t.Fatalf("empty thought picker is missing its message:\n%s", view)
 	}

@@ -5,7 +5,7 @@ package app
 
 import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	thoughtpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/thought"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -17,7 +17,7 @@ func (m *Model) openThoughtPicker() {
 	}
 	// Start on the newest thought because that is the one the user just watched
 	// stream, while still exposing every earlier block in the list.
-	m.thoughtPicker = pickers.NewThoughtPicker(options, len(options)-1)
+	m.thoughtPicker = thoughtpicker.New(options, len(options)-1)
 	m.thoughtOpen = true
 	m.status = "Thoughts"
 }
@@ -83,19 +83,19 @@ func (m *Model) toggleSelectedThought() {
 }
 
 func (m *Model) rebuildThoughtPicker(position int) {
-	m.thoughtPicker = pickers.NewThoughtPicker(
+	m.thoughtPicker = thoughtpicker.New(
 		thoughtOptions(m.messages),
 		position,
 	)
 }
 
-func thoughtOptions(messages []components.Message) []pickers.ThoughtOption {
-	options := make([]pickers.ThoughtOption, 0)
+func thoughtOptions(messages []components.Message) []thoughtpicker.Option {
+	options := make([]thoughtpicker.Option, 0)
 	for index, message := range messages {
 		if !message.Thinking {
 			continue
 		}
-		options = append(options, pickers.ThoughtOption{
+		options = append(options, thoughtpicker.Option{
 			Index:     index,
 			Preview:   message.Content,
 			Collapsed: message.Collapsed,

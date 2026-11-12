@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	sessionpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/session"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -103,7 +103,7 @@ func TestSessionPickerHidesComposer(t *testing.T) {
 	model.width = 80
 	model.height = 24
 	model.layout()
-	model.sessionPicker = pickers.NewSessionPicker([]pickers.SessionOption{
+	model.sessionPicker = sessionpicker.New([]sessionpicker.Option{
 		{ID: "s1", Title: "Saved conversation"},
 	}, "")
 	model.sessionPickerOpen = true

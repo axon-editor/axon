@@ -1,7 +1,7 @@
 // Copyright (c) 2026 GordenArcher and Axon Editor Group. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-package pickers
+package session
 
 import (
 	"strings"
@@ -10,7 +10,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type SessionOption struct {
+// Option is the display row for one saved conversation. Model and Source are
+// carried separately because the picker mirrors the editor sidebar, where a
+// terminal conversation and an editor conversation can sit side by side.
+type Option struct {
 	ID      string
 	Title   string
 	Model   string
@@ -19,15 +22,20 @@ type SessionOption struct {
 	Current bool
 }
 
-type SessionPicker struct {
-	options  []SessionOption
+// Picker keeps the query and selection together so closing the overlay and
+// reopening it cannot resume an old filter that no longer matches the list.
+type Picker struct {
+	options  []Option
 	query    string
 	selected int
 	offset   int
 }
 
-func NewSessionPicker(options []SessionOption, currentID string) SessionPicker {
-	picker := SessionPicker{options: options}
+// New positions the highlight on the conversation the user is already in. The
+// picker is also used from the startup resume screen, where that id is a fresh
+// conversation and the first saved row is the useful anchor.
+func New(options []Option, currentID string) Picker {
+	picker := Picker{options: options}
 	for index, option := range options {
 		if option.ID == currentID {
 			picker.selected = index
@@ -37,7 +45,9 @@ func NewSessionPicker(options []SessionOption, currentID string) SessionPicker {
 	return picker
 }
 
-func (m *SessionPicker) Move(delta int) {
+// Move wraps within the filtered list, not the full list. Using the filtered
+// length means the highlight cannot disappear when a search narrows the rows.
+func (m *Picker) Move(delta int) {
 	matches := m.matches()
 	if len(matches) == 0 {
 		return
@@ -45,7 +55,9 @@ func (m *SessionPicker) Move(delta int) {
 	m.selected = (m.selected + delta + len(matches)) % len(matches)
 }
 
-func (m SessionPicker) SelectedID() string {
+// SelectedID clamps to the last match because a query edit can shrink the list
+// before the next key event updates the selection.
+func (m Picker) SelectedID() string {
 	matches := m.matches()
 	if len(matches) == 0 {
 		return ""
@@ -56,11 +68,15 @@ func (m SessionPicker) SelectedID() string {
 	return matches[m.selected].ID
 }
 
-func (m SessionPicker) Query() string {
+// Query is exposed so the parent can clear the filter on Escape without
+// knowing how the picker stores it.
+func (m Picker) Query() string {
 	return m.query
 }
 
-func (m *SessionPicker) AppendQuery(value string) {
+// AppendQuery resets the highlight on every keystroke. Keeping the old index
+// would make Enter resume a row the user filtered away.
+func (m *Picker) AppendQuery(value string) {
 	if value == "" {
 		return
 	}
@@ -68,7 +84,9 @@ func (m *SessionPicker) AppendQuery(value string) {
 	m.resetSelection()
 }
 
-func (m *SessionPicker) Backspace() {
+// Backspace edits by rune, not byte. Session titles contain names and non-Latin
+// text, and slicing a UTF-8 byte would corrupt the query on the first deletion.
+func (m *Picker) Backspace() {
 	if m.query == "" {
 		return
 	}
@@ -77,7 +95,9 @@ func (m *SessionPicker) Backspace() {
 	m.resetSelection()
 }
 
-func (m *SessionPicker) ClearQuery() {
+// ClearQuery is separate from Backspace because Ctrl+U should return to the
+// full list in one keystroke while keeping the picker open.
+func (m *Picker) ClearQuery() {
 	if m.query == "" {
 		return
 	}
@@ -85,17 +105,22 @@ func (m *SessionPicker) ClearQuery() {
 	m.resetSelection()
 }
 
-func (m *SessionPicker) resetSelection() {
+// resetSelection clears the scroll offset too. Keeping the old offset after a
+// filter change can start the list below the first visible result.
+func (m *Picker) resetSelection() {
 	m.selected = 0
 	m.offset = 0
 }
 
-func (m SessionPicker) matches() []SessionOption {
+// matches filters on title and model, not source, because the source is already
+// a badge the user can see. Searching "editor" should not hide every terminal
+// conversation just because the literal word is not in the title.
+func (m Picker) matches() []Option {
 	query := strings.ToLower(strings.TrimSpace(m.query))
 	if query == "" {
 		return m.options
 	}
-	matches := make([]SessionOption, 0, len(m.options))
+	matches := make([]Option, 0, len(m.options))
 	for _, option := range m.options {
 		title := strings.ToLower(option.Title)
 		model := strings.ToLower(option.Model)
@@ -106,7 +131,7 @@ func (m SessionPicker) matches() []SessionOption {
 	return matches
 }
 
-func (m SessionPicker) View(width, height int) string {
+func (m Picker) View(width, height int) string {
 	width = max(20, width)
 	height = max(4, height)
 	matches := m.matches()
@@ -144,7 +169,7 @@ func (m SessionPicker) View(width, height int) string {
 	return lipgloss.NewStyle().Width(width).Render(strings.Join(rows, "\n"))
 }
 
-func (m SessionPicker) renderSearch() string {
+func (m Picker) renderSearch() string {
 	label := theme.Subtle.Render("Search  ")
 	if m.query == "" {
 		return label + theme.Subtle.Render("type to filter…")
@@ -152,8 +177,8 @@ func (m SessionPicker) renderSearch() string {
 	return label + theme.ToolActive.Render(m.query)
 }
 
-func (m SessionPicker) renderOption(
-	option SessionOption,
+func (m Picker) renderOption(
+	option Option,
 	selected bool,
 	width int,
 ) string {

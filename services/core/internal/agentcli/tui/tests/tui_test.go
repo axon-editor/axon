@@ -12,7 +12,8 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/app"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	modelpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/model"
+	sessionpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/session"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/ai"
 	store "github.com/GordenArcher/axon-core/internal/sessions"
@@ -107,7 +108,7 @@ func TestThinkingCollapses(t *testing.T) {
 }
 
 func TestModelPickerMovesAndRenders(t *testing.T) {
-	picker := pickers.NewModelPicker([]ai.ModelInfo{
+	picker := modelpicker.New([]ai.ModelInfo{
 		{ID: "one", Label: "One", Available: true},
 		{ID: "two", Label: "Two", Available: false},
 	}, "one")
@@ -333,7 +334,7 @@ func TestRunningToolCard(t *testing.T) {
 }
 
 func TestSessionPickerMovesAndRenders(t *testing.T) {
-	picker := pickers.NewSessionPicker([]pickers.SessionOption{
+	picker := sessionpicker.New([]sessionpicker.Option{
 		{ID: "a", Title: "Alpha"},
 		{ID: "b", Title: "Beta"},
 	}, "a")
@@ -348,7 +349,7 @@ func TestSessionPickerMovesAndRenders(t *testing.T) {
 }
 
 func TestSessionPickerFiltersByTitle(t *testing.T) {
-	picker := pickers.NewSessionPicker([]pickers.SessionOption{
+	picker := sessionpicker.New([]sessionpicker.Option{
 		{ID: "a", Title: "Alpha"},
 		{ID: "b", Title: "Beta"},
 		{ID: "c", Title: "Gamma"},

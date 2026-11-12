@@ -18,6 +18,7 @@ const (
 	ToolStart
 	ToolResult
 	ApprovalRequest
+	Session
 	Done
 	Cancelled
 	Error
@@ -26,6 +27,11 @@ const (
 type Event struct {
 	Kind EventKind
 	Text string
+
+	// BackendSessionID is only set on Session events. OpenCode keeps history
+	// server-side, so the TUI has to persist this id to resume the same
+	// conversation after a restart.
+	BackendSessionID string
 
 	// Tool lifecycle fields are only set for ToolStart, ToolResult, and
 	// ApprovalRequest. CallID pairs them so the transcript can turn a waiting
@@ -55,6 +61,14 @@ type Request struct {
 	FolderPath   string
 	Model        string
 	Prompt       string
+
+	// Backend selects who owns the turn. Empty and "axon" keep the local
+	// planning loop; "opencode" hands the whole turn to the provider and only
+	// bridges its approvals back to the TUI.
+	Backend          string
+	ProviderID       string
+	ModelID          string
+	BackendSessionID string
 
 	// Messages and Tools are filled by the agent loop for planning rounds.
 	// StreamChat sends them to core so core does not start its own tool loop.

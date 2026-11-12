@@ -5,12 +5,15 @@ package app
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	modelpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/model"
+	sessionpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/session"
+	thoughtpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/thought"
 	slashmenu "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/slash"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
@@ -31,10 +34,12 @@ type Model struct {
 	sessionID         string
 	sessionTitle      string
 	sessionSource     string
+	sessionBackend    string
+	backendSessionID  string
 	sessionCreated    time.Time
 	sessions          *store.Store
 	persisted         map[string]bool
-	sessionPicker     pickers.SessionPicker
+	sessionPicker     sessionpicker.Picker
 	sessionPickerOpen bool
 	slashMenu         slashmenu.Menu
 	slashOpen         bool
@@ -45,7 +50,7 @@ type Model struct {
 	spinner           spinner.Model
 	renderer          *transcript.Renderer
 	messages          []components.Message
-	picker            pickers.ModelPicker
+	picker            modelpicker.Picker
 	pickerOpen        bool
 	streaming         bool
 	responding        bool
@@ -57,7 +62,7 @@ type Model struct {
 	approvalOpen      bool
 	approval          components.Approval
 	approvalID        string
-	thoughtPicker     pickers.ThoughtPicker
+	thoughtPicker     thoughtpicker.Picker
 	thoughtOpen       bool
 	commandAllowlist  *sync.Map
 }
@@ -126,6 +131,7 @@ func NewModel(
 		sessionID:        store.NewID(),
 		sessionTitle:     store.DefaultTitle,
 		sessionSource:    "cli",
+		sessionBackend:   "axon",
 		sessionCreated:   time.Now(),
 		sessions:         sessions,
 		persisted:        make(map[string]bool),
@@ -143,7 +149,7 @@ func NewModel(
 	if sessions != nil && resume {
 		summaries, err := sessions.List(workspace)
 		if err == nil && len(summaries) > 0 {
-			model.sessionPicker = pickers.NewSessionPicker(
+			model.sessionPicker = sessionpicker.New(
 				sessionOptions(summaries, model.sessionID),
 				model.sessionID,
 			)
@@ -169,4 +175,27 @@ func waitForEvent(events <-chan client.Event) tea.Cmd {
 		}
 		return streamEventMsg{event: event}
 	}
+}
+
+// resolveModelRoute reads the backend from the catalog instead of guessing from
+// the id. Axon's local ids and OpenCode ids can both contain slashes in the
+// future, and the picker already knows which provider owns the selected entry.
+func resolveModelRoute(catalog []ai.ModelInfo, id string) (string, string, string) {
+	for _, model := range catalog {
+		if model.ID != id {
+			continue
+		}
+		backend := model.Backend
+		if backend == "" {
+			backend = "axon"
+		}
+		return backend, model.ProviderID, model.ModelID
+	}
+	// A restored conversation can name an OpenCode model before the catalog
+	// finishes loading. The provider/id shape is enough to keep the turn on the
+	// backend that issued the session instead of sending it to core.
+	if separator := strings.IndexByte(id, '/'); separator > 0 && separator < len(id)-1 {
+		return "opencode", id[:separator], id[separator+1:]
+	}
+	return "axon", "", ""
 }

@@ -58,6 +58,15 @@ func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.status = "Model is not installed"
 				return m, nil
 			}
+			backend, _, _ := resolveModelRoute(m.models, id)
+			// A provider session id only means something to the backend that
+			// issued it. Switching away from OpenCode clears it so the next
+			// turn starts a fresh provider session with the CLI transcript
+			// instead of trying to resume an id the new backend never saw.
+			if backend != m.sessionBackend {
+				m.backendSessionID = ""
+				m.sessionBackend = backend
+			}
 			m.modelID = id
 			_ = configstore.Save(configstore.Config{SelectedModel: id})
 		}

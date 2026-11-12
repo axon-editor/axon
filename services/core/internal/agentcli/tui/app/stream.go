@@ -42,6 +42,12 @@ func (m Model) handleStreamEvent(event client.Event) (tea.Model, tea.Cmd) {
 		// Persist each completed tool card immediately. A long tool loop can
 		// span many seconds, and a crash should not erase the work already done.
 		m.saveSession()
+	case client.Session:
+		// Persist the provider session as soon as it exists. A crash during the
+		// first answer would otherwise leave a resumable transcript that cannot
+		// continue on the provider side.
+		m.backendSessionID = event.BackendSessionID
+		m.saveSession()
 	case client.Done:
 		m.finishStream("Ready")
 		return m, nil

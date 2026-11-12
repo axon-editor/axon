@@ -141,6 +141,12 @@ type ModelInfo struct {
 	Description   string `json:"description,omitempty"`
 	ProviderLabel string `json:"providerLabel"`
 	Available     bool   `json:"available"`
+	// Backend, ProviderID, and ModelID let callers route a model to the
+	// provider that owns it. Axon's local models leave them empty; OpenCode
+	// models carry the provider/model pair the OpenCode API expects.
+	Backend    string `json:"backend,omitempty"`
+	ProviderID string `json:"providerID,omitempty"`
+	ModelID    string `json:"modelID,omitempty"`
 	// Memory footprint and host compatibility let every surface (settings,
 	// sidebar, agent runtime) agree on which models this machine can run.
 	MinMemoryGB         int    `json:"minMemoryGB"`

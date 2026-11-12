@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	sessionpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/session"
 	store "github.com/GordenArcher/axon-core/internal/sessions"
 	"github.com/GordenArcher/axon-core/internal/sessions/payload"
 )
@@ -60,6 +60,11 @@ func (m *Model) loadSession(id string) {
 	if record.Model != "" {
 		m.modelID = record.Model
 	}
+	m.sessionBackend = record.Provider
+	if m.sessionBackend == "" {
+		m.sessionBackend = "axon"
+	}
+	m.backendSessionID = record.BackendSessionID
 	m.status = "Ready"
 	m.updateTranscript()
 }
@@ -94,14 +99,16 @@ func (m *Model) saveSession() {
 		source = "cli"
 	}
 	if err := m.sessions.UpsertSession(store.Session{
-		ID:        m.sessionID,
-		Workspace: m.workspace,
-		Title:     m.sessionTitle,
-		Model:     m.modelID,
-		Action:    "agent",
-		Source:    source,
-		Payload:   payloadText,
-		CreatedAt: m.sessionCreated,
+		ID:               m.sessionID,
+		Workspace:        m.workspace,
+		Title:            m.sessionTitle,
+		Model:            m.modelID,
+		Provider:         m.sessionBackend,
+		BackendSessionID: m.backendSessionID,
+		Action:           "agent",
+		Source:           source,
+		Payload:          payloadText,
+		CreatedAt:        m.sessionCreated,
 	}); err != nil {
 		m.status = "Could not save conversation"
 		return
@@ -140,10 +147,10 @@ func decodePayload(raw string, fallback []store.Message) []components.Message {
 func sessionOptions(
 	sessions []store.Summary,
 	currentID string,
-) []pickers.SessionOption {
-	options := make([]pickers.SessionOption, 0, len(sessions))
+) []sessionpicker.Option {
+	options := make([]sessionpicker.Option, 0, len(sessions))
 	for _, session := range sessions {
-		options = append(options, pickers.SessionOption{
+		options = append(options, sessionpicker.Option{
 			ID:      session.ID,
 			Title:   session.Title,
 			Model:   session.Model,

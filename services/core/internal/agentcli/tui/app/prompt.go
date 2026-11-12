@@ -13,7 +13,8 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client/agent"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	modelpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/model"
+	sessionpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/session"
 	store "github.com/GordenArcher/axon-core/internal/sessions"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -28,6 +29,14 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	}
 
 	history := modelHistory(m.messages)
+	backend, providerID, modelID := resolveModelRoute(m.models, m.modelID)
+	if backend != m.sessionBackend {
+		// The route is the source of truth if the model was changed through the
+		// config file or an older catalog. Never hand one backend a session id
+		// issued by another.
+		m.backendSessionID = ""
+		m.sessionBackend = backend
+	}
 	m.messages = append(m.messages, components.Message{
 		ID:      store.NewID(),
 		Role:    "user",
@@ -61,11 +70,15 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 	m.saveSession()
 
 	go agent.Run(ctx, client.Request{
-		Prompt:     prompt,
-		FolderPath: m.workspace,
-		Model:      m.modelID,
-		History:    history,
-		Decisions:  decisions,
+		Prompt:           prompt,
+		FolderPath:       m.workspace,
+		Model:            m.modelID,
+		History:          history,
+		Backend:          backend,
+		ProviderID:       providerID,
+		ModelID:          modelID,
+		BackendSessionID: m.backendSessionID,
+		Decisions:        decisions,
 		CommandAllowed: func(command string) bool {
 			_, ok := allowlist.Load(command)
 			return ok
@@ -91,6 +104,8 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 		m.sessionID = store.NewID()
 		m.sessionTitle = store.DefaultTitle
 		m.sessionSource = "cli"
+		m.sessionBackend = "axon"
+		m.backendSessionID = ""
 		m.sessionCreated = time.Now()
 		m.persisted = make(map[string]bool)
 		m.approvalOpen = false
@@ -106,7 +121,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				Content: "No models reported by the runtime.",
 			})
 		} else {
-			m.picker = pickers.NewModelPicker(m.models, m.modelID)
+			m.picker = modelpicker.New(m.models, m.modelID)
 			m.pickerOpen = true
 			m.status = "Select a model"
 		}
@@ -125,7 +140,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				Content: "No saved conversations for this workspace.",
 			})
 		} else {
-			m.sessionPicker = pickers.NewSessionPicker(
+			m.sessionPicker = sessionpicker.New(
 				sessionOptions(summaries, m.sessionID),
 				m.sessionID,
 			)
