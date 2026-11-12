@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -82,7 +83,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 	switch strings.ToLower(prompt) {
 	case "/quit", "/exit":
 		return m, tea.Quit
-	case "/clear":
+	case "/clear", "/new":
 		// Clearing starts a new database row instead of only emptying the
 		// viewport. The previous conversation stays resumable, and the next
 		// prompt cannot append to a transcript the user just abandoned.
@@ -131,14 +132,32 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 			m.sessionPickerOpen = true
 			m.status = "Select a conversation"
 		}
+	case "/select":
+		m.selectMode = true
+		m.status = "Selection mode · drag to copy · Ctrl+Y to return"
+		m.updateTranscript()
+		return m, tea.DisableMouse
+	case "/status":
+		m.messages = append(m.messages, components.Message{
+			Role: "assistant",
+			Content: strings.Join([]string{
+				"Model: " + m.modelID,
+				"Session: " + m.sessionTitle + " (" + m.sessionID + ")",
+				"Workspace: " + m.workspace,
+				"Messages: " + fmt.Sprintf("%d", len(m.messages)),
+			}, "\n"),
+		})
 	case "/help":
 		m.messages = append(m.messages, components.Message{
 			Role: "assistant",
 			Content: strings.Join([]string{
 				"Commands:",
-				"/clear    clear the transcript",
+				"/new      start a new conversation",
+				"/clear    clear the transcript and start new",
 				"/model    choose a model",
 				"/resume   resume a saved conversation",
+				"/select   enter selection mode for copy",
+				"/status   show session details",
 				"/help     show this list",
 				"/quit     exit Axon",
 				"",

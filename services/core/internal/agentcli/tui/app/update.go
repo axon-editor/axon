@@ -37,6 +37,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.pickerOpen {
 			return m.updatePicker(msg)
 		}
+		if m.slashOpen {
+			switch msg.String() {
+			case "up":
+				m.slashMenu.Move(-1)
+				return m, nil
+			case "down":
+				m.slashMenu.Move(1)
+				return m, nil
+			case "tab":
+				if command, ok := m.slashMenu.Selected(); ok {
+					m.textarea.SetValue("/" + command.Name)
+					m.textarea.CursorEnd()
+					m.refreshSlashMenu()
+				}
+				return m, nil
+			case "esc":
+				m.closeSlashMenu()
+				return m, nil
+			case "enter":
+				return m.runSlashSelection()
+			}
+		}
 
 		switch msg.String() {
 		case "esc":
@@ -79,6 +101,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		var command tea.Cmd
 		m.textarea, command = m.textarea.Update(msg)
+		m.refreshSlashMenu()
 		return m, command
 
 	case tea.MouseMsg:

@@ -11,6 +11,7 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers"
+	slashmenu "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/slash"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/GordenArcher/axon-core/internal/ai"
@@ -35,6 +36,8 @@ type Model struct {
 	persisted         map[string]bool
 	sessionPicker     pickers.SessionPicker
 	sessionPickerOpen bool
+	slashMenu         slashmenu.Menu
+	slashOpen         bool
 	width             int
 	height            int
 	viewport          viewport.Model

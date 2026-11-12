@@ -17,8 +17,13 @@ func (m *Model) layout() {
 	}
 
 	composerHeight := m.textarea.Height() + 2
-	// Header, a blank line, status, a blank line, composer, hints, and path.
-	viewportHeight := m.height - 1 - 3 - composerHeight - 1 - 1
+	menuHeight := 0
+	if m.slashOpen {
+		menuHeight = m.slashMenu.Height()
+	}
+	// Header, blank line, status, blank line, optional command menu, composer,
+	// hints, and path.
+	viewportHeight := m.height - 1 - 3 - menuHeight - composerHeight - 1 - 1
 	if viewportHeight < 3 {
 		viewportHeight = 3
 	}
@@ -88,10 +93,15 @@ func (m Model) View() string {
 		"",
 		m.renderStatusLine(),
 		"",
+	}
+	if m.slashOpen {
+		parts = append(parts, m.slashMenu.View(m.width))
+	}
+	parts = append(parts,
 		m.renderComposer(),
 		m.renderComposerHints(),
 		theme.Subtle.Render(truncatePath(m.workspace, max(8, m.width))),
-	}
+	)
 
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
