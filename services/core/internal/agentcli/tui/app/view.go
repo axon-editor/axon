@@ -6,20 +6,23 @@ package app
 import (
 	"strings"
 
-	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
+	transcriptview "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/transcript"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/charmbracelet/lipgloss"
 )
 
+// layout recalculates the transcript height after a resize, a composer growth,
+// or a slash menu height change. It is the only place that writes viewport and
+// composer dimensions so those three triggers cannot drift apart.
 func (m *Model) layout() {
 	if m.width <= 0 || m.height <= 0 {
 		return
 	}
 
-	composerHeight := m.textarea.Height() + 2
+	composerHeight := m.composer.Height() + 2
 	menuHeight := 0
-	if m.slashOpen {
-		menuHeight = m.slashMenu.Height()
+	if m.composer.Open {
+		menuHeight = m.composer.Menu.Height()
 	}
 	// Header, blank line, status, blank line, optional command menu, composer,
 	// hints, and path.
@@ -30,17 +33,20 @@ func (m *Model) layout() {
 
 	m.viewport.Width = max(20, m.width)
 	m.viewport.Height = viewportHeight
-	m.textarea.SetWidth(max(20, m.width-4))
+	m.composer.Input.SetWidth(max(20, m.width-4))
 	m.ensureRenderer()
 	m.renderer.SetWidth(m.viewport.Width)
 	m.updateTranscript()
 }
 
+// updateTranscript re-renders the conversation and preserves the user's scroll
+// position unless they were already at the bottom. Auto-scrolling every frame
+// would fight someone reading earlier tool output while a thought streams.
 func (m *Model) updateTranscript() {
 	m.ensureRenderer()
 	thoughtID, toolID := "", ""
-	if m.streaming && len(m.messages) > 0 {
-		last := m.messages[len(m.messages)-1]
+	if m.conversation.Streaming && len(m.conversation.Messages) > 0 {
+		last := m.conversation.Messages[len(m.conversation.Messages)-1]
 		if last.Thinking && !last.Collapsed {
 			thoughtID = last.ID
 		}
@@ -51,7 +57,10 @@ func (m *Model) updateTranscript() {
 	m.renderer.SetActivity(m.spinner.View(), thoughtID, toolID)
 
 	wasAtBottom := m.viewport.AtBottom()
-	m.viewport.SetContent(m.renderer.Render(m.messages, m.activeMessage()))
+	m.viewport.SetContent(m.renderer.Render(
+		m.conversation.Messages,
+		m.conversation.ActiveMessage(),
+	))
 	if wasAtBottom {
 		m.viewport.GotoBottom()
 	}
@@ -61,24 +70,14 @@ func (m *Model) updateTranscript() {
 // panicking before NewModel has run. The renderer has no state worth delaying.
 func (m *Model) ensureRenderer() {
 	if m.renderer == nil {
-		m.renderer = transcript.New()
+		m.renderer = transcriptview.New()
 		m.renderer.SetWidth(m.viewport.Width)
 	}
 }
 
-// activeMessage returns the assistant block that should show the live cursor.
-// Thinking and tool rows never carry it, even while the turn is streaming.
-func (m Model) activeMessage() int {
-	if !m.streaming || len(m.messages) == 0 {
-		return -1
-	}
-	last := len(m.messages) - 1
-	if m.messages[last].Thinking || m.messages[last].Role != "assistant" {
-		return -1
-	}
-	return last
-}
-
+// View composes the screen from transcript, status, and composer. Overlays
+// replace the whole frame instead of drawing above it, which keeps a picker
+// from leaking the previous composer underneath.
 func (m Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return theme.Subtle.Render("Loading Axon...")
@@ -94,8 +93,8 @@ func (m Model) View() string {
 		m.renderStatusLine(),
 		"",
 	}
-	if m.slashOpen {
-		parts = append(parts, m.slashMenu.View(m.width))
+	if m.composer.Open {
+		parts = append(parts, m.composer.Menu.View(m.width))
 	}
 	parts = append(parts,
 		m.renderComposer(),
@@ -112,8 +111,8 @@ func (m Model) overlayView() (string, bool) {
 	switch {
 	case m.approvalOpen:
 		return m.approval.View(m.width, m.height), true
-	case m.thoughtOpen:
-		return m.thoughtPicker.View(m.width, m.height), true
+	case m.conversation.ThoughtOpen:
+		return m.conversation.ThoughtPicker.View(m.width, m.height), true
 	case m.sessionPickerOpen:
 		return m.sessionPicker.View(m.width, m.height), true
 	case m.pickerOpen:
@@ -123,6 +122,9 @@ func (m Model) overlayView() (string, bool) {
 	}
 }
 
+// renderHeader keeps the model visible on the right while the product mark
+// anchors the left. The model id is truncated first because the mark is the
+// stable orientation cue.
 func (m Model) renderHeader() string {
 	left := theme.Header.Render("axon")
 	right := theme.Subtle.Render(truncateLabel(m.modelID, max(8, m.width/3)))
@@ -133,6 +135,9 @@ func (m Model) renderHeader() string {
 	return left + strings.Repeat(" ", gap) + right
 }
 
+// renderStatusLine hides the generic loader once a thought or tool owns the
+// activity marker. A second spinner below the transcript made the screen look
+// like two different agents were running.
 func (m Model) renderStatusLine() string {
 	if m.selectMode {
 		return theme.ToolActive.Render(
@@ -141,10 +146,11 @@ func (m Model) renderStatusLine() string {
 	}
 	// Once answer text is streaming, the answer itself is the activity. Keeping
 	// a second "Working" line below it makes the screen noisy, so drop it.
-	if m.streaming && (m.responding || m.hasContextualActivity()) {
+	if m.conversation.Streaming &&
+		(m.conversation.Responding || m.conversation.HasContextualActivity()) {
 		return ""
 	}
-	if m.streaming {
+	if m.conversation.Streaming {
 		return m.spinner.View() + " " + theme.StatusActive.Render("Working...")
 	}
 
@@ -160,20 +166,6 @@ func (m Model) renderStatusLine() string {
 	return style.Render("·") + " " + style.Render(status)
 }
 
-// hasContextualActivity reports whether the active thought or tool already owns
-// the loader. The bottom Working line is only for the gap before the first
-// content arrives; after that the loader belongs to the thought or tool card.
-func (m Model) hasContextualActivity() bool {
-	if len(m.messages) == 0 {
-		return false
-	}
-	last := m.messages[len(m.messages)-1]
-	if last.Thinking && last.Content != "" {
-		return true
-	}
-	return last.Tool != nil && (last.Tool.Running || last.Tool.Waiting)
-}
-
 func (m Model) renderComposer() string {
 	width := max(20, m.width)
 	innerWidth := max(16, width-4)
@@ -182,8 +174,8 @@ func (m Model) renderComposer() string {
 	top := border.Render(
 		"╭" + strings.Repeat("─", max(1, width-2)) + "╮",
 	)
-	lines := strings.Split(m.textarea.View(), "\n")
-	height := m.textarea.Height()
+	lines := strings.Split(m.composer.Input.View(), "\n")
+	height := m.composer.Height()
 	rows := make([]string, 0, height)
 	for index := 0; index < height; index++ {
 		line := ""
