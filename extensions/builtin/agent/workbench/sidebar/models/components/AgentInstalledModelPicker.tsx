@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { type AiModelInfo } from "@axon-editor/shared/ai/ai";
 import { usePopoverDismiss } from "../../../lib/hooks/usePopoverDismiss";
+import { agentModelNote, groupAgentModels } from "../model/agentModelGroups";
 import AgentModelOption from "./AgentModelOption";
 
 // Surface for the status panel: when the chosen model still needs a download,
@@ -31,6 +32,7 @@ export default function AgentInstalledModelPicker({
   usePopoverDismiss(pickerRef, open, () => setOpen(false));
 
   const installedModels = models.filter((model) => model.available);
+  const groups = groupAgentModels(installedModels);
   const activeModel = installedModels.find(
     (model) => model.id === selectedModel,
   );
@@ -68,14 +70,21 @@ export default function AgentInstalledModelPicker({
         <div className="axon-popup-surface axon-agent-popup absolute bottom-full left-0 z-30 mb-1 w-full overflow-hidden rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] shadow-[0_18px_48px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.04]">
           <div className="px-1.5 pb-2 pt-1.5">
             <div className="max-h-56 overflow-y-auto">
-              {installedModels.map((model) => (
-                <AgentModelOption
-                  key={model.id}
-                  active={model.id === selectedModel}
-                  label={model.label}
-                  note={model.description ?? ""}
-                  onSelect={() => handleSelect(model.id)}
-                />
+              {groups.map((group) => (
+                <div key={group.key}>
+                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--axon-editor-foreground)] opacity-35">
+                    {group.label}
+                  </div>
+                  {group.models.map((model) => (
+                    <AgentModelOption
+                      key={model.id}
+                      active={model.id === selectedModel}
+                      label={model.label}
+                      note={agentModelNote(model)}
+                      onSelect={() => handleSelect(model.id)}
+                    />
+                  ))}
+                </div>
               ))}
             </div>
           </div>

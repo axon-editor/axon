@@ -13,12 +13,13 @@ import {
 import { type AiModelInfo } from "@axon-editor/shared/ai/ai";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import { usePopoverDismiss } from "../../../lib/hooks/usePopoverDismiss";
+import { groupAgentModels, agentModelNote } from "../model/agentModelGroups";
 import AgentModelOption from "./AgentModelOption";
 
-// Composer model picker. Installed and downloadable models are split into
-// groups instead of being tagged row by row, so the labels can carry the state
-// and the copy under each name is free to explain the memory fit, which is the
-// question the picker actually exists to answer.
+// Composer model picker. Models are grouped by the provider that runs them
+// instead of by installation state, so a long OpenCode catalog cannot bury the
+// Axon models it sits beside. The row note still carries the download or memory
+// detail that the old groups used to explain.
 interface Props {
   hostMemoryGB?: number;
   models: AiModelInfo[];
@@ -33,31 +34,12 @@ interface Props {
   reconnectDisabled?: boolean;
 }
 
-function fitNote(model: AiModelInfo): string {
-  if (model.compatibility === "unsupported") {
-    return "Too much memory for this machine";
-  }
-  if (model.compatibility === "ok") {
-    return "Runs close to this machine's memory limit";
-  }
-  return "";
-}
-
 export default function AgentModelPicker(props: Props) {
   const pickerRef = useRef<HTMLDivElement>(null);
 
   usePopoverDismiss(pickerRef, props.open, () => props.onOpenChange(false));
 
-  const groups = [
-    {
-      label: "Available",
-      models: props.models.filter((model) => model.available),
-    },
-    {
-      label: "Needs download",
-      models: props.models.filter((model) => !model.available),
-    },
-  ].filter((group) => group.models.length > 0);
+  const groups = groupAgentModels(props.models);
 
   return (
     <div ref={pickerRef} className="relative">
@@ -115,9 +97,14 @@ export default function AgentModelPicker(props: Props) {
               )}
 
               {groups.map((group) => (
-                <div key={group.label}>
-                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--axon-editor-foreground)] opacity-35">
-                    {group.label}
+                <div key={group.key}>
+                  <div className="flex items-center justify-between px-2.5 pb-1 pt-2">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--axon-editor-foreground)] opacity-35">
+                      {group.label}
+                    </span>
+                    <span className="text-[9px] tabular-nums text-[var(--axon-editor-foreground)] opacity-20">
+                      {group.models.length}
+                    </span>
                   </div>
                   {group.models.map((model) => (
                     <AgentModelOption
@@ -125,7 +112,7 @@ export default function AgentModelPicker(props: Props) {
                       active={model.id === props.selectedModel}
                       label={model.label}
                       needsDownload={!model.available}
-                      note={fitNote(model)}
+                      note={agentModelNote(model)}
                       onSelect={() => {
                         props.onSelect(model.id);
                         props.onOpenChange(false);
