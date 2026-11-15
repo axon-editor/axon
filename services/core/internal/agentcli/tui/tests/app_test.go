@@ -11,6 +11,7 @@ import (
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/app"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/client"
+	"github.com/GordenArcher/axon-core/internal/ai"
 	store "github.com/GordenArcher/axon-core/internal/sessions"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -101,6 +102,82 @@ func TestSlashStatusAndNewSession(t *testing.T) {
 	model, _ = press(model, tea.KeyEnter)
 	if strings.Contains(ansi.Strip(model.View()), "Model: axon-code") {
 		t.Fatalf("/new did not clear the transcript:\n%s", model.View())
+	}
+}
+
+func TestSlashModelFiltersCatalog(t *testing.T) {
+	catalog := []ai.ModelInfo{
+		{ID: "axon-code", Label: "Axon Code", ProviderLabel: "Axon models", Available: true},
+		{
+			ID:            "opencode/beam-free",
+			Label:         "Beam Free",
+			ProviderLabel: "OpenCode",
+			Backend:       "opencode",
+			ProviderID:    "opencode",
+			ModelID:       "beam-free",
+			Available:     true,
+		},
+	}
+	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil)
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	model = updated.(app.Model)
+	model = typeText(model, "/model beam")
+	model, _ = press(model, tea.KeyEnter)
+
+	view := ansi.Strip(model.View())
+	if !strings.Contains(view, "Beam Free") {
+		t.Fatalf("model picker did not receive the filtered catalog:\n%s", view)
+	}
+	if strings.Contains(view, "Axon Code") {
+		t.Fatalf("model picker ignored the query and showed every model:\n%s", view)
+	}
+}
+
+func TestSlashModelReportsEmptyFilter(t *testing.T) {
+	catalog := []ai.ModelInfo{
+		{ID: "axon-code", Label: "Axon Code", ProviderLabel: "Axon models", Available: true},
+	}
+	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil)
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	model = updated.(app.Model)
+	model = typeText(model, "/model zzz")
+	model, _ = press(model, tea.KeyEnter)
+
+	if !strings.Contains(ansi.Strip(model.View()), `No models match "zzz".`) {
+		t.Fatalf("empty model filter did not explain itself:\n%s", model.View())
+	}
+}
+
+func TestSlashResumeSeedsSearchQuery(t *testing.T) {
+	sessions, err := store.OpenAt(filepath.Join(t.TempDir(), "sessions.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = sessions.Close()
+	})
+	for _, record := range []store.Session{
+		{ID: "s1", Workspace: "/tmp/axon", Title: "Alpha conversation", CreatedAt: time.Now()},
+		{ID: "s2", Workspace: "/tmp/axon", Title: "Beta conversation", CreatedAt: time.Now()},
+	} {
+		if err := sessions.UpsertSession(record); err != nil {
+			t.Fatalf("upsert session: %v", err)
+		}
+	}
+
+	model := sizedModel(t, false, sessions)
+	model = typeText(model, "/resume beta")
+	model, _ = press(model, tea.KeyEnter)
+
+	view := ansi.Strip(model.View())
+	if !strings.Contains(view, "Beta conversation") {
+		t.Fatalf("resume picker is missing the matching session:\n%s", view)
+	}
+	if strings.Contains(view, "Alpha conversation") {
+		t.Fatalf("resume picker did not apply the seeded query:\n%s", view)
+	}
+	if !strings.Contains(view, "Search  beta") {
+		t.Fatalf("resume picker did not show the seeded query:\n%s", view)
 	}
 }
 

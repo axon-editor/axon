@@ -16,6 +16,8 @@ import (
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/components"
 	modelpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/model"
 	sessionpicker "github.com/GordenArcher/axon-core/internal/agentcli/tui/components/pickers/session"
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/fuzzy"
+	"github.com/GordenArcher/axon-core/internal/ai"
 	store "github.com/GordenArcher/axon-core/internal/sessions"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -231,13 +233,15 @@ func (m Model) sendPrompt(value string) (tea.Model, tea.Cmd) {
 
 // handleSlash keeps the command list in the screen model because each command
 // mutates a different capability: session, transcript, composer, or the
-// process itself.
+// process itself. Arguments are split once so model and resume pickers can
+// open pre-filtered instead of making the user retype the query.
 func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 	m.composer.Reset()
-	switch strings.ToLower(prompt) {
-	case "/quit", "/exit":
+	command, args := splitSlash(prompt)
+	switch command {
+	case "quit", "exit":
 		return m, tea.Quit
-	case "/clear", "/new":
+	case "clear", "new":
 		m.conversation.Messages = nil
 		m.session.Reset()
 		m.session.Model = m.modelID
@@ -247,18 +251,29 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 		m.conversation.ThoughtOpen = false
 		m.decisions = nil
 		m.status = "Ready"
-	case "/model":
+	case "model":
 		if len(m.models) == 0 {
 			m.conversation.Messages = append(m.conversation.Messages, components.Message{
 				Role:    "assistant",
 				Content: "No models reported by the runtime.",
 			})
-		} else {
-			m.picker = modelpicker.New(m.models, m.modelID)
-			m.pickerOpen = true
-			m.status = "Select a model"
+			break
 		}
-	case "/resume", "/sessions":
+		catalog := filterModels(m.models, args)
+		if len(catalog) == 0 {
+			m.conversation.Messages = append(m.conversation.Messages, components.Message{
+				Role:    "assistant",
+				Content: fmt.Sprintf("No models match %q.", args),
+			})
+			break
+		}
+		m.picker = modelpicker.New(catalog, m.modelID)
+		m.pickerOpen = true
+		m.status = "Select a model"
+		if args != "" {
+			m.status = "Select a model · " + args
+		}
+	case "resume", "sessions":
 		options, err := m.session.Options()
 		if err != nil {
 			m.conversation.Messages = append(m.conversation.Messages, components.Message{
@@ -271,16 +286,18 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				Content: "No saved conversations for this workspace.",
 			})
 		} else {
-			m.sessionPicker = sessionpicker.New(options, m.session.ID)
+			picker := sessionpicker.New(options, m.session.ID)
+			picker.SetQuery(args)
+			m.sessionPicker = picker
 			m.sessionPickerOpen = true
 			m.status = "Select a conversation"
 		}
-	case "/select":
+	case "select":
 		m.selectMode = true
 		m.status = "Selection mode · drag to copy · Ctrl+Y to return"
 		m.updateTranscript()
 		return m, tea.DisableMouse
-	case "/status":
+	case "status":
 		m.conversation.Messages = append(m.conversation.Messages, components.Message{
 			Role: "assistant",
 			Content: strings.Join([]string{
@@ -290,19 +307,19 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				"Messages: " + fmt.Sprintf("%d", len(m.conversation.Messages)),
 			}, "\n"),
 		})
-	case "/help":
+	case "help":
 		m.conversation.Messages = append(m.conversation.Messages, components.Message{
 			Role: "assistant",
 			Content: strings.Join([]string{
 				"Commands:",
-				"/new      start a new conversation",
-				"/clear    clear the transcript and start new",
-				"/model    choose a model",
-				"/resume   resume a saved conversation",
-				"/select   enter selection mode for copy",
-				"/status   show session details",
-				"/help     show this list",
-				"/quit     exit Axon",
+				"/new               start a new conversation",
+				"/clear             clear the transcript and start new",
+				"/model [query]     choose a model, optionally filtered",
+				"/resume [query]    resume a conversation, optionally filtered",
+				"/select            enter selection mode for copy",
+				"/status            show session details",
+				"/help              show this list",
+				"/quit              exit Axon",
 				"",
 				"Keys: Enter send, Shift+Enter newline, Esc cancel, Ctrl+T thoughts, Ctrl+O tool output, Ctrl+C quit.",
 				"Scroll with the mouse wheel or PgUp/PgDn. Ctrl+Y enters selection mode for native copy; press it again to return.",
@@ -316,6 +333,33 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 	}
 	m.updateTranscript()
 	return m, nil
+}
+
+// splitSlash separates the command from its arguments once. Commands are case
+// insensitive, and trailing arguments keep their original casing because they
+// are search text rather than keywords.
+func splitSlash(prompt string) (string, string) {
+	body := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(prompt), "/"))
+	if body == "" {
+		return "", ""
+	}
+	if index := strings.IndexAny(body, " \t\n"); index >= 0 {
+		return strings.ToLower(body[:index]), strings.TrimSpace(body[index+1:])
+	}
+	return strings.ToLower(body), ""
+}
+
+// filterModels accepts abbreviations across the label, id, and provider so
+// "/model oc beam" narrows quickly without requiring the exact model name.
+// Each field is scored separately so a query cannot match across two fields by
+// accident.
+func filterModels(models []ai.ModelInfo, query string) []ai.ModelInfo {
+	if strings.TrimSpace(query) == "" {
+		return models
+	}
+	return fuzzy.FilterFields(models, query, func(model ai.ModelInfo) []string {
+		return []string{model.Label, model.ID, model.ProviderLabel}
+	})
 }
 
 // runSlashSelection executes the highlighted command. Reset closes the menu

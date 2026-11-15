@@ -6,6 +6,7 @@ package session
 import (
 	"strings"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/fuzzy"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -112,23 +113,26 @@ func (m *Picker) resetSelection() {
 	m.offset = 0
 }
 
-// matches filters on title and model, not source, because the source is already
-// a badge the user can see. Searching "editor" should not hide every terminal
-// conversation just because the literal word is not in the title.
+// SetQuery seeds the search field from a slash command argument, so
+// "/resume opencode" opens the picker already filtered instead of making the
+// user retype the query after the overlay opens.
+func (m *Picker) SetQuery(query string) {
+	m.query = strings.TrimSpace(query)
+	m.resetSelection()
+}
+
+// matches filters on title and model. The fuzzy matcher accepts abbreviations
+// such as "opc" for "opencode/beam-free" while still ranking exact words first.
+// The two fields are scored separately so a query cannot match across a title
+// and model by accident.
 func (m Picker) matches() []Option {
-	query := strings.ToLower(strings.TrimSpace(m.query))
+	query := strings.TrimSpace(m.query)
 	if query == "" {
 		return m.options
 	}
-	matches := make([]Option, 0, len(m.options))
-	for _, option := range m.options {
-		title := strings.ToLower(option.Title)
-		model := strings.ToLower(option.Model)
-		if strings.Contains(title, query) || strings.Contains(model, query) {
-			matches = append(matches, option)
-		}
-	}
-	return matches
+	return fuzzy.FilterFields(m.options, query, func(option Option) []string {
+		return []string{option.Title, option.Model}
+	})
 }
 
 func (m Picker) View(width, height int) string {

@@ -43,3 +43,23 @@ func TestMenuMovesAndWraps(t *testing.T) {
 		t.Fatalf("menu height = %d", menu.Height())
 	}
 }
+
+func TestMenuFuzzyMatchesAbbreviations(t *testing.T) {
+	commands := []Command{
+		{Name: "resume", Description: "Resume a saved conversation"},
+		{Name: "model", Description: "Choose the active model"},
+		{Name: "status", Description: "Show session details"},
+	}
+
+	for query, expected := range map[string]string{
+		"rsm": "resume",
+		"mdl": "model",
+		"sts": "status",
+	} {
+		menu := New(commands, query)
+		command, ok := menu.Selected()
+		if !ok || command.Name != expected {
+			t.Fatalf("query %q selected %#v", query, command)
+		}
+	}
+}

@@ -6,6 +6,7 @@ package slash
 import (
 	"strings"
 
+	"github.com/GordenArcher/axon-core/internal/agentcli/tui/fuzzy"
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/theme"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -15,19 +16,19 @@ type Command struct {
 	Description string
 }
 
+// Menu keeps the filtered command list and the highlighted row. Filtering the
+// catalog here means the composer only has to supply the raw text after the
+// slash, not parse it into a query itself.
 type Menu struct {
 	commands []Command
 	selected int
 }
 
 func New(commands []Command, query string) Menu {
-	query = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(query, "/")))
-	filtered := make([]Command, 0, len(commands))
-	for _, command := range commands {
-		if query == "" || strings.HasPrefix(strings.ToLower(command.Name), query) {
-			filtered = append(filtered, command)
-		}
-	}
+	query = strings.TrimSpace(strings.TrimPrefix(query, "/"))
+	filtered := fuzzy.Filter(commands, query, func(command Command) string {
+		return command.Name
+	})
 	return Menu{commands: filtered}
 }
 
