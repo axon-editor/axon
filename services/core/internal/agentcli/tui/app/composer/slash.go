@@ -8,12 +8,12 @@ import slashmenu "github.com/GordenArcher/axon-core/internal/agentcli/tui/compon
 // The catalog lives beside the composer because filtering depends on the text
 // the user is typing, not on the command handlers themselves.
 var slashCommands = []slashmenu.Command{
-	{Name: "new", Description: "Start a new conversation"},
-	{Name: "model", Description: "Choose the active model"},
-	{Name: "resume", Description: "Resume a saved conversation"},
-	{Name: "select", Description: "Enter selection mode for copy"},
-	{Name: "status", Description: "Show session details"},
+	{Name: "new", Description: "Start a new conversation", Aliases: []string{"reset"}},
+	{Name: "model", Description: "Choose the active model", Aliases: []string{"choose"}},
+	{Name: "resume", Description: "Resume a saved conversation", Aliases: []string{"sessions", "continue"}},
+	{Name: "select", Description: "Enter selection mode for copy", Aliases: []string{"copy"}},
+	{Name: "status", Description: "Show session details", Aliases: []string{"info"}},
 	{Name: "clear", Description: "Clear the transcript and start new"},
-	{Name: "help", Description: "Show commands and keys"},
-	{Name: "quit", Description: "Exit Axon"},
+	{Name: "help", Description: "Show commands and keys", Aliases: []string{"?"}},
+	{Name: "quit", Description: "Exit Axon", Aliases: []string{"exit"}},
 }

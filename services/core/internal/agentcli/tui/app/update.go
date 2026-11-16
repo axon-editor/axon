@@ -241,7 +241,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 	switch command {
 	case "quit", "exit":
 		return m, tea.Quit
-	case "clear", "new":
+	case "clear", "new", "reset":
 		m.conversation.Messages = nil
 		m.session.Reset()
 		m.session.Model = m.modelID
@@ -251,7 +251,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 		m.conversation.ThoughtOpen = false
 		m.decisions = nil
 		m.status = "Ready"
-	case "model":
+	case "model", "choose":
 		if len(m.models) == 0 {
 			m.conversation.Messages = append(m.conversation.Messages, components.Message{
 				Role:    "assistant",
@@ -267,13 +267,19 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 			})
 			break
 		}
+		if exact, ok := exactModel(m.models, args); ok {
+			m.assignModel(exact.ID)
+			m.status = "Model: " + exact.Label
+			m.updateTranscript()
+			return m, nil
+		}
 		m.picker = modelpicker.New(catalog, m.modelID)
 		m.pickerOpen = true
 		m.status = "Select a model"
 		if args != "" {
 			m.status = "Select a model · " + args
 		}
-	case "resume", "sessions":
+	case "resume", "sessions", "continue":
 		options, err := m.session.Options()
 		if err != nil {
 			m.conversation.Messages = append(m.conversation.Messages, components.Message{
@@ -292,12 +298,12 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 			m.sessionPickerOpen = true
 			m.status = "Select a conversation"
 		}
-	case "select":
+	case "select", "copy":
 		m.selectMode = true
 		m.status = "Selection mode · drag to copy · Ctrl+Y to return"
 		m.updateTranscript()
 		return m, tea.DisableMouse
-	case "status":
+	case "status", "info":
 		m.conversation.Messages = append(m.conversation.Messages, components.Message{
 			Role: "assistant",
 			Content: strings.Join([]string{
@@ -307,7 +313,7 @@ func (m Model) handleSlash(prompt string) (tea.Model, tea.Cmd) {
 				"Messages: " + fmt.Sprintf("%d", len(m.conversation.Messages)),
 			}, "\n"),
 		})
-	case "help":
+	case "help", "?":
 		m.conversation.Messages = append(m.conversation.Messages, components.Message{
 			Role: "assistant",
 			Content: strings.Join([]string{
@@ -360,6 +366,36 @@ func filterModels(models []ai.ModelInfo, query string) []ai.ModelInfo {
 	return fuzzy.FilterFields(models, query, func(model ai.ModelInfo) []string {
 		return []string{model.Label, model.ID, model.ProviderLabel}
 	})
+}
+
+// exactModel lets "/model opencode/beam-free" switch in one step. Fuzzy
+// filtering still opens the picker because a near match is not safe to apply
+// without letting the user confirm.
+func exactModel(models []ai.ModelInfo, query string) (ai.ModelInfo, bool) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return ai.ModelInfo{}, false
+	}
+	for _, model := range models {
+		if strings.EqualFold(model.ID, query) {
+			return model, true
+		}
+	}
+	return ai.ModelInfo{}, false
+}
+
+// assignModel is shared by the picker and an exact slash argument. Switching
+// backends clears the provider session id because that id is meaningless to the
+// backend that did not create it.
+func (m *Model) assignModel(id string) {
+	backend, _, _ := resolveModelRoute(m.models, id)
+	if backend != m.session.Backend {
+		m.session.BackendSessionID = ""
+		m.session.Backend = backend
+	}
+	m.modelID = id
+	m.session.Model = id
+	_ = configstore.Save(configstore.Config{SelectedModel: id})
 }
 
 // runSlashSelection executes the highlighted command. Reset closes the menu
@@ -445,18 +481,7 @@ func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.status = "Model is not installed"
 				return m, nil
 			}
-			backend, _, _ := resolveModelRoute(m.models, id)
-			// A provider session id only means something to the backend that
-			// issued it. Switching away from OpenCode clears it so the next
-			// turn starts a fresh provider session with the CLI transcript
-			// instead of trying to resume an id the new backend never saw.
-			if backend != m.session.Backend {
-				m.session.BackendSessionID = ""
-				m.session.Backend = backend
-			}
-			m.modelID = id
-			m.session.Model = id
-			_ = configstore.Save(configstore.Config{SelectedModel: id})
+			m.assignModel(id)
 		}
 		m.status = "Ready"
 		m.pickerOpen = false

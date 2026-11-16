@@ -105,6 +105,34 @@ func TestSlashStatusAndNewSession(t *testing.T) {
 	}
 }
 
+func TestSlashModelSelectsExactIDImmediately(t *testing.T) {
+	catalog := []ai.ModelInfo{
+		{ID: "axon-code", Label: "Axon Code", ProviderLabel: "Axon models", Available: true},
+		{
+			ID:            "opencode/beam-free",
+			Label:         "Beam Free",
+			ProviderLabel: "OpenCode",
+			Backend:       "opencode",
+			ProviderID:    "opencode",
+			ModelID:       "beam-free",
+			Available:     true,
+		},
+	}
+	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil)
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	model = updated.(app.Model)
+	model = typeText(model, "/model opencode/beam-free")
+	model, _ = press(model, tea.KeyEnter)
+
+	view := ansi.Strip(model.View())
+	if !strings.Contains(view, "Model: Beam Free") {
+		t.Fatalf("exact model id did not select immediately:\n%s", view)
+	}
+	if strings.Contains(view, "Models\n") {
+		t.Fatalf("exact model id still opened the picker:\n%s", view)
+	}
+}
+
 func TestSlashModelFiltersCatalog(t *testing.T) {
 	catalog := []ai.ModelInfo{
 		{ID: "axon-code", Label: "Axon Code", ProviderLabel: "Axon models", Available: true},

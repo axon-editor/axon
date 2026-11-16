@@ -63,3 +63,31 @@ func TestMenuFuzzyMatchesAbbreviations(t *testing.T) {
 		}
 	}
 }
+
+func TestMenuMatchesAliasesAndDescriptions(t *testing.T) {
+	commands := []Command{
+		{Name: "select", Description: "Enter selection mode for copy", Aliases: []string{"copy"}},
+		{Name: "status", Description: "Show session details", Aliases: []string{"info"}},
+	}
+
+	alias := New(commands, "copy")
+	if command, ok := alias.Selected(); !ok || command.Name != "select" {
+		t.Fatalf("alias selected %#v", command)
+	}
+
+	description := New(commands, "details")
+	if command, ok := description.Selected(); !ok || command.Name != "status" {
+		t.Fatalf("description selected %#v", command)
+	}
+}
+
+func TestMenuPrefersTheCommandNameOverItsDescription(t *testing.T) {
+	menu := New([]Command{
+		{Name: "model", Description: "Choose the active model"},
+		{Name: "new", Description: "Start a new model conversation"},
+	}, "new")
+	command, ok := menu.Selected()
+	if !ok || command.Name != "new" {
+		t.Fatalf("name match did not win: %#v", command)
+	}
+}

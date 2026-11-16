@@ -4,6 +4,7 @@
 package slash
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/tui/fuzzy"
@@ -11,9 +12,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const descriptionPenalty = 500
+
 type Command struct {
 	Name        string
 	Description string
+	// Aliases are alternate names the menu can match. They do not appear in the
+	// list, so the canonical command stays the one the user learns.
+	Aliases []string
 }
 
 // Menu keeps the filtered command list and the highlighted row. Filtering the
@@ -26,10 +32,58 @@ type Menu struct {
 
 func New(commands []Command, query string) Menu {
 	query = strings.TrimSpace(strings.TrimPrefix(query, "/"))
-	filtered := fuzzy.Filter(commands, query, func(command Command) string {
-		return command.Name
+	if query == "" {
+		return Menu{commands: commands}
+	}
+
+	type candidate struct {
+		command Command
+		score   int
+		index   int
+	}
+	candidates := make([]candidate, 0, len(commands))
+	for index, command := range commands {
+		score, ok := commandScore(command, query)
+		if !ok {
+			continue
+		}
+		candidates = append(candidates, candidate{
+			command: command,
+			score:   score,
+			index:   index,
+		})
+	}
+	sort.SliceStable(candidates, func(left, right int) bool {
+		if candidates[left].score != candidates[right].score {
+			return candidates[left].score > candidates[right].score
+		}
+		return candidates[left].index < candidates[right].index
 	})
+
+	filtered := make([]Command, 0, len(candidates))
+	for _, result := range candidates {
+		filtered = append(filtered, result.command)
+	}
 	return Menu{commands: filtered}
+}
+
+// commandScore prefers a name or alias hit over a description hit. Without the
+// penalty a query like "new" could rank a description containing the word
+// above the command actually named new.
+func commandScore(command Command, query string) (int, bool) {
+	best := -1
+	for _, field := range append([]string{command.Name}, command.Aliases...) {
+		if score, ok := fuzzy.Score(query, field); ok && score > best {
+			best = score
+		}
+	}
+	if best >= 0 {
+		return best, true
+	}
+	if score, ok := fuzzy.Score(query, command.Description); ok {
+		return score - descriptionPenalty, true
+	}
+	return 0, false
 }
 
 func (m *Menu) Move(delta int) {
