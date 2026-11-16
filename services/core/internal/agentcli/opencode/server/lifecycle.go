@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -134,6 +135,18 @@ func Ensure(ctx context.Context, folder string) (*Handle, error) {
 	}
 }
 
+// databasePath keeps provider sessions inside Axon's state instead of the
+// user's personal OpenCode database. Config and credentials stay shared, so
+// account models still work, but sessions created here never appear in the
+// OpenCode TUI.
+func databasePath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".axon", "opencode", "sessions.db"), nil
+}
+
 // start owns the child lifecycle. The permission config is intentionally not
 // configurable: the CLI's approval bridge only knows how to answer the tool
 // classes the managed config asks about, so auto-approving anything else would
@@ -141,6 +154,13 @@ func Ensure(ctx context.Context, folder string) (*Handle, error) {
 func start(folder string) (*Handle, error) {
 	binary, err := Detect()
 	if err != nil {
+		return nil, err
+	}
+	database, err := databasePath()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(database), 0o755); err != nil {
 		return nil, err
 	}
 	port, err := freePort()
@@ -158,6 +178,7 @@ func start(folder string) (*Handle, error) {
 	command.Env = append(os.Environ(),
 		"OPENCODE_SERVER_PASSWORD="+password,
 		"OPENCODE_CONFIG_CONTENT="+managedConfig,
+		"OPENCODE_DB="+database,
 	)
 	stdout, err := command.StdoutPipe()
 	if err != nil {

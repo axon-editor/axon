@@ -5,7 +5,10 @@
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import fs from "node:fs/promises";
 import net from "node:net";
+import os from "node:os";
+import path from "node:path";
 import { terminateChildProcess } from "../../../../core/process/process";
 import { getDeveloperToolSpawnEnvironment } from "../../../../process/environment";
 import { detectOpenCodeBinary } from "../binary/detect";
@@ -45,6 +48,19 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Axon's provider sessions live in Axon's state, not the user's personal
+// OpenCode database. Config and credentials stay shared, so authenticated
+// models still work, but the sessions this server creates never appear in the
+// OpenCode TUI.
+function axonOpenCodeDatabasePath(env: NodeJS.ProcessEnv) {
+  return path.join(
+    env.HOME ?? os.homedir(),
+    ".axon",
+    "opencode",
+    "sessions.db",
+  );
+}
+
 function findFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -80,6 +96,8 @@ async function startServer(
   const password = randomBytes(24).toString("hex");
   const baseUrl = `http://127.0.0.1:${port}`;
   const env = await getDeveloperToolSpawnEnvironment();
+  const databasePath = axonOpenCodeDatabasePath(env);
+  await fs.mkdir(path.dirname(databasePath), { recursive: true });
   const child = spawn(
     binaryPath,
     ["serve", "--hostname", "127.0.0.1", "--port", String(port)],
@@ -89,6 +107,7 @@ async function startServer(
         ...env,
         OPENCODE_SERVER_PASSWORD: password,
         OPENCODE_CONFIG_CONTENT: MANAGED_PERMISSION_CONFIG,
+        OPENCODE_DB: databasePath,
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
