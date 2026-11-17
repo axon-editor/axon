@@ -9,12 +9,15 @@ export function detectMonacoLanguage(path: string): string {
   const fileName = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
   const extension = path.split(".").pop()?.toLowerCase();
 
-  if (
-    fileName === ".env" ||
-    fileName === ".envrc" ||
-    fileName.startsWith(".env.")
-  ) {
+  if (fileName === ".envrc") {
+    // direnv files are real shell scripts, unlike dotenv value files.
     return "shell";
+  }
+  if (fileName === ".env" || fileName.startsWith(".env.")) {
+    // Dotenv files are not shell scripts. Routing them through the Bash grammar
+    // gave every key shell-variable coloring and every value a string token per
+    // character, which also made characters after dots look like properties.
+    return "dotenv";
   }
   if (fileName === "dockerfile" || fileName.startsWith("dockerfile.")) {
     return "dockerfile";
@@ -141,6 +144,7 @@ export function detectMonacoLanguage(path: string): string {
     bash: "shell",
     zsh: "shell",
     fish: "shell",
+    env: "dotenv",
   };
   return languagesByExtension[extension ?? ""] ?? "plaintext";
 }

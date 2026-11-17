@@ -37,6 +37,21 @@ describe("structured language detection", () => {
     expect(detectLanguageServerLanguage(filePath)).toBe("proto");
   });
 
+  it.each([".env", ".env.example", ".env.local", "production.env"])(
+    "maps %s to dotenv instead of shell",
+    (fileName) => {
+      const filePath = `/workspace/${fileName}`;
+      expect(detectMonacoLanguage(filePath)).toBe("dotenv");
+      expect(detectLanguageServerLanguage(filePath)).toBe("dotenv");
+    },
+  );
+
+  it("keeps .envrc as shell because direnv files are scripts", () => {
+    const filePath = "/workspace/.envrc";
+    expect(detectMonacoLanguage(filePath)).toBe("shell");
+    expect(detectLanguageServerLanguage(filePath)).toBe("shell");
+  });
+
   it("highlights MDX as markdown while routing it to the MDX language server", () => {
     const filePath = "/workspace/guide.mdx";
     expect(detectMonacoLanguage(filePath)).toBe("markdown");

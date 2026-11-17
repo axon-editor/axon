@@ -90,6 +90,32 @@ describe("resolveTextMateCaptureCandidates", () => {
     ).toEqual(["property", "variable.member"]);
   });
 
+  it("promotes member access on variables but not on value tokens", () => {
+    expect(
+      resolveTextMateCaptureCandidates({
+        scopeNames: ["source.ts", "variable.other.readwrite.ts"],
+        tokenType: "variable",
+        languageId: "typescript",
+        lineContent: "service.fetch",
+        identifier: "fetch",
+        startColumnZeroBased: 8,
+      })[0],
+    ).toBe("property");
+
+    // Shell and dotenv grammars emit string tokens per character, so a dot
+    // before a value character used to turn that one letter into a property.
+    expect(
+      resolveTextMateCaptureCandidates({
+        scopeNames: ["source.shell", "string.unquoted.shell"],
+        tokenType: "string",
+        languageId: "shell",
+        lineContent: "ALLOWED_HOSTS=school.example.com",
+        identifier: "e",
+        startColumnZeroBased: 21,
+      }),
+    ).not.toContain("property");
+  });
+
   it("keeps grammar punctuation separate from operators", () => {
     expect(
       resolveTextMateCaptureCandidates({
@@ -416,5 +442,38 @@ describe("createTextMateSemanticTokens", () => {
     expect(tokensByText("foo")[0]?.captureCandidates[0]).toBe("selector");
     expect(tokensByText("hover")[0]?.captureCandidates[0]).toBe("selector.pseudo");
     expect(tokensByText("bar")[0]?.captureCandidates[0]).toBe("selector");
+  });
+
+  it("classifies dotenv keys, values, scalars, and comments", async () => {
+    const content = [
+      "# database",
+      "DB_HOST=school.example.com",
+      "DB_PORT=5432",
+      "DEBUG=False",
+      'QUOTED="hello world"',
+      "export API_URL=https://app.example.com",
+    ].join("\n");
+    const dotenv = await createTextMateSemanticTokens({
+      languageId: "dotenv",
+      content,
+    });
+    const lines = content.split("\n");
+    const tokensByText = (text: string) =>
+      dotenv?.tokens.filter(
+        (token) =>
+          lines[token.line]?.slice(
+            token.character,
+            token.character + token.length,
+          ) === text,
+      ) ?? [];
+
+    expect(tokensByText("DB_HOST")[0]?.tokenType).toBe("property");
+    expect(tokensByText("school.example.com")[0]?.tokenType).toBe("string");
+    expect(tokensByText("5432")[0]?.tokenType).toBe("number");
+    expect(tokensByText("False")[0]?.tokenType).toBe("boolean");
+    expect(tokensByText("# database")[0]?.tokenType).toBe("comment");
+    expect(tokensByText("export")[0]?.tokenType).toBe("keyword");
+    expect(tokensByText("API_URL")[0]?.tokenType).toBe("property");
+    expect(tokensByText("https://app.example.com")[0]?.tokenType).toBe("string");
   });
 });
