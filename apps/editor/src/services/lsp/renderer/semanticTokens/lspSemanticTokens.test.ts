@@ -161,4 +161,36 @@ describe("semantic token layer merging", () => {
       captureCandidates: ["concept.documentation", "concept:rust", "concept"],
     });
   });
+
+  it("clips an LSP token around grammar tokens instead of dropping it", () => {
+    const lsp = createTokens(
+      [{ line: 0, character: 0, length: 7, type: "function" }],
+      "lsp",
+    );
+    const textMate = createTokens(
+      [
+        { line: 0, character: 0, length: 3, type: "variable" },
+        { line: 0, character: 3, length: 1, type: "punctuation" },
+        { line: 0, character: 4, length: 3, type: "variable" },
+      ],
+      "textmate",
+    );
+
+    const merged = mergeHighlightTokenLayers({ lsp, textMate });
+
+    // The two variable tokens lose to the LSP function, the punctuation token
+    // ties and stays. The function keeps its color on both sides of the
+    // punctuation instead of vanishing from the whole range.
+    expect(
+      merged?.tokens.map((token) => ({
+        source: token.source,
+        character: token.character,
+        length: token.length,
+      })),
+    ).toEqual([
+      { source: "lsp", character: 0, length: 3 },
+      { source: "textmate", character: 3, length: 1 },
+      { source: "lsp", character: 4, length: 3 },
+    ]);
+  });
 });

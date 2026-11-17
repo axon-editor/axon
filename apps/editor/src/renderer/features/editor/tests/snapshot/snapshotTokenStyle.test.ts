@@ -60,4 +60,16 @@ describe("resolveSnapshotTokenStyle", () => {
       fontWeight: "400",
     });
   });
+
+  it("carries authored font weight into the snapshot style", () => {
+    const resolveSnapshotTokenStyle = createSnapshotTokenStyleResolver(
+      themeTokens,
+      {
+        keyword: { color: "#ff55aa", fontWeight: 700 },
+        "emphasis.strong": { color: "#55aaff", fontWeight: "bold" },
+      },
+    );
+    expect(resolveSnapshotTokenStyle("keyword.ts").fontWeight).toBe("700");
+    expect(resolveSnapshotTokenStyle("markup.bold").fontWeight).toBe("700");
+  });
 });

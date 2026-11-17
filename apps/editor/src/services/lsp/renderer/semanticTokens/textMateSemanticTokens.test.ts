@@ -336,4 +336,85 @@ describe("createTextMateSemanticTokens", () => {
       tokensByText("Header").map((token) => token.captureCandidates[0]),
     ).toEqual(["type:go", "type:go"]);
   });
+
+  it("keeps Go receivers and fields out of the package namespace", async () => {
+    const content = [
+      "package main",
+      'import "net/http"',
+      "func (h *Handler) Get() {",
+      "  _ = h.applicationService.GetByID",
+      "  _ = http.StatusOK",
+      "}",
+    ].join("\n");
+    const go = await createTextMateSemanticTokens({ languageId: "go", content });
+    const lines = content.split("\n");
+    const tokensByText = (text: string) =>
+      go?.tokens.filter(
+        (token) =>
+          lines[token.line]?.slice(
+            token.character,
+            token.character + token.length,
+          ) === text,
+      ) ?? [];
+
+    // Only the imported package gets namespace identity. Receivers and fields
+    // are local values and must keep their variable/property color.
+    expect(
+      tokensByText("h").every(
+        (token) => !token.captureCandidates.includes("namespace"),
+      ),
+    ).toBe(true);
+    expect(tokensByText("applicationService")[0]?.captureCandidates[0]).toBe(
+      "property",
+    );
+    expect(tokensByText("http")[0]?.captureCandidates[0]).toBe("namespace");
+  });
+
+  it("keeps TypeScript class, interface, and constructor identity", async () => {
+    const content = [
+      "interface Shape { area(): number }",
+      "class Circle implements Shape {",
+      "  area() { return 1 }",
+      "}",
+      "const c = new Circle();",
+    ].join("\n");
+    const typescript = await createTextMateSemanticTokens({
+      languageId: "typescript",
+      content,
+    });
+    const lines = content.split("\n");
+    const tokensByText = (text: string) =>
+      typescript?.tokens.filter(
+        (token) =>
+          lines[token.line]?.slice(
+            token.character,
+            token.character + token.length,
+          ) === text,
+      ) ?? [];
+
+    expect(tokensByText("Circle")[0]?.tokenType).toBe("class");
+    expect(tokensByText("Shape")[0]?.tokenType).toBe("interface");
+    expect(tokensByText("Circle")[1]?.captureCandidates[0]).toBe("constructor");
+  });
+
+  it("classifies stylesheet properties and selectors", async () => {
+    const content = [".foo:hover {", "  color: red;", "}", "#bar { margin: 0 }"].join(
+      "\n",
+    );
+    const css = await createTextMateSemanticTokens({ languageId: "css", content });
+    const lines = content.split("\n");
+    const tokensByText = (text: string) =>
+      css?.tokens.filter(
+        (token) =>
+          lines[token.line]?.slice(
+            token.character,
+            token.character + token.length,
+          ) === text,
+      ) ?? [];
+
+    expect(tokensByText("color")[0]?.tokenType).toBe("property");
+    expect(tokensByText("foo")[0]?.captureCandidates[0]).toBe("selector");
+    expect(tokensByText("hover")[0]?.captureCandidates[0]).toBe("selector.pseudo");
+    expect(tokensByText("bar")[0]?.captureCandidates[0]).toBe("selector");
+  });
 });

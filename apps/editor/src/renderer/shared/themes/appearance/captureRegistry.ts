@@ -532,8 +532,20 @@ export function resolveCaptureStyle(
   captureName: string,
   styles: ReadonlyMap<string, SyntaxStyle>,
 ) {
+  // Language-qualified captures such as `variable.parameter:typescript` are a
+  // real capture name plus a language tag, not an extra `typescript` segment.
+  // Building the hierarchy from the full string cut the last real segment off,
+  // so `variable.parameter:typescript` resolved to `variable` and every
+  // language tag shadowed its own capture. The tag still gets an exact lookup
+  // after the hierarchy so a theme can author a language-specific override.
+  const languageSeparator = captureName.lastIndexOf(":");
+  const unqualifiedName =
+    languageSeparator > 0
+      ? captureName.slice(0, languageSeparator)
+      : captureName;
+
   const hierarchy: string[] = [];
-  let current = captureName;
+  let current = unqualifiedName;
   while (current) {
     hierarchy.unshift(current);
     const dotIndex = current.lastIndexOf(".");
@@ -548,6 +560,14 @@ export function resolveCaptureStyle(
     if (!style) continue;
     resolved = { ...resolved, ...style };
     matchedCapture = candidate;
+  }
+
+  // Applying the exact name last keeps parent values as the base while a
+  // language-tagged capture can still override any property it authors.
+  const exactStyle = styles.get(captureName);
+  if (exactStyle) {
+    resolved = { ...resolved, ...exactStyle };
+    matchedCapture = captureName;
   }
 
   return matchedCapture ? { capture: matchedCapture, style: resolved } : null;

@@ -140,13 +140,26 @@ export function resolveHighlightCapture(
   styles: ReadonlyMap<string, SyntaxStyle>,
 ) {
   let primaryFallback: ReturnType<typeof resolveCaptureStyle> = null;
+  let inheritedFallback: ReturnType<typeof resolveCaptureStyle> = null;
   for (const candidate of token.captureCandidates) {
     const resolved = resolveCaptureStyle(candidate, styles);
     if (!resolved) continue;
-    if (resolved.capture !== "primary") return resolved;
-    primaryFallback ??= resolved;
+    if (resolved.capture === "primary") {
+      primaryFallback ??= resolved;
+      continue;
+    }
+    // A candidate the style map actually names is a stronger claim than one
+    // that only resolves through a parent. Without this pass, `tag.attribute`
+    // inherited the `tag` color and stopped the loop before the authored
+    // `attribute` capture was ever consulted, so HTML attributes always looked
+    // like tags even though AXON_CAPTURE_ALIASES routes them to `attribute`.
+    if (resolved.capture === candidate) return resolved;
+    inheritedFallback ??= resolved;
   }
-  return primaryFallback;
+
+  // Captures the theme never names directly keep the documented inheritance
+  // behavior, so a method call still falls back to its parent `function`.
+  return inheritedFallback ?? primaryFallback;
 }
 
 export async function createSemanticTokenDecorations(

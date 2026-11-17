@@ -300,6 +300,75 @@ function strongestOverlappingTokenPriority(
   return { nextStartIndex: candidateIndex, strongestPriority };
 }
 
+function overlappingTokenRanges(
+  target: HighlightToken,
+  tokens: HighlightToken[],
+  startIndex: number,
+) {
+  let candidateIndex = startIndex;
+  while (candidateIndex < tokens.length) {
+    const candidate = tokens[candidateIndex];
+    const endsBeforeTarget =
+      candidate.line < target.line ||
+      (candidate.line === target.line &&
+        candidate.character + candidate.length <= target.character);
+    if (!endsBeforeTarget) break;
+    candidateIndex += 1;
+  }
+
+  const ranges: Array<{ start: number; end: number }> = [];
+  for (
+    let overlapIndex = candidateIndex;
+    overlapIndex < tokens.length;
+    overlapIndex += 1
+  ) {
+    const candidate = tokens[overlapIndex];
+    if (candidate.line > target.line) break;
+    if (
+      candidate.line === target.line &&
+      candidate.character >= target.character + target.length
+    ) {
+      break;
+    }
+    if (!tokensOverlap(candidate, target)) continue;
+    ranges.push({
+      start: candidate.character,
+      end: candidate.character + candidate.length,
+    });
+  }
+  return { nextStartIndex: candidateIndex, ranges };
+}
+
+function clipTokenAroundRanges(
+  token: HighlightToken,
+  ranges: Array<{ start: number; end: number }>,
+) {
+  if (ranges.length === 0) return [token];
+
+  const clipped: HighlightToken[] = [];
+  let cursor = token.character;
+  const tokenEnd = token.character + token.length;
+  for (const range of ranges) {
+    const rangeStart = Math.max(cursor, range.start);
+    if (rangeStart > cursor) {
+      clipped.push({
+        ...token,
+        character: cursor,
+        length: rangeStart - cursor,
+      });
+    }
+    cursor = Math.max(cursor, range.end);
+  }
+  if (cursor < tokenEnd) {
+    clipped.push({
+      ...token,
+      character: cursor,
+      length: tokenEnd - cursor,
+    });
+  }
+  return clipped;
+}
+
 function compareTokenPosition(left: HighlightToken, right: HighlightToken) {
   if (left.line !== right.line) return left.line - right.line;
   if (left.character !== right.character) {
@@ -358,15 +427,19 @@ export function mergeHighlightTokenLayers(input: {
   });
 
   let textMateStartIndex = 0;
-  const selectedLspTokens = lspTokens.filter((lspToken) => {
-    const overlap = strongestOverlappingTokenPriority(
-      selectedTextMateTokens,
+  const selectedLspTokens: HighlightToken[] = [];
+  for (const lspToken of lspTokens) {
+    const overlap = overlappingTokenRanges(
       lspToken,
+      selectedTextMateTokens,
       textMateStartIndex,
     );
     textMateStartIndex = overlap.nextStartIndex;
-    return overlap.strongestPriority < 0;
-  });
+    // Dropping the whole LSP token when one grammar token overlaps part of it
+    // removed semantic color from every other character in the range. Clipping
+    // keeps the LSP identity on the ranges the grammar does not own.
+    selectedLspTokens.push(...clipTokenAroundRanges(lspToken, overlap.ranges));
+  }
   const tokens = mergeOrderedTokens(selectedLspTokens, selectedTextMateTokens);
   return tokens.length > 0
     ? { tokens, resultId: input.resultId ?? input.lsp?.resultId }

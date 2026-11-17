@@ -56,12 +56,22 @@ function roundedRect(
 }
 
 function parseRgb(color: string) {
-  const hex = color.match(/^#([0-9a-f]{6})$/i)?.[1];
+  // Theme colors are commonly 8-digit hex with an alpha channel. The old
+  // six-digit-only match fell through to a digit-run scan that either failed or
+  // read random chunks of the hex string as RGB, so the contrast guard could
+  // replace a readable syntax color with the plain foreground.
+  const hex = color
+    .trim()
+    .match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i)?.[1];
   if (hex) {
+    const channels =
+      hex.length <= 4
+        ? Array.from(hex, (channel) => `${channel}${channel}`).join("")
+        : hex;
     return [
-      Number.parseInt(hex.slice(0, 2), 16),
-      Number.parseInt(hex.slice(2, 4), 16),
-      Number.parseInt(hex.slice(4, 6), 16),
+      Number.parseInt(channels.slice(0, 2), 16),
+      Number.parseInt(channels.slice(2, 4), 16),
+      Number.parseInt(channels.slice(4, 6), 16),
     ];
   }
   const channels = color

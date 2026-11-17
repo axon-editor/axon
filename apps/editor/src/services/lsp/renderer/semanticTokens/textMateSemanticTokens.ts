@@ -140,17 +140,26 @@ function getHighlighterFoundation() {
     import("shiki/engine/oniguruma"),
     import("@shikijs/engine-oniguruma/wasm-inlined"),
     import("shiki/themes/github-dark.mjs"),
-  ]).then(async ([coreModule, onigurumaModule, wasmModule, githubDark]) => {
-    const oniguruma = onigurumaModule as ShikiOnigurumaModule;
-    const wasm = wasmModule as ShikiWasmModule;
-    return {
-      shiki: coreModule as ShikiModule,
-      engine: await oniguruma.createOnigurumaEngine(
-        wasm.default ?? wasm.getWasmInstance,
-      ),
-      theme: githubDark.default,
-    };
-  });
+  ])
+    .then(async ([coreModule, onigurumaModule, wasmModule, githubDark]) => {
+      const oniguruma = onigurumaModule as ShikiOnigurumaModule;
+      const wasm = wasmModule as ShikiWasmModule;
+      return {
+        shiki: coreModule as ShikiModule,
+        engine: await oniguruma.createOnigurumaEngine(
+          wasm.default ?? wasm.getWasmInstance,
+        ),
+        theme: githubDark.default,
+      };
+    })
+    .catch((err) => {
+      // The per-language catch can only retry if the shared foundation can be
+      // rebuilt. Keeping a rejected engine promise cached here made one
+      // transient WASM or dynamic-import failure permanent for the session, so
+      // every later refresh replayed the same rejection instead of recovering.
+      highlighterFoundationPromise = null;
+      throw err;
+    });
   return highlighterFoundationPromise;
 }
 
@@ -207,6 +216,57 @@ function createLineStarts(code: string) {
     if (code[index] === "\n") lineStarts.push(index + 1);
   }
   return lineStarts;
+}
+
+function goImportLocalName(specifier: string) {
+  const segments = specifier.split("/").filter(Boolean);
+  let lastSegment = segments.at(-1) ?? "";
+  // A module path can end in a major-version segment (`example.com/lib/v2`);
+  // the package identifier comes from the segment before it.
+  if (/^v\d+$/.test(lastSegment)) {
+    lastSegment = segments.at(-2) ?? lastSegment;
+  }
+  // Import paths such as `gopkg.in/yaml.v3` keep the version in the last
+  // segment, so the package name stops at the first dot.
+  return lastSegment.split(".")[0] ?? "";
+}
+
+function collectGoPackageNames(content: string) {
+  const packageNames = new Set<string>();
+  let insideImportBlock = false;
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!insideImportBlock && line === "import (") {
+      insideImportBlock = true;
+      continue;
+    }
+    if (insideImportBlock && line === ")") {
+      insideImportBlock = false;
+      continue;
+    }
+
+    const specLine = insideImportBlock
+      ? line
+      : line.startsWith("import ")
+        ? line.slice("import ".length).trim()
+        : "";
+    if (!specLine) continue;
+
+    const match = specLine.match(/^(?:([A-Za-z_.]\w*)\s+)?["`]([^"`]+)["`]/);
+    if (!match) continue;
+    const alias = match[1];
+    const specifier = match[2] ?? "";
+    if (alias === "_" || alias === ".") continue;
+    if (alias) {
+      packageNames.add(alias);
+      continue;
+    }
+    const localName = goImportLocalName(specifier);
+    if (localName) packageNames.add(localName);
+  }
+
+  return packageNames;
 }
 
 function getScopeNames(scopes: Array<{ scopeName: string }>) {
@@ -503,7 +563,18 @@ export function resolveTextMateTokenType(scopeNames: string[]) {
     return "namespace";
   }
   if (hasScope(scopeNames, "entity.name.type.alias")) return "typeAlias";
+  // TypeScript and several other grammars put the declaration kind *after*
+  // `entity.name.type`, so a plain `entity.name.type` check swallowed class,
+  // interface, enum, and struct names into generic type coloring.
+  if (hasScope(scopeNames, "entity.name.type.class")) return "class";
+  if (hasScope(scopeNames, "entity.name.type.interface")) return "interface";
+  if (hasScope(scopeNames, "entity.name.type.enum")) return "enum";
+  if (hasScope(scopeNames, "entity.name.type.struct")) return "struct";
   if (hasScope(scopeNames, "entity.name.type")) return "type";
+  // CSS/SCSS/LESS property names are scoped as `support.type.property-name`.
+  // They are properties, not types; the generic support.type branch below ran
+  // first and painted stylesheet properties as type-colored identifiers.
+  if (hasScope(scopeNames, "support.type.property-name")) return "property";
   if (hasScope(scopeNames, "support.type.primitive")) return "builtinType";
   if (hasScope(scopeNames, "support.type")) return "type";
   if (hasScope(scopeNames, "storage.type")) return "type";
@@ -567,6 +638,7 @@ export function resolveTextMateCaptureCandidates(input: {
   lineContent: string;
   identifier: string;
   startColumnZeroBased: number;
+  packageNames?: ReadonlySet<string>;
 }) {
   const candidates: string[] = [];
   const { scopeNames } = input;
@@ -593,6 +665,31 @@ export function resolveTextMateCaptureCandidates(input: {
       "enum",
       "builtinType",
     ].includes(input.tokenType);
+
+  // `new Foo()` reaches TextMate as a function call because the callee carries
+  // `entity.name.function`. The `new` keyword immediately before the identifier
+  // is the only local signal that separates a constructor from a plain call;
+  // nested calls inside the argument list do not have `new` in front of them.
+  if (
+    /(?:^|[^A-Za-z0-9_$])new\s+$/.test(
+      input.lineContent.slice(0, input.startColumnZeroBased),
+    )
+  ) {
+    candidates.unshift("constructor");
+  }
+
+  // CSS class and id selectors are scoped through `entity.other.attribute-name`,
+  // which the generic branch below turns into an HTML-style attribute. A class
+  // or id is a selector, and a dot before it is selector syntax, not member
+  // access, so this identity must be settled before the member-access branch.
+  if (
+    hasScope(scopeNames, "entity.other.attribute-name.class") ||
+    hasScope(scopeNames, "entity.other.attribute-name.id")
+  ) {
+    candidates.unshift("selector");
+  } else if (hasScope(scopeNames, "entity.other.attribute-name.pseudo")) {
+    candidates.unshift("selector.pseudo");
+  }
 
   if (startsWithScope(scopeNames, "comment.block.documentation")) {
     candidates.push("comment.doc");
@@ -716,13 +813,14 @@ export function resolveTextMateCaptureCandidates(input: {
   if (
     input.languageId === "go" &&
     nextCharacter === "." &&
-    /^[A-Za-z_]\w*$/.test(input.identifier)
+    input.packageNames?.has(input.identifier)
   ) {
-    // Go's TextMate grammar scopes `http` as a type in type expressions and as
-    // a variable in calls, even though both positions are the package side of a
-    // selector. The following dot is the stable boundary, so the qualifier gets
-    // namespace identity while the identifier after the dot keeps its own type,
-    // method, property, or constant capture.
+    // Go's TextMate grammar scopes imported packages and local variables the
+    // same way in selector expressions. The file's import block is the only
+    // reliable signal, so only names actually imported as packages get
+    // namespace identity. Without this check every receiver, parameter, and
+    // field on the left of a dot (`h.applicationService`, `c.Request`) was
+    // painted as a type-colored package.
     candidates.unshift("namespace", "module");
   }
   if (hasScope(scopeNames, "entity.other.attribute-name")) {
@@ -751,6 +849,8 @@ export async function createTextMateSemanticTokens(input: {
 
   const lineStarts = createLineStarts(input.content);
   const lineContents = input.content.split(/\n/);
+  const goPackageNames =
+    input.languageId === "go" ? collectGoPackageNames(input.content) : undefined;
   const highlightTokens: HighlightToken[] = [];
 
   // Shiki's temporary theme exists only to make the grammar return explanation
@@ -849,6 +949,7 @@ export async function createTextMateSemanticTokens(input: {
             lineContent,
             identifier: content.slice(trimmedStart, visibleLength),
             startColumnZeroBased,
+            packageNames: goPackageNames,
           }),
           source: "textmate",
           languageId: input.languageId,

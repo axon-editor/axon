@@ -111,4 +111,98 @@ describe("createLayeredCaptureStyleMap", () => {
       )?.style.color,
     ).toBe("#59c2ffff");
   });
+
+  it("resolves language-qualified captures to their real capture", () => {
+    const styles = createLayeredCaptureStyleMap([
+      createExtensionSyntaxThemeEntries({
+        variable: { color: "#e8e8e8" },
+        "variable.parameter": { color: "#d6b0ff" },
+      }),
+    ]);
+
+    const resolved = resolveCaptureStyle("variable.parameter:typescript", styles);
+    expect(resolved?.capture).toBe("variable.parameter");
+    expect(resolved?.style.color).toBe("#d6b0ff");
+  });
+
+  it("prefers a named capture over a weaker inherited sibling", () => {
+    const styles = createLayeredCaptureStyleMap([
+      createExtensionSyntaxThemeEntries({
+        tag: { color: "#67d8ef" },
+        attribute: { color: "#e8c76a" },
+      }),
+    ]);
+
+    expect(
+      resolveHighlightCapture(
+        {
+          line: 0,
+          character: 0,
+          length: 5,
+          tokenType: "attribute",
+          modifiers: [],
+          // `tag.attribute` inherits `tag`, so without an exact-name pass it
+          // would paint HTML attributes as tags and never reach `attribute`.
+          captureCandidates: ["tag.attribute", "attribute"],
+          source: "textmate",
+          languageId: "html",
+        },
+        styles,
+      )?.style.color,
+    ).toBe("#e8c76a");
+  });
+
+  it("keeps LSP method and parameter captures specific", () => {
+    const styles = createLayeredCaptureStyleMap([
+      createExtensionSyntaxThemeEntries({
+        function: { color: "#e8c76a" },
+        "function.method": { color: "#70d6c6" },
+        variable: { color: "#e8e8e8" },
+        "variable.parameter": { color: "#d6b0ff" },
+      }),
+    ]);
+
+    const baseToken = {
+      line: 0,
+      character: 0,
+      length: 3,
+      modifiers: [],
+      source: "lsp" as const,
+      languageId: "typescript",
+    };
+
+    expect(
+      resolveHighlightCapture(
+        {
+          ...baseToken,
+          tokenType: "method",
+          captureCandidates: [
+            "function.method:typescript",
+            "function.method",
+            "function:typescript",
+            "function",
+          ],
+        },
+        styles,
+      )?.style.color,
+    ).toBe("#70d6c6");
+
+    expect(
+      resolveHighlightCapture(
+        {
+          ...baseToken,
+          tokenType: "parameter",
+          captureCandidates: [
+            "variable.parameter:typescript",
+            "variable.parameter",
+            "parameter:typescript",
+            "parameter",
+            "variable:typescript",
+            "variable",
+          ],
+        },
+        styles,
+      )?.style.color,
+    ).toBe("#d6b0ff");
+  });
 });

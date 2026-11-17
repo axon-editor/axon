@@ -33,6 +33,24 @@ export {
 type MonacoInstance = typeof monaco;
 
 const registeredMonacos = new WeakSet<MonacoInstance>();
+// Tracks which theme ids each Monaco instance received through a full extension
+// registration. The lightweight editor-surface registration cannot reproduce
+// a theme's contributed Monaco colors or token rules, so it must not replace an
+// extension-defined theme with a degraded copy.
+const extensionThemeIds = new WeakMap<MonacoInstance, Set<string>>();
+
+function hasExtensionTheme(monacoInstance: MonacoInstance, themeId: string) {
+  return extensionThemeIds.get(monacoInstance)?.has(themeId) ?? false;
+}
+
+function markExtensionTheme(monacoInstance: MonacoInstance, themeId: string) {
+  let ids = extensionThemeIds.get(monacoInstance);
+  if (!ids) {
+    ids = new Set();
+    extensionThemeIds.set(monacoInstance, ids);
+  }
+  ids.add(themeId);
+}
 
 const gitLineTintHex = Math.round(
   (Number.parseFloat(gitLineTintAlpha) / 100) * 255,
@@ -138,6 +156,13 @@ function defineAllThemes(
   activeSyntax: ResolvedExtensionTheme["syntax"] = {},
 ) {
   if (extensionThemes.length === 0 && activeTokens) {
+    // Editor surfaces register with an empty extension list because they only
+    // need the active theme. Re-defining an id that the app-level registration
+    // already provided replaces it with a version that has no contributed
+    // Monaco colors, which silently resets selection, line highlight, and other
+    // theme-owned editor chrome.
+    if (hasExtensionTheme(monacoInstance, activeThemeId)) return;
+
     const appearance = inferThemeAppearance(activeTokens);
     const themeDefinition: AxonThemeDefinition = {
       id: activeThemeId,
@@ -186,6 +211,7 @@ function defineAllThemes(
         extensionTheme.id,
         buildMonacoTheme(themeDefinition, tokens, extensionTheme),
       );
+      markExtensionTheme(monacoInstance, extensionTheme.id);
     } catch (err) {
       console.error(
         `failed to register extension theme ${extensionTheme.id}:`,

@@ -39,11 +39,22 @@ export function createSnapshotTokenStyleResolver(
       findCapturesForMonacoToken(monacoToken)[0]?.capture ?? "primary";
     const style = resolveCaptureStyle(capture, styles)?.style ?? null;
     const fontStyles = new Set(style?.fontStyle?.split(/\s+/).filter(Boolean));
+    const fontWeight = style?.fontWeight;
 
     return {
       color: style?.color ?? themeTokens["editor.foreground"],
       fontStyle: fontStyles.has("italic") ? "italic" : "normal",
-      fontWeight: fontStyles.has("bold") ? "700" : "400",
+      // Theme captures carry weight in `fontWeight`; `fontStyle` only ever
+      // contains italic/normal. Reading weight from the style string meant every
+      // bold capture exported as 400.
+      fontWeight:
+        typeof fontWeight === "number" && fontWeight >= 1 && fontWeight <= 1_000
+          ? String(fontWeight)
+          : fontWeight === "bold" || fontWeight === "bolder"
+            ? "700"
+            : typeof fontWeight === "string" && /^[1-9]00$/.test(fontWeight)
+              ? fontWeight
+              : "400",
     };
   };
 }
