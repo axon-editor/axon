@@ -12,9 +12,9 @@
 // caused by React re-rendering the entire markdown tree.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import DOMPurify from "dompurify";
 import { parse, type Token, type InlineToken, type FootnoteDefinitionToken } from "../lib/parser";
 import { resolveMarkdownPath } from "../lib/renderer/context";
+import { sanitizeHtml } from "../lib/sanitize/html";
 import {
   isDevServerUrl,
   workspacePathFromDevServerUrl,
@@ -596,12 +596,6 @@ function toggleTask(content: string, line: number, checked: boolean): string {
   );
 
   return lines.join("\n");
-}
-
-function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true },
-  });
 }
 
 // Splits a local reference into its path and #fragment or ?query suffix.

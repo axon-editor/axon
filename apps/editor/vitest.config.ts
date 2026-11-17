@@ -149,6 +149,7 @@ export default defineConfig({
     include: [
       "src/**/*.test.{ts,tsx}",
       "../../extensions/builtin/agent/workbench/**/*.test.{ts,tsx}",
+      "../../extensions/builtin/markdown/workbench/**/*.test.{ts,tsx}",
     ],
     restoreMocks: true,
   },
