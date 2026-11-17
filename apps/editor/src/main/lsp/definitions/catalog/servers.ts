@@ -5,7 +5,7 @@
 
 import fs from "fs";
 import path from "path";
-import { type LanguageServerId } from "../../../shared/editor/language/lsp/lsp";
+import { type LanguageServerId } from "../../../../shared/editor/language/lsp/lsp";
 import { resolveBundledAppFilePath } from "../paths/paths";
 import { PYTHON_WORKSPACE_MARKERS } from "../../discovery/pythonEnvironment";
 
