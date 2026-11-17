@@ -12,6 +12,17 @@ import (
 	"testing"
 )
 
+func TestResolveWorkspacePathRejectsSymlinkEscape(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+	if _, err := resolveWorkspacePath(root, "escape/file.txt"); err == nil {
+		t.Fatal("symlink escape was accepted")
+	}
+}
+
 func TestRunListFilesToolListsRequestedLevelBeforeNestedFiles(t *testing.T) {
 	root := t.TempDir()
 	writeToolTestFile(t, filepath.Join(root, "README.md"), "readme")

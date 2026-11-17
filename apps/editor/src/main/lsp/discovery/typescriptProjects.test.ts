@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createTypeScriptExternalProjectsRequest,
   discoverTypeScriptProjectConfigs,
+  isTypeScriptProjectConfig,
 } from "./typescriptProjects";
 
 const temporaryDirectories: string[] = [];
@@ -93,5 +94,32 @@ describe("TypeScript project discovery", () => {
     const request = await createTypeScriptExternalProjectsRequest([configPath]);
 
     expect(request.arguments[1]).toEqual({ projects: [] });
+  });
+});
+
+describe("isTypeScriptProjectConfig", () => {
+  it("accepts base and segmented config names", () => {
+    for (const name of [
+      "tsconfig.json",
+      "tsconfig.build.json",
+      "tsconfig.app.test.json",
+      "JSCONFIG.JSON",
+      "jsconfig.paths.json",
+    ]) {
+      expect(isTypeScriptProjectConfig(name)).toBe(true);
+    }
+  });
+
+  it("rejects unrelated, empty, and path-like names", () => {
+    for (const name of [
+      "tsconfig",
+      "tsconfig.txt",
+      "tsconfig..json",
+      "foo.tsconfig.json",
+      "tsconfig/foo.json",
+      "tsconfig.foo/bar.json",
+    ]) {
+      expect(isTypeScriptProjectConfig(name)).toBe(false);
+    }
   });
 });

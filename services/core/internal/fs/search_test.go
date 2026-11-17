@@ -13,6 +13,20 @@ import (
 	"testing"
 )
 
+func TestResolveSearchTargetRejectsSymlinkEscape(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("secret"), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+	if _, _, err := resolveSearchTarget(root, "escape/secret.txt"); err == nil {
+		t.Fatal("symlink escape was accepted")
+	}
+}
+
 func TestParseRipgrepMatchBuildsWorkspaceResult(t *testing.T) {
 	root := t.TempDir()
 	rawEvent := []byte(`{"type":"match","data":{"path":{"text":"src/main.go"},"lines":{"text":"  const marker = \"Axon Search\"\n"},"line_number":12,"submatches":[{"start":17,"end":28}]}}`)

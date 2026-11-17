@@ -6,7 +6,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol } from "electron";
 import path from "path";
 import { execFile } from "child_process";
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 import { promisify } from "util";
 import { registerLspHandlers } from "./lsp/handlers/handlers";
 import {
@@ -154,7 +154,7 @@ let startupCliOpenFolderPath: string | null = null;
 // remains deterministic because the dev runner supplies AXON_CORE_PORT.
 const axonCorePort =
   developmentEnvironmentValue("AXON_CORE_PORT") ||
-  String(20_000 + (randomBytes(2).readUInt16BE(0) % 30_000));
+  String(randomInt(20_000, 50_000));
 const axonPtyPort =
   developmentEnvironmentValue("AXON_PTY_PORT") ||
   String(Number(axonCorePort) + 1);

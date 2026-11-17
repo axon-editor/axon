@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	axonfs "github.com/GordenArcher/axon-core/internal/fs"
+	"github.com/GordenArcher/axon-core/internal/safepath"
 )
 
 const (
@@ -783,11 +784,19 @@ func resolveWorkspacePath(root string, requestedPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	relPath, err := filepath.Rel(root, cleanCandidate)
+
+	// Resolve symlinks on both sides before comparing. A link inside the
+	// workspace can otherwise point at any file on the machine while still
+	// carrying the workspace prefix.
+	resolvedRoot, err := safepath.ResolveExisting(root)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("workspace is not available")
 	}
-	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+	resolvedCandidate, err := safepath.ResolveExisting(cleanCandidate)
+	if err != nil {
+		return "", fmt.Errorf("path is not available")
+	}
+	if !safepath.Inside(resolvedRoot, resolvedCandidate) {
 		return "", fmt.Errorf("path must stay inside the workspace")
 	}
 	return cleanCandidate, nil

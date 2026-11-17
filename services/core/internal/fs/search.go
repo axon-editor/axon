@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/GordenArcher/axon-core/internal/safepath"
 )
 
 const (
@@ -160,12 +162,24 @@ func resolveSearchTarget(rootPath string, targetPath string) (string, string, er
 	if err != nil {
 		return "", "", err
 	}
-	relativePath, err := filepath.Rel(root, target)
+
+	// Search targets come from the renderer and the AI tools. Resolve symlinks
+	// before the boundary check so a link inside the workspace cannot point the
+	// walker or ripgrep at a file outside it.
+	resolvedRoot, err := safepath.ResolveExisting(root)
+	if err != nil {
+		return "", "", fmt.Errorf("workspace is not available")
+	}
+	resolvedTarget, err := safepath.ResolveExisting(target)
+	if err != nil {
+		return "", "", fmt.Errorf("search path is not available: %w", err)
+	}
+	if !safepath.Inside(resolvedRoot, resolvedTarget) {
+		return "", "", errors.New("search path must stay inside the workspace")
+	}
+	relativePath, err := filepath.Rel(resolvedRoot, resolvedTarget)
 	if err != nil {
 		return "", "", err
-	}
-	if relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) {
-		return "", "", errors.New("search path must stay inside the workspace")
 	}
 	if _, err := os.Stat(target); err != nil {
 		return "", "", fmt.Errorf("search path is not available: %w", err)

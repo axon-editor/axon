@@ -25,7 +25,15 @@ const IGNORED_PROJECT_DIRECTORIES = new Set([
 ]);
 
 export function isTypeScriptProjectConfig(fileName: string) {
-  return /^(?:tsconfig|jsconfig)(?:\.[^/]+)*\.json$/i.test(fileName);
+  // Parsing the name is linear and avoids the nested quantifier CodeQL flagged
+  // in the old regex. The accepted shape is tsconfig[.<segment>...].json, with
+  // jsconfig as the other base name.
+  if (fileName.includes("/") || fileName.includes("\\")) return false;
+  const lower = fileName.toLowerCase();
+  if (!lower.endsWith(".json")) return false;
+  const segments = lower.slice(0, -".json".length).split(".");
+  if (segments[0] !== "tsconfig" && segments[0] !== "jsconfig") return false;
+  return segments.slice(1).every((segment) => segment.length > 0);
 }
 
 function isPathInsideDirectory(filePath: string, directoryPath: string) {
