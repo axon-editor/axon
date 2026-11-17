@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, StopCircle } from "lucide-react";
 import { type AiActionId } from "@axon-editor/shared/ai/ai";
-import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics/diagnostics";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import SlashCommandMenu from "../../../chat/composer/SlashCommandMenu";

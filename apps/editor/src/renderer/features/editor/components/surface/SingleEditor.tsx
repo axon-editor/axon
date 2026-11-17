@@ -20,8 +20,8 @@ import {
   createSemanticTokenDecorations,
   installSemanticTokenDecorationStyles,
   RICH_SEMANTIC_DECORATION_LANGUAGES,
-} from "@axon-editor/services/lsp/renderer/semanticTokens/semanticTokenDecorations";
-import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/semanticTokens/lspSemanticTokens";
+} from "@axon-editor/services/lsp/renderer/semanticTokens/decorations/semanticTokenDecorations";
+import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/semanticTokens/lsp/lspSemanticTokens";
 import EditorBreadcrumbHeader from "../navigation/EditorBreadcrumbHeader";
 import MonacoEditorSurface from "./MonacoEditorSurface";
 import TokenInspectorModal from "../navigation/TokenInspectorModal";

@@ -19,7 +19,7 @@ import {
 } from "./captureRegistry";
 import { ayuSyntaxByThemeId } from "../syntax/ayuSyntax";
 import { createExtensionSyntaxThemeEntries } from "../syntax/syntaxTheme";
-import { resolveHighlightCapture } from "../../../../services/lsp/renderer/semanticTokens/semanticTokenDecorations";
+import { resolveHighlightCapture } from "../../../../services/lsp/renderer/semanticTokens/decorations/semanticTokenDecorations";
 
 describe("createLayeredCaptureStyleMap", () => {
   it("lets an authored parent replace a more specific fallback style", () => {

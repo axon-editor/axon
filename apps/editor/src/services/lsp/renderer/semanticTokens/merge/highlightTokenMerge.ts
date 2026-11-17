@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type LanguageServerSemanticTokensLegend } from "../../../../shared/editor/language/lsp";
+import { type LanguageServerSemanticTokensLegend } from "../../../../../shared/editor/language/lsp/lsp";
 
 export type HighlightTokenSource = "lsp" | "textmate" | "fallback";
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { BrowserWindow, ipcMain } from "electron";
-import type { ManagedLanguageToolId } from "../../../shared/editor/language/languageTools";
+import type { ManagedLanguageToolId } from "../../../shared/editor/language/tools/languageTools";
 import type { ManagedLanguageToolManager } from "./manager";
 
 export function registerManagedLanguageToolHandlers(

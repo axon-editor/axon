@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type LanguageServerStatus } from "../../../../shared/editor/language/lsp";
-import { LANGUAGE_SERVER_DEFINITIONS } from "../../definitions/definitions";
+import { type LanguageServerStatus } from "../../../../shared/editor/language/lsp/lsp";
+import { LANGUAGE_SERVER_DEFINITIONS } from "../../definitions/catalog/servers";
 import {
   activeLanguageServerFailures,
   activeLanguageServers,
@@ -16,7 +16,7 @@ import {
   getPythonLanguageServerSettings,
   resolveLanguageServerCommand,
 } from "../../session/session";
-import { hasWorkspaceMarker } from "../../definitions/workspaceMarkers";
+import { hasWorkspaceMarker } from "../../definitions/markers/workspaceMarkers";
 
 export function getLanguageServerStatus(
   folderPath: string,

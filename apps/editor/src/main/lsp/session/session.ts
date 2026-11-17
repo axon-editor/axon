@@ -11,14 +11,14 @@ import {
   type LanguageServerDocumentSyncRequest,
   type LanguageServerId,
   type LanguageServerSemanticTokensProvider,
-} from "../../../shared/editor/language/lsp";
+} from "../../../shared/editor/language/lsp/lsp";
 import { readSettingsForFolder } from "../../settings/io";
 import { getWorkspaceSettingsPath } from "../../settings/paths";
 import {
   type LanguageServerDefinition,
   type ResolvedLanguageServerCommand,
-} from "../definitions/definitions";
-import { getBundledAppFilePath, resolveBundledAppFilePath } from "../definitions/paths";
+} from "../definitions/catalog/servers";
+import { getBundledAppFilePath, resolveBundledAppFilePath } from "../definitions/paths/paths";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,

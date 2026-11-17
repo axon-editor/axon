@@ -10,7 +10,7 @@ import {
   type AiModelInfo,
 } from "@axon-editor/shared/ai/ai";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
-import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics/diagnostics";
 
 export interface AgentWorkbenchContextInput {
   activeFileContent: string;

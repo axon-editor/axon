@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from "path";
-import { type LanguageServerFormatRequest } from "../../../shared/editor/language/lsp";
+import { type LanguageServerFormatRequest } from "../../../shared/editor/language/lsp/lsp";
 
 function resolvePrettierParser(request: LanguageServerFormatRequest) {
   const extension = path.extname(request.filePath).toLowerCase();

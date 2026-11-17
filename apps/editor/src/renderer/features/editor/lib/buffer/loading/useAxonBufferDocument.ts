@@ -10,7 +10,7 @@ import {
   isPlainDocumentPath,
 } from "@axon-editor/shared/editor/documents/largeDocument";
 import { registerExternalLanguageToolFile } from "@axon-editor/services/lsp/renderer/fileAccess/lspFileAccess";
-import { preloadTextMateLanguage } from "@axon-editor/services/lsp/renderer/semanticTokens/textMateSemanticTokens";
+import { preloadTextMateLanguage } from "@axon-editor/services/lsp/renderer/semanticTokens/textmate/textMateSemanticTokens";
 import { loadAxonBuffer } from "./axonBufferLoader";
 import {
   acquireExistingModel,

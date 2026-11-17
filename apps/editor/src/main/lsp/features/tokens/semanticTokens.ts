@@ -8,7 +8,7 @@ import {
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
   type LanguageServerSemanticTokensRequest,
   type LanguageServerSemanticTokensResult,
-} from "../../../../shared/editor/language/lsp";
+} from "../../../../shared/editor/language/lsp/lsp";
 import { syncLanguageServerDocument } from "../../features";
 import {
   requestLanguageServer,

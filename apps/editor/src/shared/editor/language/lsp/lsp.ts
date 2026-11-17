@@ -49,6 +49,66 @@ export const LANGUAGE_SERVER_IDS = [
 
 export type LanguageServerId = (typeof LANGUAGE_SERVER_IDS)[number];
 
+// The renderer registers Monaco providers only for languages a project server
+// can attach to, and the main process resolves the server id from this same
+// table. Keeping it in shared code is what makes an installed server such as
+// Swift reachable for hover, completion, and navigation instead of only showing
+// up as installed in Language Tools.
+export const LANGUAGE_SERVER_BY_MONACO_LANGUAGE_ID = {
+  c: "cpp",
+  clojure: "clojure",
+  cpp: "cpp",
+  csharp: "csharp",
+  css: "css",
+  dart: "dart",
+  dockerfile: "docker",
+  erlang: "erlang",
+  go: "go",
+  haskell: "haskell",
+  hcl: "terraform",
+  html: "html",
+  astro: "astro",
+  java: "java",
+  javascript: "typescript",
+  javascriptreact: "typescript",
+  json: "json",
+  jsonc: "json",
+  kotlin: "kotlin",
+  latex: "latex",
+  bibtex: "latex",
+  less: "css",
+  lua: "lua",
+  makefile: "makefile",
+  mdx: "mdx",
+  php: "php",
+  powershell: "powershell",
+  proto: "proto",
+  python: "python",
+  r: "r",
+  ruby: "ruby",
+  rust: "rust",
+  scala: "scala",
+  scss: "css",
+  shell: "bash",
+  sql: "sql",
+  swift: "swift",
+  terraform: "terraform",
+  toml: "toml",
+  typescript: "typescript",
+  typescriptreact: "typescript",
+  xml: "xml",
+  yaml: "yaml",
+  zig: "zig",
+  asm: "asm",
+} as const satisfies Record<string, LanguageServerId>;
+
+export type LanguageServerMonacoLanguageId =
+  keyof typeof LANGUAGE_SERVER_BY_MONACO_LANGUAGE_ID;
+
+export const LANGUAGE_SERVER_MONACO_LANGUAGE_IDS = Object.keys(
+  LANGUAGE_SERVER_BY_MONACO_LANGUAGE_ID,
+) as LanguageServerMonacoLanguageId[];
+
 export interface LanguageServerStatus {
   id: LanguageServerId;
   label: string;

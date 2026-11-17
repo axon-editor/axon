@@ -9,7 +9,7 @@ import {
   decodeLanguageServerSemanticTokens,
   mergeHighlightTokenLayers,
   type HighlightToken,
-} from "./highlightTokenMerge";
+} from "../merge/highlightTokenMerge";
 
 interface TestToken {
   line: number;

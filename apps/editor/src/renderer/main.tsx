@@ -22,10 +22,11 @@ import { configureMonacoDiagnostics } from "../services/lsp/renderer/diagnostics
 import { configureInlineAiCompletions } from "../services/ai/renderer/inlineCompletions";
 import { configureLspCompletions } from "../services/lsp/renderer/completions/lspCompletions";
 import { configureLspNavigation } from "../services/lsp/renderer/navigation/lspNavigation";
-import { registerMonacoReactLanguages } from "./features/editor/lib/language/monacoReactLanguages";
-import { registerMonacoStructuredLanguages } from "./features/editor/lib/language/monacoStructuredLanguages";
-import { registerMonacoAdditionalLanguages } from "./features/editor/lib/language/monacoAdditionalLanguages";
-import { preloadTextMateLanguage } from "../services/lsp/renderer/semanticTokens/textMateSemanticTokens";
+import { registerMonacoReactLanguages } from "./features/editor/lib/language/registration/react/monacoReactLanguages";
+import { registerMonacoStructuredLanguages } from "./features/editor/lib/language/registration/structured/monacoStructuredLanguages";
+import { registerMonacoAdditionalLanguages } from "./features/editor/lib/language/registration/additional/monacoAdditionalLanguages";
+import { registerMonacoDotenvLanguage } from "./features/editor/lib/language/registration/dotenv/monacoDotenvLanguage";
+import { preloadTextMateLanguage } from "../services/lsp/renderer/semanticTokens/textmate/textMateSemanticTokens";
 import { getEnabledExtensionThemes } from "../shared/extensions/extensions";
 import {
   markAxonPerformance,
@@ -67,6 +68,7 @@ configureMonacoDiagnostics(monaco);
 registerMonacoReactLanguages(monaco);
 registerMonacoStructuredLanguages(monaco);
 registerMonacoAdditionalLanguages(monaco);
+registerMonacoDotenvLanguage(monaco);
 configureLspCompletions(monaco);
 configureLspNavigation(monaco);
 configureInlineAiCompletions(monaco);

@@ -9,7 +9,7 @@ import {
   aiEditorToolSpec,
   runEditorTool,
 } from "./editorTools";
-import { type EditorDiagnostic } from "../editor/language/diagnostics";
+import { type EditorDiagnostic } from "../editor/language/diagnostics/diagnostics";
 
 function diagnostic(
   overrides: Partial<EditorDiagnostic> & Pick<EditorDiagnostic, "path" | "severity">,

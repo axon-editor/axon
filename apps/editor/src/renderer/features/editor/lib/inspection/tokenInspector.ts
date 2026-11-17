@@ -6,8 +6,8 @@
 import * as monaco from "monaco-editor";
 import { type ThemeTokenMap } from "@axon-editor/renderer/shared/themes";
 import { type ExtensionThemeSyntaxStyle } from "@axon-editor/shared/extensions/extensions";
-import { getSemanticTokensForModel } from "@axon-editor/services/lsp/renderer/semanticTokens/lspSemanticTokens";
-import { getTextMateSemanticTokenStatus } from "@axon-editor/services/lsp/renderer/semanticTokens/textMateSemanticTokens";
+import { getSemanticTokensForModel } from "@axon-editor/services/lsp/renderer/semanticTokens/lsp/lspSemanticTokens";
+import { getTextMateSemanticTokenStatus } from "@axon-editor/services/lsp/renderer/semanticTokens/textmate/textMateSemanticTokens";
 import {
   createDefaultCaptureEntries,
   createLayeredCaptureStyleMap,
@@ -19,7 +19,7 @@ import { createExtensionSyntaxThemeEntries } from "@axon-editor/renderer/shared/
 import {
   resolveHighlightCapture,
   semanticClassName,
-} from "@axon-editor/services/lsp/renderer/semanticTokens/semanticTokenDecorations";
+} from "@axon-editor/services/lsp/renderer/semanticTokens/decorations/semanticTokenDecorations";
 
 export interface TokenInspectorCapture {
   capture: string;

@@ -15,7 +15,7 @@ import {
   type ThemeId,
 } from "@axon-editor/shared/core/settings";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
-import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics/diagnostics";
 import {
   type ExtensionState,
   type ExtensionThemeSyntaxStyle,

@@ -6,13 +6,14 @@
 import path from "path";
 import url from "url";
 import { BrowserWindow } from "electron";
-import { type EditorDiagnostic } from "../../shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "../../shared/editor/language/diagnostics/diagnostics";
 import {
+  LANGUAGE_SERVER_BY_MONACO_LANGUAGE_ID,
   type LanguageServerDocumentSyncRequest,
   type LanguageServerTextEdit,
   type LanguageServerLocation,
-} from "../../shared/editor/language/lsp";
-import { type LanguageServerDefinition } from "./definitions/definitions";
+} from "../../shared/editor/language/lsp/lsp";
+import { type LanguageServerDefinition } from "./definitions/catalog/servers";
 import { getDeveloperToolSpawnEnvironment } from "../process/environment";
 import {
   emitLanguageServerLog,
@@ -347,94 +348,14 @@ export function normalizeWorkspaceEdit(result: unknown) {
 }
 
 export function resolveLanguageServerIdForMonacoLanguage(languageId: string) {
-  const normalizedLanguageId = languageId.toLowerCase();
-  if (
-    normalizedLanguageId === "typescript" ||
-    normalizedLanguageId === "javascript" ||
-    normalizedLanguageId === "typescriptreact" ||
-    normalizedLanguageId === "javascriptreact"
-  ) {
-    return "typescript" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "go")
-    return "go" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "rust")
-    return "rust" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "python")
-    return "python" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "java")
-    return "java" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "csharp") {
-    return "csharp" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "kotlin") {
-    return "kotlin" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "php")
-    return "php" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "lua")
-    return "lua" satisfies LanguageServerDefinition["id"];
-  if (normalizedLanguageId === "cpp" || normalizedLanguageId === "c") {
-    return "cpp" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "dockerfile") {
-    return "docker" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "html") {
-    return "html" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "astro") {
-    return "astro" satisfies LanguageServerDefinition["id"];
-  }
-  if (
-    normalizedLanguageId === "css" ||
-    normalizedLanguageId === "scss" ||
-    normalizedLanguageId === "less"
-  ) {
-    return "css" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "json" || normalizedLanguageId === "jsonc") {
-    return "json" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "yaml") {
-    return "yaml" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "shell") {
-    return "bash" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "proto") {
-    return "proto" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "xml") {
-    return "xml" satisfies LanguageServerDefinition["id"];
-  }
-  if (normalizedLanguageId === "mdx") {
-    return "mdx" satisfies LanguageServerDefinition["id"];
-  }
-
-  const additionalLanguageServers: Partial<
-    Record<string, LanguageServerDefinition["id"]>
-  > = {
-    swift: "swift",
-    ruby: "ruby",
-    dart: "dart",
-    sql: "sql",
-    toml: "toml",
-    zig: "zig",
-    terraform: "terraform",
-    hcl: "terraform",
-    latex: "latex",
-    bibtex: "latex",
-    scala: "scala",
-    clojure: "clojure",
-    haskell: "haskell",
-    erlang: "erlang",
-    r: "r",
-    powershell: "powershell",
-    asm: "asm",
-    makefile: "makefile",
-  };
-  return additionalLanguageServers[normalizedLanguageId] ?? null;
+  return (
+    (
+      LANGUAGE_SERVER_BY_MONACO_LANGUAGE_ID as Record<
+        string,
+        LanguageServerDefinition["id"] | undefined
+      >
+    )[languageId.toLowerCase()] ?? null
+  );
 }
 
 function shouldAttachTailwindLanguageServer(languageId: string) {

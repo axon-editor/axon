@@ -18,7 +18,7 @@ import {
 } from "../shared/core/settings";
 import { type ExtensionState } from "../shared/extensions/extensions";
 import { type AiModelInfo } from "../shared/ai/ai";
-import { type PythonWorkspaceEnvironmentStatus } from "../shared/editor/language/lsp";
+import { type PythonWorkspaceEnvironmentStatus } from "../shared/editor/language/lsp/lsp";
 
 contextBridge.exposeInMainWorld("axon", {
   surface: "settings",

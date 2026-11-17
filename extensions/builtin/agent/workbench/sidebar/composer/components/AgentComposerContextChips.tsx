@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics/diagnostics";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
 import ContextChip from "../../../chat/composer/ContextChip";
 import { type ContextEnabled } from "../model/contextEnabled";

@@ -6,7 +6,7 @@
 import { BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import fs from "fs";
 import path from "path";
-import { type PythonWorkspaceEnvironmentStatus } from "../../shared/editor/language/lsp";
+import { type PythonWorkspaceEnvironmentStatus } from "../../shared/editor/language/lsp/lsp";
 import { type AxonSettings, type CustomFont } from "../../shared/core/settings";
 import { readSettingsForFolder, writeSettingsToDisk } from "./io";
 import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";

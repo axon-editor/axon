@@ -6,7 +6,8 @@
 import * as monaco from "monaco-editor";
 import { isLargeDocumentModel } from "../../../../shared/editor/documents/largeDocument";
 import { detectLanguageServerLanguage } from "../../../../renderer/features/editor/lib/buffer/loading/monacoModels";
-import type { LanguageServerCompletionItem } from "../../../../shared/editor/language/lsp";
+import type { LanguageServerCompletionItem } from "../../../../shared/editor/language/lsp/lsp";
+import { LANGUAGE_SERVER_MONACO_LANGUAGE_IDS } from "../../../../shared/editor/language/lsp/lsp";
 import { canUseWorkspaceLanguageTools } from "../fileAccess/lspFileAccess";
 import {
   dockerfileSnippets,
@@ -14,7 +15,6 @@ import {
   htmlDocumentSnippet,
   identifierTriggerCharacters,
   localSymbolLanguages,
-  lspCompletionLanguages,
   packageExportCompletionLanguages,
   pythonBuiltinSuggestions,
   tailwindUtilityLanguages,
@@ -612,7 +612,7 @@ function applyResolvedLspFields(
 }
 
 function registerExternalLspProvider(monacoInstance: typeof monaco) {
-  for (const languageId of lspCompletionLanguages) {
+  for (const languageId of LANGUAGE_SERVER_MONACO_LANGUAGE_IDS) {
     monacoInstance.languages.registerCompletionItemProvider(languageId, {
       triggerCharacters: [
         ".",

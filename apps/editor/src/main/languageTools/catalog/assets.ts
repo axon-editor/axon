@@ -6,7 +6,7 @@
 import { createHash } from "crypto";
 import fs from "fs/promises";
 import { app, type BrowserWindow } from "electron";
-import type { ManagedLanguageToolProgress } from "../../../shared/editor/language/languageTools";
+import type { ManagedLanguageToolProgress } from "../../../shared/editor/language/tools/languageTools";
 import {
   findManagedLanguageToolAssetName,
   getManagedLanguageToolPlatformKey,

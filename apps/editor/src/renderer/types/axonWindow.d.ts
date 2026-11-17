@@ -76,13 +76,13 @@ import type {
   LanguageServerStartForFileRequest,
   LanguageServerStatus,
   PythonWorkspaceEnvironmentStatus,
-} from "../../shared/editor/language/lsp";
+} from "../../shared/editor/language/lsp/lsp";
 import type {
   ManagedLanguageToolId,
   ManagedLanguageToolInstallResult,
   ManagedLanguageToolProgress,
   ManagedLanguageToolStatus,
-} from "../../shared/editor/language/languageTools";
+} from "../../shared/editor/language/tools/languageTools";
 import type {
   SpotifyActionResult,
   SpotifyAuthResult,

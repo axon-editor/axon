@@ -45,7 +45,7 @@ import {
   type AgentConversationRecord,
   type AgentConversationSnapshot,
 } from "../shared/ai/agentConversations";
-import { type EditorDiagnostic } from "../shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "../shared/editor/language/diagnostics/diagnostics";
 import { type FolderChangeEvent } from "../shared/workspace/fs";
 import {
   type GitActionResult,
@@ -108,13 +108,13 @@ import {
   type LanguageServerStartForFileRequest,
   type LanguageServerStatus,
   type PythonWorkspaceEnvironmentStatus,
-} from "../shared/editor/language/lsp";
+} from "../shared/editor/language/lsp/lsp";
 import {
   type ManagedLanguageToolId,
   type ManagedLanguageToolInstallResult,
   type ManagedLanguageToolProgress,
   type ManagedLanguageToolStatus,
-} from "../shared/editor/language/languageTools";
+} from "../shared/editor/language/tools/languageTools";
 import {
   type UpdateActionResult,
   type UpdateInfo,

@@ -21,7 +21,7 @@ import {
   aiEditorToolSpec,
   runEditorTool,
 } from "../../../shared/ai/editorTools";
-import { type EditorDiagnostic } from "../../../shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "../../../shared/editor/language/diagnostics/diagnostics";
 import { getToolDefinitions, runTool, streamPlanTurn } from "./coreClient";
 import { cancelCoreAiStream, startCoreAiStream } from "../streaming/coreStream";
 import { proposeUiTool, rejectUiToolsForRequest } from "./uiToolBridge";

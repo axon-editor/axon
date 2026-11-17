@@ -50,7 +50,7 @@ import {
   type LanguageServerSignatureHelpRequest,
   type LanguageServerSignatureHelpResult,
   type LanguageServerStartForFileRequest,
-} from "../../../shared/editor/language/lsp";
+} from "../../../shared/editor/language/lsp/lsp";
 
 export function registerLspHandlers(
   workspaceCapabilities: WorkspaceCapabilityRegistry,

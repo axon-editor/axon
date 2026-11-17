@@ -4,14 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as monaco from "monaco-editor";
-import { registerMonacoReactLanguages } from "../../language/monacoReactLanguages";
-import { registerMonacoStructuredLanguages } from "../../language/monacoStructuredLanguages";
-import { registerMonacoAdditionalLanguages } from "../../language/monacoAdditionalLanguages";
-import { detectMonacoLanguage } from "../../language/languageDetection";
+import { registerMonacoReactLanguages } from "../../language/registration/react/monacoReactLanguages";
+import { registerMonacoStructuredLanguages } from "../../language/registration/structured/monacoStructuredLanguages";
+import { registerMonacoAdditionalLanguages } from "../../language/registration/additional/monacoAdditionalLanguages";
+import { registerMonacoDotenvLanguage } from "../../language/registration/dotenv/monacoDotenvLanguage";
+import { detectMonacoLanguage } from "../../language/detection/languageDetection";
 import {
   LARGE_DOCUMENT_LANGUAGE_ID,
   registerMonacoLargeDocumentLanguages,
-} from "../../language/monacoLargeDocumentLanguages";
+} from "../../language/registration/largeDocument/monacoLargeDocumentLanguages";
 import {
   isLargeDocumentContent,
   isLargeDocumentModel,
@@ -26,7 +27,7 @@ import {
 export {
   detectLanguageServerLanguage,
   detectMonacoLanguage,
-} from "../../language/languageDetection";
+} from "../../language/detection/languageDetection";
 
 export interface AxonBufferMetadata {
   external: boolean;
@@ -107,6 +108,7 @@ function registerLanguages() {
   registerMonacoReactLanguages();
   registerMonacoStructuredLanguages();
   registerMonacoAdditionalLanguages();
+  registerMonacoDotenvLanguage();
   registerMonacoLargeDocumentLanguages();
 }
 

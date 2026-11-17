@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectLanguageServerLanguage,
   detectMonacoLanguage,
-} from "../../lib/language/languageDetection";
+} from "../../lib/language/detection/languageDetection";
 
 describe("structured language detection", () => {
   it("keeps .dockerignore out of Dockerfile language tooling", () => {

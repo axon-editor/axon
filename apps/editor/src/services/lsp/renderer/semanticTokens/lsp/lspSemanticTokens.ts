@@ -7,18 +7,18 @@ import type * as monaco from "monaco-editor";
 import {
   addModelDisposeListener,
   detectLanguageServerLanguage,
-} from "../../../../renderer/features/editor/lib/buffer/loading/monacoModels";
-import { createTextMateSemanticTokens } from "./textMateSemanticTokens";
-import { canUseWorkspaceLanguageTools } from "../fileAccess/lspFileAccess";
+} from "../../../../../renderer/features/editor/lib/buffer/loading/monacoModels";
+import { createTextMateSemanticTokens } from "../textmate/textMateSemanticTokens";
+import { canUseWorkspaceLanguageTools } from "../../fileAccess/lspFileAccess";
 import {
   decodeLanguageServerSemanticTokens,
   mergeHighlightTokenLayers,
   type HighlightTokenSet,
-} from "./highlightTokenMerge";
+} from "../merge/highlightTokenMerge";
 import {
   isLargeDocumentModel,
   isReducedDocumentModel,
-} from "../../../../shared/editor/documents/largeDocument";
+} from "../../../../../shared/editor/documents/largeDocument";
 
 const semanticTokenCache = new Map<
   string,

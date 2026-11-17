@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as monaco from "monaco-editor";
-import { type LanguageServerTextEdit } from "../../../../shared/editor/language/lsp";
+import { type LanguageServerTextEdit } from "../../../../shared/editor/language/lsp/lsp";
 
 export function toMonacoEdit(edit: LanguageServerTextEdit) {
   return {

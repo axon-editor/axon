@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type AiActionId, type AiUiState } from "@axon-editor/shared/ai/ai";
-import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics/diagnostics";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
 import { defaultPromptForAction } from "../../../lib/actions/agentActions";
 import { type AgentToolRunResult } from "../../../lib/actions/agentToolActions";

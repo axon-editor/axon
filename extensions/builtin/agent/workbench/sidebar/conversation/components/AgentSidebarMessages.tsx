@@ -6,7 +6,7 @@
 import { type RefObject } from "react";
 import { ArrowDown } from "lucide-react";
 import { type AiEditFileProposal } from "@axon-editor/shared/ai/ai";
-import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "@axon-editor/shared/editor/language/diagnostics/diagnostics";
 import { type GitChange } from "@axon-editor/shared/workspace/git";
 import AxonIcon from "../../../components/AxonIcon";
 import AgentMessageList from "../../../chat/messages/list/components/AgentMessageList";

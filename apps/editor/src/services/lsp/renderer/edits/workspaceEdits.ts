@@ -6,7 +6,7 @@
 import * as monaco from "monaco-editor";
 import { readFile, writeFile } from "../../../../renderer/shared/lib/backend/api";
 import { updateModel } from "../../../../renderer/features/editor/lib/buffer/loading/monacoModels";
-import { type LanguageServerTextEdit } from "../../../../shared/editor/language/lsp";
+import { type LanguageServerTextEdit } from "../../../../shared/editor/language/lsp/lsp";
 
 function getLineOffsets(text: string) {
   const offsets = [0];

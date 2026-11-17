@@ -9,7 +9,7 @@ import fsPromises from "fs/promises";
 import path from "path";
 import { promisify } from "util";
 import { getDeveloperToolSpawnEnvironment } from "../../process/environment";
-import { hasWorkspaceMarker } from "../definitions/workspaceMarkers";
+import { hasWorkspaceMarker } from "../definitions/markers/workspaceMarkers";
 
 export interface PythonEnvironmentSelection {
   virtualEnvPath: string;

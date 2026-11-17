@@ -11,8 +11,8 @@ import type {
   ManagedLanguageToolInstallResult,
   ManagedLanguageToolProgress,
   ManagedLanguageToolStatus,
-} from "../../../shared/editor/language/languageTools";
-import { isManagedLanguageToolProgressActive } from "../../../shared/editor/language/languageTools";
+} from "../../../shared/editor/language/tools/languageTools";
+import { isManagedLanguageToolProgressActive } from "../../../shared/editor/language/tools/languageTools";
 import {
   MANAGED_LANGUAGE_TOOL_CATALOG,
   getManagedLanguageToolCatalogEntry,

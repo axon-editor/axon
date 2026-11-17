@@ -11,12 +11,12 @@ import {
   LANGUAGE_SERVER_SEMANTIC_TOKEN_TYPES,
   type LanguageServerLifecycleResult,
   type LanguageServerSemanticTokensProvider,
-} from "../../../../shared/editor/language/lsp";
+} from "../../../../shared/editor/language/lsp/lsp";
 import {
   LANGUAGE_SERVER_DEFINITIONS,
   type LanguageServerDefinition,
   type LanguageServerStartAttempt,
-} from "../../definitions/definitions";
+} from "../../definitions/catalog/servers";
 import {
   activeLanguageServerFailures,
   activeLanguageServers,

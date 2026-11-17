@@ -17,7 +17,7 @@ import type { FileSymbol } from "../../../../renderer/features/sidebar/files/lib
 import { getEnabledExtensionThemes } from "../../../../shared/extensions/extensions";
 import { createGlassThemeCssVariables } from "../glass/glassTheme";
 import { useNativeGlassSurface } from "../../../../renderer/shared/lib/glass/useNativeGlassSurface";
-import { type EditorDiagnostic } from "../../../../shared/editor/language/diagnostics";
+import { type EditorDiagnostic } from "../../../../shared/editor/language/diagnostics/diagnostics";
 import { type ExtensionState } from "../../../../shared/extensions/extensions";
 import { type GitStatusResult } from "../../../../shared/workspace/git";
 import { type AxonSettings } from "../../../../shared/core/settings";

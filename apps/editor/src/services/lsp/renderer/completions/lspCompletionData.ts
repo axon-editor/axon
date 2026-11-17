@@ -6,32 +6,6 @@
 // These catalogs are kept outside the completion provider because they are
 // immutable editor data, not completion flow. Keeping them separate makes the
 // provider easier to review without changing when or how suggestions appear.
-export const lspCompletionLanguages = [
-  "typescript",
-  "typescriptreact",
-  "javascript",
-  "javascriptreact",
-  "go",
-  "rust",
-  "python",
-  "java",
-  "csharp",
-  "kotlin",
-  "php",
-  "lua",
-  "cpp",
-  "dockerfile",
-  "html",
-  "css",
-  "scss",
-  "less",
-  "json",
-  "yaml",
-  "shell",
-  "proto",
-  "xml",
-];
-
 export const webTagLanguages = [
   "html",
   "javascript",

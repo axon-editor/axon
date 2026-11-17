@@ -7,8 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ManagedLanguageToolProgress,
   ManagedLanguageToolStatus,
-} from "../../../shared/editor/language/languageTools";
-import { isManagedLanguageToolProgressActive } from "../../../shared/editor/language/languageTools";
+} from "../../../shared/editor/language/tools/languageTools";
+import { isManagedLanguageToolProgressActive } from "../../../shared/editor/language/tools/languageTools";
 import { detectLanguageServerLanguage } from "../editor/lib/buffer/loading/monacoModels";
 import {
   disableManagedLanguageToolPrompt,

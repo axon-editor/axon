@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type LanguageServerId } from "../../../../shared/editor/language/lsp";
+import { type LanguageServerId } from "../../../../shared/editor/language/lsp/lsp";
 
 const LANGUAGE_SERVER_HOVER_TIMEOUT_MS = 2_500;
 const JVM_LANGUAGE_SERVER_HOVER_TIMEOUT_MS = 15_000;

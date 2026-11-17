@@ -26,9 +26,9 @@ import {
   type LanguageServerSignature,
   type LanguageServerSignatureHelpRequest,
   type LanguageServerSignatureHelpResult,
-} from "../../../../shared/editor/language/lsp";
+} from "../../../../shared/editor/language/lsp/lsp";
 import { normalizeLanguageServerCompletionItems } from "../../support/completionItems";
-import { LANGUAGE_SERVER_DEFINITIONS } from "../../definitions/definitions";
+import { LANGUAGE_SERVER_DEFINITIONS } from "../../definitions/catalog/servers";
 import { formatWithBundledPrettier } from "../../support/formatting";
 import {
   canRunCommand,

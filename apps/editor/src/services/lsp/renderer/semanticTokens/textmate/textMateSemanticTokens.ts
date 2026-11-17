@@ -7,9 +7,9 @@ import {
   semanticCaptureCandidates,
   type HighlightToken,
   type HighlightTokenSet,
-} from "./highlightTokenMerge";
-import { isIdentifierLikeTokenType } from "./classification/tokenTypeGuards";
-import { collectGoPackageNames } from "./classification/goPackageNames";
+} from "../merge/highlightTokenMerge";
+import { isIdentifierLikeTokenType } from "../classification/tokenTypeGuards";
+import { collectGoPackageNames } from "../classification/goPackageNames";
 
 type ShikiHighlighter = {
   codeToTokens: (

@@ -8,35 +8,9 @@ import { applyWorkspaceEdits } from "../edits/workspaceEdits";
 import { canUseWorkspaceLanguageTools } from "../fileAccess/lspFileAccess";
 import { detectLanguageServerLanguage } from "../../../../renderer/features/editor/lib/buffer/loading/monacoModels";
 import { isLargeDocumentModel } from "../../../../shared/editor/documents/largeDocument";
+import { LANGUAGE_SERVER_MONACO_LANGUAGE_IDS } from "../../../../shared/editor/language/lsp/lsp";
 
 const configuredMonacos = new WeakSet<typeof monaco>();
-
-const lspNavigationLanguages = [
-  "typescript",
-  "typescriptreact",
-  "javascript",
-  "javascriptreact",
-  "go",
-  "rust",
-  "python",
-  "java",
-  "csharp",
-  "kotlin",
-  "php",
-  "lua",
-  "cpp",
-  "c",
-  "dockerfile",
-  "html",
-  "css",
-  "scss",
-  "less",
-  "json",
-  "yaml",
-  "shell",
-  "proto",
-  "xml",
-];
 
 const monacoNativeHoverLanguages = new Set(["typescript", "javascript"]);
 
@@ -407,7 +381,7 @@ export function configureLspNavigation(monacoInstance: typeof monaco = monaco) {
   // cards, Cmd-click definition jumps, reference search, rename, and format all
   // flow through the same UI shell while the actual intelligence comes from the
   // external project language server.
-  for (const languageId of lspNavigationLanguages) {
+  for (const languageId of LANGUAGE_SERVER_MONACO_LANGUAGE_IDS) {
     registerHoverProvider(monacoInstance, languageId);
     registerDefinitionProvider(monacoInstance, languageId);
     registerReferenceProvider(monacoInstance, languageId);

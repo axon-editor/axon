@@ -73,16 +73,19 @@ vi.mock("monaco-editor", () => ({
   },
 }));
 
-vi.mock("../../lib/language/monacoReactLanguages", () => ({
+vi.mock("../../lib/language/registration/react/monacoReactLanguages", () => ({
   registerMonacoReactLanguages: vi.fn(),
 }));
-vi.mock("../../lib/language/monacoStructuredLanguages", () => ({
+vi.mock("../../lib/language/registration/structured/monacoStructuredLanguages", () => ({
   registerMonacoStructuredLanguages: vi.fn(),
 }));
-vi.mock("../../lib/language/monacoAdditionalLanguages", () => ({
+vi.mock("../../lib/language/registration/additional/monacoAdditionalLanguages", () => ({
   registerMonacoAdditionalLanguages: vi.fn(),
 }));
-vi.mock("../../lib/language/monacoLargeDocumentLanguages", () => ({
+vi.mock("../../lib/language/registration/dotenv/monacoDotenvLanguage", () => ({
+  registerMonacoDotenvLanguage: vi.fn(),
+}));
+vi.mock("../../lib/language/registration/largeDocument/monacoLargeDocumentLanguages", () => ({
   LARGE_DOCUMENT_LANGUAGE_ID: "axon-large-document",
   registerMonacoLargeDocumentLanguages: vi.fn(),
 }));

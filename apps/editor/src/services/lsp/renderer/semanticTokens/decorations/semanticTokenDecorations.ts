@@ -4,17 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as monaco from "monaco-editor";
-import { type ThemeTokenMap } from "../../../../renderer/shared/themes/types";
-import { type ExtensionThemeSyntaxStyle } from "../../../../shared/extensions/extensions";
-import { getSemanticTokensForModel } from "./lspSemanticTokens";
+import { type ThemeTokenMap } from "../../../../../renderer/shared/themes/types";
+import { type ExtensionThemeSyntaxStyle } from "../../../../../shared/extensions/extensions";
+import { getSemanticTokensForModel } from "../lsp/lspSemanticTokens";
 import {
   createDefaultCaptureEntries,
   createLayeredCaptureStyleMap,
   resolveCaptureStyle,
   type SyntaxStyle,
-} from "../../../../renderer/shared/themes/appearance/captureRegistry";
-import { createExtensionSyntaxThemeEntries } from "../../../../renderer/shared/themes/syntax/syntaxTheme";
-import { type HighlightToken } from "./highlightTokenMerge";
+} from "../../../../../renderer/shared/themes/appearance/captureRegistry";
+import { createExtensionSyntaxThemeEntries } from "../../../../../renderer/shared/themes/syntax/syntaxTheme";
+import { type HighlightToken } from "../merge/highlightTokenMerge";
 
 export const RICH_SEMANTIC_DECORATION_LANGUAGES = new Set([
   "typescript",

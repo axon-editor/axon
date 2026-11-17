@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
-import { type LanguageServerStatus } from "./lsp";
-import { serverMatchesLanguage } from "../../../../../../extensions/builtin/language-tools/workbench/lib/workspaceLanguageTools";
+import { type LanguageServerStatus } from "../lsp/lsp";
+import { serverMatchesLanguage } from "../../../../../../../extensions/builtin/language-tools/workbench/lib/workspaceLanguageTools";
 
 function createServer(
   id: LanguageServerStatus["id"],

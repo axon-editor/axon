@@ -18,8 +18,8 @@ import { detectLanguage } from "@axon-editor/renderer/features/editor/lib/buffer
 import {
   createSemanticTokenDecorations,
   installSemanticTokenDecorationStyles,
-} from "@axon-editor/services/lsp/renderer/semanticTokens/semanticTokenDecorations";
-import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/semanticTokens/lspSemanticTokens";
+} from "@axon-editor/services/lsp/renderer/semanticTokens/decorations/semanticTokenDecorations";
+import { onDidUpdateSemanticTokens } from "@axon-editor/services/lsp/renderer/semanticTokens/lsp/lspSemanticTokens";
 import { computeGitLineDecorations } from "@axon-editor/renderer/shared/lib/git/gitLineDecorations";
 import { buildGitLineDecorations } from "@axon-editor/renderer/shared/lib/git/gitLinePaint";
 import {

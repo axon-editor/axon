@@ -8,7 +8,7 @@ import {
   type LanguageServerTextEdit,
   type LanguageServerTextPosition,
   type LanguageServerTextRange,
-} from "../../../shared/editor/language/lsp";
+} from "../../../shared/editor/language/lsp/lsp";
 
 function normalizeTextPosition(position: unknown): LanguageServerTextPosition | undefined {
   if (!position || typeof position !== "object") return undefined;

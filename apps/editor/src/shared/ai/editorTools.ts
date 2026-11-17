@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { type EditorDiagnostic } from "../editor/language/diagnostics";
+import { type EditorDiagnostic } from "../editor/language/diagnostics/diagnostics";
 import { type AiToolDefinition } from "./ai";
 
 // Editor tools read state that only the running editor owns (the Problems

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { type CustomFont } from "@axon-editor/shared/core/settings";
-import { type LanguageServerLifecycleResult, type LanguageServerStatus } from "@axon-editor/shared/editor/language/lsp";
+import { type LanguageServerLifecycleResult, type LanguageServerStatus } from "@axon-editor/shared/editor/language/lsp/lsp";
 
 export function importSettingsFont(): Promise<CustomFont | null> {
   return window.axon.importFont();
