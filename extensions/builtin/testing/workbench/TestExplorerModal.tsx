@@ -12,6 +12,7 @@ import {
   type TestOutputEvent,
   type TestProvider,
 } from "@axon-editor/shared/editor/testing/tests";
+import { type FolderChangeEvent } from "@axon-editor/shared/workspace/fs";
 import Tooltip from "@axon-editor/renderer/shared/components/primitives/Tooltip";
 import {
   PanelResizeHandle,
@@ -30,6 +31,52 @@ import {
 import TestExplorerSidebar from "./TestExplorerSidebar";
 
 const testingApi = createTestingWorkbenchApi();
+
+const TEST_REFRESH_DEBOUNCE_MS = 400;
+const TEST_PROJECT_MARKERS = new Set([
+  "package.json",
+  "go.mod",
+  "cargo.toml",
+  "manage.py",
+  "pytest.ini",
+  "pyproject.toml",
+  "requirements.txt",
+  "setup.py",
+  "setup.cfg",
+  "pipfile",
+  "poetry.lock",
+  "uv.lock",
+  "tox.ini",
+]);
+
+function changeList(event?: FolderChangeEvent) {
+  if (!event) return [];
+  if (Array.isArray(event.changes) && event.changes.length > 0) {
+    return event.changes;
+  }
+  return event.path
+    ? [{ path: event.path, kind: event.kind ?? "unknown" }]
+    : [];
+}
+
+function isTestRelevantChange(changedPath: string) {
+  const normalizedPath = changedPath.replace(/\\/g, "/");
+  const name = normalizedPath.split("/").pop()?.toLowerCase() ?? "";
+  if (!name) return false;
+  if (TEST_PROJECT_MARKERS.has(name)) return true;
+  if (name.endsWith("_test.go")) return true;
+  if (name.endsWith(".py")) {
+    return name.startsWith("test") || name.endsWith("_test.py");
+  }
+  if (name.endsWith(".rs")) {
+    return (
+      name === "lib.rs" ||
+      name === "main.rs" ||
+      normalizedPath.includes("/tests/")
+    );
+  }
+  return false;
+}
 
 interface Props {
   folderPath: string | null;
@@ -57,6 +104,9 @@ export default function TestExplorerModal({
   onOutputRef.current = onOutput;
   const panelRef = useRef<HTMLDivElement>(null);
   const resize = useResizablePanel(panelRef, "test-explorer-modal");
+  const discoverRequestRef = useRef(0);
+  const knownProviderIdsRef = useRef<Set<string>>(new Set());
+  const lastDiscoverySignatureRef = useRef("");
   const [discovery, setDiscovery] = useState<TestDiscoveryResult | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [expandedProviders, setExpandedProviders] = useState<Set<string>>(
@@ -140,34 +190,78 @@ export default function TestExplorerModal({
     };
   }, [runs]);
 
-  const discover = useCallback(async () => {
-    if (!folderPath) {
-      setDiscovery(null);
-      setExpandedProviders(new Set());
-      setSelectedProviderId(null);
-      setSelectedTargetId(null);
-      return;
-    }
-
-    setDiscovering(true);
-    const result = await testingApi.discover(folderPath);
-    setDiscovery(result);
-    setExpandedProviders(
-      new Set(result.providers.map((provider) => provider.id)),
-    );
-    setSelectedProviderId((current) => {
-      if (
-        current &&
-        result.providers.some((provider) => provider.id === current)
-      ) {
-        return current;
+  const discover = useCallback(
+    async (options?: { preserveView?: boolean }) => {
+      if (!folderPath) {
+        setDiscovery(null);
+        setExpandedProviders(new Set());
+        setSelectedProviderId(null);
+        setSelectedTargetId(null);
+        return;
       }
-      return result.providers[0]?.id ?? null;
-    });
-    setSelectedTargetId(null);
-    setDiscovering(false);
-    onOutputRef.current(result.message, result.ok ? "info" : "warning");
-  }, [folderPath]);
+
+      const requestId = discoverRequestRef.current + 1;
+      discoverRequestRef.current = requestId;
+      setDiscovering(true);
+
+      let result: TestDiscoveryResult;
+      try {
+        result = await testingApi.discover(folderPath);
+      } catch (err) {
+        if (requestId === discoverRequestRef.current) setDiscovering(false);
+        throw err;
+      }
+      if (requestId !== discoverRequestRef.current) return;
+
+      setDiscovery(result);
+      if (options?.preserveView) {
+        // A silent refresh must not collapse what the user already opened, but
+        // a provider that appeared after the last pass should still be visible.
+        const knownProviderIds = knownProviderIdsRef.current;
+        setExpandedProviders((current) => {
+          const next = new Set(current);
+          for (const provider of result.providers) {
+            if (!knownProviderIds.has(provider.id)) next.add(provider.id);
+          }
+          return next;
+        });
+      } else {
+        setExpandedProviders(
+          new Set(result.providers.map((provider) => provider.id)),
+        );
+      }
+      knownProviderIdsRef.current = new Set(
+        result.providers.map((provider) => provider.id),
+      );
+
+      setSelectedProviderId((current) => {
+        if (
+          current &&
+          result.providers.some((provider) => provider.id === current)
+        ) {
+          return current;
+        }
+        return result.providers[0]?.id ?? null;
+      });
+      setSelectedTargetId((current) => {
+        if (!options?.preserveView || !current) return null;
+        return result.items.some((item) => item.id === current) ? current : null;
+      });
+      setDiscovering(false);
+
+      const signature = `${result.providers
+        .map((provider) => provider.id)
+        .join("|")}::${result.items.map((item) => item.id).join("|")}`;
+      if (
+        !options?.preserveView ||
+        signature !== lastDiscoverySignatureRef.current
+      ) {
+        onOutputRef.current(result.message, result.ok ? "info" : "warning");
+      }
+      lastDiscoverySignatureRef.current = signature;
+    },
+    [folderPath],
+  );
 
   useEffect(() => {
     setDiscovery(null);
@@ -177,6 +271,8 @@ export default function TestExplorerModal({
     setOutput([]);
     setRuns({});
     setQuery("");
+    knownProviderIdsRef.current = new Set();
+    lastDiscoverySignatureRef.current = "";
   }, [folderPath]);
 
   useEffect(() => {
@@ -187,6 +283,39 @@ export default function TestExplorerModal({
       onOutputRef.current("Test discovery failed.", "error");
     });
   }, [discover, open]);
+
+  useEffect(() => {
+    if (!open || !folderPath) return;
+    let refreshTimer: number | null = null;
+    let disposed = false;
+
+    // Creating, deleting, or renaming a test file changes the discovered tree
+    // without changing the workspace root. The file watcher already carries
+    // those events, so the explorer refreshes itself instead of waiting for a
+    // manual refresh or a close/open cycle.
+    const scheduleRefresh = (event?: FolderChangeEvent) => {
+      if (
+        !changeList(event).some((change) => isTestRelevantChange(change.path))
+      ) {
+        return;
+      }
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        if (disposed) return;
+        void discover({ preserveView: true }).catch((err) => {
+          console.error("test discovery refresh failed:", err);
+        });
+      }, TEST_REFRESH_DEBOUNCE_MS);
+    };
+
+    const cleanup = window.axon.onFolderChanged(scheduleRefresh);
+    return () => {
+      disposed = true;
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      cleanup();
+    };
+  }, [discover, folderPath, open]);
 
   useEffect(() => {
     if (!open) return;
