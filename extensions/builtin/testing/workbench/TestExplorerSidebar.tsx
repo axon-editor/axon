@@ -112,7 +112,7 @@ export default function TestExplorerSidebar({
         ) : filteredProviders.length === 0 ? (
           <EmptyState
             title={discovery?.message ?? "No test providers found."}
-            detail="Axon looks for package.json scripts, go.mod, Cargo.toml, pytest.ini, pyproject.toml, and requirements.txt."
+            detail="Axon looks for package.json scripts, go.mod, Cargo.toml, manage.py, pytest.ini, pyproject.toml, and Python project markers."
           />
         ) : (
           <div className="space-y-1.5">

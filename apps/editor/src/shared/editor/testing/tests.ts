@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export type TestProviderKind = "npm" | "go" | "pytest" | "cargo";
+export type TestProviderKind = "npm" | "go" | "pytest" | "django" | "cargo";
 export type TestRunStatus = "queued" | "running" | "passed" | "failed" | "stopped";
 
 export interface TestProvider {
@@ -13,6 +13,7 @@ export interface TestProvider {
   detail: string;
   rootPath: string;
   scriptName?: string;
+  pythonPath?: string;
 }
 
 export interface TestItem {

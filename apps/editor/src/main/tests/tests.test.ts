@@ -34,6 +34,17 @@ async function createTestWorkspace() {
   return root;
 }
 
+async function createWorkspaceFiles(files: Record<string, string>) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "axon-tests-"));
+  temporaryRoots.add(root);
+  for (const [relativePath, content] of Object.entries(files)) {
+    const absolutePath = path.join(root, relativePath);
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+    await fs.writeFile(absolutePath, content);
+  }
+  return root;
+}
+
 afterEach(async () => {
   await Promise.all(
     Array.from(temporaryRoots, (root) =>
@@ -41,6 +52,99 @@ afterEach(async () => {
     ),
   );
   temporaryRoots.clear();
+});
+
+describe("test discovery", () => {
+  it("discovers Django tests.py files through manage.py", async () => {
+    const root = await createWorkspaceFiles({
+      "manage.py": "",
+      "requirements.txt": "Django\n",
+      "apps/products/tests.py": "class ProductTests: pass\n",
+      "apps/accounts/test_views.py": "",
+      "apps/accounts/helpers.py": "",
+      "core/tests.py": "",
+    });
+    const manager = new TestManager({
+      sendToRenderer: () => undefined,
+      resolvePythonEnvironment: async () => ({
+        interpreterPath: "/project/venv/bin/python",
+        fromVirtualEnv: true,
+      }),
+    });
+
+    const discovery = await manager.discover(root);
+    const provider = discovery.providers.find(
+      (entry) => entry.kind === "django",
+    );
+
+    expect(provider).toMatchObject({
+      kind: "django",
+      pythonPath: "/project/venv/bin/python",
+    });
+    const labels = discovery.items
+      .filter((item) => item.providerId === provider?.id)
+      .map((item) => item.label);
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "apps/accounts/test_views.py",
+        "apps/products/tests.py",
+        "core/tests.py",
+      ]),
+    );
+    expect(labels).not.toContain("apps/accounts/helpers.py");
+  });
+
+  it("keeps pytest when the project opts into it", async () => {
+    const root = await createWorkspaceFiles({
+      "manage.py": "",
+      "pyproject.toml":
+        '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
+      "tests/tests.py": "",
+      "tests/test_views.py": "",
+    });
+    const manager = new TestManager({
+      sendToRenderer: () => undefined,
+      resolvePythonEnvironment: async () => ({
+        interpreterPath: "/usr/bin/python3",
+        fromVirtualEnv: false,
+      }),
+    });
+
+    const discovery = await manager.discover(root);
+    const provider = discovery.providers.find(
+      (entry) => entry.kind === "pytest",
+    );
+
+    expect(provider).toBeDefined();
+    expect(provider?.pythonPath).toBeUndefined();
+    const labels = discovery.items
+      .filter((item) => item.providerId === provider?.id)
+      .map((item) => item.label);
+    expect(labels).toEqual(
+      expect.arrayContaining(["tests/tests.py", "tests/test_views.py"]),
+    );
+  });
+
+  it("does not treat an unrelated pyproject as pytest", async () => {
+    const root = await createWorkspaceFiles({
+      "manage.py": "",
+      "pyproject.toml": "[tool.ruff]\nline-length = 88\n",
+      "tests.py": "",
+    });
+    const manager = new TestManager({
+      sendToRenderer: () => undefined,
+      resolvePythonEnvironment: async () => ({
+        interpreterPath: "/usr/bin/python3",
+        fromVirtualEnv: false,
+      }),
+    });
+
+    const discovery = await manager.discover(root);
+    expect(discovery.providers.map((entry) => entry.kind)).toContain("django");
+    expect(discovery.providers.map((entry) => entry.kind)).not.toContain(
+      "pytest",
+    );
+  });
 });
 
 describe("test process cancellation", () => {

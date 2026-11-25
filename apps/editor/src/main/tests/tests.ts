@@ -16,10 +16,17 @@ import {
   type TestStopResult,
 } from "../../shared/editor/testing/tests";
 import { getDeveloperToolSpawnEnvironment } from "../process/environment";
+import {
+  detectPythonVirtualEnvForWorkspace,
+  resolvePythonEnvironmentSelection,
+} from "../lsp/discovery/pythonEnvironment";
 
 interface TestManagerDependencies {
   sendToRenderer: (channel: string, payload?: unknown) => void;
   getSpawnEnvironment?: () => Promise<NodeJS.ProcessEnv>;
+  resolvePythonEnvironment?: (
+    folderPath: string,
+  ) => Promise<{ interpreterPath: string; fromVirtualEnv: boolean }>;
 }
 
 type TestRunSender = (channel: string, payload?: unknown) => void;
@@ -62,6 +69,32 @@ const TEST_DISCOVERY_IGNORE = new Set([
 ]);
 const MAX_TEST_ITEMS = 250;
 const MAX_PROJECT_ROOT_SCAN_DEPTH = 6;
+
+// Python projects are recognized by several ecosystems. `manage.py` is
+// included because a Django project often ships only requirements.txt, and
+// `tests.py` files never matched the old `test_*.py` filter.
+const PYTHON_PROJECT_MARKERS = [
+  "manage.py",
+  "pytest.ini",
+  "pyproject.toml",
+  "requirements.txt",
+  "setup.py",
+  "setup.cfg",
+  "Pipfile",
+  "poetry.lock",
+  "uv.lock",
+  "tox.ini",
+];
+
+const PYTEST_CONFIG_MARKERS = ["pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"];
+
+function isPythonTestFile(filePath: string) {
+  const name = path.basename(filePath).toLowerCase();
+  return (
+    name.endsWith(".py") &&
+    (name.startsWith("test") || name.endsWith("_test.py"))
+  );
+}
 
 interface PackageJson {
   scripts?: Record<string, string>;
@@ -134,24 +167,54 @@ export class TestManager {
       }
 
       if (
-        fs.existsSync(path.join(projectRoot, "pytest.ini")) ||
-        fs.existsSync(path.join(projectRoot, "pyproject.toml")) ||
-        fs.existsSync(path.join(projectRoot, "requirements.txt"))
+        PYTHON_PROJECT_MARKERS.some((marker) =>
+          fs.existsSync(path.join(projectRoot, marker)),
+        )
       ) {
-        const providerId = this.providerId("pytest", projectRoot, folderPath, "test");
-        providers.push({
-          id: providerId,
-          kind: "pytest",
-          label: rootLabel === "." ? "pytest" : `${rootLabel}: pytest`,
-          detail: "Run Python tests with pytest",
-          rootPath: projectRoot,
-        });
+        const pythonEnvironment = await this.resolvePythonEnvironment(projectRoot);
+        // Django uses manage.py as its runner. A pytest config stays the
+        // stronger signal because Django projects can opt into pytest, and
+        // guessing the runner wrong makes every discovered target fail.
+        const usesPytest =
+          (await this.hasPytestConfiguration(projectRoot)) ||
+          !fs.existsSync(path.join(projectRoot, "manage.py"));
+        const providerKind = usesPytest ? "pytest" : "django";
+        const providerId = this.providerId(
+          providerKind,
+          projectRoot,
+          folderPath,
+          "test",
+        );
+        providers.push(
+          usesPytest
+            ? {
+                id: providerId,
+                kind: "pytest",
+                label: rootLabel === "." ? "pytest" : `${rootLabel}: pytest`,
+                detail: "Run Python tests with pytest",
+                rootPath: projectRoot,
+                pythonPath: pythonEnvironment.fromVirtualEnv
+                  ? pythonEnvironment.interpreterPath
+                  : undefined,
+              }
+            : {
+                id: providerId,
+                kind: "django",
+                label:
+                  rootLabel === "."
+                    ? "manage.py test"
+                    : `${rootLabel}: manage.py test`,
+                detail: "Run Django tests with manage.py",
+                rootPath: projectRoot,
+                pythonPath: pythonEnvironment.interpreterPath,
+              },
+        );
         items.push(
           ...this.discoverTestFiles(
             projectRoot,
             providerId,
             /\.py$/i,
-            (filePath) => /(^|[\\/])test_.*\.py$/i.test(filePath) || /_test\.py$/i.test(filePath),
+            isPythonTestFile,
           ).map((item) => ({
             ...item,
             label: this.formatNestedItemLabel(folderPath, item.path, item.label),
@@ -209,6 +272,60 @@ export class TestManager {
       // does not make the whole Test Explorer look empty.
       return null;
     }
+  }
+
+  private async hasPytestConfiguration(projectRoot: string) {
+    if (fs.existsSync(path.join(projectRoot, "pytest.ini"))) return true;
+
+    // pyproject.toml and setup.cfg can carry non-pytest config, so the file
+    // name alone is not enough to choose pytest over Django's manage.py.
+    for (const marker of PYTEST_CONFIG_MARKERS) {
+      const markerPath = path.join(projectRoot, marker);
+      if (!fs.existsSync(markerPath)) continue;
+      try {
+        const content = await fs.promises.readFile(markerPath, "utf-8");
+        if (/\[\s*(?:tool[.:])?pytest/i.test(content)) return true;
+      } catch {
+        // An unreadable config file should not hide the project itself.
+      }
+    }
+
+    return false;
+  }
+
+  private async resolvePythonEnvironment(folderPath: string) {
+    if (this.deps.resolvePythonEnvironment) {
+      return this.deps.resolvePythonEnvironment(folderPath);
+    }
+
+    try {
+      const selection = await detectPythonVirtualEnvForWorkspace(folderPath);
+      const resolved = await resolvePythonEnvironmentSelection(
+        selection,
+        folderPath,
+      );
+      if (resolved.interpreterPath) {
+        return {
+          interpreterPath: resolved.interpreterPath,
+          fromVirtualEnv: Boolean(resolved.virtualEnvPath),
+        };
+      }
+    } catch {
+      // A broken environment probe falls back to the interpreter on PATH so
+      // discovery still lists tests the user can run after fixing the env.
+    }
+
+    return {
+      interpreterPath: process.platform === "win32" ? "python" : "python3",
+      fromVirtualEnv: false,
+    };
+  }
+
+  private djangoTestLabel(projectRoot: string, filePath: string) {
+    const relativePath = path.relative(projectRoot, filePath).replace(/\\/g, "/");
+    if (!relativePath || relativePath.startsWith("..")) return null;
+    if (!relativePath.endsWith(".py")) return null;
+    return relativePath.slice(0, -3).split("/").filter(Boolean).join(".");
   }
 
   private async discoverProjectRoots(folderPath: string): Promise<string[]> {
@@ -275,9 +392,7 @@ export class TestManager {
       markerNames.has("package.json") ||
       markerNames.has("go.mod") ||
       markerNames.has("Cargo.toml") ||
-      markerNames.has("pytest.ini") ||
-      markerNames.has("pyproject.toml") ||
-      markerNames.has("requirements.txt")
+      PYTHON_PROJECT_MARKERS.some((marker) => markerNames.has(marker))
     ) {
       roots.add(directory);
     }
@@ -444,10 +559,24 @@ export class TestManager {
       return { command: "go", args: ["test", packagePath] };
     }
     if (provider.kind === "pytest") {
-      return {
-        command: "pytest",
-        args: target?.path ? [target.path] : [],
-      };
+      const args = target?.path ? [target.path] : [];
+      return provider.pythonPath
+        ? {
+            command: provider.pythonPath,
+            args: ["-m", "pytest", ...args],
+          }
+        : { command: "pytest", args };
+    }
+    if (provider.kind === "django") {
+      const command =
+        provider.pythonPath ??
+        (process.platform === "win32" ? "python" : "python3");
+      const args = ["manage.py", "test"];
+      if (target?.path) {
+        const label = this.djangoTestLabel(provider.rootPath, target.path);
+        if (label) args.push(label);
+      }
+      return { command, args };
     }
     return {
       command: "cargo",
