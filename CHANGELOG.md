@@ -7,6 +7,54 @@
 
 ## Next
 
+## v4.3.0
+
+- Fixed syntax coloring so language-tagged captures resolve to their real
+  capture, exact theme keys beat inherited parents, and parameters, methods,
+  classes, HTML attributes, CSS selectors, and constructors keep their own
+  colors.
+- Added dotenv as a real language with property keys, string values, numeric
+  and boolean scalars, comments, and interpolation, instead of parsing `.env`
+  files as shell scripts.
+- Guarded member-access promotion so string, number, comment, and punctuation
+  tokens can no longer become properties or method calls.
+- Registered hover, navigation, and completion providers for every installed
+  language server, including Swift, Ruby, Dart, SQL, TOML, Zig, Terraform,
+  LaTeX, Scala, Clojure, Haskell, Erlang, R, PowerShell, Assembly, and
+  Makefile.
+- Fixed Python startup and environment discovery so the bundled Pyright server
+  initializes, hover and completions respond, and the selected virtual
+  environment reaches Pyright.
+- Taught the Test Explorer to discover Django `tests.py` files, respect pytest
+  configuration, use project virtual environments, and auto-refresh when test
+  files or project markers change.
+- Reorganized semantic-token, language-registration, LSP-definition,
+  shared-language, and Git-status modules into capability folders.
+- Added a dev preflight that reclaims orphaned core, PTY, and Vite listeners
+  while refusing to kill a live session.
+- Lifted the sidebar context menu and workspace trust dialog above the
+  workbench regions so their buttons are clickable and their panels are no
+  longer painted under the editor.
+- Made Git status resilient across windows by disabling optional Git locks for
+  read-only commands, retrying transient failures, preserving repository
+  identity, keeping the previous status on refresh errors, and reporting
+  failures to the Git output channel.
+- Authorized every restored workspace root per renderer so Git, tests, and
+  terminals discover roots restored into a second window.
+- Added a full-screen terminal agent TUI with a capability-split app, model
+  picking, thinking blocks, thought navigation, transcript markdown, tool
+  cards, approvals, shared SQLite conversation history, fuzzy slash commands,
+  copy selection, mouse scrolling, and session navigation.
+- Added managed OpenCode as an agent backend with isolated sessions, account
+  and install detection, persisted model turns, and exact model arguments and
+  command aliases.
+- Hardened workspace path handling, cleared CodeQL findings, updated vulnerable
+  dependencies, and sanitized Markdown HTML.
+- Fixed Markdown preview rendering for raw HTML images and release-note
+  formatting, and scoped the dedicated Settings window to the active workspace.
+- See the [v4.3.0 Release Notes](docs/releases/v4.3.0.md) for every included
+  commit.
+
 ## v4.2.0
 
 - Added a full-bleed Zen canvas and a draggable, searchable workspace tree
