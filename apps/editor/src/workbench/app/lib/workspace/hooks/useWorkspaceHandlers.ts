@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useCallback, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import {
   addRecentFolder,
   getWorkspaceTrustState,
@@ -101,6 +101,22 @@ export function useWorkspaceHandlers({
   workspaceRoots,
 }: WorkspaceHandlersOptions) {
   const workspaceCoordinatorRef = useRef(createWorkspaceServiceCoordinator());
+  const authorizedRootPathsRef = useRef(new Set<string>());
+
+  // Session restore and multi-root switching can introduce roots that were
+  // approved previously but are new to this renderer. Git status, tests, and
+  // terminals all assert that the sender owns the root capability, so a second
+  // Axon window has to re-authorize every root it restored before those panels
+  // can discover the repository.
+  useEffect(() => {
+    for (const root of workspaceRoots) {
+      if (authorizedRootPathsRef.current.has(root.path)) continue;
+      authorizedRootPathsRef.current.add(root.path);
+      void window.axon
+        .authorizeWorkspaceRoot(root.path)
+        .catch(() => authorizedRootPathsRef.current.delete(root.path));
+    }
+  }, [workspaceRoots]);
 
   const beginWorkspaceOpen = (path: string, source: WorkspaceOpenSource) =>
     workspaceCoordinatorRef.current.begin({ path, source });
