@@ -45,6 +45,26 @@ import {
   type WorkspaceServiceGeneration,
 } from "../services/workspaceServiceCoordinator";
 
+const GIT_DISCOVERY_ATTEMPTS = 3;
+const GIT_DISCOVERY_RETRY_MS = 300;
+
+async function loadGitStatusWithRetry(path: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < GIT_DISCOVERY_ATTEMPTS; attempt += 1) {
+    try {
+      return await window.axon.getGitStatus(path);
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 < GIT_DISCOVERY_ATTEMPTS) {
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, GIT_DISCOVERY_RETRY_MS * (attempt + 1)),
+        );
+      }
+    }
+  }
+  throw lastError;
+}
+
 interface WorkspaceHandlersOptions {
   allowSessionPersistenceRef: MutableRefObject<boolean>;
   appendOutput: AppendOutput;
@@ -334,10 +354,19 @@ export function useWorkspaceHandlers({
       coordinator.runPhase(
         generation,
         "git",
-        () => window.axon.getGitStatus(path),
+        () => loadGitStatusWithRetry(path),
         {
           onSuccess: setGitStatus,
-          onError: () => setGitStatus(null),
+          onError: (err) => {
+            setGitStatus(null);
+            appendOutput(
+              "git",
+              `Failed to discover the Git repository: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+              "error",
+            );
+          },
         },
       ),
     ]).finally(() => {

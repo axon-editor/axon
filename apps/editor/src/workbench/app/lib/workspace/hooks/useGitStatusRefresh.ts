@@ -94,9 +94,18 @@ export function useGitStatusRefresh({
         ) {
           return;
         }
+        // A failed refresh must not erase a repository that was already
+        // painted. Two windows can poll Git close together, and treating one
+        // timeout or index-lock race as "not a repository" removes every Git
+        // button and line decoration until the next successful heartbeat.
         console.error("failed to refresh git status:", err);
-        appendOutput("git", "Failed to refresh Git status.", "error");
-        setGitStatus(null);
+        appendOutput(
+          "git",
+          `Failed to refresh Git status: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          "error",
+        );
       }
     },
     [appendOutput, folderPath, setGitStatus],
