@@ -9,6 +9,7 @@
 // appears exactly where it will be created, and clicking away can either save
 // a typed name or cancel an empty one.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Columns2,
   Copy,
@@ -151,10 +152,10 @@ export default function ContextMenu({
     if (e.key === "Escape") onClose();
   };
 
-  return (
+  return createPortal(
     <div
       ref={ref}
-      className="axon-context-menu fixed z-50 min-w-56 origin-top-left overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1.5 text-[var(--axon-editor-foreground)] opacity-100 shadow-[0_18px_54px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.03] animate-[axonContextIn_120ms_ease-out]"
+      className="axon-context-menu fixed z-[200] min-w-56 origin-top-left overflow-hidden rounded-lg border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-1.5 text-[var(--axon-editor-foreground)] opacity-100 shadow-[0_18px_54px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.03] animate-[axonContextIn_120ms_ease-out]"
       style={{
         top: position.y,
         left: position.x,
@@ -322,6 +323,7 @@ export default function ContextMenu({
         </div>
       )}
 
-    </div>
+    </div>,
+    document.body,
   );
 }
