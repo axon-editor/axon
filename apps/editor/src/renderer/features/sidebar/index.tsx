@@ -16,6 +16,7 @@ import {
   type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { FolderTree, Plus, ShieldCheck, ShieldAlert } from "lucide-react";
 import { type FileNode, moveEntry, getTree } from "../../shared/lib/backend/api";
 import FileTree, {
@@ -942,46 +943,48 @@ export default function Sidebar({
         />
       )}
 
-      {revokeTrustConfirmOpen && (
-        <div className="axon-modal-overlay fixed inset-0 z-[110] flex items-center justify-center px-4">
-          <div className="axon-modal-panel w-full max-w-[clamp(24rem,27vw,30rem)] rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-warning-foreground)]">
-                <ShieldAlert size={17} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[14px] font-semibold text-[var(--axon-editor-foreground)]">
-                  Mark workspace untrusted?
+      {revokeTrustConfirmOpen &&
+        createPortal(
+          <div className="axon-modal-overlay fixed inset-0 z-[110] flex items-center justify-center px-4">
+            <div className="axon-modal-panel w-full max-w-[clamp(24rem,27vw,30rem)] rounded-xl border border-[var(--axon-panel-border)] bg-[var(--axon-panel-background)] p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--axon-panel-overlay-hover)] text-[var(--axon-warning-foreground)]">
+                  <ShieldAlert size={17} />
                 </div>
-                <p className="mt-2 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
-                  Axon will stop project execution features for{" "}
-                  <span className="font-medium text-[var(--axon-editor-foreground)]">
-                    {getPathBasename(folderPath)}
-                  </span>
-                  , including terminals, tasks, language servers, HTML preview,
-                  and extension activation.
-                </p>
+                <div className="min-w-0">
+                  <div className="text-[14px] font-semibold text-[var(--axon-editor-foreground)]">
+                    Mark workspace untrusted?
+                  </div>
+                  <p className="mt-2 text-[12px] leading-5 text-[var(--axon-editor-foreground)] opacity-65">
+                    Axon will stop project execution features for{" "}
+                    <span className="font-medium text-[var(--axon-editor-foreground)]">
+                      {getPathBasename(folderPath)}
+                    </span>
+                    , including terminals, tasks, language servers, HTML preview,
+                    and extension activation.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRevokeTrustConfirmOpen(false)}
+                  className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={revokeWorkspaceTrust}
+                  className="h-8 cursor-pointer rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-warning-foreground)] transition-colors hover:border-[var(--axon-warning-foreground)] hover:text-[var(--axon-editor-foreground)]"
+                >
+                  Mark Untrusted
+                </button>
               </div>
             </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRevokeTrustConfirmOpen(false)}
-                className="h-8 cursor-pointer rounded-md px-3 text-[12px] text-[var(--axon-editor-foreground)] opacity-65 transition-colors hover:bg-[var(--axon-panel-overlay-hover)] hover:opacity-100"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={revokeWorkspaceTrust}
-                className="h-8 cursor-pointer rounded-md border border-[var(--axon-panel-border)] bg-[var(--axon-panel-overlay-hover)] px-3 text-[12px] text-[var(--axon-warning-foreground)] transition-colors hover:border-[var(--axon-warning-foreground)] hover:text-[var(--axon-editor-foreground)]"
-              >
-                Mark Untrusted
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
