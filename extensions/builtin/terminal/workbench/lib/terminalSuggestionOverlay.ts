@@ -8,6 +8,7 @@ import {
   clipSuggestionToWidth,
   findCommandSuggestion,
   readTerminalInputSnapshot,
+  shouldShowCommandSuggestion,
   type TerminalInputSnapshot,
 } from "@axon-editor/platform/terminal/suggestions/commandSuggestions";
 import type {
@@ -143,9 +144,10 @@ export function createTerminalSuggestionController({
     if (disposed) return;
 
     const snapshot = readTerminalInputSnapshot(term.buffer, term.cols, term.rows);
-    if (!snapshot.isShellBuffer) {
-      // A full-screen program owns the alternate buffer, so the row under the
-      // cursor is that program's UI and has nothing to do with a shell command.
+    if (!shouldShowCommandSuggestion(snapshot)) {
+      // A full-screen program owns the alternate buffer, and a cursor in the
+      // middle of a command is editing existing text. Neither is the moment for
+      // ghost text, even when the prefix happens to match command history.
       hide();
       return;
     }

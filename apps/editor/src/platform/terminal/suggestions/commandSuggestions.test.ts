@@ -9,6 +9,7 @@ import {
   clipSuggestionToWidth,
   findCommandSuggestion,
   readTerminalInputSnapshot,
+  shouldShowCommandSuggestion,
 } from "./commandSuggestions";
 
 interface FakeBufferOptions {
@@ -191,5 +192,32 @@ describe("readTerminalInputSnapshot", () => {
     const buffer = createBuffer(["vim README.md"], { type: "alternate" });
 
     expect(readTerminalInputSnapshot(buffer, 80, 24).isShellBuffer).toBe(false);
+  });
+});
+
+describe("shouldShowCommandSuggestion", () => {
+  it("only shows ghost text at the end of a shell input line", () => {
+    expect(
+      shouldShowCommandSuggestion({
+        isShellBuffer: true,
+        cursorIsAtLineEnd: true,
+      }),
+    ).toBe(true);
+
+    // Moving left to edit an existing command must not summon a suggestion for
+    // the shorter prefix under the cursor.
+    expect(
+      shouldShowCommandSuggestion({
+        isShellBuffer: true,
+        cursorIsAtLineEnd: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowCommandSuggestion({
+        isShellBuffer: false,
+        cursorIsAtLineEnd: true,
+      }),
+    ).toBe(false);
   });
 });

@@ -135,6 +135,16 @@ export function readTerminalInputSnapshot(
   };
 }
 
+// Ghost text belongs to the command being typed, not to a line the user is
+// editing mid-flight. Moving the cursor left must behave like a normal shell,
+// so a partial line under the cursor is never used as a suggestion prefix.
+export function shouldShowCommandSuggestion(snapshot: {
+  isShellBuffer: boolean;
+  cursorIsAtLineEnd: boolean;
+}) {
+  return snapshot.isShellBuffer && snapshot.cursorIsAtLineEnd;
+}
+
 // A leading space is the shell convention for "do not record this", matching the
 // HISTCONTROL=ignorespace handling Axon already relies on for its own workspace
 // cd. Suggesting a command the shell deliberately refused to remember would
