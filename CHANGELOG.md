@@ -7,6 +7,17 @@
 
 ## Next
 
+## v4.3.1
+
+- Made Git discovery work in packaged builds by resolving Git through the
+  recovered login-shell environment instead of Finder's minimal environment.
+- Kept Git discovery off the workspace loading path so a slow Git process can
+  no longer hold the app for minutes before the editor is usable.
+- Hid terminal command suggestions while the cursor is in the middle of a typed
+  command, so left-arrow editing no longer brings back ghost text.
+- See the [v4.3.1 Release Notes](docs/releases/v4.3.1.md) for the included
+  commits.
+
 ## v4.3.0
 
 - Fixed syntax coloring so language-tagged captures resolve to their real
