@@ -351,24 +351,6 @@ export function useWorkspaceHandlers({
           },
         },
       ),
-      coordinator.runPhase(
-        generation,
-        "git",
-        () => loadGitStatusWithRetry(path),
-        {
-          onSuccess: setGitStatus,
-          onError: (err) => {
-            setGitStatus(null);
-            appendOutput(
-              "git",
-              `Failed to discover the Git repository: ${
-                err instanceof Error ? err.message : String(err)
-              }`,
-              "error",
-            );
-          },
-        },
-      ),
     ]).finally(() => {
       if (!coordinator.isCurrent(generation)) return;
       markAxonPerformance("axon.workspace.services.end", {
@@ -381,6 +363,28 @@ export function useWorkspaceHandlers({
         "axon.workspace.services.end",
       );
     });
+
+    // Git discovery stays off the workspace-open critical path. A cold,
+    // slow, or credential-blocked `git` process must not hold the loading
+    // state for minutes when the file tree is already usable.
+    void coordinator.runPhase(
+      generation,
+      "git",
+      () => loadGitStatusWithRetry(path),
+      {
+        onSuccess: setGitStatus,
+        onError: (err) => {
+          setGitStatus(null);
+          appendOutput(
+            "git",
+            `Failed to discover the Git repository: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+            "error",
+          );
+        },
+      },
+    );
   };
 
   const handleRefresh = async () => {

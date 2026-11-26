@@ -5,6 +5,7 @@
 
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { getDeveloperToolSpawnEnvironment } from "../../process/environment";
 
 const execFileAsync = promisify(execFile);
 
@@ -31,11 +32,26 @@ const READ_ONLY_GIT_COMMANDS = new Set([
   "name-rev",
 ]);
 
-function gitCommandEnvironment(args: string[]) {
+function gitCommandEnvironment(
+  args: string[],
+  baseEnvironment: NodeJS.ProcessEnv,
+) {
   const command = args[0] ?? "";
   return READ_ONLY_GIT_COMMANDS.has(command)
-    ? { ...process.env, GIT_OPTIONAL_LOCKS: "0" }
-    : process.env;
+    ? { ...baseEnvironment, GIT_OPTIONAL_LOCKS: "0" }
+    : baseEnvironment;
+}
+
+// A Finder or Dock launch gives Electron a much smaller environment than a
+// Terminal launch. Recovering the developer shell environment once makes the
+// packaged app resolve the same git binary, hooks, and credential helpers that
+// work in the user's terminal, which is also what development runs inherit.
+let gitEnvironmentPromise: Promise<NodeJS.ProcessEnv> | null = null;
+function getGitEnvironment() {
+  gitEnvironmentPromise ??= getDeveloperToolSpawnEnvironment().catch(
+    () => process.env,
+  );
+  return gitEnvironmentPromise;
 }
 
 function gitCommandTimeout(args: string[]) {
@@ -52,10 +68,11 @@ export async function runGit(
   folderPath: string,
   args: string[],
 ): Promise<{ stdout: string; stderr: string }> {
+  const environment = await getGitEnvironment();
   const result = await execFileAsync("git", ["-C", folderPath, ...args], {
     timeout: gitCommandTimeout(args),
     maxBuffer: 1024 * 1024 * 8,
-    env: gitCommandEnvironment(args),
+    env: gitCommandEnvironment(args, environment),
   });
 
   return {
