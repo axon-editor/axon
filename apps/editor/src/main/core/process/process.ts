@@ -47,7 +47,8 @@ export type CoreProcessStatus =
   | "unresponsive"
   | "restarting"
   | "stopped"
-  | "crashed";
+  | "crashed"
+  | "missing";
 
 export interface CoreRestartConfirmation {
   service: "core" | "pty-host";
@@ -298,6 +299,9 @@ export function createBundledServiceController(
       console.error(
         `bundled ${deps.displayName} binary was not found at ${servicePath}`,
       );
+      // A packaging mistake must not leave the app looking healthy while AI,
+      // search, and agent tools are silently dead.
+      reportStatus("missing");
       return;
     }
 

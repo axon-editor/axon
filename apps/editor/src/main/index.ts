@@ -19,10 +19,10 @@ import {
 // Development and installed builds can expose different bundled extension
 // versions while both processes identify as Axon. Electron would otherwise
 // point them at the same settings directory, allowing a dev-only theme ID to
-// break an older installed build before React mounts. I select a distinct
-// development profile before any boot appearance or window state is read so
-// every main-process service observes the same isolated user-data root.
-if (process.env.NODE_ENV === "development") {
+// break an older installed build before React mounts. Any unpackaged launch
+// uses a distinct profile so every main-process service observes the same
+// isolated user-data root.
+if (!app.isPackaged) {
   app.setPath(
     "userData",
     path.join(app.getPath("appData"), "Axon Development"),

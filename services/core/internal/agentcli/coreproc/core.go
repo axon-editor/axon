@@ -16,6 +16,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/GordenArcher/axon-core/internal/state"
 )
 
 // resolveCorePort reads the port published by the running axon-core process.
@@ -23,11 +25,7 @@ import (
 // because core has not started yet, the CLI still uses the same default port
 // the renderer and README already document.
 func ResolveCorePort() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "7777"
-	}
-	data, err := os.ReadFile(filepath.Join(home, ".axon", "core.port"))
+	data, err := os.ReadFile(state.Path("core.port"))
 	if err != nil {
 		return "7777"
 	}
@@ -42,11 +40,7 @@ func resolveCoreToken() string {
 	if token := strings.TrimSpace(os.Getenv("AXON_CORE_TOKEN")); token != "" {
 		return token
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(home, ".axon", "core.token"))
+	data, err := os.ReadFile(state.Path("core.token"))
 	if err != nil {
 		return ""
 	}

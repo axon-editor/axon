@@ -16,7 +16,7 @@ interface CredentialValue {
 // file. Axon runs the managed server on a separate database to keep its
 // sessions out of the user's OpenCode TUI, so the account key has to travel
 // through the environment instead.
-function defaultDatabasePath() {
+const defaultDatabasePath = () => {
   if (process.env.XDG_DATA_HOME) {
     return path.join(process.env.XDG_DATA_HOME, "opencode", "opencode.db");
   }
@@ -26,12 +26,12 @@ function defaultDatabasePath() {
   return path.join(os.homedir(), ".local", "share", "opencode", "opencode.db");
 }
 
-export function readOpenCodeApiKey() {
+export const readOpenCodeApiKey = () => {
   return readKeyFromDatabase(defaultDatabasePath());
 }
 
 // Exported for tests so a temporary database can stand in for the user's.
-export function readKeyFromDatabase(databasePath: string) {
+export const readKeyFromDatabase = (databasePath: string) => {
   let database: DatabaseSync | null = null;
   try {
     database = new DatabaseSync(databasePath, { readOnly: true });

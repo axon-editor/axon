@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/opencode/credentials"
+	"github.com/GordenArcher/axon-core/internal/state"
 )
 
 const (
@@ -143,11 +144,7 @@ func Ensure(ctx context.Context, folder string) (*Handle, error) {
 // account key is read separately and handed to the managed server through the
 // environment.
 func databasePath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".axon", "opencode", "sessions.db"), nil
+	return state.Path("opencode", "sessions.db"), nil
 }
 
 // start owns the child lifecycle. The permission config is intentionally not

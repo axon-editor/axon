@@ -84,6 +84,9 @@ jobs:
         env:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
 
+      - name: Verify packaged extensions match the source tree
+        run: npm --workspace axon run verify:packaged-extensions
+
       - name: Stage platform release assets
         uses: actions/upload-artifact@v4
         with:

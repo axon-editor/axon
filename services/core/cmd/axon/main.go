@@ -11,13 +11,13 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/GordenArcher/axon-core/internal/server"
 	"github.com/GordenArcher/axon-core/internal/sessions"
+	"github.com/GordenArcher/axon-core/internal/state"
 	"github.com/GordenArcher/godenv"
 )
 
@@ -71,21 +71,17 @@ func main() {
 }
 
 func writeConnectionFiles(port string, authToken string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
+	dir := state.Dir()
 
 	// The axon CLI is intentionally a thin terminal companion. It should not
 	// scan random ports or guess how the desktop shell configured axon-core, so
 	// the running server publishes the selected port in the user's Axon state
 	// folder. Failing to write this file must never block editor startup; the
 	// CLI still has the stable 7777 fallback for development and recovery cases.
-	dir := filepath.Join(home, ".axon")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return
 	}
 	_ = os.Chmod(dir, 0700)
-	_ = os.WriteFile(filepath.Join(dir, "core.port"), []byte(port), 0600)
-	_ = os.WriteFile(filepath.Join(dir, "core.token"), []byte(authToken), 0600)
+	_ = os.WriteFile(state.Path("core.port"), []byte(port), 0600)
+	_ = os.WriteFile(state.Path("core.token"), []byte(authToken), 0600)
 }

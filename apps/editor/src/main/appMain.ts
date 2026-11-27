@@ -24,6 +24,7 @@ import { registerAppHandlers } from "./app/handlers";
 import { registerFinderSyncHandlers } from "./app/integration/finderSync";
 import { findCliOpenFolderArgument } from "./app/integration/cliOpenFolder";
 import { consumePendingAgentResumeRequest } from "./app/resumeRequest";
+import { getAxonStateDirectory } from "./app/stateDirectory";
 import { registerDiagnosticsHandlers } from "./diagnostics/handlers";
 import { registerExtensionHandlers } from "./extensions/handlers";
 import { registerFileWatcherHandlers } from "./fs/handlers/handlers";
@@ -103,7 +104,17 @@ import {
 } from "./ai/conversations";
 import { registerTerminalHandlers } from "./terminal/handlers";
 
-const isDev = process.env.NODE_ENV === "development";
+// Packaging is the source of truth, not NODE_ENV. A packaged build always runs
+// production paths even if the parent shell exports NODE_ENV, and an unpackaged
+// run must be explicitly started as development so it cannot mix the dev server
+// with production resources or the installed app's profile.
+const isDev = !app.isPackaged;
+if (isDev && process.env.NODE_ENV !== "development") {
+  console.error(
+    "Axon is unpackaged. Start it with NODE_ENV=development so the dev server, profile, and core paths stay consistent.",
+  );
+  app.exit(1);
+}
 const axonDevServerUrl =
   process.env.AXON_DEV_SERVER_URL ?? "http://localhost:5173";
 const hasSingleInstanceLock = isDev || app.requestSingleInstanceLock();
@@ -195,7 +206,7 @@ configureExtensionAssetTickets(extensionAssetTickets);
 const windowSessionStore = new WindowSessionStore();
 registerWindowSessionHandlers(windowSessionStore);
 const agentConversationStore = new AgentConversationStore(
-  path.join(app.getPath("home"), ".axon", "sessions"),
+  path.join(getAxonStateDirectory(), "sessions"),
 );
 registerAgentConversationHandlers(agentConversationStore, {
   axonCorePort,
@@ -335,6 +346,24 @@ async function confirmServiceRestart({
   return reason === "crashed" ? result.response === 0 : result.response === 1;
 }
 
+// A missing bundled service is a packaging problem rather than a crash, so the
+// restart prompt would only loop. One explicit dialog makes the degraded state
+// visible instead of leaving AI and search silently unavailable.
+let coreMissingNoticeShown = false;
+const showCoreMissingNotice = async () => {
+  if (coreMissingNoticeShown) return;
+  coreMissingNoticeShown = true;
+  await dialog.showMessageBox({
+    type: "error",
+    title: "Axon Core is missing",
+    message: "Axon Core is not included in this build.",
+    detail:
+      "AI, workspace search, and agent tools are unavailable. Reinstall Axon, or build the core before launching an unpackaged app.",
+    buttons: ["OK"],
+    noLink: true,
+  });
+};
+
 const bundledCore = createBundledServiceController({
   isDev,
   service: "core",
@@ -344,8 +373,16 @@ const bundledCore = createBundledServiceController({
   token: axonCoreToken,
   portEnvironmentVariable: "AXON_CORE_PORT",
   tokenEnvironmentVariable: "AXON_CORE_TOKEN",
+  // The core and the terminal CLI share the port, token, and session files, so
+  // the service boundary has to carry the same state root the app resolved.
+  additionalEnvironment: {
+    AXON_STATE_DIR: getAxonStateDirectory(),
+  },
   isShuttingDown: () => isQuitting,
-  onStatusChange: (status) => broadcastToRenderers("core:status", { status }),
+  onStatusChange: (status) => {
+    broadcastToRenderers("core:status", { status });
+    if (status === "missing") void showCoreMissingNotice();
+  },
   confirmRestart: confirmServiceRestart,
 });
 const bundledPtyHost = createBundledServiceController({
@@ -362,12 +399,15 @@ const bundledPtyHost = createBundledServiceController({
   terminalHealthPath: "/terminal/health",
   preserveProcessOnHealthTimeout: true,
   monitorParentLifetime: !isDev,
-  additionalEnvironment: isDev
-    ? undefined
-    : {
-        AXON_PTY_OWNER_STDIN: "1",
-        AXON_PTY_LOG_PATH: axonPtyLogPath,
-      },
+  additionalEnvironment: {
+    AXON_STATE_DIR: getAxonStateDirectory(),
+    ...(isDev
+      ? {}
+      : {
+          AXON_PTY_OWNER_STDIN: "1",
+          AXON_PTY_LOG_PATH: axonPtyLogPath,
+        }),
+  },
   isShuttingDown: () => isQuitting,
   onStatusChange: (status) => broadcastToRenderers("pty:status", { status }),
   confirmRestart: confirmServiceRestart,

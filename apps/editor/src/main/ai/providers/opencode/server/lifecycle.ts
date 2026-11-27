@@ -7,11 +7,11 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import net from "node:net";
-import os from "node:os";
 import path from "node:path";
 import { terminateChildProcess } from "../../../../core/process/process";
 import { getDeveloperToolSpawnEnvironment } from "../../../../process/environment";
 import { detectOpenCodeBinary } from "../binary/detect";
+import { getAxonStateDirectory } from "../../../../app/stateDirectory";
 import { readOpenCodeApiKey } from "../credentials/read";
 
 const START_TIMEOUT_ATTEMPTS = 80;
@@ -49,19 +49,6 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Axon's provider sessions live in Axon's state, not the user's personal
-// OpenCode database, so a conversation started here never shows up in the
-// OpenCode TUI. Credentials live in that same database, so the account key is
-// read separately and handed to the managed server through the environment.
-function axonOpenCodeDatabasePath(env: NodeJS.ProcessEnv) {
-  return path.join(
-    env.HOME ?? os.homedir(),
-    ".axon",
-    "opencode",
-    "sessions.db",
-  );
-}
-
 function findFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -97,7 +84,13 @@ async function startServer(
   const password = randomBytes(24).toString("hex");
   const baseUrl = `http://127.0.0.1:${port}`;
   const env = await getDeveloperToolSpawnEnvironment();
-  const databasePath = axonOpenCodeDatabasePath(env);
+  // Provider sessions live in Axon's state root, not the user's OpenCode
+  // database, so Axon conversations never appear in the OpenCode TUI.
+  const databasePath = path.join(
+    getAxonStateDirectory(),
+    "opencode",
+    "sessions.db",
+  );
   await fs.mkdir(path.dirname(databasePath), { recursive: true });
   const apiKey = readOpenCodeApiKey();
   const child = spawn(

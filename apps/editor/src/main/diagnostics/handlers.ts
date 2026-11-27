@@ -5,11 +5,11 @@
 
 import { ipcMain } from "electron";
 import fs from "fs/promises";
-import os from "os";
 import path from "path";
 import { type EditorDiagnostic } from "../../shared/editor/language/diagnostics/diagnostics";
 import { runProjectDiagnostics } from "./diagnostics";
 import { type WorkspaceCapabilityRegistry } from "../security/workspaceCapabilities";
+import { getAxonStateDirectory } from "../app/stateDirectory";
 
 interface AgentDiagnosticsSnapshot {
   workspace: string;
@@ -20,7 +20,7 @@ interface AgentDiagnosticsSnapshot {
 async function writeAgentDiagnosticsSnapshot(
   snapshot: AgentDiagnosticsSnapshot,
 ) {
-  const axonDir = path.join(os.homedir(), ".axon");
+  const axonDir = getAxonStateDirectory();
 
   // axon fix runs from a normal terminal process, so it cannot read renderer
   // memory directly. I persist the current Problems snapshot in Axon's user

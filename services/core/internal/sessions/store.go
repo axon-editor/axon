@@ -13,6 +13,7 @@ import (
 	"github.com/GordenArcher/axon-core/internal/sessions/editorimport"
 	"github.com/GordenArcher/axon-core/internal/sessions/identity"
 	"github.com/GordenArcher/axon-core/internal/sessions/session"
+	"github.com/GordenArcher/axon-core/internal/state"
 )
 
 // The facade keeps callers on the store package while the internals can grow
@@ -31,11 +32,7 @@ type Store struct {
 // Path is the shared CLI/editor database. The old CLI-only path is migrated on
 // first open so existing terminal conversations are not stranded.
 func Path() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".axon", "sessions", "sessions.db"), nil
+	return state.Path("sessions", "sessions.db"), nil
 }
 
 func Open() (*Store, error) {
@@ -80,11 +77,7 @@ func writeImportMarker(path string) {
 }
 
 func importLegacySessions(destination *Store) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	legacyPath := filepath.Join(home, ".axon", "cli", "sessions", "sessions.db")
+	legacyPath := state.Path("cli", "sessions", "sessions.db")
 	targetPath, err := Path()
 	if err != nil || legacyPath == targetPath {
 		return err
@@ -127,11 +120,7 @@ func migrateLegacyDatabase(path string) (bool, error) {
 	if _, err := os.Stat(path); err == nil {
 		return false, nil
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false, nil
-	}
-	legacy := filepath.Join(home, ".axon", "cli", "sessions", "sessions.db")
+	legacy := state.Path("cli", "sessions", "sessions.db")
 	if _, err := os.Stat(legacy); err != nil {
 		return false, nil
 	}

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"github.com/GordenArcher/axon-core/internal/state"
 )
 
 type Config struct {
@@ -14,11 +16,7 @@ type Config struct {
 }
 
 func Path() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".axon", "agent-config.json"), nil
+	return state.Path("agent-config.json"), nil
 }
 
 func Load() Config {
