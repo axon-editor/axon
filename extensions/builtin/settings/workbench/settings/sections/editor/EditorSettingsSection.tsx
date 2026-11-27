@@ -230,6 +230,19 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="code-padding-top"
+        label="Code top spacing"
+        description="Controls the space above the first line of code. Set it to 0 to start flush with the editor toolbar."
+      >
+        <SettingsNumberSlider
+          min={0}
+          max={64}
+          value={draft.editor.codePaddingTop}
+          onChange={(value) => onUpdateEditor("codePaddingTop", value)}
+        />
+      </SettingsField>
+
+      <SettingsField
         rowKey="indentation-guides"
         label="Indentation guides"
         description="Shows or removes the straight vertical lines for indentation levels."
@@ -263,6 +276,42 @@ export default function EditorSettingsSection({
       </SettingsField>
 
       <SettingsField
+        rowKey="active-line-highlight"
+        label="Active line highlight"
+        description="Highlights the row that holds the cursor. Turn it off for a flat code surface."
+      >
+        <SettingsToggle
+          checked={draft.editor.activeLineHighlightEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("activeLineHighlightEnabled", checked)
+          }
+          label={
+            draft.editor.activeLineHighlightEnabled
+              ? "Highlighted"
+              : "Not highlighted"
+          }
+        />
+      </SettingsField>
+
+      <SettingsField
+        rowKey="occurrence-outlines"
+        label="Occurrence outlines"
+        description="Draws a border around every match of the word under the cursor. Turn it off to keep the fill without an outline."
+      >
+        <SettingsToggle
+          checked={draft.editor.occurrenceHighlightOutlinesEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("occurrenceHighlightOutlinesEnabled", checked)
+          }
+          label={
+            draft.editor.occurrenceHighlightOutlinesEnabled
+              ? "Outlined"
+              : "Fill only"
+          }
+        />
+      </SettingsField>
+
+      <SettingsField
         rowKey="bracket-pair-guides"
         label="Bracket pair guides"
         description="Shows or removes vertical and horizontal guides connecting matching brackets."
@@ -273,6 +322,25 @@ export default function EditorSettingsSection({
             onUpdateEditor("bracketPairGuidesEnabled", checked)
           }
           label={draft.editor.bracketPairGuidesEnabled ? "Visible" : "Hidden"}
+        />
+      </SettingsField>
+
+      <SettingsField
+        rowKey="bracket-pair-rails"
+        label="Bracket pair rails"
+        description="Draws the horizontal rails that close each bracket guide into a box. Turn it off to keep vertical guides only."
+      >
+        <SettingsToggle
+          checked={draft.editor.bracketPairHorizontalGuidesEnabled}
+          disabled={!draft.editor.bracketPairGuidesEnabled}
+          onChange={(checked) =>
+            onUpdateEditor("bracketPairHorizontalGuidesEnabled", checked)
+          }
+          label={
+            draft.editor.bracketPairHorizontalGuidesEnabled
+              ? "Boxed"
+              : "Vertical only"
+          }
         />
       </SettingsField>
 

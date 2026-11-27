@@ -550,6 +550,15 @@ html.axon-native-glass .axon-tooltip {
   background: var(--axon-git-deleted);
 }
 
+/* Monaco outlines every occurrence of the word under the cursor with a one
+ * pixel border. Dropping just the border keeps the fill, so matches stay
+ * visible while the code surface stops drawing boxes around tokens. */
+.axon-app-root.axon-code-area-fill-occurrences .monaco-editor .wordHighlight,
+.axon-app-root.axon-code-area-fill-occurrences .monaco-editor .wordHighlightStrong,
+.axon-app-root.axon-code-area-fill-occurrences .monaco-editor .selectionHighlight {
+  border-color: transparent;
+}
+
 .monaco-editor .axon-line-trace {
   color: var(--axon-editor-foreground);
   font-family: var(--monaco-monospace-font);

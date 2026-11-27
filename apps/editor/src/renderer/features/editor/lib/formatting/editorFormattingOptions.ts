@@ -9,6 +9,7 @@ import type { EditorSettings } from "@axon-editor/shared/core/settings";
 type EditorFormattingSettings = Pick<
   EditorSettings,
   | "bracketPairGuidesEnabled"
+  | "bracketPairHorizontalGuidesEnabled"
   | "codePaddingLeft"
   | "highlightActiveIndentationGuide"
   | "indentationGuidesEnabled"
@@ -22,6 +23,13 @@ export function createEditorFormattingOptions(
       ? true
       : "active"
     : false;
+  // Hot reload can hand this builder an older settings object. A missing value
+  // keeps the quiet default instead of reintroducing the box rails.
+  const horizontalBracketGuidesVisible =
+    bracketGuidesVisible === false ||
+    settings.bracketPairHorizontalGuidesEnabled !== true
+      ? false
+      : bracketGuidesVisible;
 
   // I use Monaco's active-only bracket mode when normal indentation guides are
   // hidden. This removes the permanent vertical rails while preserving the
@@ -35,7 +43,7 @@ export function createEditorFormattingOptions(
           ? "always"
           : false,
       bracketPairs: bracketGuidesVisible,
-      bracketPairsHorizontal: bracketGuidesVisible,
+      bracketPairsHorizontal: horizontalBracketGuidesVisible,
       highlightActiveBracketPair: settings.bracketPairGuidesEnabled,
     },
     lineDecorationsWidth: settings.codePaddingLeft,

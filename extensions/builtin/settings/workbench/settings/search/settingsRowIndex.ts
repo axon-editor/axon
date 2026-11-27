@@ -75,9 +75,13 @@ export const SETTINGS_ROW_ITEMS: SettingsRowItem[] = [
   { rowKey: "insert-spaces", sectionId: "editor", label: "Indent with spaces", keywords: ["tabs vs spaces", "indentation", "soft tabs"] },
   { rowKey: "detect-indentation", sectionId: "editor", label: "Detect indentation", keywords: ["auto indent", "infer", "per file"] },
   { rowKey: "code-padding-left", sectionId: "editor", label: "Code left spacing", keywords: ["gutter gap", "padding", "left space"] },
+  { rowKey: "code-padding-top", sectionId: "editor", label: "Code top spacing", keywords: ["top gap", "padding", "first line", "breathing room"] },
   { rowKey: "indentation-guides", sectionId: "editor", label: "Indentation guides", keywords: ["vertical lines", "nesting lines"] },
   { rowKey: "active-indentation-guide", sectionId: "editor", label: "Active indentation guide", keywords: ["current guide", "highlight"] },
+  { rowKey: "active-line-highlight", sectionId: "editor", label: "Active line highlight", keywords: ["current line", "cursor row", "line band"] },
+  { rowKey: "occurrence-outlines", sectionId: "editor", label: "Occurrence outlines", keywords: ["word highlight", "matches", "borders"] },
   { rowKey: "bracket-pair-guides", sectionId: "editor", label: "Bracket pair guides", keywords: ["braces guides", "matching brackets", "nesting"] },
+  { rowKey: "bracket-pair-rails", sectionId: "editor", label: "Bracket pair rails", keywords: ["horizontal guides", "boxes", "brackets"] },
   { rowKey: "cursor-style", sectionId: "editor", label: "Cursor style", keywords: ["block", "underline", "caret", "insertion point"] },
   { rowKey: "cursor-blinking", sectionId: "editor", label: "Cursor blinking", keywords: ["blink animation", "smooth blink", "caret"] },
 

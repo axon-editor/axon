@@ -18,7 +18,10 @@ const EDITOR_INTERACTION_POLICY = {
   hoverDelay: 100,
   hoverHidingDelay: 80,
   quickSuggestionsDelay: 0,
-  topPadding: 16,
+  // Fallback for renderer hot reload only. Persisted settings always carry the
+  // user's code top spacing, so the default here matches the settings default
+  // instead of becoming a second source of truth.
+  defaultCodePaddingTop: 16,
 } as const;
 
 /**
@@ -46,6 +49,13 @@ export function createEditorSurfaceOptions({
   // established top-hover behavior, so a temporarily missing value remains
   // equivalent to the persisted Top default without requiring a restart.
   const preferHoverAbove = editorSettings.hoverPlacement !== "bottom";
+  // The same hot reload window applies to the code top spacing: a settings
+  // object saved before this preference existed must keep the established
+  // spacing instead of collapsing the first line to the toolbar.
+  const codePaddingTop =
+    typeof editorSettings.codePaddingTop === "number"
+      ? editorSettings.codePaddingTop
+      : EDITOR_INTERACTION_POLICY.defaultCodePaddingTop;
 
   return {
     readOnly,
@@ -164,8 +174,9 @@ export function createEditorSurfaceOptions({
       minShowDelay: 120,
     },
     tabCompletion: snippetsEnabled ? "on" : "off",
-    renderLineHighlight: "line",
-    padding: { top: EDITOR_INTERACTION_POLICY.topPadding },
+    renderLineHighlight:
+      editorSettings.activeLineHighlightEnabled === true ? "line" : "none",
+    padding: { top: codePaddingTop },
     cursorStyle: editorSettings.cursorStyle,
     cursorBlinking: editorSettings.cursorBlinking,
     smoothScrolling: documentFeaturesEnabled,

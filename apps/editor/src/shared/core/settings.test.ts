@@ -54,9 +54,13 @@ describe("editor formatting settings", () => {
         insertSpaces: false,
         detectIndentation: false,
         codePaddingLeft: 32,
+        codePaddingTop: 28,
         indentationGuidesEnabled: false,
         highlightActiveIndentationGuide: false,
+        activeLineHighlightEnabled: false,
         bracketPairGuidesEnabled: false,
+        bracketPairHorizontalGuidesEnabled: false,
+        occurrenceHighlightOutlinesEnabled: false,
       },
     });
 
@@ -65,10 +69,24 @@ describe("editor formatting settings", () => {
       insertSpaces: false,
       detectIndentation: false,
       codePaddingLeft: 32,
+      codePaddingTop: 28,
       indentationGuidesEnabled: false,
       highlightActiveIndentationGuide: false,
+      activeLineHighlightEnabled: false,
       bracketPairGuidesEnabled: false,
+      bracketPairHorizontalGuidesEnabled: false,
+      occurrenceHighlightOutlinesEnabled: false,
     });
+  });
+
+  it("defaults the quiet surface decorations off", () => {
+    expect(DEFAULT_SETTINGS.editor.activeLineHighlightEnabled).toBe(false);
+    expect(DEFAULT_SETTINGS.editor.bracketPairHorizontalGuidesEnabled).toBe(
+      false,
+    );
+    expect(DEFAULT_SETTINGS.editor.occurrenceHighlightOutlinesEnabled).toBe(
+      false,
+    );
   });
 
   it("clamps numeric layout values and defaults invalid toggles", () => {
@@ -76,6 +94,7 @@ describe("editor formatting settings", () => {
       editor: {
         tabSize: 99,
         codePaddingLeft: -20,
+        codePaddingTop: 900,
         insertSpaces: "yes",
         detectIndentation: null,
       },
@@ -83,6 +102,7 @@ describe("editor formatting settings", () => {
 
     expect(settings.editor.tabSize).toBe(8);
     expect(settings.editor.codePaddingLeft).toBe(0);
+    expect(settings.editor.codePaddingTop).toBe(64);
     expect(settings.editor.insertSpaces).toBe(
       DEFAULT_SETTINGS.editor.insertSpaces,
     );

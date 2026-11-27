@@ -328,7 +328,7 @@ export default function AxonWorkbenchLayout(props: AxonWorkbenchLayoutProps) {
 
   return (
     <div
-      className={`axon-app-root relative flex h-full w-full flex-col overflow-hidden${zenActive ? " axon-zen-mode" : ""}${zenMode ? " axon-zen-layout" : ""}`}
+      className={`axon-app-root relative flex h-full w-full flex-col overflow-hidden${zenActive ? " axon-zen-mode" : ""}${zenMode ? " axon-zen-layout" : ""}${settings.editor.occurrenceHighlightOutlinesEnabled === true ? "" : " axon-code-area-fill-occurrences"}`}
       style={
         {
           ...appThemeCssVariables,

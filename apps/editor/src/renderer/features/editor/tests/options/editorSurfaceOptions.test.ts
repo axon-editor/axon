@@ -127,4 +127,57 @@ describe("editor surface options", () => {
 
     expect(options.inlineSuggest).toMatchObject({ enabled: false });
   });
+
+  it("uses the configured code top spacing", () => {
+    const options = createEditorSurfaceOptions({
+      editorSettings: {
+        ...DEFAULT_SETTINGS.editor,
+        codePaddingTop: 28,
+      },
+      largeDocument: false,
+      readOnly: false,
+    });
+
+    expect(options.padding).toEqual({ top: 28 });
+  });
+
+  it("keeps the established top spacing when hot reload has no value yet", () => {
+    const editorSettings = { ...DEFAULT_SETTINGS.editor };
+    delete (editorSettings as Partial<typeof editorSettings>).codePaddingTop;
+
+    const options = createEditorSurfaceOptions({
+      editorSettings,
+      largeDocument: false,
+      readOnly: false,
+    });
+
+    expect(options.padding).toEqual({ top: 16 });
+  });
+
+  it("removes the active line band when the user turns it off", () => {
+    const options = createEditorSurfaceOptions({
+      editorSettings: {
+        ...DEFAULT_SETTINGS.editor,
+        activeLineHighlightEnabled: false,
+      },
+      largeDocument: false,
+      readOnly: false,
+    });
+
+    expect(options.renderLineHighlight).toBe("none");
+  });
+
+  it("keeps the active line band off for older settings objects", () => {
+    const editorSettings = { ...DEFAULT_SETTINGS.editor };
+    delete (editorSettings as Partial<typeof editorSettings>)
+      .activeLineHighlightEnabled;
+
+    const options = createEditorSurfaceOptions({
+      editorSettings,
+      largeDocument: false,
+      readOnly: false,
+    });
+
+    expect(options.renderLineHighlight).toBe("none");
+  });
 });

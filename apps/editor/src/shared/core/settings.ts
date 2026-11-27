@@ -218,9 +218,13 @@ export interface EditorSettings {
   insertSpaces: boolean;
   detectIndentation: boolean;
   codePaddingLeft: number;
+  codePaddingTop: number;
   indentationGuidesEnabled: boolean;
   highlightActiveIndentationGuide: boolean;
+  activeLineHighlightEnabled: boolean;
   bracketPairGuidesEnabled: boolean;
+  bracketPairHorizontalGuidesEnabled: boolean;
+  occurrenceHighlightOutlinesEnabled: boolean;
   appGlassMode: AppGlassMode;
   appBackgroundOpacity: number;
   appBackgroundBlur: number;
@@ -313,9 +317,13 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     insertSpaces: true,
     detectIndentation: true,
     codePaddingLeft: 10,
+    codePaddingTop: 16,
     indentationGuidesEnabled: true,
     highlightActiveIndentationGuide: true,
+    activeLineHighlightEnabled: false,
     bracketPairGuidesEnabled: true,
+    bracketPairHorizontalGuidesEnabled: false,
+    occurrenceHighlightOutlinesEnabled: false,
     appGlassMode: "off",
     appBackgroundOpacity: 0.88,
     appBackgroundBlur: 10,
@@ -647,6 +655,12 @@ export function normalizeSettings(value: unknown): AxonSettings {
         0,
         64,
       ),
+      codePaddingTop: clampNumber(
+        editor.codePaddingTop,
+        DEFAULT_SETTINGS.editor.codePaddingTop,
+        0,
+        64,
+      ),
       indentationGuidesEnabled:
         typeof editor.indentationGuidesEnabled === "boolean"
           ? editor.indentationGuidesEnabled
@@ -655,10 +669,22 @@ export function normalizeSettings(value: unknown): AxonSettings {
         typeof editor.highlightActiveIndentationGuide === "boolean"
           ? editor.highlightActiveIndentationGuide
           : DEFAULT_SETTINGS.editor.highlightActiveIndentationGuide,
+      activeLineHighlightEnabled:
+        typeof editor.activeLineHighlightEnabled === "boolean"
+          ? editor.activeLineHighlightEnabled
+          : DEFAULT_SETTINGS.editor.activeLineHighlightEnabled,
       bracketPairGuidesEnabled:
         typeof editor.bracketPairGuidesEnabled === "boolean"
           ? editor.bracketPairGuidesEnabled
           : DEFAULT_SETTINGS.editor.bracketPairGuidesEnabled,
+      bracketPairHorizontalGuidesEnabled:
+        typeof editor.bracketPairHorizontalGuidesEnabled === "boolean"
+          ? editor.bracketPairHorizontalGuidesEnabled
+          : DEFAULT_SETTINGS.editor.bracketPairHorizontalGuidesEnabled,
+      occurrenceHighlightOutlinesEnabled:
+        typeof editor.occurrenceHighlightOutlinesEnabled === "boolean"
+          ? editor.occurrenceHighlightOutlinesEnabled
+          : DEFAULT_SETTINGS.editor.occurrenceHighlightOutlinesEnabled,
       appGlassMode: isAppGlassMode(editor.appGlassMode)
         ? editor.appGlassMode
         : editor.appTransparency === true

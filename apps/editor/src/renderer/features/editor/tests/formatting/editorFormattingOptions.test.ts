@@ -11,6 +11,7 @@ describe("editor formatting options", () => {
     expect(
       createEditorFormattingOptions({
         bracketPairGuidesEnabled: true,
+        bracketPairHorizontalGuidesEnabled: true,
         codePaddingLeft: 10,
         highlightActiveIndentationGuide: true,
         indentationGuidesEnabled: true,
@@ -30,6 +31,7 @@ describe("editor formatting options", () => {
     expect(
       createEditorFormattingOptions({
         bracketPairGuidesEnabled: true,
+        bracketPairHorizontalGuidesEnabled: true,
         codePaddingLeft: 26,
         highlightActiveIndentationGuide: true,
         indentationGuidesEnabled: false,
@@ -43,6 +45,60 @@ describe("editor formatting options", () => {
         indentation: false,
       },
       lineDecorationsWidth: 26,
+    });
+  });
+
+  it("keeps vertical bracket guides when the horizontal rails are off", () => {
+    expect(
+      createEditorFormattingOptions({
+        bracketPairGuidesEnabled: true,
+        bracketPairHorizontalGuidesEnabled: false,
+        codePaddingLeft: 10,
+        highlightActiveIndentationGuide: true,
+        indentationGuidesEnabled: true,
+      }),
+    ).toMatchObject({
+      guides: {
+        bracketPairs: true,
+        bracketPairsHorizontal: false,
+        highlightActiveBracketPair: true,
+      },
+    });
+  });
+
+  it("drops both bracket guide axes when bracket guides are off", () => {
+    expect(
+      createEditorFormattingOptions({
+        bracketPairGuidesEnabled: false,
+        bracketPairHorizontalGuidesEnabled: true,
+        codePaddingLeft: 10,
+        highlightActiveIndentationGuide: true,
+        indentationGuidesEnabled: true,
+      }),
+    ).toMatchObject({
+      guides: {
+        bracketPairs: false,
+        bracketPairsHorizontal: false,
+      },
+    });
+  });
+
+  it("keeps the horizontal rails off when hot reload has no value yet", () => {
+    const settings = {
+      bracketPairGuidesEnabled: true,
+      bracketPairHorizontalGuidesEnabled: true,
+      codePaddingLeft: 10,
+      highlightActiveIndentationGuide: true,
+      indentationGuidesEnabled: true,
+    };
+    delete (settings as Partial<typeof settings>)
+      .bracketPairHorizontalGuidesEnabled;
+
+    expect(createEditorFormattingOptions(settings)).toMatchObject({
+      guides: {
+        bracketPairs: true,
+        bracketPairsHorizontal: false,
+      },
     });
   });
 });
