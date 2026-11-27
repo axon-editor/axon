@@ -122,6 +122,7 @@ export function useWorkspaceHandlers({
 }: WorkspaceHandlersOptions) {
   const workspaceCoordinatorRef = useRef(createWorkspaceServiceCoordinator());
   const authorizedRootPathsRef = useRef(new Set<string>());
+  const appliedFolderPathRef = useRef<string | null>(null);
 
   // Session restore and multi-root switching can introduce roots that were
   // approved previously but are new to this renderer. Git status, tests, and
@@ -271,7 +272,12 @@ export function useWorkspaceHandlers({
     setWorkspaceRoots(nextRoots);
     setActiveRootId(nextActiveRoot.id);
     setFolderPath(path);
-    setGitStatus(null);
+    // A duplicate open of the same folder (restore plus a CLI open arriving
+    // late) must not erase Git state that is already painted. Only a real
+    // workspace switch clears it.
+    const isSameWorkspace = appliedFolderPathRef.current === path;
+    appliedFolderPathRef.current = path;
+    if (!isSameWorkspace) setGitStatus(null);
     setTree(fileTree);
     setLayout(
       restoredSession?.layout
@@ -374,7 +380,9 @@ export function useWorkspaceHandlers({
       {
         onSuccess: setGitStatus,
         onError: (err) => {
-          setGitStatus(null);
+          // A slow failing probe must not erase a status that a later refresh
+          // already painted. The initial state is null, so leaving it alone is
+          // also the correct result when Git never answers at all.
           appendOutput(
             "git",
             `Failed to discover the Git repository: ${
