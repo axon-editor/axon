@@ -447,7 +447,7 @@ func TestStoreRoundTrip(t *testing.T) {
 }
 
 func TestModelViewRendersHeader(t *testing.T) {
-	model := app.NewModel("/tmp/axon", "axon-code", nil, false, nil)
+	model := app.NewModel("/tmp/axon", "axon-code", nil, false, nil, "")
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	view := updated.(app.Model).View()
 

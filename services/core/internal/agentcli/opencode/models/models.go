@@ -6,10 +6,20 @@ package models
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/GordenArcher/axon-core/internal/agentcli/opencode/client"
 	"github.com/GordenArcher/axon-core/internal/agentcli/opencode/server"
 	"github.com/GordenArcher/axon-core/internal/ai"
+)
+
+// The model endpoint answers before the provider catalog has populated, so a
+// single read right after /api/info can return 200 with an empty list. Polling
+// briefly catches that window without making a genuinely model-less install
+// wait forever.
+const (
+	catalogReadyTimeout = 3 * time.Second
+	catalogPollInterval = 150 * time.Millisecond
 )
 
 // Load merges the OpenCode catalog into Axon's model list. A missing OpenCode
@@ -26,16 +36,44 @@ func Load(ctx context.Context, folder string) ([]ai.ModelInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	api := client.New(handle)
-	modelList, err := api.Models(ctx)
-	if err != nil {
-		return nil, err
+	return loadCatalog(ctx, client.New(handle))
+}
+
+// loadCatalog waits for the provider catalog to become usable. OpenCode
+// reports a ready server through /api/info before /api/model has entries, so
+// treating the first empty response as final is what made the terminal show no
+// OpenCode models while the sidebar, which refreshes later, showed them all.
+func loadCatalog(
+	ctx context.Context,
+	api *client.Client,
+) ([]ai.ModelInfo, error) {
+	deadline := time.Now().Add(catalogReadyTimeout)
+	var lastErr error
+
+	for {
+		modelList, err := api.Models(ctx)
+		if err == nil && len(modelList) > 0 {
+			// Provider names only affect headings. A failed provider lookup
+			// must not hide models that are ready to run.
+			providerList, providerErr := api.Providers(ctx)
+			if providerErr != nil {
+				providerList = nil
+			}
+			return mapModels(modelList, providerList), nil
+		}
+		if err != nil {
+			lastErr = err
+		}
+
+		if time.Now().After(deadline) {
+			return nil, lastErr
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(catalogPollInterval):
+		}
 	}
-	providerList, err := api.Providers(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return mapModels(modelList, providerList), nil
 }
 
 // mapModels gives each entry the same shape the sidebar uses. Availability is

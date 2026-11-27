@@ -20,6 +20,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/GordenArcher/axon-core/internal/agentcli/opencode/credentials"
 )
 
 const (
@@ -136,9 +138,10 @@ func Ensure(ctx context.Context, folder string) (*Handle, error) {
 }
 
 // databasePath keeps provider sessions inside Axon's state instead of the
-// user's personal OpenCode database. Config and credentials stay shared, so
-// account models still work, but sessions created here never appear in the
-// OpenCode TUI.
+// user's personal OpenCode database, so a conversation started here never
+// shows up in the OpenCode TUI. Credentials live in that same database, so the
+// account key is read separately and handed to the managed server through the
+// environment.
 func databasePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -175,11 +178,17 @@ func start(folder string) (*Handle, error) {
 
 	command := exec.Command(binary.Path, "serve", "--hostname", "127.0.0.1", "--port", fmt.Sprint(port))
 	command.Dir = folder
+	// The environment key authenticates the account catalog without sharing
+	// the user's database, so Axon keeps session isolation and still discovers
+	// OpenCode Go models.
 	command.Env = append(os.Environ(),
 		"OPENCODE_SERVER_PASSWORD="+password,
 		"OPENCODE_CONFIG_CONTENT="+managedConfig,
 		"OPENCODE_DB="+database,
 	)
+	if apiKey := credentials.OpenCodeAPIKey(); apiKey != "" {
+		command.Env = append(command.Env, "OPENCODE_API_KEY="+apiKey)
+	}
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return nil, err

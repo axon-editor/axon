@@ -12,6 +12,7 @@ import path from "node:path";
 import { terminateChildProcess } from "../../../../core/process/process";
 import { getDeveloperToolSpawnEnvironment } from "../../../../process/environment";
 import { detectOpenCodeBinary } from "../binary/detect";
+import { readOpenCodeApiKey } from "../credentials/read";
 
 const START_TIMEOUT_ATTEMPTS = 80;
 const START_POLL_MS = 200;
@@ -49,9 +50,9 @@ function delay(ms: number) {
 }
 
 // Axon's provider sessions live in Axon's state, not the user's personal
-// OpenCode database. Config and credentials stay shared, so authenticated
-// models still work, but the sessions this server creates never appear in the
-// OpenCode TUI.
+// OpenCode database, so a conversation started here never shows up in the
+// OpenCode TUI. Credentials live in that same database, so the account key is
+// read separately and handed to the managed server through the environment.
 function axonOpenCodeDatabasePath(env: NodeJS.ProcessEnv) {
   return path.join(
     env.HOME ?? os.homedir(),
@@ -98,6 +99,7 @@ async function startServer(
   const env = await getDeveloperToolSpawnEnvironment();
   const databasePath = axonOpenCodeDatabasePath(env);
   await fs.mkdir(path.dirname(databasePath), { recursive: true });
+  const apiKey = readOpenCodeApiKey();
   const child = spawn(
     binaryPath,
     ["serve", "--hostname", "127.0.0.1", "--port", String(port)],
@@ -108,6 +110,7 @@ async function startServer(
         OPENCODE_SERVER_PASSWORD: password,
         OPENCODE_CONFIG_CONTENT: MANAGED_PERMISSION_CONFIG,
         OPENCODE_DB: databasePath,
+        ...(apiKey ? { OPENCODE_API_KEY: apiKey } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     },

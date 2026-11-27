@@ -73,6 +73,7 @@ func NewModel(
 	models []ai.ModelInfo,
 	resume bool,
 	sessions *store.Store,
+	notice string,
 ) Model {
 	viewportModel := viewport.New(80, 20)
 	viewportModel.MouseWheelEnabled = true
@@ -90,6 +91,11 @@ func NewModel(
 	renderer := transcriptview.New()
 	renderer.SetWorkspace(workspace)
 
+	status := "Ready"
+	if strings.TrimSpace(notice) != "" {
+		status = notice
+	}
+
 	model := Model{
 		workspace:        workspace,
 		modelID:          modelID,
@@ -101,7 +107,7 @@ func NewModel(
 		viewport:         viewportModel,
 		spinner:          spinnerModel,
 		renderer:         renderer,
-		status:           "Ready",
+		status:           status,
 	}
 	model.session.Model = modelID
 

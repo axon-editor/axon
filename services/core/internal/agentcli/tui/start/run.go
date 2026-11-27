@@ -25,12 +25,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Starting OpenCode is slower than asking the local runtime, so startup gets
-// one budget for both catalogs instead of a second independent timeout.
-const runtimeResolveTimeout = 20 * time.Second
+// Core resolution and OpenCode startup are independent processes with their
+// own cold-start costs. A shared deadline let a slow core bootstrap expire the
+// context before the OpenCode catalog was read, which looked like a missing
+// install even though the server had just become ready.
+const (
+	coreResolveTimeout     = 20 * time.Second
+	openCodeResolveTimeout = 30 * time.Second
+	noticeLineLimit        = 120
+)
 
 func Run(workspace string, resume bool) int {
-	modelID, modelList := resolveRuntime(workspace)
+	modelID, modelList, notice := resolveRuntime(workspace)
 	// The CLI owns any OpenCode server it starts. Leaving it behind would keep
 	// an unowned process and port alive after the terminal closes.
 	defer func() {
@@ -62,7 +68,7 @@ func Run(workspace string, resume bool) int {
 	}()
 
 	program := tea.NewProgram(
-		app.NewModel(workspace, modelID, modelList, resume, sessions),
+		app.NewModel(workspace, modelID, modelList, resume, sessions, notice),
 		tea.WithAltScreen(),
 		// Wheel scrolling is the primary way to move through a transcript.
 		// Ctrl+Y temporarily disables mouse capture for native selection/copy.
@@ -80,28 +86,47 @@ func Run(workspace string, resume bool) int {
 // itself; otherwise the first prompt fails with "model is not installed" even
 // though another catalog model is ready. OpenCode models are merged into the
 // same list so a terminal has the same catalog as the sidebar.
-func resolveRuntime(workspace string) (string, []ai.ModelInfo) {
+func resolveRuntime(workspace string) (string, []ai.ModelInfo, string) {
 	requested := requestedModel()
-
-	ctx, cancel := context.WithTimeout(context.Background(), runtimeResolveTimeout)
-	defer cancel()
 
 	modelList := make([]ai.ModelInfo, 0, 32)
 	port := coreproc.ResolveCorePort()
-	if err := coreproc.EnsureCore(ctx, port); err == nil {
-		if status, err := fetchRuntimeStatus(ctx, port, requested); err == nil {
+	coreCtx, cancelCore := context.WithTimeout(context.Background(), coreResolveTimeout)
+	if err := coreproc.EnsureCore(coreCtx, port); err == nil {
+		if status, err := fetchRuntimeStatus(coreCtx, port, requested); err == nil {
 			modelList = append(modelList, status.Models...)
 		}
 	}
+	cancelCore()
 
 	// A failed OpenCode start must not hide the local models that are already
-	// ready. The error stays out of startup because the picker can still show
-	// the remaining catalog and the next refresh can pick OpenCode up.
-	if openCodeModels, err := openmodels.Load(ctx, workspace); err == nil {
+	// ready. The failure is surfaced through the status line instead of being
+	// dropped, because a silent empty picker looks like a missing install.
+	openCodeCtx, cancelOpenCode := context.WithTimeout(context.Background(), openCodeResolveTimeout)
+	openCodeModels, openCodeErr := openmodels.Load(openCodeCtx, workspace)
+	cancelOpenCode()
+
+	notice := ""
+	if openCodeErr != nil {
+		notice = openCodeNotice(openCodeErr)
+	} else {
 		modelList = append(modelList, openCodeModels...)
 	}
 
-	return chosenModel(requested, modelList), modelList
+	return chosenModel(requested, modelList), modelList, notice
+}
+
+// openCodeNotice keeps the status line readable when the startup error carries
+// server logs across several lines.
+func openCodeNotice(err error) string {
+	message := strings.TrimSpace(err.Error())
+	if index := strings.IndexByte(message, '\n'); index >= 0 {
+		message = message[:index]
+	}
+	if len(message) > noticeLineLimit {
+		message = message[:noticeLineLimit-3] + "..."
+	}
+	return "OpenCode models unavailable: " + message
 }
 
 func chosenModel(requested string, modelList []ai.ModelInfo) string {

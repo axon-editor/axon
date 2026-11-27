@@ -19,7 +19,7 @@ import (
 
 func sizedModel(t *testing.T, resume bool, sessions *store.Store) app.Model {
 	t.Helper()
-	model := app.NewModel("/tmp/axon", "axon-code", nil, resume, sessions)
+	model := app.NewModel("/tmp/axon", "axon-code", nil, resume, sessions, "")
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	return updated.(app.Model)
 }
@@ -118,7 +118,7 @@ func TestSlashModelSelectsExactIDImmediately(t *testing.T) {
 			Available:     true,
 		},
 	}
-	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil)
+	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil, "")
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	model = updated.(app.Model)
 	model = typeText(model, "/model opencode/beam-free")
@@ -146,7 +146,7 @@ func TestSlashModelFiltersCatalog(t *testing.T) {
 			Available:     true,
 		},
 	}
-	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil)
+	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil, "")
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	model = updated.(app.Model)
 	model = typeText(model, "/model beam")
@@ -165,7 +165,7 @@ func TestSlashModelReportsEmptyFilter(t *testing.T) {
 	catalog := []ai.ModelInfo{
 		{ID: "axon-code", Label: "Axon Code", ProviderLabel: "Axon models", Available: true},
 	}
-	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil)
+	model := app.NewModel("/tmp/axon", "axon-code", catalog, false, nil, "")
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	model = updated.(app.Model)
 	model = typeText(model, "/model zzz")
