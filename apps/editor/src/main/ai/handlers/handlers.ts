@@ -28,7 +28,7 @@ import {
   startOpenCodeRun,
 } from "../providers/opencode/run/session";
 import { stopOpenCodeServer } from "../providers/opencode/server/lifecycle";
-import { readSettingsForFolder } from "../../settings/io";
+import { readSettingsForFolder } from "../../settings/store/io";
 import {
   cancelAgentRun,
   runAgentLoop,

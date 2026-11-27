@@ -34,7 +34,7 @@ vi.mock("electron", () => ({
   },
 }));
 vi.mock("../features", () => featureMocks);
-vi.mock("../../settings/io", () => ({
+vi.mock("../../settings/store/io", () => ({
   readSettingsForFolder: vi.fn(async () => ({ lsp: { enabled: true } })),
 }));
 

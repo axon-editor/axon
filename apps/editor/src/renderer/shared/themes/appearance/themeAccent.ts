@@ -8,11 +8,10 @@ import { type ThemeTokenMap } from "../types";
 // The settings surface (toggles, sliders, active nav) needs a single accent it
 // can trust across every theme, but Axon deliberately has no "accent" color
 // token to keep the theme contract small. Rather than inventing a new
-// ThemeColorToken that every built-in theme and user override would have to
-// define, I derive the accent from the editor's syntax.function token: it is
-// already present in every theme, usually maps to a readable blue/teal, and it
-// follows user theme_overrides indirectly, so overriding syntax.function moves
-// the whole accent family at once.
+// ThemeColorToken that every built-in theme would have to define, I derive the
+// accent from the editor's syntax.function token: it is already present in
+// every theme and usually maps to a readable blue/teal, so one token drives the
+// whole accent family.
 //
 // The browser still needs a foreground that contrasts with that accent for
 // toggle knobs and active glyphs. I flip between a near-black and near-white

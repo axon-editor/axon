@@ -184,7 +184,6 @@ export const THEME_COLOR_TOKENS = [
 
 export type ThemeColorToken = (typeof THEME_COLOR_TOKENS)[number];
 export type ThemeOverride = Partial<Record<ThemeColorToken, string>>;
-export type ThemeOverrides = Partial<Record<string, ThemeOverride>>;
 
 export interface CustomFont {
   family: string;
@@ -261,7 +260,6 @@ export interface AxonSettings {
   terminal: TerminalSettings;
   ai: AiSettings;
   lsp: LspSettings;
-  theme_overrides: ThemeOverrides;
   customFonts: CustomFont[];
   spotify: {
     clientId: string;
@@ -372,7 +370,6 @@ export const DEFAULT_SETTINGS: AxonSettings = {
     pythonVirtualEnvPath: "",
     pythonInterpreterPath: "",
   },
-  theme_overrides: {},
   customFonts: [],
   spotify: {
     clientId: "",
@@ -464,41 +461,6 @@ function clampNumber(
 ) {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
-}
-
-function isHexColor(value: string) {
-  return /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value.trim());
-}
-
-function normalizeThemeOverrides(value: unknown): ThemeOverrides {
-  if (!isRecord(value)) return DEFAULT_SETTINGS.theme_overrides;
-
-  const normalized: ThemeOverrides = {};
-  for (const [themeName, overrides] of Object.entries(value)) {
-    if (!isRecord(overrides)) continue;
-
-    const themeOverrides: ThemeOverride = {};
-    for (const token of THEME_COLOR_TOKENS) {
-      const color = overrides[token];
-      if (typeof color === "string" && isHexColor(color)) {
-        themeOverrides[token] = color.trim();
-      }
-    }
-
-    if (Object.keys(themeOverrides).length > 0) {
-      normalized[themeName] = themeOverrides;
-    }
-  }
-
-  const merged: ThemeOverrides = { ...DEFAULT_SETTINGS.theme_overrides };
-  for (const [themeName, overrides] of Object.entries(normalized)) {
-    merged[themeName] = {
-      ...(merged[themeName] ?? {}),
-      ...overrides,
-    };
-  }
-
-  return merged;
 }
 
 function normalizeCustomFonts(value: unknown): CustomFont[] {
@@ -855,7 +817,6 @@ export function normalizeSettings(value: unknown): AxonSettings {
           ? lsp.pythonInterpreterPath.trim()
           : DEFAULT_SETTINGS.lsp.pythonInterpreterPath,
     },
-    theme_overrides: normalizeThemeOverrides(root.theme_overrides),
     customFonts: normalizeCustomFonts(root.customFonts),
     spotify: {
       clientId:

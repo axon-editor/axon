@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readSettingsForFolder } from "../../settings/io";
+import { readSettingsForFolder } from "../../settings/store/io";
 
 export async function warmUpAiRuntime(input: {
   axonCorePort: string;

@@ -82,7 +82,7 @@ vi.mock("electron", () => ({
   shell: { openExternal: vi.fn() },
   webContents: { fromId: vi.fn(() => null) },
 }));
-vi.mock("../settings/bootAppearance", () => ({
+vi.mock("../settings/boot/bootAppearance", () => ({
   readBootAppearance: vi.fn(() => ({
     background: "#000000",
     appearance: "dark",

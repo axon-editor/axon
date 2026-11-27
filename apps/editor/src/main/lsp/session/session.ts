@@ -12,8 +12,8 @@ import {
   type LanguageServerId,
   type LanguageServerSemanticTokensProvider,
 } from "../../../shared/editor/language/lsp/lsp";
-import { readSettingsForFolder } from "../../settings/io";
-import { getWorkspaceSettingsPath } from "../../settings/paths";
+import { readSettingsForFolder } from "../../settings/store/io";
+import { getWorkspaceSettingsPath } from "../../settings/store/paths";
 import {
   type LanguageServerDefinition,
   type ResolvedLanguageServerCommand,

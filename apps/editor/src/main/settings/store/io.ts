@@ -9,13 +9,29 @@ import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   type AxonSettings,
-} from "../../shared/core/settings";
+} from "../../../shared/core/settings";
 import { getUserSettingsPath, getWorkspaceSettingsPath } from "./paths";
+import {
+  mergeWorkspaceOverlay,
+  parseWorkspaceOverlay,
+  type WorkspaceSettingsOverlay,
+  type WorkspaceSettingsPatch,
+} from "../workspace/scope";
 
 // Settings reads sit on AI, LSP, and startup paths. Keeping this cache keyed by
 // file mtime lets those callers use async disk I/O without rereading and
-// reparsing axon.json on every completion, diagnostic, or chat request.
-const settingsCache = new Map<string, { mtimeMs: number; settings: AxonSettings }>();
+// reparsing the user settings on every completion, diagnostic, or chat request.
+const settingsCache = new Map<
+  string,
+  { mtimeMs: number; settings: AxonSettings }
+>();
+const workspaceOverlayCache = new Map<
+  string,
+  {
+    mtimeMs: number;
+    overlay: WorkspaceSettingsPatch | null;
+  }
+>();
 
 export async function readSettingsFromDisk(
   settingsPath: string,
@@ -35,27 +51,6 @@ export async function readSettingsFromDisk(
     console.error("failed to read settings:", err);
     return DEFAULT_SETTINGS;
   }
-}
-
-function applyAppAwareSettings(
-  settings: AxonSettings,
-  appSettings: AxonSettings,
-): AxonSettings {
-  // Workspace settings can tune project behavior, but the editor chrome should
-  // feel like the user's app, not like a property of whatever folder is open.
-  // Keeping theme and main sidebar side sourced from user settings prevents a
-  // workspace axon.json from moving the sidebar back to the default or changing
-  // the shell theme when the user switches projects.
-  return {
-    ...settings,
-    editor: {
-      ...settings.editor,
-      themeId: appSettings.editor.themeId,
-      sidebarSide: appSettings.editor.sidebarSide,
-      zenWorkspaceTreeSurface: appSettings.editor.zenWorkspaceTreeSurface,
-    },
-    theme_overrides: appSettings.theme_overrides,
-  };
 }
 
 async function readSettingsFromDiskCached(
@@ -96,10 +91,9 @@ export function writeSettingsToDisk(
   settings: AxonSettings,
   settingsPath: string,
 ) {
-  // I normalize before writing so both the app settings file and workspace
-  // axon.json are always complete, valid documents. That prevents a broken
-  // manual edit from leaking invalid editor options into Monaco on the next
-  // launch.
+  // I normalize before writing so the user settings file is always a complete,
+  // valid document. That prevents a broken manual edit from leaking invalid
+  // editor options into Monaco on the next launch.
   const normalizedSettings = normalizeSettings(settings);
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(
@@ -112,23 +106,59 @@ export function writeSettingsToDisk(
   return normalizedSettings;
 }
 
+async function readWorkspaceOverlayCached(
+  settingsPath: string,
+): Promise<WorkspaceSettingsPatch | null> {
+  const stat = await fs.promises.stat(settingsPath).catch(() => null);
+  if (!stat) {
+    workspaceOverlayCache.delete(settingsPath);
+    return null;
+  }
+
+  const cached = workspaceOverlayCache.get(settingsPath);
+  if (cached && cached.mtimeMs === stat.mtimeMs) {
+    return cached.overlay;
+  }
+
+  try {
+    const rawOverlay = await fs.promises.readFile(settingsPath, "utf-8");
+    const overlay = parseWorkspaceOverlay(JSON.parse(rawOverlay));
+    workspaceOverlayCache.set(settingsPath, {
+      mtimeMs: stat.mtimeMs,
+      overlay,
+    });
+    return overlay;
+  } catch (err) {
+    console.error("failed to read workspace settings:", err);
+    return null;
+  }
+}
+
+export function writeWorkspaceOverlayToDisk(
+  overlay: WorkspaceSettingsOverlay,
+  settingsPath: string,
+) {
+  // The workspace file is deliberately partial: writing the whole settings
+  // document here is what made a theme save create a project file and let a
+  // folder override app chrome on the next launch.
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, JSON.stringify(overlay, null, 2), "utf-8");
+  workspaceOverlayCache.delete(settingsPath);
+}
+
 export async function readSettingsForFolder(
   folderPath?: string | null,
 ): Promise<AxonSettings> {
   const appSettings = await readSettingsFromDiskCached(getUserSettingsPath());
 
   if (folderPath) {
-    const workspaceSettingsPath = getWorkspaceSettingsPath(folderPath);
-    const workspaceSettings = await readSettingsFromDiskCached(
-      workspaceSettingsPath,
+    const workspaceOverlay = await readWorkspaceOverlayCached(
+      getWorkspaceSettingsPath(folderPath),
     );
-    if (workspaceSettings !== DEFAULT_SETTINGS) {
-      // Workspace settings are merged after the app settings are loaded so
-      // project-level LSP/runtime choices can vary per folder while app-owned
-      // chrome preferences, such as theme and sidebar side, remain stable when
-      // switching workspaces.
-      return applyAppAwareSettings(workspaceSettings, appSettings);
-    }
+    // A workspace only contributes its project overlay. Everything else comes
+    // from the user file, so switching folders cannot change the theme, glass,
+    // typography, or any other chrome preference.
+    return mergeWorkspaceOverlay(appSettings, workspaceOverlay);
   }
 
   return appSettings;

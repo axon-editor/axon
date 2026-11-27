@@ -13,7 +13,7 @@
 
 import { BrowserWindow, shell } from "electron";
 import path from "path";
-import { readBootAppearance } from "../../settings/bootAppearance";
+import { readBootAppearance } from "../../settings/boot/bootAppearance";
 import { type WorkspaceCapabilityRegistry } from "../../security/workspaceCapabilities";
 import {
   applyWindowGlass,

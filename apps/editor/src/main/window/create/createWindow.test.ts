@@ -11,7 +11,7 @@ vi.mock("electron", () => ({
   BrowserWindow: class {},
   shell: {},
 }));
-vi.mock("../../settings/bootAppearance", () => ({
+vi.mock("../../settings/boot/bootAppearance", () => ({
   readBootAppearance: vi.fn(),
 }));
 vi.mock("../menu/menu", () => ({ buildApplicationMenu: vi.fn() }));

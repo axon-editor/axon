@@ -20,7 +20,7 @@
 
 import { app, BrowserWindow, ipcMain, shell, webContents } from "electron";
 import path from "path";
-import { readBootAppearance } from "../settings/bootAppearance";
+import { readBootAppearance } from "../settings/boot/bootAppearance";
 import { notifyRendererOfFullScreen } from "../window/create/createWindow";
 import {
   applyWindowGlass,

@@ -6,26 +6,38 @@
 import { BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import fs from "fs";
 import path from "path";
-import { type PythonWorkspaceEnvironmentStatus } from "../../shared/editor/language/lsp/lsp";
-import { type AxonSettings, type CustomFont } from "../../shared/core/settings";
-import { readSettingsForFolder, writeSettingsToDisk } from "./io";
-import { importCustomFontFile, listAvailableLocalFonts } from "../fonts/fonts";
-import { getSettingsPath } from "./paths";
-import { setClientId } from "../spotify/api";
-import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
-import { AXON_AUTO_SAVE_MENU_ITEM_ID } from "../window/menu/menu";
-import { extensionHostService } from "../extensions/host/service";
-import { writeBootAppearance } from "./bootAppearance";
+import { type PythonWorkspaceEnvironmentStatus } from "../../../shared/editor/language/lsp/lsp";
+import {
+  normalizeSettings,
+  type AxonSettings,
+  type CustomFont,
+} from "../../../shared/core/settings";
+import {
+  readSettingsForFolder,
+  writeSettingsToDisk,
+  writeWorkspaceOverlayToDisk,
+} from "../store/io";
+import { importCustomFontFile, listAvailableLocalFonts } from "../../fonts/fonts";
+import {
+  getSettingsPath,
+  getUserSettingsPath,
+} from "../store/paths";
+import { pickWorkspaceOverlay, lspSettingsEqual } from "../workspace/scope";
+import { setClientId } from "../../spotify/api";
+import { AXON_SPOTIFY_CLIENT_ID } from "../../generated/buildConfig";
+import { AXON_AUTO_SAVE_MENU_ITEM_ID } from "../../window/menu/menu";
+import { extensionHostService } from "../../extensions/host/service";
+import { writeBootAppearance } from "../boot/bootAppearance";
 import {
   applyWindowGlass,
   refreshWindowGlass,
-} from "../window/glass/windowGlass";
+} from "../../window/glass/windowGlass";
 import {
   detectPythonVirtualEnvForWorkspace,
   getPythonInterpreterFromVirtualEnv,
   isPythonWorkspace,
   resolvePythonEnvironmentSelection,
-} from "../lsp/discovery/pythonEnvironment";
+} from "../../lsp/discovery/pythonEnvironment";
 
 const EMPTY_PYTHON_WORKSPACE_STATUS: PythonWorkspaceEnvironmentStatus = {
   pythonDetected: false,
@@ -391,16 +403,33 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       if (folderPath) {
         deps.assertWorkspaceRoot(event.sender.id, folderPath);
       }
-      const normalizedSettings = writeSettingsToDisk(
-        settings,
-        getSettingsPath(folderPath),
+
+      const normalizedSettings = normalizeSettings(settings);
+      const appSettings = await readSettingsForFolder(null);
+      const effectiveBeforeSave = await readSettingsForFolder(folderPath);
+      // A workspace-scoped draft carries the project environment that was
+      // loaded from axon.json. Leaving it untouched must not copy that value
+      // into the user file, while an explicit environment change has to land
+      // somewhere. Comparing the draft with the value that was loaded tells
+      // the two cases apart without writing a project file.
+      const environmentChanged =
+        Boolean(folderPath) &&
+        !lspSettingsEqual(normalizedSettings.lsp, effectiveBeforeSave.lsp);
+      const savedUserSettings = writeSettingsToDisk(
+        environmentChanged
+          ? normalizedSettings
+          : { ...normalizedSettings, lsp: appSettings.lsp },
+        getUserSettingsPath(),
       );
-      if (!folderPath) {
-        writeBootAppearance(
-          normalizedSettings,
-          await extensionHostService.getState(),
-        );
-      }
+      writeBootAppearance(
+        savedUserSettings,
+        await extensionHostService.getState(),
+      );
+
+      // Settings saves belong to the user file. A project file is only created
+      // or changed when the user edits it themselves, so a theme save never
+      // drops axon.json into the repository.
+      const effectiveSettings = await readSettingsForFolder(folderPath);
 
       for (const session of deps.getActiveLanguageServers()) {
         if (
@@ -415,21 +444,21 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
         void deps.startPythonLanguageServerForFolder(folderPath);
       }
       if (!AXON_SPOTIFY_CLIENT_ID) {
-        const updatedClientId = normalizedSettings.spotify?.clientId ?? "";
+        const updatedClientId = effectiveSettings.spotify?.clientId ?? "";
         setClientId(updatedClientId);
       }
 
       // A save is the authoritative disk state. Every other editor window
-      // converges to the normalized result so tab-mode and window-mode saves
-      // stay consistent across multiple windows, without the sender re-applying
-      // the write it just performed.
+      // converges to the merged result so tab-mode and window-mode saves stay
+      // consistent across multiple windows, without the sender re-applying the
+      // write it just performed.
       deps.broadcastSettingsToEditorWindows(
         "settings:changed",
-        normalizedSettings,
+        effectiveSettings,
         event.sender.id,
       );
 
-      return normalizedSettings;
+      return effectiveSettings;
     },
   );
 
@@ -497,7 +526,10 @@ export function registerSettingsHandlers(deps: SettingsHandlersDependencies) {
       if (!folderPath) return pathForSettings;
 
       const nextSettings = settings ?? (await readSettingsForFolder(folderPath));
-      writeSettingsToDisk(nextSettings, pathForSettings);
+      writeWorkspaceOverlayToDisk(
+        pickWorkspaceOverlay(nextSettings),
+        pathForSettings,
+      );
       return pathForSettings;
     },
   );

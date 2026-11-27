@@ -6,7 +6,7 @@
 import { app, BrowserWindow, shell } from "electron";
 import path from "path";
 import { type AxonCommand } from "../../../shared/commands/commands";
-import { readBootAppearance } from "../../settings/bootAppearance";
+import { readBootAppearance } from "../../settings/boot/bootAppearance";
 import { buildApplicationMenu } from "../menu/menu";
 import {
   applyWindowGlass,

@@ -595,7 +595,7 @@ export default function SettingsTab({
   };
 
   const scopeHint = folderPath
-    ? "Workspace settings inherit from user settings and can be overridden by axon.json."
+    ? "Settings save to your user settings. A project axon.json is read when it exists, but saving settings never creates or changes it."
     : "No workspace is open, so changes apply to your user settings only.";
 
   return (

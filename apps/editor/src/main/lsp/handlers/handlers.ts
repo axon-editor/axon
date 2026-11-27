@@ -23,7 +23,7 @@ import {
   stopRelevantLanguageServers,
   syncDocumentWithLanguageServer,
 } from "../features";
-import { readSettingsForFolder } from "../../settings/io";
+import { readSettingsForFolder } from "../../settings/store/io";
 import { type WorkspaceCapabilityRegistry } from "../../security/workspaceCapabilities";
 import {
   type LanguageServerCodeActionRequest,

@@ -36,10 +36,9 @@ export function createThemeCssVariables(
     tokens["sidebar.border"],
     appearance,
   );
-  // These variables are the bridge between axon.json and the React chrome.
-  // They are resolved from the active built-in theme first, then user override
-  // values are layered on top. That keeps defaults clean while still making
-  // theme_overrides affect every visible Axon surface immediately.
+  // These variables are the bridge between the theme registry and the React
+  // chrome. They come from the active theme contribution, so every visible
+  // Axon surface resolves its colors from the same source.
   return {
     "--axon-background": tokens.background,
     "--axon-status-bar-background": tokens["status_bar.background"],

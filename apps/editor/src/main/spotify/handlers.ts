@@ -42,8 +42,8 @@ import type {
   SpotifyStatusResult,
   SpotifyTracksResult,
 } from "../../shared/extensions/spotify";
-import { readSettingsFromDisk } from "../settings/io";
-import { getUserSettingsPath } from "../settings/paths";
+import { readSettingsFromDisk } from "../settings/store/io";
+import { getUserSettingsPath } from "../settings/store/paths";
 import { AXON_SPOTIFY_CLIENT_ID } from "../generated/buildConfig";
 
 // Called from index.ts after the app is ready and the client ID is set.

@@ -9,7 +9,7 @@ import path from "path";
 import {
   readBootAppearance,
   type BootAppearance,
-} from "./settings/bootAppearance";
+} from "./settings/boot/bootAppearance";
 import {
   getWindowGlassBackground,
   getWindowGlassConstructorOptions,
