@@ -80,11 +80,15 @@ export default function WorkspaceOverviewModal({
         return {
           rootId: root.id,
           gitBranch:
-            gitStatus.status === "fulfilled" && gitStatus.value.isRepository
+            gitStatus.status === "fulfilled" &&
+            gitStatus.value.isRepository &&
+            !gitStatus.value.degraded
               ? gitStatus.value.branch
               : null,
           gitChanges:
-            gitStatus.status === "fulfilled" && gitStatus.value.isRepository
+            gitStatus.status === "fulfilled" &&
+            gitStatus.value.isRepository &&
+            !gitStatus.value.degraded
               ? gitStatus.value.changes.length
               : null,
           tests:

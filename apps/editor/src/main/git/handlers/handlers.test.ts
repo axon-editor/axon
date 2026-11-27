@@ -56,6 +56,9 @@ import { registerGitHandlers } from "./handlers";
 function createDependencies() {
   return {
     authorizeWorkspaceRoot: vi.fn(),
+    authorizeKnownWorkspaceRoot: vi.fn(
+      (_rendererId: number, folderPath: string) => folderPath,
+    ),
     assertWorkspaceRoot: vi.fn(
       (_rendererId: number, folderPath: string) => folderPath,
     ),
@@ -98,12 +101,38 @@ describe("Git IPC capabilities", () => {
     dependencies.assertWorkspaceRoot.mockImplementation(() => {
       throw new Error("workspace not authorized");
     });
+    dependencies.authorizeKnownWorkspaceRoot.mockImplementation(() => {
+      throw new Error("workspace not approved");
+    });
     registerGitHandlers(dependencies);
 
     await expect(
       ipcHandlers.get("git:status")!(createEvent(9), process.cwd()),
-    ).rejects.toThrow("workspace not authorized");
+    ).rejects.toThrow("workspace not approved");
     expect(gitMocks.getGitStatus).not.toHaveBeenCalled();
+  });
+
+  it("re-authorizes an approved root when the renderer capability is missing", async () => {
+    const dependencies = createDependencies();
+    dependencies.assertWorkspaceRoot.mockImplementation(() => {
+      throw new Error("workspace not authorized");
+    });
+    gitMocks.getGitStatus.mockResolvedValue({
+      isRepository: true,
+      root: process.cwd(),
+      branch: "main",
+      changes: [],
+      ignoredPaths: [],
+    });
+    registerGitHandlers(dependencies);
+
+    await ipcHandlers.get("git:status")!(createEvent(13), process.cwd());
+
+    expect(dependencies.authorizeKnownWorkspaceRoot).toHaveBeenCalledWith(
+      13,
+      process.cwd(),
+    );
+    expect(gitMocks.getGitStatus).toHaveBeenCalledWith(process.cwd());
   });
 
   it("resolves repository-relative paths against a parent Git root", async () => {
@@ -144,6 +173,45 @@ describe("Git IPC capabilities", () => {
       false,
       repositoryRoot,
     );
+  });
+
+  it("rediscovers a repository after the root cache expires", async () => {
+    const dependencies = createDependencies();
+    const repositoryRoot = process.cwd();
+    gitMocks.findGitRepositoryRoot.mockResolvedValue(repositoryRoot);
+    gitMocks.getGitDiff.mockResolvedValue({ path: "a.ts", diff: "" });
+    registerGitHandlers(dependencies);
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+
+    try {
+      await ipcHandlers.get("git:diff")!(
+        createEvent(14),
+        repositoryRoot,
+        "a.ts",
+        false,
+        false,
+      );
+      await ipcHandlers.get("git:diff")!(
+        createEvent(14),
+        repositoryRoot,
+        "a.ts",
+        false,
+        false,
+      );
+      expect(gitMocks.findGitRepositoryRoot).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(1_000 + 6_000);
+      await ipcHandlers.get("git:diff")!(
+        createEvent(14),
+        repositoryRoot,
+        "a.ts",
+        false,
+        false,
+      );
+      expect(gitMocks.findGitRepositoryRoot).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("grants exact changed files read-only access without approving the parent folder", async () => {

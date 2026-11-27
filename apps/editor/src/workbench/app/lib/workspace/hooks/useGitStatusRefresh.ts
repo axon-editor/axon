@@ -5,6 +5,7 @@
 
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import { type GitStatusResult } from "../../../../../shared/workspace/git";
+import { mergeGitStatusResult } from "../git/gitStatusMerge";
 import { type OutputEntryLevel } from "../../../../../platform/panel/bottomPanel";
 import { createLatestTaskQueue } from "../../async/latestTaskQueue";
 
@@ -66,7 +67,7 @@ export function useGitStatusRefresh({
           return;
         }
 
-        setGitStatus(nextStatus);
+        setGitStatus((current) => mergeGitStatusResult(current, nextStatus));
         if (
           refreshDurationMs > 1200 &&
           Date.now() - lastSlowRefreshOutputRef.current > 10_000
@@ -81,10 +82,16 @@ export function useGitStatusRefresh({
         if (!options?.silent) {
           appendOutput(
             "git",
-            nextStatus.isRepository
-              ? `Git status found ${nextStatus.changes.length} changed file${nextStatus.changes.length === 1 ? "" : "s"}.`
-              : "Workspace is not a Git repository.",
-            nextStatus.isRepository ? "success" : "warning",
+            nextStatus.degraded
+              ? "Git status scan failed. Showing the last known changes."
+              : nextStatus.isRepository
+                ? `Git status found ${nextStatus.changes.length} changed file${nextStatus.changes.length === 1 ? "" : "s"}.`
+                : "Workspace is not a Git repository.",
+            nextStatus.degraded
+              ? "warning"
+              : nextStatus.isRepository
+                ? "success"
+                : "warning",
           );
         }
       } catch (err) {

@@ -51,12 +51,15 @@ import {
 } from "../core/git";
 import { cloneGitRepository, validateGitCloneRepositoryUrl } from "../clone/clone";
 
+const GIT_REPOSITORY_CACHE_TTL_MS = 5_000;
+
 interface GitHandlerDependencies {
   authorizeWorkspaceRoot: (
     rendererId: number,
     rootPath: string,
     persist?: boolean,
   ) => string;
+  authorizeKnownWorkspaceRoot: (rendererId: number, rootPath: string) => string;
   assertWorkspaceRoot: (rendererId: number, rootPath: string) => string;
   assertGitRepositoryRoot: (
     rendererId: number,
@@ -79,10 +82,22 @@ interface RepositoryResolution {
 
 export function registerGitHandlers(deps: GitHandlerDependencies) {
   const approvedWorktreePathsByRenderer = new Map<number, Set<string>>();
-  const repositoryRootsByRenderer = new Map<number, Map<string, string>>();
+  const repositoryRootsByRenderer = new Map<
+    number,
+    Map<string, { root: string; expiresAt: number }>
+  >();
   const boundSenders = new Set<number>();
-  const authorizeRoot = (rendererId: number, folderPath: string) =>
-    deps.assertWorkspaceRoot(rendererId, folderPath);
+  // A restored window can ask for Git status before its workspace capability
+  // has been re-granted to that renderer. Approved roots are already a user
+  // decision, so re-granting here closes that race without widening access to
+  // arbitrary folders.
+  const authorizeRoot = (rendererId: number, folderPath: string) => {
+    try {
+      return deps.assertWorkspaceRoot(rendererId, folderPath);
+    } catch {
+      return deps.authorizeKnownWorkspaceRoot(rendererId, folderPath);
+    }
+  };
 
   const bindSenderCleanup = (event: Electron.IpcMainInvokeEvent) => {
     const rendererId = event.sender.id;
@@ -107,7 +122,12 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
       roots = new Map();
       repositoryRootsByRenderer.set(event.sender.id, roots);
     }
-    roots.set(workspaceRoot, repositoryRoot);
+    // A short lifetime catches a nested repository being initialized or a
+    // worktree changing while still avoiding a rev-parse on every blame line.
+    roots.set(workspaceRoot, {
+      root: repositoryRoot,
+      expiresAt: Date.now() + GIT_REPOSITORY_CACHE_TTL_MS,
+    });
   };
 
   const resolveRepositoryRoot = async (
@@ -115,20 +135,14 @@ export function registerGitHandlers(deps: GitHandlerDependencies) {
     folderPath: string,
   ): Promise<RepositoryResolution | null> => {
     const workspaceRoot = authorizeRoot(event.sender.id, folderPath);
-    const cachedRoot = repositoryRootsByRenderer
-      .get(event.sender.id)
-      ?.get(workspaceRoot);
+    const rootCache = repositoryRootsByRenderer.get(event.sender.id);
+    const cached = rootCache?.get(workspaceRoot);
+    const cachedRoot =
+      cached && cached.expiresAt > Date.now() ? cached.root : null;
+    if (cached && !cachedRoot) rootCache?.delete(workspaceRoot);
     const discoveredRoot =
       cachedRoot ?? (await findGitRepositoryRoot(workspaceRoot));
     if (!discoveredRoot) {
-      // A folder that is not inside a Git repository is a supported state, not
-      // an error. Returning null lets every handler below answer with the
-      // "no repository" shape for its result type instead of rejecting the IPC
-      // call, which Electron would otherwise log for every auto-fired request
-      // (for example line-trace blame on every open editor). Gating happens
-      // here in the main process because it is the only party that actually
-      // ran `git rev-parse`; the renderer and the Source Control view both
-      // benefit from one authoritative answer.
       return null;
     }
 

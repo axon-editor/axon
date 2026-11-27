@@ -198,6 +198,7 @@ export async function getGitStatus(
         branch,
         changes: [],
         ignoredPaths: [],
+        degraded: true,
       };
     }
   }

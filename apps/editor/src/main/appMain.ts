@@ -446,6 +446,8 @@ registerTerminalHandlers({
 registerGitHandlers({
   authorizeWorkspaceRoot: (rendererId, rootPath, persist) =>
     workspaceCapabilities.authorize(rendererId, rootPath, persist),
+  authorizeKnownWorkspaceRoot: (rendererId, rootPath) =>
+    workspaceCapabilities.authorizeKnown(rendererId, rootPath),
   assertWorkspaceRoot: (rendererId, rootPath) =>
     workspaceCapabilities.assertRoot(rendererId, rootPath),
   assertGitRepositoryRoot: (rendererId, workspaceRoot, repositoryRoot) =>

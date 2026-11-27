@@ -32,7 +32,8 @@ import {
 } from "../../../../../renderer/shared/lib/workspace/workspaceRoots";
 import { normalizeSettings, type AxonSettings } from "../../../../../shared/core/settings";
 import type { Layout } from "../../../../../renderer/features/editor/lib/layout/types";
-import type { GitStatusResult } from "../../../../../shared/workspace/git";
+import { type GitStatusResult } from "../../../../../shared/workspace/git";
+import { mergeGitStatusResult } from "../git/gitStatusMerge";
 import type { BottomPanelTab } from "../../../../../platform/panel/bottomPanel";
 import type {
   AppendOutput,
@@ -378,7 +379,8 @@ export function useWorkspaceHandlers({
       "git",
       () => loadGitStatusWithRetry(path),
       {
-        onSuccess: setGitStatus,
+        onSuccess: (status) =>
+          setGitStatus((current) => mergeGitStatusResult(current, status)),
         onError: (err) => {
           // A slow failing probe must not erase a status that a later refresh
           // already painted. The initial state is null, so leaving it alone is

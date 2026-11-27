@@ -29,6 +29,9 @@ export interface GitStatusResult {
   branch: string | null;
   changes: GitChange[];
   ignoredPaths: string[];
+  // True when a repository was found but the status scan itself failed. The
+  // renderer keeps the previous changes instead of painting an empty repo.
+  degraded?: boolean;
 }
 
 export interface GitDiffResult {
