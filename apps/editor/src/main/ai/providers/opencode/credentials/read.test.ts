@@ -6,9 +6,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readKeyFromDatabase } from "./read";
+
+const { DatabaseSync } = process.getBuiltinModule(
+  "node:sqlite",
+) as typeof import("node:sqlite");
 
 const CREDENTIAL_SCHEMA = `
   create table credential (

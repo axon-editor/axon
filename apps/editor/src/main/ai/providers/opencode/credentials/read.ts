@@ -5,7 +5,15 @@
 
 import os from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+
+type SqliteModule = typeof import("node:sqlite");
+
+// A static node:sqlite import makes the test bundler try to resolve a built-in
+// that older Node releases do not list. Electron always provides it, so the
+// module is loaded at runtime and stays out of the bundler graph.
+const loadSqlite = () =>
+  process.getBuiltinModule("node:sqlite") as SqliteModule | undefined;
 
 interface CredentialValue {
   type?: string;
@@ -28,13 +36,16 @@ const defaultDatabasePath = () => {
 
 export const readOpenCodeApiKey = () => {
   return readKeyFromDatabase(defaultDatabasePath());
-}
+};
 
 // Exported for tests so a temporary database can stand in for the user's.
 export const readKeyFromDatabase = (databasePath: string) => {
+  const sqlite = loadSqlite();
+  if (!sqlite) return "";
+
   let database: DatabaseSync | null = null;
   try {
-    database = new DatabaseSync(databasePath, { readOnly: true });
+    database = new sqlite.DatabaseSync(databasePath, { readOnly: true });
     const row = database
       .prepare(
         "select value from credential where integration_id = ? and active = 1 order by time_updated desc limit 1",
